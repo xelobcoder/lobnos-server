@@ -1,0 +1,134 @@
+const router = require('express').Router()
+const {
+  new_supplier,
+  get_suppliers,
+  update_supplier,
+  delete_supplier,
+  specificSupllier,
+  postCommodity,
+  getCommodity,
+  getExpiredStock,
+  new_stock,
+  getAstock,
+  getStock,
+  getInStockProduct,
+  deleteAstock,
+  updateAstock,
+} = require('../models/supply.js')
+
+
+
+const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require('../models/placeorders.js');
+
+router.get('/api/v1/suppliers', function (request, response) {
+  const hasQuery = Object.keys(request.query).length > 0
+  if (!hasQuery) {
+    get_suppliers(request, response)
+  } else {
+    specificSupllier(request, response)
+  }
+})
+
+router.post('/api/v1/suppliers', function (request, response) {
+  new_supplier(request, response)
+})
+
+router.delete('/api/v1/suppliers', function (request, response) {
+  delete_supplier(request, response)
+})
+
+router.put('/api/v1/suppliers', function (request, response) {
+  update_supplier(request, response)
+})
+
+router.post('/api/v1/commodities', function (request, response) {
+  postCommodity(request, response)
+})
+
+router.get('/api/v1/commodities', function (request, response) {
+  getCommodity(request, response)
+})
+
+router.post('/api/v1/stock', function (request, response) {
+  console.log(request.body)
+  new_stock(request, response)
+})
+
+router.get('/api/v1/stock', function (request, response) {
+  if (Object.keys(request.query).length === 0) {
+    getStock(request, response)
+  }
+  else {
+    const { stockid } = request.query;
+    const { expireproduct } = request.query;
+    const { instockproduct } = request.query;
+
+    if (expireproduct) {
+      getExpiredStock(request, response)
+        .then((data) => {
+          response.send({
+            status: 'success',
+            message: 'expired stock fetched successfully',
+            data: data
+          })
+        })
+    }
+    else if (stockid) {
+      getAstock(request, response)
+    }
+    else if (instockproduct) {
+      getInStockProduct(request, response)
+        .then((data) => {
+          response.status(200).json({
+            status: 'success',
+            message: 'in stock product fetched successfully',
+            data: data
+          })
+        })
+        .catch((error) => {
+          console.log(error)
+          response.status(500).json({
+            status: 'error',
+            message: 'in stock product not fetched',
+            data: error
+          })
+        })
+    }
+    else
+      response.send({
+        status: 'error',
+        message: 'the query is not valid',
+      })
+  }
+})
+
+
+router.put('/api/v1/stock', function (request, response) {
+  updateAstock(request,response)
+})
+
+router.delete('/api/v1/stock', function (request, response) {
+  deleteAstock(request,response);
+})
+
+
+router.post('/api/v1/orders', function (request, response) {
+  placeOrder(request, response)
+})
+
+
+router.get('/api/v1/orders', function (request, response) {
+  getOrders(request, response)
+})
+router.delete('/api/v1/orders', function (request, response) {
+  const { productordersid } = request.body
+  deleteAspecificOrder(productordersid, response)
+})
+
+
+router.post('/api/v1/purchases', function (request, response) {
+  purchaseOrdersToStock(request, response)
+})
+
+
+module.exports = router
