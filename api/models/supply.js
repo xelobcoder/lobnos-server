@@ -437,7 +437,7 @@ const getInStockProduct = async function (request, response) {
 }
 
 const updateAstock = function (request, response) {
-
+  console.log(request.body, request.query)
   // upadate newstock  table using request.query.stockid
 
   const result = prisma.newstock.update({

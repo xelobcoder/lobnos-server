@@ -38,7 +38,6 @@ const placeOrder = function (request, response) {
     );
   }
 
-  console.log(stockid,supplierid)
   const checkOrderExist = (stockid,supplierid) => {
     // select where stockid = stockid , received = false and supplierid = supplierid
     const query = `SELECT * FROM orders WHERE stockid = ? AND  received = ? AND supplierid = ?`;

@@ -14,8 +14,17 @@ const {
   getInStockProduct,
   deleteAstock,
   updateAstock,
+
 } = require('../models/supply.js')
 
+
+const {
+  newdepartmentRequisition,
+  getDepartmentsRequisitions,
+  specificDepartmentRequisition,
+  getDeptStocks,
+  deleteDeptStocks
+} = require('../models/departmentRequisition.js')
 
 
 const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require('../models/placeorders.js');
@@ -50,7 +59,6 @@ router.get('/api/v1/commodities', function (request, response) {
 })
 
 router.post('/api/v1/stock', function (request, response) {
-  console.log(request.body)
   new_stock(request, response)
 })
 
@@ -104,11 +112,11 @@ router.get('/api/v1/stock', function (request, response) {
 
 
 router.put('/api/v1/stock', function (request, response) {
-  updateAstock(request,response)
+  updateAstock(request, response)
 })
 
 router.delete('/api/v1/stock', function (request, response) {
-  deleteAstock(request,response);
+  deleteAstock(request, response);
 })
 
 
@@ -129,6 +137,41 @@ router.delete('/api/v1/orders', function (request, response) {
 router.post('/api/v1/purchases', function (request, response) {
   purchaseOrdersToStock(request, response)
 })
+
+
+// apis for department requisitions
+
+
+router.post('/api/v1/departments/requisitions', function (request, response) {
+  newdepartmentRequisition(request, response)
+})
+
+
+
+router.get('/api/v1/departments/requisitions', function (request, response) {
+  const hasQuery = Object.keys(request.query).length > 0
+  if (!hasQuery) {
+    getDepartmentsRequisitions(request, response)
+  } else {
+    specificDepartmentRequisition(request, response)
+  }
+})
+
+
+
+router.get('/api/v1/departments/stocks', function (request, response) {
+  const {id} = request.query;
+  getDeptStocks(request, response,id)
+})
+
+
+
+router.delete('/api/v1/departments/stocks', function (request, response) {
+  const {id} = request.query;
+  deleteDeptStocks(request, response,id)
+})
+
+
 
 
 module.exports = router
