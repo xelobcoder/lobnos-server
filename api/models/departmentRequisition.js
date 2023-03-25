@@ -109,24 +109,49 @@ const getDepartmentsRequisitions = async function (request, response) {
     });
 };
 
-const specificDepartmentRequisition = async function (request, response) {
+const specificDepartmentRequisition = async function (request, response, include = false) {
   const { id } = request.query;
   // join department requisition table with  name of department  table and name of newstock table
-  const mysql_query = `SELECT  drh.id,
-  drh.departmentid, 
-  drh.stockid, 
-  drh.quantity_requested,
-  drh.quantity_approved,
-  drh.status,
-   drh.date,
-   drh.requisitionid,
-   drh.comsumptionunit,
-   d.department,ns.stockid,
-   ns.name 
-   FROM departmentrequisitionhx AS drh
-  INNER JOIN departments AS d ON d.id = drh.departmentid
-  INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
-  WHERE drh.departmentid = ${id}`;
+  const mysql_query = function () {
+    const queris = Object.keys(request.query);
+    if (queris.length === 1 && queris.includes('id')) {
+      return `SELECT  drh.id,
+      drh.departmentid, 
+      drh.stockid, 
+      drh.quantity_requested,
+      drh.quantity_approved,
+      drh.quantityReceived,
+      drh.status,
+       drh.date,
+       drh.requisitionid,
+       drh.comsumptionunit,
+       d.department,ns.stockid,
+       ns.name,
+       ns.quantity
+       FROM departmentrequisitionhx AS drh
+      INNER JOIN departments AS d ON d.id = drh.departmentid
+      INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+      WHERE drh.departmentid = ${id}`
+    }
+    else {
+      return `SELECT  drh.id,
+      drh.departmentid, 
+      drh.stockid, 
+      drh.quantity_requested,
+      drh.quantity_approved,
+      drh.status,
+       drh.date,
+       drh.requisitionid,
+       drh.comsumptionunit,
+       d.department,ns.stockid,
+       ns.name,
+       ns.quantity
+       FROM departmentrequisitionhx AS drh
+      INNER JOIN departments AS d ON d.id = drh.departmentid
+      INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+      WHERE drh.departmentid = ${id} AND quantity_approved IS NULL `
+    }
+  }
 
   if (id === undefined || id === null) {
     response.send({
@@ -134,7 +159,7 @@ const specificDepartmentRequisition = async function (request, response) {
       message: "department requisition id not included",
     });
   } else {
-    connection.query(mysql_query, function (err, result) {
+    connection.query(mysql_query(), function (err, result) {
       if (err) {
         response.send({
           status: "error",
@@ -153,6 +178,42 @@ const specificDepartmentRequisition = async function (request, response) {
     });
   }
 };
+
+
+const patchRequisition = async function (request, response, requi_id) {
+  // update the department requisition table with the quantity approved and the status=approved
+  const { quantity_approved, store_supplied } = request.body;
+  const mysql_query = `UPDATE departmentrequisitionhx
+   SET quantity_approved = ${quantity_approved},
+   store_supplied = ${store_supplied},
+   status = 'approved' WHERE id = '${parseInt(requi_id)}'`;
+
+  if (requi_id === undefined || requi_id === null ||
+    quantity_approved === undefined || quantity_approved === null || store_supplied === undefined || store_supplied === null) {
+    response.send({
+      status: "error",
+      message: "required fields not included",
+    });
+  } else {
+    connection.query(mysql_query, function (err, result) {
+      if (err) {
+        response.send({
+          status: "error",
+          message: err.message,
+        });
+      }
+
+      if (result) {
+        response.send({
+          status: "success",
+          message: "success",
+          data: result,
+          statusCode: 200,
+        });
+      }
+    })
+  }
+}
 
 const getDeptStocks = async function (request, response, id) {
   const mysql_query = `SELECT * FROM newstock 
@@ -215,10 +276,153 @@ const deleteDeptStocks = async function (request, response, id) {
   }
 };
 
+
+
+const updateRequisitionAfterReceivedDept = async function (request, response) {
+  const { quantityReceived, departmentReceived, id } = request.body;
+  if (!quantityReceived || !departmentReceived || !id) {
+    response.send({
+      status: "error",
+      message: "required fields not included",
+    });
+  }
+  else {
+    // using mysql query to update the department requisition table
+
+
+    const reduceMainStock = function (stockid, quantity) {
+      //  create function to reduce stock from the newstock table
+      // get the current quantity of the stock
+      const mysql_query = `SELECT quantity FROM newstock WHERE stockid = ${stockid}`;
+      connection.query(mysql_query, function (err, result) {
+        if (err) {
+          response.send({
+            status: "error",
+            message: err.message,
+          });
+        }
+        if (result) {
+          let currentQuantity = result[0].quantity;
+          let newQuantity = parseInt(currentQuantity) - parseInt(quantity);
+          const mysql_query = `UPDATE newstock SET quantity = ${newQuantity} WHERE stockid = ${stockid}`;
+          connection.query(mysql_query, function (err, result) {
+            if (err) {
+              response.send({
+                status: "error",
+                message: err.message,
+              });
+            }
+            if (result) {
+              console.log("stock updated successfully");
+            }
+          }
+          )
+        }
+      })
+    }
+
+
+
+    const addToDeptStock = function (stockid, quantityReceived, departmentid) {
+      // check if stock exists in the department stock table
+      const mysql_query = `SELECT * FROM departmentstocks WHERE stockid = ${stockid} AND deptid = ${departmentid}`;
+      connection.query(mysql_query, function (err, result) {
+        if (err) {
+          response.send({
+            status: "error",
+            message: err.message,
+            info: "error checking if stock exists in department stock table"
+          });
+        }
+
+        if (result) {
+          const xlen = result.length;
+          if (xlen === 0) {
+            // stock does not exist in the department stock table
+            // insert stock into the department stock table
+            const mysql_query = `INSERT INTO departmentstocks (stockid, deptid, quantityAvailable,consumption) VALUES (${stockid}, ${departmentid}, ${quantityReceived}, 'null)`;
+
+            connection.query(mysql_query, function (err, result) {
+              if (err) {
+                response.send({
+                  status: "error",
+                  message: err.message,
+                  info: "error inserting stock into department stock table"
+                });
+              }
+
+              if (result) {
+                console.log("stock inserted into department stock table");
+              }
+
+            })
+
+
+          }
+
+          else {
+            // stock exists in the department stock table
+            // update the quantity available in the department stock table
+            let currentStockQty = result[0].quantityAvailable;
+            //  update the stock level
+
+          }
+        }
+      })
+    }
+    const mysql_query = `UPDATE departmentrequisitionhx
+     SET quantityReceived = ${quantityReceived}, 
+     departmentReceived = '${departmentReceived}',
+     status = 'received'
+      WHERE id = ${id}`;
+
+    connection.query(mysql_query, function (err, result) {
+      if (err) {
+        response.send({
+          status: "error",
+          message: err.message,
+        });
+      }
+
+      if (result) {
+        const affectedRows = result.affectedRows;
+        if (affectedRows === 0) {
+          response.send({
+            status: "error",
+            message: "requisition not found",
+          });
+        }
+        else {
+          // select * from departmentrequisitionhx where id = ${id}
+          const mysql_query = `SELECT * FROM departmentrequisitionhx WHERE id = ${id}`;
+          connection.query(mysql_query, function (err, result) {
+            if (err) {
+              response.send({
+                status: "error",
+                message: err.message,
+              });
+            }
+
+            if (result) {
+              console.log(result)
+              // create function to update the department stock table or add to department stock table
+              //  create function to reduce stock from the newstock table
+            }
+          });
+        }
+      }
+    })
+  }
+};
+
+
+
 module.exports = {
   newdepartmentRequisition,
   getDepartmentsRequisitions,
   specificDepartmentRequisition,
   getDeptStocks,
   deleteDeptStocks,
+  patchRequisition,
+  updateRequisitionAfterReceivedDept,
 };

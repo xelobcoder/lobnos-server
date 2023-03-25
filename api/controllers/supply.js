@@ -23,7 +23,9 @@ const {
   getDepartmentsRequisitions,
   specificDepartmentRequisition,
   getDeptStocks,
-  deleteDeptStocks
+  deleteDeptStocks,
+  patchRequisition,
+  updateRequisitionAfterReceivedDept
 } = require('../models/departmentRequisition.js')
 
 
@@ -160,18 +162,29 @@ router.get('/api/v1/departments/requisitions', function (request, response) {
 
 
 router.get('/api/v1/departments/stocks', function (request, response) {
-  const {id} = request.query;
-  getDeptStocks(request, response,id)
+  const { id } = request.query;
+  getDeptStocks(request, response, id)
 })
 
 
 
 router.delete('/api/v1/departments/stocks', function (request, response) {
-  const {id} = request.query;
-  deleteDeptStocks(request, response,id)
+  const { id } = request.query;
+  deleteDeptStocks(request, response, id)
 })
 
 
+router.patch('/api/v1/departments/requisitions', function (request, response) {
+  const { id } = request.query;
+  console.log(request.body,id)
+  // console.log(id)
+  patchRequisition(request, response, id)
+})
+
+
+router.put('/api/v1/departments/requisitions', function (request, response) {
+  updateRequisitionAfterReceivedDept(request, response)
+})
 
 
 module.exports = router

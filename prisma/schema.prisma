@@ -366,26 +366,27 @@ model typhoid_test {
 }
 
 model departments {
-  id                      Int                       @id @default(autoincrement())
-  department              String                    @db.VarChar(100)
-  departmentManager       String                    @db.VarChar(100)
-  date                    DateTime                  @default(now()) @db.DateTime(6)
-  employeeid              Int
-  departmentrequisitionhx departmentrequisitionhx[]
+  id                Int      @id @default(autoincrement())
+  department        String   @db.VarChar(100)
+  departmentManager String   @db.VarChar(100)
+  date              DateTime @default(now()) @db.DateTime(6)
+  employeeid        Int
 }
 
 model departmentrequisitionhx {
-  id                 Int          @id @default(autoincrement())
+  id                 Int      @id @default(autoincrement())
   departmentid       Int
   stockid            Int
   quantity_requested Int
   quantity_approved  Int?
-  comsumptionunit    String       @db.VarChar(255)
-  status             String?      @default("false") @db.VarChar(20)
-  date               DateTime     @default(now()) @db.Date
-  requisitionid      String       @db.VarChar(255)
-  departments        departments? @relation(fields: [departmentsId], references: [id])
-  departmentsId      Int?
+  comsumptionunit    String   @db.VarChar(255)
+  status             String?  @default("pending") @db.VarChar(20)
+  date               DateTime @default(now()) @db.Date
+  requisitionid      String   @db.VarChar(255)
+  issue_message      String?  @db.Text
+  departmentReceived Int?     @default(0)
+  store_supplied     Int?     @default(0)
+  quantityReceived   Int?     @default(0)
 }
 
 model departmentstocks {
