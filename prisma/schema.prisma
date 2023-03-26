@@ -162,7 +162,7 @@ model newstock {
   category        String   @db.VarChar(255)
   consumptionunit String   @db.VarChar(255)
   purchaseunit    String   @db.VarChar(255)
-  quantity        String   @db.VarChar(255)
+  quantity        Int
   alertlevel      Int
   materialcode    String   @db.VarChar(255)
   tax             Int
@@ -396,7 +396,7 @@ model departmentstocks {
   quantityAvailable Int
   date_added        DateTime  @default(now()) @db.Date
   dateupdated       DateTime? @db.Date
-  comsupmtionunit   String    @db.VarChar(210)
+  comsumptionunit   String    @db.VarChar(210)
 }
 
 model stockcategory {
