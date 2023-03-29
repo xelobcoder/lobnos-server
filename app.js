@@ -1,7 +1,8 @@
 const express = require('express');
 const app = express();
 const port = 5000;
-const { addBilling, addperformingTest } = require('./api/billing');
+const { addBilling, addperformingTest, checkifActivated,
+  getBilledClients } = require('./api/billing');
 const { getClinicians, putClinicians, deleteClinicians, postClinicians } = require('./api/clinicians');
 const { getOrganizations } = require('./api/organization');
 const { getpatient, addpatient } = require('./api/register');
@@ -30,7 +31,6 @@ app.listen(port, () => {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 const cors = require('cors');
-const connection = require('./api/db');
 app.use(cors(
   {
     origin: 'http://localhost:3000',
@@ -58,6 +58,15 @@ app.get('/', (req, res) => {
 app.post('/api/v1/billing', (req, res) => {
   addBilling(req, res);
 });
+
+app.get('/api/v1/billedclients', (req, res) => {
+  getBilledClients(req, res);
+})
+
+
+app.get('/api/v1/billing', function (request, response) {
+  checkifActivated(request, response);
+})
 
 
 // sample api endpoint 
@@ -192,7 +201,7 @@ app.get('/api/v1/org', function (req, res) {
 // })
 
 
-const {PrismaClient} = require ('@prisma/client')
+const { PrismaClient } = require('@prisma/client')
 const prisma = new PrismaClient()
 app.get('/api/v1/hello', function (request, response) {
   response.send({

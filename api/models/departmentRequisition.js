@@ -113,44 +113,88 @@ const specificDepartmentRequisition = async function (request, response, include
   const { id } = request.query;
   // join department requisition table with  name of department  table and name of newstock table
   const mysql_query = function () {
-    const queris = Object.keys(request.query);
-    if (queris.length === 1 && queris.includes('id')) {
+    const { id, type } = request.query;
+
+    if (type === "pending") {
       return `SELECT  drh.id,
-      drh.departmentid, 
-      drh.stockid, 
-      drh.quantity_requested,
-      drh.quantity_approved,
-      drh.quantityReceived,
-      drh.status,
-       drh.date,
-       drh.requisitionid,
-       drh.comsumptionunit,
-       d.department,ns.stockid,
-       ns.name,
-       ns.quantity
-       FROM departmentrequisitionhx AS drh
-      INNER JOIN departments AS d ON d.id = drh.departmentid
-      INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
-      WHERE drh.departmentid = ${id}`
+        drh.departmentid, 
+        drh.stockid, 
+        drh.quantity_requested,
+        drh.quantity_approved,
+        drh.status,
+         drh.date,
+         drh.requisitionid,
+         drh.comsumptionunit,
+         d.department,ns.stockid,
+         ns.name,
+         ns.quantity
+         FROM departmentrequisitionhx AS drh
+        INNER JOIN departments AS d ON d.id = drh.departmentid
+        INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+        WHERE drh.departmentid = ${id} AND quantity_approved IS NULL `
     }
-    else {
+
+    if (type === "approved") {
       return `SELECT  drh.id,
-      drh.departmentid, 
-      drh.stockid, 
-      drh.quantity_requested,
-      drh.quantity_approved,
-      drh.status,
-       drh.date,
-       drh.requisitionid,
-       drh.comsumptionunit,
-       d.department,ns.stockid,
-       ns.name,
-       ns.quantity
-       FROM departmentrequisitionhx AS drh
-      INNER JOIN departments AS d ON d.id = drh.departmentid
-      INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
-      WHERE drh.departmentid = ${id} AND quantity_approved IS NULL `
+        drh.departmentid, 
+        drh.stockid, 
+        drh.quantity_requested,
+        drh.quantity_approved,
+        drh.quantityReceived,
+        drh.status,
+         drh.date,
+         drh.requisitionid,
+         drh.comsumptionunit,
+         d.department,ns.stockid,
+         ns.name,
+         ns.quantity
+         FROM departmentrequisitionhx AS drh
+        INNER JOIN departments AS d ON d.id = drh.departmentid
+        INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+        WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'approved'`
     }
+
+    if (type === "rejected") {
+      return `SELECT  drh.id,
+            drh.departmentid,
+            drh.stockid,
+            drh.quantity_requested,
+            drh.quantity_approved,
+            drh.quantityReceived,
+            drh.status,
+            drh.date,
+            drh.requisitionid,
+            drh.comsumptionunit,
+            d.department,ns.stockid,
+            ns.name,
+            ns.quantity
+            FROM departmentrequisitionhx AS drh
+            INNER JOIN departments AS d ON d.id = drh.departmentid
+            INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+            WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'rejected'`
+    }
+
+    if (type === "received") {
+      return `SELECT  drh.id,
+          drh.departmentid,
+          drh.stockid,
+          drh.quantity_requested,
+          drh.quantity_approved,
+          drh.quantityReceived,
+          drh.status,
+          drh.date,
+          drh.requisitionid,
+          drh.comsumptionunit,
+          d.department,ns.stockid,
+          ns.name,
+          ns.quantity
+          FROM departmentrequisitionhx AS drh
+          INNER JOIN departments AS d ON d.id = drh.departmentid
+          INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+          WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'received'`
+    }
+
+
   }
 
   if (id === undefined || id === null) {
@@ -280,7 +324,7 @@ const deleteDeptStocks = async function (request, response, id) {
 // -------------------------
 
 const updateRequisitionAfterReceivedDept = async function (request, response) {
-  const { quantityReceived, departmentReceived, id } = request.body;
+  const { quantityReceived, departmentReceived, id,status} = request.body;
   if (!quantityReceived || !departmentReceived || !id) {
     response.send({
       status: "error",
@@ -299,6 +343,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
         data: {
           quantityReceived: qtyR,
           departmentReceived: dptR,
+          status:status
         },
       });
 
@@ -351,6 +396,13 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
         },
       });
 
+      // find stock 
+
+      const stockAva = await prisma.newstock.findFirst({
+        where: {
+          stockid: stockid
+        },
+      })
       return newStock;
     }
 

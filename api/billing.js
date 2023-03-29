@@ -1,4 +1,7 @@
+const { PrismaClient } = require('@prisma/client');
+const { response } = require('express');
 const connection = require('./db')
+const prisma = new PrismaClient();
 
 // add test to performing test
 const addperformingTest = (patientid, billingid, test, urgency, res, samplingCenter) => {
@@ -55,7 +58,69 @@ const addBilling = (req, res) => {
 
 }
 
+
+const checkifActivated = function (request, response) {
+  //  get the billing id
+  const { billingid } = request.query;
+  // check if billing id is not empty
+  if (billingid != '') {
+    // join the billing and performing test table and new patients table using the aptient id wherw billing id is equal to the billing id
+    let mysql = `SELECT * FROM billing as b INNER JOIN performing_test as p ON b.BILLINGID = p.BILLINGID INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = '${billingid}'`;
+
+    connection.query(mysql, function (err, result) {
+      if (err) {
+        console.log(err);
+        response.status(500).json({
+          message: 'error',
+          status: 'error',
+          statusCode: 500
+        });
+      }
+      if (result) {
+        response.status(200).json({
+          message: 'success',
+          result,
+          statusCode: 200
+        });
+      }
+    });
+  }
+  else { // if billing id is isNotEmptyFields
+    response.status(400).json({
+      message: 'billing id is required',
+      status: 'error',
+      statusCode: 400
+    });
+  }
+}
+
+
+
+const getBilledClients = function (request, response) {
+  const mysql = `SELECT * FROM billing ORDER BY BILLINGID DESC LIMIT 100`;
+
+  connection.query(mysql, function (err, result) {
+    if (err) {
+      console.log(err);
+      response.status(500).json({
+        message: 'error',
+        status: 'error',
+        statusCode: 500
+      });
+    }
+    if (result) {
+      response.status(200).json({
+        message: 'success',
+        result,
+        statusCode: 200
+      });
+    }
+  })
+}
+
 module.exports = {
   addBilling,
-  addperformingTest
+  addperformingTest,
+  checkifActivated,
+  getBilledClients
 }

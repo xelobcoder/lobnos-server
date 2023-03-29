@@ -134,8 +134,15 @@ var addpatient = function (request, response) {
 }
 
 const getpatient = function (request, response) {
-  if (Object.keys(request.query).length > 0) {
-    if (Object.keys(request.query).includes('patientid')) {
+  const queryLength = Object.keys(request.query).length;
+  const isPatientid = Object.keys(request.query).includes('patientid');
+  const isFilter = Object.keys(request.query).includes('filter');
+  const isFullname = Object.keys(request.query).includes('fullname');
+  const isPhoneNumber = Object.keys(request.query).includes('phonenumber');
+  const isdateIncluded = Object.keys(request.query).includes('date_from')
+  // if request query is greater than 0
+  if (queryLength > 0) {
+    if (isPatientid) {
       connection.query(
         'SELECT * FROM NEW_PATIENTS WHERE PATIENTID = ?',
         [request.query.patientid],
@@ -146,9 +153,28 @@ const getpatient = function (request, response) {
       )
     }
 
+
+    if (isFullname) {
+      connection.query(`SELECT * FROM NEW_PATIENTS WHERE FULLNAME LIKE ?`,
+        [request.query.fullname],
+        (err, result) => {
+          if (err) throw err;
+          response.send(result)
+        })
+    }
+
+
+    if (isPhoneNumber) {
+      connection.query(`SELECT * FROM NEW_PATIENTS WHERE MOBILE_NUMBER = ?`,
+        [request.query.phonenumber],
+        (err, result) => {
+          if (err) throw err;
+          response.send(result)
+        })
+    }
+
     if (
-      Object.keys(request.query).includes('filter') &&
-      !Object.keys(request.query).includes('date_from')
+      isFilter & !isdateIncluded
     ) {
       const { filter } = request.query
       //  Filter fullname or patient id
@@ -166,8 +192,7 @@ const getpatient = function (request, response) {
     // if contains filter value , date from and date to
 
     if (
-      Object.keys(request.query).includes('filter') &&
-      Object.keys(request.query).includes('date_from')
+      isFilter && isdateIncluded
     ) {
       const { filter } = request.query
       const { date_from } = request.query || new Date()
