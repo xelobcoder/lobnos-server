@@ -324,7 +324,7 @@ const deleteDeptStocks = async function (request, response, id) {
 // -------------------------
 
 const updateRequisitionAfterReceivedDept = async function (request, response) {
-  const { quantityReceived, departmentReceived, id,status} = request.body;
+  const { quantityReceived, departmentReceived, id, status } = request.body;
   if (!quantityReceived || !departmentReceived || !id) {
     response.send({
       status: "error",
@@ -343,7 +343,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
         data: {
           quantityReceived: qtyR,
           departmentReceived: dptR,
-          status:status
+          status: status
         },
       });
 

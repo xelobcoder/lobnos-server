@@ -15,18 +15,18 @@ model activation {
 }
 
 model billing {
-  BILLINGID    Int      @id @default(autoincrement())
+  BILLINGID    Int       @id @default(autoincrement())
   PATIENTID    BigInt
   PAID_AMOUNT  Int
   PAYABLE      Int
   DISCOUNT     Int
-  CREATED_ON   DateTime @default(now()) @db.DateTime(6)
-  UPDATED      DateTime @db.Date
-  ORGANIZATION String   @db.VarChar(255)
-  CLINICIAN    String   @db.VarChar(255)
-  PAYMENT_MODE String   @db.VarChar(255)
-  TYPE         String   @default("PREPAID") @db.VarChar(255)
+  UPDATED      DateTime? @db.Date
+  ORGANIZATION String    @db.VarChar(255)
+  CLINICIAN    String    @db.VarChar(255)
+  PAYMENT_MODE String    @db.VarChar(255)
+  TYPE         String    @default("PREPAID") @db.VarChar(255)
   OUTSTANDING  Int
+  BILLED_ON    DateTime  @default(now()) @db.DateTime(6)
 }
 
 model bloodgroup {
