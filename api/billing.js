@@ -118,9 +118,63 @@ const getBilledClients = function (request, response) {
   })
 }
 
+
+const updateBilling = function (request, response) {
+  const { test, totalcost, patientid, billingid, outstanding } = request.body;
+
+  const query = `UPDATE BILLING 
+  SET PAYABLE = ${totalcost},
+  OUTSTANDING = ${outstanding},
+  UPDATED = '${new Date().getTime()}'
+  WHERE BILLINGID = ${billingid}`;
+
+  // execute the function
+
+  connection.query(query, function (err, result) {
+    console.log(err)
+    if (err) {
+      response.send({
+        message: err.sqlMessage,
+        errocode: err.errno + err.code,
+        status: 'error',
+        statuscode: 500
+      })
+    }
+
+    if (result) {
+      const { affectedRows } = result;
+      if (affectedRows === 1) {
+        let mysql = `UPDATE performing_test
+         SET TEST = '${test}' WHERE BILLINGID = ${billingid}`;
+
+        connection.query(mysql, (err, result) => {
+          if (err) {
+            console.log(err)
+            response.send({
+              message: err.sqlMessage,
+              errocode: err.errno + err.code,
+              status: 'error',
+              statuscode: 500
+            })
+          }
+          else {
+            response.send({
+              status: 'success',
+              statusCode: 200,
+              message: 'billing updated',
+              result
+            })
+          }
+        })
+      }
+    }
+  })
+}
+
 module.exports = {
   addBilling,
   addperformingTest,
+  updateBilling,
   checkifActivated,
   getBilledClients
 }

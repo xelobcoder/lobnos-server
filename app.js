@@ -2,7 +2,8 @@ const express = require('express');
 const app = express();
 const port = 5000;
 const { addBilling, addperformingTest, checkifActivated,
-  getBilledClients } = require('./api/billing');
+  getBilledClients,
+  updateBilling } = require('./api/billing');
 const { getClinicians, putClinicians, deleteClinicians, postClinicians } = require('./api/clinicians');
 const { getOrganizations } = require('./api/organization');
 const { getpatient, addpatient } = require('./api/register');
@@ -66,6 +67,10 @@ app.get('/api/v1/billedclients', (req, res) => {
 
 app.get('/api/v1/billing', function (request, response) {
   checkifActivated(request, response);
+})
+
+app.put('/api/v1/billing', function (request, response) {
+  updateBilling(request, response)
 })
 
 

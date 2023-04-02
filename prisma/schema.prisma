@@ -343,11 +343,16 @@ model test_categories {
 }
 
 model test_panels {
-  ID         Int      @id @default(autoincrement())
-  NAME       String   @db.VarChar(255)
-  CATEGORY   String   @db.VarChar(255)
-  PRICE      Int
-  CREATED_ON DateTime @default(now()) @db.DateTime(0)
+  ID               Int      @id @default(autoincrement())
+  NAME             String   @db.VarChar(255)
+  CATEGORY         String   @db.VarChar(255)
+  PRICE            Int
+  CREATED_ON       DateTime @default(now()) @db.DateTime(0)
+  SAMPLE           String   @db.VarChar(255)
+  DESCRIPTION      String?  @db.VarChar(255)
+  QTY_REQUIRED     Float
+  SAMPLE_CONTAINER String   @db.VarChar(100)
+  UNIT             String   @db.VarChar(10)
 }
 
 model typhoid_test {
@@ -403,4 +408,16 @@ model stockcategory {
   id       Int      @id @default(autoincrement())
   category String   @db.VarChar(255)
   date     DateTime @db.DateTime(6)
+}
+
+model test_ascension {
+  id              Int       @id @default(autoincrement())
+  testid          Int
+  billingid       Int
+  collection      String    @default("false") @db.VarChar(50)
+  processing      String    @default("false") @db.VarChar(50)
+  ready           String    @default("false") @db.VarChar(50)
+  processing_date DateTime? @db.DateTime(6)
+  collection_date DateTime? @db.DateTime(6)
+  ready_date      DateTime? @db.DateTime(6)
 }

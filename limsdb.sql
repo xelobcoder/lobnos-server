@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Mar 26, 2023 at 04:11 PM
+-- Generation Time: Apr 03, 2023 at 01:43 AM
 -- Server version: 10.4.24-MariaDB
 -- PHP Version: 8.1.6
 
@@ -46,51 +46,38 @@ CREATE TABLE `billing` (
   `PAID_AMOUNT` int(100) NOT NULL,
   `PAYABLE` int(100) NOT NULL,
   `DISCOUNT` int(50) NOT NULL,
-  `CREATED_ON` datetime(6) NOT NULL DEFAULT current_timestamp(6),
-  `UPDATED` date NOT NULL,
+  `UPDATED` date DEFAULT NULL,
   `ORGANIZATION` varchar(255) NOT NULL,
   `CLINICIAN` varchar(255) NOT NULL,
   `PAYMENT_MODE` varchar(255) NOT NULL,
   `TYPE` varchar(255) NOT NULL DEFAULT 'PREPAID',
-  `OUTSTANDING` int(100) NOT NULL
+  `OUTSTANDING` int(100) NOT NULL,
+  `BILLED_ON` datetime(6) NOT NULL DEFAULT current_timestamp(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `billing`
 --
 
-INSERT INTO `billing` (`BILLINGID`, `PATIENTID`, `PAID_AMOUNT`, `PAYABLE`, `DISCOUNT`, `CREATED_ON`, `UPDATED`, `ORGANIZATION`, `CLINICIAN`, `PAYMENT_MODE`, `TYPE`, `OUTSTANDING`) VALUES
-(74, 1668249224106, 200, 254, 0, '2022-11-12 10:34:46.344410', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(75, 1668249224106, 0, 90, 0, '2022-11-12 10:36:30.023675', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'invoice', 'POSTPAID', 90),
-(76, 1668249224106, 0, 44, 0, '2022-11-13 07:13:33.997395', '0000-00-00', 'James starggedon', 'Dr Paul Sinister', 'Cheque', 'PREPAID', 44),
-(77, 1668249224106, 60, 90, 0, '2022-11-13 23:19:03.021685', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 10),
-(78, 1668249224106, 60, 184, 0, '2022-11-13 23:22:51.096346', '0000-00-00', 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 104),
-(79, 1668249224106, 130, 130, 20, '2022-11-13 23:27:59.065237', '0000-00-00', 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', -20),
-(80, 1668249224106, 150, 150, 50, '2022-11-14 13:32:31.118373', '0000-00-00', 'John', 'Dr Paul Sinister', 'Bank Transfer', 'PREPAID', -50),
-(81, 1668249224106, 4844, 4844, 0, '2022-11-25 14:44:11.913684', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 0),
-(82, 1672381810274, 4090, 4629, 600, '2022-12-30 06:32:23.638682', '0000-00-00', 'James starggedon', 'Dr Paul Sinister', 'Cash', 'PREPAID', -61),
-(83, 1672381810274, 194, 194, 0, '2023-01-22 08:50:47.797459', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(84, 1672381810274, 250, 299, 44, '2023-02-15 18:00:02.236884', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Bank Transfer', 'PREPAID', 5),
-(85, 1676486804597, 80, 90, 0, '2023-02-15 18:48:42.757202', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 10),
-(86, 1668249224106, 90, 90, 0, '2023-02-18 09:07:12.014167', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 0),
-(87, 1668249224106, 60, 60, 10, '2023-02-19 11:31:59.755153', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Bank Transfer', 'PREPAID', -10),
-(88, 1676804775125, 209, 209, 10, '2023-02-19 15:00:14.578023', '0000-00-00', 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', -10),
-(89, 1677089130816, 180, 184, 4, '2023-02-22 18:08:44.451303', '0000-00-00', 'James starggedon', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(90, 1676805207512, 90, 90, 0, '2023-02-24 03:28:27.922964', '0000-00-00', 'James starggedon', 'Dr Paul Sinister', 'Bank Transfer', 'PREPAID', 0),
-(91, 1676806250721, 90, 90, 0, '2023-02-24 04:08:04.548917', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Bank Transfer', 'PREPAID', 0),
-(92, 1676486804597, 90, 90, 0, '2023-02-24 08:57:52.141435', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(93, 1676805207512, 80, 80, 0, '2023-02-24 08:58:20.451143', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(94, 1676804775125, 80, 80, 0, '2023-02-26 06:38:29.377783', '0000-00-00', 'James starggedon', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 0),
-(95, 1672381810274, 60, 60, 0, '2023-02-26 06:39:51.147467', '0000-00-00', 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(96, 1677089130816, 60, 60, 0, '2023-03-04 17:48:08.880150', '0000-00-00', 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(97, 1677953110815, 80, 90, 10, '2023-03-04 18:07:12.107420', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Bank Transfer', 'PREPAID', 0),
-(98, 1676805207512, 60, 90, 10, '2023-03-09 17:52:59.050384', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Bank Transfer', 'PREPAID', 20),
-(99, 1677953110815, 600, 194, 20, '2023-03-14 08:16:08.198370', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', -426),
-(100, 1678781335962, 90, 90, 0, '2023-03-14 20:07:03.538142', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 0),
-(101, 1678781335962, 80, 90, 10, '2023-03-16 10:10:00.336584', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 0),
-(102, 1678968943383, 80, 90, 10, '2023-03-16 12:17:17.007026', '0000-00-00', 'James starggedon', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0),
-(103, 1679237948298, 200, 194, 10, '2023-03-19 15:01:08.000939', '0000-00-00', 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', -16),
-(104, 1679237948298, 80, 90, 0, '2023-03-20 15:21:08.254119', '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 10);
+INSERT INTO `billing` (`BILLINGID`, `PATIENTID`, `PAID_AMOUNT`, `PAYABLE`, `DISCOUNT`, `UPDATED`, `ORGANIZATION`, `CLINICIAN`, `PAYMENT_MODE`, `TYPE`, `OUTSTANDING`, `BILLED_ON`) VALUES
+(113, 1679878730205, 11, 110, 0, NULL, 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0, '2023-03-31 15:47:53.795625'),
+(114, 1678976212145, 139, 129, 0, NULL, 'James starggedon', 'Dr Paul Sinister', 'Cash', 'PREPAID', -10, '2023-03-31 15:47:53.795625'),
+(115, 1677953110815, 80, 80, 0, NULL, 'leonides', 'Dr Paul Sinister', 'Cheque', 'PREPAID', 0, '2023-03-31 15:47:53.795625'),
+(116, 1677953110815, 90, 90, 10, NULL, 'James starggedon', 'Dr Paul Sinister', 'Cash', 'PREPAID', -10, '2023-03-31 15:47:53.795625'),
+(117, 1679878730205, 80, 80, 0, NULL, 'James starggedon', 'Dr Paul Sinister', 'Cash', 'PREPAID', 0, '2023-03-31 15:47:53.795625'),
+(118, 1678976212145, 40, 299, 10, '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 259, '2023-03-31 15:47:53.795625'),
+(119, 1677953110815, 105, 195, 0, '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 90, '2023-04-01 00:42:29.711102'),
+(120, 1677953110815, 0, 274, 0, '0000-00-00', 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 274, '2023-04-01 07:40:24.184896'),
+(121, 1678968943383, 200, 243, 0, NULL, 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 43, '2023-04-02 04:35:21.797448'),
+(122, 1677089130816, 0, 506, 0, NULL, 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 506, '2023-04-02 05:20:26.209508'),
+(123, 1676806250721, 0, 90, 0, NULL, 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 90, '2023-04-02 05:24:12.873271'),
+(124, 1679878730205, 0, 184, 0, NULL, 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 184, '2023-04-02 11:16:05.710455'),
+(125, 1679237948298, -1, 80, 0, NULL, 'leonides', 'Dr Paul Sinister', 'Mobile Money', 'PREPAID', 81, '2023-04-02 11:16:38.671073'),
+(126, 1677953110815, 0, 40, 0, NULL, 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 40, '2023-04-02 11:17:40.801148'),
+(127, 1678781335962, 0, 90, 0, NULL, 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 90, '2023-04-02 11:18:40.135920'),
+(128, 1677089130816, 0, 90, 0, NULL, 'leonides', 'Dr Paul Sinister', 'Cash', 'PREPAID', 90, '2023-04-02 11:25:05.635278'),
+(129, 1678976212145, 0, 134, 0, NULL, 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 134, '2023-04-02 11:26:30.854541'),
+(130, 1676805207512, 0, 130, 0, '0000-00-00', 'John', 'Dr Paul Sinister', 'Cash', 'PREPAID', 130, '2023-04-03 00:09:24.672471');
 
 -- --------------------------------------------------------
 
@@ -181,8 +168,7 @@ CREATE TABLE `clinician` (
 --
 
 INSERT INTO `clinician` (`ID`, `NAME`, `WEBSITE`, `EMAIL`, `CONTACT`, `LOCATION`, `ADDRESS`, `OCCUPATION`, `PAYMENT MODULE`, `MOMO NAME`, `MOMO NUMBER`, `BANK NAME`, `BANK BRANCH`, `ACCOUNT NUMBER`, `ACCOUNT NAME`, `ORGANIZATION`, `ORGANIZATION POSITION`, `DATE`, `UPDATE_ON`) VALUES
-(1, 'Dr Paul Sinister', '', '', 0, '', '', '', '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-14', '2022-08-14'),
-(2, '', '', '', 0, '', '', '', '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-16', '2022-08-16');
+(1, 'Dr Paul Sinister', '', '', 0, '', '', '', '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-14', '2022-08-14');
 
 -- --------------------------------------------------------
 
@@ -283,14 +269,15 @@ CREATE TABLE `departmentrequisitionhx` (
 --
 
 INSERT INTO `departmentrequisitionhx` (`id`, `departmentid`, `stockid`, `quantity_requested`, `quantity_approved`, `comsumptionunit`, `status`, `date`, `requisitionid`, `issue_message`, `departmentReceived`, `store_supplied`, `quantityReceived`) VALUES
-(41, 1032, 29, 555, 555, 'g', 'received', '2023-03-25', 'ad9d507a-adb5-45c4-bba6-f490aefe5231', NULL, 1, 1, 555),
-(42, 1032, 29, 555, 50, 'g', 'approved', '2023-03-26', '8bf8f6b3-d6da-4db9-ab82-0b6a34317a34', NULL, 1, 1, 50),
-(43, 1032, 30, 55, 600, 'others', 'received', '2023-03-26', '307b0216-929e-45fa-ba41-e68ecd978569', NULL, 1, 1, 600),
-(44, 1032, 31, 555, 66, 'bottle', 'approved', '2023-03-26', '9da965c9-b610-49e3-9c23-d90d120f3d50', NULL, 0, 1, 0),
-(45, 1032, 32, 22, 66, 'kg', 'approved', '2023-03-26', 'fd4de680-36a9-4780-b2f8-2f054a05aa45', NULL, 1, 1, 66),
-(46, 1032, 33, 62, 100, 'box', 'approved', '2023-03-26', '4de6bfb1-1c25-4aba-8686-23b7d9d89eb1', NULL, 0, 1, 0),
-(47, 1031, 37, 30, 30, 'box', 'approved', '2023-03-26', '7a9cb1f0-4e97-4838-abd0-a023594aa911', NULL, 0, 1, 0),
-(48, 1032, 37, 60, 30, 'box', 'received', '2023-03-26', 'cb79e160-8b01-4dc2-9b5a-f6d6d978160c', NULL, 1, 1, 30);
+(54, 1032, 29, 50, 50, 'g', 'received', '2023-03-27', 'adf51f5f-48df-4ff8-849a-08a66f9f3743', NULL, 1, 1, 50),
+(55, 1032, 30, 50, 5, 'others', 'received', '2023-03-27', 'c4e0f426-195c-4bce-a065-759f2208574b', NULL, 1, 1, 5),
+(56, 1032, 31, 50, 1, 'bottle', 'received', '2023-03-27', 'cf1dd04e-4bfa-4507-b94c-3fa0776c8521', NULL, 1, 1, 1),
+(57, 1031, 38, 3, 2, 'pcs', 'received', '2023-03-27', '1bfd0872-1b41-47a7-aced-579bb25bfd1b', NULL, 1, 1, 2),
+(58, 1031, 35, 60, 50, 'box', 'received', '2023-03-28', '62253d5a-deb0-4c37-bf8a-9ddf3f8ad583', NULL, 1, 1, 50),
+(59, 1031, 33, 55, 10, 'box', 'received', '2023-03-28', '9e9bbffe-a2b5-4ef9-b20e-d1b56815d8ab', NULL, 1, 1, 10),
+(60, 1031, 37, 2, 2, 'box', 'received', '2023-03-28', 'f43ec5e2-b91d-40f1-90c1-c574e5957bf4', NULL, 1, 1, 2),
+(61, 1031, 31, 33, 33, 'bottle', 'received', '2023-03-28', 'ee82dedf-198c-4c9b-8da1-c07349338cd5', NULL, 1, 1, 33),
+(62, 1032, 35, 60000, 60000, 'box', 'received', '2023-04-01', '95ea37cd-d666-4de1-b633-8f1118633776', NULL, 1, 1, 60000);
 
 -- --------------------------------------------------------
 
@@ -335,8 +322,14 @@ CREATE TABLE `departmentstocks` (
 --
 
 INSERT INTO `departmentstocks` (`id`, `deptid`, `stockid`, `quantityAvailable`, `date_added`, `dateupdated`, `comsumptionunit`) VALUES
-(12, 1032, 35, 88, '2023-03-24', NULL, ''),
-(13, 1032, 32, 330, '2023-03-26', '2023-03-26', 'kg');
+(13, 1032, 32, 330, '2023-03-26', '2023-03-26', 'kg'),
+(14, 1031, 37, 62, '2023-03-26', '2023-04-02', 'box'),
+(15, 1032, 29, 300, '2023-03-27', '2023-03-27', 'g'),
+(16, 1032, 30, 5, '2023-03-27', NULL, 'others'),
+(17, 1031, 38, 2, '2023-03-27', NULL, 'pcs'),
+(18, 1032, 31, 1, '2023-03-27', NULL, 'bottle'),
+(20, 1031, 33, 10, '2023-03-28', NULL, 'box'),
+(21, 1031, 31, 33, '2023-04-02', NULL, 'bottle');
 
 -- --------------------------------------------------------
 
@@ -464,14 +457,15 @@ CREATE TABLE `newstock` (
 --
 
 INSERT INTO `newstock` (`stockid`, `name`, `category`, `consumptionunit`, `purchaseunit`, `quantity`, `alertlevel`, `materialcode`, `tax`, `date`) VALUES
-(29, 'props is coming', 'real estate', 'g', 'g', -1110, 44, '4444', 44, '2023-03-17 21:23:35.204000'),
-(30, 'Telescope', 'equipment', 'others', 'others', 6059999, 200, 'kjefjdj', 1, '2023-03-18 07:40:24.577000'),
-(31, 'Cambuts machine ', 'consumables', 'bottle', 'bottle', 830332, 4000, 'CAM08', 1, '2023-03-19 10:28:39.557000'),
+(29, 'props is coming', 'real estate', 'g', 'g', 7145, 44, '4444', 44, '2023-03-17 21:23:35.204000'),
+(30, 'Telescope', 'equipment', 'others', 'others', 6060216, 200, 'kjefjdj', 1, '2023-03-18 07:40:24.577000'),
+(31, 'Cambuts machine ', 'consumables', 'bottle', 'bottle', 830318, 4000, 'CAM08', 1, '2023-03-19 10:28:39.557000'),
 (32, 'jenifer diary', 'vehicles', 'kg', 'l', 2339, 20, 'klfgk', 5, '2023-03-19 10:30:54.173384'),
-(33, 'drinking cups', 'consumables', 'box', 'box', 546509, 55, 'kjfj', 1, '2023-03-19 10:32:13.941000'),
-(35, 'pippete tubes', 'consumables', 'box', 'box', 546554, 55, 'kjfj', 1, '2023-03-19 10:32:13.941000'),
+(33, 'drinking cups', 'consumables', 'box', 'box', 546499, 55, 'kjfj', 1, '2023-03-19 10:32:13.941000'),
+(35, 'pippete tubes', 'consumables', 'box', 'box', 1086504, 55, 'kjfj', 1, '2023-03-19 10:32:13.941000'),
 (36, 'telesco', 'equipment', 'others', 'others', 6054444, 200, 'kjefjdj', 1, '2023-03-18 07:40:24.577628'),
-(37, 'Gloves', 'consumables', 'box', 'box', 6000, 100, 'glov003', 1, '2023-03-26 11:07:38.428935');
+(37, 'Gloves', 'consumables', 'box', 'box', 5938, 100, 'glov003', 1, '2023-03-26 11:07:38.428935'),
+(38, 'Ultrasound glossy paper', 'consumables', 'pcs', 'pcs', 3, 2, 'glossy56', 2, '2023-03-27 01:30:08.247751');
 
 -- --------------------------------------------------------
 
@@ -508,19 +502,20 @@ CREATE TABLE `new_patients` (
 --
 
 INSERT INTO `new_patients` (`ID`, `PATIENTID`, `FULLNAME`, `EMAIL`, `DOB`, `AGE`, `GENDER`, `ORGANIZATION`, `CLINICIAN`, `PATIENTTYPE`, `LOCATION`, `MARITAL_STATUS`, `EMMERGENCY_CONTACT`, `EMMERGENCY_CONTACT_NAME`, `RELATIONSHIP`, `MOBILE_NUMBER`, `AGETYPE`, `PATIENTORGANIZATION`, `OCCUPATION`, `DATE`, `ACTIVATION_STATUS`) VALUES
-(1197, 1668249224106, 'Tiifu Hamza Kojo', 'hamzatiifu45@gmail.com', '1995-11-06', 27, 'male', '', '', 'Direct', NULL, 'married', '+233249434803', 'Tiifu Hamza Kojo', 'brother', 595964565, 'years', 'leonides', 'Nursing', '2022-11-12', 'TRUE'),
-(1198, 1672381810274, 'Hamza Tiifu', 'xelobcoder@gmail.com', '1987-11-06', 35, 'male', '', '', 'Direct', NULL, 'single', '+10249434803', 'Hamza Tiifu', ' brother', 595964565, 'years', 'leonides', 'leonides', '2022-12-30', 'TRUE'),
+(1197, 1668249224106, 'Tiifu Hamza Kojo', 'hamzatiifu45@gmail.com', '1995-11-06', 27, 'male', '', '', 'Direct', NULL, 'married', '+233249434803', 'Tiifu Hamza Kojo', 'brother', 595964565, 'years', 'leonides', 'Nursing', '2022-11-12', 'FALSE'),
+(1198, 1672381810274, 'Hamza Tiifu', 'xelobcoder@gmail.com', '1987-11-06', 35, 'male', '', '', 'Direct', NULL, 'single', '+10249434803', 'Hamza Tiifu', ' brother', 595964565, 'years', 'leonides', 'leonides', '2022-12-30', 'FALSE'),
 (1199, 1676486804597, 'Tiifu Hamza Kojo', 'hamzatiifu45@gmail.com', '1966-06-06', 56, 'female', 'leonides', 'Dr Paul Sinister', 'Refered', NULL, 'single', '0595964565', 'Tiifu Hamza Kojo', 'brother', 595964565, 'years', 'leonidas', 'Nursing', '2023-02-15', 'FALSE'),
-(1200, 1676681195957, 'Tiifu hamza', 'tiifuofficial@gmail.com', '1995-06-06', 27, 'male', '', '', 'Direct', NULL, 'married', '+10249434803', 'Tiifu hamza', 'brother', 595964566, 'years', 'leonides', 'Nursing', '2023-02-18', 'TRUE'),
+(1200, 1676681195957, 'Tiifu hamza', 'tiifuofficial@gmail.com', '1995-06-06', 27, 'male', '', '', 'Direct', NULL, 'married', '+10249434803', 'Tiifu hamza', 'brother', 595964566, 'years', 'leonides', 'Nursing', '2023-02-18', 'FALSE'),
 (1201, 1676804775125, 'Tiifu hamza', 'tiifuofficial@gmail.com', '1995-11-06', 27, 'male', '', '', 'Direct', NULL, 'married', '0595964566', 'Tiifu hamza', 'brother', 595964566, 'years', 'leonides', 'Nursing', '2023-02-19', 'FALSE'),
 (1202, 1676805207512, 'Tiifu hamza', 'tiifuofficial@gmail.com', '1995-11-06', 27, 'male', '', '', 'Direct', NULL, 'married', '0595964566', 'Tiifu hamza', 'brother', 595964566, 'years', 'leonides', 'Nursing', '2023-02-19', 'TRUE'),
 (1203, 1676806250721, 'Tiifu hamza', 'tiifuofficial@gmail.com', '1995-11-06', 27, 'male', 'leonides', 'Dr Paul Sinister', 'Refered', NULL, 'married', '0595964565', 'Tiifu Hamza Kojo', 'brother', 595964566, 'years', 'leonidas', 'Nursing', '2023-02-19', 'TRUE'),
-(1204, 1677089130816, 'haruna adams', 'harund@gmail.com', '1991-11-11', 31, 'male', 'James starggedon', 'Dr Paul Sinister', 'Refered', NULL, 'single', '0595964565', 'hamza', 'friend', 562565858, 'years', 'ghana ambulance services', 'paramedical', '2023-02-22', 'FALSE'),
+(1204, 1677089130816, 'haruna adams', 'harund@gmail.com', '1991-11-11', 31, 'male', 'James starggedon', 'Dr Paul Sinister', 'Refered', NULL, 'single', '0595964565', 'hamza', 'friend', 562565858, 'years', 'ghana ambulance services', 'paramedical', '2023-02-22', 'TRUE'),
 (1205, 1677953110815, 'aaron kankam', 'aaronkanakanm@gmail.com', '1992-11-11', 30, 'male', 'John', 'Dr Paul Sinister', 'Refered', NULL, 'married', '0546456565', 'tiifu hamza', 'friend', 505654658, 'years', 'labhill diagnostics', 'Banker', '2023-03-04', 'TRUE'),
-(1206, 1678781335962, 'tiifu hamza kojo boronson', 'hamzatiifu45@gmail.com', '1991-11-11', 31, 'male', '', '', 'Direct', NULL, 'married', '0241758550', 'tiifu shefik', 'brother', 595964565, 'years', 'leonides', 'nursing', '2023-03-14', 'FALSE'),
-(1207, 1678968943383, 'Tiifu Faizah', 'hamzatiifu545@gmail.com', '1991-11-10', 31, 'female', '', '', 'Direct', NULL, 'married', '02417595282', 'Tiifu Adamu ', 'Brother', 575885888, 'years', 'Tamale Teaching Hospital', 'Medical Practioner', '2023-03-16', 'FALSE'),
+(1206, 1678781335962, 'tiifu hamza kojo boronson', 'hamzatiifu45@gmail.com', '1991-11-11', 31, 'male', '', '', 'Direct', NULL, 'married', '0241758550', 'tiifu shefik', 'brother', 595964565, 'years', 'leonides', 'nursing', '2023-03-14', 'TRUE'),
+(1207, 1678968943383, 'Tiifu Faizah', 'hamzatiifu545@gmail.com', '1991-11-10', 31, 'female', '', '', 'Direct', NULL, 'married', '02417595282', 'Tiifu Adamu ', 'Brother', 575885888, 'years', 'Tamale Teaching Hospital', 'Medical Practioner', '2023-03-16', 'TRUE'),
 (1208, 1678976212145, 'ertrutyjer', 'hamzatiifu45@gmail.com', '1992-11-06', 30, 'other', 'James starggedon', 'Dr Paul Sinister', 'Refered', NULL, 'married', '0249443089', 'hamza', 'friend', 2147483647, 'years', 'ty5u45u45u45u45', 'tyyttyjt', '2023-03-16', 'TRUE'),
-(1209, 1679237948298, 'tiifu hamza kojo boronson', 'hamzatiifu45@gmail.con', '1995-11-06', 27, 'male', '', '', 'Direct', NULL, 'married', '0595654568', 'tiifu ', 'brother ', 595964565, 'years', 'leonides', 'trader', '2023-03-19', 'FALSE');
+(1209, 1679237948298, 'tiifu hamza kojo boronson', 'hamzatiifu45@gmail.con', '1995-11-06', 27, 'male', '', '', 'Direct', NULL, 'married', '0595654568', 'tiifu ', 'brother ', 595964565, 'years', 'leonides', 'trader', '2023-03-19', 'TRUE'),
+(1210, 1679878730205, 'tiifu hamza', 'hamzatiifu45@gmail.com', '1995-11-06', 27, 'other', '', '', 'Direct', NULL, 'married', '0241758550', 'tiifu shefik', 'brother', 595964565, 'years', 'Leonides', 'Nurisning', '2023-03-27', 'TRUE');
 
 -- --------------------------------------------------------
 
@@ -611,7 +606,13 @@ INSERT INTO `orders` (`productordersid`, `stockid`, `name`, `tax`, `supplierid`,
 (70, 32, 'jenifer diary', 0, 74, 'King Kingo Joes supplies', 'l', '2023-03-21 19:52:40.741944', 555, 'TRUE', 500, '55', 55, '2023-03-07', '2023-03-21', 'incomplete', 444, 222000, 'FALSE'),
 (71, 33, 'drinking cups', 0, 75, 'eftrutyjyt', 'box', '2023-03-21 19:52:46.708681', 555, 'TRUE', 555, '5655', 0, '2023-02-28', '2023-03-21', 'received', 221, 122655, 'FALSE'),
 (72, 35, 'pippete tubes', 0, 75, 'eftrutyjyt', 'box', '2023-03-21 19:52:51.699691', 600, 'TRUE', 600, '66', 0, '2023-03-07', '2023-03-21', 'received', 22, 13200, 'FALSE'),
-(73, 29, 'props ', 0, 76, 'tobblers', 'g', '2023-03-22 08:05:50.800002', 525, 'TRUE', 525, '255', 0, '2023-04-19', '2023-03-22', 'received', 444, 233100, 'FALSE');
+(73, 29, 'props ', 0, 76, 'tobblers', 'g', '2023-03-22 08:05:50.800002', 525, 'TRUE', 525, '255', 0, '2023-04-19', '2023-03-22', 'received', 444, 233100, 'FALSE'),
+(74, 29, 'props is coming', 0, 74, 'King Kingo Joes supplies', 'g', '2023-03-26 15:57:40.578776', 8000, 'TRUE', 8000, 'lot500', 0, '2024-02-11', '2023-03-26', 'received', 10, 80000, 'FALSE'),
+(75, 29, 'props is coming', 0, 76, 'tobblers', 'g', '2023-03-27 01:45:19.180514', 555, 'TRUE', 20, 'lo56', 535, '2023-04-01', '2023-04-01', 'incomplete', 20, 400, 'FALSE'),
+(76, 35, 'pippete tubes', 0, 76, 'tobblers', 'box', '2023-03-27 01:45:20.623710', 600000, 'TRUE', 30, 'lot50', 599970, '2023-04-01', '2023-04-01', 'incomplete', 10, 300, 'FALSE'),
+(77, 29, 'props is coming', 44, 77, 'Fantastic medical supllies', 'g', '2023-04-01 07:22:28.750890', 200, 'FALSE', NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, 'FALSE'),
+(78, 30, 'Telescope', 0, 76, 'tobblers', 'others', '2023-04-01 07:22:30.348525', 222, 'TRUE', 20, 'lot50', 202, '2027-05-29', '2023-04-01', 'incomplete', 10, 200, 'FALSE'),
+(79, 31, 'Cambuts machine ', 0, 74, 'King Kingo Joes supplies', 'bottle', '2023-04-01 07:22:31.936852', 20, 'TRUE', 20, 'lot5', 0, '2026-10-14', '2023-04-01', 'received', 20, 400, 'FALSE');
 
 -- --------------------------------------------------------
 
@@ -647,8 +648,7 @@ CREATE TABLE `organization` (
 INSERT INTO `organization` (`ID`, `NAME`, `ADDRESS`, `WEBSITE`, `CONTACT`, `EMAIL`, `CONTACT_PERSON`, `CTX_NUMBER`, `CTX_EMAIL`, `PAYMENT_MODULE`, `BANK NAME`, `ACCOUNT NUMBER`, `ACCOUNT_BRANCH`, `BRANCH NAME`, `MOMO NUMBER`, `MOMO NAME`, `UPDATE_ON`, `DATE`) VALUES
 (1, 'leonides', '', '', 0, '', '', 0, '', '', NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-14', '2022-08-14'),
 (2, 'John', '', '', 0, '', '', 0, '', '', NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-14', '2022-08-14'),
-(3, 'James starggedon', '', '', 0, '', '', 0, '', '', NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-14', '2022-08-14'),
-(4, '', '', '', 0, '', '', 0, '', '', NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-16', '2022-08-16');
+(3, 'James starggedon', '', '', 0, '', '', 0, '', '', NULL, NULL, NULL, NULL, NULL, NULL, '2022-08-14', '2022-08-14');
 
 -- --------------------------------------------------------
 
@@ -688,7 +688,7 @@ INSERT INTO `performing_test` (`ID`, `PATIENTID`, `TEST`, `DATE`, `URGENCY`, `BI
 (72, '1668249224106', 'Renal Function Test,Tiifu Hamza Kojo Boronson,Liver Function Test', '2022-11-13', 'moderate', 78, 'buipe old hospital ', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-14 20:09:25.000000', 'QUEUE', NULL, NULL, 'FALSE', 'insuffucient ', '23:22:51.000000', ''),
 (73, '1668249224106', 'Renal Function Test,calcium,full blood count', '2022-11-13', 'moderate', 79, 'Seventh Day Adventist Hospital', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-14 20:08:09.000000', 'QUEUE', NULL, NULL, 'FALSE', NULL, '23:27:59.000000', ''),
 (74, '1668249224106', 'Renal Function Test,Liver Function Test,malaria', '2022-11-14', 'moderate', 80, 'buipe old hospital ', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-14 20:09:23.000000', 'DONE', NULL, '2022-11-14', 'TRUE', 'Coagualted blood', '13:32:31.000000', 'null'),
-(75, '1668249224106', 'glycated heamoglobin,Renal Function Test,Liver Function Test,Lipid Profile,Tiifu Hamza Kojo Boronson,malaria,widal,calcium,full blood count,Tiifu Hamza Kojo', '2022-11-25', 'moderate', 81, 'YEDI BUS STOP', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-02-11 11:44:36.000000', 'QUEUE', NULL, NULL, 'FALSE', 'rejecting for rejecting sake', '14:44:12.000000', ''),
+(75, '1668249224106', 'glycated heamoglobin,Renal Function Test,Liver Function Test,Lipid Profile,Tiifu Hamza Kojo Boronson,malaria,widal,calcium,full blood count,Tiifu Hamza Kojo', '2022-11-25', 'moderate', 81, 'YEDI BUS STOP', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-27 01:57:51.000000', 'QUEUE', NULL, NULL, 'FALSE', 'rejecting for rejecting sake', '14:44:12.000000', ''),
 (76, '1672381810274', 'glycated heamoglobin,Liver Function Test,Tiifu Hamza Kojo Boronson,Tiifu Hamza Kojo', '2022-12-30', 'emmergency', 82, 'Tiifu Hamza', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-14 20:09:22.000000', 'INCOMPLETE', NULL, '2022-12-30', 'FALSE', 'rejecting for rejecting sake and nothing meaniful', '06:32:23.000000', 'Patient not in premises of the facillity'),
 (77, '1672381810274', 'glycated heamoglobin,Liver Function Test,Tiifu Hamza Kojo Boronson', '2023-01-22', 'emmergency', 83, 'Kpagyili ', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-14 20:09:20.000000', 'DONE', NULL, '2023-01-22', 'TRUE', 'd;ld;asd;lls', '08:50:47.000000', 'null'),
 (78, '1672381810274', 'glycated heamoglobin,Renal Function Test,Liver Function Test,Tiifu Hamza Kojo Boronson,full blood count', '2023-02-15', 'emmergency', 84, 'Tiifu Hamza kojo', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-14 20:09:17.000000', 'QUEUE', NULL, NULL, 'FALSE', 'kdfkosdfokwd', '18:00:02.000000', ''),
@@ -711,7 +711,33 @@ INSERT INTO `performing_test` (`ID`, `PATIENTID`, `TEST`, `DATE`, `URGENCY`, `BI
 (95, '1678781335962', 'glycated heamoglobin', '2023-03-16', 'emmergency', 101, 'Tiifu Hamza', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-16 11:36:38.000000', 'QUEUE', NULL, NULL, 'FALSE', NULL, '10:10:00.000000', ''),
 (96, '1678968943383', 'glycated heamoglobin', '2023-03-16', 'emmergency', 102, 'Tiifu Hamza', 'REJECTED', 'Dr Tiifu Hamza', '2023-03-16 14:22:51.000000', 'QUEUE', NULL, NULL, 'FALSE', 'ertrjtyjkty', '12:17:17.000000', ''),
 (97, '1679237948298', 'glycated heamoglobin,Liver Function Test,Tiifu Hamza Kojo Boronson', '2023-03-19', 'moderate', 103, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'INCOMPLETE', NULL, '2023-03-19', 'FALSE', NULL, '15:01:08.000000', 'All test added here to panel. Not all samples taken'),
-(98, '1679237948298', 'glycated heamoglobin', '2023-03-20', 'moderate', 104, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '15:21:08.000000', '');
+(98, '1679237948298', 'glycated heamoglobin', '2023-03-20', 'moderate', 104, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '15:21:08.000000', ''),
+(99, '1679878730205', 'glycated heamoglobin,Liver Function Test,Tiifu Hamza Kojo Boronson,calcium', '2023-03-27', 'emmergency', 105, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '02:03:52.000000', ''),
+(100, '1679878730205', 'glycated heamoglobin', '2023-03-27', 'moderate', 106, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '13:14:36.000000', ''),
+(101, '1679878730205', 'Renal function test', '2023-03-27', 'moderate', 107, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '13:22:03.000000', ''),
+(102, '1679878730205', 'glycated heamoglobin', '2023-03-28', 'moderate', 108, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '17:47:09.000000', ''),
+(103, '1679878730205', 'glycated heamoglobin', '2023-03-28', 'emmergency', 109, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '17:47:51.000000', ''),
+(104, '1679878730205', 'Renal function test', '2023-03-28', 'moderate', 110, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '20:31:51.000000', ''),
+(105, '1679878730205', 'glycated heamoglobin', '2023-03-29', 'moderate', 111, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'DONE', NULL, '2023-03-29', 'TRUE', NULL, '05:51:08.000000', 'null'),
+(106, '1678976212145', 'Renal function test', '2023-03-29', 'none', 112, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '09:40:41.000000', ''),
+(107, '1679878730205', 'Liver Function Test,calcium,full blood count', '2023-03-29', 'emmergency', 113, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '10:02:20.000000', ''),
+(108, '1678976212145', 'Lipid Profile,full blood count,Tiifu Hamza Kojo Boronson', '2023-03-29', 'emmergency', 114, 'Tiifu Hamza', 'ACCEPTED', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '10:51:50.000000', ''),
+(109, '1677953110815', 'Renal function test', '2023-03-29', 'emmergency', 115, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:00:22.000000', ''),
+(110, '1677953110815', 'glycated heamoglobin', '2023-03-29', 'moderate', 116, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:38:05.000000', ''),
+(111, '1679878730205', 'Renal function test', '2023-03-29', 'emmergency', 117, 'Tiifu Hamza', 'ACCEPTED', 'Dr Tiifu Hamza', '2023-03-31 12:17:13.000000', 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:57:57.000000', ''),
+(112, '1678976212145', 'glycated heamoglobin,Renal function test,hkutr,calcium,Tiifu Hamza Kojo,Liver Function Test', '2023-03-31', 'moderate', 118, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '15:32:58.000000', ''),
+(113, '1677953110815', 'Renal function test,hkutr,calcium,glycated heamoglobin', '2023-04-01', 'emmergency', 119, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '00:42:29.000000', ''),
+(114, '1677953110815', 'Renal function test,Lipid Profile,malaria,widal,Tiifu Hamza Kojo Boronson,calcium,urinanalysis', '2023-04-01', 'moderate', 120, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '07:40:24.000000', ''),
+(115, '1678968943383', 'Renal function test,Lipid Profile,calcium,widal,Tiifu hamza', '2023-04-02', 'emmergency', 121, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '04:35:21.000000', ''),
+(116, '1677089130816', 'Renal function test,Lipid Profile,Tiifu Hamza Kojo Boronson,Liver Function Test,calcium,Tiifu Hamza Kojo,Tiifu hamza,glycated heamoglobin,urinanalysis', '2023-04-02', 'moderate', 122, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '05:20:26.000000', ''),
+(117, '1676806250721', 'glycated heamoglobin', '2023-04-02', 'emmergency', 123, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '05:24:12.000000', ''),
+(118, '1679878730205', 'Renal function test,Lipid Profile,Tiifu Hamza Kojo Boronson', '2023-04-02', 'none', 124, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:16:05.000000', ''),
+(119, '1679237948298', 'Renal function test', '2023-04-02', 'moderate', 125, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:16:38.000000', ''),
+(120, '1677953110815', 'calcium,widal', '2023-04-02', 'none', 126, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:17:40.000000', ''),
+(121, '1678781335962', 'glycated heamoglobin', '2023-04-02', 'emmergency', 127, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:18:40.000000', ''),
+(122, '1677089130816', 'glycated heamoglobin', '2023-04-02', 'emmergency', 128, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:25:05.000000', ''),
+(123, '1678976212145', 'Renal function test,hkutr,malaria,Tiifu Hamza Kojo', '2023-04-02', 'none', 129, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '11:26:30.000000', ''),
+(124, '1676805207512', 'Renal function test,urinanalysis,malaria', '2023-04-03', 'moderate', 130, 'Tiifu Hamza', 'PENDING', NULL, NULL, 'QUEUE', NULL, NULL, 'FALSE', NULL, '00:09:24.000000', '');
 
 -- --------------------------------------------------------
 
@@ -983,7 +1009,26 @@ CREATE TABLE `supplier` (
 INSERT INTO `supplier` (`SUPPLIERID`, `NAME`, `COMMODITY`, `ADDRESS`, `DATE`, `PHONENUMBER`, `CONTACTPERSON`, `REGION`, `EMAIL`) VALUES
 (74, 'King Kingo Joes supplies', 'FAILED TP TUN ANALYTICS', 'Adjacent Holly Cross Church', '2023-03-16 14:27:38.787490', 249443089, 'Tiifu Hamza Kojo Boronson', 'utrtrjtj', 'hamzatiifu45@gmail.com'),
 (75, 'eftrutyjyt', 'Homicides', 'Adjacent Holly Cross Church', '2023-03-16 14:28:21.491987', 249443089, '756785566785', 'hfghfghfghfg', 'harund@gmail.com'),
-(76, 'tobblers', 'edta tubes', 'Kalphohin lowcost 30A', '2023-03-20 18:20:07.457352', 595964565, '0596458588', 'Northern region', 'hamztiifu45@gmail.com,');
+(76, 'tobblers', 'edta tubes', 'Kalphohin lowcost 30A', '2023-03-20 18:20:07.457352', 595964565, '0596458588', 'Northern region', 'hamztiifu45@gmail.com,'),
+(77, 'Fantastic medical supllies', 'edta tubes plus', 'kalpohin lowcost s30A', '2023-04-01 07:21:17.796992', 200000000, '1212121215', 'Nothern region', 'fantastic@yahoo.com');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `test_ascension`
+--
+
+CREATE TABLE `test_ascension` (
+  `id` int(255) NOT NULL,
+  `testid` int(11) NOT NULL,
+  `billingid` int(11) NOT NULL,
+  `collection` varchar(50) NOT NULL DEFAULT 'false',
+  `processing` varchar(50) NOT NULL DEFAULT 'false',
+  `ready` varchar(50) NOT NULL DEFAULT 'false',
+  `processing_date` datetime(6) DEFAULT NULL,
+  `collection_date` datetime(6) DEFAULT NULL,
+  `ready_date` datetime(6) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- --------------------------------------------------------
 
@@ -1016,26 +1061,32 @@ CREATE TABLE `test_panels` (
   `NAME` varchar(255) NOT NULL,
   `CATEGORY` varchar(255) NOT NULL,
   `PRICE` int(20) NOT NULL,
-  `CREATED_ON` datetime NOT NULL DEFAULT current_timestamp()
+  `CREATED_ON` datetime NOT NULL DEFAULT current_timestamp(),
+  `SAMPLE` varchar(255) NOT NULL,
+  `DESCRIPTION` varchar(255) DEFAULT NULL,
+  `QTY_REQUIRED` double NOT NULL,
+  `SAMPLE_CONTAINER` varchar(100) NOT NULL,
+  `UNIT` varchar(10) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 --
 -- Dumping data for table `test_panels`
 --
 
-INSERT INTO `test_panels` (`ID`, `NAME`, `CATEGORY`, `PRICE`, `CREATED_ON`) VALUES
-(1, 'glycated heamoglobin', 'chemistry', 90, '0000-00-00 00:00:00'),
-(2, 'Renal function test', 'Haematology', 80, '2022-08-18 00:00:00'),
-(5, 'Liver Function Test', 'chemistry', 60, '2022-08-18 00:00:00'),
-(6, 'Lipid Profile', 'chemistry', 60, '2022-08-18 18:35:40'),
-(7, 'hkutr', 'chemistry', 0, '2022-08-19 23:50:33'),
-(8, 'Tiifu Hamza Kojo Boronson', 'chemistry', 44, '2022-08-30 00:27:07'),
-(9, 'calcium', 'chemistry', 25, '2022-09-04 00:39:41'),
-(10, 'malaria', 'Haematology', 10, '2022-09-07 22:06:42'),
-(11, 'widal', 'Haematology', 15, '2022-09-24 15:08:23'),
-(12, 'full blood count', 'chemistry', 25, '2022-09-24 15:08:49'),
-(13, 'Tiifu Hamza Kojo', 'Haematology', 4435, '2022-09-29 23:31:00'),
-(14, 'Tiifu hamza', 'chemistry', 4435, '2023-02-18 11:32:56');
+INSERT INTO `test_panels` (`ID`, `NAME`, `CATEGORY`, `PRICE`, `CREATED_ON`, `SAMPLE`, `DESCRIPTION`, `QTY_REQUIRED`, `SAMPLE_CONTAINER`, `UNIT`) VALUES
+(1, 'glycated heamoglobin', 'chemistry', 90, '0000-00-00 00:00:00', 'SERUM', NULL, 5, 'GELL TUBE', 'mls'),
+(2, 'Renal function test', 'Haematology', 80, '2022-08-18 00:00:00', 'SERUM', NULL, 5, 'GELL TUBE', 'mls'),
+(5, 'Liver Function Test', 'chemistry', 60, '2022-08-18 00:00:00', '', NULL, 0, '', ''),
+(6, 'Lipid Profile', 'chemistry', 60, '2022-08-18 18:35:40', '', NULL, 0, '', ''),
+(7, 'hkutr', 'chemistry', 0, '2022-08-19 23:50:33', '', NULL, 0, '', ''),
+(8, 'Tiifu Hamza Kojo Boronson', 'chemistry', 44, '2022-08-30 00:27:07', '', NULL, 0, '', ''),
+(9, 'calcium', 'chemistry', 25, '2022-09-04 00:39:41', '', NULL, 0, '', ''),
+(10, 'malaria', 'Haematology', 10, '2022-09-07 22:06:42', 'BLOOD', NULL, 2, 'EDTA TUBE', 'mls'),
+(11, 'widal', 'Haematology', 15, '2022-09-24 15:08:23', '', NULL, 0, '', ''),
+(12, 'full blood count', 'chemistry', 25, '2022-09-24 15:08:49', '', NULL, 0, '', ''),
+(13, 'Tiifu Hamza Kojo', 'Haematology', 44, '2022-09-29 23:31:00', '', NULL, 0, '', ''),
+(14, 'Tiifu hamza', 'chemistry', 63, '2023-02-18 11:32:56', '', NULL, 0, '', ''),
+(15, 'urinanalysis', 'chemistry', 40, '2023-04-01 07:45:30', 'URINE', 'JKEVJKJDJKDJKJK', 10, 'Urine containers', 'mls');
 
 -- --------------------------------------------------------
 
@@ -1261,6 +1312,12 @@ ALTER TABLE `supplier`
   ADD PRIMARY KEY (`SUPPLIERID`);
 
 --
+-- Indexes for table `test_ascension`
+--
+ALTER TABLE `test_ascension`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `test_categories`
 --
 ALTER TABLE `test_categories`
@@ -1292,7 +1349,7 @@ ALTER TABLE `activation`
 -- AUTO_INCREMENT for table `billing`
 --
 ALTER TABLE `billing`
-  MODIFY `BILLINGID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=105;
+  MODIFY `BILLINGID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=131;
 
 --
 -- AUTO_INCREMENT for table `bloodgroup`
@@ -1334,7 +1391,7 @@ ALTER TABLE `companyprofile`
 -- AUTO_INCREMENT for table `departmentrequisitionhx`
 --
 ALTER TABLE `departmentrequisitionhx`
-  MODIFY `id` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
+  MODIFY `id` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
 
 --
 -- AUTO_INCREMENT for table `departments`
@@ -1346,7 +1403,7 @@ ALTER TABLE `departments`
 -- AUTO_INCREMENT for table `departmentstocks`
 --
 ALTER TABLE `departmentstocks`
-  MODIFY `id` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+  MODIFY `id` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=22;
 
 --
 -- AUTO_INCREMENT for table `hepatitisb`
@@ -1376,19 +1433,19 @@ ALTER TABLE `manager_sample_descision`
 -- AUTO_INCREMENT for table `newstock`
 --
 ALTER TABLE `newstock`
-  MODIFY `stockid` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=38;
+  MODIFY `stockid` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=39;
 
 --
 -- AUTO_INCREMENT for table `new_patients`
 --
 ALTER TABLE `new_patients`
-  MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1210;
+  MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1211;
 
 --
 -- AUTO_INCREMENT for table `orders`
 --
 ALTER TABLE `orders`
-  MODIFY `productordersid` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=74;
+  MODIFY `productordersid` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=80;
 
 --
 -- AUTO_INCREMENT for table `organization`
@@ -1400,7 +1457,7 @@ ALTER TABLE `organization`
 -- AUTO_INCREMENT for table `performing_test`
 --
 ALTER TABLE `performing_test`
-  MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=99;
+  MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=125;
 
 --
 -- AUTO_INCREMENT for table `roles`
@@ -1478,7 +1535,13 @@ ALTER TABLE `stockcategory`
 -- AUTO_INCREMENT for table `supplier`
 --
 ALTER TABLE `supplier`
-  MODIFY `SUPPLIERID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=77;
+  MODIFY `SUPPLIERID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=78;
+
+--
+-- AUTO_INCREMENT for table `test_ascension`
+--
+ALTER TABLE `test_ascension`
+  MODIFY `id` int(255) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `test_categories`
@@ -1490,7 +1553,7 @@ ALTER TABLE `test_categories`
 -- AUTO_INCREMENT for table `test_panels`
 --
 ALTER TABLE `test_panels`
-  MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `ID` int(255) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `typhoid_test`
