@@ -224,7 +224,7 @@ model performing_test {
   INSPECTOR                  String?   @db.VarChar(255)
   INSPECTION_TIME            DateTime? @db.DateTime(6)
   PHELOBOTOMY_STATUS         String?   @default("QUEUE") @db.VarChar(100)
-  SAMPLE_TAKEN_BY            String?   @db.VarChar(100)
+  SAMPLE_TAKEN_BY            Int?
   TIME_PHELOBOTOMY_COMPLETED DateTime? @db.Date
   ALL_SAMPLE_TAKEN           String?   @default("FALSE") @db.VarChar(50)
   MESSAGE                    String?   @db.Text
@@ -414,9 +414,9 @@ model test_ascension {
   id              Int       @id @default(autoincrement())
   testid          Int
   billingid       Int
-  collection      String    @default("false") @db.VarChar(50)
-  processing      String    @default("false") @db.VarChar(50)
-  ready           String    @default("false") @db.VarChar(50)
+  collection      String?   @default("false") @db.VarChar(50)
+  processing      String?   @default("false") @db.VarChar(50)
+  ready           String?   @default("false") @db.VarChar(50)
   processing_date DateTime? @db.DateTime(6)
   collection_date DateTime? @db.DateTime(6)
   ready_date      DateTime? @db.DateTime(6)

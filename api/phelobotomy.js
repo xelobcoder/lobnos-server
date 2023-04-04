@@ -42,7 +42,7 @@ const getPhelobotomy = async (req, res) => {
 }
 
 
-const updatePhelobotomy = async (id, content, status,alltaken,completedTime, req, res) => {
+const updatePhelobotomy = async (id, content, status, alltaken, completedTime, req, res) => {
   let myquery = `UPDATE 
   performing_test 
   SET PHELOBOTOMY_STATUS = '${status}',
