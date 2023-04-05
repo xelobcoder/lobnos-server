@@ -79,12 +79,10 @@ router.route('/api/v1/phelobotomy')
                 count++;
 
                 if (count == target && errCount == 0) {
-                  console.log('insrting .........')
                   insertion();
                 }
 
                 if (count == target && errCount > 0) {
-                  console.log('erring--------')
                   res.send({
                     status: 'error',
                     statusCode: 404,
