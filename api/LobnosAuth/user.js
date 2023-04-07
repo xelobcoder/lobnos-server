@@ -1,10 +1,10 @@
 const bcrypt = require("bcrypt");
 const connection = require("../db");
-const dotenv = require("dotenv");
 const { response, request } = require("express");
 const jwt = require("jsonwebtoken");
 
-dotenv.config();
+
+
 
 class User {
   constructor(username, password, role, request, response) {
@@ -47,7 +47,6 @@ class User {
     });
   };
 
-
   getUserData = async (username) => {
     return new Promise((resolve, reject) => {
       const queryString = `SELECT * FROM ROLES WHERE USERNAME = '${username}'`;
@@ -55,8 +54,8 @@ class User {
       connection.query(queryString, (err, result) => {
         err ? reject(err) : resolve(result);
       });
-    })
-  }
+    });
+  };
 
   createUser = async () => {
     return new Promise((resolve, reject) => {
@@ -96,12 +95,14 @@ class User {
             if (err) {
               reject(err);
             }
-            if (result.length === 0) { resolve(false) }
+            if (result.length === 0) {
+              resolve(false);
+            }
             if (result.length > 0) {
-              const rpass = result[0]['PASSWORD'];
+              const rpass = result[0]["PASSWORD"];
               bcrypt.compare(password, rpass, (err, result) => {
-                err ? reject(err) : resolve(result)
-              })
+                err ? reject(err) : resolve(result);
+              });
             }
           });
         })
@@ -111,43 +112,44 @@ class User {
     });
   };
 
-  createAccessTokenCredentials = async (username, password) => {
-    const user = this.username || username;
-    const pass = this.password || password;
+  createAccessTokenCredentials = async (accesskey) => {
+    const user = this.username;
+    const pass = this.password;
 
     let accessToken;
-    const access_secret = process.env.ACCESS_TOKEN_SECRET || "access_secret";
     return new Promise((resolve, reject) => {
-
-      this.checkLogins(user, pass)
+      this.getUserData(user)
         .then((result) => {
-          if (result) {
-            this.getUserData(user)
-              .then((result) => {
-                const payload = { username: user, role: result[0]['ROLE'] };
-                accessToken = jwt.sign(payload, access_secret, { expiresIn: '1h' });
-                resolve(accessToken);
-              })
-              .catch((err) => {
-                reject(err);
-              });
-          }
+          const role = result[0]["ROLE"];
+           accessToken = jwt.sign({ user, pass, role }, accesskey, {
+            expiresIn: "1day",
+          });
+          resolve(accessToken);
         })
         .catch((err) => {
           reject(err);
         });
-
-    })
+    });
   };
 
+
+  validateRequestToken = async (req, res, next, accessSecret) => {
+    // CHECK FOR ACCESS TOKEN IN AUTHORIZATION HEADER OF REQUEST bearer token
+    const accessToken = req.headers.authorization && req.headers.authorization.split(' ')[1];
+    if (!accessToken) {
+      res.send({
+        status: 401,
+        message: 'Unauthorized'
+      })
+    }
+    else {
+      jwt.verify(accessToken, accessSecret, (err, user) => {
+        err ? res.send({ err }) : next();
+      }
+      )
+    }
+  }
 }
 
-const user = new User("Tiifu Hamza", "admin", "Lab Technician");
 
-user.createAccessTokenCredentials("Tiifu Hamza", "admin")
-  .then((result) => {
-    console.log(result);
-  })
-  .catch((err) => {
-    console.log(err);
-  });
+module.exports = User;

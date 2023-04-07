@@ -1,27 +1,41 @@
-const express = require('express');
+const express = require("express");
 const app = express();
+const dotenv = require("dotenv");
 const port = 5000;
-const { addBilling, addperformingTest, checkifActivated,
+const {
+  addBilling,
+  addperformingTest,
+  checkifActivated,
   getBilledClients,
-  updateBilling } = require('./api/billing');
-const { getClinicians, putClinicians, deleteClinicians, postClinicians } = require('./api/clinicians');
-const { getOrganizations } = require('./api/organization');
-const { getpatient, addpatient } = require('./api/register');
-const rejectedRouter = require('./api/controllers/rejected');
-const activation = require('./api/activation');
-const { getCategory, putCategory, deleteCategory, postCategory } = require('./api/testpanel/categories')
-const testpanel = require('./api/testpanel/list');
-const { get } = require('./api/center');
-const SampleHandler = require('./api/sample');
-const org = require('./api/org');
-const ChemistryRoutes = require('./api/controllers/chemistrysetup');
-const phelobotomyRouter = require('./api/controllers/phelobotomy');
-const supplyRouter = require('./api/controllers/supply');
-const settingsRouter = require('./api/controllers/settings');
-
-
-
-
+  updateBilling,
+} = require("./api/billing");
+const {
+  getClinicians,
+  putClinicians,
+  deleteClinicians,
+  postClinicians,
+} = require("./api/clinicians");
+const { getOrganizations } = require("./api/organization");
+const { getpatient, addpatient } = require("./api/register");
+const rejectedRouter = require("./api/controllers/rejected");
+const activation = require("./api/activation");
+const {
+  getCategory,
+  putCategory,
+  deleteCategory,
+  postCategory,
+} = require("./api/testpanel/categories");
+const testpanel = require("./api/testpanel/list");
+const { get } = require("./api/center");
+const SampleHandler = require("./api/sample");
+const org = require("./api/org");
+const ChemistryRoutes = require("./api/controllers/chemistrysetup");
+const phelobotomyRouter = require("./api/controllers/phelobotomy");
+const supplyRouter = require("./api/controllers/supply");
+const settingsRouter = require("./api/controllers/settings");
+const User = require("./api/LobnosAuth/user");
+const LoginsRouter = require("./api/controllers/logins");
+dotenv.config();
 
 app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`);
@@ -31,52 +45,58 @@ app.listen(port, () => {
 // manage with body-parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-const cors = require('cors');
-app.use(cors(
-  {
-    origin: 'http://localhost:3000',
+// cookie parser
+const cookieParser = require("cookie-parser");
+app.use(cookieParser());
+const cors = require("cors");
+app.use(
+  cors({
+    origin: "http://localhost:3000",
     credentials: false,
-  }
-));
+  })
+);
 
+// ensuring an acess token is present
+app.use((req, res, next) => {
+  if (req.url == '/api/v1/register') {
+    next();
+  } else {
+    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+  }
+})
+
+// api endpoints
+app.use(LoginsRouter);
 app.use(ChemistryRoutes);
 app.use(phelobotomyRouter);
-app.use(rejectedRouter)
+app.use(rejectedRouter);
 app.use(supplyRouter);
 app.use(settingsRouter);
-app.get('/', (req, res) => {
-  res.status(200).json({ message: 'success' });
+app.get("/", (req, res) => {
+  res.status(200).json({ message: "success" });
 });
 
+//
 
-
-// 
-
-
-
-
-
-app.post('/api/v1/billing', (req, res) => {
+app.post("/api/v1/billing", (req, res) => {
   addBilling(req, res);
 });
 
-app.get('/api/v1/billedclients', (req, res) => {
+app.get("/api/v1/billedclients", (req, res) => {
   getBilledClients(req, res);
-})
+});
 
-
-app.get('/api/v1/billing', function (request, response) {
+app.get("/api/v1/billing", function (request, response) {
   checkifActivated(request, response);
-})
+});
 
-app.put('/api/v1/billing', function (request, response) {
-  updateBilling(request, response)
-})
+app.put("/api/v1/billing", function (request, response) {
+  updateBilling(request, response);
+});
 
+// sample api endpoint
 
-// sample api endpoint 
-
-app.get('/api/v1/sample', function (request, response) {
+app.get("/api/v1/sample", function (request, response) {
   let sampleHandle = new SampleHandler(
     request.query.status,
     new Date(),
@@ -87,8 +107,7 @@ app.get('/api/v1/sample', function (request, response) {
 
   if (!status && !date) {
     sampleHandle.getRecords();
-  }
-  else {
+  } else {
     if (status && !date) {
       sampleHandle.getStatus(status);
     } else if (!status && date) {
@@ -97,10 +116,9 @@ app.get('/api/v1/sample', function (request, response) {
       sampleHandle.getSelectedStutusAndDate(date, status);
     }
   }
-})
+});
 
-
-app.put('/api/v1/sample', function (request, response) {
+app.put("/api/v1/sample", function (request, response) {
   let sampleHandle = new SampleHandler(
     request.query.status,
     new Date(),
@@ -109,68 +127,60 @@ app.put('/api/v1/sample', function (request, response) {
   );
 
   const data = request.body;
-  const { status, billingid, message = '' } = data;
+  const { status, billingid, message = "" } = data;
   sampleHandle.updateRecords(status.toUpperCase(), billingid, message);
-})
+});
 
-
-
-app.get('/api/v1/organization', (req, res) => {
+app.get("/api/v1/organization", (req, res) => {
   getOrganizations(req, res);
 });
 
-
-app.get('/api/v1/clinicians', (req, res) => {
+app.get("/api/v1/clinicians", (req, res) => {
   getClinicians(req, res);
 });
 
-app.get('/api/v1/register', (req, res) => {
+app.get("/api/v1/register", (req, res) => {
   getpatient(req, res);
-})
+});
 
-app.post('/api/v1/register', (req, res) => {
+app.post("/api/v1/register", (req, res) => {
   addpatient(req, res);
-})
+});
 
-app.get('/api/v1/activation', (req, res) => {
+app.get("/api/v1/activation", (req, res) => {
   if (
-    Object.keys(req.query).includes('action') &&
-    Object.keys(req.query).includes('patientid')
+    Object.keys(req.query).includes("action") &&
+    Object.keys(req.query).includes("patientid")
   ) {
-    activation.activateDeactivate(req, res)
+    activation.activateDeactivate(req, res);
   } else {
-    activation.getPartialData(req, res)
+    activation.getPartialData(req, res);
   }
-})
+});
 
+app.get("/api/v1/testpanel/categories", (req, res) => {
+  getCategory(req, res);
+});
 
-app.get('/api/v1/testpanel/categories', (req, res) => {
-  getCategory(req, res)
-})
+app.post("/api/v1/testpanel/categories", (req, res) => {
+  postCategory(req, res);
+});
 
-app.post('/api/v1/testpanel/categories', (req, res) => {
-  postCategory(req, res)
-})
+app.get("/api/v1/center", (req, res) => {
+  get(req, res);
+});
 
-app.get('/api/v1/center', (req, res) => {
-  get(req, res)
-})
+app.get("/api/v1/testpanel/list", (req, res) => {
+  testpanel.getPanels(req, res);
+});
 
+app.post("/api/v1/testpanel/list", (req, res) => {
+  testpanel.postPanel(req, res);
+});
 
-
-
-app.get('/api/v1/testpanel/list', (req, res) => {
-  testpanel.getPanels(req, res)
-})
-
-app.post('/api/v1/testpanel/list', (req, res) => {
-  testpanel.postPanel(req, res)
-})
-
-app.get('/api/v1/org', function (req, res) {
-  res.send(org)
-})
-
+app.get("/api/v1/org", function (req, res) {
+  res.send(org);
+});
 
 // app.get('/api/v1/rejected', (req, res) => {
 //   const billingid = req.query.billingid;
@@ -205,32 +215,30 @@ app.get('/api/v1/org', function (req, res) {
 //   }
 // })
 
-
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
-app.get('/api/v1/hello', function (request, response) {
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
+app.get("/api/v1/hello", function (request, response) {
   response.send({
     result: [
-      // genreate 30 movies reviews objects
       {
         id: 1,
-        comment: 'This is a comment',
+        comment: "This is a comment",
         rating: 5,
-        date: '2021-01-01',
+        date: "2021-01-01",
         patientid: 1,
       },
       {
         id: 2,
-        comment: 'This is a comment',
+        comment: "This is a comment",
         rating: 5,
-        date: '2021-01-01',
-        patientid: 1,
+        date: "2021-01-01",
+        patientid: 12,
       },
+    ],
+  });
+});
 
-    ]
-  })
 
-})
 
 
 
