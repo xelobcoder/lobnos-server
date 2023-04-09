@@ -22,7 +22,7 @@ router.post('/api/v1/authenticate', async (request, response) => {
       })
    }
    else {
-      userLogin(request, response,ACCESS_TOKEN_SECRET)
+      userLogin(request, response, ACCESS_TOKEN_SECRET)
    }
 })
 

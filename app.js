@@ -9,6 +9,8 @@ const {
   getBilledClients,
   updateBilling,
 } = require("./api/billing");
+
+const operationsRouter = require("./api/controllers/operations");
 const {
   getClinicians,
   putClinicians,
@@ -72,6 +74,7 @@ app.use(phelobotomyRouter);
 app.use(rejectedRouter);
 app.use(supplyRouter);
 app.use(settingsRouter);
+app.use(operationsRouter);
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
 });
@@ -237,8 +240,4 @@ app.get("/api/v1/hello", function (request, response) {
     ],
   });
 });
-
-
-
-
 

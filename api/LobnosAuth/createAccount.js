@@ -58,12 +58,12 @@ const userLogin = async (req, res, secret) => {
   if (userExist) {
     let userinformation = await user.createAccessTokenCredentials(secret);
     // decode userinformation
-    let decoded = jwt.verify(userinformation,process.env.ACCESS_TOKEN_SECRET)
+    let decoded = jwt.verify(userinformation, process.env.ACCESS_TOKEN_SECRET)
     res.send({
       status: 'success',
       statusCode: 200,
       message: 'Login successful',
-      user : userinformation,
+      user: userinformation,
       decoded
     })
 

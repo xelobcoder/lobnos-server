@@ -122,7 +122,7 @@ class User {
         .then((result) => {
           const role = result[0]["ROLE"];
            accessToken = jwt.sign({ user, pass, role }, accesskey, {
-            expiresIn: "1day",
+            expiresIn: "1w",
           });
           resolve(accessToken);
         })
