@@ -181,6 +181,10 @@ app.post("/api/v1/testpanel/list", (req, res) => {
   testpanel.postPanel(req, res);
 });
 
+app.delete("/api/v1/testpanel/list", (req, res) => {
+  testpanel.deletePanel(req, res);
+});
+
 app.get("/api/v1/org", function (req, res) {
   res.send(org);
 });
