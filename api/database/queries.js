@@ -1,5 +1,5 @@
 const connection = require('../db');
-const { testResults} = require('../testResult');
+const { testResults } = require('../testResult');
 
 // create an object
 
@@ -137,7 +137,7 @@ const database_queries = {
 
   })
  },
- del: function (id, table,idresulver) {
+ del: function (id, table, idresulver) {
   return new Promise((resolve, reject) => {
    //  query
    const SQL_QUERY = `DELETE FROM ${table} WHERE ${idresulver} = ${id}`
@@ -154,13 +154,22 @@ const database_queries = {
   while (deleted < target) {
    this.del(deleteArray[deleted], table);
    deleted++;
+   if (deleted === target) {
+    break;
+   }
   }
  },
- getall: function (table, response) {
+ getall: function (table) {
   let SQL_QUERY = `SELECT * FROM ${table} ORDER BY ID DESC LIMIT 100`;
-  connection.query(SQL_QUERY, function (err, result) {
-   if (err) { throw err }
-   response.send(result);
+  return new Promise((resolve, reject) => {
+   connection.query(SQL_QUERY, function (err, result) {
+    if (err) {
+     reject(err)
+    }
+    else {
+     resolve(result)
+    }
+   })
   })
  },
  addBranch: function (branch, request, response) {
@@ -297,7 +306,7 @@ const database_queries = {
    })
   })
  },
- getsingleid : function (id,table,idresulver) {
+ getsingleid: function (id, table, idresulver) {
   return new Promise((resolve, reject) => {
    let SQL_QUERY = `SELECT * FROM ${table} WHERE ${idresulver} = ${id}`
    connection.query(SQL_QUERY, (err, result) => {

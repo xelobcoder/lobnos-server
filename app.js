@@ -18,7 +18,7 @@ const {
   postClinicians,
 } = require("./api/clinicians");
 const { getOrganizations } = require("./api/organization");
-const { getpatient, addpatient } = require("./api/register");
+const { getpatient, addpatient, putpatient } = require("./api/register");
 const rejectedRouter = require("./api/controllers/rejected");
 const activation = require("./api/activation");
 const {
@@ -150,6 +150,10 @@ app.post("/api/v1/register", (req, res) => {
   addpatient(req, res);
 });
 
+app.put('/api/v1/register', (req, res) => {
+  putpatient(req, res);
+})
+
 app.get("/api/v1/activation", (req, res) => {
   if (
     Object.keys(req.query).includes("action") &&
@@ -189,40 +193,12 @@ app.get("/api/v1/org", function (req, res) {
   res.send(org);
 });
 
-// app.get('/api/v1/rejected', (req, res) => {
-//   const billingid = req.query.billingid;
-
-//   if (billingid) {
-//     let query = `SELECT  * from performing_test as rejected INNER JOIN (SELECT * FROM new_patients) as p ON rejected.PATIENTID = p.PATIENTID WHERE rejected.BILLINGID =' ${billingid}' AND rejected.SAMPLE_STATUS = 'REJECTED';`
-
-//     // execute query
-//     connection.query(query, (err, result) => {
-//       if (err) {
-//         console.log(err)
-//         res.status(400).send({
-//           statusCode: 301,
-//           message: 'error occured'
-//         })
-//       }
-//       else {
-//         res.status(200).send({
-//           statusCode: 200,
-//           message: 'success',
-//           result
-//         })
-//       }
-//     })
-//   }
-
-//   if (!billingid) {
-//     res.status(400).send({
-//       statusCode: 301,
-//       message: 'billingid is required'
-//     })
-//   }
-// })
 
 const { PrismaClient } = require("@prisma/client");
+const Operations = require("./api/models/operations");
+
+
+
 const prisma = new PrismaClient();
 app.get("/api/v1/hello", function (request, response) {
   response.send({
@@ -244,4 +220,6 @@ app.get("/api/v1/hello", function (request, response) {
     ],
   });
 });
+
+
 

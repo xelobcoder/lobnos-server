@@ -2,9 +2,13 @@ const connection = require('./db')
 const SUCCESSMESSAGE = 'SUCCESS'
 const ERRORMESSAGE = 'FAILED'
 const ADD_PATIENT_QUERY = `INSERT INTO NEW_PATIENTS (
-    FULLNAME,
+    FIRSTNAME,
+    LASTNAME,
+    MIDDLENAME,
+    AREA,
+    REGION,
+    ADDRESS,
     EMAIL,
-    PATIENTTYPE,
     PATIENTID,
     AGE,
     AGETYPE,
@@ -13,13 +17,11 @@ const ADD_PATIENT_QUERY = `INSERT INTO NEW_PATIENTS (
     EMMERGENCY_CONTACT_NAME,
     EMMERGENCY_CONTACT,
     GENDER,
-    CLINICIAN,
-    ORGANIZATION,
     DOB,
     MOBILE_NUMBER,
     OCCUPATION,
     PATIENTORGANIZATION
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 // Step: 1 - check if patient is already registered as a patient
 // Step: 2 - if not registered, add patient to database
@@ -60,11 +62,11 @@ var checkpatient = function (request) {
 // step 2
 
 var addpatient = function (request, response) {
-  console.log(request.body)
   const {
-    fullname,
+    firstname,
+    lastname,
+    middlename,
     email,
-    patienttype,
     patientid,
     age,
     ageType,
@@ -74,10 +76,11 @@ var addpatient = function (request, response) {
     emmergencyContactNumber,
     mobile,
     gender,
-    organization,
-    clinician,
     days,
     months,
+    area,
+    region,
+    address,
     years,
     occupation,
     patientOrganization,
@@ -88,9 +91,13 @@ var addpatient = function (request, response) {
   var dob = new Date(parseInt(years), parseInt(months - 1), parseInt(days))
 
   const data = [
-    fullname,
+    firstname,
+    lastname,
+    middlename,
+    area,
+    region,
+    address,
     email,
-    patienttype,
     patientid,
     age,
     ageType,
@@ -99,8 +106,6 @@ var addpatient = function (request, response) {
     emmergencyName,
     emmergencyContactNumber,
     gender,
-    clinician,
-    organization,
     dob,
     mobile,
     occupation,
@@ -113,7 +118,8 @@ var addpatient = function (request, response) {
         response.send({
           status: ERRORMESSAGE,
           message: 'Patient already registered',
-          patientid
+          patientid,
+          statusCode: 401
         })
       }
 
@@ -123,7 +129,8 @@ var addpatient = function (request, response) {
           response.send({
             status: SUCCESSMESSAGE,
             message: 'Patient successfully registered',
-            patientid
+            patientid,
+            statusCode: 200
           })
         })
       }
@@ -155,7 +162,7 @@ const getpatient = function (request, response) {
 
 
     if (isFullname) {
-      connection.query(`SELECT * FROM NEW_PATIENTS WHERE FULLNAME LIKE ?`,
+      connection.query(`SELECT * FROM NEW_PATIENTS WHERE FIRSTNAME LIKE ? `,
         [request.query.fullname],
         (err, result) => {
           if (err) throw err;
@@ -220,7 +227,102 @@ const getpatient = function (request, response) {
 }
 
 
+const putpatient = async function (request, response) {
+  const {
+    firstname,
+    lastname,
+    middlename,
+    email,
+    patientid,
+    age,
+    ageType,
+    maritalstatus,
+    relationship,
+    emmergencyName,
+    emmergencyContactNumber,
+    mobile,
+    gender,
+    days,
+    months,
+    area,
+    region,
+    address,
+    years,
+    occupation,
+    patientOrganization,
+  } = request.body
+
+
+
+
+  const data = [
+    firstname,
+    lastname,
+    middlename,
+    area,
+    region,
+    address,
+    email,
+    age,
+    ageType,
+    maritalstatus,
+    relationship,
+    emmergencyName,
+    emmergencyContactNumber,
+    gender,
+    mobile,
+    occupation,
+    patientOrganization,
+    patientid,
+  ]
+
+
+
+  //  we gonna update the patient
+  // first we check if the patient exist
+  const patientExist = await checkpatient(request)
+  if (patientExist) {
+    // update query beloe
+
+    const mysqlQuery = `UPDATE NEW_PATIENTS SET FIRSTNAME = ?, LASTNAME = ?, MIDDLENAME = ?, AREA = ?, REGION = ?, ADDRESS = ?, EMAIL = ?, AGE = ?, AGETYPE = ?, MARITAL_STATUS = ?, RELATIONSHIP = ?, EMMERGENCY_CONTACT_NAME = ?, EMMERGENCY_CONTACT = ?, GENDER = ?, MOBILE_NUMBER = ?, OCCUPATION = ?, PATIENTORGANIZATION = ? WHERE PATIENTID = ?`;
+
+
+    // execute the query
+
+    connection.query(mysqlQuery, data, (err, result) => {
+      console.log(err)
+      if (err) {
+        response.send({
+          status: ERRORMESSAGE,
+          message: 'Patient update failed',
+          patientid,
+          statusCode: 401
+        })
+      }
+      else {
+        response.send({
+          status: SUCCESSMESSAGE,
+          message: 'Patient successfully updated',
+          patientid,
+          statusCode: 200
+        })
+      }
+    })
+
+  } else {
+    response.send({
+      status: ERRORMESSAGE,
+      message: 'Patient does not exist',
+      patientid,
+      statusCode: 401
+    })
+  }
+
+}
+
+
 module.exports = {
   addpatient,
   getpatient,
+  putpatient
 }

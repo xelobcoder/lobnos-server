@@ -1,5 +1,5 @@
-import database_queries from "../../database/queries";
-import connection from "../../db";
+const database_queries = require("../../database/queries");
+const connection = require("../../db");
 // steps
 // 1. state clearlly category and check db if data for category exist
 // 2. if exist , clear all the information and load new set of information.
@@ -9,8 +9,7 @@ import connection from "../../db";
 const DB_TABLE_MALE = 'setup_full_blood_count_test_male';
 const DB_TABLE_FEMALE = 'setup_full_count_count_female';
 const DB_TABLE_GENERAL = 'setup_full_blood_count_test_general';
-const DB_LIVER_SETUP = 'setup_liver';
-const DB_RENAL_SETUP = 'setup_renal';
+const DB_TABLE_CREATE_PARAMS = 'setup_fullcount_paramters'
 
 // this gets the table name in the db based on the test query and options in the case of full blood count 
 const category_determiner = function (opts) {
@@ -26,7 +25,9 @@ const category_determiner = function (opts) {
     case 'children':
       return DB_TABLE_GENERAL;
       break;
-      
+    case 'params':
+      return DB_TABLE_CREATE_PARAMS;
+
     default:
       return optsCot + ' ' + 'not defined';
   }
@@ -34,7 +35,7 @@ const category_determiner = function (opts) {
 
 const insertdata = function (request, response) {
 
-  const { category, setupdata, setup } = JSON.parse(request.body);
+  const { category, setupdata, setup } = request.body;
 
   if (!category || category == null || category == undefined) {
     response.send({
@@ -44,7 +45,7 @@ const insertdata = function (request, response) {
 
 
   if (category && setupdata) {
-    let category_table = category_determiner(setup, category)
+    let category_table = category_determiner(category)
     // delete all rows first
     database_queries.deleteAllrows(category_table)
       .then((resolve) => {
@@ -63,7 +64,7 @@ const insertdata = function (request, response) {
 }
 
 
-const getdata = function (request, response) {
+const getdata = async (request, response) => {
   let test = request.query.category;
 
   let category_table = category_determiner(test);
@@ -71,8 +72,30 @@ const getdata = function (request, response) {
   if (test) {
     let SQL_QUERY = `SELECT * FROM ${category_table}`;
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) { throw err }
-      response.send(result)
+      if (err) {
+        response.send({
+          status: 'error',
+          statusCode: 200,
+          message: 'occured in fetching data',
+        })
+      }
+      else {
+        const xlen = result.length;
+
+        if (xlen === 0) {
+          const results = async function () {
+            let data = await database_queries.getall(`setup_fullcount_paramters`);
+            response.send(data)
+          }
+
+          results()
+
+        }
+        else {
+          response.send(result)
+        }
+      }
+
     })
   }
   else {
@@ -85,22 +108,66 @@ const getdata = function (request, response) {
 
 
 
-
-export default function handler(req, res) {
-  const method = req.method;
-  switch (method) {
-    case 'POST':
-      insertdata(req, res);
-      break
-    case 'GET':
-      getdata(req, res)
-      break;
-    default:
-      res.send({
-        status: '400',
-        message: 'method not known'
+const getCreatedParams = async function (request, response) {
+  connection.query(`SELECT * FROM ${DB_TABLE_CREATE_PARAMS}`, (err, result) => {
+    if (err) {
+      response.send({
+        status: 'error',
+        statusCode: 200,
+        message: 'occured in fetching data',
       })
+    }
+    else {
+      response.send({
+        status: 'success',
+        statusCode: 200,
+        message: 'data fetched successfully',
+        data: result
+      })
+    }
   }
+  )
+}
+
+const deleteData = async function (request, response) {
+  const { id,category } = request.query;
+
+  if (!id && !category) {
+    response.send({
+      status: 'error',
+      statusCode: 401,
+      message: ' delete id or category not included'
+    })
+  }
+  else {
+   let results = await database_queries.del(id,category_determiner(category),'FBCID');
+   
+   if (results.affectedRows === 1) {
+    response.send({
+      status:'success',
+      message: 'Parameter successfully deleted',
+      statusCode: 200
+    })
+   }
+   else {
+    response.send({
+      status: 'error',
+      message:'Error occured in deleting parameter',
+      statusCode: 401
+    })
+   }
+  }
+}
+
+
+
+
+
+module.exports = {
+  insertdata,
+  getdata,
+  deleteData,
+  getCreatedParams
 }
 
 

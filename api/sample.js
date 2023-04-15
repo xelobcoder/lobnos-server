@@ -1,5 +1,5 @@
-const connection = require ('./db');
-const { database_queries } = require ("./testResult");
+const connection = require('./db');
+const { database_queries } = require("./testResult");
 // YET TO BE CODED
 // AFTER CHANGE OF STATUS CLIENT WOULD BE NOTIFIED VIA EMAIL
 // OF SAMPLE STATUS CHANGE AND NECESSARY ACTION TO BE AND RECOMMEDATION TAKEN
@@ -18,7 +18,7 @@ class SampleHandler {
       SELECT DISTINCT p.SAMPLE_STATUS,
       p.PATIENTID,
       p.BILLINGID,
-      np.FULLNAME,
+      CONCAT(np.FIRSTNAME, np.LASTNAME,np.MIDDLENAME) as FULLNAME,
       p.MESSAGE,
       p.DATE,
       p.TEST,
@@ -41,7 +41,7 @@ class SampleHandler {
     SELECT DISTINCT p.SAMPLE_STATUS,
       p.PATIENTID,
       p.BILLINGID,
-      np.FULLNAME,
+      CONCAT(np.FIRSTNAME,' ', np.LASTNAME,' ',np.MIDDLENAME) as FULLNAME,
       p.DATE,
       p.MESSAGE,
       p.TEST,
@@ -65,7 +65,7 @@ class SampleHandler {
       p.PATIENTID,
       p.BILLINGID,
       p.MESSAGE,
-      np.FULLNAME,
+      CONCAT(np.FIRSTNAME, ' ', np.LASTNAME,' ',np.MIDDLENAME) as FULLNAME,
       p.DATE,
       p.TEST,
       p.ID
@@ -87,7 +87,7 @@ class SampleHandler {
    SELECT DISTINCT p.SAMPLE_STATUS,
       p.PATIENTID,
       p.BILLINGID,
-      np.FULLNAME,
+      CONCAT(np.FIRSTNAME,' ', np.LASTNAME,' ',np.MIDDLENAME) as FULLNAME,
       p.DATE,
       p.TEST,
       p.MESSAGE,
@@ -129,7 +129,9 @@ class SampleHandler {
 
     connection.query(query(status, billingid, message), (err, result) => {
       if (err) throw err;
-      this.response.send(result);
+      else {
+        this.response.send(result);
+      }
     });
   }
 }

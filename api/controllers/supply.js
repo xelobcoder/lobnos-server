@@ -69,9 +69,7 @@ router.get('/api/v1/stock', function (request, response) {
     getStock(request, response)
   }
   else {
-    const { stockid } = request.query;
-    const { expireproduct } = request.query;
-    const { instockproduct } = request.query;
+    const { stockid, expireproduct, instockproduct } = request.query;
 
     if (expireproduct) {
       getExpiredStock(request, response)
@@ -176,7 +174,7 @@ router.delete('/api/v1/departments/stocks', function (request, response) {
 
 router.patch('/api/v1/departments/requisitions', function (request, response) {
   const { id } = request.query;
-  console.log(request.body,id)
+  console.log(request.body, id)
   // console.log(id)
   patchRequisition(request, response, id)
 })

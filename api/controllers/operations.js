@@ -23,7 +23,6 @@ router.get('/api/v1/operations/test', async (req, res) => {
       message: 'Invalid billingid'
     })
   }
-
   else {
     const result = await new Operations(billingid).billingTest();
 

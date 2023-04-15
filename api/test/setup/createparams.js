@@ -1,86 +1,39 @@
-import connection from "../../db";
+const connection = require('../../db.js')
 
-const chemistry_db_tables = {
- liver: 'setup_liver_function_test',
- renal: 'setup_renal',
- fbc: 'setup_full_blood_count_test_male'
+const TableNames = {
+  liver: 'setup_liver_function_test',
+  renal: 'setup_renal_function_test',
+  fbc: 'setup_fullcount_paramters',
 }
 
-const createParameter = async function (parameterDetails, tablename, response) {
- const { parameter, unit, lower, upper } = parameterDetails;
- // check if paramter exist 
- const isExist = function (objct = {}, checkedAgaints) {
-  connection.query(`SELECT * FROM ${tablename}`, (err, results) => {
-   if (err) { throw err }
-   if (results) {
-    let parameterx = results.filter((item, index) => {
-     return item.PARAMETER === parameter;
+// check if the parameter already is avalilable in the database table
+
+const doHaveParameter = async function (parameterName, columnName, TableName) {
+  return new Promise((resolve, reject) => {
+    //  create a query to match paramter name with table column;
+    const query = `SELECT ${columnName} from ${TableName} WHERE ${columnName} = '${parameterName}'`
+    // connect to database
+    connection.query(query, (err, result) => {
+      err ? reject(err) : resolve(result)
     })
-    if (parameterx.length == 0) {
-     let SQL_QUERY = `INSERT INTO ${tablename} (PARAMETER,UNIT,LOWER,UPPER)
-          VALUES (?,?,?,?)`;
-     connection.query(SQL_QUERY, [parameter, unit, lower, upper], function (err, result) {
-      if (err) { throw err };
-      response.send({
-       status: 200,
-       success: true,
-       message: 'parameter successfully created'
-      })
-     })
-    }
-   }
   })
- }
- isExist();
 }
 
+const createParameter = async function (tableName,data) {
+  // create paramater
+  return new Promise((resolve, reject) => {
+	  const query = `INSERT INTO ${tableName} (
+		PARAMETER,
+		UPPER,
+		LOWER,
+		UNIT
+	  ) VALUES (?,?,?,?)`;
 
-const deleteparameter = function (params, response) {
- const [parameter, deleteid, tablename] = params;
- if (parameter && deleteid && tablename) {
-  database_queries.setup_deleteParameter(tablename, deleteid)
-   .then((r) => {
-    response.send({
-     message: paramter + " " + 'deleted',
-     status: 200
-    })
-   })
-   .catch((err) => { throw err; })
- }
+	  connection.query(query,data, (err, result) => {
+		  err ? reject(err) : resolve(result)
+	  })
+
+  })
 }
 
-
-
-
-export default function createParams(request, response) {
- const method = request.method;
- switch (method) {
-  case 'POST':
-   const { parameterDetails, testname } = JSON.parse(request.body);
-   const tablename = chemistry_db_tables[testname];
-   // take three arguments , the testname, the testprams eg paramter name,unit,upper and lower 
-   if (parameterDetails && testname) {
-    createParameter(parameterDetails, tablename, response)
-   } else {
-    response.send({
-     message: `provide neccessary details including testname,parameter,unit,upper and lower limit`
-    })
-   }
-   break;
-  case 'GET':
-   const hasQueries = Object.keys(request.query).length > 0;
-
-   if (hasQueries && Object.keys(request.query).includes('testname')) {
-    const db_to_query = chemistry_db_tables[request.query.testname];
-    connection.query(`SELECT * FROM ${db_to_query}`,
-     (err, result) => {
-      if (err) {
-       throw err;
-      }
-      response.send(result)
-     })
-   }
-  default:
-   return 'http method not recognized';
- }
-}
+module.exports = { doHaveParameter, createParameter,TableNames }

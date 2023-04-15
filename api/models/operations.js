@@ -48,7 +48,7 @@ class Operations {
 
       return new Promise((resolve, reject) => {
         connection.query(queryString, (err, result) => {
-          err ? reject(err) : result.length === 0 ? resolve(false) : resolve(result)
+          err ? reject(err) : result.length === 0 ? resolve([]) : resolve(result)
         })
       })
     }
@@ -60,7 +60,7 @@ class Operations {
   getAllReadyTest = async () => {
     //  we want to return all test where the PHELBOTOMY_STATUS = DONE and SAMPLE_STATUS = ACCEPTED in the performing_test table in ascending order orderby the id limit by 50
 
-    const queryString = `SELECT np.FULLNAME,np.PATIENTID,pt.BILLINGID FROM new_patients as np INNER JOIN (SELECT * FROM performing_test) as pt ON np.PATIENTID = pt.PATIENTID WHERE pt.PHELOBOTOMY_STATUS = 'DONE' AND pt.SAMPLE_STATUS = 'ACCEPTED' ORDER BY pt.ID ASC LIMIT 50`;
+    const queryString = `SELECT CONCAT(np.FIRSTNAME,' ',np.LASTNAME,' ',np.MIDDLENAME) AS FULLNAME,np.PATIENTID,pt.BILLINGID FROM new_patients as np INNER JOIN (SELECT * FROM performing_test) as pt ON np.PATIENTID = pt.PATIENTID WHERE pt.PHELOBOTOMY_STATUS = 'DONE' AND pt.SAMPLE_STATUS = 'ACCEPTED' ORDER BY pt.ID ASC LIMIT 50`;
 
 
     return new Promise((resolve, reject) => {

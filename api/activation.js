@@ -1,7 +1,8 @@
 const connection = require('./db')
 
 const activation = {
-  ACTIVATION_PAGE_QUERY: `SELECT ID,PATIENTID,FULLNAME,DATE,ACTIVATION_STATUS FROM 
+  ACTIVATION_PAGE_QUERY: `SELECT ID,PATIENTID,
+  CONCAT(FIRSTNAME,' ',' ',LASTNAME,' ',MIDDLENAME) AS FULLNAME,DATE,ACTIVATION_STATUS FROM 
     NEW_PATIENTS ORDER BY DATE DESC LIMIT 100`,
   // get partial data of patients
   getPartialData: function (request, response) {
