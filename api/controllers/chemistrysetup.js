@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const Chemistry = require('../models/chemistry');
-const { insertdata, getdata, deleteData,getCreatedParams } = require('../test/setup/fbc');
+const { insertdata, getdata, deleteData, getCreatedParams } = require('../test/setup/fbc');
 
 const { doHaveParameter, createParameter, TableNames } = require('../../api/test/setup/createparams')
 
@@ -89,19 +89,19 @@ router.post('/api/v1/test/setup/createparams', async (request, response) => {
     })
   }
   else {
-    const {unit,upper,lower,parameter} = parameterDetails;
-    const available = await doHaveParameter(parameter,'PARAMETER',tableCollection)
+    const { unit, upper, lower, parameter } = parameterDetails;
+    const available = await doHaveParameter(parameter, 'PARAMETER', tableCollection)
 
-    if (available.length == 0 ) {
-     let results = await  createParameter(tableCollection,[parameter,upper,lower,unit]);
+    if (available.length == 0) {
+      let results = await createParameter(tableCollection, [parameter, upper, lower, unit]);
 
-     if (results.affectedRows === 1) {
-       response.send({
-         status: 'success',
-         statusCode: 200,
-         message: 'parameter created'
-       })
-     }
+      if (results.affectedRows === 1) {
+        response.send({
+          status: 'success',
+          statusCode: 200,
+          message: 'parameter created'
+        })
+      }
       else {
         response.send({
           status: 'error',
