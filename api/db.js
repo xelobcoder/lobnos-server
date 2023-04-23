@@ -5,7 +5,7 @@ const connection = createConnection({
     host: 'localhost',
     user: 'root',
     password: '',
-    database: 'limsdb'
+    database: 'limsdb',
 })
 
 connection.connect(err => {

@@ -10,6 +10,8 @@ const {
   updateBilling,
 } = require("./api/billing");
 
+const resultChecker = require("./api/controllers/results");
+
 const operationsRouter = require("./api/controllers/operations");
 const {
   getClinicians,
@@ -59,13 +61,13 @@ app.use(
 );
 
 // ensuring an acess token is present
-app.use((req, res, next) => {
-  if (req.url == '/api/v1/register') {
-    next();
-  } else {
-    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
-  }
-})
+// app.use((req, res, next) => {
+//   if (req.url == '/api/v1/register') {
+//     next();
+//   } else {
+//     new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+//   }
+// })
 
 // api endpoints
 app.use(LoginsRouter);
@@ -75,6 +77,7 @@ app.use(rejectedRouter);
 app.use(supplyRouter);
 app.use(settingsRouter);
 app.use(operationsRouter);
+app.use(resultChecker);
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
 });
@@ -196,6 +199,9 @@ app.get("/api/v1/org", function (req, res) {
 
 const { PrismaClient } = require("@prisma/client");
 const Operations = require("./api/models/operations");
+
+
+
 
 
 

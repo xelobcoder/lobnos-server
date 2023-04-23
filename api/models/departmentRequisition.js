@@ -466,6 +466,8 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
     // if it is, update the quantity
     // if it is not, add the stock to the department stock table
 
+    // NB:this would be rewritten using transactions to e=nsure data integrity and ACID compliance.
+
     updatingQtyReceived(id, quantityReceived, departmentReceived)
       .then((result) => {
         checkingQtyInNewStock(result.stockid)
