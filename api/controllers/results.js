@@ -55,6 +55,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'glycated_haemoglobin':
         await new Result(billingid, testname).glycatedHaemoglobin(req.body, res)
         break;
+      case 'urinalysis':
+        await new Result(billingid, testname).urinalysisResult(req.body, res);
+        break;
       default:
         return res.send({
           status: 'error',

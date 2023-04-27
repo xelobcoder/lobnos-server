@@ -1,12 +1,13 @@
 const connection = require("../db");
 const db_query = require('../../api/database/queries');
 const { response } = require("express");
+
 const testTable = {
    hepatitisb: 'hepatitisBresult',
    hepatitisc: 'hepatitisC',
    bloodgrouping: 'bloodgroup',
-   glycated_haemoglobin: 'glycated_haemoglobin'
-
+   glycated_haemoglobin: 'glycated_haemoglobin',
+   urinalysis: 'urinalysisresult',
 }
 
 
@@ -55,6 +56,38 @@ class Result {
          return 'test not recognized'
       }
    }
+   async setResultReady(connection, billingid, testid) {
+      // get all test from test_ascension where billing id is equal to billing id
+      const query = `UPDATE test_ascension SET READY ='true',
+      ready_date = NOW()
+      WHERE billingid = ${billingid} AND testid = ${testid}`;
+
+      connection.query(query, (err, result) => {
+         if (err) {
+            connection.rollback();
+         }
+      })
+   }
+
+
+   async commitQuery(connection, response) {
+      // connection represent the connection object commit function
+      connection.commit(
+         (err) => {
+            if (err) {
+               connection.rollback();
+               errMessage(err, response)
+            } else {
+               response.send({
+                  status: 'success',
+                  message: 'record created successfully',
+                  statusCode: 200
+               })
+            }
+         }
+      )
+   }
+
 
    errMessage(err, response) {
       response.send({
@@ -137,23 +170,21 @@ class Result {
       // pass an err message 
       const error = this.errMessage;
       if (await this.isTestValid()) {
-         const { billingid, bloodgroup, rhesus, patientid, remarks } = records;
+         const { billingid, bloodgroup, rhesus, patientid, remarks, testid } = records;
          //insert record
          if (await this.ShouldCreateRecord()) {
             const query = `INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (?,?,?,?,?)`;
             // excute query
-            connection.query(query, [billingid, bloodgroup, rhesus, patientid, remarks], function (err, result) {
-               if (err) {
-                  error(err, response)
+            connection.beginTransaction(
+               connection.query(query, [billingid, bloodgroup, rhesus, patientid, remarks], function (err, result) {
+                  if (err) {
+                     connection.rollback();
+                  }
                }
-               else {
-                  response.send({
-                     status: 'success',
-                     message: 'record created successfully',
-                     statusCode: 200
-                  })
-               }
-            })
+               ),
+               this.setResultReady(connection, billingid, testid),
+               this.commitQuery(connection, response)
+            )
          }
          // update record 
          else {
@@ -189,18 +220,30 @@ class Result {
             BILLINGID,PATIENTID,RESULT,REMARKS,TECHNOLOGY,METHOD,GLUCOSE
          ) VALUES (?,?,?,?,?,?,?)`;
             // execute query
-            connection.query(creation, [billingid, patientid, glycated, comment, technology, method, glucose], function (err, result) {
-               if (err) {
-                  errMessage(err, response)
+            connection.beginTransaction(
+               connection.query(creation, [billingid, patientid, glycated, comment, technology, method, glucose], function (err, result) {
+                  if (err) {
+                     connection.rollback();
+                  }
+               }),
+               function (err, connection) {
+                  if (err) {
+                     connection.rollback();
+                     errMessage(err, response)
+                  }
+                  else {
+                     connection.commit();
+                     response.send({
+                        status: 'success',
+                        message: 'record created successfully',
+                        statusCode: 200
+                     })
+
+                  }
                }
-               else {
-                  response.send({
-                     status: 'success',
-                     message: 'record created successfully',
-                     statusCode: 200
-                  })
-               }
-            })
+            )
+
+            // update test ascention table to update ready to true and result entered trure
          } else {
             // update the test record
             const upateRecord = `UPDATE ${testTable[this.testname]} SET RESULT = ?,
@@ -213,7 +256,7 @@ class Result {
             connection.query(upateRecord, [glycated, comment, technology, method, glucose, this.billingid], (err, result) => {
                if (err) {
                   console.log(err)
-                  errMessage(err,response)
+                  errMessage(err, response)
                } else {
                   response.send({
                      status: 'success',
@@ -222,6 +265,142 @@ class Result {
                   })
                }
             })
+         }
+      } else {
+         this.errMessage({ message: 'No such test found' })
+      }
+   }
+
+   async urinalysisResult(records, response) {
+      let errMessage = this.errMessage;
+      const {
+         appearance,
+         ph,
+         urobilinogen,
+         blood,
+         color,
+         leukocytes,
+         microalbumin,
+         ketones,
+         bilirubin,
+         nitrite,
+         specific_gravity,
+         glucose,
+         billingid,
+         patientid,
+         testname,
+         remarks,
+         testid
+      } = records;
+
+      if (await this.isTestValid()) {
+         if (await this.ShouldCreateRecord()) {
+            const insertionQuery = `INSERT INTO ${testTable[this.testname]} (
+            APPEARANCE,
+            KETONES,
+            BILIRUBIN,
+            NITRITE,
+            SPECIFIC_GRAVITY,
+            PH,
+            UROBILINOGEN,
+            BLOOD,
+            COLOR,
+            LEUKOCYTES,
+            MICROALBUMIN,
+            GLUCOSE,
+            BILLINGID,
+            PATIENTID,REMARKS
+            )
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+
+
+            connection.beginTransaction(
+               connection.query(insertionQuery,
+                  [
+                     appearance,
+                     ketones,
+                     bilirubin,
+                     nitrite,
+                     specific_gravity,
+                     ph,
+                     urobilinogen,
+                     blood,
+                     color,
+                     leukocytes,
+                     microalbumin,
+                     glucose,
+                     billingid,
+                     patientid,
+                     remarks
+                  ],
+                  function (err, result) {
+                     if (err) {
+                        connection.rollback();
+                     }
+                  }),
+               await this.setResultReady(connection, billingid, testid),
+               await this.commitQuery(connection, response)
+            )
+
+
+         } else {
+            // update the result using the billing id
+            const updateQuery = `
+               UPDATE ${testTable[testname]} SET
+               APPEARANCE = ?,
+               KETONES = ?,
+               BILIRUBIN = ?,
+               NITRITE = ?,
+               SPECIFIC_GRAVITY = ?,
+               PH = ?,
+               UROBILINOGEN = ?,
+               BLOOD = ?,
+               COLOR = ?,
+               LEUKOCYTES = ?,
+               MICROALBUMIN = ?,
+               GLUCOSE = ?,
+               REMARKS = ?
+               WHERE billingid = ?
+            `;
+
+            connection.query(updateQuery, [
+               appearance,
+               ketones,
+               bilirubin,
+               nitrite,
+               specific_gravity,
+               ph,
+               urobilinogen,
+               blood,
+               color,
+               leukocytes,
+               microalbumin,
+               glucose,
+               remarks,
+               billingid
+            ], (err, result) => {
+               if (err) {
+                  errMessage(err, response)
+               } else {
+                  const { affectedRows } = result;
+
+                  if (affectedRows > 0) {
+                     response.send({
+                        status: 'success',
+                        message: 'record updated successfully',
+                        statusCode: 200
+                     })
+                  }
+                  else {
+                     response.send({
+                        status: 'success',
+                        message: 'record not updated',
+                        statusCode: 200
+                     })
+                  }
+               }
+            }
+            )
          }
       } else {
          this.errMessage({ message: 'No such test found' })
