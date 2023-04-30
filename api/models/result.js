@@ -1,4 +1,7 @@
 const connection = require("../db");
+const util = require('util')
+const beginTransaction = util.promisify(connection.beginTransaction).bind(connection);
+const query = util.promisify(connection.query).bind(connection);
 const db_query = require('../../api/database/queries');
 const { response } = require("express");
 
@@ -8,6 +11,7 @@ const testTable = {
    bloodgrouping: 'bloodgroup',
    glycated_haemoglobin: 'glycated_haemoglobin',
    urinalysis: 'urinalysisresult',
+   cardiac_enzymes: 'result_cardiac_enzymes'
 }
 
 
@@ -56,36 +60,31 @@ class Result {
          return 'test not recognized'
       }
    }
-   async setResultReady(connection, billingid, testid) {
-      // get all test from test_ascension where billing id is equal to billing id
-      const query = `UPDATE test_ascension SET READY ='true',
-      ready_date = NOW()
-      WHERE billingid = ${billingid} AND testid = ${testid}`;
-
-      connection.query(query, (err, result) => {
-         if (err) {
-            connection.rollback();
-         }
-      })
-   }
-
-
-   async commitQuery(connection, response) {
-      // connection represent the connection object commit function
-      connection.commit(
-         (err) => {
+   async useTransactionForResult(queryString, value, testid,response) {
+      try {
+         await beginTransaction();
+         await query(queryString, value);
+         await query(`UPDATE TEST_ASCENSION SET READY = 'true',READY_DATE = NOW() WHERE BILLINGID = ${this.billingid} AND TESTID = ?`, testid)
+         connection.commit(function (err) {
             if (err) {
                connection.rollback();
-               errMessage(err, response)
-            } else {
+               throw err;
+            }
+            else {
                response.send({
                   status: 'success',
-                  message: 'record created successfully',
-                  statusCode: 200
+                  statusCode: 200,
+                  message: 'Result entered successfully'
                })
             }
-         }
-      )
+         });
+         return true;
+      }
+      catch (err) {
+         console.log(err);
+         connection.rollback();
+         throw err;
+      }
    }
 
 
@@ -123,24 +122,7 @@ class Result {
             REMARKS
          ) VALUES (?,?,?,?,?)`;
             // connection to db to pass result
-            connection.query(query, [billingid, result, patientid, scientistid, remarks], function (err, result) {
-               console.log(err)
-               if (err) {
-                  response.send({
-                     status: 'error',
-                     statusCode: 500,
-                     message: err.message
-                  })
-               }
-               // response to client side
-               else {
-                  response.send({
-                     statusCode: 201,
-                     message: 'record created successfully',
-                     status: 'success'
-                  })
-               }
-            })
+
          }
          else {
             const query = `UPDATE hepatitisBresult SET results = '${result}', remarks = '${remarks}' WHERE billingid = ${billingid}`;
@@ -174,17 +156,9 @@ class Result {
          //insert record
          if (await this.ShouldCreateRecord()) {
             const query = `INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (?,?,?,?,?)`;
+            let values = [billingid, bloodgroup, rhesus, patientid, remarks]
             // excute query
-            connection.beginTransaction(
-               connection.query(query, [billingid, bloodgroup, rhesus, patientid, remarks], function (err, result) {
-                  if (err) {
-                     connection.rollback();
-                  }
-               }
-               ),
-               this.setResultReady(connection, billingid, testid),
-               this.commitQuery(connection, response)
-            )
+            await this.useTransactionForResult(query, values, testid,response)
          }
          // update record 
          else {
@@ -219,29 +193,10 @@ class Result {
             const creation = `INSERT INTO  ${testTable[this.testname]} (
             BILLINGID,PATIENTID,RESULT,REMARKS,TECHNOLOGY,METHOD,GLUCOSE
          ) VALUES (?,?,?,?,?,?,?)`;
-            // execute query
-            connection.beginTransaction(
-               connection.query(creation, [billingid, patientid, glycated, comment, technology, method, glucose], function (err, result) {
-                  if (err) {
-                     connection.rollback();
-                  }
-               }),
-               function (err, connection) {
-                  if (err) {
-                     connection.rollback();
-                     errMessage(err, response)
-                  }
-                  else {
-                     connection.commit();
-                     response.send({
-                        status: 'success',
-                        message: 'record created successfully',
-                        statusCode: 200
-                     })
 
-                  }
-               }
-            )
+            let values = [billingid, patientid, glycated, comment, technology, method, glucose]
+            // execute query
+            await this.useTransactionForResult(creation, values, testid)
 
             // update test ascention table to update ready to true and result entered trure
          } else {
@@ -293,7 +248,7 @@ class Result {
          testid
       } = records;
 
-      if (await this.isTestValid()) {
+      if (this.isTestValid()) {
          if (await this.ShouldCreateRecord()) {
             const insertionQuery = `INSERT INTO ${testTable[this.testname]} (
             APPEARANCE,
@@ -313,35 +268,23 @@ class Result {
             )
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
-
-            connection.beginTransaction(
-               connection.query(insertionQuery,
-                  [
-                     appearance,
-                     ketones,
-                     bilirubin,
-                     nitrite,
-                     specific_gravity,
-                     ph,
-                     urobilinogen,
-                     blood,
-                     color,
-                     leukocytes,
-                     microalbumin,
-                     glucose,
-                     billingid,
-                     patientid,
-                     remarks
-                  ],
-                  function (err, result) {
-                     if (err) {
-                        connection.rollback();
-                     }
-                  }),
-               await this.setResultReady(connection, billingid, testid),
-               await this.commitQuery(connection, response)
-            )
-
+            await this.useTransactionForResult(insertionQuery, [
+               appearance,
+               ketones,
+               bilirubin,
+               nitrite,
+               specific_gravity,
+               ph,
+               urobilinogen,
+               blood,
+               color,
+               leukocytes,
+               microalbumin,
+               glucose,
+               billingid,
+               patientid,
+               remarks
+            ], testid,response)
 
          } else {
             // update the result using the billing id
@@ -383,7 +326,7 @@ class Result {
                   errMessage(err, response)
                } else {
                   const { affectedRows } = result;
-
+                  // the number of affected rows determine if a/an data insertion event occured or not
                   if (affectedRows > 0) {
                      response.send({
                         status: 'success',
@@ -404,6 +347,35 @@ class Result {
          }
       } else {
          this.errMessage({ message: 'No such test found' })
+      }
+   }
+
+
+   async cardiacEnzymes(records, response) {
+      const { COMMENT, LDH, MYOGLOBIN, CK_MB, AST, TROPONIN, testid, patientid, billingid } = records;
+
+      const queryValues = ['LDH', 'MYOGLOBIN', 'CK_MB', 'AST','TROPONIN'].map((item, index) => {
+         return [
+            item,
+            billingid,
+            records[item],
+            patientid,
+            COMMENT
+         ]
+      })
+
+      const insertionQuery = `INSERT INTO ${testTable[this.testname]} (
+         PARAMETERNAME,
+         BILLINGID,
+         VALUE,
+         PATIENTID,
+         COMMENTS
+      ) VALUES ?`;
+
+      if (await this.ShouldCreateRecord()) {
+         await this.useTransactionForResult(insertionQuery, [queryValues], testid,response)
+      } else {
+         console.log('update')
       }
    }
 }
