@@ -62,7 +62,7 @@ class Result {
       }
    }
 
-   pushResponse(result,response) {
+   pushResponse(result, response) {
       const { affectedRows } = result;
       if (affectedRows > 0) {
          response.send({
@@ -633,7 +633,7 @@ class Result {
                   comments,
                   billingid],
                function (err, result) {
-                 pushResponse(result,response)
+                  pushResponse(result, response)
                })
          }
       }
