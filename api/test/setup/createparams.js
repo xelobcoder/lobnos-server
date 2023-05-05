@@ -4,6 +4,7 @@ const TableNames = {
 	liver: 'setup_liver_function_test',
 	renal: 'setup_renal_function_test',
 	fbc: 'setup_fullcount_paramters',
+	thyroid: 'setup_thyroid_test'
 }
 
 // check if the parameter already is avalilable in the database table

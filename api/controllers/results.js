@@ -62,6 +62,34 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'cardiac_enzymes':
         await resultInstance.cardiacEnzymes(req.body, res);
         break;
+      case 'pregnancy_test':
+        await resultInstance.pregnancyTest(req.body, res);
+        break;
+      case 'renalfunctiontest':
+        await resultInstance.renalFunctionalTest(req.body, res)
+        break;
+      case 'liverfunctiontest':
+        await resultInstance.liverfunctionTest(req.body, res)
+        break;
+      case 'malaria':
+        await resultInstance.malaria(req.body, res)
+        break;
+      case 'widal':
+        await resultInstance.widal(req.body, res)
+        break;
+      case 'hepatitis_b_profile':
+        await resultInstance.hepatitisBProfile(req.body, res);
+        break;
+      case 'hvs':
+        await resultInstance.hvs(req.body, res);
+        break;
+      case 'semenAnalysis':
+        await resultInstance.semenAnalysis(req.body, res);
+        break
+      case 'thyroidfunctionaltest':
+        await resultInstance.thyroid(req.body, res);
+        break;
+      // case ''
       default:
         return res.send({
           status: 'error',
