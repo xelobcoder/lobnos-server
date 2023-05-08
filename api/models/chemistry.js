@@ -8,6 +8,7 @@ const RENAL_CLIENT_TABLE = 'renal_function_test';
 const CARDIAC_ENZYMES = 'setup_cardiac_enzymes';
 const THYROID_SETUP = 'setup_thyroid_test';
 const LIPID_PROFILE_SETUP = 'setup_lipid_profile_test';
+const BETAHCG = `setup_beta_hcg`
 
 // define our queries
 const ChemistryQueries = {
@@ -25,7 +26,7 @@ const chemistryTables = {
  RENAL_CLIENT_TABLE,
  CARDIAC_ENZYMES,
  THYROID_SETUP,
- LIPID_PROFILE_SETUP
+ LIPID_PROFILE_SETUP,
 }
 
 class Chemistry {
@@ -159,6 +160,22 @@ class Chemistry {
    })
   }
 
+ }
+
+
+ getBetaHcg(response) {
+  connection.query('SELECT * FROM setup_beta_hcg', function (err, result) {
+   if (err) {
+    throw err;
+   }
+   if (result) {
+    response.send({
+     statusCode: 200,
+     records: result,
+     status: 'success'
+    })
+   }
+  })
  }
 }
 

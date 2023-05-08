@@ -2,7 +2,8 @@ const router = require('express').Router();
 const Chemistry = require('../models/chemistry');
 const { insertdata, getdata, deleteData, getCreatedParams } = require('../test/setup/fbc');
 
-const { doHaveParameter, createParameter, TableNames } = require('../../api/test/setup/createparams')
+const { doHaveParameter, createParameter, TableNames, createBetaRanges } = require('../../api/test/setup/createparams');
+const connection = require('../db');
 
 router.get('/api/v1/test/setup/chemistry', (req, res) => {
   new Chemistry().getRecords(req, res);
@@ -118,6 +119,43 @@ router.post('/api/v1/test/setup/createparams', async (request, response) => {
       })
     }
   }
+})
+
+
+
+router.post('/api/v1/setup/create/betahcg', async function (request, response) {
+  const { target, records } = request.body
+
+  const tableCollection = TableNames[target];
+
+  if (tableCollection == undefined) {
+    response.send({
+      status: 'error',
+      statusCode: 401,
+      message: 'please add key target test'
+    })
+  }
+  else {
+    //  truncate table 
+    connection.query(`TRUNCATE TABLE setup_beta_hcg`, (err, result) => {
+      if (err) {
+        response.send({
+          status: 'error',
+          statusCode: 500,
+          message: 'Internal Server Error'
+        })
+      }
+
+      if (result) {
+        createBetaRanges(records, response)
+      }
+    })
+  }
+})
+
+
+router.get('/api/v1/setup/get/betahcg', async (request, response) => {
+  await new Chemistry().getBetaHcg(response);
 })
 
 module.exports = router;

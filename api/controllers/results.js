@@ -44,58 +44,60 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
     const { billingid, testname } = req.body;
     const resultInstance = new Result(billingid, testname)
     switch (testname) {
-      case 'hepatitisb':
-        await resultInstance.hepatitisBresult(req.body, res)
+      case "hepatitisb":
+        await resultInstance.hepatitisBresult(req.body, res);
         break;
-      case 'hepatitisc':
-        await resultInstance.hepatitisBresult(req.body, res)
+      case "hepatitisc":
+        await resultInstance.hepatitisBresult(req.body, res);
         break;
-      case 'bloodgrouping':
-        await resultInstance.BloodGroupingResult(req.body, res)
+      case "bloodgrouping":
+        await resultInstance.BloodGroupingResult(req.body, res);
         break;
-      case 'glycated_haemoglobin':
-        await resultInstance.glycatedHaemoglobin(req.body, res)
+      case "glycated_haemoglobin":
+        await resultInstance.glycatedHaemoglobin(req.body, res);
         break;
-      case 'urinalysis':
+      case "urinalysis":
         await resultInstance.urinalysisResult(req.body, res);
         break;
-      case 'cardiac_enzymes':
+      case "cardiac_enzymes":
         await resultInstance.cardiacEnzymes(req.body, res);
         break;
-      case 'pregnancy_test':
+      case "pregnancy_test":
         await resultInstance.pregnancyTest(req.body, res);
         break;
-      case 'renalfunctiontest':
-        await resultInstance.renalFunctionalTest(req.body, res)
+      case "renalfunctiontest":
+        await resultInstance.renalFunctionalTest(req.body, res);
         break;
-      case 'liverfunctiontest':
-        await resultInstance.liverfunctionTest(req.body, res)
+      case "liverfunctiontest":
+        await resultInstance.liverfunctionTest(req.body, res);
         break;
-      case 'malaria':
-        await resultInstance.malaria(req.body, res)
+      case "malaria":
+        await resultInstance.malaria(req.body, res);
         break;
-      case 'widal':
-        await resultInstance.widal(req.body, res)
+      case "widal":
+        await resultInstance.widal(req.body, res);
         break;
-      case 'hepatitis_b_profile':
+      case "hepatitis_b_profile":
         await resultInstance.hepatitisBProfile(req.body, res);
         break;
-      case 'hvs':
+      case "hvs":
         await resultInstance.hvs(req.body, res);
         break;
-      case 'semenAnalysis':
+      case "semenAnalysis":
         await resultInstance.semenAnalysis(req.body, res);
-        break
-      case 'thyroidfunctionaltest':
+        break;
+      case "thyroidfunctionaltest":
         await resultInstance.thyroid(req.body, res);
         break;
-      // case ''
+      case "betahcg":
+        await resultInstance.betahcg(req.body, res);
+        break;
       default:
         return res.send({
-          status: 'error',
-          message: 'test not found',
-          statusCode: 400
-        })
+          status: "error",
+          message: "test not found",
+          statusCode: 400,
+        });
     }
   }
   catch (err) {
