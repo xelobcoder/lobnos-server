@@ -17,7 +17,8 @@ const testTable = {
   malaria: "malaria",
   hepatitis_b_profile: "hepatitisb_profile",
   widal: "result_widal",
-  betahcg: 'result_beta_hcg'
+  betahcg: 'result_beta_hcg',
+  aids: 'result_aids'
 };
 
 class Result {
@@ -783,7 +784,8 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
     let pushResponse = this.pushResponse
     const { testname, billingid, testid, value, unit, comments, patientid } =
       records;
-
+    // not necessary to always use istestValid method if only necessry checks are made at the 
+    // controller level to ensure test in testtable doesnt return undefined and hnadled in case test is not found. if not handled, recommeded to use the method 
     if (this.isTestValid()) {
       if (await this.ShouldCreateRecord()) {
         const insertionQuery = `INSERT INTO ${testTable[testname]}
@@ -804,20 +806,53 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
          COMMENTS = ?
          WHERE BILLINGID = ?
         `;
-  
+
         const nv = [value, unit, comments, billingid];
-  
+
         connection.query(updateQuery, nv, function (err, result) {
           if (err) {
             console.log(err)
             errMessage(err, response);
           }
-  
+
           if (result) {
             pushResponse(result, response)
           }
         });
       }
+    }
+
+  }
+
+
+  async Aids(records, response) {
+    const { reaction, testname, billingid, patientid, testid, comments } = records;
+
+    if (await this.ShouldCreateRecord()) {
+      const insertion = `INSERT INTO ${testTable[testname]}
+        (reaction,billingid,patientid,comments) VALUES (?,?,?,?)`;
+
+      const values = [reaction, billingid, patientid, comments];
+
+      await this.useTransactionForResult(insertion, values, testid, response);
+    }
+    else {
+      // update the result
+      const updateQuery = `UPDATE ${testTable[testname]}
+              SET reaction = ?,
+              comments = ?,
+              updated_on = NOW()
+              WHERE billingid = ?
+      `
+
+      connection.query(updateQuery, [reaction, comments, billingid], (err, result) => {
+        if (err) {
+          this.errMessage(err, response)
+        }
+        if (result) {
+          this.pushResponse(result, response);
+        }
+      })
     }
   }
 }
