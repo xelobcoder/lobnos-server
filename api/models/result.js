@@ -18,7 +18,8 @@ const testTable = {
   hepatitis_b_profile: "hepatitisb_profile",
   widal: "result_widal",
   betahcg: 'result_beta_hcg',
-  aids: 'result_aids'
+  aids: 'result_aids',
+  liverfunctiontest: 'result_function_liver'
 };
 
 class Result {
@@ -81,7 +82,7 @@ class Result {
       });
     }
   }
-  async useTransactionForResult(queryString, value, testid, response) {
+  async useTransactionForResult(queryString, value, testid, response, comments) {
     try {
       await beginTransaction();
       await query(queryString, value);
@@ -89,6 +90,11 @@ class Result {
         `UPDATE TEST_ASCENSION SET READY = 'true',READY_DATE = NOW() WHERE BILLINGID = ${this.billingid} AND TESTID = ?`,
         testid
       );
+      // await query(`INSERT INTO RESULT_COMMENTS (TESTID,BILLINGID,COMMENTS) VALUES (?,?,?)`,[testid,this.billingid,comments])
+
+      if (arguments[4] != undefined) {
+        await query(`INSERT INTO RESULT_COMMENTS (TESTID,BILLINGID,COMMENTS) VALUES (?,?,?)`, [testid, this.billingid, comments])
+      }
       connection.commit(function (err) {
         if (err) {
           connection.rollback();
@@ -562,8 +568,60 @@ class Result {
     }
   }
 
-  async liverfunctionTest(records, response) {
-    console.log(records);
+  async liverfunctionTest(requestBody, response) {
+    const { testname, billingid, testid, patientid, records, comments } = requestBody;
+    let errMessage = this.errMessage;
+    let pushResponse = this.pushResponse;
+
+    if (this.isTestValid()) {
+      if (await this.ShouldCreateRecord()) {
+
+        const insertionQuery = `INSERT INTO ${testTable[testname]}
+         (parameter,unit,value,billingid,patientid)
+         VALUES ?
+         `
+        const mappedValues = records.map((item, index) => {
+          return [item.parameter, item.unit, parseInt(item.value), billingid, patientid]
+        })
+
+        await this.useTransactionForResult(insertionQuery, [mappedValues], testid, response, comments);
+      }
+      else {
+        try {
+          const target = records.length - 1;
+          records.forEach((item, index) => {
+            const updateQuery = `
+            UPDATE ${testTable[testname]}
+            SET value = ?,
+            unit = ?
+            WHERE billingid = ? AND parameter = ?
+          `
+            const { value, unit, parameter } = item;
+
+            connection.query(updateQuery, [value, unit, billingid, parameter], (err, result) => {
+              if (err) {
+                this.errMessage(err, response);
+              }
+              if (result) {
+                if (index === target) {
+                  connection.query(`UPDATE RESULT_COMMENTS
+                  SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`, [comments, this.billingid, testid], function (err, result) {
+                    if (err) {
+                      errMessage(err, response)
+                    }
+                    pushResponse(result, response)
+                  })
+
+                }
+              }
+            })
+          })
+        }
+        catch (err) {
+          this.errMessage(err, response)
+        }
+      }
+    }
   }
 
   async widal(records, response) {
