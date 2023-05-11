@@ -8,7 +8,8 @@ const RENAL_CLIENT_TABLE = 'renal_function_test';
 const CARDIAC_ENZYMES = 'setup_cardiac_enzymes';
 const THYROID_SETUP = 'setup_thyroid_test';
 const LIPID_PROFILE_SETUP = 'setup_lipid_profile_test';
-const BETAHCG = `setup_beta_hcg`
+const BETAHCG = `setup_beta_hcg`;
+const ESR = `setup_esr`
 
 // define our queries
 const ChemistryQueries = {
@@ -16,7 +17,8 @@ const ChemistryQueries = {
  RENAL_SETUP: `INSERT INTO ${RENAL_SETUP} (parameter,unit,lower,upper) VALUES ?`,
  CARDIAC_ENZYMES: `INSERT INTO ${CARDIAC_ENZYMES} (parameter,unit,lower,upper) VALUES ?`,
  THYROID_SETUP: `INSERT INTO ${THYROID_SETUP} (parameter,unit,lower,upper) VALUES ?`,
- LIPID_PROFILE_SETUP: `INSERT INTO ${LIPID_PROFILE_SETUP} (parameter,unit,lower,upper) VALUES ?`
+ LIPID_PROFILE_SETUP: `INSERT INTO ${LIPID_PROFILE_SETUP} (parameter,unit,lower,upper) VALUES ?`,
+ ESR: `INSERT INTO ${ESR} (target,upper,lower) VALUES  ?`
 }
 
 const chemistryTables = {
@@ -27,6 +29,7 @@ const chemistryTables = {
  CARDIAC_ENZYMES,
  THYROID_SETUP,
  LIPID_PROFILE_SETUP,
+ ESR
 }
 
 class Chemistry {
@@ -82,7 +85,12 @@ class Chemistry {
    // 2: upper
    // 3: lower 
    // while slicing away the setupid
-   return [ky[0], ky[3], ky[2], ky[1]]
+   if (this.testname != 'ESR') {
+    return [ky[0], ky[3], ky[2], ky[1]]
+   }
+   else {
+    return [item.target,item.upper,item.lower]
+   }
   })
 
 
@@ -90,6 +98,7 @@ class Chemistry {
   // execute query
   connection.query(query, [sanitizeData], (err, result) => {
    if (err) {
+    console.log(err)
     res.status(400).send({
      message: err.message,
      statusCode: 400
@@ -146,7 +155,7 @@ class Chemistry {
       res.status(200).send({
        status: 'success',
        statusCode: 200,
-       records: sanitizer
+       records: panelname == 'ESR' ? result : sanitizer
       })
      }
     }
