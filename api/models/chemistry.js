@@ -18,7 +18,7 @@ const ChemistryQueries = {
  CARDIAC_ENZYMES: `INSERT INTO ${CARDIAC_ENZYMES} (parameter,unit,lower,upper) VALUES ?`,
  THYROID_SETUP: `INSERT INTO ${THYROID_SETUP} (parameter,unit,lower,upper) VALUES ?`,
  LIPID_PROFILE_SETUP: `INSERT INTO ${LIPID_PROFILE_SETUP} (parameter,unit,lower,upper) VALUES ?`,
- ESR: `INSERT INTO ${ESR} (target,upper,lower) VALUES  ?`
+ ESR: `INSERT INTO ${ESR} (agelimit,gender,upper,lower) VALUES  ?`
 }
 
 const chemistryTables = {
@@ -89,7 +89,7 @@ class Chemistry {
     return [ky[0], ky[3], ky[2], ky[1]]
    }
    else {
-    return [item.target,item.upper,item.lower]
+    return [item.agelimit, item.gender, item.upper, item.lower]
    }
   })
 

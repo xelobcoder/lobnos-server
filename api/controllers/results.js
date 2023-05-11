@@ -95,6 +95,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'aids':
         await resultInstance.Aids(req.body, res);
         break;
+      case 'esr':
+        await resultInstance.esr(req.body, res);
+        break;
       default:
         return res.send({
           status: "error",
