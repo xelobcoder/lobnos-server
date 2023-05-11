@@ -19,7 +19,8 @@ const testTable = {
   widal: "result_widal",
   betahcg: 'result_beta_hcg',
   aids: 'result_aids',
-  liverfunctiontest: 'result_function_liver'
+  liverfunctiontest: 'result_function_liver',
+  esr: 'result_esr'
 };
 
 class Result {
@@ -911,6 +912,39 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
           this.pushResponse(result, response);
         }
       })
+    }
+  }
+
+
+  async esr(records, response) {
+    const { value, comments, testname, testid, billingid, patientid } = records;
+
+    if (this.isTestValid()) {
+      if (await this.ShouldCreateRecord()) {
+        const insertion = `INSERT INTO ${testTable[testname]}
+        (VALUE,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?)`
+
+        const params = [value, comments, billingid, patientid]
+        await this.useTransactionForResult(insertion, params, testid, response);
+      } else {
+        const updateQuery = `UPDATE ${testTable[testname]}
+          SET VALUE  = ?,
+          updated_on = NOW(),
+          COMMENTS = ? 
+          WHERE BILLINGID = ? AND PATIENTID  =?
+        `
+        const params = [value, comments, billingid, patientid]
+
+        connection.query(updateQuery, params, (err, result) =>{
+          if (err) {
+            this.errMessage(err,response);
+          }
+
+          if (result) {
+            this.pushResponse(result,response)
+          }
+        })
+      }
     }
   }
 }
