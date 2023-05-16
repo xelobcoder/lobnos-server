@@ -20,7 +20,9 @@ const testTable = {
   betahcg: 'result_beta_hcg',
   aids: 'result_aids',
   liverfunctiontest: 'result_function_liver',
-  esr: 'result_esr'
+  esr: 'result_esr',
+  randombloodsugar: 'result_random_blood_sugar',
+  fastingbloodsugar: 'result_fasting_blood_sugar'
 };
 
 class Result {
@@ -935,12 +937,48 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         `
         const params = [value, comments, billingid, patientid]
 
-        connection.query(updateQuery, params, (err, result) =>{
+        connection.query(updateQuery, params, (err, result) => {
           if (err) {
-            this.errMessage(err,response);
+            this.errMessage(err, response);
           }
 
           if (result) {
+            this.pushResponse(result, response)
+          }
+        })
+      }
+    }
+  }
+
+
+  async glucose(records, response) {
+    const { testname, testid, patientid, unit,billingid, result, comments } = records;
+
+    if (this.isTestValid()) {
+      if (await this.ShouldCreateRecord()) {
+        const insertionQuery = `INSERT INTO ${testTable[testname]}
+        (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)
+        VALUES (?,?,?,?,?)
+        `
+
+        const values = [billingid, patientid, result, unit, comments]
+
+        await this.useTransactionForResult(insertionQuery, values, testid, response)
+      } else {
+        const updateRecords = `UPDATE ${testTable[this.testname]}
+        SET RESULT = ?,
+        UNIT = ?,
+        updated_on = NOW(),
+        COMMENTS = ? 
+        WHERE BILLINGID = ? AND PATIENTID = ?`
+
+        const values = [result,unit,comments,billingid,patientid];
+
+        connection.query(updateRecords,values,(err,result) =>{
+          if (err) {
+            this.errMessage(err,response)
+          }
+          if (response) {
             this.pushResponse(result,response)
           }
         })

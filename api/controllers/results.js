@@ -98,6 +98,12 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'esr':
         await resultInstance.esr(req.body, res);
         break;
+      case 'randombloodsugar':
+        await resultInstance.glucose(req.body, res);
+        break;
+      case 'fastingbloodsugar':
+        await resultInstance.glucose(req.body, res);
+        break;
       default:
         return res.send({
           status: "error",
