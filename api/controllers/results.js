@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const Result = require('../models/result')
+const{ Result} = require('../models/result')
 const pdf = require('../pdfGeneration/result');
 router.get('/api/v1/test/result/check', async function (req, res) {
   try {

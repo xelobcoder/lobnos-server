@@ -174,8 +174,6 @@ router.delete('/api/v1/departments/stocks', function (request, response) {
 
 router.patch('/api/v1/departments/requisitions', function (request, response) {
   const { id } = request.query;
-  console.log(request.body, id)
-  // console.log(id)
   patchRequisition(request, response, id)
 })
 

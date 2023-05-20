@@ -1,9 +1,20 @@
 const { PrismaClient } = require('@prisma/client');
 const { response } = require('express');
+const { beginTransaction, query } = require('./models/result');
 const connection = require('./db')
 const prisma = new PrismaClient();
 
 // add test to performing test
+/**
+ * 
+ * @param {string} patientid  unique indentifier of the patient which run through the lifecycle of the patient in this software
+ * @param {integer} billingid  unique  billing for the day test
+ * @param {array} test  string  testnames seperated by comma or an array of testname
+ * @param {string} urgency  urgency of the test
+ * @param {object} res response object 
+ * @param {string} samplingCenter name of the sampling center
+ * @returns 
+ */
 const addperformingTest = (patientid, billingid, test, urgency, res, samplingCenter) => {
   // check if test is an array or a string , if string,check to see if is not empty
   const isValid = Array.isArray(test) || (typeof test == 'string' && test != '') ? true : false;
@@ -22,13 +33,23 @@ const addperformingTest = (patientid, billingid, test, urgency, res, samplingCen
     // if patient id and billing id are not empty
     if (patientid != '' && billingid != '') {
       // push data into performing test table
-      let values = [patientid, billingid, sanitize(test), urgency, samplingCenter];
+      let values = [
+        patientid,
+        billingid,
+        sanitize(test),
+        urgency,
+        samplingCenter,
+      ];
       let sql = `INSERT INTO performing_test (PATIENTID,BILLINGID,TEST,URGENCY,SAMPLING_CENTER) VALUES (?,?,?,?,?)`;
       connection.query(sql, values, (err, result) => {
         if (err) throw err;
-        res.status(200).json({ message: 'success' });
-      })
+        res.status(200).json({ message: "success", statusCode: 201 });
+      });
+    } else {
+      return `${patientid} or ${billingid} not provided`
     }
+  } else {
+    return 'invalid data types provided'
   }
 
 }
@@ -119,56 +140,64 @@ const getBilledClients = function (request, response) {
 }
 
 
-const updateBilling = function (request, response) {
-  const { test, totalcost, patientid, billingid, outstanding } = request.body;
+const updateBilling = async function (request, response) {
+  console.log(request.body)
+  try {
+    const { test, totalcost, patientid, billingid, outstanding } = request.body;
 
-  const query = `UPDATE BILLING 
-  SET PAYABLE = ${totalcost},
-  OUTSTANDING = ${outstanding},
-  UPDATED = '${new Date().getTime()}'
-  WHERE BILLINGID = ${billingid}`;
 
-  // execute the function
+    const getTestString = Array.isArray(test) == true ? (test.map((item, index) => { return item.name })).join(',') : test
 
-  connection.query(query, function (err, result) {
-    console.log(err)
-    if (err) {
-      response.send({
-        message: err.sqlMessage,
-        errocode: err.errno + err.code,
-        status: 'error',
-        statuscode: 500
-      })
-    }
+  
 
-    if (result) {
-      const { affectedRows } = result;
-      if (affectedRows === 1) {
-        let mysql = `UPDATE performing_test
-         SET TEST = '${test}' WHERE BILLINGID = ${billingid}`;
+    const updateCurrentBill = `UPDATE BILLING 
+    SET PAYABLE = ${totalcost},
+    OUTSTANDING = ${outstanding},
+    UPDATED = '${new Date().getTime()}'
+    WHERE BILLINGID = ${billingid}`;
 
-        connection.query(mysql, (err, result) => {
-          if (err) {
-            console.log(err)
-            response.send({
-              message: err.sqlMessage,
-              errocode: err.errno + err.code,
-              status: 'error',
-              statuscode: 500
-            })
-          }
-          else {
-            response.send({
-              status: 'success',
-              statusCode: 200,
-              message: 'billing updated',
-              result
-            })
-          }
+    let mysql = `UPDATE performing_test
+    SET TEST = '${getTestString}' WHERE BILLINGID = ${billingid}`;
+
+ 
+    const updateTestascensionTable = function (array) {
+      // we will delete previous records if it isnt in this record once the processing havent yet started
+      const checkExist = async function (billingid,testid) {
+        return new Promise ( (r,t) => {
+          connection.query('SELECT * TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?',[billingid,testid])
         })
       }
     }
-  })
+
+    // there is high possibillity that at the time ,test will be updated , the previous test would in operations and hence we must add this to the test ascension table for it to reflect and the give the lab scientist opportunity to use their discretion to ask for new sample or use already taken sample
+
+
+    await beginTransaction();
+    await query(updateCurrentBill)
+    await query(mysql)
+
+
+    connection.commit(function (err) {
+      if (err) {
+        connection.rollback()
+        response.send({
+          statusCode: 500,
+          status: 'error',
+          message: 'error in updating information'
+        })
+      } else {
+        response.send({
+          status: "success",
+          statusCode: 200,
+          message: "updates  successful, However if test have started processing deletion of test will not deleted automatically. Hence contact Your superior for futher action",
+        })
+      }
+    })
+
+  }
+  catch (err) {
+    console.log(err)
+  }
 }
 
 module.exports = {

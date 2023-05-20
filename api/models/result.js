@@ -176,7 +176,7 @@ class Result {
   async BloodGroupingResult(records, response) {
     // pass an err message
     const error = this.errMessage;
-    if (await this.isTestValid()) {
+    if (this.isTestValid()) {
       const { billingid, bloodgroup, rhesus, patientid, remarks, testid } =
         records;
       //insert record
@@ -184,7 +184,7 @@ class Result {
         const query = `INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (?,?,?,?,?)`;
         let values = [billingid, bloodgroup, rhesus, patientid, remarks];
         // excute query
-        await this.useTransactionForResult(query, values, testid, response);
+        await this.useTransactionForResult(query, values, testid, response,remarks);
       }
       // update record
       else {
@@ -952,7 +952,7 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
 
 
   async glucose(records, response) {
-    const { testname, testid, patientid, unit,billingid, result, comments } = records;
+    const { testname, testid, patientid, unit, billingid, result, comments } = records;
 
     if (this.isTestValid()) {
       if (await this.ShouldCreateRecord()) {
@@ -972,14 +972,14 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         COMMENTS = ? 
         WHERE BILLINGID = ? AND PATIENTID = ?`
 
-        const values = [result,unit,comments,billingid,patientid];
+        const values = [result, unit, comments, billingid, patientid];
 
-        connection.query(updateRecords,values,(err,result) =>{
+        connection.query(updateRecords, values, (err, result) => {
           if (err) {
-            this.errMessage(err,response)
+            this.errMessage(err, response)
           }
           if (response) {
-            this.pushResponse(result,response)
+            this.pushResponse(result, response)
           }
         })
       }
@@ -987,4 +987,4 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
   }
 }
 
-module.exports = Result;
+module.exports ={ Result,beginTransaction,query,testTable};
