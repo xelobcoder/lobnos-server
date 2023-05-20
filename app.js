@@ -184,6 +184,44 @@ app.get("/api/v1/testpanel/list", (req, res) => {
   testpanel.getPanels(req, res);
 });
 
+
+app.get('/api/v1/testpanel/list/update', function (req, res) {
+  const { billingid } = req.query;
+  if (billingid) {
+    try {
+      const insertion = `SELECT * FROM test_panels AS tp  INNER JOIN
+     test_ascension AS ta ON  ta.testid = tp.ID WHERE ta.billingid = ${billingid}`
+      connection.query(insertion, billingid, (err, result) => {
+        if (err) { throw err }
+        if (result) {
+          res.send({
+            data: result.map( (i,index) => {
+              let dataset  = {}
+              // rewant to return all result in a pacticular string  format
+               for (key in i ) {
+                 dataset[key.toUpperCase()] = i[key]
+               }
+               return dataset
+            }),
+            message: 'success',
+            statusCode: 200
+          })
+        }
+      })
+    }
+    catch (err) {
+      console.log(err)
+    }
+  }
+  else {
+    res.send({
+      statusCode: 401,
+      status: 'billing id required',
+      message: 'include billing in the request header as a query'
+    })
+  }
+})
+
 app.post("/api/v1/testpanel/list", (req, res) => {
   testpanel.postPanel(req, res);
 });
@@ -199,6 +237,8 @@ app.get("/api/v1/org", function (req, res) {
 
 const { PrismaClient } = require("@prisma/client");
 const Operations = require("./api/models/operations");
+const { connect } = require("./api/db");
+const connection = require("./api/db");
 
 
 
