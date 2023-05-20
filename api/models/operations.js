@@ -44,7 +44,7 @@ class Operations {
     if (certified) {
       // we want to return  all test for the billingid from the test_ascention table to join testpanel table where testid = testid
 
-      const queryString = `SELECT ta.testid,tp.NAME,ta.billingid,ta.processing,ta.processing_date,ta.ready,ta.ready_date FROM test_ascension as ta INNER JOIN (SELECT * FROM test_panels) as tp ON ta.testid = tp.ID WHERE ta.billingid = ${this.billingid}`;
+      const queryString = `SELECT ta.testid,tp.NAME,ta.billingid,ta.processing,ta.processing_date,ta.ready,ta.ready_date FROM test_ascension as ta INNER JOIN (SELECT * FROM test_panels) as tp ON ta.testid = tp.ID WHERE ta.billingid = ${this.billingid} AND ta.collection = 'true'`;
 
       return new Promise((resolve, reject) => {
         connection.query(queryString, (err, result) => {

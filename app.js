@@ -195,7 +195,7 @@ app.get('/api/v1/testpanel/list/update', function (req, res) {
         if (err) { throw err }
         if (result) {
           res.send({
-            data: result.map( (i,index) => {
+            result: result.map( (i,index) => {
               let dataset  = {}
               // rewant to return all result in a pacticular string  format
                for (key in i ) {

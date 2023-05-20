@@ -2,6 +2,10 @@
 -- WHERE p.
 -- SELECT * from performing_test
 
+
+SELECT ta.testid,
+tp.NAME,ta.billingid,ta.processing,ta.processing_date,ta.ready,ta.ready_date FROM test_ascension as ta INNER JOIN test_panels as tp ON ta.testid = tp.ID WHERE ta.billingid = 25 AND ta.collection = 'true'
+
 -- SELECT CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS Fullname,
 --  ta.billingid,
 --  ta.ready,
@@ -48,4 +52,3 @@
 
 
 
-SELECT * FROM test_panels  AS tp INNER JOIN test_ascension as ta ON tp.ID = ta.testid WHERE ta.billingid = 31
