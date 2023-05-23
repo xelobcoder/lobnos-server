@@ -2,13 +2,17 @@ const router = require('express').Router();
 const connection = require('../db')
 const PrismaClient = require('@prisma/client').PrismaClient;
 const queries = require('../database/queries');
-const { getPhelobotomy, updatePhelobotomy } = require('../phelobotomy')
+const { getPhelobotomy, updatePhelobotomy, get_client_query } = require('../phelobotomy')
 
 
 router.route('/api/v1/phelobotomy')
   .get(function (req, res) {
     if (Object.keys(req.query).length == 0) {
       getPhelobotomy(req, res);
+    } else {
+      if (Object.keys(req.query == 1 && req.query.billingid)) {
+        get_client_query(req,res)
+      }
     }
   })
   .post(function (req, res) {
@@ -97,8 +101,6 @@ router.route('/api/v1/phelobotomy')
 
       checkifExist()
     }
-
-    console.log(req.body)
 
     queries
       .getsingleid(billingid, 'performing_test', 'BILLINGID')

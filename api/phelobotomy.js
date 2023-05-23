@@ -41,6 +41,43 @@ const getPhelobotomy = async (req, res) => {
   })
 }
 
+const get_client_query = function (req, res) {
+  let{ billingid } = req.query;
+
+  if (!billingid) {
+    res.send({
+      statusCode: 200,
+      status: 'success',
+      message: 'billingid required'
+    })
+  }
+
+  if (billingid) {
+    // parseint to ensure a valid integer is queried againts db
+    billingid = parseInt(billingid);
+
+    const query = `SELECT * FROM NEW_PATIENTS AS np
+    INNER JOIN BILLING AS b ON np.PATIENTID = b.PATIENTID
+    INNER JOIN PERFORMING_TEST AS p ON b.BILLINGID = p.BILLINGID
+    WHERE p.BILLINGID = ?`
+
+    connection.query(query, billingid,function (err, result) {
+      if (err) {
+        res.send({
+          message: 'error', statusCode: 500, message: err.sqlMessage
+        })
+      }
+      else {
+        res.send({
+          message: 'success',
+          statusCode: 200,
+          result
+        })
+      }
+    })
+  }
+}
+
 
 const updatePhelobotomy = async (id, content, status, alltaken, completedTime, req, res) => {
   let myquery = `UPDATE 
@@ -79,5 +116,6 @@ const updatePhelobotomy = async (id, content, status, alltaken, completedTime, r
 
 module.exports = {
   getPhelobotomy,
-  updatePhelobotomy
+  updatePhelobotomy,
+  get_client_query
 }
