@@ -1,6 +1,8 @@
 const router = require('express').Router();
-const{ Result} = require('../models/result')
-const pdf = require('../pdfGeneration/result');
+const { Result } = require('../models/result')
+// this api endpoint takes two query params , the billing id and the testid
+//  and checks if result have been entered 
+// get test result get the result 
 router.get('/api/v1/test/result/check', async function (req, res) {
   try {
     const { billingid, testname } = req.query;

@@ -987,4 +987,6 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
   }
 }
 
+
+
 module.exports ={ Result,beginTransaction,query,testTable};
