@@ -3,7 +3,7 @@ const ResultPrint = require('../models/ResultPrint');
 
 
 router.get('/api/v1/result/ready', async function(req,res) {
-   new ResultPrint(25).get_printables(req,res)
+   new ResultPrint().get_printables(req,res)
 })
 
 
