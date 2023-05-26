@@ -39,6 +39,7 @@ const supplyRouter = require("./api/controllers/supply");
 const settingsRouter = require("./api/controllers/settings");
 const User = require("./api/LobnosAuth/user");
 const LoginsRouter = require("./api/controllers/logins");
+const resultprintRouter = require('./api/controllers/printable')
 dotenv.config();
 
 app.listen(port, () => {
@@ -77,6 +78,7 @@ app.use(rejectedRouter);
 app.use(supplyRouter);
 app.use(settingsRouter);
 app.use(operationsRouter);
+app.use(resultprintRouter)
 app.use(resultChecker);
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });

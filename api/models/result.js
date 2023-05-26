@@ -444,7 +444,6 @@ class Result {
   }
 
   async pregnancyTest(records, response) {
-    console.log(records);
     const {
       method,
       reaction,
@@ -545,25 +544,12 @@ class Result {
         connection.query(
           updateQuery,
           [number, species, comments, billingid],
-          function (err, result) {
+           (err, result) => {
             if (err) {
-              throw err;
+              this.errMessage(err,response)
             }
             if (result) {
-              const { affectedRows } = result;
-              if (affectedRows > 0) {
-                response.send({
-                  status: "success",
-                  message: "record updated successfully",
-                  statusCode: 200,
-                });
-              } else {
-                response.send({
-                  status: "success",
-                  message: "No record updated",
-                  statusCode: 401,
-                });
-              }
+              this.pushResponse(result,response)
             }
           }
         );
