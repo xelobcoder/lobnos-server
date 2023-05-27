@@ -122,22 +122,39 @@ class ResultPrint {
        WHERE pt.DATE = ?
        `
 
-       function getTodayDate() {
+      function getTodayDate() {
          const currentDate = new Date();
          const year = currentDate.getFullYear();
          const month = String(currentDate.getMonth() + 1).padStart(2, '0');
          const day = String(currentDate.getDate()).padStart(2, '0');
          return `${year}-${month}-${day}`;
-       }
+      }
 
-       
+
       connection.query(query, [querydate || getTodayDate(), querydate || getTodayDate()], (err, result) => {
          if (err) {
             throw err;
          }
          else {
             if (result.length == 0) {
-               response.send(result)
+               response.send([
+                  {
+                     title: 'registered clients',
+                     value: 0
+                  },
+                  {
+                     title: 'processing test',
+                     value: 0
+                  },
+                  {
+                     title: 'collected test samples',
+                     value: 0
+                  },
+                  {
+                     title: 'test ready',
+                     value: 0
+                  }
+               ])
             }
             else {
                const processing = result.filter((item, index) => {
