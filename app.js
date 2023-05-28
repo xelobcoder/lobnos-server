@@ -197,13 +197,13 @@ app.get('/api/v1/testpanel/list/update', function (req, res) {
         if (err) { throw err }
         if (result) {
           res.send({
-            result: result.map( (i,index) => {
-              let dataset  = {}
+            result: result.map((i, index) => {
+              let dataset = {}
               // rewant to return all result in a pacticular string  format
-               for (key in i ) {
-                 dataset[key.toUpperCase()] = i[key]
-               }
-               return dataset
+              for (key in i) {
+                dataset[key.toUpperCase()] = i[key]
+              }
+              return dataset
             }),
             message: 'success',
             statusCode: 200
