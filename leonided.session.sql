@@ -1,21 +1,14 @@
 
-
-
--- SELECT 
--- pt.DATE,
--- (SELECT COUNT(*) FROM performing_test WHERE DATE = '2023-05-18') AS registered,
--- tt.collection,
--- pt.BILLINGID,
--- pt.PHELOBOTOMY_STATUS,
--- tt.ready,
--- tt.collection_date,
--- tt.processing,
--- tt.testid
---  FROM performing_test AS pt
--- INNER JOIN BILLING AS b ON b.billingid = pt.billingid
--- INNER JOIN test_ascension AS tt ON tt.billingid = b.BILLINGID
--- WHERE pt.DATE = '2023-05-18'
-
-
-
-SELECT * from performing_test WHERE DATE ='2023-05-27'
+SELECT np.PATIENTID,
+   b.BILLINGID AS BILLINGID,
+   b.OUTSTANDING,
+   b.DISCOUNT,
+   b.PAID_AMOUNT,
+   b.PAYABLE,
+   DATE(b.BILLED_ON) as DATE
+FROM new_patients AS np
+   INNER JOIN performing_test as pt ON pt.PATIENTID = np.PATIENTID
+   INNER JOIN billing as b ON b.BILLINGID = pt.BILLINGID
+WHERE MONTH(b.BILLED_ON) = 5 AND DATE(b.BILLED_ON) = '2023-05-07'
+ORDER BY b.BILLINGID DESC
+LIMIT 100
