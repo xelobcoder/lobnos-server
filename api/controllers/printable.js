@@ -26,6 +26,10 @@ router.get('/api/v1/billing/payment/info/client',
 );
 
 
+router.get('/api/v1/paymentmodes', function(request,response){
+   new Payment().paymentMode(request,response)
+})
+
 router.post('/api/v1/billing/payment/update', function(request,response) {
    new Payment().updatePayment(request,response);
 })

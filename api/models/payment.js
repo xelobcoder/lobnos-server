@@ -34,7 +34,7 @@ class Payment {
 				b.DISCOUNT AS discount,
 				b.PAID_AMOUNT AS paid_amount,
 				b.PAYABLE AS payable,
-				DATE(b.BILLED_ON) as date
+				DATE(pt.DATE) as date
 			FROM new_patients AS np
 			INNER JOIN performing_test as pt ON pt.PATIENTID = np.PATIENTID
 			INNER JOIN billing as b ON b.BILLINGID = pt.BILLINGID
@@ -48,17 +48,17 @@ class Payment {
 
 
 		if (month && patientid) {
-			modelQuery += ` AND MONTH(b.BILLED_ON) = ${months[month]}`;
+			modelQuery += ` AND MONTH(pt.DATE) = ${months[month]}`;
 		} else if (month) {
-			modelQuery += ` WHERE MONTH(b.BILLED_ON) = ${months[month]}`
+			modelQuery += ` WHERE MONTH(pt.DATE) = ${months[month]}`
 		} else {
 			modelQuery = modelQuery
 		}
 
 		if ((date && !patientid && !month)) {
-			modelQuery += ` WHERE DATE(b.BILLED_ON) = '${date}'`
+			modelQuery += ` WHERE DATE(pt.DATE) = '${date}'`
 		} else if ((date && patientid) || (date && month)) {
-			modelQuery += ` AND DATE(b.BILLED_ON) = '${date}'`
+			modelQuery += ` AND DATE(pt.DATE) = '${date}'`
 		} else {
 			modelQuery = modelQuery
 		}
@@ -116,24 +116,36 @@ class Payment {
 						const nOutstanding = result[0]['PAYABLE'] - newAmount;
 
 						const updateQuery = `UPDATE BILLING 
-							SET  PAYMENT_MODE = ? ,
-							OUTSTANDING = ?,
+							SET OUTSTANDING = ?,
 							PAID_AMOUNT = ?
 							WHERE BILLINGID = ?
 							`
 
-						const values = [paymentMode, nOutstanding, newAmount, billingid]
+						const values = [nOutstanding, newAmount, billingid]
 
 						connection.query(updateQuery, values, function (err, result) {
 							if (err) {
 								throw err;
 							}
 							else {
-								response.send({
-									message: 'Payment update successfully',
-									status: 'success',
-									statusCode: 200
-								})
+								// update paymentHx to have a transaction hx of the client in terms of that billingid 
+								const { affectedRows } = result;
+
+								if (affectedRows == 1) {
+									const updateHxQuery = `INSERT INTO billingHx (BILLINGID,paymentmode,amount) VALUES (?,?,?)`;
+									connection.query(updateHxQuery, [billingid, paymentMode, pay], (err, result) => {
+										if (err) {
+											throw err;
+										}
+										else {
+											response.send({
+												message: 'Payment update successfully',
+												status: 'success',
+												statusCode: 200
+											})
+										}
+									})
+								}
 							}
 						})
 					}
@@ -141,6 +153,18 @@ class Payment {
 			}
 		})
 
+	}
+	paymentMode = async (request, response) => {
+		connection.query(`SELECT * FROM PAYMENTMODES`, (err, result) => {
+			if (err) {
+				throw err;
+			}
+			response.send({
+				data: result || [],
+				status: 'success',
+				statusCode: 200
+			})
+		})
 	}
 }
 
