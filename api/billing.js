@@ -15,65 +15,91 @@ const prisma = new PrismaClient();
  * @param {string} samplingCenter name of the sampling center
  * @returns 
  */
-const addperformingTest = (patientid, billingid, test, urgency, res, samplingCenter) => {
-  // check if test is an array or a string , if string,check to see if is not empty
-  const isValid = Array.isArray(test) || (typeof test == 'string' && test != '') ? true : false;
+const addperformingTest = (patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res) => {
+  // // check if test is an array or a string , if string,check to see if is not empty
+  // const isValid = Array.isArray(test) || (typeof test == 'string' && test != '') ? true : false;
   // if test is an array
-  if (isValid) {
-    // sanitize test array
-    const sanitize = function (test) {
-      // if an array
-      if (Array.isArray(test)) {
-        // convert to string
-        return test.join(',');
+  // if patient id and billing id are not empty
+  if (patientid != '' && billingid != '') {
+    // push data into performing test table
+    let values = [
+      patientid,
+      billingid,
+      urgency,
+      samplingCenter,
+    ];
+    let sql = `INSERT INTO performing_test (PATIENTID,BILLINGID,URGENCY,SAMPLING_CENTER) VALUES (?,?,?,?)`;
+    connection.query(sql, values, (err, result) => {
+      if (err) {
+        throw err;
       }
-      // if a string
-      return test;
-    }
-    // if patient id and billing id are not empty
-    if (patientid != '' && billingid != '') {
-      // push data into performing test table
-      let values = [
-        patientid,
-        billingid,
-        sanitize(test),
-        urgency,
-        samplingCenter,
-      ];
-      let sql = `INSERT INTO performing_test (PATIENTID,BILLINGID,TEST,URGENCY,SAMPLING_CENTER) VALUES (?,?,?,?,?)`;
-      connection.query(sql, values, (err, result) => {
-        if (err) throw err;
-        res.status(200).json({ message: "success", statusCode: 201 });
-      });
-    } else {
-      return `${patientid} or ${billingid} not provided`
-    }
+      else {
+        billingHx(billingid, paymentmode, paid, test, res)
+      }
+    });
   } else {
-    return 'invalid data types provided'
+    return `${patientid} or ${billingid} not provided`
   }
+}
 
+
+const AddtoTestAscenstion = function (test, billingid, res) {
+  const insertion = function (billingid, testid) {
+    connection.query(`INSERT INTO TEST_ASCENSION (BILLINGID,TESTID) VALUES (?,?)`, [billingid, testid], function (err, result) {
+      if (err) { throw err }
+      console.log(result)
+    })
+  }
+  if (Array.isArray(test)) {
+    let count = 0;
+    test.forEach((item, index) => { insertion(billingid, item); count++ })
+    setTimeout(function () {
+      if (count == test.length) {
+        res.status(200).json({
+          message: 'insertion successfully',
+          statusCode: 200,
+          status: 'success'
+        })
+      }
+    }, 500)
+  }
+}
+
+
+const billingHx = function (billingid, paymentmode, paid, test, res) {
+  // insert to billing hx 
+  const hxStatement = `INSERT INTO BILLINGHX (BILLINGID,PAYMENTMODE,AMOUNT) VALUES (?,?,?)`;
+
+  connection.query(hxStatement, [billingid, paymentmode, paid], function (err, result) {
+    if (err) {
+      throw err;
+    }
+    AddtoTestAscenstion(test, billingid, res)
+  })
 }
 
 // add new billing
-const addBilling = (req, res) => {
+const addBilling = async (req, res) => {
   const { patientid, clinicians, organizations, test, cost, paid, urgency, discount, paymentmode, samplingCenter } = req.body;
 
   // get outstanding balance
-  let outstanding = parseInt(cost) - parseInt(discount) - parseInt(paid);
+  let outstanding = cost - discount - paid;
   // get type
   let type = paymentmode == 'invoice' ? 'POSTPAID' : 'PREPAID';
   // billing data
-  let values = [parseInt(patientid), clinicians, organizations, paid, cost, paymentmode, type, outstanding, parseInt(discount)];
+  let values = [parseInt(patientid), clinicians, organizations, paid, cost, type, outstanding, parseInt(discount)];
 
-  // insert billing data into billing table
-  let sql = `INSERT INTO billing (PATIENTID,CLINICIAN,ORGANIZATION,PAID_AMOUNT,PAYABLE,PAYMENT_MODE,TYPE,OUTSTANDING,DISCOUNT) VALUES (?,?,?,?,?,?,?,?,?)`;
+
+
+  // insert billing data into billing stable
+  let sql = `INSERT INTO billing (PATIENTID,CLINICIAN,ORGANIZATION,PAID_AMOUNT,PAYABLE,TYPE,OUTSTANDING,DISCOUNT) VALUES (?,?,?,?,?,?,?,?)`;
 
   connection.query(sql, values, (err, result) => {
     if (err) throw err;
     if (result) {
       let billingid = result.insertId;
       // add test to performing test
-      addperformingTest(patientid, billingid, test, urgency, res, samplingCenter);
+      addperformingTest(patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res)
     }
   })
 
@@ -139,14 +165,11 @@ const getBilledClients = function (request, response) {
   })
 }
 
-
 const updateBilling = async function (request, response) {
   try {
     const { test, totalcost, patientid, billingid, outstanding } = request.body;
 
-
-    const getTestString = Array.isArray(test) == true ? (test.map((item, index) => { return item.name })).join(',') : test
-
+    const getTestString = Array.isArray(test) ? test.map(item => item.name).join(',') : test;
 
 
     const updateCurrentBill = `UPDATE BILLING 
@@ -155,97 +178,81 @@ const updateBilling = async function (request, response) {
     UPDATED = '${new Date().getTime()}'
     WHERE BILLINGID = ${billingid}`;
 
-    let mysql = `UPDATE performing_test
+    const updatePerformingTest = `UPDATE performing_test
     SET TEST = '${getTestString}' WHERE BILLINGID = ${billingid}`;
 
+    connection.beginTransaction(function (err) {
+      if (err) { throw err; }
 
+      connection.query(updateCurrentBill, function (error, results, fields) {
+        if (error) {
+          return connection.rollback(function () {
+            throw error;
+          });
+        }
 
-
-
-    const updateTestascensionTable = async function (array) {
-      try {
-        // we will delete previous records if it isnt in this record once the processing havent yet started
-        const checkQuery = `SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`
-        const insertionRecord = `INSERT INTO TEST_ASCENSION (BILLINGID,TESTID) VALUES(?,?)`;
-        const clientTestID = test.map((i, t) => { return i.testid });
-
-        clientTestID.forEach((id) => {
-          // check if id exist 
-          connection.query(checkQuery, [billingid, id], (err, result) => {
-            if (err) { throw err };
-            if (result.length == 0) {
-              connection.query(insertionRecord, [billingid, id], (err, result) => {
-                if (err) { throw err }
-                if (result) {
-                  console.log('done')
-                }
-              })
-            }
-          })
-        })
-
-        // get all testid from test ascension with this billingid
-        // compare with client and remove those that arent in the client collection
-        connection.query(`SELECT TESTID FROM TEST_ASCENSION WHERE BILLINGID = ?`, billingid, (err, result) => {
+        connection.query(updatePerformingTest, function (err, results, fields) {
           if (err) {
-            throw err;
+            return connection.rollback(function () {
+              throw err;
+            });
           }
-          let testCollection = result.length > 0 ? result.map((i) => { return i.TESTID }) : []
 
-          //  remove all testid that is not in the clientid
-          testCollection.forEach((current, index) => {
-            if (clientTestID.includes(current)) {
-              return
-            } else {
-              const removeStatement = `DELETE FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`
-              connection.query(removeStatement, [billingid, current], function (err, result) {
-                if (err) {
-                  throw err;
-                }
-                console.log('deleted')
-              })
+          connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ?`, [billingid], function (err, result) {
+            if (err) {
+              return connection.rollback(function () {
+                throw err;
+              });
             }
+
+            if (Array.isArray(result) && result.length > 0) {
+              const db_testid = result.map((item, index) => { return item.testid })
+              const testidArray = test.map((item, index) => { return item.testid })
+              console.log(db_testid, testidArray)
+              // delete all testid that are in db_testid and are not in the database  from the db
+              const removeStatement = `DELETE FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`;
+
+              const addStatement = `INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (?,?)`;
+
+              for (let i = 0; i < db_testid.length; i++) {
+                if (testidArray.includes(db_testid[i])) {
+                  console.log(`${db_testid[i]} found in current list hence skipping......`)
+                }
+                else {
+                  connection.query(removeStatement, [billingid, testidArray[i]], function (err, result) {
+                    if (err) {
+                      return connection.rollback(function () {
+                        throw err;
+                      })
+                    }
+                    console.log('removing statement')
+                  })
+                }
+              }
+            }
+
+            connection.commit(function (err) {
+              if (err) {
+                return connection.rollback(function () {
+                  throw err;
+                });
+              }
+              console.log('Transaction completed successfully.');
+            });
+
           })
-        })
 
 
-      }
-      catch (err) {
-        console.log(err)
-      }
-    }
-
-    // there is high possibillity that at the time ,test will be updated , the previous test would in operations and hence we must add this to the test ascension table for it to reflect and the give the lab scientist opportunity to use their discretion to ask for new sample or use already taken sample
-
-
-
-    await beginTransaction();
-    await query(updateCurrentBill)
-    await query(mysql);
-    await updateTestascensionTable();
-
-    connection.commit(function (err) {
-      if (err) {
-        connection.rollback()
-        response.send({
-          statusCode: 500,
-          status: 'error',
-          message: 'error in updating information'
-        })
-      } else {
-        response.send({
-          status: "success",
-          statusCode: 200,
-          message: "updates  successful",
-        })
-      }
-    })
+        });
+      });
+    });
 
   }
   catch (err) {
     console.log(err)
   }
 }
+
 
 module.exports = {
   addBilling,

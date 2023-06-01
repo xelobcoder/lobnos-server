@@ -26,6 +26,9 @@ class Payment {
 		let modelQuery = `
 			SELECT 
 				np.PATIENTID AS patientid,
+				CONCAT(np.FIRSTNAME,' ',np.MIDDLENAME,' ',np.LASTNAME) AS fullname,
+				np.EMAIL AS email,
+				CONCAT(0,np.MOBILE_NUMBER) AS mobileNumber,
 				b.BILLINGID AS billingid,
 				b.OUTSTANDING AS outstanding,
 				b.DISCOUNT AS discount,
@@ -66,7 +69,6 @@ class Payment {
 			LIMIT 100
 		`;
 
-	
 
 		connection.query(modelQuery, (err, result) => {
 			if (err) {
@@ -83,6 +85,62 @@ class Payment {
 				});
 			}
 		});
+	}
+
+
+	updatePayment = async (request, response) => {
+		// get the current billing billinfo
+		// update the record and update the database 
+		// 1.
+		const { billingid, outstanding, pay, paymentMode } = request.body;
+
+		connection.query(`SELECT * FROM BILLING WHERE BILLINGID = ${billingid}`, function (err, result) {
+			if (err) {
+				throw err;
+			}
+
+			if (result) {
+				if (result.length > 0) {
+					const previousPayment = result[0]['PAID_AMOUNT']
+					const oldstanding = result[0]['OUTSTANDING'];
+
+					if (oldstanding <= 0) {
+						response.send({
+							status: 'success',
+							statusCode: 200,
+							message: 'Client is in good standing'
+						})
+					}
+					else {
+						const newAmount = previousPayment + parseInt(pay);
+						const nOutstanding = result[0]['PAYABLE'] - newAmount;
+
+						const updateQuery = `UPDATE BILLING 
+							SET  PAYMENT_MODE = ? ,
+							OUTSTANDING = ?,
+							PAID_AMOUNT = ?
+							WHERE BILLINGID = ?
+							`
+
+						const values = [paymentMode, nOutstanding, newAmount, billingid]
+
+						connection.query(updateQuery, values, function (err, result) {
+							if (err) {
+								throw err;
+							}
+							else {
+								response.send({
+									message: 'Payment update successfully',
+									status: 'success',
+									statusCode: 200
+								})
+							}
+						})
+					}
+				}
+			}
+		})
+
 	}
 }
 

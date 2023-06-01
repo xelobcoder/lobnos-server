@@ -1,4 +1,5 @@
 const connection = require("./db");
+const { rejectedSample } = require("./models/rejected");
 
 
 let filteredTest_in_date = function (test, res) {
@@ -26,13 +27,24 @@ let filteredTest_in_date = function (test, res) {
 
 const getPhelobotomy = async (req, res) => {
   let myquery = `
-  SELECT DISTINCT *
-      FROM new_patients AS p
-      INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
-      INNER JOIN performing_test as t ON b.BILLINGID = t.BILLINGID
-      WHERE t.PHELOBOTOMY_STATUS = 'QUEUE'
-      AND p.ACTIVATION_STATUS = 'TRUE'
-      AND t.DATE = CURDATE() GROUP BY t.ID ORDER BY t.ID DESC
+  SELECT 
+      CONCAT(p.FIRSTNAME," ",p.MIDDLENAME," ",p.LASTNAME) AS FULLNAME,
+      p.PATIENTID,
+      CONCAT(p.AGE," ", p.AGETYPE) AS AGE,
+      p.GENDER,
+      p.MOBILE_NUMBER AS MOBILENUMBER,
+      b.BILLINGID AS BILLINGID,
+      DATE(t.DATE) AS DATE,
+      t.URGENCY as URGENCY
+  FROM new_patients AS p
+    INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
+    INNER JOIN performing_test as t ON b.BILLINGID = t.BILLINGID
+    INNER JOIN test_ascension as ts ON b.BILLINGID = ts.BILLINGID
+    INNER JOIN test_panels as v ON v.ID = ts.TESTID
+  WHERE ts.collection = 'false'
+    AND t.DATE = CURDATE()
+  GROUP BY b.BILLINGID
+  ORDER BY b.BILLINGID DESC LIMIT 100
   `;
 
   connection.query(myquery, (err, result) => {
@@ -42,7 +54,7 @@ const getPhelobotomy = async (req, res) => {
 }
 
 const get_client_query = function (req, res) {
-  let{ billingid } = req.query;
+  let { billingid } = req.query;
 
   if (!billingid) {
     res.send({
@@ -61,7 +73,7 @@ const get_client_query = function (req, res) {
     INNER JOIN PERFORMING_TEST AS p ON b.BILLINGID = p.BILLINGID
     WHERE p.BILLINGID = ?`
 
-    connection.query(query, billingid,function (err, result) {
+    connection.query(query, billingid, function (err, result) {
       if (err) {
         res.send({
           message: 'error', statusCode: 500, message: err.sqlMessage
@@ -95,27 +107,80 @@ const updatePhelobotomy = async (id, content, status, alltaken, completedTime, r
 }
 
 
-// function handler(req, res) {
-//   let method = req.method;
-//   switch (method) {
-//     case 'GET':
-//       if (Object.keys(req.query).length == 0) {
-//         getPhelobotomy(req, res);
-//       }
-//       break;
-//     case 'PUT':
-//       const { clientid, content, status ,alltaken,completedTime} = JSON.parse(req.body);
-//       console.log(clientid, content, status);
-//       updatePhelobotomy(clientid, content, status, alltaken, completedTime,req, res);
-//       break;
-//     default:
-//       res.status(405).send(`Method ${method} Not Allowed`);
-//   }
-// }
+const postSection = function (request, response) {
+  const { testInfo, message, alltaken, billingid } = request.body;
+
+  //1. update test test_ascension 
+  // 2. upate performing test
+  const checkifExist = function (billingid, testid, collected) {
+    connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`, [billingid, testid], function (err, result) {
+      if (err) {
+        throw err;
+      }
+      else {
+        updateResult(billingid, testid, collected)
+      }
+    })
+  }
+
+
+
+  const updateResult = function (billingid, testid, collected) {
+    if (collected === true) {
+      const updateStatement = `UPDATE TEST_ASCENSION SET COLLECTION = 'true',
+      COLLECTION_DATE = CURDATE() WHERE BILLINGID = ? AND TESTID =? `
+
+      connection.query(updateStatement, [billingid, testid], function (err, result) {
+        if (err) {
+          throw err;
+        }
+        else {
+          console.log(result)
+        }
+      })
+    }
+
+  }
+
+
+  if (Array.isArray(testInfo)) {
+    for (let i = 0; i <= testInfo.length; i++) {
+      const { billingid, testid, collected } = testInfo[i];
+      checkifExist(billingid, testid, collected)
+    }
+  } else {
+    response.send({
+      message: `${testInfo}, an array expected`,
+      status: 'error', statusCode: 401
+    })
+  }
+
+}
+
+const getAscensionWithDetails = async function (billingid, response) {
+  const statement = `SELECT * FROM test_ascension AS t 
+  INNER JOIN test_panels AS p
+  ON t.testid = p.ID
+  WHERE billingid = ${billingid}`;
+
+  connection.query(statement, function (err, result) {
+    if (err) {
+      throw err;
+    }
+
+    response.send({
+      result,
+      status: 'success',
+      statusCode: 200
+    })
+  })
+}
 
 
 module.exports = {
   getPhelobotomy,
   updatePhelobotomy,
-  get_client_query
+  get_client_query,
+  postSection,
+  getAscensionWithDetails
 }

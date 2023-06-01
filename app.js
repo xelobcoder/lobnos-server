@@ -160,10 +160,8 @@ app.put('/api/v1/register', (req, res) => {
 })
 
 app.get("/api/v1/activation", (req, res) => {
-  if (
-    Object.keys(req.query).includes("action") &&
-    Object.keys(req.query).includes("patientid")
-  ) {
+  const Keys = Object.keys(req.query);
+  if (Keys.includes("action") && Keys.includes("patientid")) {
     activation.activateDeactivate(req, res);
   } else {
     activation.getPartialData(req, res);

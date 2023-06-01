@@ -26,4 +26,9 @@ router.get('/api/v1/billing/payment/info/client',
 );
 
 
+router.post('/api/v1/billing/payment/update', function(request,response) {
+   new Payment().updatePayment(request,response);
+})
+
+
 module.exports = router;
