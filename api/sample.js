@@ -84,18 +84,14 @@ class SampleHandler {
   }
   getRecords() {
     let SQL_QUERY = `
-   SELECT DISTINCT p.SAMPLE_STATUS,
+    SELECT 
       p.PATIENTID,
+      CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS FULLNAME,
+      p.SAMPLE_STATUS,
       p.BILLINGID,
-      CONCAT(np.FIRSTNAME,' ', np.LASTNAME,' ',np.MIDDLENAME) as FULLNAME,
-      p.DATE,
-      p.TEST,
-      p.MESSAGE,
-      p.ID
-     FROM PERFORMING_TEST as p
-      join billing as b ON p.PATIENTID = b.PATIENTID
-      join new_patients as np ON p.PATIENTID = np.PATIENTID
-      ORDER BY p.BILLINGID DESC LIMIT 100
+      p.DATE
+    FROM performing_test AS p
+    INNER JOIN new_patients AS np ON p.PATIENTID = np.PATIENTID WHERE p.SAMPLE_STATUS = 'PENDING' ORDER BY p.DATE DESC LIMIT 100
   `;
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
@@ -108,29 +104,26 @@ class SampleHandler {
     // update performing test table first
     // update sample table to reflect change in status
     // return update records for changes to UI
-    let query = function (status, billingid, message = '') {
-      const query_accepted = `
-    UPDATE PERFORMING_TEST 
-    SET SAMPLE_STATUS = '${status}',
-     INSPECTION_TIME = NOW(),
-     INSPECTOR = 'Dr Tiifu Hamza'
-     WHERE BILLINGID = '${billingid}'`;
-
-      const query_rejected = `
-    UPDATE PERFORMING_TEST
-    SET SAMPLE_STATUS = '${status}',
-      INSPECTION_TIME = NOW(),
-      INSPECTOR = 'Dr Tiifu Hamza',
-      MESSAGE = '${message}'
-    WHERE BILLINGID = '${billingid}'`;
-
-      return status == 'ACCEPTED' ? query_accepted : query_rejected;
+    let query = `
+    UPDATE PERFORMING_TEST SET 
+    SAMPLE_STATUS = '${status}',
+    INSPECTION_TIME = NOW(),
+    INSPECTOR =  'Dr Tiifu Hamza Kojo Boronson'
+    `
+    if (message != '') {
+      query += `,MESSAGE = '${message}'`
     }
 
-    connection.query(query(status, billingid, message), (err, result) => {
+    query += ` WHERE BILLINGID = ${billingid}`
+
+    connection.query(query, [status, message, billingid], (err, result) => {
       if (err) throw err;
       else {
-        this.response.send(result);
+        this.response.send({
+          status: 'success',
+          statusCode: 200,
+          result: result.affectedRows
+        });
       }
     });
   }

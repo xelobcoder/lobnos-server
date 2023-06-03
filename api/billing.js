@@ -169,17 +169,12 @@ const updateBilling = async function (request, response) {
   try {
     const { test, totalcost, patientid, billingid, outstanding } = request.body;
 
-    const getTestString = Array.isArray(test) ? test.map(item => item.name).join(',') : test;
-
+    console.log(request.body)
 
     const updateCurrentBill = `UPDATE BILLING 
-    SET PAYABLE = ${totalcost},
-    OUTSTANDING = ${outstanding},
-    UPDATED = '${new Date().getTime()}'
+        SET PAYABLE = ${totalcost},
+        OUTSTANDING = ${outstanding}
     WHERE BILLINGID = ${billingid}`;
-
-    const updatePerformingTest = `UPDATE performing_test
-    SET TEST = '${getTestString}' WHERE BILLINGID = ${billingid}`;
 
     connection.beginTransaction(function (err) {
       if (err) { throw err; }
@@ -191,67 +186,84 @@ const updateBilling = async function (request, response) {
           });
         }
 
-        connection.query(updatePerformingTest, function (err, results, fields) {
+        connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ?`, [billingid], function (err, result) {
           if (err) {
             return connection.rollback(function () {
               throw err;
             });
           }
 
-          connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ?`, [billingid], function (err, result) {
+          if (Array.isArray(result) && result.length > 0) {
+            const db_testid = result.map((item, index) => { return item.testid })
+            const testidArray = test.map((item, index) => { return item.testid })
+            // delete all testid that are in db_testid and are not in the database  from the db
+            const toDelete = [];
+            const toAdd = [];
+            for (let i = 0; i < db_testid.length; i++) {
+              if (testidArray.includes(db_testid[i])) {
+                console.log(`${db_testid[i]} found in current list hence skipping......`)
+              }
+              else {
+                toDelete.push(db_testid[i])
+              }
+            }
+
+            toDelete.forEach((item, index) => {
+              const removeStatement = `DELETE FROM TEST_ASCENSION WHERE BILLINGID = ${billingid} AND TESTID = ${item}`;
+              connection.query(removeStatement, function (err, result) {
+                if (err) {
+                  return connection.rollback(function () {
+                    throw err;
+                  })
+                }
+              })
+            })
+
+
+            for (let i = 0; i < testidArray.length; i++) {
+              if (db_testid.includes(testidArray[i])) {
+                console.log(`${testidArray[i]} of testarray found in current list hence skipping......`)
+              } else {
+                toAdd.push(testidArray[i])
+              }
+            }
+
+            toAdd.forEach((item, index) => {
+              const addStatement = `INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (${billingid},${item})`;
+              connection.query(addStatement, function (err, result) {
+                if (err) {
+                  return connection.rollback(function () {
+                    throw err;
+                  })
+                }
+                console.log(result)
+              })
+            })
+          }
+
+
+
+          connection.commit(function (err) {
             if (err) {
               return connection.rollback(function () {
                 throw err;
               });
             }
-
-            if (Array.isArray(result) && result.length > 0) {
-              const db_testid = result.map((item, index) => { return item.testid })
-              const testidArray = test.map((item, index) => { return item.testid })
-              console.log(db_testid, testidArray)
-              // delete all testid that are in db_testid and are not in the database  from the db
-              const removeStatement = `DELETE FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`;
-
-              const addStatement = `INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (?,?)`;
-
-              for (let i = 0; i < db_testid.length; i++) {
-                if (testidArray.includes(db_testid[i])) {
-                  console.log(`${db_testid[i]} found in current list hence skipping......`)
-                }
-                else {
-                  connection.query(removeStatement, [billingid, testidArray[i]], function (err, result) {
-                    if (err) {
-                      return connection.rollback(function () {
-                        throw err;
-                      })
-                    }
-                    console.log('removing statement')
-                  })
-                }
-              }
-            }
-
-            connection.commit(function (err) {
-              if (err) {
-                return connection.rollback(function () {
-                  throw err;
-                });
-              }
-              console.log('Transaction completed successfully.');
-            });
-
-          })
-
-
+            response.send({
+              message: 'update successful',
+              statusCode: 200,
+              status: 'success'
+            })
+          });
         });
       });
     });
 
-  }
-  catch (err) {
+  } catch (err) {
     console.log(err)
   }
 }
+
 
 
 module.exports = {

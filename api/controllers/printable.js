@@ -21,17 +21,17 @@ router.get('/api/v1/result/ready/crm/summary', (req, res) => {
 
 router.get('/api/v1/billing/payment/info/client',
    (request, response) => {
-   new Payment().getClientTransactionInformation(request,response)
-  }
+      new Payment().getClientTransactionInformation(request, response)
+   }
 );
 
 
-router.get('/api/v1/paymentmodes', function(request,response){
-   new Payment().paymentMode(request,response)
+router.get('/api/v1/paymentmodes', function (request, response) {
+   new Payment().paymentMode(request, response)
 })
 
-router.post('/api/v1/billing/payment/update', function(request,response) {
-   new Payment().updatePayment(request,response);
+router.post('/api/v1/billing/payment/update', function (request, response) {
+   new Payment().updatePayment(request, response);
 })
 
 
