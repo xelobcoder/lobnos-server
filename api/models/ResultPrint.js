@@ -111,7 +111,6 @@ class ResultPrint {
        pt.BILLINGID,
        tt.collection,
        (SELECT COUNT(*) FROM performing_test WHERE DATE = ?) AS registered,
-       pt.PHELOBOTOMY_STATUS,
        tt.ready,
        tt.collection_date,
        tt.processing,
@@ -158,7 +157,7 @@ class ResultPrint {
             }
             else {
                const processing = result.filter((item, index) => {
-                  return item.processing == 'true' && item.ready == 'false'
+                  return item.processing == 'true' 
                }).length
                const ready = result.filter((item, index) => {
                   return item.processing == 'true' && item.ready == 'true'

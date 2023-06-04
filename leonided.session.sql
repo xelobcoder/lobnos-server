@@ -1,17 +1,13 @@
-  SELECT 
-      CONCAT(p.FIRSTNAME," ",p.MIDDLENAME," ",p.LASTNAME) AS FULLNAME,
-      p.PATIENTID,
-      CONCAT(p.AGE," ", p.AGETYPE) AS AGE,
-      p.GENDER,
-      p.MOBILE_NUMBER AS MOBILENUMBER,
-      b.BILLINGID AS BILLINGID,
-      DATE(t.DATE) AS DATE,
-      t.URGENCY as URGENCY
-  FROM new_patients AS p
-    INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
-    INNER JOIN performing_test as t ON b.BILLINGID = t.BILLINGID
-    INNER JOIN test_ascension as ts ON b.BILLINGID = ts.BILLINGID
-    INNER JOIN test_panels as v ON v.ID = ts.TESTID
-  WHERE ts.collection = 'false'
-  GROUP BY b.BILLINGID
-  ORDER BY b.BILLINGID DESC LIMIT 100
+SELECT 
+       pt.DATE,
+       pt.BILLINGID,
+       tt.collection,
+       (SELECT COUNT(*) FROM performing_test WHERE DATE = '2023-06-04') AS registered,
+       tt.ready,
+       tt.collection_date,
+       tt.processing,
+       tt.testid
+        FROM performing_test AS pt
+       INNER JOIN BILLING AS b ON b.billingid = pt.billingid
+       INNER JOIN test_ascension AS tt ON tt.billingid = b.BILLINGID
+       WHERE pt.DATE = '2023-06-04'
