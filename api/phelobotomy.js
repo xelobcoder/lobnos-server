@@ -1,3 +1,4 @@
+const { response } = require("express");
 const connection = require("./db");
 const { rejectedSample } = require("./models/rejected");
 
@@ -42,14 +43,13 @@ const getPhelobotomy = async (req, res) => {
     INNER JOIN test_ascension as ts ON b.BILLINGID = ts.BILLINGID
     INNER JOIN test_panels as v ON v.ID = ts.TESTID
   WHERE ts.collection = 'false'
-    AND t.DATE = CURDATE()
   GROUP BY b.BILLINGID
   ORDER BY b.BILLINGID DESC LIMIT 100
   `;
 
   connection.query(myquery, (err, result) => {
     if (err) throw err;
-    filteredTest_in_date(result, res);
+    res.send(result)
   })
 }
 

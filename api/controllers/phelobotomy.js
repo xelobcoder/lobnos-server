@@ -1,21 +1,22 @@
 const router = require('express').Router();
 const connection = require('../db')
 const queries = require('../database/queries');
-const { getPhelobotomy, updatePhelobotomy,postSection, get_client_query, getAscensionWithDetails } = require('../phelobotomy')
+const { getPhelobotomy, updatePhelobotomy, postSection, get_client_query, getAscensionWithDetails } = require('../phelobotomy')
 
 
 router.route('/api/v1/phelobotomy')
   .get(function (req, res) {
-    if (Object.keys(req.query).length == 0) {
+    const Keys = Object.keys(req.query).length == 0;
+    if (Keys) {
       getPhelobotomy(req, res);
     } else {
-      if (Object.keys(req.query == 1 && req.query.billingid)) {
+      if (!Keys && req.query.billingid) {
         get_client_query(req, res)
       }
     }
   })
   .post(function (req, res) {
-    postSection(req,res);
+    postSection(req, res);
   })
   .put(function (req, res) {
     const { clientid, content, status, alltaken, completedTime } = req.body;

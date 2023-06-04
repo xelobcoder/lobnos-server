@@ -144,7 +144,28 @@ const checkifActivated = function (request, response) {
 
 
 const getBilledClients = function (request, response) {
-  const mysql = `SELECT * FROM billing ORDER BY BILLINGID DESC LIMIT 100`;
+  const mysql = `
+   SELECT b.BILLINGID AS BILLINGID,
+        b.PAID_AMOUNT AS PAID,
+        b.PAYABLE,
+        b.PATIENTID,
+        b.TYPE,
+        b.OUTSTANDING,
+        b.DISCOUNT,
+        DATE(p.DATE) AS DATE,
+        c.NAME AS CLINICIAN,
+        pm.PaymentMode AS PAYMENT_MODE,
+        o.NAME AS ORGANIZATION
+    FROM billing AS b
+        INNER JOIN performing_test AS p ON b.PATIENTID = p.PATIENTID
+        INNER JOIN organization AS o ON o.ID = B.ORGANIZATION
+        INNER JOIN clinician AS c ON c.ID = b.CLINICIAN
+        INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
+        INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
+    GROUP BY b.BILLINGID
+    ORDER BY B.BILLINGID DESC
+    LIMIT 100
+  `;
 
   connection.query(mysql, function (err, result) {
     if (err) {

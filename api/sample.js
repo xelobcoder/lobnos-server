@@ -84,14 +84,18 @@ class SampleHandler {
   }
   getRecords() {
     let SQL_QUERY = `
-    SELECT 
-      p.PATIENTID,
-      CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS FULLNAME,
-      p.SAMPLE_STATUS,
-      p.BILLINGID,
-      p.DATE
-    FROM performing_test AS p
-    INNER JOIN new_patients AS np ON p.PATIENTID = np.PATIENTID WHERE p.SAMPLE_STATUS = 'PENDING' ORDER BY p.DATE DESC LIMIT 100
+        SELECT 
+          p.PATIENTID,
+          CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS FULLNAME,
+          p.SAMPLE_STATUS,
+          p.BILLINGID,
+          p.DATE
+        FROM performing_test AS p
+          INNER JOIN new_patients AS np ON p.PATIENTID = np.PATIENTID 
+          INNER JOIN test_ascension AS ts ON ts.billingid = p.BILLINGID
+        WHERE p.SAMPLE_STATUS = 'PENDING' AND ts.collection = 'true'
+        GROUP BY p.BILLINGID
+          ORDER BY p.DATE DESC LIMIT 100
   `;
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
