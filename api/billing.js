@@ -68,14 +68,18 @@ const AddtoTestAscenstion = function (test, billingid, res) {
 
 const billingHx = function (billingid, paymentmode, paid, test, res) {
   // insert to billing hx 
-  const hxStatement = `INSERT INTO BILLINGHX (BILLINGID,PAYMENTMODE,AMOUNT) VALUES (?,?,?)`;
+  if (parseInt(paid) != 0) {
+    const hxStatement = `INSERT INTO BILLINGHX (BILLINGID,PAYMENTMODE,AMOUNT) VALUES (?,?,?)`;
 
-  connection.query(hxStatement, [billingid, paymentmode, paid], function (err, result) {
-    if (err) {
-      throw err;
-    }
+    connection.query(hxStatement, [billingid, paymentmode, paid], function (err, result) {
+      if (err) {
+        throw err;
+      }
+    })
     AddtoTestAscenstion(test, billingid, res)
-  })
+  } else {
+    AddtoTestAscenstion(test, billingid, res)
+  }
 }
 
 // add new billing

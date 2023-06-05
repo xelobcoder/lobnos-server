@@ -1,75 +1,66 @@
-import connection from '../db.js';
-import fs from 'fs';
-import path from 'path'
+const connection = require("../db.js");
 
-let SQL_QUERY_ALL = 'SELECT * FROM companyprofile';
+let SQL_QUERY_ALL = "SELECT * FROM companyprofile";
+let SQL_QUERY_INSERT = `INSERT INTO companyprofile (NAME,EMAIL,MOTTO,PHONENUMBER,ADDRESS) VALUES (?,?,?,?,?)`;
 
-export default function handler(req, res) {
-   if (req.method == 'POST') {
-      const { target, name, motto, email, phonenumber, address } = JSON.parse(req.body)
-      console.log(target)
-      if (target && target == 'profile') {
-         let SQL_QUERY_INSERT = `INSERT INTO companyprofile (NAME,EMAIL,MOTTO,PHONENUMBER,ADDRESS) VALUES (?,?,?,?,?)`;
+let TRUNCATE_QUERY = `TRUNCATE TABLE COMPANYPROFILE`;
 
-         let SQL_QUERY_UPDATE = function (id) {
-            return `UPDATE companyprofile SET 
-    NAME = '${name}',
-    EMAIL = '${email}',
-    MOTTO = '${motto}',
-    PHONENUMBER = '${phonenumber}',
-    ADDRESS = '${address}'
-    WHERE ID ='${id}'
-   `
-         }
-         connection.query(SQL_QUERY_ALL, (err, result) => {
-            if (err) { throw err; }
 
+
+const AddCompanyInfo = function (request, response) {
+   const { target, name, motto, email, phonenumber, address } = request.body;
+   const PARAMETERS = [name, email, motto, phonenumber, address];
+
+   connection.query(TRUNCATE_QUERY, (err, result) => {
+      if (err) { throw err };
+      if (result) {
+         connection.query(SQL_QUERY_INSERT, PARAMETERS, function (err, result) {
+            if (err) { throw err };
             if (result) {
-               let id = result.length > 0 ? result[0]['ID'] : null;
-               connection.query(result.length == 0
-                  ? SQL_QUERY_INSERT : SQL_QUERY_UPDATE(id),
-                  [name, email, motto, phonenumber, address],
-                  (err, result) => {
-                     if (err) {
-                        throw err;
-                     }
-                     res.send({
-                        message: 'information uploaded',
-                        status: 200
-                     })
-                  })
-            }
+              if (result.affectedRows == 1) {
+               response.status(201).json({status:'success'})
+              } 
+            } 
          })
       }
-   }
-
-
-
-   const imagesretainer = function (res) {
-      let turn = path.join('C:/Users/leonides/Documents/GitHub/image-r-v/lobnos', './public/asserts/companylogo.jpg');
-      fs.createReadStream(turn).pipe(res)
-   }
-
-   if (req.method == 'GET') {
-      connection.query(SQL_QUERY_ALL, function (err, result) {
-         if (err) {
-            throw err;
-         }
-         if (result.length > 0) {
-            let info = result[0]
-            let data = {
-               name: info['NAME'],
-               email: info['EMAIL'],
-               motto: info['MOTTO'],
-               address: info['ADDRESS'],
-               phonenumber: info['PHONENUMBER']
-            }
-            res.send(data)
-         }
-      })
-
-   }
+   })
 }
 
+
+
+const getCompanyInfo = function (request, response) {
+   connection.query(SQL_QUERY_ALL, function (err, result) {
+      if (err) { throw err }
+      if (result) {
+         if (result.length > 0) {
+            const obj = {};
+            for (const [key, value] of Object.entries(result[0])) {
+               obj[key.toLowerCase()] = value
+            }
+            response.send(obj)
+         } else {
+            response.send([])
+         }
+      }
+   })
+}
+
+
+
+
+
+module.exports = {
+   getCompanyInfo,
+   AddCompanyInfo
+}
+
+
+// const imagesretainer = function (res) {
+//    let turn = path.join(
+//       "C:/Users/leonides/Documents/GitHub/image-r-v/lobnos",
+//       "./public/asserts/companylogo.jpg"
+//    );
+//    fs.createReadStream(turn).pipe(res);
+// };
 
 

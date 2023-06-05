@@ -1,44 +1,25 @@
-// import multer from 'multer';
-// import path from 'path';
+const multer = require('multer');
+const path = require('path');
 
+const storage = multer.diskStorage({
+ destination: (req, file, cb) => {
+  let extension = file.originalname.split('.');
+  let accepted = ['jpeg', 'png', 'jpg'];
 
-// export const config = {
-//  api: {
-//   bodyParser: false,
-//  },
-// }
+  if (accepted.includes(extension[1])) {
+   const destinationPath = path.join(__dirname, './company');
+   console.log('Destination path:', destinationPath);
+   cb(null, path.join(destinationPath));
+  } else {
+   cb(new Error('File type jpeg, png, jpg required'));
+  }
+ },
+ filename: (req, file, cb) => {
+  const uniqueSuffix = 'companylogo' + Date.now() + path.extname(file.originalname);
+  cb(null, uniqueSuffix);
+ }
+});
 
-// const storage = multer.diskStorage({
-//  destination: (req, file, cb) => {
-//   let extension = file.originalname.split('.');
-//   let accepted = ['hjpeg', 'png', 'jpg'];
+const upload = multer({ storage }).single('file');
 
-//   if (accepted.includes(extension[1])) {
-//    cb(null, './public/asserts/companylogo')
-//   }
-
-//   return new Error('file type jpeg,png,jpg required')
-//  },
-//  filename: (req, file, cb) => {
-//   const uniqueSuffix = 'companylogo' + '' + path.extname(file.originalname);
-//   cb(null, uniqueSuffix)
-//   console.log(file)
-//  }
-// })
-
-
-// const upload = multer({ storage }).single('file');
-
-
-// export default function handler(req, res) {
-//  if (req.method == 'POST') {
-//   upload(req, res, (err) => {
-//    if (err) {
-//     throw err;
-//    }
-//    res.send({
-//     message: 'Image uploaded successfully'
-//    })
-//   })
-//  }
-// }
+module.exports = { upload };
