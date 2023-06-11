@@ -1,8 +1,9 @@
 const connection = require("../db");
-const { Result } = require('./result');
+const { Result, testTable } = require('./result');
 const ResultClass = new Result();
 const errMessage = ResultClass.errMessage
-const pushResponse = ResultClass.pushResponse
+const pushResponse = ResultClass.pushResponse;
+
 
 class ResultPrint {
    constructor(billingid) {
@@ -157,7 +158,7 @@ class ResultPrint {
             }
             else {
                const processing = result.filter((item, index) => {
-                  return item.processing == 'true' 
+                  return item.processing == 'true'
                }).length
                const ready = result.filter((item, index) => {
                   return item.processing == 'true' && item.ready == 'true'
@@ -188,6 +189,97 @@ class ResultPrint {
          }
       })
    }
+
+   resultPreview = function (request, response) {
+      const { billingid, testid, test } = request.query;
+
+      let responseResult = { sampling: [], result: [] };
+
+      const testname = testTable[test];
+
+      if (testname && billingid && testid) {
+
+         const samplingQuery = `
+      SELECT 
+        ts.collection_date,
+        ts.processing_date,
+        ts.ready_date,
+        pt.URGENCY AS urgency,
+        pt.Phelobotomist,
+        np.GENDER AS gender,
+        CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS fullname,
+        CONCAT(np.age," ",np.agetype) AS age,
+        pt.INSPECTION_TIME AS inspectionTime,
+        b.NAME as samplingCenter,
+        c.NAME as clinician
+      FROM test_ascension AS ts
+      INNER JOIN performing_test AS pt ON pt.BILLINGID = ts.billingid
+      INNER JOIN branch AS b ON b.BRANCHID = pt.SAMPLING_CENTER
+      INNER JOIN new_patients as np ON np.PATIENTID = pt.PATIENTID
+      INNER JOIN billing as bb ON bb.BILLINGID = pt.BILLINGID
+      INNER JOIN clinician as c ON bb.CLINICIAN = c.ID
+      WHERE ts.billingid = ${billingid} and testid = ${testid}
+    `;
+
+         const resultQuery = `
+      SELECT 
+        rt.parameter,
+        st.UPPER as upper,
+        st.LOWER as lower,
+        rt.UNIT as unit,
+        rt.value,
+        c.comments
+      FROM setup_liver_function_test AS st
+      INNER JOIN ${testname} AS rt ON rt.parameter = st.PARAMETER
+      INNER JOIN result_comments AS c ON c.billingid = rt.billingid
+      WHERE rt.billingid = ${billingid}
+    `;
+
+         connection.beginTransaction(function (err) {
+            if (err) {
+               throw err;
+            }
+
+            connection.query(samplingQuery, function (err, samplingResult) {
+               if (err) {
+                  connection.rollback(function () {
+                     throw err;
+                  });
+               }
+
+               responseResult.sampling = samplingResult;
+
+               connection.query(resultQuery, function (err, resultResult) {
+                  if (err) {
+                     connection.rollback(function () {
+                        throw err;
+                     });
+                  }
+
+                  responseResult.result = resultResult;
+
+                  connection.commit(function (err) {
+                     if (err) {
+                        connection.rollback(function () {
+                           throw err;
+                        });
+                     }
+
+                     console.log(responseResult);
+
+                     response.status(200).json(responseResult); // Send the response to the client
+                  });
+               });
+            });
+         });
+      } else {
+         response.send({
+            statusCode: 401,
+            status: 'error'
+         })
+      }
+   };
+
 }
 
 

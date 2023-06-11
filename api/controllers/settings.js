@@ -1,9 +1,9 @@
 const router = require('express').Router();
 const { prisma } = require('../models/supply')
 const { addNewDepartment, updateDepartment, getDepartments, deleteDepartment, getSpecificDepartment } = require('../models/settings');
-const { AddCompanyInfo, getCompanyInfo } = require('../settings/companydata');
+const { AddCompanyInfo, getCompanyInfo, getCompanyImage } = require('../settings/companydata');
 
-const { upload } = require('../settings/companyimage');
+const upload = require('../settings/companyimage');
 
 router.get('/api/v1/departments', async (request, response) => {
   getDepartments(request, response)
@@ -44,7 +44,6 @@ router.get('/api/v1/settings/companyprofile', function (request, response) {
   getCompanyInfo(request, response)
 })
 
-
 router.post('/api/v1/settings/companyprofile/images', upload, function (req, res) {
   if (!req.file) {
     res.status(400).json({ error: 'No file uploaded' });
@@ -52,8 +51,12 @@ router.post('/api/v1/settings/companyprofile/images', upload, function (req, res
     // File uploaded successfully
     res.status(200).json({ message: 'File uploaded successfully' });
   }
-}
-);
+});
+
+
+router.get('/api/v1/settings/companyprofile/images', function (request, response) {
+   getCompanyImage(request,response)
+})
 
 
 module.exports = router;

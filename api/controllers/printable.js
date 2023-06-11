@@ -39,4 +39,9 @@ router.post('/api/v1/billing/payment/update', function (request, response) {
 })
 
 
+router.get('/api/v1/result/preview', function(request,response) {
+   new ResultPrint().resultPreview(request,response)
+})
+
+
 module.exports = router;
