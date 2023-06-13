@@ -1,57 +1,83 @@
-const connection = require('../db');
-const { testTable } = require('./result')
+const connection = require("../db");
+const { testTable } = require("./result");
 class Manager {
- constructor(employeeid, billingid) {
-  this.employeeid = employeeid;
-  this.billingid = billingid;
- }
-
-
- getManagerApprovals = (duration) => {
-    let defaultDuration = 'daily';
-
-    
- }
-
- verificationManager([resultset], key) {
-  if (!Array.isArray(resultset)) {
-   return new Error('')
+  constructor(employeeid, billingid, testid) {
+    this.employeeid = employeeid;
+    this.billingid = billingid;
+    this.testid = testid;
   }
 
-  // filter for manager name and employee id 
+  getManagerApprovals = (duration) => {
+    let defaultDuration = "daily";
+  };
 
-  const isFound = resultset.filter((i, ix) => i?.[key] === key)
+  verificationManager() {
+    // we will check if manager exist in table in the database
+    // if true , we continue else we return A 401 error 
+    const sqlQuery = `SELECT * FROM roles WHERE employeeid = ? `;
+    return new Promise((resolve, reject) => {
+      connection.query(sqlQuery, [this.employeeid], function (err, result) {
+        if (err) { reject(err.message) }
+        else {
+          result.length > 0 && result[0]['ROLE'] == ('Manager' || 'manager') ? resolve(true) : resolve(false)
+        }
+      })
+    })
+  }
 
-  return isFound;
- }
+  insertApproval = async (approvalStatus, message = null) => {
+    let insertNewResult = `
+    UPDATE TEST_ASCENSION SET ApprovalStatus = ?,
+    ApprovedBy = ? `;
 
- insertApproval = async (testname, _approvalstatus, message) => {
-  const insertNewResult = `UPDATE ${testTable[testname]} SET APPROVAL = ? ,
-  MESSAGE = ${_approvalstatus == true ? 'TRUE' : message},
-  APPROVALDATE = NOW() WHERE BILLINGID = ? 
- `
-
-  const values = [_approvalstatus, this.billingid]
-
-  return new Promise((reject, resolve) => {
-   connection.query(insertNewResult, values, (err, result) => {
-    if (err) { reject(err); connection.end() };
-    if (result && result.affectedRows > 0) {
-     reject(result)
+    if (approvalStatus == false) {
+      insertNewResult += `,DeclineMessage = '${message}' `
     }
-   })
-  })
- }
 
+    insertNewResult += `WHERE BILLINGID = ? AND TESTID = ? `
 
- async approveResult(testname, testid, _approvalstatus,message=null) {
-  if (testname && testid) {
-   throw new Error('testname and testid required')
+    const values = [approvalStatus, this.employeeid, this.billingid, this.testid];
+
+    let promise = new Promise((reject, resolve) => {
+      connection.query(insertNewResult, values, (err, result) => {
+        if (err) {
+          reject(err);
+        }
+        if (result && result.affectedRows > 0) {
+          reject(result);
+        }
+      });
+    });
+
+    return promise;
+  };
+
+  getReadyForApprovals = function (request, response) {
+    const query = ` 
+         SELECT 
+              ta.testid,
+              ta.billingid,
+              pt.URGENCY,
+              tt.NAME,
+              CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ", np.LASTNAME) as fullname
+          FROM test_ascension AS ta
+              INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid
+              INNER JOIN performing_test as pt ON pt.BILLINGID = bb.BILLINGID
+              INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
+              INNER JOIN test_panels AS tt ON tt.ID = ta.testid
+         WHERE ta.ready = 'true' AND ta.ApprovalStatus = false
+    `
+    connection.query(query, function (err, result) {
+      if (err) {
+        throw err;
+      }
+      response.send(result);
+    })
   }
 
-  if (testname && testid) {
-   const affected = await this.insertApproval(testname, _approvalstatus,message)
-   return parseInt(affected) > 0 ? 'success' : 'failure'
-  }
- }
 }
+
+
+
+
+module.exports = Manager;

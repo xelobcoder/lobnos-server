@@ -1,4 +1,5 @@
 const express = require("express");
+
 const app = express();
 const dotenv = require("dotenv");
 const port = 5000;
@@ -11,7 +12,7 @@ const {
 } = require("./api/billing");
 
 const resultChecker = require("./api/controllers/results");
-
+const Manager = require('./api/controllers/manager');
 const operationsRouter = require("./api/controllers/operations");
 const {
   getClinicians,
@@ -71,6 +72,7 @@ app.use(
 // })
 
 // api endpoints
+app.use(Manager)
 app.use(LoginsRouter);
 app.use(ChemistryRoutes);
 app.use(phelobotomyRouter);

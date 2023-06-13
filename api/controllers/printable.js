@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const ResultPrint = require('../models/ResultPrint');
+const { testCategoryMapping } = require('../models/ResultQueryMapping');
 const Payment = require('../models/payment')
 
 
@@ -31,7 +32,7 @@ router.get('/api/v1/paymentmodes', function (request, response) {
 })
 
 router.get('/api/v1/billing/client/transactionhx', function (request, response) {
-   new Payment().specificBillTransactionHx(request,response)
+   new Payment().specificBillTransactionHx(request, response)
 })
 
 router.post('/api/v1/billing/payment/update', function (request, response) {
@@ -39,8 +40,36 @@ router.post('/api/v1/billing/payment/update', function (request, response) {
 })
 
 
-router.get('/api/v1/result/preview', function(request,response) {
-   new ResultPrint().resultPreview(request,response)
+router.get('/api/v1/result/preview', function (request, response) {
+   const { test } = request.query
+   const category = testCategoryMapping[test];
+   if (!test) {
+      response.send({
+         statusCode: '401',
+         message: 'test not found'
+      })
+   } else {
+      if (category) {
+         switch (category) {
+            case 'chemistry':
+               new ResultPrint().resultPreviewChemistry(request, response,category);
+               break;
+            case 'hema':
+               new ResultPrint().resultPreviewHematological(request, response,category);
+               break;
+            default:
+               response.send({
+                  statusCode: '400',
+                  message: 'Category not found'
+               })
+         }
+      } else {
+         response.send({
+            statusCode: '401',
+            message: 'No categoy found for test'
+         })
+      }
+   }
 })
 
 

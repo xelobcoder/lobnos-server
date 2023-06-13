@@ -52,7 +52,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case "hepatitisc":
         await resultInstance.hepatitisBresult(req.body, res);
         break;
-      case "bloodgrouping":
+      case "blood_grouping":
         await resultInstance.BloodGroupingResult(req.body, res);
         break;
       case "glycated_haemoglobin":
@@ -67,10 +67,10 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case "pregnancy_test":
         await resultInstance.pregnancyTest(req.body, res);
         break;
-      case "renalfunctiontest":
+      case "renal_function_test":
         await resultInstance.renalFunctionalTest(req.body, res);
         break;
-      case "liverfunctiontest":
+      case "liver_function_test":
         await resultInstance.liverfunctionTest(req.body, res);
         break;
       case "malaria":
@@ -85,10 +85,10 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case "hvs":
         await resultInstance.hvs(req.body, res);
         break;
-      case "semenAnalysis":
+      case "semen_analysis":
         await resultInstance.semenAnalysis(req.body, res);
         break;
-      case "thyroidfunctionaltest":
+      case "thyroid_functional_test":
         await resultInstance.thyroid(req.body, res);
         break;
       case "betahcg":
@@ -100,10 +100,10 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'esr':
         await resultInstance.esr(req.body, res);
         break;
-      case 'randombloodsugar':
+      case 'random_blood_sugar':
         await resultInstance.glucose(req.body, res);
         break;
-      case 'fastingbloodsugar':
+      case 'fasting_blood_sugar':
         await resultInstance.glucose(req.body, res);
         break;
       default:
