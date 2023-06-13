@@ -2,7 +2,11 @@ const connection = require("../db");
 const { Result, testTable } = require("./result");
 const ResultClass = new Result();
 const errMessage = ResultClass.errMessage;
-const { MappingSetup, mappWithBilingid, testCategoryMapping } = require('./ResultQueryMapping');
+const {
+  MappingSetup,
+  mappWithBilingid,
+  testCategoryMapping,
+} = require("./ResultQueryMapping");
 const pushResponse = ResultClass.pushResponse;
 
 const LIVER_SETUP = "setup_liver_function_test";
@@ -16,11 +20,10 @@ const BETAHCG = `setup_beta_hcg`;
 const ESR = `setup_esr`;
 
 const setups = {
-   liver_function_test: LIVER_SETUP,
-   renal_function_test: RENAL_SETUP,
-   cardiac_enzymes: CARDIAC_ENZYMES
+  liver_function_test: LIVER_SETUP,
+  renal_function_test: RENAL_SETUP,
+  cardiac_enzymes: CARDIAC_ENZYMES,
 };
-
 
 const samplingQuery = `
       SELECT 
@@ -42,17 +45,15 @@ const samplingQuery = `
       INNER JOIN billing as bb ON bb.BILLINGID = pt.BILLINGID
       INNER JOIN clinician as c ON bb.CLINICIAN = c.ID
       WHERE ts.billingid = ? and ts.testid = ?
-    `
+    `;
 
 class ResultPrint {
-   constructor(billingid) {
-      this.billingid = billingid;
-   }
-   ;
-
-   get_printables = (request, response) => {
-      const { querydate, content } = request.query;
-      let modelQuery = `
+  constructor(billingid) {
+    this.billingid = billingid;
+  }
+  get_printables = (request, response) => {
+    const { querydate, content } = request.query;
+    let modelQuery = `
       SELECT 
           ta.billingid AS billingid,
       CASE
@@ -76,65 +77,65 @@ class ResultPrint {
          ta.ready = 'true' and ta.ApprovalStatus = 1
       `;
 
-      const params = [];
+    const params = [];
 
-      // Add filters if provided
-      if (querydate) {
-         modelQuery += " AND DATE(ta.ready_date) = ?";
-         params.push(querydate);
-      } else {
-         modelQuery += " AND DATE(ta.ready_date) = CURDATE()";
-      }
+    // Add filters if provided
+    if (querydate) {
+      modelQuery += " AND DATE(ta.ready_date) = ?";
+      params.push(querydate);
+    } else {
+      modelQuery += " AND DATE(ta.ready_date) = CURDATE()";
+    }
 
-      if (content) {
-         modelQuery += " AND ta.billingid = ?";
-         params.push(content);
-      }
+    if (content) {
+      modelQuery += " AND ta.billingid = ?";
+      params.push(content);
+    }
 
-      modelQuery += " GROUP BY ta.billingid ORDER BY ta.billingid DESC LIMIT 100";
+    modelQuery += " GROUP BY ta.billingid ORDER BY ta.billingid DESC LIMIT 100";
 
-      connection.query(modelQuery, params, (err, result) => {
-         if (err) {
-            errMessage.call(this, err, response);
-         } else[response.send(result)];
-      });
-   };
+    connection.query(modelQuery, params, (err, result) => {
+      if (err) {
+        errMessage.call(this, err, response);
+      } else [response.send(result)];
+    });
+  };
 
-   get_extrainfo_test = (id, request, response) => {
-      const model = `SELECT tp.NAME AS name,
+  get_extrainfo_test = (id, request, response) => {
+    const model = `SELECT tp.NAME AS name,
       ta.testid,
        ta.ready
        FROM test_ascension AS ta 
       INNER JOIN test_panels AS tp ON ta.testid = tp.ID
       WHERE billingid = ?`;
 
-      connection.query(model, id, (err, result) => {
-         if (err) {
-            errMessage.call(this, err, response);
-         } else[response.send(result)];
+    connection.query(model, id, (err, result) => {
+      if (err) {
+        errMessage.call(this, err, response);
+      } else [response.send(result)];
+    });
+  };
+
+  run_query = async (query, date) => {
+    try {
+      return new Promise((reject, resolve) => {
+        connection.query(query, date, (err, result) => {
+          if (err) {
+            reject(err);
+          }
+
+          resolve(result);
+        });
       });
-   };
+    } catch (err) {
+      throw err;
+    }
+  };
 
-   run_query = async (query, date) => {
-      try {
-         return new Promise((reject, resolve) => {
-            connection.query(query, date, (err, result) => {
-               if (err) {
-                  reject(err);
-               }
+  get_summary_ready_page = async (request, response) => {
+    const { querydate, content } = request.query;
 
-               resolve(result);
-            });
-         });
-      } catch (err) {
-         throw err;
-      }
-   };
-
-   get_summary_ready_page = async (request, response) => {
-      const { querydate, content } = request.query;
-
-      const query = `SELECT 
+    const query = `SELECT 
        pt.DATE,
        pt.BILLINGID,
        tt.collection,
@@ -150,98 +151,97 @@ class ResultPrint {
        WHERE pt.DATE = ?
        `;
 
-      function getTodayDate() {
-         const currentDate = new Date();
-         const year = currentDate.getFullYear();
-         const month = String(currentDate.getMonth() + 1).padStart(2, "0");
-         const day = String(currentDate.getDate()).padStart(2, "0");
-         return `${year}-${month}-${day}`;
+    function getTodayDate() {
+      const currentDate = new Date();
+      const year = currentDate.getFullYear();
+      const month = String(currentDate.getMonth() + 1).padStart(2, "0");
+      const day = String(currentDate.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    connection.query(
+      query,
+      [querydate || getTodayDate(), querydate || getTodayDate()],
+      (err, result) => {
+        if (err) {
+          throw err;
+        } else {
+          if (result.length == 0) {
+            response.send([
+              {
+                title: "registered clients",
+                value: 0,
+              },
+              {
+                title: "processing test",
+                value: 0,
+              },
+              {
+                title: "collected test samples",
+                value: 0,
+              },
+              {
+                title: "test ready",
+                value: 0,
+              },
+              {
+                title: "Approved test",
+                value: 0,
+              },
+            ]);
+          } else {
+            const processing = result.filter((item, index) => {
+              return item.processing == "true";
+            }).length;
+            const ready = result.filter((item, index) => {
+              return item.processing == "true" && item.ready == "true";
+            }).length;
+            const collection = result.filter((item, index) => {
+              return item.collection == "true";
+            }).length;
+            const approval = result.filter((item, index) => {
+              return item.ApprovalStatus == 1;
+            }).length;
+
+            response.send([
+              {
+                title: "registered clients",
+                value: result[0]?.["registered"],
+              },
+              {
+                title: "processing test",
+                value: processing,
+              },
+              {
+                title: "collected test samples",
+                value: collection,
+              },
+              {
+                title: "test ready",
+                value: ready,
+              },
+              {
+                title: "Approved test",
+                value: approval,
+              },
+            ]);
+          }
+        }
       }
+    );
+  };
 
-      connection.query(
-         query,
-         [querydate || getTodayDate(), querydate || getTodayDate()],
-         (err, result) => {
-            if (err) {
-               throw err;
-            } else {
-               if (result.length == 0) {
-                  response.send([
-                     {
-                        title: "registered clients",
-                        value: 0,
-                     },
-                     {
-                        title: "processing test",
-                        value: 0,
-                     },
-                     {
-                        title: "collected test samples",
-                        value: 0,
-                     },
-                     {
-                        title: "test ready",
-                        value: 0,
-                     },
-                     {
-                        title: 'Approved test',
-                        value: 0
-                     }
-                  ]);
-               } else {
-                  const processing = result.filter((item, index) => {
-                     return item.processing == "true";
-                  }).length;
-                  const ready = result.filter((item, index) => {
-                     return item.processing == "true" && item.ready == "true";
-                  }).length;
-                  const collection = result.filter((item, index) => {
-                     return item.collection == "true";
-                  }).length;
-                  const approval = result.filter((item, index) => {
-                     return item.ApprovalStatus == 1
-                  }).length
+  resultPreviewChemistry = function (request, response, category) {
+    const { billingid, testid, test } = request.query;
+    let responseResult = { sampling: [], result: [] };
+    const testname = testTable[test];
+    const testSetup = setups[test];
 
-                  response.send([
-                     {
-                        title: "registered clients",
-                        value: result[0]?.["registered"],
-                     },
-                     {
-                        title: "processing test",
-                        value: processing,
-                     },
-                     {
-                        title: "collected test samples",
-                        value: collection,
-                     },
-                     {
-                        title: "test ready",
-                        value: ready,
-                     },
-                     {
-                        title: 'Approved test',
-                        value: approval
-                     }
-                  ]);
-               }
-            }
-         }
-      );
-   };
+    if (testname && billingid && testid) {
+      let resultQuery;
 
-   resultPreviewChemistry = function (request, response, category) {
-      const { billingid, testid, test } = request.query;
-      let responseResult = { sampling: [], result: [] };
-      const testname = testTable[test];
-      const testSetup = setups[test];
-
-      if (testname && billingid && testid) {
-
-         let resultQuery;
-
-         if (typeof testSetup != undefined) {
-            resultQuery = `SELECT
+      if (typeof testSetup != undefined) {
+        resultQuery = `SELECT
                rt.parameter,
                   st.UPPER as upper,
                   st.LOWER as lower,
@@ -251,103 +251,127 @@ class ResultPrint {
                FROM ${testSetup} AS st
                   INNER JOIN ${testname} AS rt ON rt.parameter = st.PARAMETER
                   INNER JOIN result_comments AS c ON c.billingid = rt.billingid
-               WHERE rt.billingid = ${billingid}`
-         }
+               WHERE rt.billingid = ${billingid}`;
+      }
 
-         connection.beginTransaction(function (err) {
+      connection.beginTransaction(function (err) {
+        if (err) {
+          throw err;
+        }
+
+        connection.query(
+          samplingQuery,
+          [billingid, testid],
+          function (err, samplingResult) {
             if (err) {
-               throw err;
+              connection.rollback(function () {
+                throw err;
+              });
             }
 
-            connection.query(samplingQuery, [billingid, testid], function (err, samplingResult) {
-               if (err) {
+            responseResult.sampling = samplingResult;
+
+            connection.query(resultQuery, function (err, resultResult) {
+              if (err) {
+                connection.rollback(function () {
+                  throw err;
+                });
+              }
+
+              responseResult.result = resultResult;
+              responseResult.testcategory = category;
+
+              connection.commit(function (err) {
+                if (err) {
                   connection.rollback(function () {
-                     throw err;
+                    throw err;
                   });
-               }
-
-               responseResult.sampling = samplingResult;
-
-               connection.query(resultQuery, function (err, resultResult) {
-                  if (err) {
-                     connection.rollback(function () {
-                        throw err;
-                     });
-                  }
-
-
-                  responseResult.result = resultResult;
-                  responseResult.testcategory = category;
-
-                  connection.commit(function (err) {
-                     if (err) {
-                        connection.rollback(function () {
-                           throw err;
-                        });
-                     }
-                     response.status(200).json(responseResult); // Send the response to the client
-                  });
-               });
+                }
+                response.status(200).json(responseResult); // Send the response to the client
+              });
             });
-         });
-      } else {
-         response.send({
-            statusCode: 401,
-            status: "error",
-         });
-      }
-   };
+          }
+        );
+      });
+    } else {
+      response.send({
+        statusCode: 401,
+        status: "error",
+      });
+    }
+  };
 
+  resultPreviewHematological = function (request, response) {
+    const { billingid, testid, test } = request.query;
+    let responseResult = { sampling: [], result: [] };
+    const category = testCategoryMapping[test];
 
-   resultPreviewHematological = function (request, response) {
-      const { billingid, testid, test } = request.query;
-      let responseResult = { sampling: [], result: [] };
-      const category = testCategoryMapping[test];
+    const dbTable = MappingSetup[test];
 
-      const dbTable = MappingSetup[test];
+    if (
+      typeof dbTable != undefined &&
+      billingid &&
+      testid &&
+      test &&
+      category == "hema"
+    ) {
+      let query = mappWithBilingid(dbTable, billingid);
 
-      if (typeof dbTable != undefined && billingid && testid && test && category == 'hema') {
-         let query = mappWithBilingid(dbTable, billingid);
+      connection.beginTransaction(function (err) {
+        if (err) {
+          throw err;
+        }
 
-         connection.beginTransaction(function (err) {
-            if (err) { throw err }
+        connection.query(query, function (err, result) {
+          if (err) {
+            connection.rollback(function () {
+              throw err;
+            });
+          }
+          responseResult.result = result;
 
-            connection.query(query, function (err, result) {
-               if (err) {
+          connection.query(
+            samplingQuery,
+            [billingid, testid],
+            function (err, result) {
+              if (err) {
+                connection.rollback(function () {
+                  throw err;
+                });
+              }
+
+              responseResult.sampling = result;
+              responseResult.testcategory = category;
+              connection.commit(function (err) {
+                if (err) {
                   connection.rollback(function () {
-                     throw err;
-                  })
-               }
-               responseResult.result = result;
-
-               connection.query(samplingQuery, [billingid, testid], function (err, result) {
-                  if (err) {
-                     connection.rollback(function () {
-                        throw err;
-                     })
-                  }
-
-                  responseResult.sampling = result;
-                  responseResult.testcategory = category;
-                  connection.commit(function (err) {
-                     if (err) {
-                        connection.rollback(function () {
-                           throw err;
-                        });
-                     }
-                     response.status(200).json(responseResult); // Send the response to the client
+                    throw err;
                   });
-               })
-            })
-         })
-      } else {
-         response.send({
-            statusCode: 401,
-            status: 'error',
-            message: 'include all necessary details'
-         })
+                }
+                response.status(200).json(responseResult); // Send the response to the client
+              });
+            }
+          );
+        });
+      });
+    } else {
+      response.send({
+        statusCode: 401,
+        status: "error",
+        message: "include all necessary details",
+      });
+    }
+  };
+
+  getComments = function (billingid, testid, response) {
+    connection.query(
+      `SELECT * FROM result_comments WHERE BILLINGID = ? AND TESTID = ? `,
+      [billingid, testid],
+      function (err, result) {
+        response.send(result);
       }
-   }
+    );
+  };
 }
 
 module.exports = ResultPrint;

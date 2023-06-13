@@ -52,10 +52,10 @@ router.get('/api/v1/result/preview', function (request, response) {
       if (category) {
          switch (category) {
             case 'chemistry':
-               new ResultPrint().resultPreviewChemistry(request, response,category);
+               new ResultPrint().resultPreviewChemistry(request, response, category);
                break;
             case 'hema':
-               new ResultPrint().resultPreviewHematological(request, response,category);
+               new ResultPrint().resultPreviewHematological(request, response, category);
                break;
             default:
                response.send({
@@ -69,6 +69,20 @@ router.get('/api/v1/result/preview', function (request, response) {
             message: 'No categoy found for test'
          })
       }
+   }
+})
+
+
+router.get('/api/v1/result/preview/comments', function (request, response) {
+   const { billingid,testid } = request.query;
+   if (billingid) {
+      new ResultPrint().getComments(billingid,testid,response);
+   } else {
+      response.send({
+         status: 'error',
+         statusCode: 401,
+         message: 'Include Billingid '
+      })
    }
 })
 
