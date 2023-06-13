@@ -230,7 +230,7 @@ class ResultPrint {
       );
    };
 
-   resultPreviewChemistry = function (request, response,category) {
+   resultPreviewChemistry = function (request, response, category) {
       const { billingid, testid, test } = request.query;
       let responseResult = { sampling: [], result: [] };
       const testname = testTable[test];
@@ -277,7 +277,7 @@ class ResultPrint {
 
 
                   responseResult.result = resultResult;
-                  responseResult.category = category;
+                  responseResult.testcategory = category;
 
                   connection.commit(function (err) {
                      if (err) {
@@ -300,13 +300,13 @@ class ResultPrint {
 
 
    resultPreviewHematological = function (request, response) {
-      const { billingid, testid, test} = request.query;
+      const { billingid, testid, test } = request.query;
       let responseResult = { sampling: [], result: [] };
       const category = testCategoryMapping[test];
 
       const dbTable = MappingSetup[test];
 
-      if (typeof dbTable != undefined && billingid && testid && test && category == 'chemistry') {
+      if (typeof dbTable != undefined && billingid && testid && test && category == 'hema') {
          let query = mappWithBilingid(dbTable, billingid);
 
          connection.beginTransaction(function (err) {
@@ -328,7 +328,7 @@ class ResultPrint {
                   }
 
                   responseResult.sampling = result;
-
+                  responseResult.testcategory = category;
                   connection.commit(function (err) {
                      if (err) {
                         connection.rollback(function () {

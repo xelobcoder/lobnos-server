@@ -422,28 +422,24 @@ class Result {
   async cardiacEnzymes(records, response) {
     const {
       COMMENT,
-      LDH,
-      MYOGLOBIN,
-      CK_MB,
-      AST,
-      TROPONIN,
+      resultdata,
       testid,
       patientid,
       billingid,
     } = records;
 
-    const queryValues = ["LDH", "MYOGLOBIN", "CK_MB", "AST", "TROPONIN"].map(
+
+    const queryValues = resultdata.map(
       (item, index) => {
-        return [item, billingid, records[item], patientid, COMMENT];
+        return [item.parameter, billingid,item.value,patientid];
       }
     );
 
     const insertionQuery = `INSERT INTO ${testTable[this.testname]} (
-         PARAMETERNAME,
+         PARAMETER,
          BILLINGID,
          VALUE,
-         PATIENTID,
-         COMMENTS
+         PATIENTID
       ) VALUES ?`;
 
     if (await this.ShouldCreateRecord()) {
@@ -451,25 +447,27 @@ class Result {
         insertionQuery,
         [queryValues],
         testid,
-        response
+        response,
+        COMMENT
       );
-    } else {
-      console.log("update");
-    }
+  } 
+  else {
+  console.log("update");
+}
   }
 
   async pregnancyTest(records, response) {
-    const {
-      method,
-      reaction,
-      testname,
-      patientid,
-      billingid,
-      testid,
-      comments,
-    } = records;
+  const {
+    method,
+    reaction,
+    testname,
+    patientid,
+    billingid,
+    testid,
+    comments,
+  } = records;
 
-    const queryString = `INSERT INTO ${testTable[this.testname]} (
+  const queryString = `INSERT INTO ${testTable[this.testname]} (
          METHOD,
          VALUE,
          PATIENTID,
@@ -478,459 +476,87 @@ class Result {
          TESTID
       ) VALUE(?,?,?,?,?,?)`;
 
-    if (await this.ShouldCreateRecord()) {
-      await this.useTransactionForResult(
-        queryString,
-        [method, reaction, patientid, billingid, comments, testid],
-        testid,
-        response
-      );
-    } else {
-      let messageLog = this.errMessage;
-      const queryString = `UPDATE ${testTable[testname]} 
+  if (await this.ShouldCreateRecord()) {
+    await this.useTransactionForResult(
+      queryString,
+      [method, reaction, patientid, billingid, comments, testid],
+      testid,
+      response
+    );
+  } else {
+    let messageLog = this.errMessage;
+    const queryString = `UPDATE ${testTable[testname]} 
          SET METHOD = ?,
          VALUE = ?,
          COMMENTS = ?
          WHERE BILLINGID = ${this.billingid} AND TESTID = ?`;
-      const Values = [method, reaction, comments, testid];
+    const Values = [method, reaction, comments, testid];
 
-      connection.query(queryString, Values, (err, result) => {
-        if (err) {
-          console.log(err);
-          messageLog(err, response);
-        }
+    connection.query(queryString, Values, (err, result) => {
+      if (err) {
+        console.log(err);
+        messageLog(err, response);
+      }
 
-        if (result) {
-          const { affectedRows } = result;
-          if (affectedRows > 0) {
-            response.send({
-              status: "success",
-              message: "record updated successfully",
-              statusCode: 200,
-            });
-          } else {
-            response.send({
-              status: "success",
-              message: "No record updated",
-              statusCode: 401,
-            });
-          }
+      if (result) {
+        const { affectedRows } = result;
+        if (affectedRows > 0) {
+          response.send({
+            status: "success",
+            message: "record updated successfully",
+            statusCode: 200,
+          });
+        } else {
+          response.send({
+            status: "success",
+            message: "No record updated",
+            statusCode: 401,
+          });
         }
-      });
-    }
+      }
+    });
   }
+}
 
   async renalFunctionalTest(records, response) {
-    console.log(records);
-  }
+  console.log(records);
+}
 
   async malaria(records, response) {
-    const {
-      testname,
-      testid,
-      patientid,
-      billingid,
-      species,
-      number,
-      comments,
-    } = records;
-    // if test is a valid test
-    if (this.isTestValid) {
-      if (await this.ShouldCreateRecord()) {
-        const malariaQuery = `INSERT INTO ${testTable[testname]} 
+  const {
+    testname,
+    testid,
+    patientid,
+    billingid,
+    species,
+    number,
+    comments,
+  } = records;
+  // if test is a valid test
+  if (this.isTestValid) {
+    if (await this.ShouldCreateRecord()) {
+      const malariaQuery = `INSERT INTO ${testTable[testname]} 
                (PARASITENUMBER,SPECIES,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?,?)
                `;
-        // using transaction to execute multiple query
-        await this.useTransactionForResult(
-          malariaQuery,
-          [number, species, comments, billingid, patientid],
-          testid,
-          response
-        );
-      } else {
-        // update the result
-        const updateQuery = `UPDATE ${testTable[testname]}
+      // using transaction to execute multiple query
+      await this.useTransactionForResult(
+        malariaQuery,
+        [number, species, comments, billingid, patientid],
+        testid,
+        response
+      );
+    } else {
+      // update the result
+      const updateQuery = `UPDATE ${testTable[testname]}
              SET PARASITENUMBER = ?,
              SPECIES = ?,
              COMMENTS = ?,
              UPDATED_ON = NOW()
              WHERE BILLINGID = ?
             `;
-        connection.query(
-          updateQuery,
-          [number, species, comments, billingid],
-          (err, result) => {
-            if (err) {
-              this.errMessage(err, response);
-            }
-            if (result) {
-              this.pushResponse(result, response);
-            }
-          }
-        );
-      }
-    }
-  }
-
-  async liverfunctionTest(requestBody, response) {
-    const { testname, billingid, testid, patientid, records, comments } =
-      requestBody;
-    let errMessage = this.errMessage;
-    let pushResponse = this.pushResponse;
-
-    if (this.isTestValid()) {
-      if (await this.ShouldCreateRecord()) {
-        const insertionQuery = `INSERT INTO ${testTable[testname]}
-         (parameter,unit,value,billingid,patientid)
-         VALUES ?
-         `;
-        const mappedValues = records.map((item, index) => {
-          return [
-            item.parameter,
-            item.unit,
-            parseInt(item.value),
-            billingid,
-            patientid,
-          ];
-        });
-
-        await this.useTransactionForResult(
-          insertionQuery,
-          [mappedValues],
-          testid,
-          response,
-          comments
-        );
-      } else {
-        try {
-          const target = records.length - 1;
-          records.forEach((item, index) => {
-            const updateQuery = `
-            UPDATE ${testTable[testname]}
-            SET value = ?,
-            unit = ?
-            WHERE billingid = ? AND parameter = ?
-          `;
-            const { value, unit, parameter } = item;
-
-            connection.query(
-              updateQuery,
-              [value, unit, billingid, parameter],
-              (err, result) => {
-                if (err) {
-                  this.errMessage(err, response);
-                }
-                if (result) {
-                  if (index === target) {
-                    connection.query(
-                      `UPDATE RESULT_COMMENTS
-                  SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`,
-                      [comments, this.billingid, testid],
-                      function (err, result) {
-                        if (err) {
-                          errMessage(err, response);
-                        }
-                        pushResponse(result, response);
-                      }
-                    );
-                  }
-                }
-              }
-            );
-          });
-        } catch (err) {
-          this.errMessage(err, response);
-        }
-      }
-    }
-  }
-
-  async widal(records, response) {
-    const {
-      TYPHIO,
-      TYPHIH,
-      PARATYPHIBH,
-      PARATYPHIAH,
-      testname,
-      billingid,
-      testid,
-      COMMENTS,
-      patientid,
-    } = records;
-
-    if (this.isTestValid()) {
-      if (await this.ShouldCreateRecord()) {
-        const insertionQuery = `
-         INSERT INTO ${testTable[testname]} (TYPHIO,TYPHIH,PARATYPHIAH,PARATYPHIBH,BILLINGID,PATIENTID,COMMENTS) VALUES (?,?,?,?,?,?,?)
-            `;
-        const values = [
-          TYPHIO,
-          TYPHIH,
-          PARATYPHIAH,
-          PARATYPHIBH,
-          this.billingid,
-          patientid,
-          COMMENTS,
-        ];
-
-        await this.useTransactionForResult(
-          insertionQuery,
-          values,
-          testid,
-          response
-        );
-      } else {
-        const updateQuery = `UPDATE ${testTable[testname]} 
-SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDATED_ON = NOW() WHERE BILLINGID = ?`;
-
-        const values = [
-          TYPHIO,
-          TYPHIH,
-          PARATYPHIAH,
-          PARATYPHIBH,
-          COMMENTS,
-          this.billingid,
-        ];
-
-        connection.query(updateQuery, values, (err, result) => {
-          if (err) {
-            console.log(err);
-          }
-          if (result) {
-            this.pushResponse(result, response);
-          }
-        });
-      }
-    }
-  }
-
-  async hepatitisBProfile(records, response) {
-    const {
-      HBsAg,
-      HBsAb,
-      HBeAg,
-      HBeAb,
-      HBcAb,
-      testname,
-      testid,
-      patientid,
-      comments,
-      billingid,
-    } = records;
-
-    if (this.isTestValid) {
-      let pushResponse = this.pushResponse;
-      // showuld we create a new entering
-      if (await this.ShouldCreateRecord()) {
-        const insertionQuery = `INSERT INTO ${testTable[testname]}
-         (HBsAg, HBsAb, HBeAg, HBeAb, HBcAb,COMMENTS,BILLINGID,PATIENTID)
-         VALUES (?,?,?,?,?,?,?,?)`;
-
-        const values = [
-          HBsAg,
-          HBsAb,
-          HBeAg,
-          HBeAb,
-          HBcAb,
-          comments,
-          billingid,
-          patientid,
-        ];
-
-        await this.useTransactionForResult(
-          insertionQuery,
-          values,
-          testid,
-          response
-        );
-      } else {
-        const updateQuery = `UPDATE ${testTable[testname]}
-         SET HBsAg  = ?,
-         HBsAb = ?,
-         HBeAg = ?,
-         HBeAb = ?,
-         HBcAb = ?,
-         COMMENTS = ?,
-         UPDATED_ON = NOW()
-         WHERE BILLINGID = ?
-         `;
-
-        connection.query(
-          updateQuery,
-          [HBsAg, HBsAb, HBeAg, HBeAb, HBcAb, comments, billingid],
-          function (err, result) {
-            pushResponse(result, response);
-          }
-        );
-      }
-    }
-  }
-
-  async hvs(records, response) {
-    console.log(records);
-  }
-
-  async thyroid(records, response) {
-    let messageLog = this.errMessage;
-
-    const { testdata, testname, billingid, comments, patientid, testid } =
-      records;
-    if (this.isTestValid) {
-      if (await this.ShouldCreateRecord()) {
-        const insertionQuery = `INSERT INTO ${testTable[testname]} 
-             (PARAMETER,BILLINGID,VALUE,PATIENTID,COMMENTS)
-             VALUES ?
-            `;
-        const values = [];
-        for (let i = 0; i < testdata.length; i++) {
-          values.push([
-            testdata[i]["parameter"],
-            billingid,
-            testdata[i]["value"],
-            patientid,
-            comments,
-          ]);
-        }
-
-        await this.useTransactionForResult(
-          insertionQuery,
-          [values],
-          testid,
-          response
-        );
-      } else {
-        const updateQuery = `
-             UPDATE ${testTable[testname]} SET
-             VALUE = ?,
-             COMMENTS  = ?,
-             UPDATED_ON = NOW()
-             WHERE BILLINGID = ${this.billingid} AND PARAMETER = ?
-            `;
-
-        let currentValue = 0;
-        let target = testdata.length;
-        while (currentValue < target) {
-          const workingParameter = testdata[currentValue]["parameter"];
-          const workingValue = testdata[currentValue]["value"];
-          connection.query(
-            updateQuery,
-            [workingValue, comments, workingParameter],
-            function (err, result) {
-              if (err) {
-                messageLog(err);
-              }
-              if (result) {
-                const { affectedRows } = result;
-
-                if (affectedRows != 1) {
-                  const query = `INSERT INTO ${testTable[testname]} (
-                        PARAMETER,
-                        BILLINGID,
-                        VALUE,
-                        PATIENTID,
-                        COMMENTS
-                      ) VALUES (?,?,?,?,?)`;
-
-                  connection.query(
-                    query,
-                    [
-                      workingParameter,
-                      billingid,
-                      workingValue,
-                      patientid,
-                      comments,
-                    ],
-                    function (err, result) {
-                      if (err) {
-                        throw err;
-                      }
-                      return;
-                    }
-                  );
-                }
-              }
-            }
-          );
-          currentValue++;
-
-          if (currentValue == target) {
-            response.send({
-              status: "success",
-              message: "record updated successfully",
-              statusCode: 200,
-            });
-          }
-        }
-      }
-    }
-  }
-
-  async betahcg(records, response) {
-    let errMessage = this.errMessage;
-    let pushResponse = this.pushResponse;
-    const { testname, billingid, testid, value, unit, comments, patientid } =
-      records;
-    // not necessary to always use istestValid method if only necessry checks are made at the
-    // controller level to ensure test in testtable doesnt return undefined and hnadled in case test is not found. if not handled, recommeded to use the method
-    if (this.isTestValid()) {
-      if (await this.ShouldCreateRecord()) {
-        const insertionQuery = `INSERT INTO ${testTable[testname]}
-     (VALUE,UNIT,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?,?)
-    `;
-        const insertionValues = [value, unit, comments, billingid, patientid];
-        await this.useTransactionForResult(
-          insertionQuery,
-          insertionValues,
-          testid,
-          response
-        );
-      } else {
-        const updateQuery = `UPDATE ${testTable[testname]}
-         SET VALUE = ?,
-         UNIT = ?,
-         COMMENTS = ?
-         WHERE BILLINGID = ?
-        `;
-
-        const nv = [value, unit, comments, billingid];
-
-        connection.query(updateQuery, nv, function (err, result) {
-          if (err) {
-            console.log(err);
-            errMessage(err, response);
-          }
-
-          if (result) {
-            pushResponse(result, response);
-          }
-        });
-      }
-    }
-  }
-
-  async Aids(records, response) {
-    const { reaction, testname, billingid, patientid, testid, comments } =
-      records;
-
-    if (await this.ShouldCreateRecord()) {
-      const insertion = `INSERT INTO ${testTable[testname]}
-        (reaction,billingid,patientid,comments) VALUES (?,?,?,?)`;
-
-      const values = [reaction, billingid, patientid, comments];
-
-      await this.useTransactionForResult(insertion, values, testid, response);
-    } else {
-      // update the result
-      const updateQuery = `UPDATE ${testTable[testname]}
-              SET reaction = ?,
-              comments = ?,
-              updated_on = NOW()
-              WHERE billingid = ?
-      `;
-
       connection.query(
         updateQuery,
-        [reaction, comments, billingid],
+        [number, species, comments, billingid],
         (err, result) => {
           if (err) {
             this.errMessage(err, response);
@@ -942,79 +568,451 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
       );
     }
   }
+}
+
+  async liverfunctionTest(requestBody, response) {
+  const { testname, billingid, testid, patientid, records, comments } =
+    requestBody;
+  let errMessage = this.errMessage;
+  let pushResponse = this.pushResponse;
+
+  if (this.isTestValid()) {
+    if (await this.ShouldCreateRecord()) {
+      const insertionQuery = `INSERT INTO ${testTable[testname]}
+         (parameter,unit,value,billingid,patientid)
+         VALUES ?
+         `;
+      const mappedValues = records.map((item, index) => {
+        return [
+          item.parameter,
+          item.unit,
+          parseInt(item.value),
+          billingid,
+          patientid,
+        ];
+      });
+
+      await this.useTransactionForResult(
+        insertionQuery,
+        [mappedValues],
+        testid,
+        response,
+        comments
+      );
+    } else {
+      try {
+        const target = records.length - 1;
+        records.forEach((item, index) => {
+          const updateQuery = `
+            UPDATE ${testTable[testname]}
+            SET value = ?,
+            unit = ?
+            WHERE billingid = ? AND parameter = ?
+          `;
+          const { value, unit, parameter } = item;
+
+          connection.query(
+            updateQuery,
+            [value, unit, billingid, parameter],
+            (err, result) => {
+              if (err) {
+                this.errMessage(err, response);
+              }
+              if (result) {
+                if (index === target) {
+                  connection.query(
+                    `UPDATE RESULT_COMMENTS
+                  SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`,
+                    [comments, this.billingid, testid],
+                    function (err, result) {
+                      if (err) {
+                        errMessage(err, response);
+                      }
+                      pushResponse(result, response);
+                    }
+                  );
+                }
+              }
+            }
+          );
+        });
+      } catch (err) {
+        this.errMessage(err, response);
+      }
+    }
+  }
+}
+
+  async widal(records, response) {
+  const {
+    TYPHIO,
+    TYPHIH,
+    PARATYPHIBH,
+    PARATYPHIAH,
+    testname,
+    billingid,
+    testid,
+    COMMENTS,
+    patientid,
+  } = records;
+
+  if (this.isTestValid()) {
+    if (await this.ShouldCreateRecord()) {
+      const insertionQuery = `
+         INSERT INTO ${testTable[testname]} (TYPHIO,TYPHIH,PARATYPHIAH,PARATYPHIBH,BILLINGID,PATIENTID,COMMENTS) VALUES (?,?,?,?,?,?,?)
+            `;
+      const values = [
+        TYPHIO,
+        TYPHIH,
+        PARATYPHIAH,
+        PARATYPHIBH,
+        this.billingid,
+        patientid,
+        COMMENTS,
+      ];
+
+      await this.useTransactionForResult(
+        insertionQuery,
+        values,
+        testid,
+        response
+      );
+    } else {
+      const updateQuery = `UPDATE ${testTable[testname]} 
+SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDATED_ON = NOW() WHERE BILLINGID = ?`;
+
+      const values = [
+        TYPHIO,
+        TYPHIH,
+        PARATYPHIAH,
+        PARATYPHIBH,
+        COMMENTS,
+        this.billingid,
+      ];
+
+      connection.query(updateQuery, values, (err, result) => {
+        if (err) {
+          console.log(err);
+        }
+        if (result) {
+          this.pushResponse(result, response);
+        }
+      });
+    }
+  }
+}
+
+  async hepatitisBProfile(records, response) {
+  const {
+    HBsAg,
+    HBsAb,
+    HBeAg,
+    HBeAb,
+    HBcAb,
+    testname,
+    testid,
+    patientid,
+    comments,
+    billingid,
+  } = records;
+
+  if (this.isTestValid) {
+    let pushResponse = this.pushResponse;
+    // showuld we create a new entering
+    if (await this.ShouldCreateRecord()) {
+      const insertionQuery = `INSERT INTO ${testTable[testname]}
+         (HBsAg, HBsAb, HBeAg, HBeAb, HBcAb,COMMENTS,BILLINGID,PATIENTID)
+         VALUES (?,?,?,?,?,?,?,?)`;
+
+      const values = [
+        HBsAg,
+        HBsAb,
+        HBeAg,
+        HBeAb,
+        HBcAb,
+        comments,
+        billingid,
+        patientid,
+      ];
+
+      await this.useTransactionForResult(
+        insertionQuery,
+        values,
+        testid,
+        response
+      );
+    } else {
+      const updateQuery = `UPDATE ${testTable[testname]}
+         SET HBsAg  = ?,
+         HBsAb = ?,
+         HBeAg = ?,
+         HBeAb = ?,
+         HBcAb = ?,
+         COMMENTS = ?,
+         UPDATED_ON = NOW()
+         WHERE BILLINGID = ?
+         `;
+
+      connection.query(
+        updateQuery,
+        [HBsAg, HBsAb, HBeAg, HBeAb, HBcAb, comments, billingid],
+        function (err, result) {
+          pushResponse(result, response);
+        }
+      );
+    }
+  }
+}
+
+  async hvs(records, response) {
+  console.log(records);
+}
+
+  async thyroid(records, response) {
+  let messageLog = this.errMessage;
+
+  const { testdata, testname, billingid, comments, patientid, testid } =
+    records;
+  if (this.isTestValid) {
+    if (await this.ShouldCreateRecord()) {
+      const insertionQuery = `INSERT INTO ${testTable[testname]} 
+             (PARAMETER,BILLINGID,VALUE,PATIENTID,COMMENTS)
+             VALUES ?
+            `;
+      const values = [];
+      for (let i = 0; i < testdata.length; i++) {
+        values.push([
+          testdata[i]["parameter"],
+          billingid,
+          testdata[i]["value"],
+          patientid,
+          comments,
+        ]);
+      }
+
+      await this.useTransactionForResult(
+        insertionQuery,
+        [values],
+        testid,
+        response
+      );
+    } else {
+      const updateQuery = `
+             UPDATE ${testTable[testname]} SET
+             VALUE = ?,
+             COMMENTS  = ?,
+             UPDATED_ON = NOW()
+             WHERE BILLINGID = ${this.billingid} AND PARAMETER = ?
+            `;
+
+      let currentValue = 0;
+      let target = testdata.length;
+      while (currentValue < target) {
+        const workingParameter = testdata[currentValue]["parameter"];
+        const workingValue = testdata[currentValue]["value"];
+        connection.query(
+          updateQuery,
+          [workingValue, comments, workingParameter],
+          function (err, result) {
+            if (err) {
+              messageLog(err);
+            }
+            if (result) {
+              const { affectedRows } = result;
+
+              if (affectedRows != 1) {
+                const query = `INSERT INTO ${testTable[testname]} (
+                        PARAMETER,
+                        BILLINGID,
+                        VALUE,
+                        PATIENTID,
+                        COMMENTS
+                      ) VALUES (?,?,?,?,?)`;
+
+                connection.query(
+                  query,
+                  [
+                    workingParameter,
+                    billingid,
+                    workingValue,
+                    patientid,
+                    comments,
+                  ],
+                  function (err, result) {
+                    if (err) {
+                      throw err;
+                    }
+                    return;
+                  }
+                );
+              }
+            }
+          }
+        );
+        currentValue++;
+
+        if (currentValue == target) {
+          response.send({
+            status: "success",
+            message: "record updated successfully",
+            statusCode: 200,
+          });
+        }
+      }
+    }
+  }
+}
+
+  async betahcg(records, response) {
+  let errMessage = this.errMessage;
+  let pushResponse = this.pushResponse;
+  const { testname, billingid, testid, value, unit, comments, patientid } =
+    records;
+  // not necessary to always use istestValid method if only necessry checks are made at the
+  // controller level to ensure test in testtable doesnt return undefined and hnadled in case test is not found. if not handled, recommeded to use the method
+  if (this.isTestValid()) {
+    if (await this.ShouldCreateRecord()) {
+      const insertionQuery = `INSERT INTO ${testTable[testname]}
+     (VALUE,UNIT,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?,?)
+    `;
+      const insertionValues = [value, unit, comments, billingid, patientid];
+      await this.useTransactionForResult(
+        insertionQuery,
+        insertionValues,
+        testid,
+        response
+      );
+    } else {
+      const updateQuery = `UPDATE ${testTable[testname]}
+         SET VALUE = ?,
+         UNIT = ?,
+         COMMENTS = ?
+         WHERE BILLINGID = ?
+        `;
+
+      const nv = [value, unit, comments, billingid];
+
+      connection.query(updateQuery, nv, function (err, result) {
+        if (err) {
+          console.log(err);
+          errMessage(err, response);
+        }
+
+        if (result) {
+          pushResponse(result, response);
+        }
+      });
+    }
+  }
+}
+
+  async Aids(records, response) {
+  const { reaction, testname, billingid, patientid, testid, comments } =
+    records;
+
+  if (await this.ShouldCreateRecord()) {
+    const insertion = `INSERT INTO ${testTable[testname]}
+        (reaction,billingid,patientid,comments) VALUES (?,?,?,?)`;
+
+    const values = [reaction, billingid, patientid, comments];
+
+    await this.useTransactionForResult(insertion, values, testid, response);
+  } else {
+    // update the result
+    const updateQuery = `UPDATE ${testTable[testname]}
+              SET reaction = ?,
+              comments = ?,
+              updated_on = NOW()
+              WHERE billingid = ?
+      `;
+
+    connection.query(
+      updateQuery,
+      [reaction, comments, billingid],
+      (err, result) => {
+        if (err) {
+          this.errMessage(err, response);
+        }
+        if (result) {
+          this.pushResponse(result, response);
+        }
+      }
+    );
+  }
+}
 
   async esr(records, response) {
-    const { value, comments, testname, testid, billingid, patientid } = records;
+  const { value, comments, testname, testid, billingid, patientid } = records;
 
-    if (this.isTestValid()) {
-      if (await this.ShouldCreateRecord()) {
-        const insertion = `INSERT INTO ${testTable[testname]}
+  if (this.isTestValid()) {
+    if (await this.ShouldCreateRecord()) {
+      const insertion = `INSERT INTO ${testTable[testname]}
         (VALUE,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?)`;
 
-        const params = [value, comments, billingid, patientid];
-        await this.useTransactionForResult(insertion, params, testid, response);
-      } else {
-        const updateQuery = `UPDATE ${testTable[testname]}
+      const params = [value, comments, billingid, patientid];
+      await this.useTransactionForResult(insertion, params, testid, response);
+    } else {
+      const updateQuery = `UPDATE ${testTable[testname]}
           SET VALUE  = ?,
           updated_on = NOW(),
           COMMENTS = ? 
           WHERE BILLINGID = ? AND PATIENTID  =?
         `;
-        const params = [value, comments, billingid, patientid];
+      const params = [value, comments, billingid, patientid];
 
-        connection.query(updateQuery, params, (err, result) => {
-          if (err) {
-            this.errMessage(err, response);
-          }
+      connection.query(updateQuery, params, (err, result) => {
+        if (err) {
+          this.errMessage(err, response);
+        }
 
-          if (result) {
-            this.pushResponse(result, response);
-          }
-        });
-      }
+        if (result) {
+          this.pushResponse(result, response);
+        }
+      });
     }
   }
+}
 
   async glucose(records, response) {
-    const { testname, testid, patientid, unit, billingid, result, comments } =
-      records;
+  const { testname, testid, patientid, unit, billingid, result, comments } =
+    records;
 
-    if (this.isTestValid()) {
-      if (await this.ShouldCreateRecord()) {
-        const insertionQuery = `INSERT INTO ${testTable[testname]}
+  if (this.isTestValid()) {
+    if (await this.ShouldCreateRecord()) {
+      const insertionQuery = `INSERT INTO ${testTable[testname]}
         (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)
         VALUES (?,?,?,?,?)
         `;
 
-        const values = [billingid, patientid, result, unit, comments];
+      const values = [billingid, patientid, result, unit, comments];
 
-        await this.useTransactionForResult(
-          insertionQuery,
-          values,
-          testid,
-          response
-        );
-      } else {
-        const updateRecords = `UPDATE ${testTable[this.testname]}
+      await this.useTransactionForResult(
+        insertionQuery,
+        values,
+        testid,
+        response
+      );
+    } else {
+      const updateRecords = `UPDATE ${testTable[this.testname]}
         SET RESULT = ?,
         UNIT = ?,
         updated_on = NOW(),
         COMMENTS = ? 
         WHERE BILLINGID = ? AND PATIENTID = ?`;
 
-        const values = [result, unit, comments, billingid, patientid];
+      const values = [result, unit, comments, billingid, patientid];
 
-        connection.query(updateRecords, values, (err, result) => {
-          if (err) {
-            this.errMessage(err, response);
-          }
-          if (response) {
-            this.pushResponse(result, response);
-          }
-        });
-      }
+      connection.query(updateRecords, values, (err, result) => {
+        if (err) {
+          this.errMessage(err, response);
+        }
+        if (response) {
+          this.pushResponse(result, response);
+        }
+      });
     }
   }
+}
 }
 
 module.exports = { Result, beginTransaction, query, testTable };
