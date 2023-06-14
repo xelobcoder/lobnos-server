@@ -12,25 +12,53 @@ const DB_TABLE_GENERAL = 'setup_full_blood_count_test_general';
 const DB_TABLE_CREATE_PARAMS = 'setup_fullcount_paramters'
 
 // this gets the table name in the db based on the test query and options in the case of full blood count 
-const category_determiner = function (opts) {
+const category_determiner = function (opts, patientid) {
   //  convert string to lowercase 
   let optsCot = new String(opts).toLowerCase();
   switch (optsCot) {
     case 'male':
       return DB_TABLE_MALE;
-      break;
     case 'female':
       return DB_TABLE_FEMALE;
-      break;
     case 'children':
       return DB_TABLE_GENERAL;
-      break;
     case 'params':
       return DB_TABLE_CREATE_PARAMS;
-
+    case 'filling':
+      return getAge(patientid);
     default:
       return optsCot + ' ' + 'not defined';
   }
+}
+
+
+// this function takes in the patient id and returns the age 
+// this is for filling incase category is given by the client
+
+const getAge = function (patientid) {
+  return new Promise((resolve, reject) => {
+    let connectionQuery = `SELECT * FROM new_patients WHERE PATIENTID = ?`;
+
+    connection.query(connectionQuery, patientid, function (err, result) {
+      if (err) {
+        reject(err);
+      }
+      else {
+        const data = result[0];
+        if (data) {
+          const { AGE, AGETYPE, GENDER } = data;
+          if (GENDER == 'female' && AGE > 10 && AGETYPE == 'years') {
+            resolve(DB_TABLE_FEMALE)
+          } else if (GENDER == 'male' && AGE > 10 && AGETYPE == 'years') {
+            resolve(DB_TABLE_MALE)
+          }
+          else {
+            resolve(DB_TABLE_GENERAL)
+          }
+        }
+      }
+    })
+  })
 }
 
 const insertdata = function (request, response) {
@@ -65,44 +93,47 @@ const insertdata = function (request, response) {
 
 
 const getdata = async (request, response) => {
-  let test = request.query.category;
+  let { category, patientid } = request.query
 
-  let category_table = category_determiner(test);
+  let category_table = '';
 
-  if (test) {
-    let SQL_QUERY = `SELECT * FROM ${category_table}`;
-    connection.query(SQL_QUERY, (err, result) => {
-      if (err) {
-        response.send({
-          status: 'error',
-          statusCode: 200,
-          message: 'occured in fetching data',
-        })
+  if (patientid) {
+    category_table = await category_determiner(category, patientid)
+  } else {
+    category_table = category_determiner(category);
+}
+
+if (category) {
+  let SQL_QUERY = `SELECT * FROM ${category_table}`;
+  connection.query(SQL_QUERY, (err, result) => {
+    if (err) {
+      response.send({
+        status: 'error',
+        statusCode: 200,
+        message: 'occured in fetching data',
+      })
+    }
+    else {
+      const xlen = result.length;
+      if (xlen === 0) {
+        const results = async function () {
+          let data = await database_queries.getall(`setup_fullcount_paramters`);
+          response.send(data)
+        }
+        results()
       }
       else {
-        const xlen = result.length;
-
-        if (xlen === 0) {
-          const results = async function () {
-            let data = await database_queries.getall(`setup_fullcount_paramters`);
-            response.send(data)
-          }
-
-          results()
-
-        }
-        else {
-          response.send(result)
-        }
+        response.send(result)
       }
+    }
 
-    })
-  }
-  else {
-    response.send({
-      message: category + " " + 'not defined'
-    })
-  }
+  })
+}
+else {
+  response.send({
+    message: category + " " + 'not defined'
+  })
+}
 
 }
 
@@ -130,7 +161,7 @@ const getCreatedParams = async function (request, response) {
 }
 
 const deleteData = async function (request, response) {
-  const { id,category } = request.query;
+  const { id, category } = request.query;
 
   if (!id && !category) {
     response.send({
@@ -140,22 +171,22 @@ const deleteData = async function (request, response) {
     })
   }
   else {
-   let results = await database_queries.del(id,category_determiner(category),'FBCID');
-   
-   if (results.affectedRows === 1) {
-    response.send({
-      status:'success',
-      message: 'Parameter successfully deleted',
-      statusCode: 200
-    })
-   }
-   else {
-    response.send({
-      status: 'error',
-      message:'Error occured in deleting parameter',
-      statusCode: 401
-    })
-   }
+    let results = await database_queries.del(id, category_determiner(category), 'FBCID');
+
+    if (results.affectedRows === 1) {
+      response.send({
+        status: 'success',
+        message: 'Parameter successfully deleted',
+        statusCode: 200
+      })
+    }
+    else {
+      response.send({
+        status: 'error',
+        message: 'Error occured in deleting parameter',
+        statusCode: 401
+      })
+    }
   }
 }
 
