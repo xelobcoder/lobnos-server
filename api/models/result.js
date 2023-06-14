@@ -24,6 +24,7 @@ const testTable = {
   esr: "result_esr",
   random_blood_sugar: "result_random_blood_sugar",
   fasting_blood_sugar: "result_fasting_blood_sugar",
+  full_blood_count:'result_function_full_blood_count'
 };
 
 class Result {

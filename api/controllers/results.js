@@ -73,6 +73,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case "liver_function_test":
         await resultInstance.liverfunctionTest(req.body, res);
         break;
+      case 'full_blood_count':
+        await resultInstance.liverfunctionTest(req.body, res);
+        break;
       case "malaria":
         await resultInstance.malaria(req.body, res);
         break;
