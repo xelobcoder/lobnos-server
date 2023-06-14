@@ -6,7 +6,9 @@ const widal = `SELECT * FROM result_widal WHERE BILLINGID =`;
 
 const urinalysis = `SELECT * FROM urinalysisresult WHERE BILLINGID =`
 
-const hepatitis_b_profile =`SELECT * FROM HEPATITISB_PROFILE WHERE BILLINGID =`
+const hepatitis_b_profile = `SELECT * FROM HEPATITISB_PROFILE WHERE BILLINGID =`
+
+const pregnancy_test = `SELECT * FROM RESULT_PREGNANCY_TEST WHERE BILLINGID =`;
 
 const mappWithBilingid = function (query, value) { return query += ` ${value}` }
 
@@ -18,7 +20,9 @@ const mappWithBilingid = function (query, value) { return query += ` ${value}` }
 const MappingSetup = {
   blood_grouping: bloodgrouping,
   malaria,
-  widal,urinalysis,hepatitis_b_profile
+  widal, urinalysis, 
+  hepatitis_b_profile,
+  pregnancy_test
 }
 
 
@@ -33,7 +37,8 @@ const testCategoryMapping = {
   renal_function_test: 'chemistry',
   blood_grouping: 'hema',
   urinalysis: 'hema',
-  hepatitis_b_profile
+  hepatitis_b_profile :'hema',
+  pregnancy_test: 'hema',
 }
 
-module.exports = { MappingSetup, mappWithBilingid,testCategoryMapping }
+module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }

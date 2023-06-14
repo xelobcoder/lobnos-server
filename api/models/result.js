@@ -20,6 +20,7 @@ const testTable = {
   betahcg: "result_beta_hcg",
   aids: "result_aids",
   liver_function_test: "result_function_liver",
+  renal_function_test: 'result_function_renal',
   esr: "result_esr",
   random_blood_sugar: "result_random_blood_sugar",
   fasting_blood_sugar: "result_fasting_blood_sugar",
@@ -529,8 +530,7 @@ class Result {
         }
 
         if (result) {
-          const { affectedRows } = result;
-          if (affectedRows > 0) {
+          if (result.affectedRows > 0) {
             response.send({
               status: "success",
               message: "record updated successfully",
@@ -548,9 +548,7 @@ class Result {
     }
   }
 
-  async renalFunctionalTest(records, response) {
-    console.log(records);
-  }
+
 
   async malaria(records, response) {
     const {
@@ -601,6 +599,7 @@ class Result {
   }
 
   async liverfunctionTest(requestBody, response) {
+
     const { testname, billingid, testid, patientid, records, comments } =
       requestBody;
     let errMessage = this.errMessage;
