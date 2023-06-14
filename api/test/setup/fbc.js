@@ -33,12 +33,29 @@ const category_determiner = function (opts, patientid) {
 
 
 // this function takes in the patient id and returns the age 
+// also if the billingid is given , then the billingid is used
+// on of the paramters  must be null or an error will thrown
 // this is for filling incase category is given by the client
 
-const getAge = function (patientid) {
+const getAge = function (patientid = null, billingid = null) {
   return new Promise((resolve, reject) => {
-    let connectionQuery = `SELECT * FROM new_patients WHERE PATIENTID = ?`;
+    let connectionQuery = '';
 
+    if (patientid) {
+      connectionQuery = `SELECT * FROM new_patients WHERE PATIENTID = ?`;
+    }
+
+    if (billingid) {
+      connectionQuery = `SELECT AGE,
+            AGETYPE,
+            GENDER
+          FROM performing_test AS pt
+            INNER JOIN new_patients AS np ON np.PATIENTID = pt.PATIENTID
+          WHERE BILLINGID = ${billingid}`;
+    }
+
+    if (patientid && billingid) { throw err; }
+    
     connection.query(connectionQuery, patientid, function (err, result) {
       if (err) {
         reject(err);
@@ -101,39 +118,39 @@ const getdata = async (request, response) => {
     category_table = await category_determiner(category, patientid)
   } else {
     category_table = category_determiner(category);
-}
+  }
 
-if (category) {
-  let SQL_QUERY = `SELECT * FROM ${category_table}`;
-  connection.query(SQL_QUERY, (err, result) => {
-    if (err) {
-      response.send({
-        status: 'error',
-        statusCode: 200,
-        message: 'occured in fetching data',
-      })
-    }
-    else {
-      const xlen = result.length;
-      if (xlen === 0) {
-        const results = async function () {
-          let data = await database_queries.getall(`setup_fullcount_paramters`);
-          response.send(data)
-        }
-        results()
+  if (category) {
+    let SQL_QUERY = `SELECT * FROM ${category_table}`;
+    connection.query(SQL_QUERY, (err, result) => {
+      if (err) {
+        response.send({
+          status: 'error',
+          statusCode: 200,
+          message: 'occured in fetching data',
+        })
       }
       else {
-        response.send(result)
+        const xlen = result.length;
+        if (xlen === 0) {
+          const results = async function () {
+            let data = await database_queries.getall(`setup_fullcount_paramters`);
+            response.send(data)
+          }
+          results()
+        }
+        else {
+          response.send(result)
+        }
       }
-    }
 
-  })
-}
-else {
-  response.send({
-    message: category + " " + 'not defined'
-  })
-}
+    })
+  }
+  else {
+    response.send({
+      message: category + " " + 'not defined'
+    })
+  }
 
 }
 
@@ -198,7 +215,8 @@ module.exports = {
   insertdata,
   getdata,
   deleteData,
-  getCreatedParams
+  getCreatedParams,
+  getAge
 }
 
 

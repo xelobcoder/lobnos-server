@@ -2,7 +2,7 @@ const router = require('express').Router();
 const ResultPrint = require('../models/ResultPrint');
 const { testCategoryMapping } = require('../models/ResultQueryMapping');
 const Payment = require('../models/payment')
-
+const payment = new Payment();
 
 router.get('/api/v1/result/ready', async function (req, res) {
    new ResultPrint().get_printables(req, res)
@@ -22,21 +22,22 @@ router.get('/api/v1/result/ready/crm/summary', (req, res) => {
 
 router.get('/api/v1/billing/payment/info/client',
    (request, response) => {
-      new Payment().getClientTransactionInformation(request, response)
+      payment.getClientTransactionInformation(request, response)
    }
 );
 
 
+
 router.get('/api/v1/paymentmodes', function (request, response) {
-   new Payment().paymentMode(request, response)
+   payment.paymentMode(request, response)
 })
 
 router.get('/api/v1/billing/client/transactionhx', function (request, response) {
-   new Payment().specificBillTransactionHx(request, response)
+   payment.specificBillTransactionHx(request, response)
 })
 
 router.post('/api/v1/billing/payment/update', function (request, response) {
-   new Payment().updatePayment(request, response);
+   payment.updatePayment(request, response);
 })
 
 
@@ -74,9 +75,9 @@ router.get('/api/v1/result/preview', function (request, response) {
 
 
 router.get('/api/v1/result/preview/comments', function (request, response) {
-   const { billingid,testid } = request.query;
+   const { billingid, testid } = request.query;
    if (billingid) {
-      new ResultPrint().getComments(billingid,testid,response);
+      new ResultPrint().getComments(billingid, testid, response);
    } else {
       response.send({
          status: 'error',

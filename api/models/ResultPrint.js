@@ -1,5 +1,6 @@
 const connection = require("../db");
 const { Result, testTable } = require("./result");
+const { getAge } = require('../../api/test/setup/fbc');
 const ResultClass = new Result();
 const errMessage = ResultClass.errMessage;
 const {
@@ -16,13 +17,19 @@ const RENAL_CLIENT_TABLE = "renal_function_test";
 const CARDIAC_ENZYMES = "setup_cardiac_enzymes";
 const THYROID_SETUP = "setup_thyroid_test";
 const LIPID_PROFILE_SETUP = "setup_lipid_profile_test";
+const FULL_BLOOD_COUNT = 'result_function_full_blood_count'
 const BETAHCG = `setup_beta_hcg`;
 const ESR = `setup_esr`;
 
+
+// this represent the setups in the database for those chemistry test, full blood count is give a 
+// default string of empty so that using the billing id we could populate
+// with getAge
 const setups = {
   liver_function_test: LIVER_SETUP,
   renal_function_test: RENAL_SETUP,
   cardiac_enzymes: CARDIAC_ENZYMES,
+  full_blood_count: ''
 };
 
 const samplingQuery = `
@@ -97,7 +104,7 @@ class ResultPrint {
     connection.query(modelQuery, params, (err, result) => {
       if (err) {
         errMessage.call(this, err, response);
-      } else [response.send(result)];
+      } else[response.send(result)];
     });
   };
 
@@ -112,7 +119,7 @@ class ResultPrint {
     connection.query(model, id, (err, result) => {
       if (err) {
         errMessage.call(this, err, response);
-      } else [response.send(result)];
+      } else[response.send(result)];
     });
   };
 
@@ -231,13 +238,20 @@ class ResultPrint {
     );
   };
 
-  resultPreviewChemistry = function (request, response, category) {
+  resultPreviewChemistry = async function (request, response, category) {
     const { billingid, testid, test } = request.query;
     let responseResult = { sampling: [], result: [] };
     const testname = testTable[test];
-    const testSetup = setups[test];
+    let testSetup = setups[test];
 
     if (testname && billingid && testid) {
+      // once it is full_blood_count , we use the billingid and getAge function
+      // to get the gender result reference
+
+      if (test == 'full_blood_count') {
+        testSetup = await getAge(null, billingid);
+      }
+
       let resultQuery;
 
       if (typeof testSetup != undefined) {
@@ -253,6 +267,8 @@ class ResultPrint {
                   INNER JOIN result_comments AS c ON c.billingid = rt.billingid
                WHERE rt.billingid = ${billingid}`;
       }
+
+
 
       connection.beginTransaction(function (err) {
         if (err) {
