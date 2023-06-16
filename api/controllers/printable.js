@@ -2,7 +2,7 @@ const router = require('express').Router();
 const ResultPrint = require('../models/ResultPrint');
 const { testCategoryMapping } = require('../models/ResultQueryMapping');
 const Payment = require('../models/payment')
-const payment = new Payment();
+const result = new ResultPrint();
 
 router.get('/api/v1/result/ready', async function (req, res) {
    new ResultPrint().get_printables(req, res)
@@ -22,22 +22,22 @@ router.get('/api/v1/result/ready/crm/summary', (req, res) => {
 
 router.get('/api/v1/billing/payment/info/client',
    (request, response) => {
-      payment.getClientTransactionInformation(request, response)
+      new Payment().getClientTransactionInformation(request, response)
    }
 );
 
 
 
 router.get('/api/v1/paymentmodes', function (request, response) {
-   payment.paymentMode(request, response)
+   new Payment().paymentMode(request, response)
 })
 
 router.get('/api/v1/billing/client/transactionhx', function (request, response) {
-   payment.specificBillTransactionHx(request, response)
+   new Payment().specificBillTransactionHx(request, response)
 })
 
 router.post('/api/v1/billing/payment/update', function (request, response) {
-   payment.updatePayment(request, response);
+   new Payment().updatePayment(request, response);
 })
 
 
@@ -49,25 +49,24 @@ router.get('/api/v1/result/preview', function (request, response) {
          statusCode: '401',
          message: 'test not found'
       })
-   } else {
-      if (category) {
-         switch (category) {
-            case 'chemistry':
-               new ResultPrint().resultPreviewChemistry(request, response, category);
-               break;
-            case 'hema':
-               new ResultPrint().resultPreviewHematological(request, response, category);
-               break;
-            default:
-               response.send({
-                  statusCode: '400',
-                  message: 'Category not found'
-               })
-         }
+   }
+
+   if (!category) {
+      response.send({
+         statusCode: '401',
+         message: 'No categoy found for test'
+      })
+   }
+
+   if (category && test) {
+      if (category == 'chemistry') {
+         result.resultPreviewChemistry(request, response, category);
+      } else if (category == 'hema') {
+         result.resultPreviewHematological(request, response, category);
       } else {
          response.send({
-            statusCode: '401',
-            message: 'No categoy found for test'
+            statusCode: '400',
+            message: 'Category not found'
          })
       }
    }
@@ -85,6 +84,22 @@ router.get('/api/v1/result/preview/comments', function (request, response) {
          message: 'Include Billingid '
       })
    }
+})
+
+
+// this check if test for a client  is approved  for printing 
+
+router.post('/api/v1/test/result/preview/approved/check', function(request,response) {
+   const {billingid,testid} = request.body;
+   if (billingid && testid) {
+
+   }
+})
+
+
+
+router.post('/api/v1/result/approve', function (request, response) {
+   result.makeDecisionOnResult(request, response);
 })
 
 

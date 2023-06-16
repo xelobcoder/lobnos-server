@@ -244,10 +244,10 @@ class ResultPrint {
     const testname = testTable[test];
     let testSetup = setups[test];
 
+
     if (testname && billingid && testid) {
       // once it is full_blood_count , we use the billingid and getAge function
       // to get the gender result reference
-
       if (test == 'full_blood_count') {
         testSetup = await getAge(null, billingid);
       }
@@ -260,55 +260,35 @@ class ResultPrint {
                   st.UPPER as upper,
                   st.LOWER as lower,
                   st.UNIT as unit,
-                  rt.value,
-                  c.comments
+                  rt.value
                FROM ${testSetup} AS st
                   INNER JOIN ${testname} AS rt ON rt.parameter = st.PARAMETER
-                  INNER JOIN result_comments AS c ON c.billingid = rt.billingid
-               WHERE rt.billingid = ${billingid}`;
+               WHERE rt.billingid = ?`;
       }
 
 
-
-      connection.beginTransaction(function (err) {
+      connection.query(samplingQuery, [billingid, testid], function (err, samplingResult) {
         if (err) {
-          throw err;
+          connection.rollback(function () {
+            throw err;
+          });
         }
 
-        connection.query(
-          samplingQuery,
-          [billingid, testid],
-          function (err, samplingResult) {
-            if (err) {
-              connection.rollback(function () {
-                throw err;
-              });
-            }
+        responseResult.sampling = samplingResult;
 
-            responseResult.sampling = samplingResult;
-
-            connection.query(resultQuery, function (err, resultResult) {
-              if (err) {
-                connection.rollback(function () {
-                  throw err;
-                });
-              }
-
-              responseResult.result = resultResult;
-              responseResult.testcategory = category;
-
-              connection.commit(function (err) {
-                if (err) {
-                  connection.rollback(function () {
-                    throw err;
-                  });
-                }
-                response.status(200).json(responseResult); // Send the response to the client
-              });
+        connection.query(resultQuery, billingid, function (err, resultResult) {
+          if (err) {
+            connection.rollback(function () {
+              throw err;
             });
           }
-        );
-      });
+
+          responseResult.result = resultResult;
+          responseResult.testcategory = category;
+          response.status(200).json(responseResult); // Send the response to the client
+        });
+      }
+      );
     } else {
       response.send({
         statusCode: 401,
@@ -319,6 +299,7 @@ class ResultPrint {
 
   resultPreviewHematological = function (request, response) {
     const { billingid, testid, test } = request.query;
+  
     let responseResult = { sampling: [], result: [] };
     const category = testCategoryMapping[test];
 
@@ -388,6 +369,37 @@ class ResultPrint {
       }
     );
   };
+
+
+  makeDecisionOnResult = function (request, response) {
+    const { billingid, testid, decision, message } = request.body;
+    // update query to change approval status 
+    let updateQuery = `UPDATE TEST_ASCENSION 
+    SET APPROVALSTATUS = true ,
+    APPROVEDBY = ?  WHERE BILLINGID = ? AND TESTID = ?`;
+
+    if (decision == 'decline') {
+      updateQuery = `UPDATE TEST_ASCENSION 
+    SET APPROVALSTATUS = 0,
+    DECLINEMESSAGE =' ${message || null}',
+    APPROVEDBY = ?  WHERE BILLINGID = ? AND TESTID = ?`
+    }
+
+    connection.query(updateQuery, ['Tiifu Hamza', billingid, testid], function (err, result) {
+      if (err) {
+        console.log(err)
+        throw err;
+      }
+      else {
+        if (result.affectedRows == 1) {
+          response.status(200).json({ status: 'success' })
+        }
+        else {
+          response.status(401).json({ status: 'error' })
+        }
+      }
+    })
+  }
 }
 
 module.exports = ResultPrint;
