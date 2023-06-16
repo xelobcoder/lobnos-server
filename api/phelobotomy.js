@@ -161,7 +161,7 @@ const getAscensionWithDetails = async function (billingid, response) {
   const statement = `SELECT * FROM test_ascension AS t 
   INNER JOIN test_panels AS p
   ON t.testid = p.ID
-  WHERE billingid = ${billingid}`;
+  WHERE billingid = ${billingid} AND t.collection = 'false'`;
 
   connection.query(statement, function (err, result) {
     if (err) {

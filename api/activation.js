@@ -2,20 +2,27 @@ const connection = require('./db')
 
 const activation = {
   ACTIVATION_PAGE_QUERY: `
-  SELECT ID,PATIENTID,
-  CONCAT(FIRSTNAME,' ',' ',LASTNAME,' ',MIDDLENAME) AS FULLNAME,DATE,ACTIVATION_STATUS FROM 
-    NEW_PATIENTS ORDER BY DATE DESC LIMIT 100`,
+  SELECT ID, PATIENTID,
+  CASE 
+    WHEN MIDDLENAME IS NULL THEN CONCAT(FIRSTNAME, ' ', LASTNAME)
+    ELSE CONCAT(FIRSTNAME, ' ', MIDDLENAME, ' ', LASTNAME)
+  END AS FULLNAME,
+  DATE, ACTIVATION_STATUS
+FROM NEW_PATIENTS
+ORDER BY DATE DESC
+LIMIT 100;
+             `,
   // get partial data of patients
   getPartialData: function (request, response) {
     connection.query(this.ACTIVATION_PAGE_QUERY, (err, result) => {
       if (err) {
-        throw err
+        throw err;
       }
-      response.send(result)
-    })
+      response.send(result);
+    });
   },
   activateDeactivate: function (request, response) {
-    const { patientid, action } = request.query
+    const { patientid, action } = request.query;
     if (patientid && action) {
       connection.query(
         `UPDATE NEW_PATIENTS SET ACTIVATION_STATUS = ? WHERE PATIENTID = ?`,
@@ -24,18 +31,18 @@ const activation = {
           if (err) {
             response.status(404).send({
               statusCode: 404,
-              message: err.message
-            })
+              message: err.message,
+            });
           }
           response.send({
-            message: 'success',
-            action: action === 'TRUE' ? 'BILLING' : 'ACTIVATION PAGE'
-          })
-        },
-      )
+            message: "success",
+            action: action === "TRUE" ? "BILLING" : "ACTIVATION PAGE",
+          });
+        }
+      );
     }
   },
-}
+};
 
 
 module.exports = activation
