@@ -32,7 +32,7 @@ router.get('/api/v1/test/result/check', async function (req, res) {
     }
   }
   catch (err) {
-    res.status(500).send({
+    res.status(500).json({
       message: err?.message,
       statusCode: 500
     })

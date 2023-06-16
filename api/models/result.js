@@ -4,10 +4,12 @@ const beginTransaction = util
   .promisify(connection.beginTransaction)
   .bind(connection);
 const query = util.promisify(connection.query).bind(connection);
+const operations = require('../models/operations');
+
 
 const testTable = {
   hepatitisb: "hepatitisBresult",
-  hepatitisc: "hepatitisC",
+  hepatitisc: "hepatitisCresult",
   blood_grouping: "bloodgroup",
   glycated_haemoglobin: "glycated_haemoglobin",
   urinalysis: "urinalysisresult",
@@ -24,7 +26,7 @@ const testTable = {
   esr: "result_esr",
   random_blood_sugar: "result_random_blood_sugar",
   fasting_blood_sugar: "result_fasting_blood_sugar",
-  full_blood_count:'result_function_full_blood_count'
+  full_blood_count: 'result_function_full_blood_count'
 };
 
 class Result {
@@ -145,12 +147,13 @@ class Result {
   }
   // hepatitis B and C have the same database table templates hence right if we use thr samapel
   async hepatitisBresult(records, response) {
-    // this check if a template for such test exist
-    const isValid = await this.isTestValid();
-    // check if data with billing id exist in the db table
-    const create = (await this.getTestResult()).length > 0 ? false : true;
     // destructure our object
-    const { billingid, result, patientid, scientistid, remarks } = records;
+    const { billingid, result, patientid, scientistid, testid, remarks } = records;
+    // this check if a template for such test exist
+    const isValid = this.isTestValid();
+    // check if data with billing id exist in the db table
+    const create = (await this.getTestResult(billingid)).length > 0 ? false : true;
+
     // populate based on the method
     if (isValid) {
       if (create) {
@@ -162,6 +165,30 @@ class Result {
             REMARKS
          ) VALUES (?,?,?,?,?)`;
         // connection to db to pass result
+        connection.query(query, [billingid, result, patientid, scientistid, remarks], function (err, result) {
+          if (err) {
+           
+            response.send({
+              status: "error",
+              statusCode: 500,
+              message: err.message,
+            });
+          } else {
+            const ops = new operations().initiateReady(testid, billingid);
+
+            ops.then((initiated) => {
+              if (initiated) {
+                response.send({
+                  statusCode: 201,
+                  message: "record inserted successfully",
+                  status: "success",
+                });
+              }
+            }).catch((err) => console.log(err))
+
+          }
+        })
+
       } else {
         const query = `UPDATE hepatitisBresult SET results = '${result}', remarks = '${remarks}' WHERE billingid = ${billingid}`;
         connection.query(query, (err, result) => {
@@ -548,8 +575,6 @@ class Result {
       });
     }
   }
-
-
 
   async malaria(records, response) {
     const {

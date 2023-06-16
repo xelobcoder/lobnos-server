@@ -83,9 +83,13 @@ class Operations {
 
     return new Promise((resolve, reject) => {
       connection.query(queryString, (err, result) => {
-        err ? reject(err) : result.affectedRows === 0 ? resolve({ affectedRows: 0 }) : resolve({ affectedRows: 1 })
-      })
-    })
+        err
+          ? reject(err)
+          : result.affectedRows === 0
+          ? resolve({ affectedRows: 0 })
+          : resolve({ affectedRows: 1 });
+      });
+    });
   }
 
   initiateReady = async (testid, billingid) => {
@@ -95,9 +99,13 @@ class Operations {
 
     return new Promise((resolve, reject) => {
       connection.query(queryString, (err, result) => {
-        err ? reject(err) : result.affectedRows === 0 ? resolve({ affectedRows: 0 }) : resolve({ affectedRows: 1 })
-      })
-    })
+        err
+          ? reject(err)
+          : result.affectedRows === 0
+          ? resolve({ affectedRows: 0 })
+          : resolve({ affectedRows: 1 });
+      });
+    });
   }
 
 }

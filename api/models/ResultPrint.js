@@ -198,7 +198,9 @@ class ResultPrint {
             ]);
           } else {
             const processing = result.filter((item, index) => {
-              return item.processing == "true";
+              return item.processing == "true" &&
+                item.collection == 'true'
+                && item.ready == 'true';
             }).length;
             const ready = result.filter((item, index) => {
               return item.processing == "true" && item.ready == "true";
@@ -299,7 +301,7 @@ class ResultPrint {
 
   resultPreviewHematological = function (request, response) {
     const { billingid, testid, test } = request.query;
-  
+
     let responseResult = { sampling: [], result: [] };
     const category = testCategoryMapping[test];
 
@@ -396,6 +398,29 @@ class ResultPrint {
         }
         else {
           response.status(401).json({ status: 'error' })
+        }
+      }
+    })
+  }
+
+  checkApproval = async function (request, response) {
+    const { billingid, testid } = request.body;
+
+    const q = `SELECT ApprovalStatus FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`;
+
+    connection.query(q, [billingid, testid], function (err, result) {
+      if (err) {
+        throw err;
+      } else {
+        if (result.length > 0) {
+          const { ApprovalStatus } = result[0];
+          if (ApprovalStatus == 1) {
+            response.send({ approved: true })
+          } else {
+            response.send({ approved: false })
+          }
+        } else {
+          response.send({ approved: null })
         }
       }
     })

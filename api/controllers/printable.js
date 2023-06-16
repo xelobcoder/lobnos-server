@@ -42,33 +42,34 @@ router.post('/api/v1/billing/payment/update', function (request, response) {
 
 
 router.get('/api/v1/result/preview', function (request, response) {
-   const { test } = request.query
+   const { test } = request.query;
    const category = testCategoryMapping[test];
+
    if (!test) {
-      response.send({
-         statusCode: '401',
-         message: 'test not found'
-      })
+     response.send({
+       statusCode: "401",
+       message: "test not found"
+     });
    }
 
    if (!category) {
-      response.send({
-         statusCode: '401',
-         message: 'No categoy found for test'
-      })
+     response.send({
+       statusCode: "401",
+       message: "No categoy found for test"
+     });
    }
 
    if (category && test) {
-      if (category == 'chemistry') {
-         result.resultPreviewChemistry(request, response, category);
-      } else if (category == 'hema') {
-         result.resultPreviewHematological(request, response, category);
-      } else {
-         response.send({
-            statusCode: '400',
-            message: 'Category not found'
-         })
-      }
+     if (category == "chemistry") {
+       result.resultPreviewChemistry(request, response, category);
+     } else if (category == "hema") {
+       result.resultPreviewHematological(request, response, category);
+     } else {
+       response.send({
+         statusCode: "400",
+         message: "Category not found",
+       });
+     }
    }
 })
 
@@ -89,10 +90,16 @@ router.get('/api/v1/result/preview/comments', function (request, response) {
 
 // this check if test for a client  is approved  for printing 
 
-router.post('/api/v1/test/result/preview/approved/check', function(request,response) {
-   const {billingid,testid} = request.body;
-   if (billingid && testid) {
+router.post('/api/v1/test/result/preview/approved/check', function (request, response) {
+   const { billingid, testid } = request.body;
 
+   if (billingid && testid) {
+      new ResultPrint().checkApproval(request, response);
+   } else {
+      response.status(401).json({
+         status: 'error',
+         message: 'include testid and billing in request body'
+      })
    }
 })
 
