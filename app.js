@@ -20,7 +20,7 @@ const {
   deleteClinicians,
   postClinicians,
 } = require("./api/clinicians");
-const { getOrganizations } = require("./api/organization");
+const { getOrganizations } = require("./api/models/organization");
 const { getpatient, addpatient, putpatient } = require("./api/register");
 const rejectedRouter = require("./api/controllers/rejected");
 const activation = require("./api/activation");
@@ -41,6 +41,7 @@ const settingsRouter = require("./api/controllers/settings");
 const User = require("./api/LobnosAuth/user");
 const LoginsRouter = require("./api/controllers/logins");
 const resultprintRouter = require('./api/controllers/printable')
+const organizationRouter = require('./api/controllers/organization')
 dotenv.config();
 
 app.listen(port, () => {
@@ -73,6 +74,7 @@ app.use(
 
 // api endpoints
 app.use(Manager)
+app.use(organizationRouter)
 app.use(LoginsRouter);
 app.use(ChemistryRoutes);
 app.use(phelobotomyRouter);
@@ -141,9 +143,7 @@ app.put("/api/v1/sample", function (request, response) {
   sampleHandle.updateRecords(status.toUpperCase(), billingid, message);
 });
 
-app.get("/api/v1/organization", (req, res) => {
-  getOrganizations(req, res);
-});
+
 
 app.get("/api/v1/clinicians", (req, res) => {
   getClinicians(req, res);
