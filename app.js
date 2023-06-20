@@ -237,37 +237,3 @@ app.get("/api/v1/org", function (req, res) {
 });
 
 
-const { PrismaClient } = require("@prisma/client");
-const Operations = require("./api/models/operations");
-const { connect } = require("./api/db");
-const connection = require("./api/db");
-
-
-
-
-
-
-const prisma = new PrismaClient();
-app.get("/api/v1/hello", function (request, response) {
-  response.send({
-    result: [
-      {
-        id: 1,
-        comment: "This is a comment",
-        rating: 5,
-        date: "2021-01-01",
-        patientid: 1,
-      },
-      {
-        id: 2,
-        comment: "This is a comment",
-        rating: 5,
-        date: "2021-01-01",
-        patientid: 12,
-      },
-    ],
-  });
-});
-
-
-

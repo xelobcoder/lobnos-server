@@ -12,6 +12,11 @@ const pregnancy_test = `SELECT * FROM RESULT_PREGNANCY_TEST WHERE BILLINGID =`
 
 const esr = `SELECT * FROM result_esr WHERE BILLINGID =`
 
+const hepatitisb =`SELECT * FROM hepatitisbresult WHERE BILLINGID =`
+
+const hepatitisc = `SELECT * FROM hepatitiscresult WHERE BILLINGID =`;
+
+
 const mappWithBilingid = function (query, value) {
   return (query += ` ${value}`)
 }
@@ -24,6 +29,8 @@ const MappingSetup = {
   hepatitis_b_profile,
   pregnancy_test,
   esr,
+  hepatitisb,
+  hepatitisc
 }
 
 // this category mapping is used to determine which function to use to return data for test
@@ -39,6 +46,8 @@ const testCategoryMapping = {
   urinalysis: 'hema',
   hepatitis_b_profile: 'hema',
   pregnancy_test: 'hema',
+  hepatitisb:'hema',
+  hepatitisc:'hema',
   full_blood_count: 'chemistry',
   esr: 'hema',
 }
