@@ -14,6 +14,9 @@ const {
   getInStockProduct,
   deleteAstock,
   updateAstock,
+  addNewStockCategory,
+  getStockCategory,
+  deleteStockCategory
 
 } = require('../models/supply.js')
 
@@ -30,6 +33,7 @@ const {
 
 
 const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require('../models/placeorders.js');
+const { getCategory } = require('../testpanel/categories.js');
 
 router.get('/api/v1/suppliers', function (request, response) {
   const hasQuery = Object.keys(request.query).length > 0
@@ -73,13 +77,6 @@ router.get('/api/v1/stock', function (request, response) {
 
     if (expireproduct) {
       getExpiredStock(request, response)
-        .then((data) => {
-          response.send({
-            status: 'success',
-            message: 'expired stock fetched successfully',
-            data: data
-          })
-        })
     }
     else if (stockid) {
       getAstock(request, response)
@@ -113,6 +110,18 @@ router.get('/api/v1/stock', function (request, response) {
 
 router.put('/api/v1/stock', function (request, response) {
   updateAstock(request, response)
+})
+
+router.post('/api/v1/stock/category', function (request, response) {
+  addNewStockCategory(request, response)
+})
+
+router.get('/api/v1/stock/category', function (request, response) {
+  getStockCategory(request, response)
+})
+
+router.delete('/api/v1/stock/category', function(request,response){
+  deleteStockCategory(request,response)
 })
 
 router.delete('/api/v1/stock', function (request, response) {

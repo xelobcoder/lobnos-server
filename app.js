@@ -1,5 +1,5 @@
 const express = require("express");
-
+const connection = require('./api/db')
 const app = express();
 const dotenv = require("dotenv");
 const port = 5000;
@@ -14,12 +14,6 @@ const {
 const resultChecker = require("./api/controllers/results");
 const Manager = require('./api/controllers/manager');
 const operationsRouter = require("./api/controllers/operations");
-const {
-  getClinicians,
-  putClinicians,
-  deleteClinicians,
-  postClinicians,
-} = require("./api/clinicians");
 const { getOrganizations } = require("./api/models/organization");
 const { getpatient, addpatient, putpatient } = require("./api/register");
 const rejectedRouter = require("./api/controllers/rejected");
@@ -30,6 +24,7 @@ const {
   deleteCategory,
   postCategory,
 } = require("./api/testpanel/categories");
+const clinicianRouter = require("./api/controllers/clinicians");
 const testpanel = require("./api/testpanel/list");
 const { get } = require("./api/center");
 const SampleHandler = require("./api/sample");
@@ -84,6 +79,8 @@ app.use(settingsRouter);
 app.use(operationsRouter);
 app.use(resultprintRouter)
 app.use(resultChecker);
+app.use(clinicianRouter);
+
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
 });
@@ -145,9 +142,7 @@ app.put("/api/v1/sample", function (request, response) {
 
 
 
-app.get("/api/v1/clinicians", (req, res) => {
-  getClinicians(req, res);
-});
+
 
 app.get("/api/v1/register", (req, res) => {
   getpatient(req, res);

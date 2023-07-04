@@ -1,19 +1,17 @@
--- -- join performing test with billing
-
--- SELECT 
--- b.PAID_AMOUNT,
--- pt.DATE,
--- b.ORGANIZATION
--- FROM performing_test AS pt INNER JOIN 
--- billing AS b ON pt.BILLINGID = b.BILLINGID WHERE 
--- DATE BETWEEN '2023-01-01' AND '2023-06-31' AND b.ORGANIZATION = 2
-
-
 SELECT 
-SUM(b.PAID_AMOUNT) AS COMMISION,
-DAY(pt.DATE) AS DAY
- FROM billing AS b INNER JOIN performing_test
- AS pt ON b.BILLINGID = pt.BILLINGID 
- WHERE b.ORGANIZATION =  1 AND MONTH(pt.DATE) = MONTH(NOW())
-  AND YEAR(NOW()) = YEAR(pt.DATE)
- GROUP BY DAY(pt.DATE) 
+o.productordersid,
+       o.stockid,
+       ns.quantity,
+       o.expirydate,
+       o.received,
+       o.receiveddate,
+       o.Batchnumber,
+       o.name,
+       o.suppliername,
+       o.purchaseunit
+FROM ORDERS AS o
+JOIN newstock AS ns ON o.stockid = ns.stockid
+WHERE received = 'TRUE'
+  AND DATE(expirydate) < DATE(NOW())
+ORDER BY expirydate ASC
+LIMIT 100;

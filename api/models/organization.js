@@ -102,7 +102,10 @@ o.createAOrganization = async function (request, response) {
 
   const available = await (this.isOrgnizationExist(name));
   if (available) {
-    response.send({ statusCode: 201, message: "Please such organization exists" })
+    response.send({
+      statusCode: 201,
+      status: 'exist', message: "Please such organization exists"
+    })
   } else {
     connection.query(query, values, function (err, result) {
       if (err) {
@@ -110,7 +113,12 @@ o.createAOrganization = async function (request, response) {
       }
       if (result) {
         result.affectedRows == 1 ?
-          response.send({ statusCode: 201, message: "new organization created successfully" }) :
+          response.send({
+            statusCode: 201,
+            organizationId: result.insertId,
+            status: 'success',
+            message: "new organization created successfully"
+          }) :
           response.send({ statusCode: 401, message: 'No insertion done' })
       }
     })
@@ -221,6 +229,21 @@ o.deleteOrganization = async function (request, response) {
   })
 }
 
+o.getOrganizationId = async function (request, response) {
+  const id = request.query.id;
+  const query = `SELECT * FROM ORGANIZATION WHERE ID = ?`;
+  connection.query(query, id, function (err, result) {
+    if (err) {
+      throw err;
+    }
+    if (result) {
+      // converting keys to camel case
+      
+      const data = JSON.parse(JSON.stringify(result[0]).toLowerCase());
+      response.send({ statusCode: 201, data: data })
+    }
+  })
+}
 
 o.getOrganizationCommissionByMonth = async function (request, response) {
   const { id } = request.query;

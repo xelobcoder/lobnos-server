@@ -266,8 +266,11 @@ const getCommodity = async function (request, response) {
 
 // check if stock exist
 
-const checkStockExist = (stock) => {
-  let query = `SELECT * FROM newstock WHERE name = ?`
+const checkStockExist = (tablename = 'newstock', stock, params) => {
+  let query = `SELECT * FROM ${tablename} WHERE name = ?`
+  if (tablename != 'newstock') {
+    query = `SELECT * FROM ${tablename} WHERE ${params} = ?`
+  }
   return new Promise((resolve, reject) => {
     connection.query(query, [stock], function (err, result) {
       if (err) {
@@ -350,7 +353,21 @@ const new_stock = async function (request, response) {
 }
 
 const getStock = async function (request, response) {
-  let query = `SELECT * FROM newstock`;
+  let query = `
+  SELECT 
+    ns.name as name,
+    ns.stockid as stockid,
+    sc.category as category,
+    ns.consumptionunit as consumptionunit,
+    ns.purchaseunit as purchaseunit,
+    ns.tax as tax,
+    ns.quantity as quantity,
+    ns.date as date,
+    ns.alertlevel as alertlevel,
+    ns.materialcode as materialcode
+ FROM newstock as ns INNER JOIN stockcategory as sc ON sc.id = ns.category
+
+  `;
 
   connection.query(query, function (err, result) {
     if (err) {
@@ -400,26 +417,46 @@ const getAstock = async function (request, response) {
 
 
 const getExpiredStock = async function (request, response) {
-  //  get all the expired stock where the expiry date is less than the current date and productused is false
-  // and in the newstock table
+  // get all product recived in the orders table
+  // must have been receieved
+  // must have been expired
+  const query = `SELECT productordersid,
+          stockid,
+          quantity,
+          expirydate,
+          received,
+          receiveddate,
+          expirydate,
+          Batchnumber,
+          name,
+          suppliername,
+          purchaseunit
+        FROM ORDERS
+        WHERE RECEIVED = 'TRUE'
+          AND DATE(expirydate) < DATE(NOW())
+        ORDER BY expirydate ASC
+        LIMIT 100 
+    `;
 
-  // get all products that are int he newstock table
-  const newstock = await (await prisma.newstock.findMany()).map((item) => item.stockid)
 
-  console.log(newstock)
-
-  const result = await prisma.orders.findMany({
-    where: {
-      expirydate: {
-        lte: new Date(),
-      },
-      productused: 'false',
-      stockid: {
-        in: newstock,
-      },
-    },
-  });
-  return result;
+    // in possible future, an additional table will created which e using fot all transaction of all
+    // stock to keeep seperate the newstock table from updating the stocks so 
+    // that a proper history of all stock can be kept
+  connection.query(query, function (err, result) {
+    if (err) {
+      response.send({
+        status: 'error',
+        err,
+      })
+    }
+    if (result) {
+      response.send({
+        status: 'success',
+        result,
+      })
+    }
+  }
+  )
 }
 
 
@@ -437,30 +474,56 @@ const getInStockProduct = async function (request, response) {
 }
 
 const updateAstock = function (request, response) {
-  console.log(request.body, request.query)
-  // upadate newstock  table using request.query.stockid
+  const { stockid, name, category,
+    consumptionunit, purchaseunit, quantity,
+    alertlevel, materialcode, tax, date
+  } = request.body;
+  //   we going to update the stock using the stockid 
 
-  const result = prisma.newstock.update({
-    where: {
-      stockid: parseInt(request.query.stockid)
-    },
-    data: request.body
-  })
+  const query = `
+    UPDATE newstock SET 
+    consumptionunit = ?,
+    purchaseunit = ?,
+    quantity = ?,
+    alertlevel = ?,
+    materialcode = ?,
+    tax = ?,
+    date = ?,
+    name = ?,
+    category = ?
+    WHERE stockid = ?
+  `;
 
-  result.then((data) => {
-    response.send({
-      status: 'success',
-      message: 'stock updated successfully',
-      data: data
-    })
-    prisma.$disconnect()
-  }).catch((error) => {
-    response.send({
-      status: 'error',
-      message: 'stock not updated',
-      data: error
-    })
-  })
+  connection.query(
+    query,
+    [
+      consumptionunit,
+      purchaseunit,
+      quantity,
+      alertlevel,
+      materialcode,
+      tax,
+      date,
+      name,
+      category,
+      stockid
+    ],
+    function (err, result) {
+      if (err) {
+        response.send({
+          status: 'error',
+          message: err.message,
+        })
+      }
+      if (result) {
+        response.send({
+          status: 'success',
+          message: 'stock updated successfully',
+          statusCode: 200,
+        })
+      }
+    }
+  )
 }
 
 
@@ -490,10 +553,89 @@ const deleteAstock = function (request, response) {
   })
 }
 
+
+const addNewStockCategory = function (request, response) {
+
+  const { category } = request.body;
+  if (category) {
+    checkStockExist('stockcategory', category, 'category')
+      .then((res) => {
+        if (!res) {
+          const query = 'INSERT INTO stockCategory (category) VALUES (?)';
+          connection.query(query, category, function (err, result) {
+            if (err) {
+              response.send({
+                statusCode: 200, status: 'error', message: err.message
+              })
+            }
+            else {
+              response.send({ statusCode: 201, message: 'category added successfully', status: 'success' })
+            }
+          })
+        }
+        else {
+          response.send({
+            statusCode: 201,
+            message: 'category already exist',
+            status: 'success'
+          })
+        }
+      })
+      .catch((err) => console.log(err))
+  } else {
+    return
+  }
+}
+
+
+const getStockCategory = function (request, response) {
+  connection.query(`SELECT * FROM stockCategory`, function (err, result) {
+    if (err) {
+      throw err;
+    } else {
+      response.send(result)
+    }
+  })
+}
+
+const deleteStockCategory = function (request, response) {
+  const { id } = request.body;
+
+  if (!id) {
+    response.send({
+      message: 'category id required',
+      statusCode: 401
+    })
+  } else {
+    connection.query('DELETE FROM stockCategory WHERE id = ?', id, function (err, result) {
+      if (err) {
+        throw err;
+      }
+      else {
+        const { affectedRows } = result;
+        if (affectedRows > 0) {
+          response.send({
+            message: 'record deleted successfully',
+            statusCode: 200,
+            status: 'success'
+          })
+        } else {
+          response.send({
+            message: 'record not deleted',
+            statusCode: 400,
+            status: 'success'
+          })
+        }
+      }
+    })
+  }
+}
+
 module.exports = {
   new_supplier,
   getExpiredStock,
   getInStockProduct,
+  deleteStockCategory,
   update_supplier,
   delete_supplier,
   get_suppliers,
@@ -505,6 +647,7 @@ module.exports = {
   deleteAstock,
   getAstock,
   updateAstock,
-  prisma
+  addNewStockCategory,
+  getStockCategory
 }
 

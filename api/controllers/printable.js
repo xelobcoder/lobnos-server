@@ -46,30 +46,30 @@ router.get('/api/v1/result/preview', function (request, response) {
    const category = testCategoryMapping[test];
 
    if (!test) {
-     response.send({
-       statusCode: "401",
-       message: "test not found"
-     });
+      response.send({
+         statusCode: "401",
+         message: "test not found"
+      });
    }
 
    if (!category) {
-     response.send({
-       statusCode: "401",
-       message: "No categoy found for test"
-     });
+      response.send({
+         statusCode: "401",
+         message: "No categoy found for test"
+      });
    }
 
    if (category && test) {
-     if (category == "chemistry") {
-       result.resultPreviewChemistry(request, response, category);
-     } else if (category == "hema") {
-       result.resultPreviewHematological(request, response, category);
-     } else {
-       response.send({
-         statusCode: "400",
-         message: "Category not found",
-       });
-     }
+      if (category == "chemistry") {
+         result.resultPreviewChemistry(request, response, category);
+      } else if (category == "hema") {
+         result.resultPreviewHematological(request, response, category);
+      } else {
+         response.send({
+            statusCode: "400",
+            message: "Category not found",
+         });
+      }
    }
 })
 

@@ -4,27 +4,25 @@ const path = require('path');
 const fs = require('fs');
 
 const storage = multer.diskStorage({
- destination: (req, file, cb) => {
-  let extension = file.originalname.split('.');
-  let accepted = ['jpeg', 'png', 'jpg'];
+  destination: (req, file, cb) => {
+    let extension = file.originalname.split('.');
+    let accepted = ['jpeg', 'png', 'jpg'];
 
-  if (accepted.includes(extension[1])) {
-   const destinationPath = path.join(__dirname, './organization');
-   // Delete previous images in the folder
-   const files = fs.readdirSync(destinationPath);
-   files.forEach((file) => {
-    fs.unlinkSync(path.join(destinationPath, file));
-   });
-
-   cb(null, path.join(destinationPath));
-  } else {
-   cb(new Error('File type jpeg, png, jpg required'));
+    if (accepted.includes(extension[1])) {
+      const destinationPath = path.join(__dirname, './../../asserts/organizations');
+      cb(null, path.join(destinationPath));
+    } else {
+      cb(new Error('File type jpeg, png, jpg required'));
+    }
+  },
+  filename: (req, file, cb) => {
+    const { imageid } = req.query;
+    if (!imageid) {
+      return cb('imageid is required', null);
+    }
+    const uniqueSuffix = imageid + path.extname(file.originalname);
+    cb(null, uniqueSuffix);
   }
- },
- filename: (req, file, cb) => {
-  const uniqueSuffix = 'companylogo' + path.extname(file.originalname);
-  cb(null, uniqueSuffix);
- }
 });
 
 const upload = multer({ storage }).single('file')
@@ -43,12 +41,12 @@ router.get('/api/v1/organizations/details', function (request, response) {
 })
 
 router.post('/api/v1/new/organizations', function (request, response) {
-  o.createAOrganization(request,response);
+  o.createAOrganization(request, response);
 })
 
 
-router.post('/api/v1/new/organization/images',upload, function(request,response) {
-    if (!request.file) {
+router.post('/api/v1/new/organization/images', upload, function (request, response) {
+  if (!request.file) {
     response.status(400).json({ error: 'No file uploaded' });
   } else {
     // File uploaded successfully
@@ -63,6 +61,10 @@ router.get('/api/v1/organization/daily', function (request, response) {
 
 router.get('/api/v1/organization/monthly', function (request, response) {
   o.getOrganizationCommissionByMonth(request, response);
+})
+
+router.get('/api/v1/organization/id', function (request, response) {
+  o.getOrganizationId(request, response);
 })
 
 
