@@ -344,7 +344,7 @@ const deleteDeptStocks = async function (request, response, id) {
 // -------------------------
 
 const updateRequisitionAfterReceivedDept = async function (request, response) {
-  const { quantityReceived, departmentReceived, id, status } = request.body;
+  const { quantityReceived, departmentReceived, id, status, stockid, consumptionunit } = request.body;
   if (!quantityReceived || !departmentReceived || !id) {
     response.send({
       status: "error",
@@ -364,7 +364,9 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
             reject(err);
           }
           if (result) {
-            resolve(result);
+            // return the stockid o the stock updated
+
+            resolve(result.affectedRows);
           }
         });
       }
@@ -410,7 +412,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
             reject(err);
           }
           if (result) {
-            resolve(result);
+            resolve(result.affectedRows);
           }
         });
       }
@@ -442,23 +444,27 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 
       const resultSet = await qty;
 
+
+
       if (resultSet.length > 0) {
-        const qtyInDb = qty[0].quantity;
+        const qtyInDb = resultSet[0].quantity;
         // we substract the qty received from the qty in db
         const qtyInDbAfterSubstraction = qtyInDb - qtyR;
         // we update the db
-        const updateQty = `UPDATE newstock SET quantity = ${qtyInDbAfterSubstraction} WHERE stockid = ${stockid}`;
+        const updateQtyQuery = `UPDATE newstock SET quantity = ${qtyInDbAfterSubstraction} WHERE stockid = ${stockid}`;
+
         const updatedQty = new Promise((resolve, reject) => {
-          connection.query(updateQty, function (err, result) {
+          connection.query(updateQtyQuery, function (err, result) {
             if (err) {
               reject(err);
             }
             if (result) {
-              resolve(result);
+              resolve(result.affectedRows);
             }
           });
         }
         );
+        return updatedQty;
       }
 
     }
@@ -489,12 +495,12 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
     const updatingDeptStock = async function (id, qty) {
       // return a promise
 
-      const updatedeptmentStocks =`UPDATE departmentstocks
+      const updatedeptmentStocks = `UPDATE departmentstocks
        SET quantityAvailable = ${qty},
         dateupdated = '${new Date()}'
       WHERE id = ${id}`
-     
-    //  exceute the query and return a promise
+
+      //  exceute the query and return a promise
       const updatedQty = new Promise((resolve, reject) => {
         connection.query(updatedeptmentStocks, function (err, result) {
           if (err) {
@@ -514,17 +520,29 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
     // this function gets the stock information from the new stock table
     const getStockInformation = async function (stockid) {
       // return a promise
-      const stockInfo = await prisma.newstock.findFirst({
-        where: {
-          stockid: stockid,
-        },
+
+      const stockInfo = `SELECT * FROM newstock WHERE stockid = ${stockid}`;
+
+      const stock = new Promise((resolve, reject) => {
+        connection.query(stockInfo, function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
       });
 
+
+      const getStockInformation = await stock;
+
       return {
-        stockid: stockInfo.stockid,
-        comsumptionunit: stockInfo.consumptionunit,
-        name: stockInfo.name,
-      };
+        stockid: getStockInformation[0].stockid,
+        consumptionunit: getStockInformation[0].consumptionunit,
+        name: getStockInformation[0].name,
+      }
+
     }
 
     const { quantityReceived, departmentReceived, id, departmentid } = request.body;
@@ -538,83 +556,86 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
     // if it is, update the quantity
     // if it is not, add the stock to the department stock table
 
-    // NB:this would be rewritten using transactions to e=nsure data integrity and ACID compliance.
+    // NB:this would be rewritten using transactions to ensure data integrity and ACID compliance.
 
-    updatingQtyReceived(id, quantityReceived, departmentReceived)
-      .then((result) => {
-        checkingQtyInNewStock(result.stockid)
-          .then((result) => {
-            const qty = result.quantity;
-            const stockid = result.stockid;
-            if (qty < quantityReceived) {
-              response.send({
-                status: "error",
-                message: "quantity received is more than the quantity in the store..Kindly contact the store manager",
-              });
-            } else if (qty === 0) {
-              response.send({
-                status: "error",
-                message: "out of stock",
-              });
-            }
-            else {
-              reducingQtyInNewStock(result.stockid, quantityReceived)
-                .then((result) => {
-                  isDeptHaveStock(result.stockid, departmentid)
-                    .then((result) => {
-                      if (result === null) {
-                        getStockInformation(stockid)
-                          .then((result) => {
-                            addingNewDeptStock(
-                              result.stockid,
-                              quantityReceived,
-                              departmentid,
-                              result.comsumptionunit
-                            )
-                              .then((result) => {
-                                response.send({
-                                  status: "success",
-                                  message:
-                                    "stock added to department stock successfully",
-                                  result,
-                                  statusCode: 200,
-                                });
-                              })
-                              .catch((err) => {
-                                console.log(err);
-                              });
-                          })
-                          .catch((err) => {
-                            console.log(err);
-                          });
-                      } else {
-                        const id = result.id;
-                        const qty = result.quantityAvailable;
-                        const newQty = qty + quantityReceived;
-                        updatingDeptStock(id, newQty)
-                          .then((result) => {
-                            response.send({
-                              status: "success",
-                              message: "stock updated successfully",
-                              result,
-                              statusCode: 200,
-                            });
-                          })
-                          .catch((err) => {
-                            console.log(err);
-                          });
-                      }
-                    })
-                    .catch((err) => {
-                      console.log(err);
+    connection.beginTransaction(async function (err) {
+      if (err) { throw err; }
+      // we check the quantity in the new stock table
+      const checkQty = await checkingQtyInNewStock(stockid);
+      const instockQty = checkQty[0].quantity;
+      // if quantity is less than the quantity received, return an error
+
+      if (instockQty < quantityReceived) {
+        return response.status(400).json({
+          status: 'error',
+          statusCode: 400,
+          message: 'The quantity received is more than the quantity in the new stock table'
+        })
+      } else {
+        // 1. update requisition hx table with the quantity received and the department received
+        const updateRequisition = await updatingQtyReceived(id, quantityReceived, departmentReceived);
+        // if affected rows is greater than 0, continue else return an error
+        if (updateRequisition > 0) {
+          // 2. update the quantity in the new stock table
+          const reduceGeneralSoreQty = await reducingQtyInNewStock(stockid, quantityReceived);
+          // if affected rows is greater than 0, continue else return an error
+          if (reduceGeneralSoreQty > 0) {
+            // 3. check if the stock is already in the department stock table
+            const isStockInDeptStock = await isDeptHaveStock(departmentid, stockid);
+            // if length is greater than 0, update the quantity else add the stock to the department stock table
+            if (isStockInDeptStock.length == 0) {
+              // add the stock to the department stock table
+              const pushNewStock = await addingNewDeptStock(stockid, quantityReceived, departmentid, consumptionunit);
+              // if affected rows is greater than 0, continue else return an error
+              if (pushNewStock > 0) {
+                // commit the transaction
+                connection.commit(function (err) {
+                  if (err) {
+                    return connection.rollback(function () {
+                      throw err;
                     });
-                })
-                .catch((err) => {
-                  console.log(err);
+                  }
+                  else {
+                    return response.status(200).json({
+                    status: 'success',
+                    statusCode: 200,
+                    message: 'The stock was added to the department stock table'
+                  })
+                  }
                 });
+              } else {
+                // rollback the transaction
+                connection.rollback(function () {
+                  return response.status(400).json({
+                    status: 'error',
+                    statusCode: 400,
+                    message: 'The stock was not added to the department stock table'
+                  })
+                }
+                );
+              }
+            } else {
+              // update the quantity in the department stock table
             }
-          }).catch((err) => { console.log(err) });
-      }).catch((err) => { console.log(err) });
+          } else {
+            // rollback the transaction
+            connection.rollback(function () {
+              return response.status(400).json({
+                status: 'error',
+                statusCode: 400,
+                message: 'The quantity was not reduced in the new stock table'
+              })
+            });
+          }
+        } else {
+          return response.status(400).json({
+            status: 'error',
+            statusCode: 400,
+            message: 'The requisition was not updated'
+          })
+        }
+      }
+    })
   };
 
 
