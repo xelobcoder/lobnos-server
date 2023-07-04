@@ -38,7 +38,7 @@ const placeOrder = function (request, response) {
     );
   }
 
-  const checkOrderExist = (stockid,supplierid) => {
+  const checkOrderExist = (stockid, supplierid) => {
     // select where stockid = stockid , received = false and supplierid = supplierid
     const query = `SELECT * FROM orders WHERE stockid = ? AND  received = ? AND supplierid = ?`;
     connection.query(query,
@@ -70,7 +70,7 @@ const placeOrder = function (request, response) {
   }
 
 
-  checkOrderExist(stockid,supplierid);
+  checkOrderExist(stockid, supplierid);
 }
 
 
@@ -169,6 +169,24 @@ const pushtodb = function (data) {
   })
 }
 
+
+const addToStockTransactions = async function (data) {
+  if (Array.isArray(data) && data.length > 0) {
+    //  data in the arranged in this format i.e stockid,quantity,batchno,purchaseunit,supplierid
+    // insert into stocktransactions
+    const query = `INSERT INTO stocktransactions (stockid,quantity,batchno,purchaseunit,supplierid,added_on)
+     VALUE (?, ?, ?, ?, ?, NOW())`;
+    connection.query(query, data, function (err, result) {
+      if (err) {
+        throw err;
+      }
+      if (result) {
+        console.log('stock transaction added successfully')
+      }
+    })
+  }
+}
+
 const purchaseOrdersToStock = function (request, response) {
   let targetRef = request.body.length;
   let updatedQuantity = 0;
@@ -176,11 +194,12 @@ const purchaseOrdersToStock = function (request, response) {
   while (updatedQuantity < targetRef) {
     let errlog = [];
     const datasource = request.body;
+    // using map to get the items in the array
     const requiredDataSource = datasource.map((item, index) => {
       const { productordersid, received, receivedquantity, receiveddate, status, expirydate, batchnumber, balance, price, tax, totalamount } = item;
       return [received, receivedquantity, receiveddate, status, expirydate, batchnumber, balance, price, tax, totalamount, productordersid]
     })
-    const { stockid, quantity } = datasource[updatedQuantity];
+    const { stockid, quantity, supplierid, purchaseunit, batchnumber } = datasource[updatedQuantity];
     pushtodb(requiredDataSource[updatedQuantity])
       .then((result) => {
         let successRow = 0;
@@ -188,6 +207,8 @@ const purchaseOrdersToStock = function (request, response) {
         updateStock(stockid, quantity, request, response)
           .then((result) => {
             successRow++;
+            // add to stock transactions
+            addToStockTransactions([stockid, quantity, batchnumber, purchaseunit, supplierid])
             return;
           })
           .catch((err) => {
@@ -211,7 +232,6 @@ const purchaseOrdersToStock = function (request, response) {
     })
   }
   else {
-    console.log(updatedQuantity)
     response.send({
       status: 'error',
       message: 'error occured',

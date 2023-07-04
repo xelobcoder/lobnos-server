@@ -195,6 +195,7 @@ app.get('/api/v1/testpanel/list/update', function (req, res) {
             result: result.map((i, index) => {
               let dataset = {}
               // rewant to return all result in a pacticular string  format
+              // in upper case make suring to return all the result in upper case
               for (key in i) {
                 dataset[key.toUpperCase()] = i[key]
               }

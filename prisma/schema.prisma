@@ -1,0 +1,680 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model activation {
+  ID        Int      @id @default(autoincrement())
+  STATUS    String   @default("INACTIVE") @db.VarChar(100)
+  PATIENTID Int
+  DATE      DateTime @default(now()) @db.Date
+}
+
+model billing {
+  BILLINGID    Int    @id @default(autoincrement())
+  PATIENTID    BigInt
+  PAID_AMOUNT  Int
+  PAYABLE      Int
+  DISCOUNT     Int
+  ORGANIZATION Int
+  CLINICIAN    Int
+  TYPE         String @default("PREPAID") @db.VarChar(255)
+  OUTSTANDING  Int
+}
+
+model billinghx {
+  KeyID       Int      @id @default(autoincrement())
+  Billingid   Int
+  Date        DateTime @default(now()) @db.DateTime(6)
+  PaymentMode Int
+  Amount      Int
+}
+
+model bloodgroup {
+  ID         Int       @id @default(autoincrement())
+  BILLINGID  Int
+  BGROUP     String    @db.VarChar(30)
+  RHESUS     String    @db.VarChar(30)
+  CREATED_ON DateTime? @default(now()) @db.Date
+  UPDATED_ON DateTime? @default(now()) @db.Date
+  TIME       DateTime? @default(now()) @db.Time(6)
+  PATIENTID  Int
+  REMARKS    String    @db.VarChar(255)
+}
+
+model branch {
+  BRANCHID Int      @id @default(autoincrement())
+  NAME     String   @db.VarChar(255)
+  DATE     DateTime @default(now()) @db.Date
+}
+
+model branches {
+  BRANCHID   Int      @id @default(autoincrement())
+  BRANCHNAME String   @db.VarChar(255)
+  DATE       DateTime @default(now()) @db.Date
+  TIME       DateTime @default(now()) @db.Time(6)
+}
+
+model clinician {
+  ID            Int      @id @default(autoincrement())
+  NAME          String   @db.VarChar(255)
+  EMAIL         String   @db.VarChar(100)
+  LOCATION      String   @db.VarChar(100)
+  ADDRESS       String   @db.VarChar(255)
+  OCCUPATION    String   @db.VarChar(100)
+  MODULE        String   @db.VarChar(100)
+  MOMO          Int?
+  BANKNAME      String?  @db.VarChar(255)
+  BANKBRANCH    String?  @db.VarChar(255)
+  ACCOUNTNUMBER Int?
+  ACCOUNTNAME   String?  @db.VarChar(255)
+  ORGANIZATION  Int
+  UPDATE_ON     DateTime @default(now()) @db.Date
+  CREATED_ON    DateTime @default(now()) @db.DateTime(6)
+  PHONE         Int
+  COMMISSION    Int?
+}
+
+model commodity {
+  COMID      Int      @id @default(autoincrement())
+  COMMODITY  String   @db.VarChar(255)
+  date       DateTime @default(now()) @db.DateTime(6)
+  CATEGORY   String   @db.VarChar(255)
+  suppliedby String?  @db.VarChar(255)
+}
+
+model companyprofile {
+  ID                Int     @id @default(autoincrement())
+  NAME              String  @db.VarChar(100)
+  EMAIL             String  @db.VarChar(100)
+  MOTTO             String  @db.VarChar(255)
+  PHONENUMBER       Int
+  ADDRESS           String  @db.VarChar(255)
+  ALTERNATIVENUMBER Int
+  WEBSITE           String? @db.VarChar(50)
+  STREET            String  @db.VarChar(100)
+}
+
+model departmentrequisitionhx {
+  id                 Int      @id @default(autoincrement())
+  departmentid       Int
+  stockid            Int
+  quantity_requested Int
+  quantity_approved  Int?
+  comsumptionunit    String   @db.VarChar(255)
+  status             String?  @default("pending") @db.VarChar(20)
+  date               DateTime @default(now()) @db.Date
+  requisitionid      String   @db.VarChar(255)
+  issue_message      String?  @db.Text
+  departmentReceived Int?     @default(0)
+  store_supplied     Int?     @default(0)
+  quantityReceived   Int?     @default(0)
+}
+
+model departments {
+  id                Int      @id @default(autoincrement())
+  department        String   @db.VarChar(100)
+  departmentManager String   @db.VarChar(100)
+  date              DateTime @default(now()) @db.DateTime(6)
+  employeeid        Int
+}
+
+model departmentstocks {
+  id                Int       @id @default(autoincrement())
+  deptid            Int
+  stockid           Int
+  quantityAvailable Int
+  date_added        DateTime  @default(now()) @db.Date
+  dateupdated       DateTime? @db.Date
+  comsumptionunit   String    @db.VarChar(210)
+}
+
+model glycated_haemoglobin {
+  ID         Int      @id @default(autoincrement())
+  BILLINGID  Int
+  PATIENTID  BigInt
+  CREATED_ON DateTime @default(now()) @db.DateTime(6)
+  UPDATED_ON DateTime @default(now()) @db.DateTime(6)
+  RESULT     String   @db.VarChar(255)
+  REMARKS    String   @db.VarChar(255)
+  TECHNOLOGY String?  @db.VarChar(255)
+  METHOD     String?  @db.VarChar(255)
+  GLUCOSE    String?  @db.VarChar(255)
+  TIME       DateTime @default(now()) @db.Time(6)
+}
+
+model hepatitisb_profile {
+  ID         Int       @id @default(autoincrement())
+  HBsAg      String    @default("non reactive") @db.VarChar(50)
+  HBsAb      String    @default("non reactive") @db.VarChar(50)
+  HBeAg      String    @default("non reactive") @db.VarChar(50)
+  HBeAb      String    @default("non reactive") @db.VarChar(50)
+  HBcAb      String    @default("non reactive") @db.VarChar(50)
+  COMMENTS   String    @db.VarChar(255)
+  BILLINGID  Int
+  CREATED_ON DateTime? @default(now()) @db.Date
+  UPDATED_ON DateTime? @db.Date
+  SCIENTIST  String?   @db.VarChar(100)
+  PATIENTID  BigInt
+}
+
+model hepatitisbresult {
+  ID          Int       @id @default(autoincrement())
+  BILLINGID   Int
+  PATIENTID   BigInt
+  CREATED_ON  DateTime? @default(now()) @db.Date
+  TIME        DateTime? @default(now()) @db.Time(6)
+  RESULTS     String    @db.VarChar(255)
+  SCIENTISTID Int
+  REMARKS     String?   @db.VarChar(255)
+}
+
+model hepatitiscresult {
+  ID          Int       @id @default(autoincrement())
+  BILLINGID   Int
+  PATIENTID   BigInt
+  CREATED_ON  DateTime? @default(now()) @db.Date
+  TIME        DateTime? @default(now()) @db.Time(6)
+  RESULTS     String    @db.VarChar(255)
+  SCIENTISTID Int
+  REMARKS     String?   @db.VarChar(255)
+}
+
+model malaria {
+  KEY            Int       @id @default(autoincrement())
+  PATIENTID      BigInt
+  BILLINGID      Int
+  SPECIES        String    @db.VarChar(255)
+  COMMENTS       String    @db.VarChar(255)
+  PARASITENUMBER Int
+  CREATED_ON     DateTime  @default(now()) @db.DateTime(6)
+  UPDATED_ON     DateTime? @db.DateTime(6)
+}
+
+model manager_sample_descision {
+  SAMPLEID  Int      @id @default(autoincrement())
+  BILLINGID Int
+  ACTION    String   @db.VarChar(255)
+  MESSAGE   String   @db.VarChar(255)
+  MANAGER   String   @db.VarChar(255)
+  DATE      DateTime @default(now()) @db.DateTime(6)
+}
+
+model new_patients {
+  ID                      Int       @id @default(autoincrement())
+  PATIENTID               BigInt
+  FIRSTNAME               String    @db.VarChar(100)
+  EMAIL                   String?   @db.VarChar(100)
+  DOB                     DateTime? @db.Date
+  AGE                     Int
+  GENDER                  String    @default("FEMALE") @db.VarChar(10)
+  LOCATION                String?   @db.VarChar(100)
+  MARITAL_STATUS          String    @db.VarChar(50)
+  EMMERGENCY_CONTACT      String    @db.VarChar(255)
+  EMMERGENCY_CONTACT_NAME String    @db.VarChar(255)
+  RELATIONSHIP            String    @db.VarChar(50)
+  MOBILE_NUMBER           Int
+  AGETYPE                 String    @db.VarChar(10)
+  PATIENTORGANIZATION     String    @db.VarChar(255)
+  OCCUPATION              String    @db.VarChar(255)
+  DATE                    DateTime  @default(now()) @db.Date
+  ACTIVATION_STATUS       String    @default("FALSE") @db.VarChar(10)
+  AREA                    String?   @db.VarChar(100)
+  REGION                  String?   @db.VarChar(255)
+  ADDRESS                 String?   @db.VarChar(255)
+  LASTNAME                String    @db.VarChar(255)
+  MIDDLENAME              String?   @db.VarChar(255)
+}
+
+model newstock {
+  stockid         Int      @id @default(autoincrement())
+  name            String   @db.VarChar(255)
+  category        Int
+  consumptionunit String   @db.VarChar(255)
+  purchaseunit    String   @db.VarChar(255)
+  quantity        Int
+  alertlevel      Int
+  materialcode    String   @db.VarChar(255)
+  tax             Int
+  date            DateTime @default(now()) @db.DateTime(6)
+}
+
+model orders {
+  productordersid  Int       @id @default(autoincrement())
+  stockid          Int
+  name             String    @db.VarChar(255)
+  tax              Int
+  supplierid       Int
+  suppliername     String    @db.VarChar(255)
+  purchaseunit     String    @db.VarChar(255)
+  date             DateTime  @default(now()) @db.DateTime(6)
+  quantity         Int
+  received         String?   @default("FALSE") @db.VarChar(255)
+  quantityReceived Int?
+  Batchnumber      String?   @db.VarChar(255)
+  balance          Int?      @default(0)
+  expirydate       DateTime? @db.Date
+  receiveddate     DateTime? @db.Date
+  status           String?   @db.VarChar(255)
+  price            Int?
+  totalamount      Int?
+  productused      String?   @default("FALSE") @db.VarChar(50)
+}
+
+model organization {
+  ID            Int     @id @default(autoincrement())
+  NAME          String? @db.VarChar(255)
+  LOCATION      String? @db.VarChar(255)
+  STREETNAME    String? @db.VarChar(255)
+  MOBILENUMBER  String? @db.VarChar(20)
+  ADDRESS       String? @db.Text
+  WEBSITE       String? @db.VarChar(255)
+  EMAIL         String? @db.VarChar(255)
+  REGION        String? @db.VarChar(100)
+  DISTRICT      String? @db.VarChar(100)
+  GPSMAPPING    String? @db.VarChar(255)
+  CONTACTPERSON String? @db.VarChar(255)
+  PAYMENTMODULE String? @db.VarChar(255)
+  COMMISSION    Int?
+  BANKNAME      String? @db.VarChar(255)
+  BRANCH        String? @db.VarChar(255)
+  ACCOUNTNAME   String? @db.VarChar(255)
+  CONTACTEMAIL  String? @db.VarChar(255)
+  ACCOUNTNUMBER String? @db.VarChar(255)
+  MOMO          Int?
+  CONTACTNUMBER Int?
+}
+
+model paymentmodes {
+  KeyID       Int    @id @default(autoincrement())
+  PaymentMode String @db.VarChar(255)
+}
+
+model performing_test {
+  ID                  Int       @id @default(autoincrement())
+  PATIENTID           String    @db.VarChar(255)
+  DATE                DateTime  @default(now()) @db.Date
+  URGENCY             String    @db.VarChar(255)
+  BILLINGID           Int
+  SAMPLING_CENTER     Int
+  SAMPLE_STATUS       String?   @default("PENDING") @db.VarChar(100)
+  INSPECTOR           Int?
+  INSPECTION_TIME     DateTime? @db.DateTime(6)
+  Phelobotomist       Int?
+  MESSAGE             String?   @db.Text
+  TIME                DateTime  @default(now()) @db.Time(6)
+  PHELOBOTOMY_MESSAGE String    @db.VarChar(255)
+}
+
+model result_aids {
+  keyid      Int       @id @default(autoincrement())
+  reaction   String    @db.VarChar(50)
+  created_on DateTime  @default(now()) @db.DateTime(6)
+  updated_on DateTime? @db.DateTime(6)
+  billingid  Int
+  patientid  BigInt
+  comments   String    @db.VarChar(50)
+}
+
+model result_beta_hcg {
+  KEYID      Int       @id @default(autoincrement())
+  VALUE      String    @db.VarChar(255)
+  BILLINGID  Int
+  UNIT       String    @db.VarChar(20)
+  CREATED_ON DateTime  @default(now()) @db.DateTime(6)
+  UPDATED_ON DateTime? @db.DateTime(6)
+  PATIENTID  BigInt
+  COMMENTS   String    @db.VarChar(11)
+}
+
+model result_cardiac_enzymes {
+  LIVERID    Int      @id @default(autoincrement())
+  PARAMETER  String   @db.VarChar(255)
+  BILLINGID  Int
+  VALUE      Int
+  CREATED_ON DateTime @default(now()) @db.DateTime(6)
+  UPDATED_ON DateTime @default(now()) @db.DateTime(6)
+  PATIENTID  BigInt
+}
+
+model result_comments {
+  keyid     Int     @id @default(autoincrement())
+  testid    Int
+  billingid Int
+  comments  String? @db.VarChar(255)
+}
+
+model result_esr {
+  keyid      Int       @id @default(autoincrement())
+  value      Int
+  comments   String    @db.VarChar(255)
+  billingid  Int
+  patientid  BigInt
+  created_on DateTime  @default(now()) @db.DateTime(6)
+  updated_on DateTime? @db.DateTime(6)
+}
+
+model result_fasting_blood_sugar {
+  keyid      Int       @id @default(autoincrement())
+  billingid  Int
+  patientid  BigInt
+  result     Int
+  unit       String    @db.VarChar(50)
+  created_on DateTime  @default(now()) @db.DateTime(6)
+  updated_on DateTime? @db.DateTime(6)
+  comments   String    @db.VarChar(50)
+}
+
+model result_function_full_blood_count {
+  KEYID      Int      @id @default(autoincrement())
+  PARAMETER  String   @db.VarChar(255)
+  BILLINGID  Int
+  UNIT       String   @db.VarChar(20)
+  CREATED_ON DateTime @default(now()) @db.DateTime(6)
+  UPDATED_ON DateTime @default(now()) @db.DateTime(6)
+  VALUE      Int
+  PATIENTID  BigInt
+}
+
+model result_function_liver {
+  liverid    Int       @id @default(autoincrement())
+  parameter  String    @db.VarChar(255)
+  billingid  Int
+  unit       String    @db.VarChar(20)
+  created_on DateTime  @default(now()) @db.DateTime(6)
+  updated_on DateTime? @db.DateTime(6)
+  value      Int
+  patientid  BigInt
+}
+
+model result_function_renal {
+  KEYID      Int      @id @default(autoincrement())
+  PARAMETER  String   @db.VarChar(255)
+  BILLINGID  Int
+  UNIT       String   @db.VarChar(20)
+  CREATED_ON DateTime @default(now()) @db.DateTime(6)
+  UPDATED_ON DateTime @default(now()) @db.DateTime(6)
+  VALUE      Int
+  PATIENTID  BigInt
+}
+
+model result_pregnancy_test {
+  KEYID      Int      @id @default(autoincrement())
+  METHOD     String   @db.VarChar(50)
+  VALUE      String   @db.VarChar(10)
+  CREATED_ON DateTime @default(now()) @db.DateTime(6)
+  UPDATED_ON DateTime @default(now()) @db.DateTime(6)
+  COMMENTS   String?  @db.VarChar(255)
+  PATIENTID  BigInt
+  BILLINGID  Int
+  TESTID     Int
+}
+
+model result_random_blood_sugar {
+  keyid      Int       @id @default(autoincrement())
+  billingid  Int
+  patientid  BigInt
+  result     Int
+  unit       String    @db.VarChar(50)
+  created_on DateTime  @default(now()) @db.DateTime(6)
+  updated_on DateTime? @db.DateTime(6)
+  comments   String    @db.VarChar(50)
+}
+
+model result_thyroid_functional_test {
+  KEY        Int       @id @default(autoincrement())
+  PARAMETER  String    @db.VarChar(255)
+  BILLINGID  Int
+  VALUE      Int
+  CREATED_ON DateTime  @default(now()) @db.DateTime(6)
+  UPDATED_ON DateTime? @db.DateTime(6)
+  PATIENTID  BigInt
+  COMMENTS   String?   @db.VarChar(255)
+}
+
+model result_widal {
+  KEYID       Int       @id @default(autoincrement())
+  TYPHIO      String    @db.VarChar(10)
+  TYPHIH      String    @db.VarChar(10)
+  PARATYPHIAH String?   @db.VarChar(10)
+  PARATYPHIBH String?   @db.VarChar(10)
+  COMMENTS    String    @db.VarChar(255)
+  CREATED_ON  DateTime  @default(now()) @db.DateTime(6)
+  UPDATED_ON  DateTime? @db.DateTime(6)
+  BILLINGID   Int
+  PATIENTID   BigInt
+}
+
+model roles {
+  EMPLOYEEID    Int      @id @default(autoincrement())
+  USERNAME      String   @db.VarChar(255)
+  ROLE          String   @db.VarChar(255)
+  PASSWORD      String   @db.VarChar(255)
+  DATE_CREATED  DateTime @default(now()) @db.Date
+  TIME          DateTime @default(now()) @db.Time(6)
+  REFRESH_TOKEN String?  @db.VarChar(255)
+  DELETEV       String?  @default("FALSE") @db.VarChar(10)
+  EDITV         String?  @default("FALSE") @db.VarChar(10)
+  READV         String?  @default("TRUE") @db.VarChar(10)
+  CREATEV       String?  @default("FALSE") @db.VarChar(10)
+}
+
+model sample {
+  ID             Int      @id @default(autoincrement())
+  PATIENTID      Int
+  DATE           DateTime @default(now()) @db.DateTime(6)
+  APPROVALSTATUS String   @db.VarChar(100)
+  MESSAGE        String   @db.VarChar(255)
+  INSPECTOR      String   @db.VarChar(100)
+  BILLINGID      BigInt
+}
+
+model samplingtest {
+  TestKey   Int @id @default(autoincrement())
+  TestId    Int
+  Billingid Int
+}
+
+model setup_beta_hcg {
+  KEYID Int    @id @default(autoincrement())
+  WEEKS Int
+  LOWER Int
+  UPPER Int
+  UNIT  String @db.VarChar(20)
+}
+
+model setup_cardiac_enzymes {
+  SETUPID   Int    @id @default(autoincrement())
+  UNIT      String @db.VarChar(255)
+  UPPER     Int
+  LOWER     Int
+  PARAMETER String @db.VarChar(255)
+  DISPLAY   String @default("TRUE") @db.VarChar(10)
+}
+
+model setup_esr {
+  keyid      Int      @id @default(autoincrement())
+  agelimit   String   @db.VarChar(50)
+  upper      Int
+  lower      Int
+  created_on DateTime @default(now()) @db.DateTime(6)
+  gender     String   @db.VarChar(20)
+}
+
+model setup_full_blood_count_test_general {
+  FBCID     Int      @id @default(autoincrement())
+  PARAMETER String   @db.VarChar(255)
+  UNIT      String   @db.VarChar(10)
+  LOWER     Int
+  UPPER     Int
+  DATE      DateTime @default(now()) @db.DateTime(6)
+}
+
+model setup_full_blood_count_test_male {
+  FBCID     Int      @id @default(autoincrement())
+  PARAMETER String   @db.VarChar(255)
+  UNIT      String   @db.VarChar(10)
+  LOWER     Float    @db.Float
+  UPPER     Float    @db.Float
+  DATE      DateTime @default(now()) @db.DateTime(0)
+}
+
+model setup_full_count_count_female {
+  PARAMETER String   @db.VarChar(255)
+  UNIT      String   @db.VarChar(10)
+  UPPER     Int
+  LOWER     Int
+  DATE      DateTime @default(now()) @db.DateTime(6)
+  keyid     Int      @id @default(autoincrement())
+}
+
+model setup_fullcount_paramters {
+  ID        Int      @id @default(autoincrement())
+  PARAMETER String   @db.VarChar(250)
+  UPPER     Int
+  LOWER     Int
+  UNIT      String   @db.VarChar(20)
+  DATE      DateTime @db.DateTime(6)
+}
+
+model setup_glycated_heamoglobin_test {
+  TESTID Int @id @default(autoincrement())
+}
+
+model setup_lipid_profile_test {
+  SETUPID   Int    @id @default(autoincrement())
+  PARAMETER String @db.VarChar(100)
+  UPPER     Int
+  LOWER     Int
+  UNIT      String @db.VarChar(255)
+}
+
+model setup_liver_function_test {
+  SETUPID   Int      @id @default(autoincrement())
+  PARAMETER String   @db.VarChar(100)
+  UPPER     Int
+  LOWER     Int
+  DATE      DateTime @default(now()) @db.DateTime(6)
+  UNIT      String   @db.VarChar(10)
+}
+
+model setup_renal_function_test {
+  SETUPID   Int    @id @default(autoincrement())
+  PARAMETER String @db.VarChar(100)
+  UPPER     Int
+  LOWER     Int
+  UNIT      String @db.VarChar(20)
+}
+
+model setup_thyroid_test {
+  SETUPID   Int    @id @default(autoincrement())
+  PARAMETER String @db.VarChar(255)
+  UNIT      String @db.VarChar(255)
+  UPPER     Int
+  LOWER     Int
+}
+
+model stockcategory {
+  id       Int      @id @default(autoincrement())
+  category String   @db.VarChar(255)
+  date     DateTime @default(now()) @db.DateTime(6)
+}
+
+model stocktransactions {
+  keyid        Int       @id @default(autoincrement())
+  stockid      Int
+  quantity     Int
+  batchno      String    @db.VarChar(50)
+  added_on     DateTime? @db.DateTime(6)
+  updated_on   DateTime? @db.DateTime(6)
+  purchaseunit String    @db.VarChar(100)
+  supplierid   Int
+}
+
+model supplier {
+  SUPPLIERID    Int      @id @default(autoincrement())
+  NAME          String   @db.VarChar(255)
+  COMMODITY     String   @db.VarChar(255)
+  ADDRESS       String   @db.VarChar(255)
+  DATE          DateTime @default(now()) @db.DateTime(6)
+  PHONENUMBER   Int
+  CONTACTPERSON String   @db.VarChar(255)
+  REGION        String   @db.VarChar(255)
+  EMAIL         String   @db.VarChar(255)
+}
+
+model test_ascension {
+  id              Int       @id @default(autoincrement())
+  testid          Int
+  billingid       Int
+  collection      String?   @default("false") @db.VarChar(50)
+  processing      String?   @default("false") @db.VarChar(50)
+  ready           String?   @default("false") @db.VarChar(50)
+  processing_date DateTime? @db.DateTime(6)
+  collection_date DateTime? @db.DateTime(6)
+  ready_date      DateTime? @db.DateTime(6)
+  printedNumber   Int?
+  printedDate     DateTime? @db.DateTime(6)
+  ApprovalStatus  Boolean   @default(false)
+  Scientist       Int?
+  ApprovedBy      Int?
+  DeclineMessage  String?   @db.VarChar(200)
+}
+
+model test_categories {
+  ID          Int    @id @default(autoincrement())
+  CATEGORY    String @db.VarChar(255)
+  DESCRIPTION String @db.VarChar(255)
+}
+
+model test_panels {
+  ID               Int      @id @default(autoincrement())
+  NAME             String   @db.VarChar(255)
+  CATEGORY         String   @db.VarChar(255)
+  PRICE            Int
+  CREATED_ON       DateTime @default(now()) @db.DateTime(0)
+  SAMPLE           String   @db.VarChar(255)
+  DESCRIPTION      String?  @db.VarChar(255)
+  SAMPLE_CONTAINER String   @db.VarChar(100)
+  UNIT             String   @db.VarChar(10)
+  QTY_REQUIRED     String?  @db.VarChar(100)
+}
+
+model typhoid_test {
+  TESTID       Int      @id @default(autoincrement())
+  PATIENTID    BigInt
+  BILLINGID    Int
+  RESULT       String   @db.VarChar(255)
+  COMMENTS     String   @db.VarChar(255)
+  TYPHI_O      Float?   @db.Float
+  TYPHI_H      Float?   @db.Float
+  PARATYPHI_BH Float?   @db.Float
+  PARATYPHI_AH Float?   @db.Float
+  DATE         DateTime @default(now()) @db.Date
+  TIME         DateTime @default(now()) @db.Time(6)
+  ENTERED_BY   String   @db.VarChar(100)
+}
+
+model urinalysisresult {
+  urinalysisKey    Int     @id @default(autoincrement())
+  appearance       String  @db.VarChar(50)
+  color            String  @db.VarChar(20)
+  urobilinogen     String  @db.VarChar(50)
+  ketones          String  @db.VarChar(50)
+  bilirubin        String  @db.VarChar(50)
+  nitrite          String  @db.VarChar(20)
+  microalbumin     String  @db.VarChar(20)
+  glucose          String  @db.VarChar(20)
+  specific_gravity Float   @db.Float
+  ph               Float   @db.Float
+  microscopy       String? @db.Text
+  billingid        Int
+  remarks          String  @db.VarChar(255)
+  patientid        BigInt
+  blood            String  @db.VarChar(50)
+  leukocytes       String  @db.VarChar(50)
+}

@@ -24,13 +24,21 @@ const newdepartmentRequisition = (request, response) => {
     // if  send a message that the stock has already been requisitioned
     // else add the stock to the department requisition table
     const checkIfStockIsAlreadyRequisitioned = async () => {
-      const check = await prisma.departmentrequisitionhx.findMany({
-        where: {
-          stockid: stockid,
-          departmentid: departmentid,
-          quantity_approved: null,
-        },
+      // select all requisition which has not been approved or resolved
+      const query = `SELECT * FROM departmentrequisitionhx
+       WHERE stockid = ? AND departmentid = ? AND quantity_approved IS NULL`;
+
+      const check = new Promise((resolve, reject) => {
+        connection.query(query, [stockid, departmentid], function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
       });
+      // return a promise 
       return check;
     };
 
@@ -43,16 +51,29 @@ const newdepartmentRequisition = (request, response) => {
         });
       } else {
         const newdepartmentRequisition = async () => {
-          const creation = await prisma.departmentrequisitionhx.create({
-            data: {
-              stockid,
-              departmentid,
-              quantity_requested: quantity,
-              comsumptionunit,
-              requisitionid,
-            },
-          });
-          return creation;
+          // we create a new requisition since the stock has not been requisitioned
+
+          // sql query
+          const sql_query = `INSERT INTO departmentrequisitionhx
+          (stockid, departmentid, quantity_requested, comsumptionunit, requisitionid)
+          VALUES (?,?,?,?,?)`;
+
+          const newRequisition = new Promise((resolve, reject) => {
+            connection.query(
+              sql_query,
+              [stockid, departmentid, quantity, comsumptionunit, requisitionid],
+              function (err, result) {
+                if (err) {
+                  reject(err);
+                }
+                if (result) {
+                  resolve(result);
+                }
+              }
+            );
+          })
+          // return a promise
+          return newRequisition;
         };
         newdepartmentRequisition()
           .then((data) => {
@@ -64,7 +85,6 @@ const newdepartmentRequisition = (request, response) => {
             });
           })
           .catch((error) => {
-            console.log(error);
             response.send({
               statusCode: 500,
               status: "error",
@@ -331,53 +351,72 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
       message: "required fields not included",
     });
   } else {
-
-    console.log(request.body);
     // this updates `quantityReceived` and `departmentReceived` fields
     const updatingQtyReceived = async function (id, qtyR, dptR) {
       // using prisma to update the quantity received and the department received and retun a promise
-      const update = await prisma.departmentrequisitionhx.update({
-        where: {
-          id: parseInt(id),
-        },
-        data: {
-          quantityReceived: qtyR,
-          departmentReceived: dptR,
-          status: status
-        },
-      });
+      const update_query = `UPDATE departmentrequisitionhx 
+       SET quantityReceived = ${qtyR}, departmentReceived = ${dptR}, 
+       status = '${status}' WHERE id = ${id}`;
 
-      return update;
+      const updatedQty = new Promise((resolve, reject) => {
+        connection.query(update_query, function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
+      }
+      );
+
+      return updatedQty;
     }
+
 
 
     // this function checks if the stock is already in the department stock table
     const isDeptHaveStock = async function (stockid, departmentid) {
       // returna a promise
-      const deptStock = await prisma.departmentstocks.findFirst({
-        where: {
-          stockid: stockid,
-          deptid: departmentid,
-        },
-      });
 
-      return deptStock;
+      const query = `SELECT * FROM departmentstocks WHERE stockid = ${stockid} AND
+       deptid = ${departmentid}`;
+      // we return a promise
+      const isStock = new Promise((resolve, reject) => {
+        connection.query(query, function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
+      }
+      );
+
+      return isStock;
     }
 
 
     //  this function adds new stock to the department stock table
     const addingNewDeptStock = async function (stockid, qtyR, departmentid, comsumptionunit) {
       // return a promise
-      const newDeptStock = await prisma.departmentstocks.create({
-        data: {
-          stockid: stockid,
-          deptid: departmentid,
-          quantityAvailable: qtyR,
-          comsumptionunit: comsumptionunit,
-        },
-      });
+      const addNewStock = `INSERT INTO departmentstocks (stockid, deptid, quantityAvailable, comsumptionunit)
+        VALUES (${stockid}, ${departmentid}, ${qtyR}, '${comsumptionunit}')`;
 
-      return newDeptStock;
+      const newStock = new Promise((resolve, reject) => {
+        connection.query(addNewStock, function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
+      }
+      );
+
+      return newStock;
     }
 
 
@@ -385,25 +424,43 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 
     const reducingQtyInNewStock = async function (stockid, qtyR) {
       // return a promise
-      const newStock = await prisma.newstock.update({
-        where: {
-          stockid: stockid,
-        },
-        data: {
-          quantity: {
-            decrement: qtyR,
-          },
-        },
+      // we want decrement the quantity in the new stock table by the quantity received
+      // we get the qty Recieved from db,substract qry received from it and update the db
+
+      const getQty = `SELECT quantity FROM newstock WHERE stockid = ${stockid}`;
+      // get the data from db
+      const qty = new Promise((resolve, reject) => {
+        connection.query(getQty, function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
       });
 
-      // find stock 
+      const resultSet = await qty;
 
-      const stockAva = await prisma.newstock.findFirst({
-        where: {
-          stockid: stockid
-        },
-      })
-      return newStock;
+      if (resultSet.length > 0) {
+        const qtyInDb = qty[0].quantity;
+        // we substract the qty received from the qty in db
+        const qtyInDbAfterSubstraction = qtyInDb - qtyR;
+        // we update the db
+        const updateQty = `UPDATE newstock SET quantity = ${qtyInDbAfterSubstraction} WHERE stockid = ${stockid}`;
+        const updatedQty = new Promise((resolve, reject) => {
+          connection.query(updateQty, function (err, result) {
+            if (err) {
+              reject(err);
+            }
+            if (result) {
+              resolve(result);
+            }
+          });
+        }
+        );
+      }
+
     }
 
 
@@ -411,30 +468,45 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 
     const checkingQtyInNewStock = async function (stockid) {
       // return a promise
-      const newStock = await prisma.newstock.findFirst({
-        where: {
-          stockid: stockid,
-        },
+      const instock = `SELECT quantity FROM newstock WHERE stockid = ${stockid}`;
+
+      const qty = new Promise((resolve, reject) => {
+        connection.query(instock, function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
       });
 
-      return newStock;
+      return qty;
     }
 
 
     //  this function updates the quantity of the stock in the department stock table
     const updatingDeptStock = async function (id, qty) {
       // return a promise
-      const deptStock = await prisma.departmentstocks.update({
-        where: {
-          id: id,
-        },
-        data: {
-          quantityAvailable: qty,
-          dateupdated: new Date(),
-        },
+
+      const updatedeptmentStocks =`UPDATE departmentstocks
+       SET quantityAvailable = ${qty},
+        dateupdated = '${new Date()}'
+      WHERE id = ${id}`
+     
+    //  exceute the query and return a promise
+      const updatedQty = new Promise((resolve, reject) => {
+        connection.query(updatedeptmentStocks, function (err, result) {
+          if (err) {
+            reject(err);
+          }
+          if (result) {
+            resolve(result);
+          }
+        });
       });
 
-      return deptStock;
+      return updatedQty;
     }
 
 

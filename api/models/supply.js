@@ -301,8 +301,10 @@ const new_stock = async function (request, response) {
     tax
   } = request.body
 
+
+
   // check if the stock already exist
-  checkStockExist(name)
+  checkStockExist('newstock', name)
     .then((result) => {
       if (result) {
         response.send({
@@ -329,7 +331,7 @@ const new_stock = async function (request, response) {
             if (err) {
               response.send({
                 status: 'error',
-                err,
+                message: err.message,
               })
             }
             if (result) {
@@ -373,7 +375,7 @@ const getStock = async function (request, response) {
     if (err) {
       response.send({
         status: 'error',
-        err,
+        message: err.message,
       })
     }
     if (result) {
@@ -437,11 +439,9 @@ const getExpiredStock = async function (request, response) {
         ORDER BY expirydate ASC
         LIMIT 100 
     `;
-
-
-    // in possible future, an additional table will created which e using fot all transaction of all
-    // stock to keeep seperate the newstock table from updating the stocks so 
-    // that a proper history of all stock can be kept
+  // in possible future, an additional table will created which e using fot all transaction of all
+  // stock to keeep seperate the newstock table from updating the stocks so 
+  // that a proper history of all stock can be kept
   connection.query(query, function (err, result) {
     if (err) {
       response.send({
