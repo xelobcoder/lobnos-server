@@ -121,7 +121,7 @@ class User {
       this.getUserData(user)
         .then((result) => {
           const role = result[0]["ROLE"];
-           accessToken = jwt.sign({ user, pass, role }, accesskey, {
+          accessToken = jwt.sign({ result }, accesskey, {
             expiresIn: "3w",
           });
           resolve(accessToken);
@@ -151,5 +151,10 @@ class User {
   }
 }
 
+// const  u1 = new User('admin','admin','admin').createAccessTokenCredentials(
+//   process.env.ACCESS_TOKEN_SECRET
+// )
+
+// console.log(u1.then((t) => console.log(t)))
 
 module.exports = User;
