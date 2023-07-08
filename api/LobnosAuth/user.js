@@ -1,22 +1,22 @@
 const bcrypt = require("bcrypt");
 const connection = require("../db");
-const { response, request } = require("express");
 const jwt = require("jsonwebtoken");
 
 
 
 
 class User {
-  constructor(username, password, role, request, response) {
-    this.username = username;
+  constructor(name, password, role, email) {
+    this.name = name;
     this.password = password;
     this.role = role;
+    this.email = email;
   }
 
   checkUserExist() {
     return new Promise((resolve, reject) => {
       connection.query(
-        `SELECT * FROM roles WHERE username = '${this.username}'`,
+        `SELECT * FROM roles WHERE email = '${this.email}'`,
         (err, result) => {
           if (err) {
             reject(err);
@@ -38,21 +38,50 @@ class User {
     return this.password;
   };
 
-  insertionOne = async (username, password) => {
+  insertionOne = async (name, password) => {
     return new Promise((resolve, reject) => {
-      const queryString = `INSERT INTO ROLES(USERNAME,PASSWORD,ROLE) VALUES('${username}','${password}','${this.role}')`;
+      const queryString = `INSERT INTO ROLES (USERNAME,PASSWORD,ROLE,EMAIL) 
+      VALUES('${name}','${password}','${this.role}','${this.email}')`;
       connection.query(queryString, (err, result) => {
         err ? reject(err) : resolve(result);
       });
     });
   };
 
-  getUserData = async (username) => {
+  getUserData = async (email) => {
     return new Promise((resolve, reject) => {
-      const queryString = `SELECT * FROM ROLES WHERE USERNAME = '${username}'`;
+      const queryString = `SELECT * FROM ROLES WHERE EMAIL = '${email}'`;
+
 
       connection.query(queryString, (err, result) => {
-        err ? reject(err) : resolve(result);
+        // if result return with a length of 0 then user does not exist
+        if (result.length == 0) {
+          resolve(false);
+        }
+        // if result return with a length of 1 then user exist
+        else {
+          //  we get the empoyeeid and the role of the user
+          const { empoyeeid, role } = result[0];
+          // we search for the using their empoyeeid in thr role table
+          const roleTables = {
+            customer: 'customerrepresentativepermission',
+            scientist: 'scientistpermission',
+            admin: 'adminpermission'
+          }
+          // we search for the using their empoyeeid in thr role table
+          const queryString = `SELECT * FROM ${roleTables[role]} WHERE EMPLOYEEID = '${empoyeeid}'`;
+          // execute the query
+          connection.query(queryString, (err, result) => {
+            if (err) {
+              reject(err);
+            }
+            if (result.length > 0) {
+              resolve(result[0]);
+            } else {
+              resolve(false);
+            }
+          });
+        }
       });
     });
   };
@@ -67,7 +96,7 @@ class User {
             // insert the user into the database
             this.hashPassword()
               .then((hashedPassword) => {
-                this.insertionOne(this.username, hashedPassword)
+                this.insertionOne(this.name, hashedPassword)
                   .then((result) => {
                     resolve(result);
                   })
@@ -86,11 +115,11 @@ class User {
     });
   };
 
-  checkLogins = async (username, password) => {
+  checkLogins = (email, password) => {
     return new Promise((resolve, reject) => {
       this.hashPassword(password)
         .then((hashedPassword) => {
-          const queryString = `SELECT * FROM ROLES WHERE USERNAME = '${username}'`;
+          const queryString = `SELECT * FROM ROLES WHERE EMAIL = '${email}'`;
           connection.query(queryString, (err, result) => {
             if (err) {
               reject(err);
@@ -113,14 +142,12 @@ class User {
   };
 
   createAccessTokenCredentials = async (accesskey) => {
-    const user = this.username;
-    const pass = this.password;
+    const email = this.email;
 
     let accessToken;
     return new Promise((resolve, reject) => {
-      this.getUserData(user)
+      this.getUserData(email)
         .then((result) => {
-          const role = result[0]["ROLE"];
           accessToken = jwt.sign({ result }, accesskey, {
             expiresIn: "3w",
           });
@@ -149,6 +176,7 @@ class User {
       )
     }
   }
+
 }
 
 // const  u1 = new User('admin','admin','admin').createAccessTokenCredentials(

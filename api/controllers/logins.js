@@ -1,4 +1,4 @@
-const { createNewAccount, getAllLogins, userLogin } = require('../LobnosAuth/createAccount')
+const { createNewAccount, getAllLogins, userLogin,deleteAccount,activateAUser } = require('../LobnosAuth/createAccount')
 const router = require('express').Router();
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
@@ -11,6 +11,14 @@ router.post('/api/v1/logins', async (request, response) => {
    createNewAccount(request, response)
 })
 
+router.delete('/api/v1/logins', async (request, response) => {
+   deleteAccount(request, response)
+})
+
+
+router.put('/api/v1/logins', async (request, response) => {
+   updateUserBasicInfo(request, response)
+})
 
 router.post('/api/v1/authenticate', async (request, response) => {
    const { username, password } = request.body

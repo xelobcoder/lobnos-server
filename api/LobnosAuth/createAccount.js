@@ -3,9 +3,9 @@ const User = require("../LobnosAuth/user");
 const jwt = require("jsonwebtoken");
 
 const createNewAccount = async (req, res) => {
-  const { username, password, role } = req.body;
+  const { name, password, role, email } = req.body;
 
-  if (username == '' || password == '' || role == '') {
+  if (name == '' || password == '' || role == '', email == '') {
     res.send({
       status: 400,
       message: 'Bad Request'
@@ -14,7 +14,7 @@ const createNewAccount = async (req, res) => {
 
   else {
     // cinstanitate user class
-    const user = new User(username, password, role);
+    const user = new User(name, password, role, email);
 
 
     user.checkUserExist()
@@ -22,7 +22,7 @@ const createNewAccount = async (req, res) => {
         if (!exist) {
           user.hashPassword()
             .then((hashedPassword) => {
-              user.insertionOne(user.username, hashedPassword)
+              user.insertionOne(name, hashedPassword)
                 .then((result) => {
                   res.send({ status: 'success', message: 'user created successfully' })
                 })
@@ -48,12 +48,12 @@ const createNewAccount = async (req, res) => {
 
 
 const userLogin = async (req, res, secret) => {
-  const { username, password } = req.body;
+  const { name, password, email } = req.body;
 
   //  check if user and password exist in db
-  const user = new User(username, password);
+  const user = new User(name, password);
 
-  const userExist = await user.checkLogins(username, password);
+  const userExist = await user.checkLogins(email, password);
 
   if (userExist) {
     let userinformation = await user.createAccessTokenCredentials(secret);
@@ -81,7 +81,8 @@ const userLogin = async (req, res, secret) => {
 
 const getAllLogins = async (req, res) => {
   // create a wql query to get all logins
-  const queryString = `SELECT * FROM roles`;
+  const queryString = `SELECT * FROM roles ORDER BY EMPLOYEEID DESC LIMIT 20;
+`;
 
   // execute query
   connection.query(queryString, (err, result) => {
@@ -104,4 +105,48 @@ const getAllLogins = async (req, res) => {
 }
 
 
-module.exports = { createNewAccount, getAllLogins, userLogin }
+const deleteAccount = async (req, res) => {
+  const { id } = req.body;
+  if (id == '') {
+    res.send({
+      status: 400,
+      message: 'Bad Request'
+    })
+  }
+  else {
+    // delete account
+    const queryString = `DELETE FROM roles WHERE EMPLOYEEID = '${id}'`;
+    // execute query
+    connection.query(queryString, (err, result) => {
+      if (err) {
+        res.status(400).send({
+          statusCode: 301,
+          message: 'error occured'
+        })
+      }
+      else {
+        res.status(200).send({
+          statusCode: 200,
+          status: 'success',
+          message : result.affectedRows + ' row(s) deleted'
+        })
+      }
+    }
+    )
+  }
+}
+
+
+const updateUserBasicInfo = async (req, res) => {
+  const { id, name, email, password, role } = req.body;
+}
+
+const activateAUser = async function (request, response) {
+
+}
+
+
+module.exports = {
+  createNewAccount, getAllLogins, userLogin, updateUserBasicInfo,
+  deleteAccount, activateAUser
+}
