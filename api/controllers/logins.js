@@ -1,10 +1,18 @@
-const { createNewAccount, getAllLogins, userLogin,deleteAccount,activateAUser } = require('../LobnosAuth/createAccount')
+const { createNewAccount, getAllLogins, userLogin, deleteAccount,updateUserPermission,
+   getPermissions,
+   activateAUser, getAUser, updateUserBasicInfo } = require('../LobnosAuth/createAccount')
 const router = require('express').Router();
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
 
 
 router.get('/api/v1/logins', async (request, response) => {
-   getAllLogins(request, response)
+   const queryLen = Object.keys(request.query).length
+   if (queryLen == 0) {
+      getAllLogins(request, response)
+   }
+   else {
+      getAUser(request, response)
+   }
 })
 
 router.post('/api/v1/logins', async (request, response) => {
@@ -16,7 +24,7 @@ router.delete('/api/v1/logins', async (request, response) => {
 })
 
 
-router.put('/api/v1/logins', async (request, response) => {
+router.post('/api/v1/logins/update', async (request, response) => {
    updateUserBasicInfo(request, response)
 })
 
@@ -32,6 +40,18 @@ router.post('/api/v1/authenticate', async (request, response) => {
    else {
       userLogin(request, response, ACCESS_TOKEN_SECRET)
    }
+})
+
+
+
+router.get('/api/v1/user/permissions', function (request, response) {
+   const { permissions } = request.query;
+   getPermissions(permissions, response);
+})
+
+
+router.put('/api/v1/user/permissions', function (request, response) {
+   updateUserPermission(request, response);
 })
 
 

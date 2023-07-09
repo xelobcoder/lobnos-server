@@ -177,6 +177,33 @@ class User {
     }
   }
 
+
+  userExistWithId = async (id) => {
+    const promise = new Promise((resolve, reject) => {
+      const gq = `SELECT * FROM ROLES WHERE EMPLOYEEID = ${id}`
+
+      connection.query(gq, (err, result) => {
+        if (err) { reject(err) }
+        else {
+          const len = result.length;
+          if (len == 0) { resolve(false) } else { resolve(result) }
+        }
+      })
+    })
+    return promise;
+  }
+
+
+  permissionsByRole = function (role) {
+    if (role === 'customer service representative') {
+      return 'customerrepresentativepermission'
+    } else if (role == 'scientist') {
+      return 'scientistpermission'
+    } else {
+      'admin'
+    }
+  }
+
 }
 
 // const  u1 = new User('admin','admin','admin').createAccessTokenCredentials(
