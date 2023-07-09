@@ -189,7 +189,33 @@ const updateUserBasicInfo = async (req, res) => {
 }
 
 const activateAUser = async function (request, response) {
-
+  const { id,currentv } = request.body;
+  if (id == '') {
+    response.send({
+      status: 400,
+      message: 'Bad Request'
+    })
+  }
+  else {
+    const queryString = `UPDATE roles SET ACTIVATION = ? WHERE EMPLOYEEID = ?`;
+    // execute query
+    connection.query(queryString,[currentv,id], (err, result) => {
+      if (err) {
+        console.log(err)
+        response.status(400).send({
+          statusCode: 301,
+          message: 'error occured'
+        })
+      }
+      else {
+        response.status(200).send({
+          statusCode: 200,
+          status: 'success',
+          message: result.affectedRows > 0 ? 'record updated successfully' : 'record not updated' 
+        })
+      }
+    });
+  }
 }
 
 
@@ -224,7 +250,6 @@ const getPermissions = async (permissions, response) => {
                   }
                 }
               )
-              console.log(obj)
               return obj;
             }
             // add the role 
@@ -275,7 +300,7 @@ const updateUserPermission = async (request, response) => {
     SET DELETEV = ?,EDITV = ?,REGISTERV = ?,VIEWV = ?,PRINTV = ?,ACTIVATEV = ?,PAGEACCESS = ?,
     VIEWRESULT = ?,PRINTRESULT = ?,ENTERRESULT = ?,EDITRESULT = ?,DELETERESULT = ?
     WHERE EMPLOYEEID = ?`;
-console.log(request.body)
+    console.log(request.body)
     // execute query
     connection.query(queryString, [deletev, editv, registerv, viewv, printv, activatev, pageAccessObject, viewresult, printresult, enterresult, editresult, deleteresult, employeeid], (err, result) => {
       if (err) {
