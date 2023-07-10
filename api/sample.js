@@ -18,10 +18,12 @@ class SampleHandler {
       SELECT DISTINCT p.SAMPLE_STATUS,
       p.PATIENTID,
       p.BILLINGID,
-      CONCAT(np.FIRSTNAME, np.LASTNAME,np.MIDDLENAME) as FULLNAME,
+     CASE WHEN np.MIDDLENAME IS NULL OR np.MIDDLENAME = ''
+          THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
+          ELSE CONCAT(np.FIRSTNAME, ' ', np.LASTNAME, ' ', np.MIDDLENAME)
+    END AS FULLNAME,
       p.MESSAGE,
       p.DATE,
-      p.TEST,
       p.ID
      FROM PERFORMING_TEST as p
       join billing as b ON p.PATIENTID = b.PATIENTID
@@ -41,10 +43,12 @@ class SampleHandler {
     SELECT DISTINCT p.SAMPLE_STATUS,
       p.PATIENTID,
       p.BILLINGID,
-      CONCAT(np.FIRSTNAME,' ', np.LASTNAME,' ',np.MIDDLENAME) as FULLNAME,
+      CASE WHEN np.MIDDLENAME IS NULL OR np.MIDDLENAME = ''
+                      THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
+                      ELSE CONCAT(np.FIRSTNAME, ' ', np.LASTNAME, ' ', np.MIDDLENAME)
+                END AS FULLNAME,
       p.DATE,
       p.MESSAGE,
-      p.TEST,
       p.ID
      FROM PERFORMING_TEST as p
       join billing as b ON p.PATIENTID = b.PATIENTID
@@ -61,18 +65,22 @@ class SampleHandler {
   getSelectedStutusAndDate(date, status) {
     if (date && status) {
       let SQL_QUERY = `
-    SELECT DISTINCT p.SAMPLE_STATUS,
-      p.PATIENTID,
-      p.BILLINGID,
-      p.MESSAGE,
-      CONCAT(np.FIRSTNAME, ' ', np.LASTNAME,' ',np.MIDDLENAME) as FULLNAME,
-      p.DATE,
-      p.TEST,
-      p.ID
-     FROM PERFORMING_TEST as p
-      join billing as b ON p.PATIENTID = b.PATIENTID
-      join new_patients as np ON p.PATIENTID = np.PATIENTID
-     WHERE p.DATE='${date}' AND p.SAMPLE_STATUS ='${status}' ORDER BY p.BILLINGID DESC LIMIT 100   
+            SELECT DISTINCT p.SAMPLE_STATUS,
+                p.PATIENTID,
+                p.BILLINGID,
+                p.MESSAGE,
+                CASE WHEN np.MIDDLENAME IS NULL OR np.MIDDLENAME = ''
+                      THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
+                      ELSE CONCAT(np.FIRSTNAME, ' ', np.LASTNAME, ' ', np.MIDDLENAME)
+                END AS FULLNAME,
+                p.DATE,
+                p.ID
+          FROM PERFORMING_TEST AS p
+          JOIN billing AS b ON p.PATIENTID = b.PATIENTID
+          JOIN new_patients AS np ON p.PATIENTID = np.PATIENTID
+          WHERE p.DATE = '${date}' AND p.SAMPLE_STATUS = '${status}'
+          ORDER BY p.BILLINGID DESC
+          LIMIT 50
     `;
       connection.query(SQL_QUERY, (err, result) => {
         if (err) {
@@ -86,7 +94,10 @@ class SampleHandler {
     let SQL_QUERY = `
         SELECT 
           p.PATIENTID,
-          CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS FULLNAME,
+          CASE WHEN np.MIDDLENAME IS NULL OR np.MIDDLENAME = ''
+                      THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
+                      ELSE CONCAT(np.FIRSTNAME, ' ', np.LASTNAME, ' ', np.MIDDLENAME)
+                END AS FULLNAME,
           p.SAMPLE_STATUS,
           p.BILLINGID,
           p.DATE

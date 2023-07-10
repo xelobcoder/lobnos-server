@@ -189,7 +189,7 @@ const updateUserBasicInfo = async (req, res) => {
 }
 
 const activateAUser = async function (request, response) {
-  const { id,currentv } = request.body;
+  const { id, currentv } = request.body;
   if (id == '') {
     response.send({
       status: 400,
@@ -199,9 +199,8 @@ const activateAUser = async function (request, response) {
   else {
     const queryString = `UPDATE roles SET ACTIVATION = ? WHERE EMPLOYEEID = ?`;
     // execute query
-    connection.query(queryString,[currentv,id], (err, result) => {
+    connection.query(queryString, [currentv, id], (err, result) => {
       if (err) {
-        console.log(err)
         response.status(400).send({
           statusCode: 301,
           message: 'error occured'
@@ -211,7 +210,7 @@ const activateAUser = async function (request, response) {
         response.status(200).send({
           statusCode: 200,
           status: 'success',
-          message: result.affectedRows > 0 ? 'record updated successfully' : 'record not updated' 
+          message: result.affectedRows > 0 ? 'record updated successfully' : 'record not updated'
         })
       }
     });
@@ -269,6 +268,7 @@ const getPermissions = async (permissions, response) => {
 
 const updateUserPermission = async (request, response) => {
   const { pageAccess, role } = request.body;
+     console.log(request.body)
   // destrcutre the body based on the role
   // convert pageAccess to an JSON object
   const pageAccessObject = JSON.stringify(pageAccess);
@@ -300,7 +300,7 @@ const updateUserPermission = async (request, response) => {
     SET DELETEV = ?,EDITV = ?,REGISTERV = ?,VIEWV = ?,PRINTV = ?,ACTIVATEV = ?,PAGEACCESS = ?,
     VIEWRESULT = ?,PRINTRESULT = ?,ENTERRESULT = ?,EDITRESULT = ?,DELETERESULT = ?
     WHERE EMPLOYEEID = ?`;
-    console.log(request.body)
+ 
     // execute query
     connection.query(queryString, [deletev, editv, registerv, viewv, printv, activatev, pageAccessObject, viewresult, printresult, enterresult, editresult, deleteresult, employeeid], (err, result) => {
       if (err) {

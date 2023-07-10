@@ -43,6 +43,11 @@ router.post('/api/v1/authenticate', async (request, response) => {
 })
 
 
+router.put('/api/v1/user/authentication/activate', async (request, response) => {
+   activateAUser(request, response)
+})
+
+
 
 router.get('/api/v1/user/permissions', function (request, response) {
    const { permissions } = request.query;
