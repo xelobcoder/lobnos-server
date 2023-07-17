@@ -9,6 +9,7 @@ const CARDIAC_ENZYMES = 'setup_cardiac_enzymes';
 const THYROID_SETUP = 'setup_thyroid_test';
 const LIPID_PROFILE_SETUP = 'setup_lipid_profile_test';
 const BETAHCG = `setup_beta_hcg`;
+const ELECTROPHORESIS_SETUP = `haemoglobinelectrophoresis`
 const ESR = `setup_esr`
 
 // define our queries
@@ -18,7 +19,8 @@ const ChemistryQueries = {
   CARDIAC_ENZYMES: `INSERT INTO ${CARDIAC_ENZYMES} (parameter,unit,lower,upper) VALUES ?`,
   THYROID_SETUP: `INSERT INTO ${THYROID_SETUP} (parameter,unit,lower,upper) VALUES ?`,
   LIPID_PROFILE_SETUP: `INSERT INTO ${LIPID_PROFILE_SETUP} (parameter,unit,lower,upper) VALUES ?`,
-  ESR: `INSERT INTO ${ESR} (agelimit,gender,upper,lower) VALUES  ?`
+  ESR: `INSERT INTO ${ESR} (agelimit,gender,upper,lower) VALUES  ?`,
+  ELECTROPHORESIS_SETUP: `INSERT INTO ${ELECTROPHORESIS_SETUP} (parameter,unit,lower,upper) VALUES ?`
 }
 
 const chemistryTables = {
@@ -29,7 +31,8 @@ const chemistryTables = {
   CARDIAC_ENZYMES,
   THYROID_SETUP,
   LIPID_PROFILE_SETUP,
-  ESR
+  ESR,
+  ELECTROPHORESIS_SETUP
 }
 
 class Chemistry {
@@ -76,22 +79,18 @@ class Chemistry {
     let values = this.data;
 
     // sanitize data
-
+    console.log(this.data)
     const sanitizeData = values.map((item) => {
-      let ky = Object.values(item).slice(1);
-      // return an array of values of the object rearranged 
-      // 0: parameter
-      // 1: unit
-      // 2: upper
-      // 3: lower 
-      // while slicing away the setupid
+      const { parameter, unit, upper, lower } = item;
       if (this.testname != 'ESR') {
-        return [ky[0], ky[3], ky[2], ky[1]]
+        return [parameter, unit, lower, upper]
       }
       else {
         return [item.agelimit, item.gender, item.upper, item.lower]
       }
     })
+
+
 
 
 
@@ -130,6 +129,8 @@ class Chemistry {
         statusCode: 404
       })
     }
+
+
 
     if (panelname in chemistryTables) {
       let query = `SELECT * FROM ${chemistryTables[panelname]}`;
@@ -186,6 +187,7 @@ class Chemistry {
       }
     })
   }
+
 }
 
 

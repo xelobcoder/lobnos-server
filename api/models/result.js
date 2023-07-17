@@ -26,7 +26,9 @@ const testTable = {
   esr: "result_esr",
   random_blood_sugar: "result_random_blood_sugar",
   fasting_blood_sugar: "result_fasting_blood_sugar",
-  full_blood_count: 'result_function_full_blood_count'
+  full_blood_count: 'result_function_full_blood_count',
+  haemoglobin_electrophoresis: 'result_haemoglobin_electrophoresis',
+  semen_analysis: 'semenAnalysis'
 };
 
 class Result {
@@ -167,7 +169,7 @@ class Result {
         // connection to db to pass result
         connection.query(query, [billingid, result, patientid, scientistid, remarks], function (err, result) {
           if (err) {
-           
+
             response.send({
               status: "error",
               statusCode: 500,
@@ -1068,6 +1070,74 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
       }
     }
   }
+
+  async semenAnalysis(records, response) {
+    // destructure this 
+    const {
+      collectionDate, collectionTime, liquefactionTime, abstinence, colour, quantity, consistency,
+      ph, fructose, spermCount, motility, motilityGrade, morphology, pusCells, epithelialCells, rbcs, impression,
+      billingid, testid, testname, patientid
+    } = records;
+
+    if (this.isTestValid()) {
+      if (await this.ShouldCreateRecord()) {
+        //  create the record
+        const insertionQuery = `INSERT INTO ${testTable[testname]}
+        (collectionDate,collectionTime,liquefactionTime,abstinence,colour,quantity,consistency,ph,fructose,spermcount,
+        motility,motilityGrade,morphology,pusCells,epithelialCells,rbcs,impression,billingid,patientid)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `;
+
+        const values = [collectionDate, collectionTime, liquefactionTime, abstinence, colour, quantity, consistency, ph, 
+        fructose, spermCount, motility, motilityGrade, morphology, pusCells, epithelialCells, rbcs, impression, billingid, patientid];
+
+        await this.useTransactionForResult(
+          insertionQuery,
+          values,
+          testid,
+          response
+        );
+      } else {
+        // update the record
+        const updateQuery = `UPDATE ${testTable[testname]}
+        SET collectionTime = ?,
+        collectionDate = ?,
+        liquefactionTime = ?,
+        abstinence = ?,
+        colour = ?,
+        quantity = ?,
+        consistency = ?,
+        ph = ?,
+        fructose = ?,
+        spermcount = ?,
+        motility = ?,
+        motilityGrade = ?,
+        morphology = ?,
+        pusCells = ?,
+        epithelialCells = ?,
+        rbcs = ?,
+        impression = ?,
+        updated_on = NOW()
+        WHERE billingid = ? AND patientid = ?
+        `;
+
+        const values = [collectionTime, collectionDate,liquefactionTime, abstinence, colour, quantity, consistency, ph, 
+        fructose, spermCount, motility, motilityGrade, morphology, pusCells, epithelialCells, rbcs, impression, billingid, patientid];
+
+        connection.query(updateQuery, values, (err, result) => {
+          if (err) {
+            this.errMessage(err, response);
+          }
+          if (result) {
+            this.pushResponse(result, response);
+          }
+        }
+        );
+      }
+    }
+
+  }
+
 }
 
 module.exports = { Result, beginTransaction, query, testTable };

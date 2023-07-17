@@ -8,6 +8,7 @@ const TableNames = {
 	thyroid: "setup_thyroid_test",
 	betahcg: "setup_beta_hcg",
 	cardiac: "setup_cardiac_enzymes",
+	electrophoresis:'haemoglobinelectrophoresis'
 };
 
 // check if the parameter already is avalilable in the database table

@@ -35,7 +35,6 @@ router.post('/api/v1/test/setup/chemistry', (req, res) => {
 
 router.post('/api/v1/test/input/chemistry', (req, res) => {
   const { testname, data } = request.body;
-
 })
 
 
@@ -155,7 +154,10 @@ router.post('/api/v1/setup/create/betahcg', async function (request, response) {
 
 
 router.get('/api/v1/setup/get/betahcg', async (request, response) => {
-  await new Chemistry().getBetaHcg(response);
+   new Chemistry().getBetaHcg(response);
 })
+
+
+
 
 module.exports = router;

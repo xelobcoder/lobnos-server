@@ -268,7 +268,7 @@ const getPermissions = async (permissions, response) => {
 
 const updateUserPermission = async (request, response) => {
   const { pageAccess, role } = request.body;
-     console.log(request.body)
+  console.log(request.body)
   // destrcutre the body based on the role
   // convert pageAccess to an JSON object
   const pageAccessObject = JSON.stringify(pageAccess);
@@ -300,7 +300,7 @@ const updateUserPermission = async (request, response) => {
     SET DELETEV = ?,EDITV = ?,REGISTERV = ?,VIEWV = ?,PRINTV = ?,ACTIVATEV = ?,PAGEACCESS = ?,
     VIEWRESULT = ?,PRINTRESULT = ?,ENTERRESULT = ?,EDITRESULT = ?,DELETERESULT = ?
     WHERE EMPLOYEEID = ?`;
- 
+
     // execute query
     connection.query(queryString, [deletev, editv, registerv, viewv, printv, activatev, pageAccessObject, viewresult, printresult, enterresult, editresult, deleteresult, employeeid], (err, result) => {
       if (err) {
