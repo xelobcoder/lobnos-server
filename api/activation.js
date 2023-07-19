@@ -8,7 +8,7 @@ const activation = {
     ELSE CONCAT(FIRSTNAME, ' ', MIDDLENAME, ' ', LASTNAME)
   END AS FULLNAME,
   DATE, ACTIVATION_STATUS
-FROM NEW_PATIENTS
+FROM new_patients
 ORDER BY DATE DESC
 LIMIT 100;
              `,
@@ -25,7 +25,7 @@ LIMIT 100;
     const { patientid, action } = request.query;
     if (patientid && action) {
       connection.query(
-        `UPDATE NEW_PATIENTS SET ACTIVATION_STATUS = ? WHERE PATIENTID = ?`,
+        `UPDATE new_patients SET ACTIVATION_STATUS = ? WHERE PATIENTID = ?`,
         [action, patientid],
         (err, result) => {
           if (err) {

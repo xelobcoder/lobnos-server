@@ -28,7 +28,9 @@ const testTable = {
   fasting_blood_sugar: "result_fasting_blood_sugar",
   full_blood_count: 'result_function_full_blood_count',
   haemoglobin_electrophoresis: 'result_haemoglobin_electrophoresis',
-  semen_analysis: 'semenAnalysis'
+  semen_analysis: 'semenAnalysis',
+  leutienizing_hormone: 'lhresult',
+  follicle_stimulating_hormone: 'fshresult'
 };
 
 class Result {
@@ -1136,6 +1138,32 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
       }
     }
 
+  }
+
+
+  async hormones(records, response) {
+    const { testname, billingid, testid, parameter, value, comment, patientid } = records;
+
+    if (this.isTestValid()) {
+      if (await this.ShouldCreateRecord()) {
+        const query = `INSERT INTO ${testTable[testname]} (parameter,billingid,patientid,value) VALUES (?,?,?,?)`;
+
+        await this.useTransactionForResult(query,[parameter,billingid,patientid,value],testid,response)
+         
+      } else {
+        // TODO: to update the result if present 
+        const updateQuery =   `UPDATE ${testTable[testname]} SET value = ?, updated_on = NOW() WHERE billingid = ?`;
+
+        connection.query(updateQuery,[value,billingid], (err,result) => {
+           if (err) {
+             this.errMessage(err,response)
+           }
+           else {
+            this.pushResponse(result,response)
+           }
+        })
+      }
+    }
   }
 
 }

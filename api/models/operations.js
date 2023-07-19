@@ -16,7 +16,7 @@ class Operations {
   }
 
 
-  readyforTest = async function () {
+    async readyforTest () {
     // we want return test where the result is PHELOBOTOMY_STATUS is done and SAMPLE_STATUS = accepted
     const validID = await this.validBillingid();
 

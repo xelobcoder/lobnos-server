@@ -33,7 +33,7 @@ router.get('/api/v1/test/result/check', async function (req, res) {
   }
   catch (err) {
     res.status(500).json({
-      message: err?.message,
+      message: err.message,
       statusCode: 500
     })
   }
@@ -109,6 +109,12 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'fasting_blood_sugar':
         await resultInstance.glucose(req.body, res);
         break;
+      case 'follicle_stimulating_hormone':
+        await resultInstance.hormones(req.body, res);
+        break;
+      case 'leuteinizing_hormone':
+        await resultInstance.hormones(req.body, res);
+        break;
       default:
         return res.send({
           status: "error",
@@ -119,7 +125,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
   }
   catch (err) {
     res.status(500).send({
-      message: err?.message,
+      message: err.message,
       statusCode: 500
     })
   }

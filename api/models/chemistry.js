@@ -142,7 +142,7 @@ class Chemistry {
         }
         if (result) {
           let sanitizer = result.map((item) => {
-            if (item?.gender || item?.GENDER) {
+            if (item.hasOwnProperty('gender') || item.hasOwnProperty('GENDER')) {
               return {
                 setupid: item.SETUPID || item.setupid,
                 parameter: item.PARAMETER || item.parameter,
