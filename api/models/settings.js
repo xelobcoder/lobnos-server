@@ -1,190 +1,145 @@
-const { PrismaClient } = require('@prisma/client')
-const prisma = new PrismaClient()
+
 
 
 const addNewDepartment = async function (request, response) {
- const { department, departmentManager, employeeid } = request.body;
- const newDepartment = async () => {
-  const creation = await prisma.departments.create({
-   data: {
-    department,
-    departmentManager,
-    employeeid,
-   }
-  })
-  return creation;
- }
+  const { department, departmentManager, employeeid } = request.body;
 
- newDepartment()
-  .then((data) => {
-   response.send({
-    statusCode: 200,
-    status: 'success',
-    message: 'Department added successfully',
-    data
-   })
-  })
-  .catch((error) => {
-   console.log(error)
-   response.send({
-    statusCode: 500,
-    status: 'error',
-    message: 'Department not added',
-    error
-   })
-  }
-  )
-}
+  const sqlQuery = 'INSERT INTO departments (department, departmentManager, employeeid) VALUES (?, ?, ?)';
+  const values = [department, departmentManager, employeeid];
 
-
-
-const getDepartments = async function (request, response) {
- // limit by 50 and in desc order
- const departments = async () => {
-  let dept = prisma.departments.findMany({
-   take: 20,
-    orderBy: {
-      id: 'desc'
+  // Assuming you have already established a MySQL connection with the "connection" object
+  connection.query(sqlQuery, values, (error, results) => {
+    if (error) {
+      console.log(error);
+      response.status(500).json({
+        statusCode: 500,
+        status: 'error',
+        message: 'Department not added',
+        error,
+      });
+    } else {
+      response.status(200).json({
+        statusCode: 200,
+        status: 'success',
+        message: 'Department added successfully',
+        data: results,
+      });
     }
-  })
-  return dept
- }
-
- departments()
-
-  .then((data) => {
-   response.send({
-    statusCode: 200,
-    status: 'success',
-    message: 'Departments fetched successfully',
-    data
-   })
-  }
-  )
-  .catch((error) => {
-   console.log(error)
-   response.send({
-    statusCode: 500,
-    status: 'error',
-    message: 'Departments not fetched',
-    error
-   })
-  }
-  )
-}
+  });
+};
 
 
 
-const updateDepartment = async function (request, response) {
- const { department, departmentManager, id, employeeid } = request.body;
- const updatedDepartment = async () => {
-  const update = await prisma.departments.update({
-   where: {
-    id: parseInt(id)
-   },
-   data: {
-    department,
-    departmentManager,
-    employeeid
-   }
-  })
-  return update;
- }
-
- updatedDepartment()
-  .then((data) => {
-   response.send({
-    statusCode: 200,
-    status: 'success',
-    message: 'Department updated successfully',
-    data
-   })
-  }
-  )
-  .catch((error) => {
-   console.log(error)
-   response.send({
-    statusCode: 500,
-    status: 'error',
-    message: 'Department not updated',
-    error
-   })
-  }
-  )
-
-}
+const getDepartments = function (request, response) {
+  const sqlQuery = 'SELECT * FROM departments ORDER BY id DESC LIMIT 50';
+  connection.query(sqlQuery, function (error, results) {
+    if (error) {
+      response.status(500).json({
+        statusCode: 500,
+        status: 'error',
+        message: 'Departments not fetched',
+        error,
+      });
+    } else {
+      response.status(200).json({
+        statusCode: 200,
+        status: 'success',
+        message: 'Departments fetched successfully',
+        data: results,
+      });
+    }
+  });
+};
 
 
-const deleteDepartment = async function (request, response) {
- const { id } = request.body;
- const deletedDepartment = async () => {
-  const deletion = await prisma.departments.delete({
-   where: {
-    id: parseInt(id)
-   }
-  })
-  return deletion;
- }
-
- deletedDepartment()
-  .then((data) => {
-   response.send({
-    statusCode: 200,
-    status: 'success',
-    message: 'Department deleted successfully',
-    data
-   })
-  }
-  )
-  .catch((error) => {
-   console.log(error)
-   response.send({
-    statusCode: 500,
-    status: 'error',
-    message: 'Department not deleted',
-    error
-   })
-  }
-  )
-}
 
 
-const getSpecificDepartment = async function (request, response) {
- const { id } = request.params;
- const department = async () => {
-  let dept = prisma.departments.findMany({
-   where: {
-    id: parseInt(id)
-   }
-  })
+const updateDepartment = function (request, response) {
+  const { department, departmentManager, id, employeeid } = request.body;
 
-  return dept;
- }
+  const sqlQuery = 'UPDATE departments SET department = ?, departmentManager = ?, employeeid = ? WHERE id = ?';
+  const values = [department, departmentManager, employeeid, parseInt(id)];
 
- department()
-  .then((data) => {
-   response.send({
-    statusCode: 200,
-    status: 'success',
-    message: 'Department retrieved successfully',
-    department: data
-   })
-  })
-  .catch((error) => {
-   console.log(error)
-   response.send({
-    statusCode: 500,
-    status: 'error',
-    message: 'Department not retrieved',
-    error
-   })
-  }
-  )
-}
+  connection.query(sqlQuery, values, (error, results) => {
+    if (error) {
+      response.status(500).json({
+        statusCode: 500,
+        status: 'error',
+        message: 'Department not updated',
+        error,
+      });
+    } else {
+      response.status(200).json({
+        statusCode: 200,
+        status: 'success',
+        message: 'Department updated successfully',
+        data: results,
+      });
+    }
+  });
+};
+
+
+
+const deleteDepartment = function (request, response) {
+  const { id } = request.body;
+
+  const sqlQuery = 'DELETE FROM departments WHERE id = ?';
+  const values = [parseInt(id)];
+
+  connection.query(sqlQuery, values, (error, results) => {
+    if (error) {
+      response.status(500).json({
+        statusCode: 500,
+        status: 'error',
+        message: 'Department not deleted',
+        error,
+      });
+    } else {
+      response.status(200).json({
+        statusCode: 200,
+        status: 'success',
+        message: 'Department deleted successfully',
+        data: results,
+      });
+    }
+  });
+};
+
+
+
+
+
+const getSpecificDepartment = function (request, response) {
+  const { id } = request.params;
+
+  const sqlQuery = 'SELECT * FROM departments WHERE id = ?';
+  const values = [parseInt(id)];
+
+  connection.query(sqlQuery, values, (error, results) => {
+    if (error) {
+      console.log(error);
+      response.status(500).json({
+        statusCode: 500,
+        status: 'error',
+        message: 'Department not retrieved',
+        error,
+      });
+    } else {
+      response.status(200).json({
+        statusCode: 200,
+        status: 'success',
+        message: 'Department retrieved successfully',
+        department: results,
+      });
+    }
+  });
+};
+
 module.exports = {
- addNewDepartment,
- getDepartments,
- deleteDepartment,
- updateDepartment,
- getSpecificDepartment
+  addNewDepartment,
+  getDepartments,
+  deleteDepartment,
+  updateDepartment,
+  getSpecificDepartment
 }

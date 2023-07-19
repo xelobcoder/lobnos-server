@@ -1,8 +1,7 @@
-const { PrismaClient } = require("@prisma/client");
 const { query } = require("express");
 const connection = require("../db");
 const { get } = require("../controllers/results");
-const prisma = new PrismaClient();
+
 const uuidv4 = require("uuid").v4;
 
 const newdepartmentRequisition = (request, response) => {
@@ -99,35 +98,29 @@ const newdepartmentRequisition = (request, response) => {
 };
 
 const getDepartmentsRequisitions = async function (request, response) {
-  // limit by 50 and in desc order
-  const departmentsRequisitions = async () => {
-    let dept = prisma.departmentrequisitionhx.findMany({
-      take: 20,
-      orderBy: {
-        id: "desc",
-      },
-    });
-    return dept;
-  };
+  const query = `
+    SELECT *
+    FROM departmentrequisitionhx
+    ORDER BY id DESC
+    LIMIT 20;
+  `;
 
-  departmentsRequisitions()
-    .then((data) => {
-      response.send({
-        statusCode: 200,
-        status: "success",
-        message: "Departments requisitions fetched successfully",
-        data,
+  connection.query(query, (error, results) => {
+    if (error) {
+      console.error('Error fetching department requisitions:', error);
+      response.status(500).json({
+        status: 'error',
+        message: 'Failed to fetch department requisitions',
+        data: error,
       });
-    })
-    .catch((error) => {
-      console.log(error);
-      response.send({
-        statusCode: 500,
-        status: "error",
-        message: "Departments requisitions not fetched",
-        error,
+    } else {
+      response.status(200).json({
+        status: 'success',
+        message: 'Department requisitions retrieved successfully',
+        data: results,
       });
-    });
+    }
+  });
 };
 
 const specificDepartmentRequisition = async function (request, response, include = false) {

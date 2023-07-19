@@ -1088,8 +1088,8 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         `;
 
-        const values = [collectionDate, collectionTime, liquefactionTime, abstinence, colour, quantity, consistency, ph, 
-        fructose, spermCount, motility, motilityGrade, morphology, pusCells, epithelialCells, rbcs, impression, billingid, patientid];
+        const values = [collectionDate, collectionTime, liquefactionTime, abstinence, colour, quantity, consistency, ph,
+          fructose, spermCount, motility, motilityGrade, morphology, pusCells, epithelialCells, rbcs, impression, billingid, patientid];
 
         await this.useTransactionForResult(
           insertionQuery,
@@ -1121,8 +1121,8 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         WHERE billingid = ? AND patientid = ?
         `;
 
-        const values = [collectionTime, collectionDate,liquefactionTime, abstinence, colour, quantity, consistency, ph, 
-        fructose, spermCount, motility, motilityGrade, morphology, pusCells, epithelialCells, rbcs, impression, billingid, patientid];
+        const values = [collectionTime, collectionDate, liquefactionTime, abstinence, colour, quantity, consistency, ph,
+          fructose, spermCount, motility, motilityGrade, morphology, pusCells, epithelialCells, rbcs, impression, billingid, patientid];
 
         connection.query(updateQuery, values, (err, result) => {
           if (err) {

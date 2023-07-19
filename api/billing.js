@@ -1,8 +1,7 @@
-const { PrismaClient } = require('@prisma/client');
 const { response } = require('express');
 const { beginTransaction, query } = require('./models/result');
 const connection = require('./db')
-const prisma = new PrismaClient();
+
 
 // add test to performing test
 /**

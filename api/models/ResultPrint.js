@@ -12,14 +12,14 @@ const pushResponse = ResultClass.pushResponse;
 
 const LIVER_SETUP = "setup_liver_function_test";
 const RENAL_SETUP = "setup_renal_function_test";
-const LIVER_CLIENT_TABLE = "liver_function_test";
-const RENAL_CLIENT_TABLE = "renal_function_test";
 const CARDIAC_ENZYMES = "setup_cardiac_enzymes";
 const THYROID_SETUP = "setup_thyroid_test";
 const LIPID_PROFILE_SETUP = "setup_lipid_profile_test";
 const FULL_BLOOD_COUNT = 'result_function_full_blood_count'
 const BETAHCG = `setup_beta_hcg`;
 const ESR = `setup_esr`;
+const LHHORMONE = 'lhsetup';
+const FSHHORMONE = 'fshsetup';
 
 
 // this represent the setups in the database for those chemistry test, full blood count is give a 
@@ -29,7 +29,9 @@ const setups = {
   liver_function_test: LIVER_SETUP,
   renal_function_test: RENAL_SETUP,
   cardiac_enzymes: CARDIAC_ENZYMES,
-  full_blood_count: ''
+  full_blood_count: '',
+  LHHORMONE,
+  FSHHORMONE
 };
 
 const samplingQuery = `
@@ -372,7 +374,8 @@ class ResultPrint {
     );
   };
 
-
+  // this function would update the  test ascension table using the client blling id as to whether the result is approved or declined
+  // decison query in the request is used here 
   makeDecisionOnResult = function (request, response) {
     const { billingid, testid, decision, message } = request.body;
     // update query to change approval status 

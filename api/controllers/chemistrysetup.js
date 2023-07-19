@@ -33,9 +33,6 @@ router.post('/api/v1/test/setup/chemistry', (req, res) => {
 })
 
 
-router.post('/api/v1/test/input/chemistry', (req, res) => {
-  const { testname, data } = request.body;
-})
 
 
 router.get('/api/v1/test/input/chemistry', (req, res) => {
@@ -90,6 +87,7 @@ router.post('/api/v1/test/setup/createparams', async (request, response) => {
   }
   else {
     const { unit, upper, lower, parameter } = parameterDetails;
+    // doHaveParameter checks for presence of parameter in the table
     const available = await doHaveParameter(parameter, 'PARAMETER', tableCollection)
 
     if (available.length == 0) {

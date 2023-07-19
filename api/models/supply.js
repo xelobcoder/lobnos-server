@@ -2,11 +2,6 @@ const connection = require('../db')
 const database_queries = require('../database/queries')
 const { response } = require('express')
 
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient()
-
-
 const new_supplier = async function (request, response) {
   const {
     name,
@@ -461,16 +456,19 @@ const getExpiredStock = async function (request, response) {
 
 
 const getInStockProduct = async function (request, response) {
-
-  const result = await prisma.orders.findMany({
-    where: {
-      expirydate: {
-        gte: new Date(),
-      },
-    },
+  // we want get all products where their expiry date less is greater than current date
+  return new Promise((resolve, reject) => {
+    connection.query(
+      'SELECT * FROM orders WHERE expirydate >= NOW()',
+      (error, results) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(results);
+        }
+      }
+    );
   });
-
-  return result;
 }
 
 const updateAstock = function (request, response) {
@@ -528,29 +526,29 @@ const updateAstock = function (request, response) {
 
 
 const deleteAstock = function (request, response) {
-  const { stockid } = request.body
+  const { stockid } = request.body;
 
-  const prisma = new PrismaClient()
+  const deleteQuery = `
+    DELETE FROM newstock
+    WHERE stockid = ${parseInt(stockid)}
+  `;
 
-  prisma.newstock.delete({
-    where: {
-      stockid: parseInt(stockid)
+  connection.query(deleteQuery, (error, result) => {
+
+    if (error) {
+      response.status(500).json({
+        status: 'error',
+        message: 'Stock not deleted',
+        data: error.message,
+      });
+    } else {
+      response.status(200).json({
+        status: 'success',
+        message: 'Stock deleted successfully',
+        data: result,
+      });
     }
-  }).then((data) => {
-    response.status(200).json({
-      status: 'success',
-      message: 'stock deleted successfully',
-      data: data
-    })
-  }
-  ).catch((error) => {
-    console.log(error)
-    response.status(500).json({
-      status: 'error',
-      message: 'stock not deleted',
-      data: error
-    })
-  })
+  });
 }
 
 
