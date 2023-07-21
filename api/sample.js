@@ -92,55 +92,65 @@ class SampleHandler {
   }
   getRecords() {
     let SQL_QUERY = `
-        SELECT 
-          p.PATIENTID,
-          CASE WHEN np.MIDDLENAME IS NULL OR np.MIDDLENAME = ''
-                      THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
-                      ELSE CONCAT(np.FIRSTNAME, ' ', np.LASTNAME, ' ', np.MIDDLENAME)
-                END AS FULLNAME,
-          p.SAMPLE_STATUS,
-          p.BILLINGID,
-          p.DATE
-        FROM performing_test AS p
-          INNER JOIN new_patients AS np ON p.PATIENTID = np.PATIENTID 
-          INNER JOIN test_ascension AS ts ON ts.billingid = p.BILLINGID
-        WHERE p.SAMPLE_STATUS = 'PENDING' AND ts.collection = 'true'
-        GROUP BY p.BILLINGID
-          ORDER BY p.DATE DESC LIMIT 100
+      SELECT 
+        CASE
+          WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
+          ELSE CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME)
+        END AS 'FULLNAME',
+        ss.billingid AS 'BILLINGID',
+        pt.DATE AS 'DATE',
+        ( SELECT COUNT(billingid) FROM samplestatus WHERE approvalstatus = 0 
+      AND billingid = pt.billingid) AS 'PENDINGCOUNT'
+      FROM samplestatus as ss
+      INNER JOIN performing_test as pt ON pt.BILLINGID = ss.billingid
+      INNER JOIN new_patients as np ON np.PATIENTID = pt.PATIENTID
+      GROUP BY ss.billingid
+    ORDER BY pt.DATE DESC LIMIT 30
   `;
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         throw err;
       }
-      this.response.send(result);
+      else {
+        // check for pending  count in item of the result and only send those ABOVE 0
+        let filteredResult = result.filter(item => item.PENDINGCOUNT > 0);
+        this.response.send(filteredResult);
+      }
     });
   }
-  updateRecords(status, billingid, message = '') {
+  updateRecords(request, response) {
     // update performing test table first
     // update sample table to reflect change in status
     // return update records for changes to UI
-    let query = `
-    UPDATE PERFORMING_TEST SET 
-    SAMPLE_STATUS = '${status}',
-    INSPECTION_TIME = NOW(),
-    INSPECTOR =  'Dr Tiifu Hamza Kojo Boronson'
-    `
-    if (message != '') {
-      query += `,MESSAGE = '${message}'`
+    const { billingid, testid, action, message } = request.body;
+
+    let approvalStatus = action == 'reject' ? 0 : 1;
+
+    let SQL_QUERY = `
+    UPDATE samplestatus SET
+     approvalstatus = ${approvalStatus}
+     `
+
+    if (action == 'reject') {
+      SQL_QUERY += `, message = '${message}'`
     }
 
-    query += ` WHERE BILLINGID = ${billingid}`
+    SQL_QUERY += ` WHERE billingid = ${billingid} AND testid = ${testid}`
 
-    connection.query(query, [status, message, billingid], (err, result) => {
-      if (err) throw err;
-      else {
-        this.response.send({
-          status: 'success',
-          statusCode: 200,
-          result: result.affectedRows
-        });
+
+    connection.query(SQL_QUERY, (err, result) => {
+      if (err) {
+        throw err;
       }
-    });
+      else {
+        console.log(result);
+        response.send({
+          statusCode: 200,
+          status: 'success',
+          message: 'record updated successfully'
+        })
+      }
+    })
   }
 }
 

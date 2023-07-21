@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const { prisma } = require('../models/supply')
 const { addNewDepartment, updateDepartment, getDepartments, deleteDepartment, getSpecificDepartment } = require('../models/settings');
 const { AddCompanyInfo, getCompanyInfo, getCompanyImage } = require('../settings/companydata');
 
@@ -55,7 +54,7 @@ router.post('/api/v1/settings/companyprofile/images', upload, function (req, res
 
 
 router.get('/api/v1/settings/companyprofile/images', function (request, response) {
-   getCompanyImage(request,response)
+  getCompanyImage(request, response)
 })
 
 

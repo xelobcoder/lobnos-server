@@ -1,7 +1,8 @@
 const router = require('express').Router();
 const connection = require('../db')
 const queries = require('../database/queries');
-const { getPhelobotomy, updatePhelobotomy, postSection, get_client_query, getAscensionWithDetails } = require('../phelobotomy')
+const { getPhelobotomy, updatePhelobotomy, sampleAssesment,
+postSection, get_client_query, getAscensionWithDetails } = require('../phelobotomy')
 
 
 router.route('/api/v1/phelobotomy')
@@ -42,6 +43,12 @@ router.get('/api/v1/phelobotomy/ascension', function (request, response) {
       status: 'error'
     })
   }
+})
+
+
+
+router.get('/api/v1/phelobotomy/sample/assesment/list', function (req, res) {
+   sampleAssesment(req, res)
 })
 
 

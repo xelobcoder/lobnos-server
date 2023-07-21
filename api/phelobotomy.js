@@ -28,23 +28,26 @@ let filteredTest_in_date = function (test, res) {
 
 const getPhelobotomy = async (req, res) => {
   let myquery = `
-  SELECT 
-      CONCAT(p.FIRSTNAME," ",p.MIDDLENAME," ",p.LASTNAME) AS FULLNAME,
-      p.PATIENTID,
-      CONCAT(p.AGE," ", p.AGETYPE) AS AGE,
-      p.GENDER,
-      p.MOBILE_NUMBER AS MOBILENUMBER,
-      b.BILLINGID AS BILLINGID,
-      DATE(t.DATE) AS DATE,
-      t.URGENCY as URGENCY
-  FROM new_patients AS p
-    INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
-    INNER JOIN performing_test as t ON b.BILLINGID = t.BILLINGID
-    INNER JOIN test_ascension as ts ON b.BILLINGID = ts.BILLINGID
-    INNER JOIN test_panels as v ON v.ID = ts.TESTID
-  WHERE ts.collection = 'false'
-  GROUP BY b.BILLINGID
-  ORDER BY b.BILLINGID DESC LIMIT 100
+ SELECT
+  IF(p.MIDDLENAME IS NULL, CONCAT(p.FIRSTNAME, " ", p.LASTNAME), 
+  CONCAT(p.FIRSTNAME, " ", p.MIDDLENAME, " ", p.LASTNAME)) AS FULLNAME,
+  p.PATIENTID,
+  CONCAT(p.AGE, " ", p.AGETYPE) AS AGE,
+  p.GENDER,
+  p.MOBILE_NUMBER AS MOBILENUMBER,
+  b.BILLINGID AS BILLINGID,
+  DATE(t.DATE) AS DATE,
+  t.URGENCY AS URGENCY
+FROM new_patients AS p
+INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
+INNER JOIN performing_test AS t ON b.BILLINGID = t.BILLINGID
+INNER JOIN test_ascension AS ts ON b.BILLINGID = ts.BILLINGID
+INNER JOIN test_panels AS v ON v.ID = ts.TESTID
+WHERE ts.collection = 'false'
+GROUP BY b.BILLINGID
+ORDER BY b.BILLINGID DESC
+LIMIT 50;
+
   `;
 
   connection.query(myquery, (err, result) => {
@@ -135,7 +138,9 @@ const postSection = function (request, response) {
           throw err;
         }
         else {
-          console.log(result)
+          if (result.affectedRows > 0) {
+            return;
+          }
         }
       })
     }
@@ -144,9 +149,18 @@ const postSection = function (request, response) {
 
 
   if (Array.isArray(testInfo)) {
-    for (let i = 0; i <= testInfo.length; i++) {
-      const { billingid, testid, collected } = testInfo[i];
+    let target = testInfo.length;
+    let counter = 0;
+    for (const current of testInfo) {
+      const { testid, collected, billingid } = current;
       checkifExist(billingid, testid, collected)
+      counter++;
+    }
+    if (counter == target) {
+      response.send({
+        message: 'updated successfully',
+        statusCode: 200
+      })
     }
   } else {
     response.send({
@@ -177,10 +191,54 @@ const getAscensionWithDetails = async function (billingid, response) {
 }
 
 
+const sampleAssesment = function (req, res) {
+  const { billingid } = req.query;
+
+  if (!billingid) {
+    res.send({
+      message: 'billingid required',
+      statusCode: 401,
+      status: 'error'
+    })
+  } else {
+    //  test collection must be true in test ascension table 
+    const statement = `
+    SELECT DISTINCT NAME,
+        SAMPLE,
+        t.collection,
+        t.testid,
+        t.billingid
+      from test_ascension AS t
+        INNER JOIN test_panels AS tt ON tt.ID = t.testid
+        INNER JOIN samplestatus AS ss ON ss.testid = t.testid
+      WHERE t.billingid = ?
+        AND t.collection = 'true'
+        AND ss.approvalstatus = 0
+`;
+
+    connection.query(statement, billingid, function (err, result) {
+      if (err) {
+        throw err;
+      }
+
+      res.send({
+        message: 'success',
+        statusCode: 200,
+        status: 'success',
+        result
+      })
+    })
+  }
+}
+
+
+
+
 module.exports = {
   getPhelobotomy,
   updatePhelobotomy,
   get_client_query,
   postSection,
-  getAscensionWithDetails
+  getAscensionWithDetails,
+  sampleAssesment
 }

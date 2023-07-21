@@ -1146,21 +1146,21 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
 
     if (this.isTestValid()) {
       if (await this.ShouldCreateRecord()) {
-        const query = `INSERT INTO ${testTable[testname]} (parameter,billingid,patientid,value) VALUES (?,?,?,?)`;
+        const query = `INSERT INTO ${testTable[testname]} (parameter,billingid,patientid,value,comment) VALUES (?,?,?,?,?)`;
 
-        await this.useTransactionForResult(query,[parameter,billingid,patientid,value],testid,response)
-         
+        await this.useTransactionForResult(query, [parameter, billingid, patientid, parseInt(value), comment], testid, response)
+
       } else {
         // TODO: to update the result if present 
-        const updateQuery =   `UPDATE ${testTable[testname]} SET value = ?, updated_on = NOW() WHERE billingid = ?`;
+        const updateQuery = `UPDATE ${testTable[testname]} SET value = ?, comment= ?, updated_on = NOW() WHERE billingid = ?`;
 
-        connection.query(updateQuery,[value,billingid], (err,result) => {
-           if (err) {
-             this.errMessage(err,response)
-           }
-           else {
-            this.pushResponse(result,response)
-           }
+        connection.query(updateQuery, [parseInt(value), comment, billingid], (err, result) => {
+          if (err) {
+            this.errMessage(err, response)
+          }
+          else {
+            this.pushResponse(result, response)
+          }
         })
       }
     }

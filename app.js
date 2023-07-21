@@ -134,10 +134,7 @@ app.put("/api/v1/sample", function (request, response) {
     request,
     response
   );
-
-  const data = request.body;
-  const { status, billingid, message = "" } = data;
-  sampleHandle.updateRecords(status.toUpperCase(), billingid, message);
+  sampleHandle.updateRecords(request,response);
 });
 
 

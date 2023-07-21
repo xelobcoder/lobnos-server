@@ -1,4 +1,4 @@
-
+const connection = require('../db')
 
 
 const addNewDepartment = async function (request, response) {
