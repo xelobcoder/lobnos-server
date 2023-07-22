@@ -119,9 +119,7 @@ class SampleHandler {
     });
   }
   updateRecords(request, response) {
-    // update performing test table first
-    // update sample table to reflect change in status
-    // return update records for changes to UI
+  
     const { billingid, testid, action, message } = request.body;
 
     let approvalStatus = action == 'reject' ? 0 : 1;

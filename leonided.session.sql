@@ -1,11 +1,31 @@
-SELECT DISTINCT NAME,
-  SAMPLE,
-  t.collection,
-  t.testid,
-  t.billingid
-from test_ascension AS t
-  INNER JOIN test_panels AS tt ON tt.ID = t.testid
-  INNER JOIN samplestatus AS ss ON ss.testid = t.testid
-WHERE t.billingid = ?
-  AND t.collection = 'true'
-  AND ss.approvalstatus = 0
+SELECT b.BILLINGID AS BILLINGID,
+  CASE
+    WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
+    ELSE CONCAT(
+      np.FIRSTNAME,
+      ' ',
+      np.MIDDLENAME,
+      ' ',
+      np.LASTNAME
+    )
+  END AS FULLNAME,
+  b.PAID_AMOUNT AS PAID,
+  b.PAYABLE,
+  b.PATIENTID,
+  b.TYPE,
+  b.OUTSTANDING,
+  b.DISCOUNT,
+  DATE(p.DATE) AS DATE,
+  c.NAME AS CLINICIAN,
+  pm.PaymentMode AS PAYMENT_MODE,
+  o.NAME AS ORGANIZATION
+FROM billing AS b
+  INNER JOIN performing_test AS p ON b.PATIENTID = p.PATIENTID
+   INNER JOIN new_patients AS np ON np.PATIENTID = b.PATIENTID
+  INNER JOIN organization AS o ON o.ID = B.ORGANIZATION
+  INNER JOIN clinician AS c ON c.ID = b.CLINICIAN
+  INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
+  INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
+GROUP BY b.BILLINGID
+ORDER BY B.BILLINGID DESC
+LIMIT 100;

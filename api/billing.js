@@ -67,18 +67,14 @@ const AddtoTestAscenstion = function (test, billingid, res) {
 
 const billingHx = function (billingid, paymentmode, paid, test, res) {
   // insert to billing hx 
-  if (parseInt(paid) != 0) {
-    const hxStatement = `INSERT INTO BILLINGHX (BILLINGID,PAYMENTMODE,AMOUNT) VALUES (?,?,?)`;
+  const hxStatement = `INSERT INTO BILLINGHX (BILLINGID,PAYMENTMODE,AMOUNT) VALUES (?,?,?)`;
 
-    connection.query(hxStatement, [billingid, paymentmode, paid], function (err, result) {
-      if (err) {
-        throw err;
-      }
-    })
-    AddtoTestAscenstion(test, billingid, res)
-  } else {
-    AddtoTestAscenstion(test, billingid, res)
-  }
+  connection.query(hxStatement, [billingid, paymentmode, paid], function (err, result) {
+    if (err) {
+      throw err;
+    }
+  })
+  AddtoTestAscenstion(test, billingid, res)
 }
 
 // add new billing
@@ -148,26 +144,37 @@ const checkifActivated = function (request, response) {
 
 const getBilledClients = function (request, response) {
   const mysql = `
-   SELECT b.BILLINGID AS BILLINGID,
-        b.PAID_AMOUNT AS PAID,
-        b.PAYABLE,
-        b.PATIENTID,
-        b.TYPE,
-        b.OUTSTANDING,
-        b.DISCOUNT,
-        DATE(p.DATE) AS DATE,
-        c.NAME AS CLINICIAN,
-        pm.PaymentMode AS PAYMENT_MODE,
-        o.NAME AS ORGANIZATION
-    FROM billing AS b
-        INNER JOIN performing_test AS p ON b.PATIENTID = p.PATIENTID
-        INNER JOIN organization AS o ON o.ID = B.ORGANIZATION
-        INNER JOIN clinician AS c ON c.ID = b.CLINICIAN
-        INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
-        INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
+      SELECT b.BILLINGID AS BILLINGID,
+          CASE
+            WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
+            ELSE CONCAT(
+              np.FIRSTNAME,
+              ' ',
+              np.MIDDLENAME,
+              ' ',
+              np.LASTNAME
+            )
+          END AS FULLNAME,
+          b.PAID_AMOUNT AS PAID,
+          b.PAYABLE,
+          b.PATIENTID,
+          b.TYPE,
+          b.OUTSTANDING,
+          b.DISCOUNT,
+          DATE(p.DATE) AS DATE,
+          c.NAME AS CLINICIAN,
+          pm.PaymentMode AS PAYMENT_MODE,
+          o.NAME AS ORGANIZATION
+        FROM billing AS b
+          INNER JOIN performing_test AS p ON b.PATIENTID = p.PATIENTID
+          INNER JOIN new_patients AS np ON np.PATIENTID = b.PATIENTID
+          INNER JOIN organization AS o ON o.ID = B.ORGANIZATION
+          INNER JOIN clinician AS c ON c.ID = b.CLINICIAN
+          INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
+          INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
     GROUP BY b.BILLINGID
     ORDER BY B.BILLINGID DESC
-    LIMIT 100
+    LIMIT 100;
   `;
 
   connection.query(mysql, function (err, result) {

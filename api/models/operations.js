@@ -16,7 +16,7 @@ class Operations {
   }
 
 
-    async readyforTest () {
+  async readyforTest() {
     // we want return test where the result is PHELOBOTOMY_STATUS is done and SAMPLE_STATUS = accepted
     const validID = await this.validBillingid();
 
@@ -25,7 +25,7 @@ class Operations {
     }
     if (validID) {
 
-      const queryString = `SELECT * FROM performing_test WHERE billingid = ${this.billingid} AND SAMPLE_STATUS = 'ACCEPTED'`;
+      const queryString = `SELECT * FROM samplestatus WHERE billingid = ${this.billingid} AND approvalstatus= 1`;
 
       return new Promise((resolve, reject) => {
         // execute query
@@ -56,17 +56,29 @@ class Operations {
   }
 
   getAllReadyTest = async () => {
-    //  we want to return all test where the SAMPLE_STATUS = ACCEPTED in the performing_test table in ascending order orderby the id limit by 100
-
+    //  we want to return all test where the approvalstatus of the sample is true 
+    // for processing and result entry
     const queryString = `
-          SELECT CONCAT(np.FIRSTNAME, ' ', np.LASTNAME, ' ', np.MIDDLENAME) AS FULLNAME,
-              np.PATIENTID,
-              pt.BILLINGID
-        FROM new_patients as np
-             INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
-        WHERE pt.SAMPLE_STATUS = 'ACCEPTED'
-              ORDER BY pt.ID ASC
-        LIMIT 100
+        SELECT 
+          CASE 
+              WHEN MIDDLENAME IS NULL THEN CONCAT(
+                  np.FIRSTNAME,
+                  ' ',
+                  np.LASTNAME
+                )  ELSE CONCAT(  np.FIRSTNAME,
+                  ' ',
+                  np.MIDDLENAME,
+                  ' ',
+                  np.LASTNAME) END AS FULLNAME,
+                np.PATIENTID,
+                pt.BILLINGID
+              FROM new_patients as np
+                INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
+                INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
+              WHERE ss.approvalstatus = 1
+          GROUP BY pt.BILLINGID
+          ORDER BY pt.ID ASC
+      LIMIT 100
     `;
 
 
@@ -86,8 +98,8 @@ class Operations {
         err
           ? reject(err)
           : result.affectedRows === 0
-          ? resolve({ affectedRows: 0 })
-          : resolve({ affectedRows: 1 });
+            ? resolve({ affectedRows: 0 })
+            : resolve({ affectedRows: 1 });
       });
     });
   }
@@ -102,8 +114,8 @@ class Operations {
         err
           ? reject(err)
           : result.affectedRows === 0
-          ? resolve({ affectedRows: 0 })
-          : resolve({ affectedRows: 1 });
+            ? resolve({ affectedRows: 0 })
+            : resolve({ affectedRows: 1 });
       });
     });
   }
