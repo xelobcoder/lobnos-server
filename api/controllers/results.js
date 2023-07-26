@@ -92,7 +92,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
         await resultInstance.semenAnalysis(req.body, res);
         break;
       case "thyroid_functional_test":
-        await resultInstance.thyroid(req.body, res);
+        await resultInstance.liverfunctionTest(req.body, res);
         break;
       case "betahcg":
         await resultInstance.betahcg(req.body, res);
@@ -112,8 +112,11 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'follicle_stimulating_hormone':
         await resultInstance.hormones(req.body, res);
         break;
-      case 'leuteinizing_hormone':
+      case 'luteinizing_hormone':
         await resultInstance.hormones(req.body, res);
+        break;
+      case 'lipid_profile':
+        await resultInstance.liverfunctionTest(req.body, res)
         break;
       default:
         return res.send({

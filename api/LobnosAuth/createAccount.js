@@ -47,7 +47,7 @@ const createNewAccount = async (req, res) => {
 
 
 
-const userLogin = async (req, res, secret) => {
+const userLogin = async (req, res) => {
   const { name, password, email } = req.body;
 
   //  check if user and password exist in db
@@ -56,15 +56,14 @@ const userLogin = async (req, res, secret) => {
   const userExist = await user.checkLogins(email, password);
 
   if (userExist) {
-    let userinformation = await user.createAccessTokenCredentials(secret);
+    let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,email);
     // decode userinformation
-    let decoded = jwt.verify(userinformation, process.env.ACCESS_TOKEN_SECRET)
+    let decoded = jwt.decode(userinformation)
     res.send({
       status: 'success',
       statusCode: 200,
       message: 'Login successful',
-      user: userinformation,
-      decoded
+      user: decoded
     })
 
   }
@@ -223,52 +222,53 @@ const activateAUser = async function (request, response) {
 const getPermissions = async (permissions, response) => {
   const userClass = new User();
   const user = await userClass.userExistWithId(permissions);
-  if (user) {
-    const { ROLE } = user[0];
-    // get role table
-    const getRoleTab = userClass.permissionsByRole(ROLE);
-    connection.query(
-      `SELECT * FROM ${getRoleTab} WHERE EMPLOYEEID = ${permissions}`,
-      function (err, result) {
-        if (err) {
-          throw err;
-        } else {
-          if (result.length > 0) {
-            // format the result 
-            const resultObject = result[0];
-            const keyValues = function () {
-              let obj = {};
-              Object.entries(resultObject).map(
-                (item, index) => {
-                  const [key, value] = item;
-                  obj[key] = value == 0 ? false : value == 1 ? true : value;
-                  // if pageAccess, we want to remove all \ and  we convert to an object
-                  if (key == 'pageAccess') {
-                    const removeBackSlash = obj[key].replace(/\\/g, '');
-                    obj[key] = JSON.parse(removeBackSlash);
-                  }
-                }
-              )
-              return obj;
-            }
-            // add the role 
-            const returner = keyValues()
-            returner['role'] = ROLE;
-            returner['name'] = user[0]['USERNAME']
-            response.send(returner)
+  return new Promise((resolve, reject) => {
+    if (user) {
+      const { ROLE } = user[0];
+      // get role table
+      const getRoleTab = userClass.permissionsByRole(ROLE);
+      connection.query(
+        `SELECT * FROM ${getRoleTab} WHERE EMPLOYEEID = ${permissions}`,
+        function (err, result) {
+          if (err) {
+           reject(err)
           } else {
-            response.send([])
+            if (result.length > 0) {
+              // format the result 
+              const resultObject = result[0];
+              const keyValues = function () {
+                let obj = {};
+                Object.entries(resultObject).map(
+                  (item, index) => {
+                    const [key, value] = item;
+                    obj[key] = value == 0 ? false : value == 1 ? true : value;
+                    // if pageAccess, we want to remove all \ and  we convert to an object
+                    if (key == 'pageAccess') {
+                      const removeBackSlash = obj[key].replace(/\\/g, '');
+                      obj[key] = JSON.parse(removeBackSlash);
+                    }
+                  }
+                )
+                return obj;
+              }
+              // add the role 
+              const returner = keyValues()
+              returner['role'] = ROLE;
+              returner['name'] = user[0]['USERNAME']
+              resolve(returner)
+            } else {
+              resolve([])
+            }
           }
         }
-      }
-    );
-  }
+      );
+    }
+  })
 }
 
 
 const updateUserPermission = async (request, response) => {
   const { pageAccess, role } = request.body;
-  console.log(request.body)
   // destrcutre the body based on the role
   // convert pageAccess to an JSON object
   const pageAccessObject = JSON.stringify(pageAccess);
@@ -282,7 +282,7 @@ const updateUserPermission = async (request, response) => {
     // execute query
     connection.query(queryString, [deletev, editv, registerv, viewv, printv, activatev, pageAccessObject, employeeid], (err, result) => {
       if (err) {
-        throw err;
+        console.log(err)
       }
       else {
         response.send({
@@ -304,7 +304,7 @@ const updateUserPermission = async (request, response) => {
     // execute query
     connection.query(queryString, [deletev, editv, registerv, viewv, printv, activatev, pageAccessObject, viewresult, printresult, enterresult, editresult, deleteresult, employeeid], (err, result) => {
       if (err) {
-        throw err;
+        console.log(err)
       }
       else {
         response.send({
@@ -325,9 +325,13 @@ const updateUserPermission = async (request, response) => {
 
 
 module.exports = {
-  createNewAccount, getAllLogins, userLogin, getAUser,
+  createNewAccount,
+  getAllLogins,
+  userLogin,
+  getAUser,
   updateUserBasicInfo,
-  deleteAccount, activateAUser,
+  deleteAccount,
+  activateAUser,
   getPermissions,
-  updateUserPermission
-}
+  updateUserPermission,
+};

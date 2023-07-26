@@ -77,7 +77,10 @@ class ResultPrint {
          np.PATIENTID AS patientid,
          COUNT(ta.testid) AS readycount,
          (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid) AS testcount,
-         CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) AS fullname
+      CASE 
+        WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME," ",np.LASTNAME)
+        WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) 
+        END AS fullname
       FROM 
          TEST_ASCENSION AS ta 
          INNER JOIN billing AS b ON b.BILLINGID = ta.billingid
@@ -145,19 +148,19 @@ class ResultPrint {
     const { querydate, content } = request.query;
 
     const query = `SELECT 
-       pt.DATE,
-       pt.BILLINGID,
-       tt.collection,
-       (SELECT COUNT(*) FROM performing_test WHERE DATE = ?) AS registered,
-       tt.ready,
-       tt.collection_date,
-       tt.processing,
-       tt.testid,
-       tt.ApprovalStatus
-        FROM performing_test AS pt
-       INNER JOIN BILLING AS b ON b.billingid = pt.billingid
-       INNER JOIN test_ascension AS tt ON tt.billingid = b.BILLINGID
-       WHERE pt.DATE = ?
+        pt.DATE,
+        pt.BILLINGID,
+        tt.collection,
+        (SELECT COUNT(*) FROM performing_test WHERE DATE = ?) AS registered,
+        tt.ready,
+        tt.collection_date,
+        tt.processing,
+        tt.testid,
+        tt.ApprovalStatus
+          FROM performing_test AS pt
+        INNER JOIN BILLING AS b ON b.billingid = pt.billingid
+        INNER JOIN test_ascension AS tt ON tt.billingid = b.BILLINGID
+        WHERE pt.DATE = ?
        `;
 
     function getTodayDate() {
@@ -186,11 +189,11 @@ class ResultPrint {
                 value: 0,
               },
               {
-                title: "collected test samples",
+                title: "collected test ",
                 value: 0,
               },
               {
-                title: "test ready",
+                title: "test ready ",
                 value: 0,
               },
               {
@@ -224,11 +227,11 @@ class ResultPrint {
                 value: processing,
               },
               {
-                title: "collected test samples",
+                title: "collected test ",
                 value: collection,
               },
               {
-                title: "test ready",
+                title: "test ready ",
                 value: ready,
               },
               {
@@ -382,12 +385,15 @@ class ResultPrint {
     let updateQuery = `UPDATE TEST_ASCENSION 
     SET APPROVALSTATUS = true ,
     APPROVEDBY = ?  WHERE BILLINGID = ? AND TESTID = ?`;
-
     if (decision == 'decline') {
-      updateQuery = `UPDATE TEST_ASCENSION 
-    SET APPROVALSTATUS = 0,
-    DECLINEMESSAGE =' ${message || null}',
-    APPROVEDBY = ?  WHERE BILLINGID = ? AND TESTID = ?`
+      const { declineMessage, actionplan } = message;
+      if (declineMessage && actionplan) {
+        updateQuery = `UPDATE test_ascension
+          SET approvalStatus = 0,
+          declineMessage ='${declineMessage}',
+          actionPlan = '${actionplan}',
+          APPROVEDBY = ?  WHERE BILLINGID = ? AND TESTID = ?`
+      }
     }
 
     connection.query(updateQuery, ['Tiifu Hamza', billingid, testid], function (err, result) {
@@ -397,7 +403,7 @@ class ResultPrint {
       }
       else {
         if (result.affectedRows == 1) {
-          response.status(200).json({ status: 'success' })
+          response.status(200).json({ status: 'success', statusCode: 200, message: 'update successful' })
         }
         else {
           response.status(401).json({ status: 'error' })
@@ -427,6 +433,82 @@ class ResultPrint {
         }
       }
     })
+  }
+
+
+  advancedTablesSearch(request, response) {
+    const { patientid, fullname, mobile, from, to } = request.query;
+    // IF TO AND FROM DATE IS PRESENT
+    // SEARCH AS INTERVAL 
+    // ELSE 
+    // SEARCH USING ANY OF THE PARAMETERS AVAILABLE
+    //  IF PATIENTID IS AVAILABLE 
+    // USE PATIENTID
+    // ELSE USE FULLNAME OR MOBILE NUMBER
+
+    let query = `
+        SELECT 
+              ta.billingid AS billingid,
+          CASE
+            WHEN COUNT(ta.testid) = (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid) THEN 'Ready'
+            WHEN COUNT(ta.testid) < (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid) THEN 'Partial'
+            ELSE 'Unknown'
+          END AS status,
+            ta.ready,
+            ta.ready_date,
+            b.OUTSTANDING AS outstanding,
+            b.PAID_AMOUNT AS paid_amount,
+            np.PATIENTID AS patientid,
+            COUNT(ta.testid) AS readycount,
+            (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid) AS testcount,
+          CASE 
+            WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME," ",np.LASTNAME)
+            WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) 
+            END AS fullname
+          FROM 
+            TEST_ASCENSION AS ta 
+            INNER JOIN billing AS b ON b.BILLINGID = ta.billingid
+            INNER JOIN new_patients AS np ON b.PATIENTID = np.PATIENTID
+          WHERE 
+            ta.ready = 'true' and ta.ApprovalStatus = 1 
+   `
+    //  if patient id is part of query id
+    if (patientid) {
+      query += `AND np.PATIENTID = ${patientid}`
+    }
+    // if fullname exist 
+    if (fullname) {
+      query += ` AND np.FIRSTNAME LIKE '%${fullname}%' OR np.MIDDLENAME LIKE '%${fullname}%' OR np.LASTNAME LIKE '%${fullname}%'`
+    }
+
+    if (mobile) {
+      query += `AND np.MOBILE = ${mobile}`
+    }
+    query += ` GROUP BY b.billingid`;
+
+    if (to && from) {
+      query += ` HAVING DATE(ta.ready_date) BETWEEN '${from}' AND '${to}'`
+    }
+
+    if (to && from) {
+      query += ` ORDER BY b.billingid DESC LIMIT 100`
+    } else {
+      query += ` ORDER BY b.billingid DESC LIMIT 20`
+    }
+
+
+    connection.query(query, (err, result) => {
+      if (err) {
+        response.send({ status: 'error', statusCode: 401, message: 'error occured' })
+      } else {
+        response.send({
+          status: 'success',
+          statusCode: 200,
+          result
+        });
+      }
+    }
+    )
   }
 }
 

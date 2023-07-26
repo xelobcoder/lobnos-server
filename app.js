@@ -38,6 +38,7 @@ const LoginsRouter = require("./api/controllers/logins");
 const resultprintRouter = require('./api/controllers/printable')
 const organizationRouter = require('./api/controllers/organization')
 dotenv.config();
+const generalSalesRouter = require('./api/controllers/sales');
 
 app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`);
@@ -59,13 +60,13 @@ app.use(
 );
 
 // ensuring an acess token is present
-app.use((req, res, next) => {
-  if (req.url == '/api/v1/register') {
-    next();
-  } else {
-    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
-  }
-})
+// app.use((req, res, next) => {
+//   if (req.url == '/api/v1/register') {
+//     next();
+//   } else {
+//     new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+//   }
+// })
 
 // api endpoints
 app.use(Manager)
@@ -80,6 +81,7 @@ app.use(operationsRouter);
 app.use(resultprintRouter)
 app.use(resultChecker);
 app.use(clinicianRouter);
+app.use(generalSalesRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });

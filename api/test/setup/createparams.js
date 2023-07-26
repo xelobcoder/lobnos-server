@@ -10,7 +10,8 @@ const TableNames = {
 	cardiac: "setup_cardiac_enzymes",
 	electrophoresis: 'haemoglobinelectrophoresis',
 	LHHORMONE: 'lhsetup',
-	FSHHORMONE: 'fshsetup'
+	FSHHORMONE: 'fshsetup',
+	
 };
 
 // check if the parameter already is avalilable in the database table

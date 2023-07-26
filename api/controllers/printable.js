@@ -8,6 +8,9 @@ router.get('/api/v1/result/ready', async function (req, res) {
    new ResultPrint().get_printables(req, res)
 })
 
+router.get('/api/v1/ready/crm/summary/advanced', function (request, response) {
+   new ResultPrint().advancedTablesSearch(request, response);
+})
 
 router.get('/api/v1/result/ready/:id', async (req, res) => {
    const billingid = parseInt(req.params.id.slice(1));
@@ -18,6 +21,8 @@ router.get('/api/v1/result/ready/:id', async (req, res) => {
 router.get('/api/v1/result/ready/crm/summary', (req, res) => {
    new ResultPrint().get_summary_ready_page(req, res)
 })
+
+
 
 
 router.get('/api/v1/billing/payment/info/client',

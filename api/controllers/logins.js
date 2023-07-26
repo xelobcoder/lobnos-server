@@ -1,8 +1,8 @@
-const { createNewAccount, getAllLogins, userLogin, deleteAccount,updateUserPermission,
+const { createNewAccount, getAllLogins, userLogin, deleteAccount, updateUserPermission,
    getPermissions,
    activateAUser, getAUser, updateUserBasicInfo } = require('../LobnosAuth/createAccount')
 const router = require('express').Router();
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET;
+
 
 
 router.get('/api/v1/logins', async (request, response) => {
@@ -29,16 +29,16 @@ router.post('/api/v1/logins/update', async (request, response) => {
 })
 
 router.post('/api/v1/authenticate', async (request, response) => {
-   const { username, password } = request.body
+   const { email, password } = request.body
 
-   if (username == '' || password == '') {
+   if (!email || !password) {
       response.send({
          statusCode: 400,
          message: 'Bad Request',
       })
    }
    else {
-      userLogin(request, response, ACCESS_TOKEN_SECRET)
+      userLogin(request, response)
    }
 })
 
@@ -49,9 +49,17 @@ router.put('/api/v1/user/authentication/activate', async (request, response) => 
 
 
 
-router.get('/api/v1/user/permissions', function (request, response) {
+router.get('/api/v1/user/permissions',async function (request, response) {
    const { permissions } = request.query;
-   getPermissions(permissions, response);
+   if (permissions) {
+      let result = await getPermissions(permissions, response);
+      response.send(result)
+   } else {
+      response.send({
+         message: 'employeeid permission id required',
+         statusCode: 401
+      })
+   }
 })
 
 

@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const connection = require("../db");
 const jwt = require("jsonwebtoken");
+const env = require('node:process');
 
 
 
@@ -51,8 +52,6 @@ class User {
   getUserData = async (email) => {
     return new Promise((resolve, reject) => {
       const queryString = `SELECT * FROM ROLES WHERE EMAIL = '${email}'`;
-
-
       connection.query(queryString, (err, result) => {
         // if result return with a length of 0 then user does not exist
         if (result.length == 0) {
@@ -61,24 +60,26 @@ class User {
         // if result return with a length of 1 then user exist
         else {
           //  we get the empoyeeid and the role of the user
-          const { empoyeeid, role } = result[0];
+          const { EMPLOYEEID, USERNAME, ROLE } = result[0];
           // we search for the using their empoyeeid in thr role table
           const roleTables = {
             customer: 'customerrepresentativepermission',
             scientist: 'scientistpermission',
-            admin: 'adminpermission'
+            admin: 'adminmanagerpermission'
           }
           // we search for the using their empoyeeid in thr role table
-          const queryString = `SELECT * FROM ${roleTables[role]} WHERE EMPLOYEEID = '${empoyeeid}'`;
+          const queryString = `SELECT * FROM ${roleTables[ROLE]} WHERE EMPLOYEEID = '${EMPLOYEEID}'`;
           // execute the query
           connection.query(queryString, (err, result) => {
             if (err) {
-              reject(err);
+              reject(err)
             }
-            if (result.length > 0) {
-              resolve(result[0]);
-            } else {
-              resolve(false);
+            else {
+              if (result.length > 0) {
+                resolve({ ...result[0], EMPLOYEEID, ROLE,USERNAME });
+              } else {
+                resolve(false);
+              }
             }
           });
         }
@@ -141,15 +142,13 @@ class User {
     });
   };
 
-  createAccessTokenCredentials = async (accesskey) => {
-    const email = this.email;
-
+  createAccessTokenCredentials = async (accesskey, email) => {
     let accessToken;
     return new Promise((resolve, reject) => {
       this.getUserData(email)
         .then((result) => {
-          accessToken = jwt.sign({ result }, accesskey, {
-            expiresIn: "3w",
+          accessToken = jwt.sign({ ...result }, accesskey, {
+            expiresIn: "4d",
           });
           resolve(accessToken);
         })
@@ -200,16 +199,17 @@ class User {
     } else if (role == 'scientist') {
       return 'scientistpermission'
     } else {
-      'admin'
+      return 'adminmanagerpermission'
     }
   }
 
 }
 
-// const  u1 = new User('admin','admin','admin').createAccessTokenCredentials(
-//   process.env.ACCESS_TOKEN_SECRET
+// const  u1 = new User('tiifu','tiifu','admin').createAccessTokenCredentials(
+//  'jaffhfyufqsufasfyst'
 // )
 
+// console.log(process.env.ACCESS_TOKEN_SECRET)
 // console.log(u1.then((t) => console.log(t)))
 
 module.exports = User;

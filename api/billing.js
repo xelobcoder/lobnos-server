@@ -179,7 +179,6 @@ const getBilledClients = function (request, response) {
 
   connection.query(mysql, function (err, result) {
     if (err) {
-      console.log(err);
       response.status(500).json({
         message: 'error',
         status: 'error',
