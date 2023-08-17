@@ -60,7 +60,7 @@ class Manager {
               tt.NAME,
               ta.declineMessage,
               ta.actionPlan,
-        CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME,"", np.LASTNAME) 
+        CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME," ", np.LASTNAME) 
             WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, "", np.MIDDLENAME, "", np.LASTNAME) 
             END AS fullname
         FROM test_ascension AS ta

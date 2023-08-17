@@ -27,29 +27,26 @@ let filteredTest_in_date = function (test, res) {
 }
 
 const getPhelobotomy = async (req, res) => {
-  let myquery = `
-      SELECT
-        IF(p.MIDDLENAME IS NULL, CONCAT(p.FIRSTNAME, " ", p.LASTNAME), 
-            CONCAT(p.FIRSTNAME, " ", p.MIDDLENAME, " ", p.LASTNAME)) AS FULLNAME,
-            p.PATIENTID,
-            CONCAT(p.AGE, " ", p.AGETYPE) AS AGE,
-        p.GENDER,
-        p.MOBILE_NUMBER AS MOBILENUMBER,
-        b.BILLINGID AS BILLINGID,
-        DATE(t.DATE) AS DATE,
-        t.URGENCY AS URGENCY
-      FROM new_patients AS p
-      INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
-      INNER JOIN performing_test AS t ON b.BILLINGID = t.BILLINGID
-      INNER JOIN test_ascension AS ts ON b.BILLINGID = ts.BILLINGID
-      INNER JOIN test_panels AS v ON v.ID = ts.TESTID
-      WHERE ts.collection = 'false'
-      GROUP BY b.BILLINGID
-      ORDER BY b.BILLINGID DESC
-      LIMIT 50;
-
+  let myquery = `SELECT
+    IF(p.MIDDLENAME IS NULL, CONCAT(p.FIRSTNAME, " ", p.LASTNAME), 
+        CONCAT(p.FIRSTNAME, " ", p.MIDDLENAME, " ", p.LASTNAME)) AS FULLNAME,
+        p.PATIENTID,
+        CONCAT(p.AGE, " ", p.AGETYPE) AS AGE,
+    p.GENDER,
+    p.MOBILE_NUMBER AS MOBILENUMBER,
+    b.BILLINGID AS BILLINGID,
+    DATE(t.DATE) AS DATE,
+    t.URGENCY AS URGENCY
+  FROM new_patients AS p
+  INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
+  INNER JOIN performing_test AS t ON b.BILLINGID = t.BILLINGID
+  INNER JOIN test_ascension AS ts ON b.BILLINGID = ts.BILLINGID
+  INNER JOIN test_panels AS v ON v.ID = ts.TESTID
+  WHERE ts.collection = 'false'
+  GROUP BY b.BILLINGID
+  ORDER BY b.BILLINGID DESC
+  LIMIT 50;
   `;
-
   connection.query(myquery, (err, result) => {
     if (err) throw err;
     res.send(result)

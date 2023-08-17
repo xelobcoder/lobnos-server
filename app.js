@@ -10,12 +10,12 @@ const {
   getBilledClients,
   updateBilling,
 } = require("./api/billing");
-
+const branchesHandler = require("./api/branches");
 const resultChecker = require("./api/controllers/results");
 const Manager = require('./api/controllers/manager');
 const operationsRouter = require("./api/controllers/operations");
 const { getOrganizations } = require("./api/models/organization");
-const { getpatient, addpatient, putpatient } = require("./api/register");
+const registrationRouter = require('./api/controllers/registration');
 const rejectedRouter = require("./api/controllers/rejected");
 const activation = require("./api/activation");
 const {
@@ -82,6 +82,8 @@ app.use(resultprintRouter)
 app.use(resultChecker);
 app.use(clinicianRouter);
 app.use(generalSalesRouter);
+app.use(branchesHandler);
+app.use(registrationRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
@@ -136,24 +138,14 @@ app.put("/api/v1/sample", function (request, response) {
     request,
     response
   );
-  sampleHandle.updateRecords(request,response);
+  sampleHandle.updateRecords(request, response);
 });
 
 
 
 
 
-app.get("/api/v1/register", (req, res) => {
-  getpatient(req, res);
-});
 
-app.post("/api/v1/register", (req, res) => {
-  addpatient(req, res);
-});
-
-app.put('/api/v1/register', (req, res) => {
-  putpatient(req, res);
-})
 
 app.get("/api/v1/activation", (req, res) => {
   const Keys = Object.keys(req.query);

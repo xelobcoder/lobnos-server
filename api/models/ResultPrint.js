@@ -42,7 +42,10 @@ const samplingQuery = `
         pt.URGENCY AS urgency,
         pt.Phelobotomist,
         np.GENDER AS gender,
-        CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS fullname,
+        CASE 
+          WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME," ",np.LASTNAME)
+          WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) 
+        END AS fullname,
         CONCAT(np.age," ",np.agetype) AS age,
         pt.INSPECTION_TIME AS inspectionTime,
         b.NAME as samplingCenter,

@@ -284,7 +284,9 @@ const putpatient = async function (request, response) {
   if (patientExist) {
     // update query beloe
 
-    const mysqlQuery = `UPDATE NEW_PATIENTS SET FIRSTNAME = ?, LASTNAME = ?, MIDDLENAME = ?, AREA = ?, REGION = ?, ADDRESS = ?, EMAIL = ?, AGE = ?, AGETYPE = ?, MARITAL_STATUS = ?, RELATIONSHIP = ?, EMMERGENCY_CONTACT_NAME = ?, EMMERGENCY_CONTACT = ?, GENDER = ?, MOBILE_NUMBER = ?, OCCUPATION = ?, PATIENTORGANIZATION = ? WHERE PATIENTID = ?`;
+    const mysqlQuery = `UPDATE NEW_PATIENTS SET FIRSTNAME = ?, LASTNAME = ?, MIDDLENAME = ?, AREA = ?, REGION = ?, ADDRESS = ?, EMAIL = ?, AGE = ?, AGETYPE = ?, MARITAL_STATUS = ?, RELATIONSHIP = ?,
+     EMMERGENCY_CONTACT_NAME = ?, EMMERGENCY_CONTACT = ?, 
+    GENDER = ?, MOBILE_NUMBER = ?, OCCUPATION = ?, PATIENTORGANIZATION = ? WHERE PATIENTID = ?`;
 
 
     // execute the query

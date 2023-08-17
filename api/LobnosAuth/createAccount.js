@@ -56,7 +56,7 @@ const userLogin = async (req, res) => {
   const userExist = await user.checkLogins(email, password);
 
   if (userExist) {
-    let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,email);
+    let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email);
     // decode userinformation
     let decoded = jwt.decode(userinformation)
     res.send({
@@ -231,7 +231,7 @@ const getPermissions = async (permissions, response) => {
         `SELECT * FROM ${getRoleTab} WHERE EMPLOYEEID = ${permissions}`,
         function (err, result) {
           if (err) {
-           reject(err)
+            reject(err)
           } else {
             if (result.length > 0) {
               // format the result 

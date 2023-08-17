@@ -15,20 +15,22 @@ class SampleHandler {
   getStatus(status) {
     if (status != "") {
       let SQL_QUERY = `
-      SELECT DISTINCT p.SAMPLE_STATUS,
+      SELECT DISTINCT
       p.PATIENTID,
       p.BILLINGID,
      CASE WHEN np.MIDDLENAME IS NULL OR np.MIDDLENAME = ''
           THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
           ELSE CONCAT(np.FIRSTNAME, ' ', np.LASTNAME, ' ', np.MIDDLENAME)
     END AS FULLNAME,
-      p.MESSAGE,
       p.DATE,
       p.ID
      FROM PERFORMING_TEST as p
       join billing as b ON p.PATIENTID = b.PATIENTID
+      inner join test_ascension AS ta ON ta.billingid = b.BILLINGID
       join new_patients as np ON p.PATIENTID = np.PATIENTID
-     WHERE p.SAMPLE_STATUS = '${status}' ORDER BY p.DATE DESC LIMIT 100   
+      WHERE ta.ApprovalStatus = 0 AND declineMessage IS  NULL
+      GROUP BY b.BILLINGID
+      ORDER BY p.DATE DESC LIMIT 20     
       `;
       connection.query(SQL_QUERY, (err, result) => {
         if (err) {
@@ -119,7 +121,6 @@ class SampleHandler {
     });
   }
   updateRecords(request, response) {
-  
     const { billingid, testid, action, message } = request.body;
 
     let approvalStatus = action == 'reject' ? 0 : 1;
@@ -135,13 +136,12 @@ class SampleHandler {
 
     SQL_QUERY += ` WHERE billingid = ${billingid} AND testid = ${testid}`
 
-
+    console.log(SQL_QUERY)
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         throw err;
       }
       else {
-        console.log(result);
         response.send({
           statusCode: 200,
           status: 'success',

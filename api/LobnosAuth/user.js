@@ -76,7 +76,7 @@ class User {
             }
             else {
               if (result.length > 0) {
-                resolve({ ...result[0], EMPLOYEEID, ROLE,USERNAME });
+                resolve({ ...result[0], EMPLOYEEID, ROLE, USERNAME });
               } else {
                 resolve(false);
               }

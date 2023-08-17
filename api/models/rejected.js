@@ -2,11 +2,12 @@ const connection = require('../db')
 
 // use case scenario
 
-// query data via billingid to get information about the rejected client sample and personal information
+// query data via billingid to get information
+// about the rejected client sample and personal information
 
 
 const getSampleManagerValidation = async function (request, response, billingid) {
-  const query = 'SELECT * FROM  manager_sample_descision where BILLINGID = ?';
+  const query = 'SELECT * FROM manager_sample_descision where BILLINGID = ?';
 
   connection.query(query, billingid, function (err, result) {
     if (err) {
@@ -15,12 +16,38 @@ const getSampleManagerValidation = async function (request, response, billingid)
         err
       })
     }
-
-    if (result) {5
+    if (result) {
       response.send({
         status: 'success',
         statusCode: 200,
         result
+      })
+    }
+  })
+}
+
+
+
+const getSampleList = async function (billingid, response) {
+  const query = `
+  SELECT 
+    tp.NAME AS testname,
+    tp.CATEGORY AS category
+    FROM samplestatus AS ss INNER JOIN test_panels AS tp
+    ON ss.testid = tp.ID
+ WHERE ss.BILLINGID = ${billingid} AND ss.approvalStatus = 0 AND ss.message IS NOT NULL
+  `;
+  connection.query(query, [billingid], function (err, result) {
+    if (err) {
+      response.send({
+        status: 'error',
+        err
+      })
+    } else {
+      response.send({
+        statusCode: 200,
+        result,
+        status: 'success'
       })
     }
   })
@@ -44,7 +71,34 @@ const rejectedSample = async function (request, response) {
     if (type === 'getsampleinfo') {
       const billingid = request.query.billingid;
       if (billingid) {
-        let query = `SELECT  * from performing_test as rejected INNER JOIN (SELECT * FROM new_patients) as p ON rejected.PATIENTID = p.PATIENTID WHERE rejected.BILLINGID =' ${billingid}' AND rejected.SAMPLE_STATUS = 'REJECTED';`
+        let query = `
+       SELECT np.AGE AS age,
+          pt.BILLINGID AS bilingid,
+          np.AGETYPE AS agetype,
+          np.ACTIVATION_STATUS AS activationStatus,
+          np.MOBILE_NUMBER AS mobileNumber,
+          np.GENDER AS gender,
+          np.EMAIL AS email,
+          pt.URGENCY AS urgency,
+          pt.SAMPLING_CENTER AS samplingCenter,
+          np.MARITAL_STATUS AS maritalStatus,
+          pt.INSPECTION_TIME AS inspectionTime,
+          pt.PHELOBOTOMIST AS phelobotomist,
+          pt.DATE AS 'date',
+          CASE
+            WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, " ", np.LASTNAME)
+            ELSE CONCAT(
+              np.FIRSTNAME,
+              " ",
+              np.MIDDLENAME,
+              " ",
+              np.LASTNAME
+            )
+          END AS fullname
+        FROM new_patients AS np
+          inner join performing_test AS pt ON np.PATIENTID = pt.PATIENTID
+        WHERE pt.BILLINGID = ${billingid}
+        `;
         // execute query
         connection.query(query, (err, result) => {
           if (err) {
@@ -81,6 +135,10 @@ const rejectedSample = async function (request, response) {
           statusCode: 404
         })
       }
+    }
+    else if (type == 'getRejectedClientSample') {
+      const billingid = request.query.billingid;
+      getSampleList(billingid, response)
     }
     else {
       response.status(404).send({

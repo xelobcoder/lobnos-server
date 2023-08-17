@@ -1,31 +1,33 @@
-const database_queries = require('./database/queries')
+const database_queries = require('./database/queries');
+const router = require('express').Router();
 
-
-function branchesHandler(request, response) {
-  const method = request.method;
-  switch (method) {
-    case 'POST':
-      const { branch } = JSON.parse(request.body);
-      database_queries.addBranch(branch, request, response);
-      break
-    case 'GET':
-      database_queries.getBranch(request, response)
-      break
-    case 'PUT':
-      const { branchid, branchname } = JSON.parse(request.body);
-      database_queries.editBranch(branchid, branchname, request, response)
-      break
-    case 'DELETE':
-      const { branch_id } = JSON.parse(request.body);
-      database_queries.deleteBranch(branch_id, request, response)
-      break
-    default:
-      response.send({
-        message: 'method not found'
-      })
-  }
-}
+router.post('/api/v1/branches', function (request, response) {
+  const {branch} = request.body;
+  database_queries.addBranch(branch,request, response)
+});
 
 
 
-module.exports = branchesHandler;
+router.get('/api/v1/branches', function (request, response) {
+  database_queries.getBranch(request, response)
+});
+
+
+router.put('/api/v1/branches', function (request, response) {
+  const {branchid,branch} = request.body;
+  database_queries.editBranch(branchid,branch,request, response)
+});
+
+
+router.delete('/api/v1/branches', function (request, response) {
+  const {branchid} = request.body;
+  database_queries.deleteBranch(branchid,request, response)
+});
+
+
+
+
+
+
+
+module.exports = router;
