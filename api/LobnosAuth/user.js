@@ -16,19 +16,9 @@ class User {
 
   checkUserExist() {
     return new Promise((resolve, reject) => {
-      connection.query(
-        `SELECT * FROM roles WHERE email = '${this.email}'`,
-        (err, result) => {
-          if (err) {
-            reject(err);
-          } else {
-            if (result.length > 0) {
-              resolve(true);
-            } else {
-              resolve(false);
-            }
-          }
-        }
+      connection.query(`SELECT * FROM roles WHERE email = '${this.email}'`, (err, result) => {
+        if (err) { reject(err); } else { if (result.length > 0) { resolve(true); } else { resolve(false); } }
+      }
       );
     });
   }
@@ -148,7 +138,7 @@ class User {
       this.getUserData(email)
         .then((result) => {
           accessToken = jwt.sign({ ...result }, accesskey, {
-            expiresIn: "4d",
+            expiresIn: "10w",
           });
           resolve(accessToken);
         })
@@ -165,13 +155,12 @@ class User {
     if (!accessToken) {
       res.send({
         status: 401,
-        message: 'Unauthorized'
+        message: 'Unauthorized to acesss service'
       })
     }
     else {
       jwt.verify(accessToken, accessSecret, (err, user) => {
-        err ? res.send({ err }) : next();
-      }
+        err ? res.send({ err }) : next();}
       )
     }
   }

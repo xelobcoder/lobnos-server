@@ -185,10 +185,59 @@ const getSingleClinician = (req, res) => {
 }
 
 
+
+const getTopPerformingClinicians = async function (request, response) {
+   const { count } = request.query;
+
+
+   if (!count) {
+      response.send({
+         message: 'count represent top count required',
+         statusCode: 401,
+         status: 'warning'
+      })
+   } else {
+      let query_string = `
+         SELECT DISTINCT c.ID AS id,
+                  c.NAME AS name,
+                  c.COMMISSION AS commissionRate,
+                  c.COMMISSION / 100 * (
+                  SELECT SUM(b.PAYABLE)
+                  WHERE c.ID = c.ID
+         ) AS commissionEarned,
+            SUM(b.payable) AS TotalSales
+         FROM clinician AS c
+            INNER JOIN BILLING AS b ON b.CLINICIAN = c.ID
+         GROUP BY c.ID,
+            c.NAME ORDER BY TotalSales DESC
+      `;
+
+      query_string += ` LIMIT ${count}`
+
+
+      connection.query(query_string, function (err, result) {
+         if (err) {
+            response.send({
+               message: err.message,
+               statusCode: 500,
+               status: 'error'
+            })
+         } else {
+            response.send({
+               result,
+               statusCode: 200,
+               status: 'success'
+            })
+         }
+      })
+   }
+}
+
 module.exports = {
    getClinicians,
    putClinicians,
    deleteClinicians,
    postClinicians,
-   getSingleClinician
+   getSingleClinician,
+   getTopPerformingClinicians
 }

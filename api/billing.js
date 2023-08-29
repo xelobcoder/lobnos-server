@@ -27,6 +27,7 @@ const addperformingTest = (patientid, billingid, urgency, samplingCenter, paymen
       urgency,
       samplingCenter,
     ];
+
     let sql = `INSERT INTO performing_test (PATIENTID,BILLINGID,URGENCY,SAMPLING_CENTER) VALUES (?,?,?,?)`;
     connection.query(sql, values, (err, result) => {
       if (err) {

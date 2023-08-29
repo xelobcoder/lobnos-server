@@ -5,6 +5,7 @@ const connectionData = {
     user: 'root',
     password: '',
     database: 'limsdb',
+    ping: true
 }
 
 const connection = createConnection(connectionData)

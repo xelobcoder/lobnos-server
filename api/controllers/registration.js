@@ -3,7 +3,7 @@ const Registration = require('../models/registration');
 
 
 router.get("/api/v1/register", (request, response) => {
-
+ 
 });
 
 router.post("/api/v1/register", (request, response) => {

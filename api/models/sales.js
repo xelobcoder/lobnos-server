@@ -10,7 +10,7 @@ sales.generalSales = async function (request, response, target) {
 
   if (target == 'yearly') {
     query = `SELECT 
-    SUM(PAID_AMOUNT) AS salesAmount,
+    SUM(PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
     YEAR(pt.DATE) AS 'Year'
     FROM billing AS b
@@ -19,7 +19,7 @@ sales.generalSales = async function (request, response, target) {
 `;
   } else if (target == 'monthly') {
     query = `SELECT
-    SUM(PAID_AMOUNT) AS salesAmount,
+    SUM(PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
     MONTHNAME(pt.DATE) AS 'Month'
     FROM billing AS b
@@ -31,8 +31,11 @@ sales.generalSales = async function (request, response, target) {
   } else if (target == 'daily') {
     query = `
     SELECT
-    SUM(PAID_AMOUNT) AS salesAmount,
+    SUM(b.PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
+    SUM(b.DISCOUNT) AS discount,
+    SUM(PAID_AMOUNT) AS totalAmountReceived,
+    pt.DATE AS date,
         DAY(pt.DATE) AS 'Day'
     FROM billing AS b
     INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
@@ -43,7 +46,7 @@ sales.generalSales = async function (request, response, target) {
     // weekly
     query = `
        SELECT
-        SUM(PAID_AMOUNT) AS salesAmount,
+        SUM(PAYABLE) AS salesAmount,
         CASE
             WHEN DAY(pt.DATE) BETWEEN 1 AND 7 THEN 'First Week'
             WHEN DAY(pt.DATE) BETWEEN 8 AND 14 THEN 'Second Week'
@@ -77,5 +80,8 @@ sales.generalSales = async function (request, response, target) {
   })
 
 }
+
+
+
 
 module.exports = sales;

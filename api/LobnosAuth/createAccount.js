@@ -55,6 +55,7 @@ const userLogin = async (req, res) => {
 
   const userExist = await user.checkLogins(email, password);
 
+
   if (userExist) {
     let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email);
     // decode userinformation
@@ -167,12 +168,13 @@ const updateUserBasicInfo = async (req, res) => {
     })
   }
   else {
+    const hashedPassword = await new User(name, password, role, email).hashPassword();
     const mtquery = `UPDATE ROLES 
             SET USERNAME = ?,EMAIL = ? ,
             PASSWORD = ? , ROLE = ? 
-            WHERE EMPLOYEEID = ? `;
+            WHERE EMPLOYEEID = ?`;
     // execute mtquery
-    connection.query(mtquery, [name, email, password, role, employeeid], function (err, result) {
+    connection.query(mtquery, [name, email, hashedPassword, role, employeeid], function (err, result) {
       if (err) {
         throw err;
       }

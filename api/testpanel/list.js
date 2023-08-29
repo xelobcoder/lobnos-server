@@ -3,7 +3,7 @@ const { allFieldsHasValues } = require('./categories')
 const testpanel = {
   listquery: "SELECT * FROM test_panels",
   listqueryid: function (action, id) {
-    return `${action}  FROM test_panels WHERE ID = ${id}`;
+    return `${action} FROM test_panels WHERE ID = ${id}`;
   },
   hasquery: function (request) {
     return Object.keys(request.query).length > 0 ? true : false;
@@ -32,15 +32,36 @@ const testpanel = {
     });
   },
   getPanels: function (request, response) {
-    connection.query(this.listquery, (err, result) => {
-      if (err) throw err;
-      response.send({
-        statusCode: 200,
-        status: "success",
-        message: "Panels retrieved successfully",
-        data: result,
+    if (this.hasquery(request)) {
+      const { id } = request.query;
+
+      connection.query(this.listqueryid('SELECT *', id), function (err, result) {
+        if (err) {
+          response.send({
+            statusCode: 500,
+            status: "error",
+            message: "Internal server error",
+          });
+        } else {
+          response.send({
+            statusCode: 200,
+            status: "success",
+            message: "Panel retrieved successfully",
+            data: result,
+          });
+        }
+      })
+    } else {
+      connection.query(this.listquery, (err, result) => {
+        if (err) throw err;
+        response.send({
+          statusCode: 200,
+          status: "success",
+          message: "Panels retrieved successfully",
+          data: result,
+        });
       });
-    });
+    }
   },
   updatePanel: function (request, response) {
     const { id, price, category } = request.query;
@@ -155,6 +176,132 @@ const testpanel = {
       }
     }
   },
+
+  addSampleType: async function (request, response) {
+    const query = `INSERT INTO sampletype (name) VALUE (?)`;
+    const { name } = request.body;
+    connection.query(query, [name], (err, result) => {
+      if (err) {
+        response.send({
+          message: 'error adding sample type',
+          statusCode: 500,
+          status: 'error'
+        })
+      }
+      if (result) {
+        response.send({
+          message: 'added successfully',
+          statusCode: 201,
+          status: 'success'
+        })
+      }
+    })
+  },
+
+  getSampleType: async function (response) {
+    connection.query(`SELECT * FROM sampletype`, function (err, result) {
+      if (err) {
+        response.send({
+          message: err.message,
+          statusCode: 500,
+          status: 'error'
+        })
+      }
+      if (result) {
+        response.send({
+          result,
+          statusCode: 200,
+          status: 'success'
+        })
+      }
+    })
+  },
+  deleteSampleType: async function (request, response) {
+    const { id } = request.query;
+
+    if (id) {
+      connection.query(`DELETE FROM sampletype WHERE id = ?`, [id], function (err, result) {
+        if (err) {
+          response.send({
+            message: err.message,
+            statusCode: 500,
+            status: 'error'
+          })
+        } else {
+          response.send({
+            message: 'deleted successfully',
+            statusCode: 200,
+            status: 'success'
+          })
+        }
+      })
+    }
+  },
+  bulkTestUpdate: async function (request, response) {
+    const { panel } = request.body;
+
+    if (!panel) {
+      response.send({
+        message: 'panel data in an array form required',
+        statusCode: 401,
+        status: 'error'
+      })
+    } else {
+      if (Array.isArray(panel) && panel.length > 0) {
+        panel.forEach((item, index) => {
+          const { ID, NAME, PRICE, SAMPLE, CATEGORY, QTY_REQUIRED } = item;
+
+          const queryString = `UPDATE test_panels SET 
+           NAME = ?,PRICE = ?,SAMPLE = ?,CATEGORY = ?,QTY_REQUIRED= ? WHERE ID  = ?`;
+
+          connection.query(queryString, [NAME, PRICE, SAMPLE, CATEGORY, QTY_REQUIRED, ID], function (err, result) {
+            if (err) {
+              console.log(err)
+            } else {
+              if (index + 1 == panel.length) {
+                response.send({
+                  message: 'update successful',
+                  statusCode: 201,
+                  status: 'success'
+                })
+              }
+            }
+          })
+        })
+      }
+    }
+  },
+
+  putSingleTestPanel: async function (request, response) {
+    const { id } = request.query;
+    if (!id) { response.send({ message: 'query id required', statusCode: '400', status: 'error' }) }
+    else {
+      const query = `UPDATE test_panels SET 
+      NAME = ?,
+      PRICE = ?,
+      SAMPLE_CONTAINER = ?,
+      SAMPLE= ?,
+      UNIT =?,
+      DESCRIPTION=?,
+      QTY_REQUIRED = ?
+      WHERE ID =?`;
+
+      const { UNIT, PRICE, SAMPLE_CONTAINER, DESCRIPTION, QTY_REQUIRED, SAMPLE, NAME } = request.body.panel;
+
+      const values = [NAME, PRICE, SAMPLE_CONTAINER, SAMPLE, UNIT, DESCRIPTION, QTY_REQUIRED, id]
+      connection.query(query, values, function (err, result) {
+        if (err) {
+          response.send({ message: err.message, statusCode: '400', status: 'error' })
+        } else {
+          response.send({
+            message: 'update successful',
+            statusCode: 201,
+            status: 'success'
+          })
+        }
+      })
+    }
+  }
 };
 
 module.exports = testpanel;

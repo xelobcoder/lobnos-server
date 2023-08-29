@@ -68,4 +68,8 @@ router.get('/api/v1/organization/id', function (request, response) {
 })
 
 
+router.get('/api/v1/organization/performance/top', function(request,response) {
+  o.getTopPerformance(request,response)
+})
+
 module.exports = router;

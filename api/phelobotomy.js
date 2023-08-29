@@ -178,11 +178,13 @@ const getAscensionWithDetails = async function (billingid, response) {
       throw err;
     }
 
-    response.send({
-      result,
-      status: 'success',
-      statusCode: 200
-    })
+    if (result) {
+      response.send({
+        result,
+        status: 'success',
+        statusCode: 200
+      })
+    }
   })
 }
 

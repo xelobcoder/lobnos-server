@@ -188,13 +188,18 @@ class ResultPrint {
                 value: 0,
               },
               {
-                title: "processing test",
+                title: 'test count',
+                value: 0
+              },
+              {
+                title: "samples collected ",
                 value: 0,
               },
               {
-                title: "collected test ",
+                title: "processed test",
                 value: 0,
               },
+
               {
                 title: "test ready ",
                 value: 0,
@@ -220,18 +225,26 @@ class ResultPrint {
               return item.ApprovalStatus == 1;
             }).length;
 
+            const testcount = result.length;
+
+
+
             response.send([
               {
                 title: "registered clients",
                 value: result[0]?.["registered"],
               },
               {
-                title: "processing test",
-                value: processing,
+                title: 'test count',
+                value: testcount
               },
               {
-                title: "collected test ",
+                title: "samples collected ",
                 value: collection,
+              },
+              {
+                title: "processed test",
+                value: processing,
               },
               {
                 title: "test ready ",
@@ -401,7 +414,6 @@ class ResultPrint {
 
     connection.query(updateQuery, ['Tiifu Hamza', billingid, testid], function (err, result) {
       if (err) {
-        console.log(err)
         throw err;
       }
       else {

@@ -185,7 +185,7 @@ const database_queries = {
     })
   },
   getBranch: function (request, response) {
-    let SQL_QUERY = `SELECT * FROM BRANCH  ORDER BY BRANCHID ASC LIMIT 100`;
+    let SQL_QUERY = `SELECT * FROM BRANCH  ORDER BY BRANCHID ASC LIMIT 50`;
     connection.query(SQL_QUERY, (error, result) => {
       if (error) {
         response.send({
@@ -196,7 +196,8 @@ const database_queries = {
       } else {
         response.send({
           status: 'success',
-          result
+          result,
+          statusCode: 200
         })
       }
     })
@@ -255,7 +256,8 @@ const database_queries = {
         response.send(
           {
             result,
-            status: 'success'
+            status: 'success',
+            statusCode: 200
           }
         )
       }
@@ -339,6 +341,46 @@ const database_queries = {
       })
     })
   },
+  activateDeactivate: function (request, response) {
+    const { id, status } = request.body;
+
+    if (!id || !status) {
+      response.send({
+        statusCode: 401,
+        status: 'error',
+        message: 'include the branchid and status'
+      })
+    }
+
+    const activation = status == 'activate' ? 1 : 0
+
+    const queryString = `UPDATE BRANCH SET ACTIVATION = ? WHERE BRANCHID = ? `;
+
+    connection.query(queryString, [activation, id], (err, result) => {
+      if (err) {
+        response.send({
+          statusCode: 500,
+          message: err.message
+        })
+      }
+      if (result) {
+        if (result.affectedRows == 1) {
+          response.send({
+            statusCode: 200,
+            message: `${activation == 1 ? 'activation successfull' : 'deactivation successful'}`,
+            status: 'success'
+          })
+        } else {
+          response.send({
+            statusCode: 200,
+            message: 'No row affected',
+            status: 'success'
+          })
+        }
+      }
+    })
+
+  }
 }
 
 

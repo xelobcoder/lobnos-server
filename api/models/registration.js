@@ -14,11 +14,15 @@ class Registration {
         if (err) {
           reject(err)
         } else {
-          const bulkregistration = result[0]['bulkregistration'];
-          if (bulkregistration == 0) {
+          if (result.length == 0) {
             resolve(false)
           } else {
-            resolve(true)
+            const bulkregistration = result[0]['bulkregistration'];
+            if (bulkregistration == 0) {
+              resolve(false)
+            } else {
+              resolve(true)
+            }
           }
         }
       })

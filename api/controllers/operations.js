@@ -4,7 +4,7 @@ const router = require('express').Router();
 
 router.get('/api/v1/operations/collection', async (req, res) => {
   const collections = new Operations();
-  const result = await collections.getAllReadyTest();
+  const result = await collections.getAllReadyTest(req);
   res.send({
     statusCode: 200,
     message: 'success',
@@ -24,7 +24,7 @@ router.get('/api/v1/operations/test', async (req, res) => {
     })
   }
   else {
-    const result = await new Operations(billingid).billingTest();
+    const result = await new Operations(billingid).billingTest(req);
 
     if (result === 'Billingid is not ready for testing') {
       return res.status(400).send({
@@ -71,6 +71,11 @@ router.put('/api/v1/operations/test', async (req, res) => {
     }
 
   }
+})
+
+
+router.get('/api/v1/operations/overview', async function (request, response) {
+  await new Operations().operationsOverview(request, response)
 })
 
 

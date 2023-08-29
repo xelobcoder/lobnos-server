@@ -61,7 +61,7 @@ class Manager {
               ta.declineMessage,
               ta.actionPlan,
         CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME," ", np.LASTNAME) 
-            WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, "", np.MIDDLENAME, "", np.LASTNAME) 
+            WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, " ", np.MIDDLENAME, " ", np.LASTNAME) 
             END AS fullname
         FROM test_ascension AS ta
             INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid
@@ -69,7 +69,7 @@ class Manager {
             INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
             INNER JOIN test_panels AS tt ON tt.ID = ta.testid
         WHERE ta.ready = 'true'
-        AND ta.ApprovalStatus = false
+        AND ta.ApprovalStatus = 0
     `
     connection.query(query, function (err, result) {
       if (err) {

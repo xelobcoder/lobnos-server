@@ -40,6 +40,24 @@ class Result {
     this.testname = testname;
   }
 
+  isApprovalSetTrue() {
+    return new Promise((resolve, reject) => {
+      const query = `SELECT * FROM applicationsettings`;
+
+      connection.query(query, (err, result) => {
+        if (err) { reject(err) }
+        else {
+          if (result.length > 0) {
+            const approval_status = result[0]['approvalbeforeprinting'];
+            approval_status == 0 ? resolve(false) : resolve(true)
+          } else {
+            resolve(null)
+          }
+        }
+      })
+    })
+  }
+
   isTestValid() {
     return testTable[this.testname] != undefined ? true : false;
   }
@@ -102,10 +120,17 @@ class Result {
     comments
   ) {
     try {
+      let ascensionQuery = `UPDATE TEST_ASCENSION SET READY = 'true',READY_DATE = NOW()`
+
+      const isApprovalTrue = await this.isApprovalSetTrue();
+      if(isApprovalTrue == false) {
+        ascensionQuery+= `,ApprovalStatus = 1`
+      }
+      ascensionQuery+= ` WHERE BILLINGID = ${this.billingid} AND TESTID = ?`
       await beginTransaction();
       await query(queryString, value);
       await query(
-        `UPDATE TEST_ASCENSION SET READY = 'true',READY_DATE = NOW() WHERE BILLINGID = ${this.billingid} AND TESTID = ?`,
+        ascensionQuery,
         testid
       );
       // await query(`INSERT INTO RESULT_COMMENTS (TESTID,BILLINGID,COMMENTS) VALUES (?,?,?)`,[testid,this.billingid,comments])

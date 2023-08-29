@@ -238,7 +238,7 @@ o.getOrganizationId = async function (request, response) {
     }
     if (result) {
       // converting keys to camel case
-      
+
       const data = JSON.parse(JSON.stringify(result[0]).toLowerCase());
       response.send({ statusCode: 201, data: data })
     }
@@ -299,5 +299,54 @@ o.getOrganizationCommissionByMonth = async function (request, response) {
     }
   }
   )
+}
+
+
+
+o.getTopPerformance = async function (request, response) {
+  const { count } = request.query;
+
+  if (!count) {
+    response.send({
+      message: 'count represent top count required',
+      statusCode: 401,
+      status: 'warning'
+    })
+  } else {
+    let query_string = `
+       SELECT DISTINCT o.ID AS id,
+          o.NAME AS name,
+          o.COMMISSION AS commissionRate,
+          o.COMMISSION / 100 * (
+            SELECT SUM(b.PAYABLE)
+            WHERE o.ID = o.ID
+          ) AS commissionEarned,
+          SUM(b.payable) AS TotalSales
+        FROM ORGANIZATION AS o
+          INNER JOIN BILLING AS b ON b.ORGANIZATION = o.ID
+        GROUP BY o.ID,
+          o.NAME
+        ORDER BY TotalSales DESC 
+      `;
+
+    query_string += ` LIMIT ${count}`
+
+
+    connection.query(query_string, function (err, result) {
+      if (err) {
+        response.send({
+          message: err.message,
+          statusCode: 500,
+          status: 'error'
+        })
+      } else {
+        response.send({
+          result,
+          statusCode: 200,
+          status: 'success'
+        })
+      }
+    })
+  }
 }
 module.exports = o;

@@ -28,7 +28,6 @@ const clinicianRouter = require("./api/controllers/clinicians");
 const testpanel = require("./api/testpanel/list");
 const { get } = require("./api/center");
 const SampleHandler = require("./api/sample");
-const org = require("./api/org");
 const ChemistryRoutes = require("./api/controllers/chemistrysetup");
 const phelobotomyRouter = require("./api/controllers/phelobotomy");
 const supplyRouter = require("./api/controllers/supply");
@@ -36,7 +35,8 @@ const settingsRouter = require("./api/controllers/settings");
 const User = require("./api/LobnosAuth/user");
 const LoginsRouter = require("./api/controllers/logins");
 const resultprintRouter = require('./api/controllers/printable')
-const organizationRouter = require('./api/controllers/organization')
+const organizationRouter = require('./api/controllers/organization');
+const applicationsettingsRouter = require('./api/controllers/applicationSettings');
 dotenv.config();
 const generalSalesRouter = require('./api/controllers/sales');
 
@@ -84,6 +84,7 @@ app.use(clinicianRouter);
 app.use(generalSalesRouter);
 app.use(branchesHandler);
 app.use(registrationRouter);
+app.use(applicationsettingsRouter)
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
@@ -156,6 +157,11 @@ app.get("/api/v1/activation", (req, res) => {
   }
 });
 
+
+app.get("/api/v1/activation/bulk", (req, res) => {
+  activation.activateDeactivate(req, res)
+})
+
 app.get("/api/v1/testpanel/categories", (req, res) => {
   getCategory(req, res);
 });
@@ -171,6 +177,10 @@ app.get("/api/v1/center", (req, res) => {
 app.get("/api/v1/testpanel/list", (req, res) => {
   testpanel.getPanels(req, res);
 });
+
+app.post('/api/v1/testpanel/bulkupdate', (request, response) => {
+  testpanel.bulkTestUpdate(request, response)
+})
 
 
 app.get('/api/v1/testpanel/list/update', function (req, res) {
@@ -214,6 +224,10 @@ app.get('/api/v1/testpanel/list/update', function (req, res) {
 app.post("/api/v1/testpanel/list", (req, res) => {
   testpanel.postPanel(req, res);
 });
+
+app.put('/api/v1/testpanel/list', function(request,response){
+  testpanel.putSingleTestPanel(request,response);
+})
 
 app.delete("/api/v1/testpanel/list", (req, res) => {
   testpanel.deletePanel(req, res);

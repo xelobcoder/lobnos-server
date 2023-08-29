@@ -3,6 +3,7 @@ const {
   putClinicians,
   deleteClinicians, getSingleClinician,
   postClinicians,
+  getTopPerformingClinicians
 } = require('../../api/clinicians')
 
 const router = require('express').Router();
@@ -28,6 +29,10 @@ router.delete('/api/v1/clinicians', async (req, res) => {
 router.post('/api/v1/clinicians', async (req, res) => {
   postClinicians(req, res);
 });
+
+router.get('/api/v1/clinician/performance/top', function(request,response) {
+  getTopPerformingClinicians(request,response)
+})
 
 
 
