@@ -80,4 +80,10 @@ router.get('/api/v1/operations/overview', async function (request, response) {
 
 
 
+router.get('/api/v1/operations/collection/result', async function (request,response) {
+  await new Operations().getAllEnterResult(request,response)
+})
+
+
+
 module.exports = router;

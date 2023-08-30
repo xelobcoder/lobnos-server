@@ -10,7 +10,7 @@ function resetDatabaseToDefault() {
     }
 
     // list of tables that should not be truncated
-    const requiredTables = ['test_panels', 'applicationsettings', 'sampletypes']
+    const requiredTables = ['test_panels', 'applicationsettings', 'sampletypes', 'new_patients']
 
     const truncateTable = function (name) {
       connection.query(`TRUNCATE TABLE ${name}`, (err, result) => {
@@ -63,14 +63,31 @@ function addDefaults(response) {
       }
     })
   })
-
-
-
-
-
 }
 
 
 
+function addDefualtDepartments() {
+  const departments = ['serology', 'hematology', 'endocrinology', 'chemistry', 'microbiology'];
 
+
+  const query = `INSERT INTO departments (department,departmentManager,employeeid) VALUES (?,'',0)`;
+
+  departments.forEach((item, index) => {
+    connection.query(query, [item], (err, result) => {
+      if (err) {
+        if (err.errno == 1062) {
+          return;
+        }
+      }
+      console.log(result)
+    })
+  })
+}
+
+
+
+// resetDatabaseToDefault();
+// addDefaults()
+// addDefualtDepartments()
 

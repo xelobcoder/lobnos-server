@@ -1,10 +1,11 @@
 const { createConnection } = require('mysql');
-
+const dotenv = require('dotenv');
+dotenv.config();
 const connectionData = {
-    host: 'localhost',
-    user: 'root',
-    password: '',
-    database: 'limsdb',
+    host: process.env.DEVELOPMENT_DB_HOST,
+    user: process.env.DEVELOPMENT_DB_USERNAME,
+    password:'',
+    database: process.env.DEVELOPMENT_DATABASE,
     ping: true
 }
 

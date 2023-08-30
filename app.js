@@ -60,13 +60,13 @@ app.use(
 );
 
 // ensuring an acess token is present
-// app.use((req, res, next) => {
-//   if (req.url == '/api/v1/register') {
-//     next();
-//   } else {
-//     new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
-//   }
-// })
+app.use((req, res, next) => {
+  if (req.url == '/api/v1/register') {
+    next();
+  } else {
+    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+  }
+})
 
 // api endpoints
 app.use(Manager)
@@ -225,8 +225,8 @@ app.post("/api/v1/testpanel/list", (req, res) => {
   testpanel.postPanel(req, res);
 });
 
-app.put('/api/v1/testpanel/list', function(request,response){
-  testpanel.putSingleTestPanel(request,response);
+app.put('/api/v1/testpanel/list', function (request, response) {
+  testpanel.putSingleTestPanel(request, response);
 })
 
 app.delete("/api/v1/testpanel/list", (req, res) => {

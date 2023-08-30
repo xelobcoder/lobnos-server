@@ -1,6 +1,7 @@
 // 1. Get the category of the request
 // 2. Get all unprocessed samples based on the category, limit by 50 samples at ago
 // 3. We want to monitor for a pactiular billing, when the test was started, when it was completed, and the result
+const { customError } = require('../../helper');
 const connection = require('../db')
 
 class Operations {
@@ -41,6 +42,7 @@ class Operations {
     const certified = await this.readyforTest();
 
     const { departmentid } = request.query;
+
     if (certified) {
       // we want to return  all test for the billingid from the test_ascention table to join testpanel table where testid = testid
       let queryString = `SELECT ta.testid,
@@ -58,10 +60,14 @@ class Operations {
 
 
       if (departmentid != 'undefined') {
-        queryString += ` AND tp.CATEGORY = ${departmentid}`
+
+        if (departmentid != 'all') {
+          queryString += ` AND tp.CATEGORY = ${departmentid}`
+        }
       }
 
-      queryString += ` AND ta.collection = 'true'`
+      queryString += ` AND ta.collection = 'true' AND ta.ready='false'`
+
 
       return new Promise((resolve, reject) => {
         connection.query(queryString, (err, result) => {
@@ -96,17 +102,28 @@ class Operations {
               FROM new_patients as np
                 INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
                 INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
+                INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
                 INNER JOIN test_panels AS tp ON tp.ID = ss.testid
               WHERE ss.approvalstatus = 1 AND pt.DATE = CURRENT_DATE
     `;
 
+
     if (category != 'undefined') {
-      queryString += ` AND tp.CATEGORY = ${category} `
+      if (category != 'all') {
+        queryString += ` AND tp.CATEGORY = ${category}`
+      } else {
+        queryString = queryString;
+      }
+
     }
+
+    queryString += ` AND ta.collection = 'true' AND ta.ready='false' `
 
     queryString += ` GROUP BY pt.BILLINGID
           ORDER BY pt.ID ASC
       LIMIT 20`;
+
+
 
 
     return new Promise((resolve, reject) => {
@@ -148,7 +165,12 @@ class Operations {
   }
 
   operationsOverview = async function (request, response) {
-    const queryString = `
+    const { stage } = request.query;
+
+    if (!stage) {
+      customError('stage of tests required', 401);
+    } else {
+      let queryString = `
       SELECT tp.CATEGORY AS category,
           d.department AS department,
           pt.DATE AS 'date',
@@ -161,25 +183,91 @@ class Operations {
         INNER JOIN performing_test AS pt ON pt.BILLINGID = ta.billingid
       WHERE ta.collection = 'true'
         AND ss.approvalstatus = 1 
-        AND ta.ready = 'false'
         AND pt.DATE = CURRENT_DATE
     `;
 
+
+      if (stage == 'unentered') {
+        queryString += ` AND ta.ready = 'false'`
+      }
+
+      if (stage == 'entered') {
+        queryString += ` AND ta.ready = 'true' `
+      }
+
+      connection.query(queryString, function (err, result) {
+        if (err) {
+          customError(err.message, 500)
+        } else {
+          response.send({
+            status: 'success',
+            statusCode: 200,
+            result
+          })
+        }
+      })
+    }
+
+  }
+  getAllEnterResult = async function (request, response) {
+    const { from, to, patientid, billingid } = request.query;
+    let queryString = `  SELECT 
+          CASE 
+              WHEN MIDDLENAME IS NULL THEN CONCAT(
+                  np.FIRSTNAME,
+                  ' ',
+                  np.LASTNAME
+                )  ELSE CONCAT(  np.FIRSTNAME,
+                  ' ',
+                  np.MIDDLENAME,
+                  ' ',
+                  np.LASTNAME) END AS FULLNAME,
+                np.PATIENTID,
+                pt.BILLINGID,
+                tp.CATEGORY
+              FROM new_patients as np
+                INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
+                INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
+                INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
+                INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+            `
+
+    queryString += ` WHERE ss.approvalstatus = 1`
+
+    if (from && !to) {
+      queryString += ` AND pt.DATE BETWEEN '${from}' AND CURRENT_DATE`
+    } else if (from && to) {
+      queryString += ` AND pt.DATE BETWEEN '${from}' AND  '${to}'`
+    } else {
+      queryString = queryString;
+    }
+
+
+    if (patientid) {
+      queryString += ` AND np.PATIENTID = ${patientid}`
+    }
+
+
+    if (billingid) {
+      queryString += ` AND pt.BILLINGID = ${billingid}`
+    }
+
+    queryString += ` GROUP BY pt.BILLINGID DESC LIMIT 50`;
+
+
     connection.query(queryString, function (err, result) {
       if (err) {
-        response.send({
-          message: err.message,
-          status: 'error',
-          statusCode: 500
-        })
+        customError(err.message, 500)
       } else {
         response.send({
-          status: 'success',
           statusCode: 200,
+          status: "success",
           result
         })
       }
     })
+
+
   }
 }
 

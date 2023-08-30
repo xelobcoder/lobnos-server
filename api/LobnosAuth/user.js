@@ -194,9 +194,9 @@ class User {
 
 }
 
-// const  u1 = new User('tiifu','tiifu','admin').createAccessTokenCredentials(
-//  'jaffhfyufqsufasfyst'
-// )
+// const  u1 = new User('tiifu','tiifu','admin','tiifu@gmail.com');
+
+// u1.createUser()
 
 // console.log(process.env.ACCESS_TOKEN_SECRET)
 // console.log(u1.then((t) => console.log(t)))
