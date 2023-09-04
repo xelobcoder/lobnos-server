@@ -108,8 +108,9 @@ class Chemistry {
         });
         connection.end;
       } else {
-        res.status(200).send({
-          message: "success",
+        res.send({
+          status: "success",
+          message: 'data inserted successfully',
           statusCode: 200,
         });
       }

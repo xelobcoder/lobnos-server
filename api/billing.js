@@ -1,6 +1,8 @@
 const { response } = require('express');
 const { beginTransaction, query } = require('./models/result');
-const connection = require('./db')
+const connection = require('./db');
+const { customError } = require('../helper');
+const { getApplicationSettings } = require('./models/applicationSettings');
 
 
 // add test to performing test
@@ -43,26 +45,83 @@ const addperformingTest = (patientid, billingid, urgency, samplingCenter, paymen
 }
 
 
+
 const AddtoTestAscenstion = function (test, billingid, res) {
-  const insertion = function (billingid, testid) {
-    connection.query(`INSERT INTO TEST_ASCENSION (BILLINGID,TESTID) VALUES (?,?)`, [billingid, testid], function (err, result) {
-      if (err) { throw err }
-      console.log(result)
+
+
+  const isCompletedFlowActivated = async function () {
+    const query = `SELECT * FROM applicationsettings`;
+
+    return new Promise((resolve, reject) => {
+      connection.query(query, (err, result) => {
+        if (err) {
+          reject(err)
+        }
+        else {
+          if (result.length == 0) {
+            resolve(false);
+          } else {
+            const state = result[0]['completeFlow'];
+            state == 0 ? resolve(false) : resolve(true)
+          }
+        }
+      })
     })
   }
-  if (Array.isArray(test)) {
-    let count = 0;
-    test.forEach((item, index) => { insertion(billingid, item); count++ })
-    setTimeout(function () {
-      if (count == test.length) {
-        res.status(200).json({
-          message: 'insertion successfully',
-          statusCode: 200,
-          status: 'success'
+
+
+  isCompletedFlowActivated()
+    .then((flow) => {
+      let insertion = function (billingid, testid) {
+        connection.query(`INSERT INTO TEST_ASCENSION (BILLINGID,TESTID) VALUES (?,?)`, [billingid, testid], function (err, result) {
+          if (err) {
+            customError(err.message, 500, res)
+          }
         })
       }
-    }, 500)
-  }
+
+      if (!flow) {
+        insertion = function (billingid, testid) {
+          const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
+        VALUES(?,?,?,CURRENT_DATE)`;
+
+          const values = [testid, billingid, 'true'];
+
+          connection.query(query, values, function (err, result) {
+            if (err) {
+              customError(err.message, 500, res)
+            } else {
+              const queryString = `UPDATE samplestatus  SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
+              connection.query(queryString, [billingid, testid], function (err, result) {
+                if (err) {
+                  customError(err.message, 500, res)
+                } else {
+                  console.log(`updated on  ${new Date().toISOString()}`)
+                }
+              })
+            }
+          })
+        }
+      }
+
+
+
+      if (Array.isArray(test)) {
+        let count = 0;
+        test.forEach((item, index) => { insertion(billingid, item); count++ })
+        setTimeout(function () {
+          if (count == test.length) {
+            res.status(200).json({
+              message: 'insertion successfully',
+              statusCode: 200,
+              status: 'success'
+            })
+          }
+        }, 500)
+      }
+    })
+    .catch((err) => console.log(err))
+
 }
 
 

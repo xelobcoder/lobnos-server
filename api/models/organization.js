@@ -16,7 +16,7 @@ o.getOrganizations = (req, res) => {
 
 
 o.getOrganizationWithDetails = async function (request, response) {
-  connection.query(`SELECT * FROM ORGANIZATION`, function (err, result) {
+  connection.query(`SELECT * FROM organization`, function (err, result) {
     if (err) {
       throw err;
     } else {
@@ -32,7 +32,7 @@ o.getOrganizationWithDetails = async function (request, response) {
 
 o.isOrgnizationExist = function (name) {
   return new Promise((resolve, reject) => {
-    const query = `SELECT COUNT(NAME) AS NUMBER FROM ORGANIZATION WHERE NAME = ?`;
+    const query = `SELECT COUNT(NAME) AS NUMBER FROM organization WHERE NAME = ?`;
     connection.query(query, name, function (err, result) {
       if (err) {
         reject(err);
@@ -69,7 +69,7 @@ o.createAOrganization = async function (request, response) {
     district
   } = request.body;
 
-  const query = `INSERT INTO ORGANIZATION 
+  const query = `INSERT INTO organization 
   (NAME,LOCATION,STREETNAME,MOBILENUMBER,ADDRESS,WEBSITE,
   EMAIL,CONTACTPERSON,CONTACTNUMBER,CONTACTEMAIL,
   ACCOUNTNUMBER,BRANCH,ACCOUNTNAME,BANKNAME,
@@ -151,7 +151,7 @@ o.updateOrganization = async function (request, response) {
     district
   } = request.query;
 
-  const query = `UPDATE ORGANIZATION SET 
+  const query = `UPDATE organization SET 
   NAME = ?,
   LOCATION = ?,
   STREETNAME = ?,
@@ -215,7 +215,7 @@ o.updateOrganization = async function (request, response) {
 
 o.deleteOrganization = async function (request, response) {
   const { id } = request.query;
-  const query = `DELETE FROM ORGANIZATION WHERE ID = ?`;
+  const query = `DELETE FROM organization WHERE ID = ?`;
   connection.query(query, id, function (err, result) {
     if (err) {
       throw err;
@@ -231,7 +231,7 @@ o.deleteOrganization = async function (request, response) {
 
 o.getOrganizationId = async function (request, response) {
   const id = request.query.id;
-  const query = `SELECT * FROM ORGANIZATION WHERE ID = ?`;
+  const query = `SELECT * FROM organization WHERE ID = ?`;
   connection.query(query, id, function (err, result) {
     if (err) {
       throw err;
@@ -247,7 +247,7 @@ o.getOrganizationId = async function (request, response) {
 
 o.getOrganizationCommissionByMonth = async function (request, response) {
   const { id } = request.query;
-  const query = `SELECT PAID_AMOUNT FROM billing WHERE ORGANIZATION = ?`;
+  const query = `SELECT PAID_AMOUNT FROM billing WHERE organization = ?`;
 
 }
 

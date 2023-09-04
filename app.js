@@ -43,12 +43,10 @@ const cors = require("cors");
 app.use(
   cors({
     origin: "*",
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    preflightContinue: false,
-    credentials: true
+    credentials: false
   })
 );
-app.options("*", cors());
+
 
 app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`);

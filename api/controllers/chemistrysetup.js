@@ -21,7 +21,8 @@ router.post('/api/v1/test/setup/chemistry', (req, res) => {
       .catch(err => {
         res.status(500).send({
           message: err.message,
-          statusCode: 500
+          statusCode: 500,
+          status:'error'
         })
       })
   } else {
