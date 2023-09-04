@@ -1,14 +1,15 @@
 {
   "name": "lobnos-server",
   "version": "1.0.0",
-  "description": "server for running lobnos sotware",
+  "description": "Server for running lobnos sotware",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon app.js"
+    "test": "echo No test specified && exit 1",
+    "dev": "nodemon app.js",
+    "start": "node app.js"
   },
   "keywords": [
-    "lims"
+    "high performance laboratory information system", "lims"
   ],
   "author": "Tiifu Hamza",
   "license": "ISC",

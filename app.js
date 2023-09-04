@@ -39,6 +39,16 @@ const organizationRouter = require('./api/controllers/organization');
 const applicationsettingsRouter = require('./api/controllers/applicationSettings');
 dotenv.config();
 const generalSalesRouter = require('./api/controllers/sales');
+const cors = require("cors");
+app.use(
+  cors({
+    origin: "*",
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    preflightContinue: false,
+    credentials: true
+  })
+);
+app.options("*", cors());
 
 app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`);
@@ -51,22 +61,16 @@ app.use(express.urlencoded({ extended: true }));
 // cookie parser
 const cookieParser = require("cookie-parser");
 app.use(cookieParser());
-const cors = require("cors");
-app.use(
-  cors({
-    origin: "http://localhost:3000",
-    credentials: false,
-  })
-);
+
 
 // ensuring an acess token is present
-app.use((req, res, next) => {
-  if (req.url == '/api/v1/register') {
-    next();
-  } else {
-    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
-  }
-})
+// app.use((req, res, next) => {
+//     if (req.url == '/api/v1/register') {
+//     next();
+//   } else {
+//     new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+//   }
+// })
 
 // api endpoints
 app.use(Manager)

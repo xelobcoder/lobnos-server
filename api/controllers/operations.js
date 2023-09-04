@@ -80,10 +80,14 @@ router.get('/api/v1/operations/overview', async function (request, response) {
 
 
 
-router.get('/api/v1/operations/collection/result', async function (request,response) {
-  await new Operations().getAllEnterResult(request,response)
+router.get('/api/v1/operations/collection/result', async function (request, response) {
+  await new Operations().getAllEnterResult(request, response)
 })
 
+
+router.get('/api/v1/operations/test/result', async function (request, response) {
+  await new Operations().getAllTestPreview(request, response)
+})
 
 
 module.exports = router;

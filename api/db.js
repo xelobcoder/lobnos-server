@@ -13,7 +13,7 @@ const connection = createConnection(connectionData)
 
 connection.connect(err => {
     if (err) throw err;
-    console.log('Connected to database');
+    else {console.log('Connected to database');}
 })
 
 

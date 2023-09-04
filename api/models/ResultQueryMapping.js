@@ -17,6 +17,8 @@ const hepatitisb =`SELECT * FROM hepatitisbresult WHERE BILLINGID =`
 const hepatitisc = `SELECT * FROM hepatitiscresult WHERE BILLINGID =`;
 
 
+
+
 const mappWithBilingid = function (query, value) {
   return (query += ` ${value}`)
 }
@@ -29,7 +31,7 @@ const MappingSetup = {
   hepatitis_b_profile,
   pregnancy_test,
   esr,
-  hepatitisb,
+  hepatitis_b:hepatitisb,
   hepatitisc
 }
 
@@ -46,8 +48,8 @@ const testCategoryMapping = {
   urinalysis: 'hema',
   hepatitis_b_profile: 'hema',
   pregnancy_test: 'hema',
-  hepatitisb:'hema',
-  hepatitisc:'hema',
+  hepatitis_b:'hema',
+  hepatitis_c:'hema',
   full_blood_count: 'chemistry',
   esr: 'hema',
 }

@@ -118,6 +118,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'lipid_profile':
         await resultInstance.liverfunctionTest(req.body, res)
         break;
+      case 'helicobacter_pylori':
+        await resultInstance.helicobacter_pylori(req.body, res);
+        break;
       default:
         return res.send({
           status: "error",

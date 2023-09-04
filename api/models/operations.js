@@ -60,7 +60,6 @@ class Operations {
 
 
       if (departmentid != 'undefined') {
-
         if (departmentid != 'all') {
           queryString += ` AND tp.CATEGORY = ${departmentid}`
         }
@@ -266,8 +265,42 @@ class Operations {
         })
       }
     })
+  }
+
+  getAllTestPreview = async function (request, response) {
+    const { billingid } = request.query;
+
+    if (billingid) {
+      const queryString = `
+            SELECT ta.testid,
+            tp.NAME,
+            ta.billingid,
+            tp.CATEGORY,
+            ta.processing,
+            ta.processing_date,
+            ta.ready,
+            ta.ready_date
+          FROM test_ascension as ta
+            INNER JOIN test_panels as tp ON ta.testid = tp.ID
+            INNER JOIN departments AS d ON d.id = tp.CATEGORY
+          WHERE ta.billingid = ${billingid}
+      `;
 
 
+      connection.query(queryString, (err, result) => {
+        if (err) {
+          customError(err.message, 500)
+        } else {
+          response.send({
+            statusCode: 200,
+            result,
+            status: 'success'
+          })
+        }
+      })
+    } else {
+      customError('billingid is required',400)
+    }
   }
 }
 

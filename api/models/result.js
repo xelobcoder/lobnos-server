@@ -5,6 +5,7 @@ const beginTransaction = util
   .bind(connection);
 const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
+const { customError } = require("../../helper");
 
 
 const testTable = {
@@ -31,7 +32,8 @@ const testTable = {
   semen_analysis: 'semenAnalysis',
   luteinizing_hormone: 'lhresult',
   follicle_stimulating_hormone: 'fshresult',
-  lipid_profile: 'result_lipid_profile'
+  lipid_profile: 'result_lipid_profile',
+  helicobacter_pylori: 'result_helicobacter_pylori'
 };
 
 class Result {
@@ -123,10 +125,10 @@ class Result {
       let ascensionQuery = `UPDATE TEST_ASCENSION SET READY = 'true',READY_DATE = NOW()`
 
       const isApprovalTrue = await this.isApprovalSetTrue();
-      if(isApprovalTrue == false) {
-        ascensionQuery+= `,ApprovalStatus = 1`
+      if (isApprovalTrue == false) {
+        ascensionQuery += `,ApprovalStatus = 1`
       }
-      ascensionQuery+= ` WHERE BILLINGID = ${this.billingid} AND TESTID = ?`
+      ascensionQuery += ` WHERE BILLINGID = ${this.billingid} AND TESTID = ?`
       await beginTransaction();
       await query(queryString, value);
       await query(
@@ -1185,6 +1187,30 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
             this.errMessage(err, response)
           }
           else {
+            this.pushResponse(result, response)
+          }
+        })
+      }
+    }
+  }
+
+  async helicobacter_pylori(records, response) {
+    const { specimen, billingid, patientid, testid, testname, result, comments } = records;
+
+    if (this.isTestValid()) {
+      if (await this.ShouldCreateRecord()) {
+        const query = `INSERT INTO ${testTable[testname]} (specimen,result,billingid,comments,patientid)
+        VALUES(?,?,?,?,?)`;
+
+        await this.useTransactionForResult(query, [specimen, result, billingid, comments, patientid], testid, response);
+      } else {
+        const updatedQuery = `UPDATE ${testTable[testname]} SET 
+        specimen = ?,result = ?, comments = ? WHERE BILLINGID = ?`;
+
+        connection.query(updatedQuery, [specimen, result, comments, billingid], (err, result) => {
+          if (err) {
+            this.errMessage(err, response)
+          } else {
             this.pushResponse(result, response)
           }
         })

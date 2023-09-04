@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const ResultPrint = require('../models/ResultPrint');
 const { testCategoryMapping } = require('../models/ResultQueryMapping');
+const { getBillingInvoiceData } = require('../models/invoice');
 const Payment = require('../models/payment')
 const result = new ResultPrint();
 
@@ -114,5 +115,9 @@ router.post('/api/v1/result/approve', function (request, response) {
    result.makeDecisionOnResult(request, response);
 })
 
+
+router.get('/api/v1/billing/invoice', function(request,response) {
+   getBillingInvoiceData(request,response);
+})
 
 module.exports = router;

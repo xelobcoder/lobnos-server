@@ -1,4 +1,5 @@
 const connection = require("../db");
+const User = require('../LobnosAuth/user')
 
 function resetDatabaseToDefault() {
   let errorCount = [];
@@ -87,7 +88,19 @@ function addDefualtDepartments() {
 
 
 
+
+function addAdminLogins() {
+  const admin = new User('mildred', 'tiifu', 'admin', 'mildred@gmail.com');
+
+  admin.createUser()
+    .then((data) => console.log(data))
+    .catch((err) => console.log(err))
+}
+
+
 // resetDatabaseToDefault();
 // addDefaults()
 // addDefualtDepartments()
 
+
+// addAdminLogins();

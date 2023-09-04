@@ -1,0 +1,26 @@
+{
+ "sqltools.connections": [
+  {
+   "mysqlOptions": {
+    "authProtocol": "default"
+   },
+   "previewLimit": 50,
+   "server": "localhost",
+   "port": 3306,
+   "driver": "MySQL",
+   "name": "leonided",
+   "database": "limsdb",
+   "username": "root",
+   "password": ""
+  }
+ ],
+ "editor.tabSize": 2,
+    "editor.fontFamily": "Fira Code,Roboto,Consolas",
+    "editor.tabCompletion": "on",
+    "editor.fontSize": 16,
+ "editor.wordWrap": "off",
+ "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+ "editor.autoIndent": "brackets",
+ "editor.codeLensFontSize": 0,
+ "editor.columnSelection": false
+}
