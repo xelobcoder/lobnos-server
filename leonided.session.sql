@@ -1,5 +1,10 @@
-INSERT INTO test_ascension (testid,billingid,collection,collection_date)
-VALUES(100,100,'true',CURRENT_DATE);
-
-UPDATE samplestatus  SET approvalstatus = 1
-WHERE billingid = 100 AND testid = 100
+SELECT
+SUM(PAID_AMOUNT) AS paidAmount,
+SUM(PAYABLE) AS totalcostincurred,
+CASE
+    WHEN SUM(PAID_AMOUNT) = SUM(PAYABLE) THEN 1
+    WHEN SUM(PAID_AMOUNT) > SUM(PAYABLE) THEN -1
+    WHEN SUM(PAID_AMOUNT) < SUM(PAYABLE) THEN 0
+  END AS status
+FROM BILLING
+WHERE PATIENTID = 2023842

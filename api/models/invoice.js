@@ -49,8 +49,6 @@ async function getBillingInvoiceData(request, response) {
     try {
       Invoice.testInformation = await testInformation(billingid);
       Invoice.clientInformation = await clientInformation(billingid)
-
-
       response.send({
         result: {
           testInformation: Invoice.testInformation.length > 0 ? Invoice.testInformation : [],

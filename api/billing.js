@@ -1,6 +1,8 @@
 const { response } = require('express');
 const { beginTransaction, query } = require('./models/result');
 const connection = require('./db');
+const { checkpatient } = require('./register');
+
 const { customError } = require('../helper');
 const { getApplicationSettings } = require('./models/applicationSettings');
 
@@ -44,33 +46,32 @@ const addperformingTest = (patientid, billingid, urgency, samplingCenter, paymen
   }
 }
 
+const getTargetApplicationSetting = async function (target) {
+  const query = `SELECT * FROM applicationsettings`;
+
+  return new Promise((resolve, reject) => {
+    connection.query(query, (err, result) => {
+      if (err) {
+        reject(err)
+      }
+      else {
+        if (result.length == 0) {
+          resolve(false);
+        } else {
+          const state = result[0][target];
+          state == 0 ? resolve(false) : resolve(true)
+        }
+      }
+    })
+  })
+}
+
 
 
 const AddtoTestAscenstion = function (test, billingid, res) {
 
 
-  const isCompletedFlowActivated = async function () {
-    const query = `SELECT * FROM applicationsettings`;
-
-    return new Promise((resolve, reject) => {
-      connection.query(query, (err, result) => {
-        if (err) {
-          reject(err)
-        }
-        else {
-          if (result.length == 0) {
-            resolve(false);
-          } else {
-            const state = result[0]['completeFlow'];
-            state == 0 ? resolve(false) : resolve(true)
-          }
-        }
-      })
-    })
-  }
-
-
-  isCompletedFlowActivated()
+  getTargetApplicationSetting('completeFlow')
     .then((flow) => {
       let insertion = function (billingid, testid) {
         connection.query(`INSERT INTO TEST_ASCENSION (BILLINGID,TESTID) VALUES (?,?)`, [billingid, testid], function (err, result) {
@@ -95,8 +96,6 @@ const AddtoTestAscenstion = function (test, billingid, res) {
               connection.query(queryString, [billingid, testid], function (err, result) {
                 if (err) {
                   customError(err.message, 500, res)
-                } else {
-                  console.log(`updated on  ${new Date().toISOString()}`)
                 }
               })
             }
@@ -112,7 +111,8 @@ const AddtoTestAscenstion = function (test, billingid, res) {
         setTimeout(function () {
           if (count == test.length) {
             res.status(200).json({
-              message: 'insertion successfully',
+              message: 'billing successfully',
+              code: 1,
               statusCode: 200,
               status: 'success'
             })
@@ -137,30 +137,138 @@ const billingHx = function (billingid, paymentmode, paid, test, res) {
   AddtoTestAscenstion(test, billingid, res)
 }
 
+/**
+ * 
+ * @param {patientid} patientid this represent the unique id of the client throught out the lifespan of the application 
+ * @returns promise  0,1,-1 0 means the facillity owns the client in terms of change,1 means paid amount = payables and 0 means client owns
+
+ */
+const clientPaymentStatus = async function (patientid) {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT
+        SUM(PAID_AMOUNT) AS paidAmount,
+    SUM(PAYABLE) AS totalcostincurred,
+      CASE
+        WHEN SUM(PAID_AMOUNT) = SUM(PAYABLE) THEN 1
+        WHEN SUM(PAID_AMOUNT) > SUM(PAYABLE) THEN -1
+        WHEN SUM(PAID_AMOUNT) < SUM(PAYABLE) THEN 0
+      END AS status
+    FROM BILLING
+    WHERE PATIENTID = ${patientid}`;
+
+    connection.query(query, async (err, result) => {
+      if (err) {
+        reject(err)
+      } else {
+        //  check new_patients to verify if such client exist      
+        const status = result[0]['status']
+
+        if (status == null) {
+          const isExist = await checkpatient(patientid);
+          isExist ? resolve(1) : resolve(null);
+        } else {
+          resolve(status)
+        }
+      }
+    })
+  })
+}
 // add new billing
 const addBilling = async (req, res) => {
+  // we extract the application settings,
+  // if all debts must be paid before the next transaction is activated 
+  // we check if the client is owning or not and procead ellow
+  const billingSetting = await getTargetApplicationSetting('PaidBillsBeforeTransaction');
+
   const { patientid, clinicians, organizations, test, cost, paid, urgency, discount, paymentmode, samplingCenter } = req.body;
 
-  // get outstanding balance
-  let outstanding = cost - discount - paid;
-  // get type
-  let type = paymentmode == 'invoice' ? 'POSTPAID' : 'PREPAID';
-  // billing data
-  let values = [parseInt(patientid), clinicians, organizations, paid, cost, type, outstanding, parseInt(discount)];
+  const status = await clientPaymentStatus(patientid);
 
 
+  const pushDb = function () {
+    // get outstanding balance
+    let outstanding = cost - discount - paid;
+    // get type
+    let type = paymentmode == 'invoice' ? 'POSTPAID' : 'PREPAID';
+    // billing data
+    let values = [parseInt(patientid), clinicians, organizations, paid, cost, type, outstanding, parseInt(discount)];
 
-  // insert billing data into billing stable
-  let sql = `INSERT INTO billing (PATIENTID,CLINICIAN,ORGANIZATION,PAID_AMOUNT,PAYABLE,TYPE,OUTSTANDING,DISCOUNT) VALUES (?,?,?,?,?,?,?,?)`;
 
-  connection.query(sql, values, (err, result) => {
-    if (err) throw err;
-    if (result) {
-      let billingid = result.insertId;
-      // add test to performing test
-      addperformingTest(patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res)
+    const writeDb = function () {
+
+      // insert billing data into billing stable
+      let sql = `INSERT INTO billing (PATIENTID,CLINICIAN,ORGANIZATION,PAID_AMOUNT,PAYABLE,TYPE,OUTSTANDING,DISCOUNT) VALUES (?,?,?,?,?,?,?,?)`;
+
+      connection.query(sql, values, (err, result) => {
+        if (err) throw err;
+        if (result) {
+          let billingid = result.insertId;
+          // add test to performing test
+          addperformingTest(patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res)
+        }
+      })
     }
-  })
+
+
+    if (billingSetting) {
+      if (parseInt(cost) != parseInt(paid)) {
+        res.send({
+          message: 'Application settings updated to ensure all service are paid for fully',
+          status: 'success',
+          statusCode: 401,
+          code:'AppSett'
+        })
+      } else {
+        writeDb();
+      }
+    } else {
+      writeDb();
+    }
+  }
+
+
+
+  if (billingSetting) {
+    // NB: 1 client not owning 
+    // -1 facillity own client
+    // 0 client owe
+
+    if (status == 0) {
+      res.send({
+        statusCode: 200,
+        code: 0,
+        status: 'success',
+        message: 'client has outstanding bill to clear'
+      })
+    }
+
+    if (status == null) {
+      res.send({
+        statusCode: 401,
+        status: 'error',
+        code: null,
+        message: 'No patientid not found'
+      })
+    }
+
+    if (status == -1) {
+      res.send({
+        statusCode: 200,
+        code: -1,
+        status: 'success',
+        message: 'facillity has outstanding change to be given to client'
+      })
+    }
+
+    if (status == 1) {
+      pushDb();
+    }
+
+  }
+  else {
+    pushDb()
+  }
+
 
 }
 
@@ -171,11 +279,11 @@ const checkifActivated = function (request, response) {
   // check if billing id is not empty
   if (billingid != '') {
     // join the billing and performing test table and new patients table using the aptient id wherw billing id is equal to the billing id
-    let mysql = `SELECT * FROM billing as b INNER JOIN performing_test as p ON b.BILLINGID = p.BILLINGID INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = '${billingid}'`;
+    let mysql = `SELECT * FROM billing as b INNER JOIN performing_test as p ON b.BILLINGID = p.BILLINGID INNER JOIN new_patients as n
+     ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = '${billingid}'`;
 
     connection.query(mysql, function (err, result) {
       if (err) {
-        console.log(err);
         response.status(500).json({
           message: 'error',
           status: 'error',

@@ -39,11 +39,10 @@ const ADD_PATIENT_QUERY = `INSERT INTO NEW_PATIENTS (
 // this function checks for the present of the patient in the database
 /**
  *
- * @param {object} request http request boy for patientid
+ * @param {Number} patientid patientid
  * @returns {promise} promise returns a promise of true,false or error
  */
-var checkpatient = function (request) {
-  const { patientid } = request.body
+var checkpatient = function (patientid) {
   const CHECK_PATIENT_QUERY = `SELECT * FROM NEW_PATIENTS WHERE PATIENTID = ?`
 
   return new Promise((resolve, reject) => {
@@ -112,7 +111,7 @@ var addpatient = function (request, response) {
     patientOrganization,
   ]
 
-  checkpatient(request)
+  checkpatient(request.body?.patientid)
     .then((result) => {
       if (result == true) {
         response.send({
@@ -280,7 +279,7 @@ const putpatient = async function (request, response) {
 
   //  we gonna update the patient
   // first we check if the patient exist
-  const patientExist = await checkpatient(request)
+  const patientExist = await checkpatient(request.body?.patientid)
   if (patientExist) {
     // update query beloe
 
@@ -326,5 +325,6 @@ const putpatient = async function (request, response) {
 module.exports = {
   addpatient,
   getpatient,
-  putpatient
+  putpatient,
+  checkpatient
 }
