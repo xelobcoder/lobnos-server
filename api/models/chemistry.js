@@ -1,3 +1,4 @@
+const logger = require("../../logger");
 const connection = require("../db");
 
 // define table names as setup in database
@@ -132,7 +133,7 @@ class Chemistry {
     }
 
 
-    
+
 
     if (panelname in chemistryTables) {
       let query = `SELECT * FROM ${chemistryTables[panelname]}`;
@@ -185,7 +186,7 @@ class Chemistry {
   getBetaHcg(response) {
     connection.query("SELECT * FROM setup_beta_hcg", function (err, result) {
       if (err) {
-        throw err;
+        logger.log(err)
       }
       if (result) {
         response.send({

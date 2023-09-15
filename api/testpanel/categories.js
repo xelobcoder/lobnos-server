@@ -1,3 +1,4 @@
+const logger = require("../../logger");
 const connection = require("../db");
 // ensure all fields are not empty
 /**
@@ -53,7 +54,7 @@ const postCategory = (request, response) => {
           let mysqlQuery = `INSERT INTO test_categories (CATEGORY,DESCRIPTION) VALUES 
           ('${request.body.category}','${request.body.description}')`;
           connection.query(mysqlQuery, (err, result) => {
-            if (err) throw err;
+            if (err) { logger.error(err) };
             if (result) {
               response.status(201).send({
                 // success message for category creation
@@ -66,7 +67,7 @@ const postCategory = (request, response) => {
         }
       })
       .catch((err) => {
-        throw err;
+        logger.error(err);
       });
   } else {
     res.status(400).send({
@@ -90,7 +91,7 @@ const getCategory = (request, response) => {
       //   query database for category with id
       connection.query(mysqlQuery, (err, result) => {
         if (err) {
-          throw err;
+          logger.error(err);
         }
         response.send(result);
       });
@@ -100,7 +101,7 @@ const getCategory = (request, response) => {
     // execute query
     connection.query(query, (err, result) => {
       if (err) {
-        throw err;
+        logger.error(err);
       }
       response.send(result);
     });
@@ -122,7 +123,7 @@ const putCategory = (request, response) => {
             DESCRIPTION = '${description}' 
             WHERE ID = ${request.params.id}`;
       connection.query(mysqlQuery, (err, result) => {
-        if (err) throw err;
+        if (err) { logger.error(err) };
         if (result) {
           response.send({
             message: "Category updated successfully",
@@ -146,7 +147,7 @@ const deleteCategory = (request, response) => {
     } else {
       let mysqlQuery = `DELETE FROM test_categories WHERE ID = ${id}`;
       connection.query(mysqlQuery, (err, result) => {
-        if (err) throw err;
+        if (err) { logger.error(err) };
         if (result) {
           response.send({
             message: "Category deleted successfully",

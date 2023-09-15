@@ -1,3 +1,4 @@
+const logger = require("../../logger");
 const connection = require("../db");
 const { testTable } = require("./result");
 class Manager {
@@ -73,7 +74,7 @@ class Manager {
     `
     connection.query(query, function (err, result) {
       if (err) {
-        throw err;
+        logger.error(err);
       }
       response.send(result);
     })

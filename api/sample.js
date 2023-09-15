@@ -1,3 +1,4 @@
+const logger = require('../logger');
 const connection = require('./db');
 const { database_queries } = require("./testResult");
 // YET TO BE CODED
@@ -34,7 +35,7 @@ class SampleHandler {
       `;
       connection.query(SQL_QUERY, (err, result) => {
         if (err) {
-          throw err;
+         logger.error(err);
         }
         this.response.send(result);
       });
@@ -59,7 +60,7 @@ class SampleHandler {
     `;
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
-        throw err;
+       logger.error(err);
       }
       this.response.send(result);
     });
@@ -86,7 +87,7 @@ class SampleHandler {
     `;
       connection.query(SQL_QUERY, (err, result) => {
         if (err) {
-          throw err;
+         logger.error(err);
         }
         this.response.send(result);
       });
@@ -111,7 +112,7 @@ class SampleHandler {
   `;
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
-        throw err;
+       logger.error(err);
       }
       else {
         // check for pending  count in item of the result and only send those ABOVE 0
@@ -139,7 +140,7 @@ class SampleHandler {
     console.log(SQL_QUERY)
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
-        throw err;
+       logger.error(err);
       }
       else {
         response.send({

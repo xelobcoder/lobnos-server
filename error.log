@@ -1,0 +1,31 @@
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM clinician","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM clinician","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM clinician","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM clinician","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM clinician WHERE EMAIL = 'hamzatiifu45@gmail.com'","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_WRONG_VALUE_COUNT_ON_ROW","errno":1136,"index":0,"level":"error","sql":"INSERT INTO clinicianbasicinfo \n            (NAME,PHONE,EMAIL,LOCATION,ADDRESS,\n            OCCUPATION) \n            VALUES ('Mildred Bag','0585949378','hamzatiifu45@gmail.com','yanale','jdjfkdjud')","sqlMessage":"Column count doesn't match value count at row 1","sqlState":"21S01"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM clinician WHERE ID = '2'","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_QUIT","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_QUIT","fatal":false,"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"UPDATE clinicianbasicinfo SET NAME = 'Mr razak abdulai', PHONE = '0500005000', EMAIL = 'zak@gmail.com', LOCATION = 'Tamale',\n     ADDRESS = 'kalphonin lowcost ', MODULE = NULL, COMMISSION = NULL, MOMO = NULL, BANKNAME = NULL, ACCOUNTNAME = NULL, \n     BANKBRANCH = NULL, ACCOUNTNUMBER = NULL,OCCUPATION = 'doctor' WHERE ID = 2","sqlMessage":"Unknown column 'MODULE' in 'field list'","sqlState":"42S22"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"UPDATE clinicianbasicinfo SET NAME = 'Mr razak abdulai', PHONE = '0500005000', EMAIL = 'zak@gmail.com', LOCATION = 'Tamale',\n     ADDRESS = 'kalphonin lowcost ',, COMMISSION = NULL, MOMO = NULL, BANKNAME = NULL, ACCOUNTNAME = NULL, \n     BANKBRANCH = NULL, ACCOUNTNUMBER = NULL,OCCUPATION = NULL WHERE ID = 'doctor'","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ' COMMISSION = NULL, MOMO = NULL, BANKNAME = NULL, ACCOUNTNAME = NULL, \n     B...' at line 2","sqlState":"42000"}
+{"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}

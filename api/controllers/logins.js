@@ -30,6 +30,7 @@ router.post('/api/v1/logins/update', async (request, response) => {
 
 router.post('/api/v1/authenticate', async (request, response) => {
    const { email, password } = request.body
+   console.log(request.body)
 
    if (!email || !password) {
       response.send({
@@ -49,7 +50,7 @@ router.put('/api/v1/user/authentication/activate', async (request, response) => 
 
 
 
-router.get('/api/v1/user/permissions',async function (request, response) {
+router.get('/api/v1/user/permissions', async function (request, response) {
    const { permissions } = request.query;
    if (permissions) {
       let result = await getPermissions(permissions, response);

@@ -1,4 +1,5 @@
-const connection = require ('../api/db')
+const connection = require ('../api/db');
+const logger = require('../logger');
 const database_queries = require('./database/queries');
 const testResults = {
   required: function (object) {
@@ -35,7 +36,7 @@ const testResults = {
         ];
         connection.query(SQL_QUERY, values, function (err, result) {
           if (err) {
-            throw err;
+            logger.error(err);
           }
           response.send({
             message: "result saved successfully",
@@ -65,7 +66,7 @@ const testResults = {
       let SQL_QUERY = `UPDATE bloodgroup SET GROUP = '${group}', RHESUS = '${rhesus}' WHERE billingid = ${billingid}`;
 
       connection.query(SQL_QUERY, function (err, result) {
-        if (err) throw err;
+        if (err){ logger.error(err)};
         response.send({
           message: "result updated successfully",
           statusCode: 200,
@@ -75,7 +76,7 @@ const testResults = {
     findid: function (id, response) {
       let SQL_QUERY = `SELECT * FROM bloodgroup WHERE ID = ${id}`;
       connection.query(SQL_QUERY, function (err, result) {
-        if (err) throw err;
+        if (err){ logger.error(err)};
         response.send(result);
       });
     },

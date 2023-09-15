@@ -1,8 +1,8 @@
 const {
   getClinicians,
-  putClinicians,
+  putCliniciansbasic,
   deleteClinicians, getSingleClinician,
-  postClinicians,
+  postClinicianBasicInfo,
   getTopPerformingClinicians
 } = require('../../api/clinicians')
 
@@ -19,7 +19,7 @@ router.get('/api/v1/clinicians', async (req, res) => {
 });
 
 router.put('/api/v1/clinicians', async (req, res) => {
-  putClinicians(req, res);
+  putCliniciansbasic(req, res);
 });
 
 router.delete('/api/v1/clinicians', async (req, res) => {
@@ -27,7 +27,7 @@ router.delete('/api/v1/clinicians', async (req, res) => {
 });
 
 router.post('/api/v1/clinicians', async (req, res) => {
-  postClinicians(req, res);
+  postClinicianBasicInfo(req, res);
 });
 
 router.get('/api/v1/clinician/performance/top', function(request,response) {

@@ -1,7 +1,9 @@
 const bcrypt = require("bcrypt");
 const connection = require("../db");
 const jwt = require("jsonwebtoken");
-const env = require('node:process');
+const logger = require("../../logger");
+
+
 
 
 
@@ -43,35 +45,22 @@ class User {
     return new Promise((resolve, reject) => {
       const queryString = `SELECT * FROM ROLES WHERE EMAIL = '${email}'`;
       connection.query(queryString, (err, result) => {
+        if (err) {
+          logger.error(err);
+        }
         // if result return with a length of 0 then user does not exist
         if (result.length == 0) {
           resolve(false);
         }
         // if result return with a length of 1 then user exist
         else {
-          //  we get the empoyeeid and the role of the user
-          const { EMPLOYEEID, USERNAME, ROLE } = result[0];
-          // we search for the using their empoyeeid in thr role table
-          const roleTables = {
-            customer: 'customerrepresentativepermission',
-            scientist: 'scientistpermission',
-            admin: 'adminmanagerpermission'
+          if (result.length > 0) {
+            const data = result[0];
+            delete data.PASSWORD;
+            resolve(data)
+          } else {
+            resolve(false)
           }
-          // we search for the using their empoyeeid in thr role table
-          const queryString = `SELECT * FROM ${roleTables[ROLE]} WHERE EMPLOYEEID = '${EMPLOYEEID}'`;
-          // execute the query
-          connection.query(queryString, (err, result) => {
-            if (err) {
-              reject(err)
-            }
-            else {
-              if (result.length > 0) {
-                resolve({ ...result[0], EMPLOYEEID, ROLE, USERNAME });
-              } else {
-                resolve(false);
-              }
-            }
-          });
         }
       });
     });
@@ -155,12 +144,15 @@ class User {
     if (!accessToken) {
       res.send({
         status: 401,
-        message: 'Unauthorized to acesss service'
+        message: 'Unauthorized to acesss service.'
       })
     }
     else {
       jwt.verify(accessToken, accessSecret, (err, user) => {
-        err ? res.send({ err }) : next();}
+        err ? res.send({
+          err: err.message, expiredIn: err.expiredAt
+        }) : next()
+      }
       )
     }
   }
@@ -180,18 +172,6 @@ class User {
     })
     return promise;
   }
-
-
-  permissionsByRole = function (role) {
-    if (role === 'customer service representative') {
-      return 'customerrepresentativepermission'
-    } else if (role == 'scientist') {
-      return 'scientistpermission'
-    } else {
-      return 'adminmanagerpermission'
-    }
-  }
-
 }
 
 // const  u1 = new User('tiifu','tiifu','admin','tiifu@gmail.com');

@@ -6,6 +6,7 @@ const beginTransaction = util
 const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
 const { customError } = require("../../helper");
+const logger = require("../../logger");
 
 
 const testTable = {
@@ -146,7 +147,7 @@ class Result {
       connection.commit(function (err) {
         if (err) {
           connection.rollback();
-          throw err;
+          logger.error(err);
         } else {
           response.send({
             status: "success",
@@ -156,9 +157,8 @@ class Result {
         }
       });
     } catch (err) {
-      console.log(err);
       connection.rollback();
-      throw err;
+      logger.error(err);
     }
   }
 
@@ -518,7 +518,7 @@ class Result {
           [value, parameter],
           function (err, result) {
             if (err) {
-              throw err;
+              logger.error(err);
             }
           }
         );
@@ -927,7 +927,7 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
   //                   ],
   //                   function (err, result) {
   //                     if (err) {
-  //                       throw err;
+  //                       logger.error(err);
   //                     }
   //                     return;
   //                   }

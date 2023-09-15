@@ -1,3 +1,4 @@
+const logger = require("../../logger");
 const connection = require("../db");
 const User = require('../LobnosAuth/user')
 
@@ -7,7 +8,7 @@ function resetDatabaseToDefault() {
 
   connection.query(getallTables, function (err, result) {
     if (err) {
-      throw err.message;
+     logger.error(err.message);
     }
 
     // list of tables that should not be truncated

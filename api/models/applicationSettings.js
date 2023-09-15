@@ -1,3 +1,4 @@
+const logger = require("../../logger");
 const connection = require("../db");
 
 const getApplicationSettings = async function (request, response) {
@@ -44,7 +45,7 @@ const updateApplicationSettings = async function (request, response) {
 
   connection.query(TruncateTable, function (err, result) {
     if (err) {
-      throw err;
+     logger.err(err)
     }
     if (result) {
       connection.query(query, values, function (err, result) {

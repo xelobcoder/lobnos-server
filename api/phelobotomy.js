@@ -1,6 +1,7 @@
 const { response } = require("express");
 const connection = require("./db");
 const { rejectedSample } = require("./models/rejected");
+const logger = require("../logger");
 
 
 let filteredTest_in_date = function (test, res) {
@@ -48,7 +49,7 @@ const getPhelobotomy = async (req, res) => {
   LIMIT 50;
   `;
   connection.query(myquery, (err, result) => {
-    if (err) throw err;
+    if (err) {logger.error(err)};
     res.send(result)
   })
 }
@@ -99,7 +100,7 @@ const updatePhelobotomy = async (id, content, status, alltaken, completedTime, r
   TIME_PHELOBOTOMY_COMPLETED = TIMESTAMP('${completedTime}')
   WHERE ID = ${id}`;
   connection.query(myquery, (err, result) => {
-    if (err) throw err;
+    if (err) {logger.error(err)};
     res.send(result);
   }
   )
@@ -114,7 +115,7 @@ const postSection = function (request, response) {
   const checkifExist = function (billingid, testid, collected) {
     connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`, [billingid, testid], function (err, result) {
       if (err) {
-        throw err;
+        {logger.error(err)};
       }
       else {
         updateResult(billingid, testid, collected)
@@ -131,7 +132,7 @@ const postSection = function (request, response) {
 
       connection.query(updateStatement, [billingid, testid], function (err, result) {
         if (err) {
-          throw err;
+          {logger.error(err)};
         }
         else {
           if (result.affectedRows > 0) {
@@ -175,7 +176,7 @@ const getAscensionWithDetails = async function (billingid, response) {
 
   connection.query(statement, function (err, result) {
     if (err) {
-      throw err;
+      {logger.error(err)};
     }
 
     if (result) {
@@ -216,7 +217,7 @@ const sampleAssesment = function (req, res) {
 
     connection.query(statement, billingid, function (err, result) {
       if (err) {
-        throw err;
+        {logger.error(err)};
       }
 
       res.send({

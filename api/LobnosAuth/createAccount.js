@@ -1,6 +1,8 @@
 const connection = require("../db");
 const User = require("../LobnosAuth/user");
 const jwt = require("jsonwebtoken");
+const { customError } = require('../../helper');
+const logger = require("../../logger");
 
 const createNewAccount = async (req, res) => {
   const { name, password, role, email } = req.body;
@@ -47,6 +49,17 @@ const createNewAccount = async (req, res) => {
 
 
 
+/**
+ * Handles the login process for a user.
+ * Checks if the provided username and password exist in the database.
+ * If the login credentials are valid, it generates an access token for the user,
+ * sets it as a cookie, and sends a success response.
+ * If the login credentials are invalid, it sends an error response.
+ * 
+ * @param {Object} req - The request object containing the user's login information.
+ * @param {Object} res - The response object used to send the login response.
+ * @returns {void}
+ */
 const userLogin = async (req, res) => {
   const { name, password, email } = req.body;
 
@@ -59,12 +72,13 @@ const userLogin = async (req, res) => {
   if (userExist) {
     let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email);
     // decode userinformation
-    let decoded = jwt.decode(userinformation)
+    let decoded = jwt.decode(userinformation);
+
     res.send({
       status: 'success',
       statusCode: 200,
       message: 'Login successful',
-      user: decoded
+      user: decoded, token: userinformation
     })
 
   }
@@ -80,32 +94,44 @@ const userLogin = async (req, res) => {
 
 
 const getAllLogins = async (req, res) => {
-  // create a wql query to get all logins
-  const queryString = `SELECT * FROM roles ORDER BY EMPLOYEEID DESC LIMIT 20;
-`;
+  /**
+   * Retrieves all login information from the "roles" table and sends the result as a response to the client.
+   * 
+   * @param {Object} req - The request object containing information about the HTTP request.
+   * @param {Object} res - The response object used to send the HTTP response.
+   * @returns {void}
+   */
+
+  // create a SQL query to get all logins
+  const queryString = `SELECT * FROM roles ORDER BY EMPLOYEEID DESC LIMIT 20;`;
 
   // execute query
   connection.query(queryString, (err, result) => {
     if (err) {
-      console.log(err)
+      console.log(err);
       res.status(400).send({
         statusCode: 301,
-        message: 'error occured'
-      })
-    }
-    else {
+        message: 'An error occurred'
+      });
+    } else {
       res.status(200).send({
         statusCode: 200,
-        message: 'success',
+        message: 'Success',
         result
-      })
+      });
     }
-  })
-
-}
+  });
+};
 
 
 const deleteAccount = async (req, res) => {
+  /**
+   * Deletes an account from the database.
+   * 
+   * @param {Object} req - The request object.
+   * @param {Object} res - The response object.
+   * @returns {void}
+   */
   const { id } = req.body;
   if (id == '') {
     res.send({
@@ -144,7 +170,7 @@ const getAUser = async (req, res) => {
   connection.query(queryString, (err, result) => {
     if (err) {
       res.status(400).send({
-        statusCode: 301,
+        statusCode: 400,
         message: 'error occured'
       })
     }
@@ -158,36 +184,52 @@ const getAUser = async (req, res) => {
   })
 }
 
+/**
+ * Updates the basic information of a user in the database.
+ * If the employeeid is not included in the request body, it sends an error response.
+ * Otherwise, it hashes the password using the User class, constructs an SQL query to update the user's information,
+ * and executes the query using the connection object. Finally, it sends a success response with the appropriate message
+ * based on the result of the query.
+ *
+ * @param {Object} req - The request object containing the user's information to be updated.
+ * @param {Object} res - The response object used to send the result of the update operation.
+ * @returns {Promise<void>} - A promise that resolves when the update operation is complete.
+ */
 const updateUserBasicInfo = async (req, res) => {
   const { employeeid, name, email, password, role } = req.body;
+
   if (!employeeid) {
-    res.status(200).send({
+    res.status(401).send({
       statusCode: 401,
       message: 'employeeid not included',
       status: 'error'
-    })
+    });
+    return;
   }
-  else {
+
+  try {
     const hashedPassword = await new User(name, password, role, email).hashPassword();
     const mtquery = `UPDATE ROLES 
             SET USERNAME = ?,EMAIL = ? ,
             PASSWORD = ? , ROLE = ? 
             WHERE EMPLOYEEID = ?`;
-    // execute mtquery
+
     connection.query(mtquery, [name, email, hashedPassword, role, employeeid], function (err, result) {
       if (err) {
-        throw err;
-      }
-      else {
+        logger.error(err);
+      } else {
+        const message = result.affectedRows > 0 ? 'record updated successfully' : 'record not updated';
         res.status(200).send({
           statusCode: 200,
-          message: result.affectedRows > 0 ? 'record updated successfully' : 'record not updated',
+          message: message,
           status: 'success'
-        })
+        });
       }
-    })
+    });
+  } catch (error) {
+    logger.error(err);
   }
-}
+};
 
 const activateAUser = async function (request, response) {
   const { id, currentv } = request.body;
@@ -224,105 +266,54 @@ const activateAUser = async function (request, response) {
 const getPermissions = async (permissions, response) => {
   const userClass = new User();
   const user = await userClass.userExistWithId(permissions);
+
+  if (!user) {
+    throw new Error("User does not exist");
+  }
+
   return new Promise((resolve, reject) => {
-    if (user) {
-      const { ROLE } = user[0];
-      // get role table
-      const getRoleTab = userClass.permissionsByRole(ROLE);
-      connection.query(
-        `SELECT * FROM ${getRoleTab} WHERE EMPLOYEEID = ${permissions}`,
-        function (err, result) {
-          if (err) {
-            reject(err)
-          } else {
-            if (result.length > 0) {
-              // format the result 
-              const resultObject = result[0];
-              const keyValues = function () {
-                let obj = {};
-                Object.entries(resultObject).map(
-                  (item, index) => {
-                    const [key, value] = item;
-                    obj[key] = value == 0 ? false : value == 1 ? true : value;
-                    // if pageAccess, we want to remove all \ and  we convert to an object
-                    if (key == 'pageAccess') {
-                      const removeBackSlash = obj[key].replace(/\\/g, '');
-                      obj[key] = JSON.parse(removeBackSlash);
-                    }
-                  }
-                )
-                return obj;
-              }
-              // add the role 
-              const returner = keyValues()
-              returner['role'] = ROLE;
-              returner['name'] = user[0]['USERNAME']
-              resolve(returner)
-            } else {
-              resolve([])
-            }
-          }
+    const userData = user[0];
+    let obj = {};
+    for (const [key, value] of Object.entries(userData)) {
+      if (key == 'PERMISSIONS') {
+        if (value) {
+          obj[key.toLowerCase()] = JSON.parse(value);
+        } else {
+          obj[key.toLowerCase()] = {}
         }
-      );
+      }
+      if (key == 'USERNAME' || key == 'ROLE') {
+        obj[key.toLowerCase()] = value;
+      }
+    }
+    resolve(obj)
+  })
+}
+
+const updateUserPermission = async function (request, response) {
+  const { id } = request.query;
+  const permissions = request.body;
+
+  const queryString = `UPDATE roles SET PERMISSIONS = ? WHERE EMPLOYEEID = ?`;
+
+  connection.query(queryString, [JSON.stringify(permissions), parseInt(id)], function (err, result) {
+    if (err) {
+      customError(err.message, 500, response)
+    } else {
+      sendResponse(response, 'updated successfully', 'success')
     }
   })
 }
 
 
-const updateUserPermission = async (request, response) => {
-  const { pageAccess, role } = request.body;
-  // destrcutre the body based on the role
-  // convert pageAccess to an JSON object
-  const pageAccessObject = JSON.stringify(pageAccess);
-  if (role == 'customer service representative') {
-    const { deletev, editv, registerv, viewv, printv, activatev, employeeid } = request.body;
-    // we update the customerrepresentativepermission table
-    const queryString = `UPDATE customerrepresentativepermission
-    SET DELETEV = ?,EDITV = ?,REGISTERV = ?,VIEWV = ?,PRINTV = ?,ACTIVATEV = ?,PAGEACCESS = ?
-    WHERE EMPLOYEEID = ?`;
 
-    // execute query
-    connection.query(queryString, [deletev, editv, registerv, viewv, printv, activatev, pageAccessObject, employeeid], (err, result) => {
-      if (err) {
-        console.log(err)
-      }
-      else {
-        response.send({
-          statusCode: 200,
-          message: result.affectedRows > 0 ? 'record updated successfully' : 'record not updated',
-          status: 'success'
-        })
-      }
-    })
-  } else if (role == 'scientist') {
-    const { deletev, editv, registerv, viewv, printv, activatev, employeeid, viewresult, printresult, enterresult, editresult, deleteresult } = request.body;
-    // create a scientistpermission table, columns must be in lowercase 
-    // boolean values and pageaccess must be a json object
-    const queryString = `UPDATE scientistpermission
-    SET DELETEV = ?,EDITV = ?,REGISTERV = ?,VIEWV = ?,PRINTV = ?,ACTIVATEV = ?,PAGEACCESS = ?,
-    VIEWRESULT = ?,PRINTRESULT = ?,ENTERRESULT = ?,EDITRESULT = ?,DELETERESULT = ?
-    WHERE EMPLOYEEID = ?`;
 
-    // execute query
-    connection.query(queryString, [deletev, editv, registerv, viewv, printv, activatev, pageAccessObject, viewresult, printresult, enterresult, editresult, deleteresult, employeeid], (err, result) => {
-      if (err) {
-        console.log(err)
-      }
-      else {
-        response.send({
-          statusCode: 200,
-          message: result.affectedRows > 0 ? 'record updated successfully' : 'record not updated',
-          status: 'success'
-        })
-      }
-    })
-  } else {
-    return response.send({
-      statusCode: 401,
-      message: 'invalid role',
-      status: 'error'
-    })
-  }
+function sendResponse(response, message, status, statusCode = 200) {
+  response.send({
+    statusCode: statusCode,
+    message: message,
+    status: status
+  });
 }
 
 
@@ -335,5 +326,6 @@ module.exports = {
   deleteAccount,
   activateAUser,
   getPermissions,
-  updateUserPermission,
+  updateUserPermission
 };
+

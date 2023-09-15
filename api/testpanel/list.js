@@ -1,3 +1,4 @@
+const logger = require('../../logger');
 const connection = require('../db');
 const { allFieldsHasValues } = require('./categories')
 const testpanel = {
@@ -53,7 +54,7 @@ const testpanel = {
       })
     } else {
       connection.query(this.listquery, (err, result) => {
-        if (err) throw err;
+        if (err) {logger.error(err)};
         response.send({
           statusCode: 200,
           status: "success",
@@ -72,7 +73,7 @@ const testpanel = {
         connection.query(
           testpanel.updatequery(id, price, category),
           (err, result) => {
-            if (err) throw err;
+            if (err) {logger.error(err)};
             if (result) {
               response.send({
                 message: "Panel updated successfully",

@@ -1,3 +1,4 @@
+const logger = require('../logger')
 const connection = require('./db')
 const SUCCESSMESSAGE = 'SUCCESS'
 const ERRORMESSAGE = 'FAILED'
@@ -124,7 +125,7 @@ var addpatient = function (request, response) {
 
       if (!result) {
         connection.query(ADD_PATIENT_QUERY, data, (err, result) => {
-          if (err) throw err
+          if (err) logger.error(err)
           response.send({
             status: SUCCESSMESSAGE,
             message: 'Patient successfully registered',
@@ -135,7 +136,7 @@ var addpatient = function (request, response) {
       }
     })
     .catch((err) => {
-      throw err
+      logger.error(err)
     })
 }
 
@@ -153,7 +154,7 @@ const getpatient = function (request, response) {
         'SELECT * FROM NEW_PATIENTS WHERE PATIENTID = ?',
         [request.query.patientid],
         (err, result) => {
-          if (err) throw err
+          if (err) { logger.error(err) }
           response.send(result)
         },
       )
@@ -164,7 +165,7 @@ const getpatient = function (request, response) {
       connection.query(`SELECT * FROM NEW_PATIENTS WHERE FIRSTNAME LIKE ? `,
         [request.query.fullname],
         (err, result) => {
-          if (err) throw err;
+          if (err) { logger.error(err) };
           response.send(result)
         })
     }
@@ -174,7 +175,7 @@ const getpatient = function (request, response) {
       connection.query(`SELECT * FROM NEW_PATIENTS WHERE MOBILE_NUMBER = ?`,
         [request.query.phonenumber],
         (err, result) => {
-          if (err) throw err;
+          if (err) { logger.error(err) };
           response.send(result)
         })
     }
@@ -189,7 +190,7 @@ const getpatient = function (request, response) {
         ['%' + filter + '%', '%' + filter + '%'],
         (err, result) => {
           if (err) {
-            throw err
+            logger.error(err)
           }
           response.send(result)
         },
@@ -208,7 +209,7 @@ const getpatient = function (request, response) {
         ['%' + filter + '%', '%' + filter + '%', date_from, date_to],
         (err, result) => {
           if (err) {
-            throw err
+            logger.error(err)
           }
           response.send(result)
         }
@@ -218,7 +219,7 @@ const getpatient = function (request, response) {
     // send all first 500 patients
     connection.query('SELECT * FROM NEW_PATIENTS LIMIT 1000', (err, result) => {
       if (err) {
-        throw err
+        logger.error(err)
       }
       response.send(result)
     })

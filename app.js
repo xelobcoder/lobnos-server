@@ -39,7 +39,12 @@ const organizationRouter = require('./api/controllers/organization');
 const applicationsettingsRouter = require('./api/controllers/applicationSettings');
 dotenv.config();
 const generalSalesRouter = require('./api/controllers/sales');
+const cookieSession = require('cookie-session')
+
+
+
 const cors = require("cors");
+const logger = require("./logger");
 app.use(
   cors({
     origin: "*",
@@ -52,23 +57,28 @@ app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`);
 });
 
+app.use(cookieSession({
+  name: 'x-auth-token', maxAge: 24 * 60 * 60 * 1000, httpOnly: false, keys: ['hwooooooo']
+}))
+
 // manage with cors
 // manage with body-parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// cookie parser
-const cookieParser = require("cookie-parser");
-app.use(cookieParser());
+
+
 
 
 // ensuring an acess token is present
-// app.use((req, res, next) => {
-//     if (req.url == '/api/v1/register') {
-//     next();
-//   } else {
-//     new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
-//   }
-// })
+app.use((req, res, next) => {
+  console.log(req.headers)
+  if (req.url == '/api/v1/register') {
+    next();
+  } else {
+    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+  }
+})
+
 
 // api endpoints
 app.use(Manager)
@@ -192,7 +202,7 @@ app.get('/api/v1/testpanel/list/update', function (req, res) {
       const insertion = `SELECT * FROM test_panels AS tp  INNER JOIN
      test_ascension AS ta ON  ta.testid = tp.ID WHERE ta.billingid = ${billingid}`
       connection.query(insertion, billingid, (err, result) => {
-        if (err) { throw err }
+        if (err) { logger.error(err) }
         if (result) {
           res.send({
             result: result.map((i, index) => {

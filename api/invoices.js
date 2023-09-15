@@ -1,3 +1,4 @@
+import logger from '../logger';
 import connection from './db';
 let actions = {
  INVOICE_DATA: async function (idx, response) {
@@ -9,7 +10,7 @@ let actions = {
   connection.query(SQL_QUERY, function (err, result) {
    if (err) {
     response.send({ status: 'error' })
-    throw err
+    logger.error(err)
    }
    // send data with the company information else respond with none
    if (result.length > 0) {

@@ -1,6 +1,7 @@
 const connection = require('../db')
 const database_queries = require('../database/queries')
 const { response } = require('express')
+const logger = require('../../logger')
 
 const new_supplier = async function (request, response) {
   const {
@@ -589,7 +590,7 @@ const addNewStockCategory = function (request, response) {
 const getStockCategory = function (request, response) {
   connection.query(`SELECT * FROM stockCategory`, function (err, result) {
     if (err) {
-      throw err;
+      logger.error(err);
     } else {
       response.send(result)
     }
@@ -607,7 +608,7 @@ const deleteStockCategory = function (request, response) {
   } else {
     connection.query('DELETE FROM stockCategory WHERE id = ?', id, function (err, result) {
       if (err) {
-        throw err;
+        logger.error(err);
       }
       else {
         const { affectedRows } = result;

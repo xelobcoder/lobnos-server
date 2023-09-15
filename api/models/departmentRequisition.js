@@ -1,6 +1,7 @@
 const { query } = require("express");
 const connection = require("../db");
 const { get } = require("../controllers/results");
+const logger = require("../../logger");
 
 const uuidv4 = require("uuid").v4;
 
@@ -574,7 +575,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 
     // NB:this would be rewritten using transactions to ensure data integrity and ACID compliance.
     connection.beginTransaction(async function (err) {
-      if (err) { throw err; }
+      if (err) {logger.error(err); }
       // we check the quantity in the new stock table
       const checkQty = await checkingQtyInNewStock(stockid);
       const instockQty = checkQty[0].quantity;
@@ -608,7 +609,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
                 connection.commit(function (err) {
                   if (err) {
                     return connection.rollback(function () {
-                      throw err;
+                     logger.error(err);
                     });
                   }
                   else {
@@ -639,7 +640,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
                 connection.commit(function (err) {
                   if (err) {
                     return connection.rollback(function () {
-                      throw err;
+                     logger.error(err);
                     });
                   }
                   else {

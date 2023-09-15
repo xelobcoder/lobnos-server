@@ -10,7 +10,6 @@ const addNewDepartment = async function (request, response) {
   // Assuming you have already established a MySQL connection with the "connection" object
   connection.query(sqlQuery, values, (error, results) => {
     if (error) {
-      console.log(error);
       response.status(500).json({
         statusCode: 500,
         status: 'error',

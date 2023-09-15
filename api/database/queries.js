@@ -1,3 +1,4 @@
+const logger = require('../../logger');
 const connection = require('../db');
 const { testResults } = require('../testResult');
 
@@ -9,7 +10,7 @@ const database_queries = {
 
     connection.query(
       SQL_QUERY, function (err, result) {
-        if (err) throw err;
+        if (err) {logger.error(err)};
         console.log('1 record inserted');
       }
     )
@@ -117,7 +118,7 @@ const database_queries = {
    patientid INT, date DATE, time TIME, comment VARCHAR(255))`
     connection.query(query, (err, result) => {
       if (err) {
-        throw err;
+        {logger.error(err)};
       } else {
         return result;
       }
@@ -175,7 +176,7 @@ const database_queries = {
   addBranch: function (branch, request, response) {
     let SQL_QUERY = `INSERT INTO BRANCH (NAME) VALUES ('${branch}')`;
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) throw err;
+      if (err) {logger.error(err)};
       if (result) {
         response.send({
           status: 'success',
@@ -266,7 +267,7 @@ const database_queries = {
   getSingleRole: function (request, response, id) {
     let SQL_QUERY = `SELECT * FROM ROLES WHERE ROLEID = '${id}'`;
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) throw err;
+      if (err) {logger.error(err)};
       if (result) {
         response.send(
           {
@@ -282,7 +283,7 @@ const database_queries = {
     console.log(arguments[3])
     let SQL_QUERY = 'INSERT INTO ROLES (FULLNAME,USERNAME,ROLE,PASSWORD) VALUES(?,?,?,?)'
     connection.query(SQL_QUERY, values, (err, result) => {
-      if (err) throw err;
+      if (err) {logger.error(err)};
       if (result) {
         response.send(
           { message: `${fullname} added as a ${role}`, status: 'success' }
@@ -301,7 +302,7 @@ const database_queries = {
   `
 
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) throw err;
+      if (err) {logger.error(err)};
       if (result) {
         response.send({
           message: 'information updated successfully',
@@ -313,7 +314,7 @@ const database_queries = {
   deletewithID: function (id, request, response) {
     let SQL_QUERY = `DELETE FROM ROLES WHERE ROLEID = '${id}'`;
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) throw err;
+      if (err) {logger.error(err)};
       response.send({
         message: 'information deleted succesfully',
         status: 200

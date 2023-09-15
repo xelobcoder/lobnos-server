@@ -1,6 +1,7 @@
 const connection = require("../db");
 const { Result, testTable } = require("./result");
 const { getAge } = require('../../api/test/setup/fbc');
+const logger = require('../../logger')
 const ResultClass = new Result();
 const errMessage = ResultClass.errMessage;
 const {
@@ -141,7 +142,7 @@ class ResultPrint {
         });
       });
     } catch (err) {
-      throw err;
+      logger.error(err);
     }
   };
 
@@ -177,7 +178,7 @@ class ResultPrint {
       [querydate || getTodayDate(), querydate || getTodayDate()],
       (err, result) => {
         if (err) {
-          throw err;
+          logger.error(err);
         } else {
           if (result.length == 0) {
             response.send([
@@ -291,7 +292,7 @@ class ResultPrint {
       connection.query(samplingQuery, [billingid, testid], function (err, samplingResult) {
         if (err) {
           connection.rollback(function () {
-            throw err;
+            logger.error(err);
           });
         }
 
@@ -300,7 +301,7 @@ class ResultPrint {
         connection.query(resultQuery, billingid, function (err, resultResult) {
           if (err) {
             connection.rollback(function () {
-              throw err;
+              logger.error(err);
             });
           }
 
@@ -337,13 +338,13 @@ class ResultPrint {
 
       connection.beginTransaction(function (err) {
         if (err) {
-          throw err;
+          logger.error(err);
         }
 
         connection.query(query, function (err, result) {
           if (err) {
             connection.rollback(function () {
-              throw err;
+              logger.error(err);
             });
           }
           responseResult.result = result;
@@ -354,7 +355,7 @@ class ResultPrint {
             function (err, result) {
               if (err) {
                 connection.rollback(function () {
-                  throw err;
+                  logger.error(err);
                 });
               }
 
@@ -363,7 +364,7 @@ class ResultPrint {
               connection.commit(function (err) {
                 if (err) {
                   connection.rollback(function () {
-                    throw err;
+                    logger.error(err);
                   });
                 }
                 response.status(200).json(responseResult); // Send the response to the client
@@ -412,7 +413,7 @@ class ResultPrint {
 
     connection.query(updateQuery, ['Tiifu Hamza', billingid, testid], function (err, result) {
       if (err) {
-        throw err;
+        logger.error(err);
       }
       else {
         if (result.affectedRows == 1) {
@@ -432,7 +433,7 @@ class ResultPrint {
 
     connection.query(q, [billingid, testid], function (err, result) {
       if (err) {
-        throw err;
+        logger.error(err);
       } else {
         if (result.length > 0) {
           const { ApprovalStatus } = result[0];

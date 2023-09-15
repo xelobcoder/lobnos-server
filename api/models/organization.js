@@ -1,3 +1,4 @@
+const logger = require('../../logger');
 const connection = require('../db');
 
 
@@ -8,9 +9,9 @@ o.getOrganizations = (req, res) => {
   // execute query
   connection.query(query, (err, result) => {
     if (err) {
-      throw err
+      logger.error(err)
     }
-    res.send(result)
+    res.send({ statusCode: 200, result })
   })
 }
 
@@ -18,12 +19,12 @@ o.getOrganizations = (req, res) => {
 o.getOrganizationWithDetails = async function (request, response) {
   connection.query(`SELECT * FROM organization`, function (err, result) {
     if (err) {
-      throw err;
+      logger.error(err);
     } else {
       response.send({
         statusCode: 200,
         status: 'success',
-        records: result
+        result: result
       })
     }
   })
@@ -109,7 +110,7 @@ o.createAOrganization = async function (request, response) {
   } else {
     connection.query(query, values, function (err, result) {
       if (err) {
-        throw err;
+        logger.error(err);
       }
       if (result) {
         result.affectedRows == 1 ?
@@ -201,7 +202,7 @@ o.updateOrganization = async function (request, response) {
 
   connection.query(query, values, function (err, result) {
     if (err) {
-      throw err;
+      logger.error(err);
     }
     if (result) {
       result.affectedRows == 1 ?
@@ -218,11 +219,10 @@ o.deleteOrganization = async function (request, response) {
   const query = `DELETE FROM organization WHERE ID = ?`;
   connection.query(query, id, function (err, result) {
     if (err) {
-      throw err;
+      logger.error(err);
     }
     if (result) {
       result.affectedRows == 1 ?
-
         response.send({ statusCode: 201, message: "organization deleted successfully" }) :
         response.send({ statusCode: 401, message: 'No deletion done' })
     }
@@ -234,7 +234,7 @@ o.getOrganizationId = async function (request, response) {
   const query = `SELECT * FROM organization WHERE ID = ?`;
   connection.query(query, id, function (err, result) {
     if (err) {
-      throw err;
+      logger.error(err);
     }
     if (result) {
       // converting keys to camel case
@@ -267,7 +267,7 @@ o.dailyOrganizationCommission = async function (request, response) {
 
   connection.query(query, function (err, result) {
     if (err) {
-      throw err;
+      logger.error(err);
     }
     if (result) {
       response.send(result)
@@ -292,7 +292,7 @@ o.getOrganizationCommissionByMonth = async function (request, response) {
   connection.query(query, function (err, result) {
 
     if (err) {
-      throw err;
+      logger.error(err);
     }
     if (result) {
       response.send(result)
@@ -349,4 +349,6 @@ o.getTopPerformance = async function (request, response) {
     })
   }
 }
+
+
 module.exports = o;

@@ -1,3 +1,4 @@
+const logger = require('../../logger');
 const connection = require('../db');
 
 
@@ -178,7 +179,7 @@ const addToStockTransactions = async function (data) {
      VALUE (?, ?, ?, ?, ?, NOW())`;
     connection.query(query, data, function (err, result) {
       if (err) {
-        throw err;
+        logger.error(err);
       }
       if (result) {
         console.log('stock transaction added successfully')

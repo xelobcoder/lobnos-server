@@ -1,6 +1,7 @@
 const connection = require("../db.js");
 const path = require('path');
 const fs = require('fs');
+const logger = require("../../logger.js");
 
 let SQL_QUERY_ALL = "SELECT * FROM companyprofile";
 let SQL_QUERY_INSERT = `INSERT INTO companyprofile (NAME, EMAIL, MOTTO, PHONENUMBER, ADDRESS, WEBSITE, STREET, ALTERNATIVENUMBER) VALUES (?,?,?,?,?,?,?,?)`;
@@ -16,12 +17,12 @@ const AddCompanyInfo = function (request, response) {
    const PARAMETERS = [name, email, motto, phonenumber, address, website, street, alternativeNumber];
 
    connection.query(TRUNCATE_QUERY, (err, result) => {
-      if (err) { throw err };
+      if (err) { logger.error(err) };
       if (result) {
          connection.query(SQL_QUERY_INSERT, PARAMETERS, function (err, result) {
             if (err) {
                response.send({
-                  status: 'error', 
+                  status: 'error',
                   message: err.message,
                   statusCode: 500
                })
@@ -40,7 +41,7 @@ const AddCompanyInfo = function (request, response) {
 
 const getCompanyInfo = function (request, response) {
    connection.query(SQL_QUERY_ALL, function (err, result) {
-      if (err) { throw err }
+      if (err) { logger.error(err) }
       if (result) {
          if (result.length > 0) {
             const obj = {};

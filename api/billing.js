@@ -2,7 +2,7 @@ const { response } = require('express');
 const { beginTransaction, query } = require('./models/result');
 const connection = require('./db');
 const { checkpatient } = require('./register');
-
+const logger = require('../logger')
 const { customError } = require('../helper');
 const { getApplicationSettings } = require('./models/applicationSettings');
 
@@ -35,7 +35,7 @@ const addperformingTest = (patientid, billingid, urgency, samplingCenter, paymen
     let sql = `INSERT INTO performing_test (PATIENTID,BILLINGID,URGENCY,SAMPLING_CENTER) VALUES (?,?,?,?)`;
     connection.query(sql, values, (err, result) => {
       if (err) {
-        throw err;
+        logger.log(err)
       }
       else {
         billingHx(billingid, paymentmode, paid, test, res)
@@ -131,7 +131,7 @@ const billingHx = function (billingid, paymentmode, paid, test, res) {
 
   connection.query(hxStatement, [billingid, paymentmode, paid], function (err, result) {
     if (err) {
-      throw err;
+      logger;
     }
   })
   AddtoTestAscenstion(test, billingid, res)
@@ -182,91 +182,95 @@ const addBilling = async (req, res) => {
 
   const { patientid, clinicians, organizations, test, cost, paid, urgency, discount, paymentmode, samplingCenter } = req.body;
 
-  const status = await clientPaymentStatus(patientid);
 
 
-  const pushDb = function () {
-    // get outstanding balance
-    let outstanding = cost - discount - paid;
-    // get type
-    let type = paymentmode == 'invoice' ? 'POSTPAID' : 'PREPAID';
-    // billing data
-    let values = [parseInt(patientid), clinicians, organizations, paid, cost, type, outstanding, parseInt(discount)];
+  if (patientid) {
+    const status = await clientPaymentStatus(patientid);
+    const pushDb = function () {
+      // get outstanding balance
+      let outstanding = cost - discount - paid;
+      // get type
+      let type = paymentmode == 'invoice' ? 'POSTPAID' : 'PREPAID';
+      // billing data
+      let values = [parseInt(patientid), clinicians, organizations, paid, cost, type, outstanding, parseInt(discount)];
 
 
-    const writeDb = function () {
+      const writeDb = function () {
 
-      // insert billing data into billing stable
-      let sql = `INSERT INTO billing (PATIENTID,CLINICIAN,ORGANIZATION,PAID_AMOUNT,PAYABLE,TYPE,OUTSTANDING,DISCOUNT) VALUES (?,?,?,?,?,?,?,?)`;
+        // insert billing data into billing stable
+        let sql = `INSERT INTO billing (PATIENTID,CLINICIAN,ORGANIZATION,PAID_AMOUNT,PAYABLE,TYPE,OUTSTANDING,DISCOUNT) VALUES (?,?,?,?,?,?,?,?)`;
 
-      connection.query(sql, values, (err, result) => {
-        if (err) throw err;
-        if (result) {
-          let billingid = result.insertId;
-          // add test to performing test
-          addperformingTest(patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res)
-        }
-      })
-    }
-
-
-    if (billingSetting) {
-      if (parseInt(cost) != parseInt(paid)) {
-        res.send({
-          message: 'Application settings updated to ensure all service are paid for fully',
-          status: 'success',
-          statusCode: 401,
-          code:'AppSett'
+        connection.query(sql, values, (err, result) => {
+          if (err) { logger.error(err) }
+          if (result) {
+            let billingid = result.insertId;
+            // add test to performing test
+            addperformingTest(patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res)
+          }
         })
+      }
+
+
+      if (billingSetting) {
+        if (parseInt(cost) != parseInt(paid)) {
+          res.send({
+            message: 'Application settings updated to ensure all service are paid for fully',
+            status: 'success',
+            statusCode: 401,
+            code: 'AppSett'
+          })
+        } else {
+          writeDb();
+        }
       } else {
         writeDb();
       }
-    } else {
-      writeDb();
-    }
-  }
-
-
-
-  if (billingSetting) {
-    // NB: 1 client not owning 
-    // -1 facillity own client
-    // 0 client owe
-
-    if (status == 0) {
-      res.send({
-        statusCode: 200,
-        code: 0,
-        status: 'success',
-        message: 'client has outstanding bill to clear'
-      })
     }
 
-    if (status == null) {
-      res.send({
-        statusCode: 401,
-        status: 'error',
-        code: null,
-        message: 'No patientid not found'
-      })
-    }
 
-    if (status == -1) {
-      res.send({
-        statusCode: 200,
-        code: -1,
-        status: 'success',
-        message: 'facillity has outstanding change to be given to client'
-      })
-    }
 
-    if (status == 1) {
-      pushDb();
-    }
+    if (billingSetting) {
+      // NB: 1 client not owning 
+      // -1 facillity own client
+      // 0 client owe
 
-  }
-  else {
-    pushDb()
+      if (status == 0) {
+        res.send({
+          statusCode: 200,
+          code: 0,
+          status: 'success',
+          message: 'client has outstanding bill to clear'
+        })
+      }
+
+      if (status == null) {
+        res.send({
+          statusCode: 401,
+          status: 'error',
+          code: null,
+          message: 'No patientid not found'
+        })
+      }
+
+      if (status == -1) {
+        res.send({
+          statusCode: 200,
+          code: -1,
+          status: 'success',
+          message: 'facillity has outstanding change to be given to client'
+        })
+      }
+
+      if (status == 1) {
+        pushDb();
+      }
+
+    }
+    else {
+      pushDb()
+    }
+  } else {
+    customError(`patientid required`, 401, res)
   }
 
 
@@ -330,19 +334,15 @@ const getBilledClients = function (request, response) {
           b.OUTSTANDING,
           b.DISCOUNT,
           DATE(p.DATE) AS DATE,
-          c.NAME AS CLINICIAN,
-          pm.PaymentMode AS PAYMENT_MODE,
-          o.NAME AS ORGANIZATION
+          pm.PaymentMode AS PAYMENT_MODE
         FROM billing AS b
           INNER JOIN performing_test AS p ON b.PATIENTID = p.PATIENTID
           INNER JOIN new_patients AS np ON np.PATIENTID = b.PATIENTID
-          INNER JOIN organization AS o ON o.ID = B.ORGANIZATION
-          INNER JOIN clinician AS c ON c.ID = b.CLINICIAN
           INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
           INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
     GROUP BY b.BILLINGID
     ORDER BY B.BILLINGID DESC
-    LIMIT 100;
+    LIMIT 20
   `;
 
   connection.query(mysql, function (err, result) {
@@ -363,31 +363,55 @@ const getBilledClients = function (request, response) {
   })
 }
 
+/**
+ * Updates the billing information in the database based on the provided request body.
+ * Handles the deletion and addition of test IDs associated with the billing ID.
+ * Uses a database connection and performs the necessary queries to update the data.
+ * 
+ * @param {Object} request - The request object containing the necessary data for updating the billing.
+ * @param {Object} response - The response object used to send the result of the update operation.
+ * @returns {void}
+ */
 const updateBilling = async function (request, response) {
   try {
     const { test, totalcost, patientid, billingid, outstanding } = request.body;
 
-    console.log(request.body)
+    if (!test || !totalcost || !patientid || !billingid || !outstanding) {
+      response.send({
+        message: 'Invalid request body',
+        statusCode: 400,
+        status: 'error'
+      });
+      return;
+    }
 
+    // update the billing table first
     const updateCurrentBill = `UPDATE BILLING 
-        SET PAYABLE = ${totalcost},
-        OUTSTANDING = ${outstanding}
-    WHERE BILLINGID = ${billingid}`;
+        SET PAYABLE = ?,
+        OUTSTANDING = ?
+    WHERE BILLINGID = ?`;
 
+    // FLOW
+    // 1. update billing table
+    // 2. get all the test in the test_ascension table that has this paticular billingid 
+    // 3. compare ids in the test arayy with that in the db
+    // 4. remove all test from the db that arrent in the test array
+    // 5. add all test in the test array that arent in the test_ascention table
+    // 6. all should be done using transactions so that if one shoudl fail then the commit should be roolled
     connection.beginTransaction(function (err) {
-      if (err) { throw err; }
+      if (err) { logger.error(err); }
 
-      connection.query(updateCurrentBill, function (error, results, fields) {
+      connection.query(updateCurrentBill, [totalcost, outstanding, billingid], function (error, results, fields) {
         if (error) {
           return connection.rollback(function () {
-            throw error;
+            logger.error(err);
           });
         }
 
         connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ?`, [billingid], function (err, result) {
           if (err) {
             return connection.rollback(function () {
-              throw err;
+              logger.error(err)
             });
           }
 
@@ -399,7 +423,7 @@ const updateBilling = async function (request, response) {
             const toAdd = [];
             for (let i = 0; i < db_testid.length; i++) {
               if (testidArray.includes(db_testid[i])) {
-                console.log(`${db_testid[i]} found in current list hence skipping......`)
+                logger.info(`${db_testid[i]} found in current list hence skipping......`)
               }
               else {
                 toDelete.push(db_testid[i])
@@ -411,7 +435,7 @@ const updateBilling = async function (request, response) {
               connection.query(removeStatement, function (err, result) {
                 if (err) {
                   return connection.rollback(function () {
-                    throw err;
+                    logger.error(err);
                   })
                 }
               })
@@ -431,20 +455,17 @@ const updateBilling = async function (request, response) {
               connection.query(addStatement, function (err, result) {
                 if (err) {
                   return connection.rollback(function () {
-                    throw err;
+                    logger.error(err);
                   })
                 }
-                console.log(result)
               })
             })
           }
 
-
-
           connection.commit(function (err) {
             if (err) {
               return connection.rollback(function () {
-                throw err;
+                logger.error(err);
               });
             }
             response.send({
@@ -461,8 +482,6 @@ const updateBilling = async function (request, response) {
     console.log(err)
   }
 }
-
-
 
 module.exports = {
   addBilling,

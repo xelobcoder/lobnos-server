@@ -1,3 +1,4 @@
+const logger = require("../../logger");
 const connection = require("../db");
 
 class Payment {
@@ -90,7 +91,7 @@ class Payment {
 
     const getQuery = `SELECT * FROM BILLING WHERE BILLINGID = ${billingid}`
     connection.query(getQuery, function (err, result) {
-      if (err) { throw err; }
+      if (err) { logger.error(err); }
       if (result) {
         if (result.length > 0) {
           const previousPayment = result[0]["PAID_AMOUNT"];
@@ -108,7 +109,7 @@ class Payment {
 							`;
             const values = [nOutstanding, newAmount, billingid];
             connection.query(updateQuery, values, function (err, result) {
-              if (err) { throw err; } else {
+              if (err) { logger.error(err); } else {
                 // update paymentHx to have a transaction hx of the client in terms of that billingid
                 const { affectedRows } = result;
                 if (affectedRows == 1) {
@@ -118,7 +119,7 @@ class Payment {
                     [billingid, paymentMode, pay],
                     (err, result) => {
                       if (err) {
-                        throw err;
+                        logger.error(err);
                       } else {
                         response.send({
                           message: "Payment update successfully",
@@ -140,7 +141,7 @@ class Payment {
   paymentMode = async (request, response) => {
     connection.query(`SELECT * FROM PAYMENTMODES`, (err, result) => {
       if (err) {
-        throw err;
+        logger.error(err);
       }
       response.send({
         data: result || [],
@@ -156,7 +157,7 @@ class Payment {
       let query = `SELECT * FROM billingHx WHERE BILLINGID = ?  ORDER BY KeyID DESC`;
       connection.query(query, billingid, function (err, result) {
         if (err) {
-          throw err;
+          logger.error(err);
         }
         response.send(result);
       });

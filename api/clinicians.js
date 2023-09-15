@@ -1,36 +1,35 @@
 const { response } = require('express');
 const connection = require('./db');
+const logger = require('../logger');
 
 
 // get all clinicians
 const getClinicians = (req, res) => {
-   let query = 'SELECT * FROM clinician';
+   let query = 'SELECT * FROM clinicianbasicinfo';
    // execute query
    connection.query(query, (err, result) => {
       if (err) {
-         throw err
+         logger.error(err)
       }
-      res.send(result)
+      res.send({ statusCode: 200, result })
    })
 }
 
 // update clinicians
-const putClinicians = (req, res) => {
+const putCliniciansbasic = (req, res) => {
    //     we update the query 
    const { name, phone, email, location, address, module, occupation,
       commission, momo, bankName, accountName, branch, account, id } = req.body;
 
    // check if id exist 
-   let check = `SELECT * FROM clinician WHERE ID = ?`;
+   let check = `SELECT * FROM clinicianbasicinfo WHERE ID = ?`;
    // update query
 
-   let query = `UPDATE clinician SET NAME = ?, PHONE = ?, EMAIL = ?, LOCATION = ?,
-     ADDRESS = ?, MODULE = ?, COMMISSION = ?, MOMO = ?, BANKNAME = ?, ACCOUNTNAME = ?, 
-     BANKBRANCH = ?, ACCOUNTNUMBER = ?,OCCUPATION = ? WHERE ID = ?`;
+   let query = `UPDATE clinicianbasicinfo SET NAME = ?, PHONE = ?, EMAIL = ?, LOCATION = ?,
+     ADDRESS = ?,OCCUPATION = ? WHERE ID = ?`;
 
 
-   const values = [name, phone, email, location, address, module, commission,
-      momo, bankName, accountName, branch, account, occupation, id];
+   const values = [name, phone, email, location, address, occupation, id];
 
    // execute query
    // is id available, if yes continue or send response with message of no id
@@ -38,25 +37,27 @@ const putClinicians = (req, res) => {
    if (id) {
       connection.query(check, [id], (err, result) => {
          if (err) {
-            throw err
+            logger.error(err)
          }
          if (result.length > 0) {
             connection.query(query, values, (err, result) => {
                if (err) {
-                  throw err
+                  logger.error(err)
                }
                if (result) {
                   const { affectedRows } = result;
                   if (affectedRows > 0) {
                      res.send({
                         statusCode: 200,
-                        message: 'Clinician updated successfully'
+                        message: 'Clinician updated successfully',
+                        status: 'success'
                      })
                   } else {
                      res.send({
                         statusCode: 401,
-                        message: 'Clinician not updated'
+                        message: 'Clinician not updated',
                      })
+                     connection.end()
                   }
                }
             })
@@ -79,7 +80,7 @@ const deleteClinicians = (req, res) => {
    // execute query
    connection.query(query, [id], (err, result) => {
       if (err) {
-         throw err
+         logger.error(err)
       }
       else {
          const { affectedRows } = result;
@@ -103,20 +104,20 @@ const deleteClinicians = (req, res) => {
 }
 
 
-const postClinicians = (req, res) => {
-   const { id, name, phone, email, location, address, module, occupation, commission, momo, bankName, accountName, branch, account } = req.body;
+const postClinicianBasicInfo = (req, res) => {
+   const { id, name, phone, email, location, address, occupation } = req.body;
 
+   // module, occupation, commission, momo, bankName, accountName, branch, account
 
    //  we insert into the database
-   let query = `INSERT INTO clinician 
-            (NAME,PHONE,EMAIL,LOCATION,ADDRESS,MODULE,COMMISSION,MOMO,BANKNAME,ACCOUNTNAME,
-            BANKBRANCH,ACCOUNTNUMBER,OCCUPATION) 
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+   let query = `INSERT INTO clinicianbasicinfo 
+            (NAME,PHONE,EMAIL,LOCATION,ADDRESS,
+            OCCUPATION) 
+            VALUES (?,?,?,?,?,?)`;
 
-   const values = [name, phone, email, location, address, module, commission,
-      momo, bankName, accountName, branch, account, occupation];
+   const values = [name, phone, email, location, address, occupation];
    // we chrck if the email already exist
-   let check = `SELECT * FROM clinician WHERE EMAIL = ?`;
+   let check = `SELECT * FROM clinicianbasicinfo WHERE EMAIL = ?`;
 
    // We check if number is valid and not more than 10 and begins with 0
 
@@ -126,22 +127,22 @@ const postClinicians = (req, res) => {
       }
    }
 
-
    if (isValidNumber(phone) && email.includes('@')) {
       // execute query
       connection.query(check, email, (err, result) => {
          if (err) {
-            throw err
+            logger.error(err)
          }
          if (result.length > 0) {
             // if id is provided and userexist we update the info
             //  else we send already exist message 
             if (id) {
-               putClinicians(req, res);
+               putCliniciansbasic(req, res);
             } else {
                res.send({
                   message: 'clinician with such email already exist',
-                  statusCode: 200
+                  statusCode: 200,
+                  status: 'success'
                })
             }
          }
@@ -149,11 +150,12 @@ const postClinicians = (req, res) => {
             // insert into the database
             connection.query(query, values, (err, result) => {
                if (err) {
-                  throw err
+                  logger.error(err)
                }
                res.send({
                   message: 'Clinician added successfully',
-                  statusCode: 200
+                  statusCode: 200,
+                  status: 'success'
                })
             }
             )
@@ -173,29 +175,40 @@ const postClinicians = (req, res) => {
 const getSingleClinician = (req, res) => {
    const { id } = req.query;
    // get the id 
-   let query = `SELECT * FROM clinician WHERE ID = ?`;
+   let query = `SELECT * FROM clinicianbasicinfo WHERE ID = ?`;
    // execute query
    connection.query(query, [id], (err, result) => {
       if (err) {
-         throw err
+         logger.error(err)
       }
-      res.send(result)
+      res.send({
+         statusCode: 200,
+         result,
+         status: 'success'
+      })
    }
    )
 }
 
 
 
+/**
+ * Retrieves the top performing clinicians based on their total sales.
+ * 
+ * @param {object} request - The request object containing the query parameters.
+ * @param {object} response - The response object used to send the result back to the client.
+ * @returns {void}
+ */
 const getTopPerformingClinicians = async function (request, response) {
    const { count } = request.query;
 
-
+   // Check if count parameter is provided
    if (!count) {
       response.send({
          message: 'count represent top count required',
          statusCode: 401,
          status: 'warning'
-      })
+      });
    } else {
       let query_string = `
          SELECT DISTINCT c.ID AS id,
@@ -212,32 +225,34 @@ const getTopPerformingClinicians = async function (request, response) {
             c.NAME ORDER BY TotalSales DESC
       `;
 
-      query_string += ` LIMIT ${count}`
+      query_string += ` LIMIT ${count}`;
 
-
+      // Execute the SQL query
       connection.query(query_string, function (err, result) {
          if (err) {
+            // Send error response if query execution fails
             response.send({
                message: err.message,
                statusCode: 500,
                status: 'error'
-            })
+            });
          } else {
+            // Send success response with the result
             response.send({
                result,
                statusCode: 200,
                status: 'success'
-            })
+            });
          }
-      })
+      });
    }
-}
+};
 
 module.exports = {
    getClinicians,
-   putClinicians,
+   putCliniciansbasic,
    deleteClinicians,
-   postClinicians,
+   postClinicianBasicInfo,
    getSingleClinician,
    getTopPerformingClinicians
 }

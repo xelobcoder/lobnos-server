@@ -1,3 +1,4 @@
+const logger = require('../logger');
 const connection = require('./db')
 
 const activation = {
@@ -23,7 +24,7 @@ const activation = {
 
       connection.query(activationQuery, (err, result) => {
         if (err) {
-          throw err;
+         logger.error(err);
         }
         if (result) {
           response.send(result);
@@ -97,7 +98,7 @@ const activation = {
       console.log(activationQuery)
       connection.query(activationQuery, (err, result) => {
         if (err) {
-          throw err;
+         logger.error(err);
         }
         if (result) {
           console.log(result)

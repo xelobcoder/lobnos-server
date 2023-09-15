@@ -36,6 +36,11 @@ router.get('/api/v1/organization', function (request, response) {
 })
 
 
+router.delete('/api/v1/organization', function(request,response) {
+  o.deleteOrganization(request,response)
+})
+
+
 router.get('/api/v1/organizations/details', function (request, response) {
   o.getOrganizationWithDetails(request, response);
 })

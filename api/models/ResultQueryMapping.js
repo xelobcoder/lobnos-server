@@ -16,6 +16,8 @@ const hepatitisb =`SELECT * FROM hepatitisbresult WHERE BILLINGID =`
 
 const hepatitisc = `SELECT * FROM hepatitiscresult WHERE BILLINGID =`;
 
+const helicobacter_pylori = `SELECT * FROM result_helicobacter_pylori WHERE billingid =`;
+
 
 
 
@@ -32,7 +34,8 @@ const MappingSetup = {
   pregnancy_test,
   esr,
   hepatitis_b:hepatitisb,
-  hepatitisc
+  hepatitis_c:hepatitisc,
+  helicobacter_pylori
 }
 
 // this category mapping is used to determine which function to use to return data for test
@@ -52,6 +55,7 @@ const testCategoryMapping = {
   hepatitis_c:'hema',
   full_blood_count: 'chemistry',
   esr: 'hema',
+  helicobacter_pylori: 'hema'
 }
 
 module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }

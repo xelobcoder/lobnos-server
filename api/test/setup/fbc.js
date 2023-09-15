@@ -1,3 +1,4 @@
+const logger = require("../../../logger");
 const database_queries = require("../../database/queries");
 const connection = require("../../db");
 // steps
@@ -54,7 +55,7 @@ const getAge = function (patientid = null, billingid = null) {
           WHERE BILLINGID = ${billingid}`;
     }
 
-    if (patientid && billingid) { throw err; }
+    if (patientid && billingid) { logger.error(err); }
     
     connection.query(connectionQuery, patientid, function (err, result) {
       if (err) {
