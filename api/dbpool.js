@@ -28,7 +28,7 @@ connectionpool.getConnection((err, connection) => {
  return;
 });
 
-console.log(connectionpool)
+
 
 
 module.exports = connectionpool;

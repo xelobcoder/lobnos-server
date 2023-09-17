@@ -1,3 +1,4 @@
+const logger = require('../../logger.js');
 const connection = require('../db.js');
 
 const sales = {};
@@ -5,6 +6,7 @@ const sales = {};
 
 
 sales.generalSales = async function (request, response, target) {
+  const { patientid } = request.query;
   // get all sales sum grouped by target i.e sum by year, month or day
   let query = '';
 
@@ -14,9 +16,11 @@ sales.generalSales = async function (request, response, target) {
     COUNT(b.BILLINGID) AS totalCases,
     YEAR(pt.DATE) AS 'Year'
     FROM billing AS b
-    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
-    GROUP BY YEAR(pt.DATE)
-`;
+    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID`;
+    if (patientid) {
+      query += ` WHERE b.PATIENTID = ${patientid} `
+    }
+    query += ` GROUP BY YEAR(pt.DATE)`;
   } else if (target == 'monthly') {
     query = `SELECT
     SUM(PAYABLE) AS salesAmount,
@@ -25,8 +29,12 @@ sales.generalSales = async function (request, response, target) {
     FROM billing AS b
     INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
     WHERE YEAR(pt.DATE) = YEAR(CURDATE())
-    GROUP BY MONTH(pt.DATE) 
 `;
+    if (patientid) {
+      query += ` AND b.PATIENTID = ${patientid}`
+    }
+
+    query += ` GROUP BY MONTH(pt.DATE) `
 
   } else if (target == 'daily') {
     query = `
@@ -40,8 +48,11 @@ sales.generalSales = async function (request, response, target) {
     FROM billing AS b
     INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
     WHERE YEAR(pt.DATE) = YEAR(CURDATE()) AND MONTH(pt.DATE) = MONTH(CURDATE())
-    GROUP BY DAY(pt.DATE)
 `;
+    if (patientid) {
+      query += ` AND b.PATIENTID = ${patientid}`;
+    }
+    query += ` GROUP BY DAY(pt.DATE)`
   } else {
     // weekly
     query = `
@@ -57,14 +68,18 @@ sales.generalSales = async function (request, response, target) {
       FROM billing AS b
       INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
       WHERE YEAR(pt.DATE) = YEAR(CURDATE())
-      AND MONTH(pt.DATE) = MONTH(CURDATE())
-      GROUP BY 'Week';
-`;
+      AND MONTH(pt.DATE) = MONTH(CURDATE())`
+      if (patientid) {
+        query += ` AND b.PATIENTID = ${patientid}`
+      }
+
+      query += ` GROUP BY WEEK(pt.DATE)`
   }
 
 
   connection.query(query, function (err, result) {
     if (err) {
+      logger.error(err)
       response.send({
         message: err.message,
         statusCode: 500,
@@ -81,6 +96,8 @@ sales.generalSales = async function (request, response, target) {
 
 }
 
+
+// sales.ClientSummary = 
 
 
 

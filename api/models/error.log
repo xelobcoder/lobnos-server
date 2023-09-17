@@ -1,0 +1,1 @@
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIID  = 202385","sqlMessage":"Unknown column 'PATIID' in 'where clause'","sqlState":"42S22"}

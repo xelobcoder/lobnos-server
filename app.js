@@ -39,7 +39,9 @@ const organizationRouter = require('./api/controllers/organization');
 const applicationsettingsRouter = require('./api/controllers/applicationSettings');
 dotenv.config();
 const generalSalesRouter = require('./api/controllers/sales');
-const cookieSession = require('cookie-session')
+const cookieSession = require('cookie-session');
+const patientAnalytics = require('./api/controllers/patients.controller');
+
 
 
 
@@ -70,14 +72,14 @@ app.use(express.urlencoded({ extended: true }));
 
 
 // ensuring an acess token is present
-app.use((req, res, next) => {
-  console.log(req.headers)
-  if (req.url == '/api/v1/register') {
-    next();
-  } else {
-    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
-  }
-})
+// app.use((req, res, next) => {
+//   console.log(req.headers)
+//   if (req.url == '/api/v1/register') {
+//     next();
+//   } else {
+//     new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+//   }
+// })
 
 
 // api endpoints
@@ -96,7 +98,8 @@ app.use(clinicianRouter);
 app.use(generalSalesRouter);
 app.use(branchesHandler);
 app.use(registrationRouter);
-app.use(applicationsettingsRouter)
+app.use(applicationsettingsRouter);
+app.use(patientAnalytics);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
