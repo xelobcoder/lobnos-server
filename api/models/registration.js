@@ -295,6 +295,10 @@ class Registration {
     }
   }
 
+  updateCredentials = async function (request,response) {
+    
+  }
+
 }
 
 

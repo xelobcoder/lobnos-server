@@ -22,6 +22,29 @@ router.put('/api/v1/register/personalinformation', async (request, response) => 
   }
 })
 
+router.put('/api/v1/register/addressinginformation', async (request, response) => {
+  const { patientid } = request.query;
+  if (!patientid || patientid == 'undefined') {
+    customError(`patientid not included in the request`, 400, response)
+  } else {
+    const records = request.body;
+    const info = await new Registration(patientid).addressingInformation(patientid, records);
+    if (info == 1) {
+      response.send({
+        message: 'record updated successfully',
+        statusCode: 200,
+        status: 'success'
+      })
+    } else {
+      response.send({
+        message: 'No record updated',
+        statusCode: 200,
+        status: 'success'
+      })
+    }
+  }
+})
+
 router.get('/api/v1/register/personalinformation', async (request, response) => {
   const { patientid } = request.query;
   if (!patientid || patientid == 'undefined') {
@@ -47,14 +70,14 @@ router.get('/api/v1/register/personalinformation', async (request, response) => 
   }
 })
 
-router.get('/api/v1/register/addressinformation', async (request, response) => {
+router.get('/api/v1/register/addressingformation', async (request, response) => {
   const { patientid } = request.query;
   if (!patientid) {
     customError(`patientid not included in the request`, 400, response)
   } else {
     const data = await database_queries.getsingleid(patientid, 'patientsaddress', 'patientid');
     if (data.length > 0) {
-      response.send({ statusCode: 200, status: 'success', result: data })
+      response.send({ statusCode: 200, status: 'success', result: data[0] })
     } else {
       response.send({ statusCode: 200, status: 'success', result: [] })
     }
