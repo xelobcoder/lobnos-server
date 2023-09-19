@@ -1,6 +1,17 @@
+const { response } = require('express');
+const { customError } = require('../../helper');
 const connection = require('../db');
+const logger = require('../../logger');
 
 
+/**
+ * The `Registration` class is responsible for handling the registration of new patients in a healthcare system.
+ * It provides methods for checking if bulk registration is enabled, generating a unique patient ID, checking if a patient ID already exists,
+ * checking if an email or mobile number already exists, adding personal information of a patient, adding addressing information of a patient,
+ * adding emergency contact information of a patient, and updating personal information of a patient.
+ *
+ * @class Registration
+ */
 class Registration {
   constructor(patientid) {
     this.patientid = patientid;
@@ -86,7 +97,9 @@ class Registration {
   checkEmailOrMobileExist = async (email, mobile) => {
     if (email || mobile) {
       return new Promise((resolve, reject) => {
-        connection.query(`SELECT * FROM new_patients WHERE EMAIL = '${email}' OR MOBILE_NUMBER = ${parseInt(mobile)}`, function (err, result) {
+        const query = `SELECT * FROM new_patients WHERE EMAIL = ? OR MOBILE_NUMBER = ?`;
+        const values = [email, parseInt(mobile)];
+        connection.query(query, values, function (err, result) {
           if (err) {
             reject(err);
           } else {
@@ -253,6 +266,35 @@ class Registration {
       })
     }
   }
+
+  UpdatePersonalInformation = async (request, response) => {
+    if (await this.checkPatientIdExist()) {
+      const { firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years } = request.body;
+
+      const query = `UPDATE new_patients 
+                   SET FIRSTNAME=?, LASTNAME=?, MIDDLENAME=?, EMAIL=?, AGE=?, AGETYPE=?, DOB=?, MARITAL_STATUS=?, MOBILE_NUMBER=?, OCCUPATION=?, GENDER=?, ORGANIZATION=?
+                   WHERE PATIENTID=?`;
+
+      // query values
+      const values = [firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization, this.patientid];
+
+      // execute query
+      connection.query(query, values, function (err, result) {
+        if (err) {
+          logger(err)
+        } else {
+          response.send({
+            message: 'record updated successfully',
+            statusCode: 200,
+            status: 'success'
+          })
+        }
+      });
+    } else {
+      customError(`patient id not found`, 404, response)
+    }
+  }
+
 }
 
 

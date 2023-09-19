@@ -44,7 +44,7 @@ const ADD_PATIENT_QUERY = `INSERT INTO NEW_PATIENTS (
  * @returns {promise} promise returns a promise of true,false or error
  */
 var checkpatient = function (patientid) {
-  const CHECK_PATIENT_QUERY = `SELECT * FROM NEW_PATIENTS WHERE PATIENTID = ?`
+  const CHECK_PATIENT_QUERY = `SELECT * FROM new_patients WHERE PATIENTID = ?`
 
   return new Promise((resolve, reject) => {
     // query db for patientid
@@ -114,7 +114,7 @@ var addpatient = function (request, response) {
 
   checkpatient(request.body?.patientid)
     .then((result) => {
-      if (result == true) {
+      if (result) {
         response.send({
           status: ERRORMESSAGE,
           message: 'Patient already registered',
@@ -151,7 +151,7 @@ const getpatient = function (request, response) {
   if (queryLength > 0) {
     if (isPatientid) {
       connection.query(
-        'SELECT * FROM NEW_PATIENTS WHERE PATIENTID = ?',
+        'SELECT * FROM new_patients WHERE PATIENTID = ?',
         [request.query.patientid],
         (err, result) => {
           if (err) { logger.error(err) }
@@ -162,7 +162,7 @@ const getpatient = function (request, response) {
 
 
     if (isFullname) {
-      connection.query(`SELECT * FROM NEW_PATIENTS WHERE FIRSTNAME LIKE ? `,
+      connection.query(`SELECT * FROM new_patients WHERE FIRSTNAME LIKE ? `,
         [request.query.fullname],
         (err, result) => {
           if (err) { logger.error(err) };
@@ -172,7 +172,7 @@ const getpatient = function (request, response) {
 
 
     if (isPhoneNumber) {
-      connection.query(`SELECT * FROM NEW_PATIENTS WHERE MOBILE_NUMBER = ?`,
+      connection.query(`SELECT * FROM new_patients WHERE MOBILE_NUMBER = ?`,
         [request.query.phonenumber],
         (err, result) => {
           if (err) { logger.error(err) };
@@ -284,7 +284,7 @@ const putpatient = async function (request, response) {
   if (patientExist) {
     // update query beloe
 
-    const mysqlQuery = `UPDATE NEW_PATIENTS SET FIRSTNAME = ?, LASTNAME = ?, MIDDLENAME = ?, AREA = ?, REGION = ?, ADDRESS = ?, EMAIL = ?, AGE = ?, AGETYPE = ?, MARITAL_STATUS = ?, RELATIONSHIP = ?,
+    const mysqlQuery = `UPDATE new_patients SET FIRSTNAME = ?, LASTNAME = ?, MIDDLENAME = ?, AREA = ?, REGION = ?, ADDRESS = ?, EMAIL = ?, AGE = ?, AGETYPE = ?, MARITAL_STATUS = ?, RELATIONSHIP = ?,
      EMMERGENCY_CONTACT_NAME = ?, EMMERGENCY_CONTACT = ?, 
     GENDER = ?, MOBILE_NUMBER = ?, OCCUPATION = ?, PATIENTORGANIZATION = ? WHERE PATIENTID = ?`;
 

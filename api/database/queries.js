@@ -160,8 +160,8 @@ const database_queries = {
       }
     }
   },
-  getall: function (table) {
-    let SQL_QUERY = `SELECT * FROM ${table} ORDER BY ID DESC LIMIT 100`;
+  getall: function (table,limit) {
+    let SQL_QUERY = `SELECT * FROM ${table} ORDER BY ID DESC LIMIT ${limit}`;
     return new Promise((resolve, reject) => {
       connection.query(SQL_QUERY, function (err, result) {
         if (err) {

@@ -1,26 +1,11 @@
 const { customError } = require("../../helper");
 const logger = require("../../logger");
 const connectionpool = require("../dbpool");
+const Registration = require('../models/registration');
 
-class Patient {
+class Patient extends Registration {
   constructor(patientid) {
-    this.patientid = patientid;
-  }
-
-  checkIdValidity = async function (patientid) {
-    const query = `SELECT * FROM new_patients WHERE PATIENTID  = ?`;
-
-    return new Promise((resolve, reject) => {
-
-      connectionpool.query(query, patientid, function (err, result) {
-        if (err) {
-          reject(err)
-        }
-        else {
-          result.length > 0 ? resolve(true) : resolve(false);
-        }
-      })
-    })
+    super(patientid);
   }
 
   runqueryPromise = async function (query, values) {
@@ -47,9 +32,9 @@ class Patient {
   getTransactionsByDate = async function (patientid, to, from) {
     const isArgGiven = arguments.length > 0
       && typeof arguments[0] == 'number' ? patientid : this.patientid;
-    if (await this.checkIdValidity(isArgGiven) === true) {
+    if (await this.checkPatientIdExist()) {
       let query = `SELECT DATE(DATE)  AS TransactionsDate,BILLINGID AS TransactionId FROM performing_test
-      WHERE PATIENTID = ? `;
+      WHERE PATIENTID = ? ORDER BY DATE DESC `;
       let values = [isArgGiven]
       if (from && to) {
         query += `AND DATE BETWEEN '${from}' AND '${to}`
@@ -62,10 +47,11 @@ class Patient {
     }
   }
 
-  isValidForAnalysis = async function (testid)  {
-     
+  isValidForAnalysis = async function (testid) {
+
   }
 }
+
 
 
 
