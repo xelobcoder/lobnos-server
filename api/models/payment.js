@@ -139,7 +139,7 @@ class Payment {
     );
   };
   paymentMode = async (request, response) => {
-    connection.query(`SELECT * FROM PAYMENTMODES`, (err, result) => {
+    connection.query(`SELECT * FROM paymentmodes`, (err, result) => {
       if (err) {
         logger.error(err);
       }

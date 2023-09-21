@@ -56,7 +56,7 @@ const getAge = function (patientid = null, billingid = null) {
     }
 
     if (patientid && billingid) { logger.error(err); }
-    
+
     connection.query(connectionQuery, patientid, function (err, result) {
       if (err) {
         reject(err);
@@ -135,7 +135,7 @@ const getdata = async (request, response) => {
         const xlen = result.length;
         if (xlen === 0) {
           const results = async function () {
-            let data = await database_queries.getall(`setup_fullcount_paramters`);
+            let data = await database_queries.getall(`setup_fullcount_paramters`, 20);
             response.send(data)
           }
           results()

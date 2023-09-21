@@ -33,7 +33,7 @@ class User {
 
   insertionOne = async (name, password) => {
     return new Promise((resolve, reject) => {
-      const queryString = `INSERT INTO ROLES (USERNAME,PASSWORD,ROLE,EMAIL) 
+      const queryString = `INSERT INTO roles (USERNAME,PASSWORD,ROLE,EMAIL) 
       VALUES('${name}','${password}','${this.role}','${this.email}')`;
       connection.query(queryString, (err, result) => {
         err ? reject(err) : resolve(result);
@@ -43,7 +43,7 @@ class User {
 
   getUserData = async (email) => {
     return new Promise((resolve, reject) => {
-      const queryString = `SELECT * FROM ROLES WHERE EMAIL = '${email}'`;
+      const queryString = `SELECT * FROM roles WHERE EMAIL = '${email}'`;
       connection.query(queryString, (err, result) => {
         if (err) {
           logger.error(err);
@@ -99,7 +99,7 @@ class User {
     return new Promise((resolve, reject) => {
       this.hashPassword(password)
         .then((hashedPassword) => {
-          const queryString = `SELECT * FROM ROLES WHERE EMAIL = '${email}'`;
+          const queryString = `SELECT * FROM roles WHERE EMAIL = '${email}'`;
           connection.query(queryString, (err, result) => {
             if (err) {
               reject(err);
@@ -160,7 +160,7 @@ class User {
 
   userExistWithId = async (id) => {
     const promise = new Promise((resolve, reject) => {
-      const gq = `SELECT * FROM ROLES WHERE EMPLOYEEID = ${id}`
+      const gq = `SELECT * FROM roles WHERE EMPLOYEEID = ${id}`
 
       connection.query(gq, (err, result) => {
         if (err) { reject(err) }

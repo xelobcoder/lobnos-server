@@ -11,7 +11,7 @@ async function getBillingInvoiceData(request, response) {
 
     const testInformation = async function (billingid) {
       return new Promise((resolve, reject) => {
-        const query = `SELECT PRICE,NAME FROM TEST_PANELS WHERE ID IN (SELECT TESTID FROM TEST_ASCENSION WHERE BILLINGID = ${billingid})`;
+        const query = `SELECT PRICE,NAME FROM test_panels WHERE ID IN (SELECT TESTID FROM test_ascension WHERE BILLINGID = ${billingid})`;
         connection.query(query, (err, result) => {
           if (err) { reject(err); } else { resolve(result) }
         })

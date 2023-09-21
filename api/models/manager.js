@@ -28,14 +28,14 @@ class Manager {
 
   insertApproval = async (approvalStatus, message = null) => {
     let insertNewResult = `
-    UPDATE TEST_ASCENSION SET ApprovalStatus = ?,
+    UPDATE test_ascension SET ApprovalStatus = ?,
     ApprovedBy = ? `;
 
     if (approvalStatus == false) {
       insertNewResult += `,DeclineMessage = '${message}' `
     }
 
-    insertNewResult += `WHERE BILLINGID = ? AND TESTID = ? `
+    insertNewResult += `WHERE billingid = ? AND testid = ? `
 
     const values = [approvalStatus, this.employeeid, this.billingid, this.testid];
 

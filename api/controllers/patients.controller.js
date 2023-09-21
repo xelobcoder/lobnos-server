@@ -36,6 +36,10 @@ parent.get(
   }
 );
 
+parent.post('/api/v1/patients/updatecredentials', async function (request, response) {
+  await new Patient().updateCredentials(request,response);
+})
+
 
 
 
