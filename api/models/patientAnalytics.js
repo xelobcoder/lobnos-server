@@ -6,6 +6,13 @@ const database_queries = require('../database/queries')
 const User = require('../LobnosAuth/user');
 const Registration = require('../models/registration');
 
+/**
+ * Represents a Patient, a subclass of the Registration class.
+ * Contains methods for retrieving transactions by date, updating patient credentials, updating notification settings, and checking if a test is valid for analysis.
+ *
+ * @class
+ * @extends Registration
+ */
 class Patient extends Registration {
   constructor(patientid) {
     super(patientid);
@@ -76,8 +83,8 @@ class Patient extends Registration {
       return;
     }
 
-    if (!oldpassworldMatched) {customError(`invalid old password credentials`,404,response)};
-    
+    if (!oldpassworldMatched) { customError(`invalid old password credentials`, 404, response) };
+
     if (isValid && matched && oldpassworldMatched) {
       const hashedPassword = await new User(username, npassword).hashPassword()
       const updateQuery = `UPDATE patients_credentials SET password = ?,  updated = 'true' WHERE PATIENTID = ?`;
@@ -92,12 +99,32 @@ class Patient extends Registration {
     }
   }
 
-  isValidForAnalysis = async function (testid) {
-
+  updateNotificationSettings = async function (request, response) {
+    const { mode, method, notify, patientid } = request.body;
+    // mode represent mode of delivery the result, notify - should client be notified when result is ready and method represent mehtod of 
+    // send the Notification message
+    if (mode && method && notify && patientid) {
+      const updateQuery = `UPDATE patients_settings SET mode = ?, method = ? , notify = ? WHERE patientid = ?`;
+      const updated = await this.runqueryPromise(updateQuery, [mode, method, notify, parseInt(patientid)]);
+      if (updated && updated.affectedRows == 1) {
+        response.send({ status: 'success', statusCode: 200, message: 'patient settings updated successfully' })
+      }
+    } else {
+      customError(`mode of result,method of delivery and notification settings required`, 404, response)
+    }
   }
+
+    isValidForAnalysis = async function (testid) {
+      // 1. get the category of the test
+      // 2. determine the parameter variations, eg hematological test do not have mu;tiple params like malaria, widal etc, 
+      // same cant be said about renal functional
+      // 3. Initial suppeort will be for chemistry results
+      // 4. query the db table and return all params by count determined in the request query
+
+    }
 }
 
 
-
+// console.log(new Patient())
 
 module.exports = Patient;

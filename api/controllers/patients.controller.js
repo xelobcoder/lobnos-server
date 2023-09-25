@@ -37,7 +37,12 @@ parent.get(
 );
 
 parent.post('/api/v1/patients/updatecredentials', async function (request, response) {
-  await new Patient().updateCredentials(request,response);
+  await new Patient().updateCredentials(request, response);
+})
+
+parent.put('/api/v1/patients/notifications', async function (request, response) {
+  console.log(request.body)
+  await new Patient().updateNotificationSettings(request, response);
 })
 
 

@@ -1,5 +1,6 @@
 const logger = require('../logger');
 const connection = require('./db');
+const EmailService = require('./models/email');
 const { database_queries } = require("./testResult");
 // YET TO BE CODED
 // AFTER CHANGE OF STATUS CLIENT WOULD BE NOTIFIED VIA EMAIL
@@ -35,7 +36,7 @@ class SampleHandler {
       `;
       connection.query(SQL_QUERY, (err, result) => {
         if (err) {
-         logger.error(err);
+          logger.error(err);
         }
         this.response.send(result);
       });
@@ -60,7 +61,7 @@ class SampleHandler {
     `;
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
-       logger.error(err);
+        logger.error(err);
       }
       this.response.send(result);
     });
@@ -87,7 +88,7 @@ class SampleHandler {
     `;
       connection.query(SQL_QUERY, (err, result) => {
         if (err) {
-         logger.error(err);
+          logger.error(err);
         }
         this.response.send(result);
       });
@@ -112,7 +113,7 @@ class SampleHandler {
   `;
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
-       logger.error(err);
+        logger.error(err);
       }
       else {
         // check for pending  count in item of the result and only send those ABOVE 0
@@ -137,19 +138,42 @@ class SampleHandler {
 
     SQL_QUERY += ` WHERE billingid = ${billingid} AND testid = ${testid}`
 
-    console.log(SQL_QUERY)
-    connection.query(SQL_QUERY, (err, result) => {
+    connection.query(SQL_QUERY, async (err, result) => {
       if (err) {
-       logger.error(err);
+        logger.error(err);
       }
       else {
+        approvalStatus == 0 ? 
+         await new EmailService().triggerSampleRejectionEmail(testid, billingid,message): null
         response.send({
           statusCode: 200,
           status: 'success',
-          message: 'record updated successfully'
+          message: 'record updated successfully '
         })
       }
     })
+  }
+
+  async getSampleRejectionStatus(testid, billingid) {
+    return new Promise((resolve, reject) => {
+      connection.query(
+        `SELECT * FROM samplestatus WHERE billingid = ?  AND approvalstatus = 0 AND testid = ?`,
+        [billingid, testid],
+        function (err, result) {
+          if (err) {
+            logger.error(err);
+            reject(err);
+          } else {
+            if (result.length == 1) {
+              const { message, date, billingid } = result[0];
+              resolve({ message, date, billingid });
+            } else {
+              resolve(null);
+            }
+          }
+        }
+      );
+    });
   }
 }
 

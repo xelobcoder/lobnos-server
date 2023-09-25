@@ -12,9 +12,14 @@ const DB_TABLE_FEMALE = 'setup_full_count_count_female';
 const DB_TABLE_GENERAL = 'setup_full_blood_count_test_general';
 const DB_TABLE_CREATE_PARAMS = 'setup_fullcount_paramters'
 
-// this gets the table name in the db based on the test query and options in the case of full blood count 
+/**
+ * Determines the table name in the database based on the test query and options provided.
+ * 
+ * @param {string} opts - The test query or option.
+ * @param {string} [patientid] - The patient ID.
+ * @returns {string} - The table name in the database based on the provided test query or option.
+ */
 const category_determiner = function (opts, patientid) {
-  //  convert string to lowercase 
   let optsCot = new String(opts).toLowerCase();
   switch (optsCot) {
     case 'male':
@@ -33,11 +38,17 @@ const category_determiner = function (opts, patientid) {
 }
 
 
-// this function takes in the patient id and returns the age 
-// also if the billingid is given , then the billingid is used
-// on of the paramters  must be null or an error will thrown
-// this is for filling incase category is given by the client
-
+/**
+ * Returns the appropriate database table name based on the patient's age, gender, and age type.
+ * 
+ * @param {number} patientid - The ID of the patient (optional, default: null).
+ * @param {number} billingid - The ID of the billing (optional, default: null).
+ * @returns {Promise<string>} A promise that resolves with the appropriate database table name.
+ * @throws {Error} If both patientid and billingid are provided.
+ * 
+ * @example
+ * const tableName = await getAge(patientId, billingId);
+ */
 const getAge = function (patientid = null, billingid = null) {
   return new Promise((resolve, reject) => {
     let connectionQuery = '';
@@ -79,8 +90,15 @@ const getAge = function (patientid = null, billingid = null) {
   })
 }
 
+  /**
+   * Inserts data into a database table based on the category and setup data provided in the request body.
+   * 
+   * @param {object} request - The request object containing the category, setupdata, and setup properties in the body.
+   * @param {object} response - The response object used to send a response back to the client.
+   * @returns {void}
+   */
+  
 const insertdata = function (request, response) {
-
   const { category, setupdata, setup } = request.body;
 
   if (!category || category == null || category == undefined) {

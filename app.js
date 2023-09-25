@@ -2,6 +2,8 @@ const express = require("express");
 const connection = require('./api/db')
 const app = express();
 const dotenv = require("dotenv");
+const EmailService = require('./api/models/email')
+// console.log(new EmailService().triggerSampleRejectionEmail({message:'hello',date:'e',billingid:59}))
 const port = 5000;
 const {
   addBilling,
@@ -180,6 +182,7 @@ app.get("/api/v1/activation/bulk", (req, res) => {
 app.get("/api/v1/testpanel/categories", (req, res) => {
   getCategory(req, res);
 });
+
 
 app.post("/api/v1/testpanel/categories", (req, res) => {
   postCategory(req, res);
