@@ -1,19 +1,36 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <style>
-  .hearing {
-    color: white;
-    background-color: rgba(255, 0, 0, 0.667);
-    border-radius: 5px;
-    padding: 20px;
-  }
-  </style>
-</head>
-<body>
-  <p class="hearing">${message}</p>
-</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <p>
+      Verify Email by clicking on the button below. you would be redirected to
+      us
+    </p>
+    <button
+      onclick="openPage('738348383883')"
+      style="
+        border: 1px solid lightgray;
+        padding: 10px;
+        border-radius: 5px;
+        cursor: pointer;
+        width: 100px;
+        background-color: blue;
+        color: white;
+        font-weight: 600;
+        text-transform: capitalize;
+        outline: 2px solid khaki;
+      "
+    >
+      verify
+    </button>
+  </body>
+  <script>
+    function openPage(token) {
+      window.open(`www.lonos.com/patient/verifyemail/${token}`)
+    }
+  </script>
 </html>

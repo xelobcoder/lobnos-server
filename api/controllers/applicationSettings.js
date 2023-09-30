@@ -34,4 +34,4 @@ router.post('/api/v1/applicationssettings/emailpreference', function (request, r
 
 module.exports = router;
 
-
+// applicationsettings.

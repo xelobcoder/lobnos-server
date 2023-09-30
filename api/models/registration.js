@@ -2,6 +2,7 @@ const { response } = require('express');
 const { customError } = require('../../helper');
 const connection = require('../db');
 const logger = require('../../logger');
+const EmailService = require('./email');
 
 
 /**
@@ -25,13 +26,11 @@ class Registration {
         if (err) {
           reject(err)
         } else {
-          if (result.length == 0) {
-            resolve(false)
-          } else {
-            const bulkregistration = result[0]['bulkregistration'];
-            if (bulkregistration == 0) {
-              resolve(false)
-            } else {
+          if (result.length == 0) resolve(false);
+          else {
+            const { bulkregistration } = result[0];
+            if (bulkregistration == 0) resolve(false)
+            else {
               resolve(true)
             }
           }
@@ -125,11 +124,16 @@ class Registration {
       // query values
       const values = [id, firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization]
       // execute query
-      connection.query(query, values, function (err, result) {
+      connection.query(query, values, async function (err, result) {
         if (err) {
           reject(err)
         } else {
-          resolve(result.affectedRows)
+          const { affectedRows } = result;
+          if (email && affectedRows ===  1) {
+            // fire an email message to client to authenticate the email provided;
+            await new EmailService().clientRegistrationMailing(id, email);
+          }
+          resolve(affectedRows);
         }
       })
     })
@@ -194,11 +198,11 @@ class Registration {
         });
       }
       else {
-        if (idExist == false) {
+        if (!idExist) {
           let result = await this.personalInformation(id, personalInformation);
           // if the result is 1 then we have successfully added the patient information
           if (result == 1) {
-            if (await this.isBulkRegistration() == true) {
+            if (await this.isBulkRegistration() === true) {
               let insetAddress = await this.addressingInformation(id, addressingInformation);
               if (insetAddress) {
                 let insetEmmergency = await this.emmergencyInformation(id, emmergencyInformation);
@@ -294,10 +298,6 @@ class Registration {
     } else {
       customError(`patient id not found`, 404, response)
     }
-  }
-
-  updateCredentials = async function (request, response) {
-
   }
 
 }

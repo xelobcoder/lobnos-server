@@ -2,6 +2,7 @@ const express = require("express");
 const connection = require('./api/db')
 const app = express();
 const dotenv = require("dotenv");
+const ejs = require('ejs')
 const EmailService = require('./api/models/email')
 // console.log(new EmailService().triggerSampleRejectionEmail({message:'hello',date:'e',billingid:59}))
 const port = 5000;
@@ -45,6 +46,10 @@ const cookieSession = require('cookie-session');
 const patientAnalytics = require('./api/controllers/patients.controller');
 
 
+const path = require('path')
+app.get('/t/v', function(req,res) {
+  res.render(path.join(__dirname,'api','views','templates'+'/verifyemail.ejs'),{token:'77777777777'})
+})
 
 
 const cors = require("cors");
