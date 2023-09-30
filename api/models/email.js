@@ -1,7 +1,17 @@
 const connection = require('../db');
 const logger = require('../../logger');
 const nodemailer = require('nodemailer');
-const database_queries = require('../database/queries')
+const database_queries = require('../database/queries');
+const Patients = require('./patientAnalytics');
+const ejs = require('ejs');
+const path = require('path');
+const jwt = require('jsonwebtoken');
+const { customError } = require('../../helper');
+const Registration = require('./registration');
+
+
+
+const runPromise = new Patients().runqueryPromise;
 
 
 
@@ -69,58 +79,157 @@ class EmailService {
   }
 
   transportEmail = function (mailOptions) {
-    this.createTransport().sendMail(mailOptions, (error, info) => {
-      if (error) {
-        logger.log('error', error)
-      } else {
-        console.log(`Email sent: ${info.response}`)
+    if (this.user && this.password && this.provider && this.company) {
+      this.createTransport().sendMail(mailOptions, (error, info) => {
+        if (error) {
+          logger.log("error", error);
+        } else {
+          console.log(`Email sent: ${info.response}`);
+        }
+      });
+    } else {
+      return false;
+    }
+  }
+
+  async isEmailAuthenticated(patientid) {
+    // we want to verify using the patientid if patient is authenticated via email and the email is authenticated
+    let result = await runPromise(`SELECT * FROM patients_settings WHERE PATIENTID = ?`, [patientid]);
+    if (result.length === 0) return false;
+    else {
+      const { authenticated, authenticationMode } = result[0];
+      if (authenticationMode === 'EMAIL' && authenticated == 1) return true;
+      else return false;
+    }
+  }
+
+  async sendAuthenticateEmail(emailAdd, patientid) {
+    if (emailAdd && patientid) {
+      try {
+        // generate a jwt token for client
+        const token = jwt.sign({ email: emailAdd, patientid }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
+        // render html using ejs templating egine
+        const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/verifyemail.ejs'), { token });
+        // forward the email
+        this.transportEmail(this.mailOptions(emailAdd, 'EMAIL VERIFICATION', html));
+      } catch (err) {
+        logger.error(err)
       }
-    });
+    } else return `all parameters not provided`;
+  }
+
+  async verifyEmailToken(token, response) {
+    try {
+      const ourDecodedToken = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+      const { patientid, email } = ourDecodedToken;
+
+      if (patientid && email) {
+        if (response) {
+          response.send({ message: 'Email authenticated.Your temporary logins will be sent to you via email', statusCode: 200, status: 'success' });
+        }
+        const logins = await this.fireClientTemporaryLogins(patientid);
+        const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/temporaryLogins.ejs'), { data: logins });
+        this.transportEmail(this.mailOptions(email, 'TEMPORARY PATIENT LOGINS', html));
+      }
+    } catch (err) {
+      if (response) {
+        customError(err, 404, response);
+      }
+      logger.error(err)
+    }
   }
 
 
+  async fireClientAuthentication(patientid, email) {
+    //  1. patient only provided? get personal information and check if email address is available
+    // 2. if yes, send verification message 
+    // 3. if no , return 
+    // --- if email address is provided as second arguments , send verification message right away
+    if (patientid && !email) {
+      const cI = await database_queries.getsingleid(patientid, 'new_patients', 'PATIENTID');
+      if (cI.length > 0 && cI[0]['EMAIL']) {
+        const emailAdd = cI[0]['EMAIL'];
+        this.sendAuthenticateEmail(emailAdd, patientid);
+      }
+    } else if (patientid && email) {
+      this.sendAuthenticateEmail(email, patientid);
+    } else {
+      return false;
+    }
+  }
 
+
+  async fireClientTemporaryLogins(patientid, response) {
+    if (patientid && typeof patientid === 'number') {
+      const query = `SELECT * FROM patients_credentials where PATIENTID = ?`;
+      const outcome = await runPromise(query, patientid);
+      if (outcome && outcome.length > 0) {
+        const { username, password } = outcome[0];
+        const updated = outcome[0]['updated']
+        if (updated === 'true') return false;
+        if (response) {
+          response.send({ result: outcome[0] });
+        }
+        if (updated === 'false') {
+          return { username, password };
+        }
+      }
+    }
+  }
+
+
+  // TODO: Add the test in which the sample has been rejected
   async triggerSampleRejectionEmail(testid, billingid, message) {
     // use thr billing id to retrieve the patientid
     try {
-      const personBillingifo = await database_queries.getsingleid(parseInt(billingid), 'billing', 'BILLINGID');
-      if (personBillingifo.length > 0) {
-        const { PATIENTID } = personBillingifo[0];
+      const billdata = await database_queries.getsingleid(parseInt(billingid), 'billing', 'BILLINGID');
+      if (billdata.length > 0) {
+        const { PATIENTID } = billdata[0];
         // use the patient id to get the email
         const person = await database_queries.getsingleid(parseInt(PATIENTID), 'new_patients', 'PATIENTID')
         if (person.length > 0) {
           const { EMAIL } = person[0];
           if (EMAIL == null) return;
-          const html =`
-              <!DOCTYPE html>
-                <html lang="en">
-                <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>Document</title>
-                  <style>
-                  .hearing {
-                    color: white !important;
-                    background-color: rgba(255, 0, 0, 0.667);
-                    border-radius: 5px;
-                    padding: 20px;
-                  }
-                  </style>
-                </head>
-                <body>
-                  <p class="hearing">${message}</p>' <p class="hearing">${message}</p>
-                </body>
-              </html>
-          `;
+          const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/samplerRejection.ejs'), { message });
           const mailOptions = this.mailOptions(EMAIL, 'SAMPLE REJECTION NOTIFICATION', html);
           this.transportEmail(mailOptions);
-        }
+          return;
+        } else return false;
       }
     } catch (err) {
       logger.error(err)
     }
+  }
 
-    // this.transportEmail(this.mailOptions())
+  async clientRegistrationMailing(patientid, email, callback) {
+    const appset = await runPromise(`SELECT emailNotification FROM applicationsettings`);
+    if (appset.length > 0) {
+      const emailActivation = appset[0]['emailNotification']
+      if (emailActivation === 0) {
+        // email service is not activated , hence return false
+        return false;
+      } else {
+        // if activated , check general preference for registration sending email when registration is done
+        // if yes , check patient preference and if no return
+        // if patient mode of notication == 'email', send mail
+        const clientPreference = await this.getEmailPreference();
+        if (clientPreference.length > 0) {
+          const { registration } = clientPreference[0];
+          if (registration === 'No') return false
+          else {
+            // check client preference
+            const ptmethod = await runPromise(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid]);
+            if (ptmethod.length > 0 && ptmethod[0]['method'] === 'email') {
+              if (callback && typeof callback === 'function') callback();
+              else {
+                this.fireClientAuthentication(patientid, email);
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
 
@@ -136,14 +245,28 @@ class EmailService {
     })
   }
 
-  logEmailsent() {
-   
+  async getEmailPreference() {
+    return await runPromise(`SELECT * FROM emailpreference`);
   }
+  logEmailsent() {
+
+  }
+
+
 
 }
 
 
 
+new EmailService().verifyEmailToken(`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRpaWZ1b2ZmaWNpYWxAZ21haWwuY29tIiwicGF0aWVudGlkIjoyMDIzODIxMTIsImlhdCI6MTY5NjA0NzE4NSwiZXhwIjoxNjk2MDQ4OTg1fQ.VruQIM0iUsamj6jaGvPJq2JrTFVpDdXtpX_DBdhw5sY`)
+  .then((da) => console.log(da))
+  .catch((err) => console.log(err))
+
+
+// new EmailService().clientRegistrationMailing(202382112
+// )
+//   .then((da) => console.log(da))
+//   .catch((err) => console.log(err))
 
 
 
