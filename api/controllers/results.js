@@ -5,10 +5,16 @@ const { Result } = require('../models/result')
 // get test result get the result 
 router.get('/api/v1/test/result/check', async function (req, res) {
   try {
-    const { billingid, testname } = req.query;
+    const { billingid, testname, testid } = req.query;
     const resultChecker = new Result(billingid, testname);
     const result = await resultChecker.isResultEntered();
-    const records = await resultChecker.getTestResult();
+    let records = '';
+
+    if (testname === 'scan') {
+      records = await resultChecker.getScanRecord(testid);
+    } else {
+      records = await resultChecker.getTestResult();
+    }
 
     if (!billingid && !testname) {
       res.status(400).send({
@@ -120,6 +126,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
         break;
       case 'helicobacter_pylori':
         await resultInstance.helicobacter_pylori(req.body, res);
+        break;
+      case 'scan':
+        await resultInstance.scanResult(req.body, res);
         break;
       default:
         return res.send({

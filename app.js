@@ -2,17 +2,10 @@ const express = require("express");
 const connection = require('./api/db')
 const app = express();
 const dotenv = require("dotenv");
-const ejs = require('ejs')
 const EmailService = require('./api/models/email')
 // console.log(new EmailService().triggerSampleRejectionEmail({message:'hello',date:'e',billingid:59}))
 const port = 5000;
-const {
-  addBilling,
-  addperformingTest,
-  checkifActivated,
-  getBilledClients,
-  updateBilling,
-} = require("./api/billing");
+const { addBilling, addperformingTest, checkifActivated, getBilledClients, updateBilling } = require("./api/billing");
 const branchesHandler = require("./api/branches");
 const resultChecker = require("./api/controllers/results");
 const Manager = require('./api/controllers/manager');
@@ -21,12 +14,7 @@ const { getOrganizations } = require("./api/models/organization");
 const registrationRouter = require('./api/controllers/registration');
 const rejectedRouter = require("./api/controllers/rejected");
 const activation = require("./api/activation");
-const {
-  getCategory,
-  putCategory,
-  deleteCategory,
-  postCategory,
-} = require("./api/testpanel/categories");
+const { getCategory, putCategory, deleteCategory, postCategory } = require("./api/testpanel/categories");
 const clinicianRouter = require("./api/controllers/clinicians");
 const testpanel = require("./api/testpanel/list");
 const { get } = require("./api/center");
@@ -45,11 +33,6 @@ const generalSalesRouter = require('./api/controllers/sales');
 const cookieSession = require('cookie-session');
 const patientAnalytics = require('./api/controllers/patients.controller');
 
-
-const path = require('path')
-app.get('/t/v', function(req,res) {
-  res.render(path.join(__dirname,'api','views','templates'+'/verifyemail.ejs'),{token:'77777777777'})
-})
 
 
 const cors = require("cors");

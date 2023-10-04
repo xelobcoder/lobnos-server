@@ -124,13 +124,19 @@ class EmailService {
 
       const { patientid, email } = ourDecodedToken;
 
-      if (patientid && email) {
+      if (patientid && email && await new Registration().checkPatientIdExist(patientid)) {
         if (response) {
           response.send({ message: 'Email authenticated.Your temporary logins will be sent to you via email', statusCode: 200, status: 'success' });
         }
         const logins = await this.fireClientTemporaryLogins(patientid);
         const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/temporaryLogins.ejs'), { data: logins });
         this.transportEmail(this.mailOptions(email, 'TEMPORARY PATIENT LOGINS', html));
+      } else {
+        if (response) {
+          customError(`invalid token provided`, 404, response);
+        } else {
+          return false;
+        }
       }
     } catch (err) {
       if (response) {
@@ -202,35 +208,40 @@ class EmailService {
     }
   }
 
-  async clientRegistrationMailing(patientid, email, callback) {
+  async isEmailServiceActivated() {
     const appset = await runPromise(`SELECT emailNotification FROM applicationsettings`);
     if (appset.length > 0) {
       const emailActivation = appset[0]['emailNotification']
       if (emailActivation === 0) {
         // email service is not activated , hence return false
         return false;
-      } else {
-        // if activated , check general preference for registration sending email when registration is done
-        // if yes , check patient preference and if no return
-        // if patient mode of notication == 'email', send mail
-        const clientPreference = await this.getEmailPreference();
-        if (clientPreference.length > 0) {
-          const { registration } = clientPreference[0];
-          if (registration === 'No') return false
-          else {
-            // check client preference
-            const ptmethod = await runPromise(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid]);
-            if (ptmethod.length > 0 && ptmethod[0]['method'] === 'email') {
-              if (callback && typeof callback === 'function') callback();
-              else {
-                this.fireClientAuthentication(patientid, email);
-              }
-            }
-          }
+      } else return true;
+    }
+  }
+
+  async selectedPreferenceActivated(target) {
+    const clientPreference = await this.getEmailPreference();
+    if (clientPreference.length > 0 && clientPreference[0][target]) {
+      if (target === 'No') return false
+      else return true;
+    }
+  }
+
+  async clientMailing(patientid, email, callback) {
+    if (await this.isEmailServiceActivated() && await this.selectedPreferenceActivated('registration')) {
+      const ptmethod = await runPromise(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid]);
+      if (ptmethod.length > 0 && ptmethod[0]['method'] === 'email') {
+        // default is sending message after new client is registered;
+        // however if a call back is prrovided, it is treated as first class and fired
+        if (callback && typeof callback === 'function') callback();
+        else {
+          this.fireClientAuthentication(patientid, email);
         }
       }
     }
   }
+
+
 
 
   getEmailSettings() {

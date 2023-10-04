@@ -58,14 +58,13 @@ class Operations {
                 INNER JOIN departments AS d ON d.id = tp.CATEGORY
               WHERE ta.billingid = ${this.billingid}`;
 
-
       if (departmentid != 'undefined') {
         if (departmentid != 'all') {
           queryString += ` AND tp.CATEGORY = ${departmentid}`
         }
       }
 
-      queryString += ` AND ta.collection = 'true' AND ta.ready='false'`
+      queryString += ` AND ta.collection = 'true' AND ta.ready='false'  AND d.department <> 'ultrasound' `
 
 
       return new Promise((resolve, reject) => {
@@ -103,6 +102,7 @@ class Operations {
                 INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
                 INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
                 INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+                INNER JOIN departments AS d ON d.ID = tp.CATEGORY
               WHERE ss.approvalstatus = 1 AND pt.DATE = CURRENT_DATE
     `;
 
@@ -116,7 +116,7 @@ class Operations {
 
     }
 
-    queryString += ` AND ta.collection = 'true' AND ta.ready='false' `
+    queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound'`
 
     queryString += ` GROUP BY pt.BILLINGID
           ORDER BY pt.ID ASC
@@ -170,7 +170,7 @@ class Operations {
       customError('stage of tests required', 401);
     } else {
       let queryString = `
-      SELECT tp.CATEGORY AS category,
+      SELECT DISTINCT tp.CATEGORY AS category,
           d.department AS department,
           pt.DATE AS 'date',
           pt.BILLINGID AS billingid,
@@ -193,6 +193,8 @@ class Operations {
       if (stage == 'entered') {
         queryString += ` AND ta.ready = 'true' `
       }
+
+      queryString += ` AND d.department <> 'ultrasound'`
 
       connection.query(queryString, function (err, result) {
         if (err) {
@@ -229,9 +231,10 @@ class Operations {
                 INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
                 INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
                 INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+                INNER JOIN departments AS d ON d.ID = tp.CATEGORY
             `
 
-    queryString += ` WHERE ss.approvalstatus = 1`
+    queryString += ` WHERE ss.approvalstatus = 1 AND d.department <> 'ultrasound'`
 
     if (from && !to) {
       queryString += ` AND pt.DATE BETWEEN '${from}' AND CURRENT_DATE`
@@ -251,7 +254,7 @@ class Operations {
       queryString += ` AND pt.BILLINGID = ${billingid}`
     }
 
-    queryString += ` GROUP BY pt.BILLINGID DESC LIMIT 50`;
+    queryString += ` GROUP BY pt.BILLINGID DESC LIMIT 30`;
 
 
     connection.query(queryString, function (err, result) {
@@ -302,6 +305,50 @@ class Operations {
       customError('billingid is required', 400)
     }
   }
+
+  async getUltrasoundWaitingList(request, response) {
+    const queryString = ` 
+    SELECT DISTINCT
+    CASE 
+        WHEN MIDDLENAME IS NULL THEN CONCAT(
+            np.FIRSTNAME,
+            ' ',
+            np.LASTNAME
+          )  ELSE CONCAT(  np.FIRSTNAME,
+            ' ',
+            np.MIDDLENAME,
+            ' ',
+            np.LASTNAME) END AS FULLNAME,
+    np.PATIENTID,
+    pt.BILLINGID,
+    pt.DATE,
+    tp.NAME,
+    tp.ID AS TESTID,
+    tp.CATEGORY,d.department
+  FROM new_patients as np
+    INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
+    INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
+    INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
+    INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+    INNER JOIN departments AS d ON d.ID = tp.CATEGORY
+  WHERE ta.ready = 'false' AND d.department = 'ultrasound'`;
+    connection.query(queryString, (err, result) => {
+      if (err) {
+        customError(err.message, 500)
+      } else {
+        response.send({
+          statusCode: 200,
+          result,
+          status: 'success'
+        })
+      }
+    })
+  }
+
+  async postScanResult(request, response) {
+
+  }
+
 }
 
 module.exports = Operations;

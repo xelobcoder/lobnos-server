@@ -90,4 +90,14 @@ router.get('/api/v1/operations/test/result', async function (request, response) 
 })
 
 
+router.get('/api/v1/operations/imaging/ultrasound', async function (request, response) {
+  await new Operations().getUltrasoundWaitingList(request, response)
+})
+
+
+router.get('operations/imaging/ultrasound/processed', async function (request, response) {
+
+})
+
+
 module.exports = router;

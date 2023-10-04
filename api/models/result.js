@@ -34,7 +34,8 @@ const testTable = {
   luteinizing_hormone: 'lhresult',
   follicle_stimulating_hormone: 'fshresult',
   lipid_profile: 'result_lipid_profile',
-  helicobacter_pylori: 'result_helicobacter_pylori'
+  helicobacter_pylori: 'result_helicobacter_pylori',
+  scan: 'scanReport'
 };
 
 class Result {
@@ -80,6 +81,15 @@ class Result {
     } else {
       return "test not recognized";
     }
+  }
+
+
+  async getScanRecord(testid) {
+    return new Promise((resolve, reject) => {
+      connection.query(`SELECT * FROM scanReport WHERE billingid = ? AND testid = ?`, [this.billingid, testid], function (err, result) {
+        if (err) { logger.error(err); } else { resolve(result) }
+      })
+    })
   }
 
   async getTestResult() {
@@ -1216,6 +1226,31 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         })
       }
     }
+  }
+
+
+  async scanResult(records, response) {
+    const { testid, fullname, testname, billingid, patientid, scan, content, sonographer } = records;
+    connection.query(`SELECT * FROM scanReport WHERE billingid = ? AND testid = ?`, [billingid, testid],
+      (err, result) => {
+        if (err) { logger.error(err) } else {
+          if (result.length === 0) {
+            const query = `INSERT INTO ${testTable[testname]}(patientid,billingid,scan,content,sonographer,testid) VALUES (?,?,?,?,?,?)`;
+            const values = [patientid, billingid, scan, content, sonographer, testid];
+            this.useTransactionForResult(query, values, testid, response);
+          } else {
+            const updatedQuery = `UPDATE scanReport  SET content = ? WHERE billingid = ? AND patientid = ?`;
+            connection.query(updatedQuery, [content, billingid, patientid], (err, result) => {
+              if (err) {
+                this.errMessage(err, response);
+              } else {
+                this.pushResponse(result, response);
+              }
+            }
+            );
+          }
+        }
+      });
   }
 
 }
