@@ -95,8 +95,8 @@ router.get('/api/v1/operations/imaging/ultrasound', async function (request, res
 })
 
 
-router.get('operations/imaging/ultrasound/processed', async function (request, response) {
-
+router.get('/api/v1/operations/imaging/ultrasound/processed', async function (request, response) {
+  await new Operations().processedScanList(request, response)
 })
 
 

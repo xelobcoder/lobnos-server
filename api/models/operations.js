@@ -2,6 +2,7 @@
 // 2. Get all unprocessed samples based on the category, limit by 50 samples at ago
 // 3. We want to monitor for a pactiular billing, when the test was started, when it was completed, and the result
 const { customError } = require('../../helper');
+const logger = require('../../logger');
 const connection = require('../db')
 
 class Operations {
@@ -345,8 +346,63 @@ class Operations {
     })
   }
 
-  async postScanResult(request, response) {
+  async processedScanList(request, response) {
+    const { from, to, search } = request.query;
+    let query = `  SELECT DISTINCT
+    CASE 
+        WHEN MIDDLENAME IS NULL THEN CONCAT(
+            np.FIRSTNAME,
+            ' ',
+            np.LASTNAME
+          )  ELSE CONCAT(  np.FIRSTNAME,
+            ' ',
+            np.MIDDLENAME,
+            ' ',
+            np.LASTNAME) END AS FULLNAME,
+    np.PATIENTID,
+    pt.BILLINGID,
+    pt.DATE,
+    ta.ready,
+    tp.NAME,
+    tp.ID AS TESTID,
+    tp.CATEGORY,d.department
+  FROM new_patients as np
+    INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
+    INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
+    INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
+    INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+    INNER JOIN departments AS d ON d.ID = tp.CATEGORY
+  WHERE ta.ready = 'true' AND d.department = 'ultrasound'`
 
+    if (from && to) {
+      query += ` AND pt.DATE BETWEEN '${from}' AND '${to}'`
+    } else if (from && !to) {
+      query += `  AND pt.DATE BETWEEN '${from}' AND CURRENT_DATE`
+    } else {
+      query = query;
+    }
+
+    if (search) {
+      query += ` AND (np.FIRSTNAME LIKE '%${search}' 
+      OR np.LASTNAME LIKE '%${search}' 
+      OR np.MOBILE_NUMBER ='%${search}')`
+    }
+    if (!from && !to) {
+      query += ` GROUP BY pt.BILLINGID ORDER BY pt.BILLINGID DESC LIMIT 15`
+    }
+
+    connection.query(query, (err, result) => {
+      if (err) {
+        logger.error(err)
+        customError(err.message, 500)
+      } else {
+        response.send({
+          statusCode: 200,
+          result,
+          status: 'success'
+        })
+      }
+    })
   }
 
 }

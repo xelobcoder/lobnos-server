@@ -66,13 +66,18 @@ class Result {
     return testTable[this.testname] != undefined ? true : false;
   }
 
-  async isResultEntered() {
+  async isResultEntered(testid) {
     if (this.isTestValid()) {
       return new Promise((resolve, reject) => {
-        const query = `SELECT * FROM ${testTable[this.testname]
+        let query =
+          `SELECT * FROM ${testTable[this.testname]
           } WHERE billingid = ${this.billingid}`;
+        if (this.testname === 'scan' && testid) {
+          query += ` AND testid = ${testid}`
+        }
         connection.query(query, (err, result) => {
           if (err) {
+            console.log(err)
             reject(err);
           }
           resolve(result);
@@ -84,21 +89,20 @@ class Result {
   }
 
 
-  async getScanRecord(testid) {
-    return new Promise((resolve, reject) => {
-      connection.query(`SELECT * FROM scanReport WHERE billingid = ? AND testid = ?`, [this.billingid, testid], function (err, result) {
-        if (err) { logger.error(err); } else { resolve(result) }
-      })
-    })
-  }
 
-  async getTestResult() {
+
+  async getTestResult(testid) {
     if (this.isTestValid) {
       return new Promise((resolve, reject) => {
-        const query = `SELECT * FROM ${testTable[this.testname]
+        let query = `SELECT * FROM ${testTable[this.testname]
           } WHERE billingid = ${this.billingid}`;
+
+        if (this.testname === 'scan' && testid) {
+          query += ` AND testid=${testid}`
+        }
         connection.query(query, (err, result) => {
           if (err) {
+            console.log(err)
             reject(err);
           }
           resolve(result);
@@ -133,13 +137,13 @@ class Result {
     comments
   ) {
     try {
-      let ascensionQuery = `UPDATE TEST_ASCENSION SET READY = 'true',READY_DATE = NOW()`
+      let ascensionQuery = `UPDATE test_ascension SET ready = 'true', ready_date = NOW()`
 
       const isApprovalTrue = await this.isApprovalSetTrue();
-      if (isApprovalTrue == false) {
+      if (isApprovalTrue === false) {
         ascensionQuery += `,ApprovalStatus = 1`
       }
-      ascensionQuery += ` WHERE BILLINGID = ${this.billingid} AND TESTID = ?`
+      ascensionQuery += ` WHERE billingid = ${this.billingid} AND testid = ?`
       await beginTransaction();
       await query(queryString, value);
       await query(
@@ -1211,12 +1215,10 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
       if (await this.ShouldCreateRecord()) {
         const query = `INSERT INTO ${testTable[testname]} (specimen,result,billingid,comments,patientid)
         VALUES(?,?,?,?,?)`;
-
-        await this.useTransactionForResult(query, [specimen, result, billingid, comments, patientid], testid, response);
+        await this.useTransactionForResult(query, [specimen, result, billingid, comments, patientid], parseInt(testid), response);
       } else {
         const updatedQuery = `UPDATE ${testTable[testname]} SET 
         specimen = ?,result = ?, comments = ? WHERE BILLINGID = ?`;
-
         connection.query(updatedQuery, [specimen, result, comments, billingid], (err, result) => {
           if (err) {
             this.errMessage(err, response)
@@ -1236,8 +1238,8 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         if (err) { logger.error(err) } else {
           if (result.length === 0) {
             const query = `INSERT INTO ${testTable[testname]}(patientid,billingid,scan,content,sonographer,testid) VALUES (?,?,?,?,?,?)`;
-            const values = [patientid, billingid, scan, content, sonographer, testid];
-            this.useTransactionForResult(query, values, testid, response);
+            const values = [patientid, billingid, scan, content, sonographer, parseInt(testid)];
+            this.useTransactionForResult(query, values, parseInt(testid), response);
           } else {
             const updatedQuery = `UPDATE scanReport  SET content = ? WHERE billingid = ? AND patientid = ?`;
             connection.query(updatedQuery, [content, billingid, patientid], (err, result) => {

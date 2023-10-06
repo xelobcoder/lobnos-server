@@ -7,14 +7,8 @@ router.get('/api/v1/test/result/check', async function (req, res) {
   try {
     const { billingid, testname, testid } = req.query;
     const resultChecker = new Result(billingid, testname);
-    const result = await resultChecker.isResultEntered();
-    let records = '';
-
-    if (testname === 'scan') {
-      records = await resultChecker.getScanRecord(testid);
-    } else {
-      records = await resultChecker.getTestResult();
-    }
+    const result = await resultChecker.isResultEntered(testid);
+    let records = await resultChecker.getTestResult(testid);
 
     if (!billingid && !testname) {
       res.status(400).send({
