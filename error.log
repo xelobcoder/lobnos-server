@@ -1304,3 +1304,7 @@
 {"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (99,'B','positive',20238187,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
 {"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (99,'O','positive',20238187,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
 {"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (99,'O','positive',20238187,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"expiredAt":"2023-09-30T04:43:05.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-09-30T04:43:05.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-09-30T04:43:05.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-09-30T04:43:05.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}

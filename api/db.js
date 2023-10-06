@@ -26,7 +26,7 @@ const connectionData = {
 const connection = createConnection(connectionData)
 
 connection.connect(err => {
-    if (err) { logger.error(err) }
+    if (err) { logger.error(err); }
     else { console.log('Connected to database'); }
 })
 
