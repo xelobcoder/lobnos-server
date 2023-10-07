@@ -1,6 +1,8 @@
 const router = require('express').Router();
+const { customError } = require('../../helper');
 const ResultPrint = require('../models/ResultPrint');
 const { testCategoryMapping } = require('../models/ResultQueryMapping');
+const EmailService = require('../models/email');
 const { getBillingInvoiceData } = require('../models/invoice');
 const Payment = require('../models/payment')
 const result = new ResultPrint();
@@ -116,8 +118,18 @@ router.post('/api/v1/result/approve', function (request, response) {
 })
 
 
-router.get('/api/v1/billing/invoice', function(request,response) {
-   getBillingInvoiceData(request,response);
+router.get('/api/v1/billing/invoice', function (request, response) {
+   getBillingInvoiceData(request, response);
+})
+
+
+router.get('/api/v1/billing/email/receipt', async function (request, response) {
+   const { billingid } = request.query;
+   if (billingid) {
+      await new EmailService().forwardBillingReceipt(billingid);
+   } else {
+      customError(`billing id required`, 404, response);
+   }
 })
 
 module.exports = router;

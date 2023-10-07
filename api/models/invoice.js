@@ -1,27 +1,19 @@
 const connection = require('../db');
 const { customError } = require('../../helper');
-async function getBillingInvoiceData(request, response) {
-  // we want to get the personal information of the client 
-  // and test subscribed to , amount paid and outdtanding bill if any
 
-  const { billingid } = request.query;
-
-  if (billingid) {
-    let Invoice = {}
-
-    const testInformation = async function (billingid) {
-      return new Promise((resolve, reject) => {
-        const query = `SELECT PRICE,NAME FROM test_panels WHERE ID IN (SELECT TESTID FROM test_ascension WHERE BILLINGID = ${billingid})`;
-        connection.query(query, (err, result) => {
-          if (err) { reject(err); } else { resolve(result) }
-        })
-      })
-    }
+const testInformation = async function (billingid) {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT PRICE,NAME FROM test_panels WHERE ID IN (SELECT TESTID FROM test_ascension WHERE BILLINGID = ${billingid})`;
+    connection.query(query, (err, result) => {
+      if (err) { reject(err); } else { resolve(result) }
+    })
+  })
+}
 
 
-    const clientInformation = async function (billingid) {
-      return new Promise((resolve, reject) => {
-        const query = `SELECT 
+const clientInformation = async function (billingid) {
+  return new Promise((resolve, reject) => {
+    const query = `SELECT 
               CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS FULLNAME,
               AGE,
               AGETYPE,
@@ -39,12 +31,21 @@ async function getBillingInvoiceData(request, response) {
           INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
           WHERE bb.BILLINGID = ${billingid};
      `;
-        connection.query(query, (err, result) => {
-          if (err) { reject(err); } else { resolve(result) }
-        })
-      })
-    }
+    connection.query(query, (err, result) => {
+      if (err) { reject(err); } else { resolve(result) }
+    })
+  })
+}
 
+
+async function getBillingInvoiceData(request, response) {
+  // we want to get the personal information of the client 
+  // and test subscribed to , amount paid and outdtanding bill if any
+
+  const { billingid } = request.query;
+
+  if (billingid) {
+    let Invoice = {}
 
     try {
       Invoice.testInformation = await testInformation(billingid);
@@ -66,4 +67,4 @@ async function getBillingInvoiceData(request, response) {
 }
 
 
-module.exports = { getBillingInvoiceData }
+module.exports = { getBillingInvoiceData, testInformation,clientInformation }

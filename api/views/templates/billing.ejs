@@ -1,0 +1,22 @@
+<%- include('header.ejs') -%>
+<div class='container'>
+  <div>
+    <table id="custom-table">
+      <thead>
+        <tr>
+          <th>testname</th>
+          <th>price</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% data.testdata.forEach( (item,index) => { %>
+        <tr key={index}>
+          <td><%- item.test -%></td>
+          <td><%- item.price -%></td>
+        </tr>
+        <%
+    }) %>
+      </tbody>
+    </table>
+  </div>
+</div>

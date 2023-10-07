@@ -124,6 +124,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'scan':
         await resultInstance.scanResult(req.body, res);
         break;
+      case 'prostate_specific_antigen_test':
+        await resultInstance.hormones(req.body, res);
+        break;
       default:
         return res.send({
           status: "error",

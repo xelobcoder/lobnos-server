@@ -1,13 +1,34 @@
-  <style>
-    .hearing {
-      color: white !important;
-      background-color: rgba(255, 0, 0, 0.667);
-      border-radius: 5px;
-      padding: 20px;
-    }
-  </style>
-  </head>
+<%- include('header.ejs') -%>
+<style>
+  .red {
+    color: red;
+  }
+  .bg-red{
+    background-color: red !important;
+  }
+</style>
 
-  <body>
-    <p class="hearing">${message}</p>' <p class="hearing"><%- message -%></p>
-  </body>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="card-header bg-red">
+        <h4><%- data.labname -%> </h4>
+        <br/>
+        <h4>(<%- data.header -%>)</h4>
+      </div>
+      <div class="card-body">
+        <div class="red"> <%- data.message -%> </div>
+        <p>
+         <strong>Please visit our facillity so that fresh blood could be taken.</strong>
+         <br/>
+         <p style="margin-top: 60px;">
+          please visit our site to book appointment on when blood sample should be taken and read about possible reason for blood rejection
+         </p>
+         <a href="/api/activation" class="btn">
+          visit site
+          </a>
+        </p>
+      </div>
+    </div>
+  </div>
+</body>

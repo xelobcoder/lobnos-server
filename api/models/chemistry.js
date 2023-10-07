@@ -12,8 +12,9 @@ const LIPID_PROFILE_SETUP = "setup_lipid_profile_test";
 const BETAHCG = `setup_beta_hcg`;
 const ELECTROPHORESIS_SETUP = `haemoglobinelectrophoresis`;
 const ESR = `setup_esr`;
-const LHHORMONE = 'LHSETUP';
-const FSHHORMONE = 'FSHSETUP';
+const LHHORMONE = 'lhsetup';
+const FSHHORMONE = 'fshsetup';
+const PSAHORMONE = 'psasetup'
 
 // define our queries
 const ChemistryQueries = {
@@ -26,6 +27,7 @@ const ChemistryQueries = {
   ELECTROPHORESIS_SETUP: `INSERT INTO ${ELECTROPHORESIS_SETUP} (parameter,unit,lower,upper) VALUES ?`,
   LHHORMONE: `INSERT INTO ${LHHORMONE}(parameter,unit,lower,upper,gender) VALUES ?`,
   FSHHORMONE: `INSERT INTO ${FSHHORMONE}(parameter,unit,lower,upper,gender) VALUES ?`,
+  PSAHORMONE: `INSERT INTO ${PSAHORMONE}(parameter,unit,lower,upper,gender) VALUES ?`
 };
 
 const chemistryTables = {
@@ -40,6 +42,7 @@ const chemistryTables = {
   ELECTROPHORESIS_SETUP,
   LHHORMONE,
   FSHHORMONE,
+  PSAHORMONE
 };
 
 class Chemistry {
@@ -90,10 +93,7 @@ class Chemistry {
 
       if (this.testname == "ESR") {
         return [agelimit, gender, upper, lower];
-      } else if (
-        this.testname == "LHHORMONE" ||
-        this.testname == "FSHHORMONE"
-      ) {
+      } else if (["LHHORMONE", "FSHHORMONE", 'PSAHORMONE'].includes(this.testname)) {
         return [parameter, unit, lower, upper, gender];
       } else {
         return [parameter, unit, lower, upper];
@@ -107,7 +107,6 @@ class Chemistry {
           message: err.message,
           statusCode: 400,
         });
-        connection.end;
       } else {
         res.send({
           status: "success",

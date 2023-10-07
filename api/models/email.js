@@ -8,6 +8,7 @@ const path = require('path');
 const jwt = require('jsonwebtoken');
 const { customError } = require('../../helper');
 const Registration = require('./registration');
+const { testInformation, clientInformation } = require('./invoice');
 
 
 
@@ -256,6 +257,23 @@ class EmailService {
     })
   }
 
+
+
+  async forwardBillingReceipt(billingid) {
+    // get all the test data 
+    let clientTest = await testInformation(billingid);
+    let personalData = await clientInformation(billingid);
+    if (clientTest.length > 0 && personalData.length > 0) {
+      const { EMAIL } = personalData[0];
+      if (EMAIL) {
+        const finalData = { testdata: clientTest, personalInfo: personalData }
+        const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/billing.ejs'), { data: finalData });
+        let mail = this.mailOptions(EMAIL, 'TEST BILLING RECEIPT', html)
+        this.transportEmail(mail);
+      } else return;
+    }
+  }
+
   async getEmailPreference() {
     return await runPromise(`SELECT * FROM emailpreference`);
   }
@@ -269,8 +287,8 @@ class EmailService {
 
 
 
-new EmailService().verifyEmailToken(`eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRpaWZ1b2ZmaWNpYWxAZ21haWwuY29tIiwicGF0aWVudGlkIjoyMDIzODIxMTIsImlhdCI6MTY5NjA0NzE4NSwiZXhwIjoxNjk2MDQ4OTg1fQ.VruQIM0iUsamj6jaGvPJq2JrTFVpDdXtpX_DBdhw5sY`)
-  .then((da) => console.log(da))
+new EmailService().forwardBillingReceipt(104)
+  .then((data) => console.log(data))
   .catch((err) => console.log(err))
 
 

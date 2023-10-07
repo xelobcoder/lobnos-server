@@ -35,7 +35,8 @@ const testTable = {
   follicle_stimulating_hormone: 'fshresult',
   lipid_profile: 'result_lipid_profile',
   helicobacter_pylori: 'result_helicobacter_pylori',
-  scan: 'scanReport'
+  scan: 'scanReport',
+  prostate_specific_antigen_test: 'psaresult'
 };
 
 class Result {
