@@ -10,7 +10,7 @@ const database_queries = {
 
     connection.query(
       SQL_QUERY, function (err, result) {
-        if (err) {logger.error(err)};
+        if (err) { logger.error(err) };
         console.log('1 record inserted');
       }
     )
@@ -118,7 +118,7 @@ const database_queries = {
    patientid INT, date DATE, time TIME, comment VARCHAR(255))`
     connection.query(query, (err, result) => {
       if (err) {
-        {logger.error(err)};
+        { logger.error(err) };
       } else {
         return result;
       }
@@ -160,7 +160,7 @@ const database_queries = {
       }
     }
   },
-  getall: function (table,limit) {
+  getall: function (table, limit) {
     let SQL_QUERY = `SELECT * FROM ${table} ORDER BY ID DESC LIMIT ${limit}`;
     return new Promise((resolve, reject) => {
       connection.query(SQL_QUERY, function (err, result) {
@@ -173,10 +173,12 @@ const database_queries = {
       })
     })
   },
-  addBranch: function (branch, request, response) {
-    let SQL_QUERY = `INSERT INTO BRANCH (NAME) VALUES ('${branch}')`;
-    connection.query(SQL_QUERY, (err, result) => {
-      if (err) {logger.error(err)};
+  addBranch: function (request, response) {
+    const { name, email, contact, managerid, address } = request.body;
+
+    let SQL_QUERY = `INSERT INTO branch (name,address,email,contact,managerid) VALUES (?,?,?,?,?)`;
+    connection.query(SQL_QUERY, [name, address, email, contact, managerid], (err, result) => {
+      if (err) { logger.error(err) };
       if (result) {
         response.send({
           status: 'success',
@@ -185,15 +187,18 @@ const database_queries = {
       }
     })
   },
-  getBranch: function (request, response) {
-    let SQL_QUERY = `SELECT * FROM BRANCH  ORDER BY BRANCHID ASC LIMIT 50`;
-    connection.query(SQL_QUERY, (error, result) => {
+  getBranch: async function (request, response) {
+    let SQL_QUERY = `SELECT * FROM BRANCH  ORDER BY BRANCHID ASC LIMIT 20`;
+    if (request.query.branchid) {
+      SQL_QUERY = `SELECT * FROM BRANCH WHERE BRANCHID  = ?`;
+    }
+    connection.query(SQL_QUERY, [request.query.branchid], (error, result) => {
       if (error) {
         response.send({
           status: 'error',
           message: 'error occured',
           statusCode: 500
-        })
+        });
       } else {
         response.send({
           status: 'success',
@@ -203,12 +208,18 @@ const database_queries = {
       }
     })
   },
-  editBranch: function (branchid, branchname, request, response) {
+  editBranch: function (request, response) {
+    const { branchid, name, date, address, email, contact, managerid } = request.body;
+
     let SQL_QUERY = `UPDATE BRANCH 
-   SET NAME = '${branchname}'
-   WHERE BRANCHID = '${branchid}'
-   `
-    connection.query(SQL_QUERY, (err, result) => {
+          SET NAME = ?,
+          contact = ?,
+          address =? ,
+          email = ? ,
+          managerid = ?
+     WHERE branchid = ?;
+     `
+    connection.query(SQL_QUERY, [name, contact, address, email, managerid, branchid], (err, result) => {
       if (err) {
         response.send({
           message: err.sqlMessage,
@@ -218,7 +229,7 @@ const database_queries = {
       }
       if (result) {
         response.send({
-          message: `${branchname} updated`,
+          message: `${name} updated successfully`,
           status: 200,
           status: 'success'
         })
@@ -267,7 +278,7 @@ const database_queries = {
   getSingleRole: function (request, response, id) {
     let SQL_QUERY = `SELECT * FROM ROLES WHERE ROLEID = '${id}'`;
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) {logger.error(err)};
+      if (err) { logger.error(err) };
       if (result) {
         response.send(
           {
@@ -283,7 +294,7 @@ const database_queries = {
     console.log(arguments[3])
     let SQL_QUERY = 'INSERT INTO ROLES (FULLNAME,USERNAME,ROLE,PASSWORD) VALUES(?,?,?,?)'
     connection.query(SQL_QUERY, values, (err, result) => {
-      if (err) {logger.error(err)};
+      if (err) { logger.error(err) };
       if (result) {
         response.send(
           { message: `${fullname} added as a ${role}`, status: 'success' }
@@ -302,7 +313,7 @@ const database_queries = {
   `
 
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) {logger.error(err)};
+      if (err) { logger.error(err) };
       if (result) {
         response.send({
           message: 'information updated successfully',
@@ -314,7 +325,7 @@ const database_queries = {
   deletewithID: function (id, request, response) {
     let SQL_QUERY = `DELETE FROM ROLES WHERE ROLEID = '${id}'`;
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) {logger.error(err)};
+      if (err) { logger.error(err) };
       response.send({
         message: 'information deleted succesfully',
         status: 200

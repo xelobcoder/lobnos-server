@@ -171,7 +171,7 @@ class Operations {
       customError('stage of tests required', 401);
     } else {
       let queryString = `
-      SELECT DISTINCT tp.CATEGORY AS category,
+      SELECT tp.CATEGORY AS category,
           d.department AS department,
           pt.DATE AS 'date',
           pt.BILLINGID AS billingid,
@@ -192,7 +192,7 @@ class Operations {
       }
 
       if (stage == 'entered') {
-        queryString += ` AND ta.ready = 'true' `
+        queryString += ` AND ta.ready = 'true'`
       }
 
       queryString += ` AND d.department <> 'ultrasound'`

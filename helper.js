@@ -1,3 +1,4 @@
+const connectionpool = require('./api/dbpool');
 function customError(message, statusCode, response) {
   if (response) {
     response.send({
@@ -27,9 +28,23 @@ function convertKeysToLowerCase(obj) {
 }
 
 
+async function promisifyQuery(query, values) {
+  return new Promise((resolve, reject) => {
 
+    connectionpool.query(query, values, function (err, result) {
+      if (err) {
+        reject(err)
+      }
+      else {
+        resolve(result)
+      }
+    })
+  })
+
+}
 
 module.exports = {
   customError,
-  convertKeysToLowerCase
+  convertKeysToLowerCase,
+  promisifyQuery
 }

@@ -16,34 +16,17 @@ const createNewAccount = async (req, res) => {
 
   else {
     // cinstanitate user class
-    const user = new User(name, password, role, email);
-
-
-    user.checkUserExist()
-      .then((exist) => {
-        if (!exist) {
-          user.hashPassword()
-            .then((hashedPassword) => {
-              user.insertionOne(name, hashedPassword)
-                .then((result) => {
-                  res.send({ status: 'success', message: 'user created successfully' })
-                })
-                .catch((err) => {
-                  res.send({ status: 'error', message: err })
-                })
-
-            })
-            .catch((err) => {
-              res.send({ status: 'error', message: err })
-            })
-        }
-        else {
-          res.send({ status: 'error', message: 'user already exist' })
-        }
-      })
-      .catch((err) => {
+    const user = new User(name, password, role, email)
+    if (!(await user.checkUserExist())) {
+      try {
+        const hashedPassword = await user.hashPassword();
+        const insert = await user.insertionOne(name, hashedPassword);
+        if (insert) res.send({ status: 'success', message: 'user created successfully' })
+      } catch (err) {
         res.send({ status: 'error', message: err })
-      })
+        logger.error(err);
+      }
+    } else { res.send({ status: 'error', message: 'user already exist' }) }
   }
 }
 
@@ -227,7 +210,8 @@ const updateUserBasicInfo = async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error(err);
+    console.log(error)
+    logger.error(error);
   }
 };
 

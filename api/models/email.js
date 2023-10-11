@@ -187,7 +187,7 @@ class EmailService {
 
 
   // TODO: Add the test in which the sample has been rejected
-  async triggerSampleRejectionEmail(testid, billingid, message) {
+  async triggerSampleRejectionEmail(billingid, message) {
     // use thr billing id to retrieve the patientid
     try {
       const billdata = await database_queries.getsingleid(parseInt(billingid), 'billing', 'BILLINGID');
@@ -198,7 +198,8 @@ class EmailService {
         if (person.length > 0) {
           const { EMAIL } = person[0];
           if (EMAIL == null) return;
-          const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/samplerRejection.ejs'), { message });
+          const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates'+ '/sampleRejection.ejs'), {data: { message ,
+          header:'SAMPLE REJECTION NOTIFICATION',labname:'Kairos Diagnostics Center'}});
           const mailOptions = this.mailOptions(EMAIL, 'SAMPLE REJECTION NOTIFICATION', html);
           this.transportEmail(mailOptions);
           return;
@@ -287,9 +288,9 @@ class EmailService {
 
 
 
-new EmailService().forwardBillingReceipt(104)
-  .then((data) => console.log(data))
-  .catch((err) => console.log(err))
+// new EmailService().forwardBillingReceipt(104)
+//   .then((data) => console.log(data))
+//   .catch((err) => console.log(err))
 
 
 // new EmailService().clientRegistrationMailing(202382112

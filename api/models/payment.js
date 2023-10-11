@@ -1,3 +1,4 @@
+const { customError, promisifyQuery } = require("../../helper");
 const logger = require("../../logger");
 const connection = require("../db");
 
@@ -7,7 +8,7 @@ class Payment {
   }
 
   getClientTransactionInformation = (request, response) => {
-    const { patientid, month, date } = request.query;
+    const { patientid, month, date, count } = request.query;
 
     const months = {
       january: "1",
@@ -61,14 +62,21 @@ class Payment {
       modelQuery = modelQuery;
     }
 
-    modelQuery += `
+    if (count) {
+      modelQuery += `
 			ORDER BY b.BILLINGID DESC
-			LIMIT 100
+			LIMIT ${count}
 		`;
+    } else {
+      modelQuery += `
+			ORDER BY b.BILLINGID DESC
+			LIMIT 10
+		`;
+    }
 
     connection.query(modelQuery, (err, result) => {
       if (err) {
-        console.log(err);
+        logger.error(err)
         response.send({
           statusCode: 500,
           message: "Internal server error",
@@ -83,6 +91,99 @@ class Payment {
     });
   };
 
+
+  getClientFullOutstanding = async (patientid, billingid) => {
+    if (!billingid || !patientid) {
+      return `patientid && billing required`
+    }
+    else {
+      let modelQuery = `SELECT SUM(PAID_AMOUNT) AS paid,SUM(PAYABLE) AS total FROM billing WHERE PATIENTID = ? `;
+      let result = await promisifyQuery(modelQuery, [patientid]);
+      if (result.length > 0) {
+        const { total, paid } = result[0];
+        const outstanding = total - paid;
+        return outstanding === 0 ? 0 : outstanding;
+      }
+    }
+  }
+
+  getTransactionData = async function (billingid) {
+    if (!billingid) {
+      return `billingid is required`;
+    }
+    else {
+      let modelQuery = `SELECT * FROM billing AS b INNER JOIN new_patients AS np ON
+      b.patientid = np.patientid WHERE billingid = ? `;
+      return promisifyQuery(modelQuery, [billingid]);
+    }
+  }
+
+  allClientDebtTransactions = async (patientid) => {
+    if (!patientid) {
+      return `billingid is required`;
+    } else {
+      let modelQuery = `SELECT pt.date,b.billingid,b.outstanding,b.paid_amount AS paid,b.payable,b.discount
+        FROM billing AS b
+          INNER JOIN performing_test AS pt ON pt.billingid = b.billingid
+        WHERE b.patientid = ?
+          AND b.OUTSTANDING > 0`;
+      return promisifyQuery(modelQuery, [parseInt(patientid)])
+    }
+  }
+
+  updateSingleTransactionDebt = async (billingid, paid, outstanding) => {
+    const model = `UPDATE billing SET  PAID_AMOUNT = ?,OUTSTANDING = ? WHERE BILLINGID = ?`;
+    try {
+      return promisifyQuery(model, [paid, outstanding, billingid]);
+    } catch (err) {
+      return err;
+    }
+  }
+
+
+  updateTransactionHx = async (billingid, payment, amount) => {
+    const model = `INSERT INTO billingHx (BILLINGID,paymentmode,amount) VALUES (?,?,?)`;
+    return promisifyQuery(model, [billingid, payment, amount]);
+  }
+
+  clearClientDebtBulk = async (patientid, amount) => {
+    if (!patientid) {
+      return `billingid is required`;
+    } else {
+      let debts = await this.allClientDebtTransactions(patientid);
+      // updating single transaction one by one
+      let target = debts.length;
+      let current = 0;
+      let balance = amount;
+      while (current < target) {
+        console.log('starting looop', balance)
+        const { outstanding, paid, payable, discount, billingid } = debts[0];
+        if (balance > outstanding) {
+          // update single
+          // subtract outstanding from balance 
+          // compare balance with the next outstanding 
+          // break loop if outstanding is greater than the balance 
+          await this.updateSingleTransactionDebt(billingid, payable, 0);
+          await this.updateTransactionHx(billingid, 4, outstanding);
+          balance = balance - outstanding;
+          current++;
+        }
+
+        if ((balance < outstanding) && balance > 0) {
+          // new outstanding;
+          const paidAmout = parseInt(paid) + balance;
+          const nwOutstanding = parseInt(payable) - (parseInt(discount) + parseInt(paid) + parseInt(balance))
+          await this.updateSingleTransactionDebt(billingid, paidAmout, nwOutstanding)
+          await this.updateTransactionHx(billingid, 4, balance);
+          balance = 0;
+          current++;
+        }
+        if (balance == 0) {
+          break;
+        }
+      }
+    }
+  }
   updatePayment = async (request, response) => {
     // get the current billing billinfo
     // update the record and update the database
@@ -172,3 +273,9 @@ class Payment {
 }
 
 module.exports = Payment;
+
+// console.log(
+//   new Payment().clearClientDebtBulk(202382112, 1000)
+//     .then((data) => console.log(data))
+//     .catch((err) => console.log(err))
+// )

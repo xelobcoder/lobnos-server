@@ -3,12 +3,11 @@ const router = require('express').Router();
 const testpanel = require('./testpanel/list');
 
 router.post('/api/v1/branches', function (request, response) {
-  const {branch} = request.body;
-  database_queries.addBranch(branch,request, response)
+  database_queries.addBranch(request, response)
 });
 
-router.put('/api/v1/branches/activation', function(request,response) {
-  database_queries.activateDeactivate(request,response)
+router.put('/api/v1/branches/activation', function (request, response) {
+  database_queries.activateDeactivate(request, response)
 })
 
 
@@ -18,27 +17,26 @@ router.get('/api/v1/branches', function (request, response) {
 
 
 router.put('/api/v1/branches', function (request, response) {
-  const {branchid,branch} = request.body;
-  database_queries.editBranch(branchid,branch,request, response)
+  database_queries.editBranch(request, response)
 });
 
 
 router.delete('/api/v1/branches', function (request, response) {
-  const {branchid} = request.body;
-  database_queries.deleteBranch(branchid,request, response)
+  const { branchid } = request.body;
+  database_queries.deleteBranch(branchid, request, response)
 });
 
 
-router.post('/api/v1/sampletype', function(request,response) {
- testpanel.addSampleType(request,response);
+router.post('/api/v1/sampletype', function (request, response) {
+  testpanel.addSampleType(request, response);
 })
 
-router.get('/api/v1/sampletype', function(request,response) {
+router.get('/api/v1/sampletype', function (request, response) {
   testpanel.getSampleType(response);
 })
 
-router.delete('/api/v1/sampletype', function(request,response) {
-  testpanel.deleteSampleType(request,response)
+router.delete('/api/v1/sampletype', function (request, response) {
+  testpanel.deleteSampleType(request, response)
 })
 
 

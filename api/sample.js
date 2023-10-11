@@ -143,7 +143,7 @@ class SampleHandler {
         logger.error(err);
       }
       else {
-        if (approvalStatus == 0) { await new EmailService().triggerSampleRejectionEmail(testid, billingid, message) }
+        if (approvalStatus == 0) { await new EmailService().triggerSampleRejectionEmail(billingid, message) }
         response.send({
           statusCode: 200,
           status: 'success',

@@ -29,10 +29,31 @@ router.get('/api/v1/result/ready/crm/summary', (req, res) => {
 
 
 router.get('/api/v1/billing/payment/info/client',
-   (request, response) => {
-      new Payment().getClientTransactionInformation(request, response)
+   async (request, response) => {
+      const payment = new Payment();
+      if (request.query.billingid) {
+         try {
+            const result = await payment.getTransactionData(request.query.billingid);
+            response.send({ result, statusCode: 200, status: 'success' })
+         } catch (err) {
+            customError(err?.message, 500, response);
+         }
+      } else {
+         payment.getClientTransactionInformation(request, response)
+      }
    }
 );
+
+
+router.get('/api/v1/billing/client/bulk/outstanding', async function (request, response) {
+   const { patientid } = request.query;
+   if (!patientid) {
+      customError(`patientid required`, 404, response);
+   } else {
+      const result = await new Payment().allClientDebtTransactions(patientid);
+      response.send({ result, statusCode: 200, status: 'success' })
+   }
+})
 
 
 
