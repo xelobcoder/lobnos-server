@@ -147,23 +147,10 @@ const updateStock = async function (stockid, planned, request, response) {
 
 
 
-const pushtodb = function (data) {
-  const query = `UPDATE orders SET received = ?, quantityreceived = ?, receiveddate = ?, status = ?, expirydate = ?, batchnumber = ?, balance = ?, price = ?, tax = ?, totalamount = ? WHERE productordersid = ?`;
-
-  return new Promise((resolve, reject) => {
-    connection.query(
-      query,
-      data,
-      function (err, result) {
-        if (err) {
-          reject(err)
-        }
-        else {
-          resolve(result)
-        }
-      }
-    );
-  })
+const updateOrders = function (data) {
+  const query = `UPDATE orders SET received = ?, quantityreceived = ?, receiveddate = ?, status = ?, expirydate = ?,
+   batchnumber = ?, balance = ?, price = ?, totalamount = ? WHERE productordersid = ? AND orderTransactionid = ?`;
+  return promisifyQuery(query, data);
 }
 
 
@@ -184,58 +171,85 @@ const addToStockTransactions = async function (data) {
   }
 }
 
-const purchaseOrdersToStock = function (request, response) {
-  let targetRef = request.body.length;
-  let updatedQuantity = 0;
-  let errRows = 0;
-  while (updatedQuantity < targetRef) {
-    let errlog = [];
-    const datasource = request.body;
-    // using map to get the items in the array
-    const requiredDataSource = datasource.map((item, index) => {
-      const { productordersid, received, receivedquantity, receiveddate, status, expirydate, batchnumber, balance, price, tax, totalamount } = item;
-      return [received, receivedquantity, receiveddate, status, expirydate, batchnumber, balance, price, tax, totalamount, productordersid]
-    })
-    const { stockid, quantity, supplierid, purchaseunit, batchnumber } = datasource[updatedQuantity];
-    pushtodb(requiredDataSource[updatedQuantity])
-      .then((result) => {
-        let successRow = 0;
-        let errRows = 0;
-        updateStock(stockid, quantity, request, response)
-          .then((result) => {
-            successRow++;
-            // add to stock transactions
-            addToStockTransactions([stockid, quantity, batchnumber, purchaseunit, supplierid])
-            return;
-          })
-          .catch((err) => {
-            errRows++;
-            console.log(err)
-          })
-      })
-      .catch((err) => {
+const updateOrderReceivedTransactionSummary = async function (summary) {
+  const { orderTransactionid, method, amount, total } = summary;
+  const query = `UPDATE orderreceivedaccountsummary SET method  = ?,debit = ?, taxAmount = ?,updatedOn=NOW()  WHERE orderTransactionid = ?`
+  const values = [method, total, amount, orderTransactionid];
+  return promisifyQuery(query, values);
+}
+const purchaseOrdersToStock = async function (request, response) {
+  const { data, tax, totalprice } = request.body;
+  if (data && tax && data.length > 0 && totalprice) {
+    const { orderTransactionid } = data[0];
+    let targetRef = data.length;
+    let current = 0;
+    let errRows = 0;
+    let successRow = 0;
+    // transform data to fit mysql bulk data entry
+    const requiredDataSource = data.map((item, index) => {
+      const {
+        productordersid,
+        received,
+        quantityReceived,
+        receiveddate,
+        status,
+        expirydate,
+        batchnumber,
+        balance,
+        price,
+        totalamount,
+        orderTransactionid,
+      } = item;
+
+      return [
+        received,
+        quantityReceived,
+        receiveddate,
+        status,
+        expirydate,
+        batchnumber,
+        balance,
+        price,
+        totalamount,
+        productordersid,
+        orderTransactionid,
+      ];
+    });
+    while (current < targetRef) {
+      // using map to get the items in the array
+      const result = await updateOrders(requiredDataSource[current]);
+      let isUpdated = result.affectedRows == 1 ? true : false;
+      // update orderAccountSummary;
+      if (isUpdated === false) {
         errRows++;
-        console.log(err)
-        errlog.push(err);
-      })
-    updatedQuantity++;
+      } else {
+        successRow++;
+      }
+      current++;
+      if (current === targetRef && successRow === current) {
+        let queryResponse = await updateOrderReceivedTransactionSummary({
+          orderTransactionid,
+          total: totalprice,
+          method: tax?.method,
+          amount: tax?.amount,
+        });
+        const isRecordUpdated = queryResponse.affectedRows == 1 ? true : false;
+        if (isRecordUpdated) {
+          response.send({
+            message: "order updated successfully",
+            statusCode: 200,
+            status: "success",
+          });
+        }
+      }
+    }
+  } else {
+    customError(
+      `All required params in request body not provided`,
+      404,
+      response
+    );
   }
-
-  if (updatedQuantity === targetRef) {
-    response.send({
-      status: 'success',
-      message: 'order recieved successfully',
-      statusCode: 200,
-    })
-  }
-  else {
-    response.send({
-      status: 'error',
-      message: 'error occured',
-      statusCode: 200,
-    })
-  }
-
 }
 
 
