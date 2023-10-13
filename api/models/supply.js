@@ -6,7 +6,6 @@ const logger = require('../../logger')
 const new_supplier = async function (request, response) {
   const {
     name,
-    commodity,
     address,
     email,
     contactperson,
@@ -14,23 +13,23 @@ const new_supplier = async function (request, response) {
     phonenumber,
   } = request.body
   // create a query
-  const query = `INSERT INTO supplier (NAME,COMMODITY,ADDRESS,EMAIL,CONTACTPERSON,REGION,PHONENUMBER) VALUES (?,?,?,?,?,?,?)`
+  const query = `INSERT INTO supplier (name,address,email,contactperson,region,phonenumber) VALUES (?,?,?,?,?,?)`
 
   // execute the query
-  connection.query(
-    query,
-    [name, commodity, address, email, contactperson, region, phonenumber],
+  connection.query(query, [name, address, email, contactperson, region, phonenumber],
     function (err, result) {
       if (err) {
         response.send({
           status: 'error',
           err,
+          statusCode: 500
         })
-        console.log(err.message)
+        logger.error(err)
       }
       if (result) {
         response.send({
           status: 'success',
+          statusCode: 200,
           message: 'supplier added successfully',
         })
       }
@@ -59,31 +58,21 @@ const delete_supplier = async function (request, response) {
 }
 
 const get_suppliers = async function (request, response) {
-  const query = `SELECT * FROM supplier ORDER BY SUPPLIERID DESC LIMIT 100`
+  const query = `SELECT * FROM supplier ORDER BY supplierid DESC LIMIT 100`
 
   connection.query(query, function (err, result) {
     if (err) {
       response.send({
         status: 'error',
         err,
+        statusCode: 500
       })
     }
     if (result) {
       response.send({
         status: 'success',
-        result: result.map((supplier) => {
-          return {
-            supplierid: supplier.SUPPLIERID,
-            name: supplier.NAME,
-            commodity: supplier.COMMODITY,
-            address: supplier.ADDRESS,
-            email: supplier.EMAIL,
-            contactperson: supplier.CONTACTPERSON,
-            region: supplier.REGION,
-            phonenumber: supplier.PHONENUMBER,
-
-          }
-        }),
+        result,
+        statusCode: 200
       })
     }
   })
@@ -101,9 +90,6 @@ const update_supplier = async function (request, response) {
   } = request.body
 
   const { supplierid } = request.query
-
-  console.log(request.body)
-
 
   const query = `UPDATE supplier SET NAME = ?, COMMODITY = ?, ADDRESS = ?, REGION = ?, CONTACTPERSON = ?, EMAIL = ?, PHONENUMBER = ? WHERE SUPPLIERID = ?`
 
@@ -124,6 +110,7 @@ const update_supplier = async function (request, response) {
         response.send({
           status: 'error',
           err,
+          statusCode: 500
         })
       }
       if (result) {
@@ -131,6 +118,7 @@ const update_supplier = async function (request, response) {
         response.send({
           status: 'success',
           message: 'supplier updated successfully',
+          statusCode: 200
         })
       }
     }
@@ -146,8 +134,8 @@ const specificSupllier = async function (request, response) {
         .getsingleid([supplierid], 'supplier', 'SUPPLIERID')
         .then((result) => {
           response.send({
-            message: 'success',
-            status: 200,
+            status: 'success',
+            statusCode: 200,
             result,
           })
         })
@@ -206,7 +194,6 @@ const postCommodity = async function (request, response) {
         })
       }
       if (result) {
-        console.log(items_found_in_db)
         if (result.length === 0) {
           insertCommodity(commodity)
         }
@@ -478,7 +465,6 @@ const updateAstock = function (request, response) {
     alertlevel, materialcode, tax, date
   } = request.body;
   //   we going to update the stock using the stockid 
-
   const query = `
     UPDATE newstock SET 
     consumptionunit = ?,

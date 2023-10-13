@@ -1,97 +1,93 @@
+const { promisifyQuery, customError } = require('../../helper');
 const logger = require('../../logger');
 const connection = require('../db');
 
 
-const placeOrder = function (request, response) {
-  const {
-    quantity,
-    stockid,
-    name,
-    tax,
-    suppliername,
-    supplierid,
-    purchaseunit,
-  } = request.body;
+const placeOrder = async function (request, response) {
+  let successCount = 0;
+  let errorCount = 0;
+  let Exit = [];
   // check if order exist and items are recieved 
   // if not recieved then update the order, then we notify the front end of order status
   // if recieved then we notify the front end of order status
   // if not available , insert into the database 
-  const addNewOrder = (request, response) => {
-
-    connection.query(
-      `INSERT INTO orders (quantity, stockid, name, tax, suppliername, supplierid, purchaseunit) VALUES (?,?,?,?,?,?,?)`,
-      [quantity, stockid, name, tax, suppliername, supplierid, purchaseunit],
-      function (err, result) {
-        if (err) {
-          response.send({
-            status: 'error',
-            err,
-          });
-        }
-        if (result) {
-          response.send({
-            status: 'success',
-            message: 'order placed successfully',
-            statusCode: 200,
-          });
-        }
-      }
-    );
+  const addNewOrder = async (orderTransactionid, item) => {
+    const { quantity, stockid, name, suppliername, supplierid, purchaseunit } = item;
+    let query = `INSERT INTO orders (quantity, stockid, name, suppliername, supplierid, purchaseunit,orderTransactionid)
+       VALUES (?,?,?,?,?,?,?)`;
+    let values = [
+      quantity,
+      stockid,
+      name,
+      suppliername,
+      supplierid,
+      purchaseunit,
+      orderTransactionid,
+    ];
+    return promisifyQuery(query, values);
   }
 
-  const checkOrderExist = (stockid, supplierid) => {
+  const checkOrderExist = async (item, transactionid) => {
+    const { supplierid, stockid } = item;
     // select where stockid = stockid , received = false and supplierid = supplierid
-    const query = `SELECT * FROM orders WHERE stockid = ? AND  received = ? AND supplierid = ?`;
-    connection.query(query,
-      [stockid, 'FALSE', supplierid],
-      function (err, result) {
-
-        if (err) {
-          response.send({
-            status: 'error',
-            err,
-          });
-        }
-        console.log(result)
-        if (result) {
-          const checkedLength = result.length;
-          if (checkedLength === 0) {
-            addNewOrder(request, response);
-          }
-          else {
-            response.send({
-              status: 'success',
-              message: 'order already exist',
-              info: `order already exist and is not yet recieved.kindly check the order ${result[0]['productordersid']}`,
-              statusCode: 200,
-            });
-          }
-        }
-      })
+    const query = `SELECT COUNT(*) AS count FROM orders WHERE stockid = ? AND  received = ? AND supplierid = ?`;
+    const values = [stockid, "FALSE", supplierid];
+    return promisifyQuery(query, values);
   }
 
-
-  checkOrderExist(stockid, supplierid);
+  const { stock } = request.body;
+  // create a unique id that runs for that product for this session
+  const orderTransactionid = Date.now();
+  // for length is greater than 0 zero, loop ,check if exist and added if none
+  if (Array.isArray(stock) && stock.length > 0) {
+    let counter = 0;
+    stock.forEach(async (item, index) => {
+      try {
+        let present = await checkOrderExist(item, orderTransactionid);
+        let count = present[0]?.count;
+        if (present && count > 0) {
+          Exit.push(item)
+        } else {
+          let added = await addNewOrder(orderTransactionid, item);
+          let affectedRows = added?.affectedRows;
+          if (affectedRows === 1) successCount++;
+        };
+      } catch (err) {
+        logger.error(err);
+        errorCount++;
+      }
+      counter++;
+      if (counter === stock.length) {
+        let responseString = ``;
+        Exit.forEach((item, index) => {
+          const { suppliername, name, stockid } = item;
+          responseString += `${name} with stockid ${stockid} request to ${suppliername} was earlier on requested but remained unresolved,hence not added ,`;
+        });
+        response.send({
+          statusCode: 200,
+          status: "success",
+          message: `${successCount} items successfully requested.${errorCount}  error occured. ${responseString}`,
+        });
+      }
+    })
+  }
 }
 
 
 const getOrders = async function (request, response) {
-  const query = `SELECT * FROM orders WHERE received = 'FALSE' ORDER BY productordersid DESC LIMIT 50`;
+  const { orderTransactionid } = request.query;
+  let query = `SELECT * FROM orders WHERE received = 'FALSE'`;
+  if (orderTransactionid) {
+    query += ` AND orderTransactionid = ?`
+  }
+  query += ` ORDER BY productordersid DESC LIMIT 50`
   // execute the query
-  connection.query(query, function (err, result) {
-    if (err) {
-      response.send({
-        status: 'error',
-        err,
-      })
-    }
-    if (result) {
-      response.send({
-        status: 'success',
-        result,
-      })
-    }
-  })
+  try {
+    let result = await promisifyQuery(query, orderTransactionid)
+    response.send({ result, status: 'success', statusCode: 200 })
+  } catch (err) {
+    customError(err, 500, response)
+  }
 }
 
 
