@@ -145,7 +145,7 @@ const specificDepartmentRequisition = async function (request, response, include
          ns.quantity
          FROM departmentrequisitionhx AS drh
         INNER JOIN departments AS d ON d.id = drh.departmentid
-        INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+        INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
         WHERE drh.departmentid = ${id} AND quantity_approved IS NULL `
     }
 
@@ -165,7 +165,7 @@ const specificDepartmentRequisition = async function (request, response, include
          ns.quantity
          FROM departmentrequisitionhx AS drh
         INNER JOIN departments AS d ON d.id = drh.departmentid
-        INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+        INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
         WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'approved'`
     }
 
@@ -185,7 +185,7 @@ const specificDepartmentRequisition = async function (request, response, include
             ns.quantity
             FROM departmentrequisitionhx AS drh
             INNER JOIN departments AS d ON d.id = drh.departmentid
-            INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+            INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
             WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'rejected'`
     }
 
@@ -205,7 +205,7 @@ const specificDepartmentRequisition = async function (request, response, include
           ns.quantity
           FROM departmentrequisitionhx AS drh
           INNER JOIN departments AS d ON d.id = drh.departmentid
-          INNER JOIN newstock AS ns ON ns.stockid = drh.stockid
+          INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
           WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'received'`
     }
 
@@ -424,7 +424,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
       // we want decrement the quantity in the new stock table by the quantity received
       // we get the qty Recieved from db,substract qry received from it and update the db
 
-      const getQty = `SELECT quantity FROM newstock WHERE stockid = ${stockid}`;
+      const getQty = `SELECT quantity FROM generalstocks WHERE stockid = ${stockid}`;
       // get the data from db
       const qty = new Promise((resolve, reject) => {
         connection.query(getQty, function (err, result) {

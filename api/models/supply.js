@@ -249,9 +249,9 @@ const getCommodity = async function (request, response) {
 
 // check if stock exist
 
-const checkStockExist = (tablename = 'newstock', stock, params) => {
+const checkStockExist = (tablename = 'generalstocks', stock, params) => {
   let query = `SELECT * FROM ${tablename} WHERE name = ?`
-  if (tablename != 'newstock') {
+  if (tablename != 'generalstocks') {
     query = `SELECT * FROM ${tablename} WHERE ${params} = ?`
   }
   return new Promise((resolve, reject) => {
@@ -281,13 +281,12 @@ const new_stock = async function (request, response) {
     unitquantity,
     alertlevel,
     materialcode,
-    tax
   } = request.body
 
 
 
   // check if the stock already exist
-  checkStockExist('newstock', name)
+  checkStockExist('generalstocks', name)
     .then((result) => {
       if (result) {
         response.send({
@@ -297,7 +296,7 @@ const new_stock = async function (request, response) {
         })
       }
       else {
-        const query = `INSERT INTO newstock (NAME,CATEGORY,CONSUMPTIONUNIT,PURCHASEUNIT,QUANTITY,ALERTLEVEL,MATERIALCODE,TAX) VALUES (?,?,?,?,?,?,?,?)`
+        const query = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES (?,?,?,?,?,?,?)`
         connection.query(
           query,
           [
@@ -308,13 +307,14 @@ const new_stock = async function (request, response) {
             unitquantity,
             alertlevel,
             materialcode,
-            tax
           ],
           function (err, result) {
             if (err) {
+              logger.error(err)
               response.send({
                 status: 'error',
-                message: err.message,
+                message: err.sqlMessage,
+                statusCode: 500
               })
             }
             if (result) {
@@ -329,9 +329,10 @@ const new_stock = async function (request, response) {
       }
     })
     .catch((error) => {
+      logger.error(error)
       response.send({
         status: 'error',
-        message: error,
+        message: 'error ocuured whiles checking if stock exist',
         statusCode: 500,
       })
     })
@@ -345,13 +346,11 @@ const getStock = async function (request, response) {
     sc.category as category,
     ns.consumptionunit as consumptionunit,
     ns.purchaseunit as purchaseunit,
-    ns.tax as tax,
     ns.quantity as quantity,
     ns.date as date,
     ns.alertlevel as alertlevel,
     ns.materialcode as materialcode
- FROM newstock as ns INNER JOIN stockcategory as sc ON sc.id = ns.category
-
+ FROM generalstocks AS ns INNER JOIN stockcategory AS sc ON sc.id = ns.category
   `;
 
   connection.query(query, function (err, result) {
@@ -374,7 +373,7 @@ const getAstock = async function (request, response) {
   const { stockid } = request.query
   if (stockid) {
     connection.query(
-      `SELECT * FROM newstock WHERE STOCKID = ?`,
+      `SELECT * FROM generalstocks WHERE STOCKID = ?`,
       [stockid],
       function (err, result) {
         if (err) {
@@ -423,7 +422,7 @@ const getExpiredStock = async function (request, response) {
         LIMIT 100 
     `;
   // in possible future, an additional table will created which e using fot all transaction of all
-  // stock to keeep seperate the newstock table from updating the stocks so 
+  // stock to keeep seperate the generalstocks table from updating the stocks so 
   // that a proper history of all stock can be kept
   connection.query(query, function (err, result) {
     if (err) {
@@ -466,16 +465,15 @@ const updateAstock = function (request, response) {
   } = request.body;
   //   we going to update the stock using the stockid 
   const query = `
-    UPDATE newstock SET 
-    consumptionunit = ?,
-    purchaseunit = ?,
-    quantity = ?,
-    alertlevel = ?,
-    materialcode = ?,
-    tax = ?,
-    date = ?,
-    name = ?,
-    category = ?
+    UPDATE generalstocks SET 
+      consumptionunit = ?,
+      purchaseunit = ?,
+      quantity = ?,
+      alertlevel = ?,
+      materialcode = ?,
+      date = ?,
+      name = ?,
+      category = ?
     WHERE stockid = ?
   `;
 
@@ -487,7 +485,6 @@ const updateAstock = function (request, response) {
       quantity,
       alertlevel,
       materialcode,
-      tax,
       date,
       name,
       category,
@@ -549,6 +546,7 @@ const addNewStockCategory = function (request, response) {
           const query = 'INSERT INTO stockCategory (category) VALUES (?)';
           connection.query(query, category, function (err, result) {
             if (err) {
+              logger.error(err)
               response.send({
                 statusCode: 200, status: 'error', message: err.message
               })

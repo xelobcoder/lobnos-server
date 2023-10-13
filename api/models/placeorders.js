@@ -123,7 +123,7 @@ const deleteAspecificOrder = function (orderid, response) {
 const updateStock = async function (stockid, planned, request, response) {
   return new Promise((resolve, reject) => {
     // get the current stock quantity
-    const query = `SELECT * FROM newstock WHERE stockid = ?`;
+    const query = `SELECT * FROM generalstocks WHERE stockid = ?`;
     connection.query(query, [stockid], function (err, result) {
       if (err) {
         reject(err)
@@ -131,7 +131,7 @@ const updateStock = async function (stockid, planned, request, response) {
       if (result) {
         const { stockid, quantity } = result[0];
         const updatedQuantity = parseInt(quantity) + parseInt(planned);
-        const query = `UPDATE newstock SET quantity = ? WHERE stockid = ?`;
+        const query = `UPDATE generalstocks SET quantity = ? WHERE stockid = ?`;
         connection.query(query, [updatedQuantity, stockid], function (err, result) {
           if (err) {
             reject(err)
@@ -148,8 +148,8 @@ const updateStock = async function (stockid, planned, request, response) {
 
 
 const updateOrders = function (data) {
-  const query = `UPDATE orders SET received = ?, quantityreceived = ?, receiveddate = ?, status = ?, expirydate = ?,
-   batchnumber = ?, balance = ?, price = ?, totalamount = ? WHERE productordersid = ? AND orderTransactionid = ?`;
+  const query = `UPDATE orders SET received = ?, quantityReceived = ?, receiveddate = ?, status = ?, expirydate = ?,
+   batchnumber = ?, balance = ?, price = ?, totalamount = ? WHERE productordersid = ? AND orderTransactionid = ? AND stockid =?`;
   return promisifyQuery(query, data);
 }
 
@@ -199,6 +199,7 @@ const purchaseOrdersToStock = async function (request, response) {
         price,
         totalamount,
         orderTransactionid,
+        stockid
       } = item;
 
       return [
@@ -213,6 +214,7 @@ const purchaseOrdersToStock = async function (request, response) {
         totalamount,
         productordersid,
         orderTransactionid,
+        stockid
       ];
     });
     while (current < targetRef) {

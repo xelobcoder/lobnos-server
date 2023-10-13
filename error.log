@@ -65,3 +65,6 @@
 {"level":"error"}
 {"level":"error"}
 {"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO orders (quantity, stockid, name, suppliername, supplierid, purchaseunit,orderTransactionid)\n       VALUES ('38383',3,'Tiifu hamza','johnson johnson','1','litre',1697174861637)","sqlMessage":"Duplicate entry '1697174861637' for key 'orderTransactionid'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO stockCategory (category) VALUES ('diluents')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO stockCategory (category) VALUES ('disposables')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO stockCategory (category) VALUES ('disposables')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
