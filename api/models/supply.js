@@ -2,6 +2,7 @@ const connection = require('../db')
 const database_queries = require('../database/queries')
 const { response } = require('express')
 const logger = require('../../logger')
+const { promisifyQuery, customError } = require('../../helper')
 
 const new_supplier = async function (request, response) {
   const {
@@ -373,7 +374,7 @@ const getAstock = async function (request, response) {
   const { stockid } = request.query
   if (stockid) {
     connection.query(
-      `SELECT * FROM generalstocks WHERE STOCKID = ?`,
+      `SELECT * FROM generalstocks WHERE stockid = ?`,
       [stockid],
       function (err, result) {
         if (err) {
@@ -415,11 +416,11 @@ const getExpiredStock = async function (request, response) {
           name,
           suppliername,
           purchaseunit
-        FROM ORDERS
+        FROM orders
         WHERE RECEIVED = 'TRUE'
           AND DATE(expirydate) < DATE(NOW())
         ORDER BY expirydate ASC
-        LIMIT 100 
+        LIMIT 50
     `;
   // in possible future, an additional table will created which e using fot all transaction of all
   // stock to keeep seperate the generalstocks table from updating the stocks so 
@@ -614,12 +615,36 @@ const deleteStockCategory = function (request, response) {
   }
 }
 
+
+const filterStock = async function (filter, response) {
+  try {
+    const query = `SELECT 
+        gs.stockid,
+        gs.name,
+        sc.category,
+        gs.consumptionunit,
+        gs.quantity
+    FROM generalstocks AS gs
+    INNER JOIN stockcategory AS  sc ON sc.id = gs.category
+    WHERE gs.name  LIKE ? OR sc.category LIKE ? ORDER BY gs.name ASC LIMIT 50`;
+    const value = `${filter}%`;
+    let data = await promisifyQuery(query, [value, value]);
+    if (data.length > 0) {
+      data = data.map((item, index) => { return { ...item, quantityrequired: 0 } })
+    }
+    response.send({ statusCode: 200, status: 'success', result: data })
+  } catch (err) {
+    logger.error(err); customError(`Error occured`, 500, response)
+  }
+}
+
 module.exports = {
   new_supplier,
   getExpiredStock,
   getInStockProduct,
   deleteStockCategory,
   update_supplier,
+  filterStock,
   delete_supplier,
   get_suppliers,
   specificSupllier,

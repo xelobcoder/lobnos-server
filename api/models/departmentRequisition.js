@@ -2,9 +2,34 @@ const { query } = require("express");
 const connection = require("../db");
 const { get } = require("../controllers/results");
 const logger = require("../../logger");
+const { promisifyQuery, customError } = require("../../helper");
 
 const uuidv4 = require("uuid").v4;
 
+
+/**
+ * Handles a POST request to create a new department requisition.
+ * 
+ * @param {object} request - The HTTP request object containing the request body.
+ * @param {object} response - The HTTP response object used to send the response back to the client.
+ * @returns {void}
+ */
+// Summary
+// This code defines a function called newdepartmentRequisition that handles a POST request to create a new department requisition. 
+// It checks if all the required fields are provided in the request body, and if not, it sends an error response. 
+// If all the fields are provided, it checks if the stock has already been requisitioned for the given department. 
+// If it has, it sends a success response indicating that the stock has already been requisitioned. 
+// If the stock has not been requisitioned, it inserts a new department requisition into the database and sends a success response with the inserted data.
+
+//    Flow
+// Destructure the stockid, departmentid, quantity, and comsumptionunit from the request body.
+// Generate a unique requisitionid using the uuidv4 function.
+// Check if any of the required fields in the request body are empty or null.
+// If any of the required fields are empty or null, send a 400 error response indicating that all fields are required.
+// If all the required fields are provided, check if the stock has already been requisitioned for the given department.
+// If the stock has already been requisitioned, send a success response indicating that the stock has already been requisitioned.
+// If the stock has not been requisitioned, insert a new department requisition into the database.
+// Send a success response with the inserted data.
 const newdepartmentRequisition = (request, response) => {
   const { stockid, departmentid, quantity, comsumptionunit } = request.body;
 
@@ -21,83 +46,74 @@ const newdepartmentRequisition = (request, response) => {
       message: "All fields are required",
     });
   } else {
-    // check if the stockid is  available in department requisition table hx  and the date is today
-    // if  send a message that the stock has already been requisitioned
-    // else add the stock to the department requisition table
     const checkIfStockIsAlreadyRequisitioned = async () => {
-      // select all requisition which has not been approved or resolved
       const query = `SELECT * FROM departmentrequisitionhx
        WHERE stockid = ? AND departmentid = ? AND quantity_approved IS NULL`;
-
-      const check = new Promise((resolve, reject) => {
-        connection.query(query, [stockid, departmentid], function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result);
-          }
-        });
-      });
-      // return a promise 
-      return check;
+      try {
+        return await promisifyQuery(query, [stockid, departmentid]);
+      } catch (error) {
+        logger.error(error);
+        throw error;
+      }
     };
 
-    checkIfStockIsAlreadyRequisitioned().then((data) => {
-      if (data.length > 0) {
-        response.send({
-          statusCode: 200,
-          status: "success",
-          message: "Stock has already been requisitioned",
-        });
-      } else {
-        const newdepartmentRequisition = async () => {
-          // we create a new requisition since the stock has not been requisitioned
-
-          // sql query
-          const sql_query = `INSERT INTO departmentrequisitionhx
+    checkIfStockIsAlreadyRequisitioned()
+      .then((data) => {
+        if (data.length > 0) {
+          response.send({
+            statusCode: 200,
+            status: "success",
+            message: "Stock has already been requisitioned",
+          });
+        } else {
+          const newdepartmentRequisition = async () => {
+            const sql_query = `INSERT INTO departmentrequisitionhx
           (stockid, departmentid, quantity_requested, comsumptionunit, requisitionid)
           VALUES (?,?,?,?,?)`;
 
-          const newRequisition = new Promise((resolve, reject) => {
-            connection.query(
-              sql_query,
-              [stockid, departmentid, quantity, comsumptionunit, requisitionid],
-              function (err, result) {
-                if (err) {
-                  reject(err);
-                }
-                if (result) {
-                  resolve(result);
-                }
-              }
-            );
-          })
-          // return a promise
-          return newRequisition;
-        };
-        newdepartmentRequisition()
-          .then((data) => {
-            response.send({
-              statusCode: 200,
-              status: "success",
-              message: "Department requisition added successfully",
-              data,
+            try {
+              const result = await promisifyQuery(sql_query, [
+                stockid,
+                departmentid,
+                quantity,
+                comsumptionunit,
+                requisitionid,
+              ]);
+              return result;
+            } catch (error) {
+              throw error;
+            }
+          };
+
+          newdepartmentRequisition()
+            .then((data) => {
+              response.send({
+                statusCode: 200,
+                status: "success",
+                message: "Department requisition added successfully",
+                data,
+              });
+            })
+            .catch((error) => {
+              response.send({
+                statusCode: 500,
+                status: "error",
+                message: "Department requisition not added",
+                error,
+              });
             });
-          })
-          .catch((error) => {
-            response.send({
-              statusCode: 500,
-              status: "error",
-              message: "Department requisition not added",
-              error,
-            });
-          });
-      }
-    });
+        }
+      })
+      .catch((error) => {
+        response.send({
+          statusCode: 500,
+          status: "error",
+          message: "Error checking if stock is already requisitioned",
+          error,
+        });
+      });
   }
 };
-
 const getDepartmentsRequisitions = async function (request, response) {
   const query = `
     SELECT *
@@ -108,7 +124,7 @@ const getDepartmentsRequisitions = async function (request, response) {
 
   connection.query(query, (error, results) => {
     if (error) {
-      console.error('Error fetching department requisitions:', error);
+      logger.error('Error fetching department requisitions:', error);
       response.status(500).json({
         status: 'error',
         message: 'Failed to fetch department requisitions',
@@ -125,13 +141,9 @@ const getDepartmentsRequisitions = async function (request, response) {
 };
 
 const specificDepartmentRequisition = async function (request, response, include = false) {
-  const { id } = request.query;
+  const { id, type } = request.query;
   // join department requisition table with  name of department  table and name of newstock table
-  const mysql_query = function () {
-    const { id, type } = request.query;
-
-    if (type === "pending") {
-      return `SELECT  drh.id,
+  let mysql_query = `SELECT  drh.id,
         drh.departmentid, 
         drh.stockid, 
         drh.quantity_requested,
@@ -145,71 +157,23 @@ const specificDepartmentRequisition = async function (request, response, include
          ns.quantity
          FROM departmentrequisitionhx AS drh
         INNER JOIN departments AS d ON d.id = drh.departmentid
-        INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
-        WHERE drh.departmentid = ${id} AND quantity_approved IS NULL `
-    }
-
-    if (type === "approved") {
-      return `SELECT  drh.id,
-        drh.departmentid, 
-        drh.stockid, 
-        drh.quantity_requested,
-        drh.quantity_approved,
-        drh.quantityReceived,
-        drh.status,
-         drh.date,
-         drh.requisitionid,
-         drh.comsumptionunit,
-         d.department,ns.stockid,
-         ns.name,
-         ns.quantity
-         FROM departmentrequisitionhx AS drh
-        INNER JOIN departments AS d ON d.id = drh.departmentid
-        INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
-        WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'approved'`
-    }
-
-    if (type === "rejected") {
-      return `SELECT  drh.id,
-            drh.departmentid,
-            drh.stockid,
-            drh.quantity_requested,
-            drh.quantity_approved,
-            drh.quantityReceived,
-            drh.status,
-            drh.date,
-            drh.requisitionid,
-            drh.comsumptionunit,
-            d.department,ns.stockid,
-            ns.name,
-            ns.quantity
-            FROM departmentrequisitionhx AS drh
-            INNER JOIN departments AS d ON d.id = drh.departmentid
-            INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
-            WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'rejected'`
-    }
-
-    if (type === "received") {
-      return `SELECT  drh.id,
-          drh.departmentid,
-          drh.stockid,
-          drh.quantity_requested,
-          drh.quantity_approved,
-          drh.quantityReceived,
-          drh.status,
-          drh.date,
-          drh.requisitionid,
-          drh.comsumptionunit,
-          d.department,ns.stockid,
-          ns.name,
-          ns.quantity
-          FROM departmentrequisitionhx AS drh
-          INNER JOIN departments AS d ON d.id = drh.departmentid
-          INNER JOIN generalstock AS ns ON ns.stockid = drh.stockid
-          WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'received'`
-    }
+        INNER JOIN generalstocks AS ns ON ns.stockid = drh.stockid`
 
 
+  if (type === "pending") {
+    mysql_query += ` WHERE drh.departmentid = ${id} AND quantity_approved IS NULL `
+  }
+
+  if (type === "approved") {
+    mysql_query += ` WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'approved'`
+  }
+
+  if (type === "rejected") {
+    mysql_query += ` WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'rejected'`
+  }
+
+  if (type === "received") {
+    mysql_query += `WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'received'`
   }
 
   if (id === undefined || id === null) {
@@ -218,7 +182,7 @@ const specificDepartmentRequisition = async function (request, response, include
       message: "department requisition id not included",
     });
   } else {
-    connection.query(mysql_query(), function (err, result) {
+    connection.query(mysql_query, function (err, result) {
       if (err) {
         response.send({
           status: "error",
@@ -230,7 +194,7 @@ const specificDepartmentRequisition = async function (request, response, include
         response.send({
           status: "success",
           message: "success",
-          data: result,
+          result: result,
           statusCode: 200,
         });
       }
@@ -275,10 +239,12 @@ const patchRequisition = async function (request, response, requi_id) {
 }
 
 const getDeptStocks = async function (request, response, id) {
-  const mysql_query = `SELECT * FROM newstock 
+  const mysql_query = `SELECT 
+  np.stockid,np.name,ds.quantityAvailable,sc.category,np.consumptionunit FROM generalstocks 
   AS np INNER JOIN departmentstocks AS
   ds ON np.stockid = ds.stockid INNER 
   JOIN departments AS d ON d.id = ds.deptid 
+  INNER JOIN stockcategory AS sc On sc.id = np.category
   WHERE ds.deptid = ${id} `;
 
   if (id === undefined || id === null) {
@@ -289,6 +255,7 @@ const getDeptStocks = async function (request, response, id) {
   } else {
     connection.query(mysql_query, function (err, result) {
       if (err) {
+        logger.error(err)
         response.send({
           status: "error",
           message: err.message,
@@ -347,343 +314,22 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
     });
   } else {
     // this updates `quantityReceived` and `departmentReceived` fields
-    const updatingQtyReceived = async function (id, qtyR, dptR) {
-      // using prisma to update the quantity received and the department received and retun a promise
-      const update_query = `UPDATE departmentrequisitionhx 
-       SET quantityReceived = ${qtyR}, departmentReceived = ${dptR}, 
-       status = '${status}' WHERE id = ${id}`;
-
-      const updatedQty = new Promise((resolve, reject) => {
-        connection.query(update_query, function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            // return the stockid o the stock updated
-
-            resolve(result.affectedRows);
-          }
-        });
-      }
-      );
-
-      return updatedQty;
-    }
-
-
-
-    // this function checks if the stock is already in the department stock table
-    const isDeptHaveStock = async function (stockid, departmentid) {
-      // returna a promise
-
-      const query = `SELECT * FROM departmentstocks WHERE stockid = ${stockid} AND
-       deptid = ${departmentid}`;
-      // we return a promise
-      const isStock = new Promise((resolve, reject) => {
-        connection.query(query, function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result);
-          }
-        });
-      }
-      );
-
-      return isStock;
-    }
-
-
-    //  this function adds new stock to the department stock table
-    const addingNewDeptStock = async function (stockid, qtyR, departmentid, comsumptionunit) {
-      // return a promise
-      const addNewStock = `INSERT INTO departmentstocks (stockid, deptid, quantityAvailable, comsumptionunit)
-        VALUES (${stockid}, ${departmentid}, ${qtyR}, '${comsumptionunit}')`;
-
-      const newStock = new Promise((resolve, reject) => {
-        connection.query(addNewStock, function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result.affectedRows);
-          }
-        });
-      }
-      );
-
-      return newStock;
-    }
-
-
-    // this function reduce qty in the new stock table
-
-    const reducingQtyInNewStock = async function (stockid, qtyR) {
-      // return a promise
-      // we want decrement the quantity in the new stock table by the quantity received
-      // we get the qty Recieved from db,substract qry received from it and update the db
-
-      const getQty = `SELECT quantity FROM generalstocks WHERE stockid = ${stockid}`;
-      // get the data from db
-      const qty = new Promise((resolve, reject) => {
-        connection.query(getQty, function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result);
-          }
-        });
+    const update_query = `UPDATE departmentrequisitionhx 
+       SET quantityReceived = ?, departmentReceived = ?, 
+       status = ? WHERE id = ?`;
+    const values = [quantityReceived, departmentReceived, status, id];
+    const { affectedRows } = await promisifyQuery(update_query, values);
+    // rest of the funtions and jobs will be handled at the database level using triggers on department...hx table
+    if (!affectedRows || affectedRows === 0) {
+      customError('update failed', 500, response);
+    } else {
+      response.send({
+        status: "success",
+        message: "Department stocks successfully updated",
+        statusCode: 200
       });
-
-      const resultSet = await qty;
-
-
-
-      if (resultSet.length > 0) {
-        const qtyInDb = resultSet[0].quantity;
-        // we substract the qty received from the qty in db
-        const qtyInDbAfterSubstraction = qtyInDb - qtyR;
-        // we update the db
-        const updateQtyQuery = `UPDATE newstock SET quantity = ${qtyInDbAfterSubstraction} WHERE stockid = ${stockid}`;
-
-        const updatedQty = new Promise((resolve, reject) => {
-          connection.query(updateQtyQuery, function (err, result) {
-            if (err) {
-              reject(err);
-            }
-            if (result) {
-              resolve(result.affectedRows);
-            }
-          });
-        }
-        );
-        return updatedQty;
-      }
-
     }
-
-
-    // this function checks the quantity in the new stock table
-
-    const checkingQtyInNewStock = async function (stockid) {
-      // return a promise
-      const instock = `SELECT quantity FROM newstock WHERE stockid = ${stockid}`;
-
-      const qty = new Promise((resolve, reject) => {
-        connection.query(instock, function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result);
-          }
-        });
-      });
-
-      return qty;
-    }
-
-
-    //  this function updates the quantity of the stock in the department stock table
-    const updatingDeptStock = async function (departmentid, stockid, qty) {
-      // return a promise
-
-      const previousQty = function () {
-        return new Promise((resolve, reject) => {
-          connection.query(`SELECT * FROM departmentstocks WHERE deptid = ? AND stockid = ?`,
-            [departmentid, stockid], function (err, result) {
-              if (err) {
-                reject(err)
-              }
-              else {
-                resolve(result)
-              }
-            })
-        })
-
-      }
-
-
-      const previous = await previousQty()
-      const qtyAvailable = previous[0]?.quantityAvailable;
-
-      // adding quantity receieved to previous stock level
-      const current = parseInt(qtyAvailable) + qty;
-
-      const updatedeptmentStocks = `UPDATE departmentstocks
-       SET quantityAvailable = ${current},
-        dateupdated = NOW()
-      WHERE deptid = ${departmentid} and stockid = ${stockid}`
-
-      //  exceute the query and return a promise
-      const updatedQty = new Promise((resolve, reject) => {
-        connection.query(updatedeptmentStocks, function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result.affectedRows);
-          }
-        });
-      });
-
-      return updatedQty;
-    }
-
-
-
-    // this function gets the stock information from the new stock table
-    const getStockInformation = async function (stockid) {
-      // return a promise
-
-      const stockInfo = `SELECT * FROM newstock WHERE stockid = ${stockid}`;
-
-      const stock = new Promise((resolve, reject) => {
-        connection.query(stockInfo, function (err, result) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result);
-          }
-        });
-      });
-
-
-      const getStockInformation = await stock;
-
-      return {
-        stockid: getStockInformation[0].stockid,
-        consumptionunit: getStockInformation[0].consumptionunit,
-        name: getStockInformation[0].name,
-      }
-
-    }
-
-    // const { quantityReceived, departmentReceived, id, departmentid } = request.body;/
-
-    // update the quantity received and the department received
-    // check the quantity in the new stock table, 
-    // if the quantity is less than the quantity received, return an error
-    //  if the quantity is more than the quantity received,
-    // reduce the quantity in the news stock table by the quantity received
-    // check if the stock is already in the department stock table
-    // if it is, update the quantity
-    // if it is not, add the stock to the department stock table
-
-    // NB:this would be rewritten using transactions to ensure data integrity and ACID compliance.
-    connection.beginTransaction(async function (err) {
-      if (err) {logger.error(err); }
-      // we check the quantity in the new stock table
-      const checkQty = await checkingQtyInNewStock(stockid);
-      const instockQty = checkQty[0].quantity;
-      // if quantity is less than the quantity received, return an error
-
-      if (instockQty < quantityReceived) {
-        return response.status(400).json({
-          status: 'error',
-          statusCode: 400,
-          message: 'The quantity received is more than the quantity in the new stock table'
-        })
-      } else {
-        // 1. update requisition hx table with the quantity received and the department received
-        const updateRequisition = await updatingQtyReceived(id, quantityReceived, departmentReceived);
-        // if affected rows is greater than 0, continue else return an error
-        if (updateRequisition > 0) {
-          // 2. update the quantity in the new stock table
-          const reduceGeneralSoreQty = await reducingQtyInNewStock(stockid, quantityReceived);
-          // if affected rows is greater than 0, continue else return an error
-          if (reduceGeneralSoreQty > 0) {
-            // 3. check if the stock is already in the department stock table
-            const isStockInDeptStock = await isDeptHaveStock(stockid, departmentid);
-            // if length is greater than 0, update the quantity else add the stock to the department stock table
-            console.log(isStockInDeptStock.length);
-            if (isStockInDeptStock.length == 0) {
-              // add the stock to the department stock table
-              const pushNewStock = await addingNewDeptStock(stockid, quantityReceived, departmentid, consumptionunit);
-              // if affected rows is greater than 0, continue else return an error
-              if (pushNewStock > 0) {
-                // commit the transaction
-                connection.commit(function (err) {
-                  if (err) {
-                    return connection.rollback(function () {
-                     logger.error(err);
-                    });
-                  }
-                  else {
-                    return response.status(200).json({
-                      status: 'success',
-                      statusCode: 200,
-                      message: 'The stock was added to the department stock table'
-                    })
-                  }
-                });
-              } else {
-                // rollback the transaction
-                connection.rollback(function () {
-                  return response.status(400).json({
-                    status: 'error',
-                    statusCode: 400,
-                    message: 'The stock was not added to the department stock table'
-                  })
-                }
-                );
-              }
-            } else {
-              // update the quantity in the department stock table
-              const updateDeptStock = await updatingDeptStock(departmentid, stockid, quantityReceived);
-              // if affected rows is greater than 0, continue else return an error
-              if (updateDeptStock > 0) {
-                // commit the transaction
-                connection.commit(function (err) {
-                  if (err) {
-                    return connection.rollback(function () {
-                     logger.error(err);
-                    });
-                  }
-                  else {
-                    return response.status(200).json({
-                      status: 'success',
-                      statusCode: 200,
-                      message: 'The quantity was updated in the department stock table'
-                    })
-                  }
-                });
-              } else {
-                // rollback the transaction
-                connection.rollback(function () {
-                  return response.status(400).json({
-                    status: 'error',
-                    statusCode: 400,
-                    message: 'The quantity was not updated in the department stock table'
-                  })
-                }
-                );
-              }
-            }
-          } else {
-            // rollback the transaction
-            connection.rollback(function () {
-              return response.status(400).json({
-                status: 'error',
-                statusCode: 400,
-                message: 'The quantity was not reduced in the new stock table'
-              })
-            });
-          }
-        } else {
-          return response.status(400).json({
-            status: 'error',
-            statusCode: 400,
-            message: 'The requisition was not updated'
-          })
-        }
-      }
-    })
-  };
-
+  }
 
 
 };
@@ -699,3 +345,6 @@ module.exports = {
   patchRequisition,
   updateRequisitionAfterReceivedDept,
 };
+
+
+

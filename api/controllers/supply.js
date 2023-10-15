@@ -14,6 +14,7 @@ const {
   getInStockProduct,
   deleteAstock,
   updateAstock,
+  filterStock,
   addNewStockCategory,
   getStockCategory,
   deleteStockCategory
@@ -34,6 +35,7 @@ const {
 
 const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require('../models/placeorders.js');
 const { getCategory } = require('../testpanel/categories.js');
+const { customError } = require('../../helper.js');
 
 router.get('/api/v1/suppliers', function (request, response) {
   const hasQuery = Object.keys(request.query).length > 0
@@ -66,6 +68,15 @@ router.get('/api/v1/commodities', function (request, response) {
 
 router.post('/api/v1/stock', function (request, response) {
   new_stock(request, response)
+})
+
+router.get('/api/v1/stocks/filter', async function (request, response) {
+  const { filter } = request.query;
+  if (!filter)
+    customError(`filter not included in the request query`, 404, response);
+  else {
+    filterStock(filter, response)
+  }
 })
 
 router.get('/api/v1/stock', function (request, response) {
@@ -120,8 +131,8 @@ router.get('/api/v1/stock/category', function (request, response) {
   getStockCategory(request, response)
 })
 
-router.delete('/api/v1/stock/category', function(request,response){
-  deleteStockCategory(request,response)
+router.delete('/api/v1/stock/category', function (request, response) {
+  deleteStockCategory(request, response)
 })
 
 router.delete('/api/v1/stock', function (request, response) {
