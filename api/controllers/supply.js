@@ -28,8 +28,10 @@ const {
   specificDepartmentRequisition,
   getDeptStocks,
   deleteDeptStocks,
+  getDepartmentStockLot,
   patchRequisition,
-  updateRequisitionAfterReceivedDept
+  updateRequisitionAfterReceivedDept,
+  generalStoreLotNo
 } = require('../models/departmentRequisition.js')
 
 
@@ -202,5 +204,15 @@ router.put('/api/v1/departments/requisitions', function (request, response) {
   updateRequisitionAfterReceivedDept(request, response)
 })
 
+
+// consume 
+router.get('/api/v1/stock/department/consume/lot', function (request, response) {
+  getDepartmentStockLot(request, response);
+})
+
+
+router.get('/api/v1/stock/general/lotno', function (request, response) {
+  generalStoreLotNo(request, response);
+})
 
 module.exports = router

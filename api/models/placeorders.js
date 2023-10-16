@@ -149,7 +149,7 @@ const updateStock = async function (stockid, planned, request, response) {
 
 const updateOrders = function (data) {
   const query = `UPDATE orders SET received = ?, quantityReceived = ?, receiveddate = ?, status = ?, expirydate = ?,
-   batchnumber = ?, balance = ?, price = ?, totalamount = ? WHERE productordersid = ? AND orderTransactionid = ? AND stockid =?`;
+   batchnumber = ?, balance = ?,brand = ? , price = ?, totalamount = ? WHERE productordersid = ? AND orderTransactionid = ? AND stockid =?`;
   return promisifyQuery(query, data);
 }
 
@@ -196,6 +196,7 @@ const purchaseOrdersToStock = async function (request, response) {
         expirydate,
         batchnumber,
         balance,
+        brand,
         price,
         totalamount,
         orderTransactionid,
@@ -210,6 +211,7 @@ const purchaseOrdersToStock = async function (request, response) {
         expirydate,
         batchnumber,
         balance,
+        brand,
         price,
         totalamount,
         productordersid,

@@ -153,6 +153,8 @@ const specificDepartmentRequisition = async function (request, response, include
          drh.requisitionid,
          drh.comsumptionunit,
          d.department,ns.stockid,
+         drh.batchnumber,
+         drh.brand,
          ns.name,
          ns.quantity
          FROM departmentrequisitionhx AS drh
@@ -205,11 +207,15 @@ const specificDepartmentRequisition = async function (request, response, include
 
 const patchRequisition = async function (request, response, requi_id) {
   // update the department requisition table with the quantity approved and the status=approved
-  const { quantity_approved, store_supplied } = request.body;
+  const { quantity_approved, store_supplied, brand, batchnumber } = request.body;
   const mysql_query = `UPDATE departmentrequisitionhx
-   SET quantity_approved = ${quantity_approved},
-   store_supplied = ${store_supplied},
-   status = 'approved' WHERE id = '${parseInt(requi_id)}'`;
+   SET quantity_approved = ?,
+   store_supplied = ?,
+   batchnumber = ?,
+   brand = ?,
+   status = 'approved' WHERE id = ?`;
+
+  const values = [quantity_approved, store_supplied, batchnumber, brand, parseInt(requi_id)];
 
   if (requi_id === undefined || requi_id === null ||
     quantity_approved === undefined || quantity_approved === null || store_supplied === undefined || store_supplied === null) {
@@ -218,7 +224,7 @@ const patchRequisition = async function (request, response, requi_id) {
       message: "required fields not included",
     });
   } else {
-    connection.query(mysql_query, function (err, result) {
+    connection.query(mysql_query, values, function (err, result) {
       if (err) {
         response.send({
           status: "error",
@@ -307,18 +313,23 @@ const deleteDeptStocks = async function (request, response, id) {
 
 const updateRequisitionAfterReceivedDept = async function (request, response) {
   const { quantityReceived, departmentReceived, id, status, stockid, consumptionunit, departmentid } = request.body;
+
   if (!quantityReceived || !departmentReceived || !id) {
     response.send({
       status: "error",
       message: "required fields not included",
     });
-  } else {
+  }
+  else {
     // this updates `quantityReceived` and `departmentReceived` fields
     const update_query = `UPDATE departmentrequisitionhx 
        SET quantityReceived = ?, departmentReceived = ?, 
        status = ? WHERE id = ?`;
+
     const values = [quantityReceived, departmentReceived, status, id];
+
     const { affectedRows } = await promisifyQuery(update_query, values);
+
     // rest of the funtions and jobs will be handled at the database level using triggers on department...hx table
     if (!affectedRows || affectedRows === 0) {
       customError('update failed', 500, response);
@@ -334,6 +345,46 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 
 };
 
+
+const getDepartmentStockLot = async (request, response) => {
+  const { stockid, departmentid } = request.query;
+
+  if (!stockid && departmentid) customError(`Stockid and departmentid required`, 404, response);
+
+  if (stockid) {
+    const queryString = `SELECT id,
+      requisitionid,
+      batchnumber,
+      quantity_approved
+      FROM departmentrequisitionhx WHERE stockid = ? 
+      AND departmentReceived = 1 AND store_supplied = 1 AND departmentid = ?`;
+    const values = [stockid, departmentid];
+
+    let result = await promisifyQuery(queryString, values);
+    console.log(result)
+  }
+}
+
+
+
+const generalStoreLotNo = async (request, response) => {
+  const { stockidx } = request.query;
+
+  if (stockidx) {
+    const query = `SELECT brand,stockid,batchnumber,quantity FROM orders WHERE stockid IN (?)  
+  AND CURRENT_DATE < expirydate AND received = 'TRUE';
+`;
+    try {
+      let result = await promisifyQuery(query, [stockidx]);
+      response.send({ result, statusCode: 200, status: 'success' })
+    } catch (err) {
+      customError(`occured`, 500, response);
+    }
+  } else {
+    customError(`stockid not provided in the query of the request`, 404, response);
+  }
+}
+
 // ---------------------------
 
 module.exports = {
@@ -343,7 +394,9 @@ module.exports = {
   getDeptStocks,
   deleteDeptStocks,
   patchRequisition,
+  getDepartmentStockLot,
   updateRequisitionAfterReceivedDept,
+  generalStoreLotNo
 };
 
 
