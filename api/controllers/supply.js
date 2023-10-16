@@ -31,7 +31,8 @@ const {
   getDepartmentStockLot,
   patchRequisition,
   updateRequisitionAfterReceivedDept,
-  generalStoreLotNo
+  generalStoreLotNo,
+  consumeDepartmentStock
 } = require('../models/departmentRequisition.js')
 
 
@@ -213,6 +214,11 @@ router.get('/api/v1/stock/department/consume/lot', function (request, response) 
 
 router.get('/api/v1/stock/general/lotno', function (request, response) {
   generalStoreLotNo(request, response);
+})
+
+
+router.post('/api/v1/departments/stock/consume', async function (request, response) {
+  consumeDepartmentStock(request, response);
 })
 
 module.exports = router

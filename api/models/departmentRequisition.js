@@ -34,7 +34,7 @@ const newdepartmentRequisition = (request, response) => {
   const { stockid, departmentid, quantity, comsumptionunit } = request.body;
 
   const requisitionid = uuidv4();
-
+  console.log(request.body)
   const isNotEmptyFields = Object.values(request.body).filter((field) => {
     return field === "" || field === null;
   });
@@ -352,16 +352,21 @@ const getDepartmentStockLot = async (request, response) => {
   if (!stockid && departmentid) customError(`Stockid and departmentid required`, 404, response);
 
   if (stockid) {
-    const queryString = `SELECT id,
-      requisitionid,
+    try {
+      const queryString = `SELECT id,
       batchnumber,
-      quantity_approved
-      FROM departmentrequisitionhx WHERE stockid = ? 
-      AND departmentReceived = 1 AND store_supplied = 1 AND departmentid = ?`;
-    const values = [stockid, departmentid];
+      brand,
+      departmentid,
+      quantity
+      FROM departmentconsumption WHERE stockid = ? 
+      AND departmentid = ?`;
+      const values = [stockid, departmentid];
 
-    let result = await promisifyQuery(queryString, values);
-    console.log(result)
+      let result = await promisifyQuery(queryString, values);
+      response.send({ result, statusCode: 200, status: 'success' })
+    } catch (err) {
+      customError(`Occured in retrieving lots and brands of stock`, 500, response);
+    }
   }
 }
 
@@ -385,6 +390,49 @@ const generalStoreLotNo = async (request, response) => {
   }
 }
 
+
+
+const consumeDepartmentStock = async function (request, response) {
+  const { stockname, stockid, departmentid, consumeqty, brand, batchnumber } = request.body;
+
+  // get stockitem
+  const retrieveQuery = `SELECT * FROM departmentconsumption WHERE stockid = ? AND departmentid = ? AND brand = ? AND batchnumber = ?`;
+
+  const retrieveValues = [stockid, parseInt(departmentid), brand, batchnumber];
+
+  const stockdata = await promisifyQuery(retrieveQuery, retrieveValues);
+
+  if (stockdata.length > 0) {
+    const prev = parseInt(stockdata[0]['quantity']);
+    const conqty = parseInt(consumeqty);
+
+    if (prev >= conqty) {
+      const balance = prev - conqty;
+      const updateQuery = `UPDATE departmentconsumption SET quantity = ? 
+      WHERE departmentid  = ? AND batchnumber = ? AND stockid = ?  AND brand = ?`;
+
+      const updateValues = [balance, departmentid, batchnumber, stockid, brand];
+      const updateConsumption = await promisifyQuery(updateQuery, updateValues);
+
+      if (updateConsumption && updateConsumption.affectedRows == 1) {
+        const hxQuery = `INSERT INTO departmentconsumptionhx (department,stockid,batchnumber,brand,debit,credit,employeeid) VALUES (?,?,?,?,?,?,?)`;
+
+        const hxValues = [departmentid, stockid, batchnumber, brand, conqty, 0, 3];
+
+        let hxResult = await promisifyQuery(hxQuery, hxValues);
+
+        if (hxResult?.affectedRows > 0) {
+          response.send({ message: 'stock successfully consumed', statusCode: 200, status: 'success' })
+        }
+      }
+    } else {
+      customError(`qty to be consumed must be less than qty available`, 404, response);
+    }
+  } else {
+    customError('Not found ', 404, response)
+  }
+}
+
 // ---------------------------
 
 module.exports = {
@@ -396,6 +444,7 @@ module.exports = {
   patchRequisition,
   getDepartmentStockLot,
   updateRequisitionAfterReceivedDept,
+  consumeDepartmentStock,
   generalStoreLotNo
 };
 
