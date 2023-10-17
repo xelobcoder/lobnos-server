@@ -31,7 +31,7 @@ const uuidv4 = require("uuid").v4;
 // If the stock has not been requisitioned, insert a new department requisition into the database.
 // Send a success response with the inserted data.
 const newdepartmentRequisition = (request, response) => {
-  const { stockid, departmentid, quantity, comsumptionunit } = request.body;
+  const { stockid, departmentid, quantity, comsumptionunit, employeeid } = request.body;
 
   const requisitionid = uuidv4();
   console.log(request.body)
@@ -68,8 +68,8 @@ const newdepartmentRequisition = (request, response) => {
         } else {
           const newdepartmentRequisition = async () => {
             const sql_query = `INSERT INTO departmentrequisitionhx
-          (stockid, departmentid, quantity_requested, comsumptionunit, requisitionid)
-          VALUES (?,?,?,?,?)`;
+          (stockid, departmentid, quantity_requested, comsumptionunit, requisitionid,requestingemployee)
+          VALUES (?,?,?,?,?,?)`;
 
             try {
               const result = await promisifyQuery(sql_query, [
@@ -78,6 +78,7 @@ const newdepartmentRequisition = (request, response) => {
                 quantity,
                 comsumptionunit,
                 requisitionid,
+                employeeid
               ]);
               return result;
             } catch (error) {
@@ -312,21 +313,22 @@ const deleteDeptStocks = async function (request, response, id) {
 // -------------------------
 
 const updateRequisitionAfterReceivedDept = async function (request, response) {
-  const { quantityReceived, departmentReceived, id, status, stockid, consumptionunit, departmentid } = request.body;
+  const { quantityReceived, departmentReceived, id, status, stockid, consumptionunit, departmentid, employeeid } = request.body;
 
-  if (!quantityReceived || !departmentReceived || !id) {
+  if (!quantityReceived || !departmentReceived || !id || !employeeid) {
     response.send({
       status: "error",
       message: "required fields not included",
+      requiredfields: 'quantityReceived, departmentReceived, id, status, stockid, consumptionunit, departmentid, employeeid'
     });
   }
   else {
     // this updates `quantityReceived` and `departmentReceived` fields
     const update_query = `UPDATE departmentrequisitionhx 
        SET quantityReceived = ?, departmentReceived = ?, 
-       status = ? WHERE id = ?`;
+       status = ?, receivingemployee = ? WHERE id = ?`;
 
-    const values = [quantityReceived, departmentReceived, status, id];
+    const values = [quantityReceived, departmentReceived, status, employeeid, id];
 
     const { affectedRows } = await promisifyQuery(update_query, values);
 
@@ -376,11 +378,11 @@ const generalStoreLotNo = async (request, response) => {
   const { stockidx } = request.query;
 
   if (stockidx) {
-    const query = `SELECT brand,stockid,batchnumber,quantity FROM orders WHERE stockid IN (?)  
+    const query = `SELECT brand,stockid,batchnumber,quantity FROM orders WHERE stockid IN (${stockidx})  
   AND CURRENT_DATE < expirydate AND received = 'TRUE';
 `;
     try {
-      let result = await promisifyQuery(query, [stockidx]);
+      let result = await promisifyQuery(query);
       response.send({ result, statusCode: 200, status: 'success' })
     } catch (err) {
       customError(`occured`, 500, response);
@@ -405,7 +407,7 @@ const consumeDepartmentStock = async function (request, response) {
   if (stockdata.length > 0) {
     const prev = parseInt(stockdata[0]['quantity']);
     const conqty = parseInt(consumeqty);
-
+    console.log(prev, conqty);
     if (prev >= conqty) {
       const balance = prev - conqty;
       const updateQuery = `UPDATE departmentconsumption SET quantity = ? 
@@ -422,6 +424,7 @@ const consumeDepartmentStock = async function (request, response) {
         let hxResult = await promisifyQuery(hxQuery, hxValues);
 
         if (hxResult?.affectedRows > 0) {
+          console.log(hxResult)
           response.send({ message: 'stock successfully consumed', statusCode: 200, status: 'success' })
         }
       }
