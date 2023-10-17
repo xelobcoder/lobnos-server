@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const connection = require("../db");
 const jwt = require("jsonwebtoken");
 const logger = require("../../logger");
+const { convertKeysToLowerCase } = require("../../helper");
 
 
 
@@ -154,6 +155,16 @@ class User {
         }) : next()
       }
       )
+    }
+  }
+
+  validateEmployeeToken = async function (request, response) {
+    const { employeeid, token } = request.query;
+
+    const x = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+
+    if (x) {
+      response.send({ statusCode: 200, status: 'success', user: convertKeysToLowerCase(x) });
     }
   }
 

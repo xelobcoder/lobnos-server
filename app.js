@@ -62,16 +62,16 @@ app.use(express.urlencoded({ extended: true }));
 
 // ensuring an acess token is present
 // app.use((req, res, next) => {
-//   console.log(req.headers)
 //   if (req.url == '/api/v1/register') {
 //     next();
 //   } else {
-//     new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+    // new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
 //   }
 // })
 
 
 // api endpoints
+
 app.use(Manager)
 app.use(organizationRouter)
 app.use(LoginsRouter);
@@ -94,7 +94,9 @@ app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
 });
 
-//
+app.get('/api/v1/authenticate/employee/token', async function (request, response) {
+  new User().validateEmployeeToken(request, response);
+})
 
 app.post("/api/v1/billing", (req, res) => {
   addBilling(req, res);

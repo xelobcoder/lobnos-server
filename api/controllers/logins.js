@@ -30,7 +30,6 @@ router.post('/api/v1/logins/update', async (request, response) => {
 
 router.post('/api/v1/authenticate', async (request, response) => {
    const { email, password } = request.body
-   console.log(request.body)
 
    if (!email || !password) {
       response.send({

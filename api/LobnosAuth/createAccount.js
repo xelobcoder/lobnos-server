@@ -1,7 +1,7 @@
 const connection = require("../db");
 const User = require("../LobnosAuth/user");
 const jwt = require("jsonwebtoken");
-const { customError } = require('../../helper');
+const { customError, convertKeysToLowerCase } = require('../../helper');
 const logger = require("../../logger");
 
 const createNewAccount = async (req, res) => {
@@ -61,7 +61,7 @@ const userLogin = async (req, res) => {
       status: 'success',
       statusCode: 200,
       message: 'Login successful',
-      user: decoded, token: userinformation
+      user: convertKeysToLowerCase(decoded), token: userinformation
     })
 
   }
