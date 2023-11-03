@@ -17,7 +17,8 @@ const createNewAccount = async (req, res) => {
   else {
     // cinstanitate user class
     const user = new User(name, password, role, email)
-    if (!(await user.checkUserExist())) {
+    const isUser = await user.checkUserExist();
+    if (Array.isArray(isUser) && isUser.length === 0) {
       try {
         const hashedPassword = await user.hashPassword();
         const insert = await user.insertionOne(name, hashedPassword);
@@ -91,7 +92,6 @@ const getAllLogins = async (req, res) => {
   // execute query
   connection.query(queryString, (err, result) => {
     if (err) {
-      console.log(err);
       res.status(400).send({
         statusCode: 301,
         message: 'An error occurred'

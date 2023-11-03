@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const connection = require("../db");
 const jwt = require("jsonwebtoken");
 const logger = require("../../logger");
-const { convertKeysToLowerCase } = require("../../helper");
+const { convertKeysToLowerCase, promisifyQuery } = require("../../helper");
 
 
 
@@ -18,12 +18,7 @@ class User {
   }
 
   checkUserExist() {
-    return new Promise((resolve, reject) => {
-      connection.query(`SELECT * FROM roles WHERE email = '${this.email}'`, (err, result) => {
-        if (err) { reject(err); } else { if (result.length > 0) { resolve(true); } else { resolve(false); } }
-      }
-      );
-    });
+    return promisifyQuery(`SELECT * FROM roles WHERE email`, this.email)
   }
 
   hashPassword = async () => {
@@ -33,13 +28,8 @@ class User {
   };
 
   insertionOne = async (name, password) => {
-    return new Promise((resolve, reject) => {
-      const queryString = `INSERT INTO roles (USERNAME,PASSWORD,ROLE,EMAIL) 
-      VALUES('${name}','${password}','${this.role}','${this.email}')`;
-      connection.query(queryString, (err, result) => {
-        err ? reject(err) : resolve(result);
-      });
-    });
+    return promisifyQuery(`INSERT INTO roles (USERNAME,PASSWORD,ROLE,EMAIL) 
+      VALUES (?,?,?,?)`,[name,password,this.role,this.email])
   };
 
   getUserData = async (email) => {
@@ -67,7 +57,7 @@ class User {
     });
   };
 
-  createUser = async () => {
+  createUser = () => {
     return new Promise((resolve, reject) => {
       this.checkUserExist()
         .then((userexist) => {

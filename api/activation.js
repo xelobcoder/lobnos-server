@@ -19,12 +19,12 @@ const activation = {
         END AS FULLNAME,
         DATE, 
         ACTIVATION_STATUS
-        FROM new_patients ORDER BY ID DESC LIMIT 20
+        FROM new_patients ORDER BY ID DESC LIMIT 3
         `
 
       connection.query(activationQuery, (err, result) => {
         if (err) {
-         logger.error(err);
+          logger.error(err);
         }
         if (result) {
           response.send(result);
@@ -93,12 +93,12 @@ const activation = {
       }
 
       activationQuery += ` ORDER BY ID DESC
-        LIMIT 20`
+        LIMIT 10`
 
       console.log(activationQuery)
       connection.query(activationQuery, (err, result) => {
         if (err) {
-         logger.error(err);
+          logger.error(err);
         }
         if (result) {
           console.log(result)

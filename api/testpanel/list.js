@@ -2,7 +2,20 @@ const logger = require('../../logger');
 const connection = require('../db');
 const { allFieldsHasValues } = require('./categories')
 const testpanel = {
-  listquery: "SELECT * FROM test_panels",
+  listquery: `SELECT 
+      tp.NAME,
+      tp.ID,
+      tp.PRICE,
+      tp.CREATED_ON,
+      tp.DESCRIPTION,
+      s.name AS SAMPLE,
+      tp.SAMPLE_CONTAINER,
+      tp.UNIT,
+      tp.QTY_REQUIRED,
+      d.department AS CATEGORY
+    FROM test_panels AS tp
+      INNER JOIN departments AS d ON d.id = tp.CATEGORY
+      INNER JOIN sampletype AS s ON s.id = tp.SAMPLE`,
   listqueryid: function (action, id) {
     return `${action} FROM test_panels WHERE ID = ${id}`;
   },
@@ -54,7 +67,7 @@ const testpanel = {
       })
     } else {
       connection.query(this.listquery, (err, result) => {
-        if (err) {logger.error(err)};
+        if (err) { logger.error(err) };
         response.send({
           statusCode: 200,
           status: "success",
@@ -73,7 +86,7 @@ const testpanel = {
         connection.query(
           testpanel.updatequery(id, price, category),
           (err, result) => {
-            if (err) {logger.error(err)};
+            if (err) { logger.error(err) };
             if (result) {
               response.send({
                 message: "Panel updated successfully",
@@ -302,6 +315,20 @@ const testpanel = {
         }
       })
     }
+  },
+
+  getpanelsbulk: async function (request, response) {
+    connection.query(`SELECT * FROM test_panels`, function (err, result) {
+      if (err) logger.error(err)
+      else {
+        response.send({
+          statusCode: 200,
+          status: "success",
+          message: "Panels retrieved successfully",
+          data: result,
+        });
+      }
+    })
   }
 };
 

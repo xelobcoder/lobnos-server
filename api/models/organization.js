@@ -1,3 +1,4 @@
+const { promisifyQuery, customError } = require('../../helper');
 const logger = require('../../logger');
 const connection = require('../db');
 
@@ -30,8 +31,18 @@ o.getOrganizationWithDetails = async function (request, response) {
   })
 }
 
+o.getOrganizationsBasic = async function (request, response) {
+  const { id } = request.query;
 
-o.isOrgnizationExist = function (name) {
+  if (!id) {
+    customError(`organizationid required`, 404, response)
+  } else {
+    let result = await promisifyQuery(`SELECT * FROM organization WHERE id = ?`, id);
+    response.send({ statusCode: 200, status: 'success', result })
+  }
+}
+
+o.isOrgnizationExistUsingName = function (name) {
   return new Promise((resolve, reject) => {
     const query = `SELECT COUNT(NAME) AS NUMBER FROM organization WHERE NAME = ?`;
     connection.query(query, name, function (err, result) {
@@ -45,38 +56,32 @@ o.isOrgnizationExist = function (name) {
 }
 
 
-o.createAOrganization = async function (request, response) {
+o.checkOrganizationExistUsingId = async function (id) {
+  const query = `SELECT * FROM organization WHERE id = ?`;
+  try {
+    const result = await promisifyQuery(query, id);
+    return result.length > 0 ? true : false;
+  } catch (err) { logger.error(err) }
 
+}
+
+
+o.createAOrganization = async function (request, response) {
   const {
-    commission,
-    momo,
-    bankName,
-    accountName,
-    branch,
-    account,
-    person,
-    email,
-    contactPerson,
-    contactEmail,
     name,
     location,
     street,
     mobile,
     address,
     website,
-    module,
+    email,
     gpsMapping,
-    region,
-    district
+    region
   } = request.body;
 
   const query = `INSERT INTO organization 
-  (NAME,LOCATION,STREETNAME,MOBILENUMBER,ADDRESS,WEBSITE,
-  EMAIL,CONTACTPERSON,CONTACTNUMBER,CONTACTEMAIL,
-  ACCOUNTNUMBER,BRANCH,ACCOUNTNAME,BANKNAME,
-  MOMO,COMMISSION,GPSMAPPING,PAYMENTMODULE,REGION,DISTRICT)
-  VALUE (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
-
+    (name, location, street, mobile, address, website, email, gpsmapping, region)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   const values = [
     name,
@@ -86,118 +91,93 @@ o.createAOrganization = async function (request, response) {
     address,
     website,
     email,
-    person,
-    contactPerson,
-    contactEmail,
-    account,
-    branch,
-    accountName,
-    bankName,
-    momo,
-    commission,
     gpsMapping,
-    module,
-    region,
-    district
+    region
   ];
 
-  const available = await (this.isOrgnizationExist(name));
+  const available = await this.isOrgnizationExistUsingName(name);
   if (available) {
     response.send({
       statusCode: 201,
-      status: 'exist', message: "Please such organization exists"
-    })
+      status: 'exist',
+      message: "Organization with the same name already exists"
+    });
   } else {
     connection.query(query, values, function (err, result) {
       if (err) {
-        logger.error(err);
+        console.log(err)
+        // logger.error(err);
       }
       if (result) {
-        result.affectedRows == 1 ?
+        result.affectedRows === 1 ?
           response.send({
             statusCode: 201,
             organizationId: result.insertId,
             status: 'success',
-            message: "new organization created successfully"
+            message: "New organization created successfully"
           }) :
-          response.send({ statusCode: 401, message: 'No insertion done' })
+          response.send({ statusCode: 401, message: 'No insertion done' });
       }
-    })
+    });
   }
-}
+};
 
 
-o.updateOrganization = async function (request, response) {
+o.updateOrganizationBasic = async function (request, response) {
+
+  // const {
+  //   id,
+  //   commission,
+  //   momo,
+  //   bankName,
+  //   accountName,
+  //   branch,
+  //   account,
+  //   person,
+  //   email,
+  //   contactPerson,
+  //   contactEmail,
+  //   name,
+  //   location,
+  //   street,
+  //   mobile,
+  //   address,
+  //   website,
+  //   module,
+  //   gpsMapping,
+  //   region,
+  //   district
+  // } = request.query;
+
   const {
-    id,
-    commission,
-    momo,
-    bankName,
-    accountName,
-    branch,
-    account,
-    person,
-    email,
-    contactPerson,
-    contactEmail,
     name,
     location,
     street,
     mobile,
     address,
     website,
-    module,
+    email,
     gpsMapping,
     region,
-    district
-  } = request.query;
+    id
+  } = request.body;
 
-  const query = `UPDATE organization SET 
-  NAME = ?,
-  LOCATION = ?,
-  STREETNAME = ?,
-  MOBILENUMBER = ?,
-  ADDRESS = ?,
-  WEBSITE = ?,
-  EMAIL = ?,
-  CONTACTPERSON = ?,
-  CONTACTNUMBER = ?,
-  CONTACTEMAIL = ?,
-  ACCOUNTNUMBER = ?,
-  BRANCH = ?,
-  ACCOUNTNAME = ?,
-  BANKNAME = ?,
-  MOMO = ?,
-  COMMISSION = ?,
-  GPSMAPPING = ?,
-  PAYMENTMODULE = ?,
-  REGION = ?,
-  DISTRICT = ?
-   WHERE ID = ?`;
+  const query = `UPDATE organization
+              SET location = ?,
+                  street = ?,
+                  mobile = ?,
+                  address = ?,
+                  website = ?,
+                  email = ?,
+                  gpsmapping = ?,
+                  region = ?,
+                  name =?
+              WHERE id = ?;
+              `;
 
 
   const values = [
-    name,
-    location,
-    street,
-    mobile,
-    address,
-    website,
-    email,
-    person,
-    contactPerson,
-    contactEmail,
-    account,
-    branch,
-    accountName,
-    bankName,
-    momo,
-    commission,
-    gpsMapping,
-    module,
-    region,
-    district,
-    id
+    location, street, mobile, address, website, email, gpsMapping, region, name, parseInt(id)
   ];
 
   connection.query(query, values, function (err, result) {
@@ -206,13 +186,43 @@ o.updateOrganization = async function (request, response) {
     }
     if (result) {
       result.affectedRows == 1 ?
-        response.send({ statusCode: 201, message: "organization updated successfully" }) :
+        response.send({ statusCode: 200, message: "organization updated successfully", status: 'success' }) :
         response.send({ statusCode: 401, message: 'No update done' })
     }
   }
   )
 }
 
+
+o.getOrganizationsContact = async function (request, response) {
+  const { id } = request.query;
+  if (id) {
+    try {
+      let result = await promisifyQuery(`SELECT * FROM organizationcontactperson WHERE organizationid = ?`, id)
+      response.send({ statusCode: 200, status: 'success', result })
+    } catch (err) {
+      logger.error(err)
+    }
+  } else {
+    customError(`organizatonid required`, 404, response)
+  }
+}
+
+o.updateOrganizationContact = async function (request, response) {
+  const { name, email, mobile, organizationid } = request.body;
+
+  const query = `UPDATE organizationcontactperson SET name = ? , email = ?, mobile = ? WHERE organizationid = ?`;
+
+  try {
+    let result = await promisifyQuery(query, [name, email, mobile, organizationid]);
+    const { affectedRows } = result;
+    response.send({ statusCode: 200, status: 'success', message: parseInt(affectedRows) === 1 ? 'infomation updated succesfully' : 'No updates were made' })
+  } catch (err) {
+    logger.error(err);
+    customError(`error occured`, 500, response);
+  }
+
+}
 
 o.deleteOrganization = async function (request, response) {
   const { id } = request.query;

@@ -340,6 +340,7 @@ const getBilledClients = function (request, response) {
           INNER JOIN new_patients AS np ON np.PATIENTID = b.PATIENTID
           INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
           INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
+          WHERE p.DATE = CURRENT_DATE
     GROUP BY b.BILLINGID
     ORDER BY B.BILLINGID DESC
     LIMIT 20

@@ -22,7 +22,7 @@ router.get('/api/v1/applicationsettings/smsupdate', function (request, response)
 
 
 router.get('/api/v1/applicationssettings/emailpreference', async function (request, response) {
- response.send(await database_queries.getsingleid(1, `emailpreference`, 'id'));
+  response.send(await database_queries.getsingleid(1, `emailpreference`, 'id'));
 })
 
 

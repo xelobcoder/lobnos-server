@@ -65,7 +65,7 @@ app.use(express.urlencoded({ extended: true }));
 //   if (req.url == '/api/v1/register') {
 //     next();
 //   } else {
-    // new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+// new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
 //   }
 // })
 
@@ -183,6 +183,9 @@ app.get("/api/v1/center", (req, res) => {
 
 app.get("/api/v1/testpanel/list", (req, res) => {
   testpanel.getPanels(req, res);
+});
+app.get("/api/v1/testpanel/list/bulk", (req, res) => {
+  testpanel.getpanelsbulk(req, res);
 });
 
 app.post('/api/v1/testpanel/bulkupdate', (request, response) => {

@@ -35,9 +35,16 @@ router.get('/api/v1/organization', function (request, response) {
   o.getOrganizations(request, response);
 })
 
+router.get('/api/v1/organization/basic', function (request, response ){
+  o.getOrganizationsBasic(request, response);
+})
 
-router.delete('/api/v1/organization', function(request,response) {
-  o.deleteOrganization(request,response)
+router.get('/api/v1/organization/contactperson', function(request,response) {
+  o.getOrganizationsContact(request,response);
+})
+
+router.delete('/api/v1/organization', function (request, response) {
+  o.deleteOrganization(request, response)
 })
 
 
@@ -47,6 +54,14 @@ router.get('/api/v1/organizations/details', function (request, response) {
 
 router.post('/api/v1/new/organizations', function (request, response) {
   o.createAOrganization(request, response);
+})
+
+router.put('/api/v1/organization/update/basic', async function (request, response) {
+  o.updateOrganizationBasic(request, response);
+})
+
+router.put('/api/v1/organization/update/contact', async function(request,response) {
+  o.updateOrganizationContact(request,response);
 })
 
 
@@ -73,8 +88,8 @@ router.get('/api/v1/organization/id', function (request, response) {
 })
 
 
-router.get('/api/v1/organization/performance/top', function(request,response) {
-  o.getTopPerformance(request,response)
+router.get('/api/v1/organization/performance/top', function (request, response) {
+  o.getTopPerformance(request, response)
 })
 
 module.exports = router;
