@@ -35,12 +35,16 @@ router.get('/api/v1/organization', function (request, response) {
   o.getOrganizations(request, response);
 })
 
-router.get('/api/v1/organization/basic', function (request, response ){
+router.get('/api/v1/organization/basic', function (request, response) {
   o.getOrganizationsBasic(request, response);
 })
 
-router.get('/api/v1/organization/contactperson', function(request,response) {
-  o.getOrganizationsContact(request,response);
+router.get('/api/v1/organization/contactperson', function (request, response) {
+  o.getOrganizationsContact(request, response);
+})
+
+router.get(`/api/v1/organization/payment`, async function (request, response) {
+  o.getOrganizationsPayment(request, response);
 })
 
 router.delete('/api/v1/organization', function (request, response) {
@@ -60,8 +64,12 @@ router.put('/api/v1/organization/update/basic', async function (request, respons
   o.updateOrganizationBasic(request, response);
 })
 
-router.put('/api/v1/organization/update/contact', async function(request,response) {
-  o.updateOrganizationContact(request,response);
+router.put('/api/v1/organization/update/contact', async function (request, response) {
+  o.updateOrganizationContact(request, response);
+})
+
+router.put('/api/v1/organization/update/payment', async function (request, response) {
+  o.updateOrganizationPayment(request, response);
 })
 
 

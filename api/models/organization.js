@@ -208,6 +208,20 @@ o.getOrganizationsContact = async function (request, response) {
   }
 }
 
+o.getOrganizationsPayment = async function (request, response) {
+  const { id } = request.query;
+  if (id) {
+    try {
+      let result = await promisifyQuery(`SELECT * FROM organizationaccountinformation WHERE organizationid = ?`, id)
+      response.send({ statusCode: 200, status: 'success', result })
+    } catch (err) {
+      logger.error(err)
+    }
+  } else {
+    customError(`organizatonid required`, 404, response)
+  }
+}
+
 o.updateOrganizationContact = async function (request, response) {
   const { name, email, mobile, organizationid } = request.body;
 
@@ -221,6 +235,20 @@ o.updateOrganizationContact = async function (request, response) {
     logger.error(err);
     customError(`error occured`, 500, response);
   }
+}
+
+o.updateOrganizationPayment = async function (request, response) {
+  const { bankname, momoname, branch, module, commission, organizationid, id, account, accountname, momo } = request.body;
+
+  const query = `UPDATE organizationaccountinformation SET branch = ?, commission = ?, account = ?, 
+  bankname = ?,module = ?,momoname = ?,accountname =? ,momo =? WHERE organizationid = ? AND id = ?`;
+
+  const values = [branch, commission, account, bankname, module, momoname, accountname, momo, organizationid, id];
+  try {
+    let result = await promisifyQuery(query, values);
+    const { affectedRows } = result;
+    response.send({ statusCode: 200, status: 'success', message: affectedRows == 1 ? 'update successful' : 'update failed' });
+  } catch (err) { logger.error(err) }
 
 }
 

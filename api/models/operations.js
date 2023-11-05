@@ -171,7 +171,7 @@ class Operations {
       customError('stage of tests required', 401);
     } else {
       let queryString = `
-      SELECT tp.CATEGORY AS category,
+      SELECT DISTINCT tp.CATEGORY AS category,
           d.department AS department,
           pt.DATE AS 'date',
           pt.BILLINGID AS billingid,
