@@ -342,7 +342,7 @@ o.getOrganizationCommissionByMonth = async function (request, response) {
 
 
 o.getTopPerformance = async function (request, response) {
-  const { count } = request.query;
+  const { count, from, to } = request.query;
 
   if (!count) {
     response.send({
@@ -352,23 +352,33 @@ o.getTopPerformance = async function (request, response) {
     })
   } else {
     let query_string = `
-       SELECT DISTINCT o.ID AS id,
-          o.NAME AS name,
-          o.COMMISSION AS commissionRate,
-          o.COMMISSION / 100 * (
+           SELECT DISTINCT o.ID AS id,
+          o.name,
+          oc.commission AS commissionRate,
+          (  SELECT SUM(b.PAYABLE)
+            WHERE o.id = o.id) AS totalSales,
+          oc.commission / 100 * (
             SELECT SUM(b.PAYABLE)
-            WHERE o.ID = o.ID
+            WHERE o.id = o.id
           ) AS commissionEarned,
           SUM(b.payable) AS TotalSales
-        FROM ORGANIZATION AS o
-          INNER JOIN BILLING AS b ON b.ORGANIZATION = o.ID
-        GROUP BY o.ID,
-          o.NAME
-        ORDER BY TotalSales DESC 
+        FROM organization AS o
+          INNER JOIN BILLING AS b ON b.ORGANIZATION = o.id
+          INNER JOIN organizationaccountinformation AS oc ON oc.organizationid = o.id
+          INNER JOIN performing_test AS pt ON pt.billingid = b.billingid
       `;
 
-    query_string += ` LIMIT ${count}`
+    if (from && to) {
+      query_string += ` WHERE pt.date BETWEEN '${from}' AND '${to}'`
+    }
 
+    if (from && !to) {
+      query_string += ` WHERE pt.date BETWEEN '${from}' AND CURRENT_DATE`
+    }
+
+    query_string += ` GROUP BY o.id,
+          o.name
+        ORDER BY TotalSales DESC  LIMIT ${count}`;
 
     connection.query(query_string, function (err, result) {
       if (err) {

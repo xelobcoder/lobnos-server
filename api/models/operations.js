@@ -183,12 +183,10 @@ class Operations {
         INNER JOIN performing_test AS pt ON pt.BILLINGID = ta.billingid
       WHERE ta.collection = 'true'
         AND ss.approvalstatus = 1 
-        AND pt.DATE = CURRENT_DATE
     `;
 
-
       if (stage == 'unentered') {
-        queryString += ` AND ta.ready = 'false'`
+        queryString += ` AND pt.DATE = CURRENT_DATE AND ta.ready = 'false'`
       }
 
       if (stage == 'entered') {

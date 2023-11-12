@@ -1,4 +1,4 @@
-const { customError } = require("../../helper");
+const { customError, promisifyQuery } = require("../../helper");
 const logger = require("../../logger");
 const connection = require("../db");
 
@@ -117,6 +117,45 @@ applicationSettings.updatePreference = async function (request, response) {
       });
     }
   })
+}
+
+
+applicationSettings.addTax = async function (request, response) {
+  const { value, name } = request.body;
+  if (value && name) {
+    try {
+      // check if tax name exist 
+      const isExist = `SELECT * FROM tax WHERE name = ?`;
+      const existCount = await promisifyQuery(isExist, name);
+
+      if (Array.isArray(existCount) && existCount.length > 0) {
+        response.send({ message: 'tax with such name availble', status: 'success', statusCode: 406 })
+      }
+      else {
+        const query = `INSERT INTO tax (name,value) VALUES (?,?)`;
+        let result = await promisifyQuery(query, [name, value]);
+        const { affectedRows } = result;
+        response.send({ message: affectedRows > 0 ? 'tax added successfully' : 'Error inserting new tax', status: 'success', statusCode: 200 })
+      }
+    } catch (err) {
+      logger.error(err);
+      customError(`error occured`, 500, response);
+    }
+  } else {
+    customError('name and value required', 401, response);
+  }
+}
+
+
+applicationSettings.getTax = async function (request, response) {
+  let result = await promisifyQuery(`SELECT * FROM tax`);
+  response.send({ status: 'success', statusCode: 200, result })
+}
+
+
+applicationSettings.updateTaxStatus = async function (request, response) {
+  const { id } = request.query;
+
 }
 
 

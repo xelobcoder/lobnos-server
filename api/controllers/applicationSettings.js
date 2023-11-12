@@ -30,8 +30,17 @@ router.post('/api/v1/applicationssettings/emailpreference', function (request, r
   applicationsettings.updatePreference(request, response);
 })
 
+router.post('/api/v1/application/tax', function (request, response) {
+  applicationsettings.addTax(request, response);
+})
 
+router.get('/api/v1/application/tax', async function (request, response) {
+  applicationsettings.getTax(request, response);
+})
 
+router.put('/api/v1/application/tax', function(request,response) {
+  applicationsettings.updateTaxStatus(request,response);
+})
 module.exports = router;
 
 // applicationsettings.

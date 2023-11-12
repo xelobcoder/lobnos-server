@@ -5,7 +5,7 @@ const sales = {};
 
 
 
-sales.generalSales = async function (request, response, target) {
+sales.generalSales = async function (request, response, target, branch) {
   const { patientid } = request.query;
   // get all sales sum grouped by target i.e sum by year, month or day
   let query = '';
@@ -18,7 +18,10 @@ sales.generalSales = async function (request, response, target) {
     FROM billing AS b
     INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID`;
     if (patientid) {
-      query += ` WHERE b.PATIENTID = ${patientid} `
+      query += ` WHERE b.PATIENTID = ${patientid}`
+    }
+    if (branch != 'all') {
+      query += ` AND pt.SAMPLING_CENTER = ${branch}`;
     }
     query += ` GROUP BY YEAR(pt.DATE)`;
   } else if (target == 'monthly') {
@@ -32,6 +35,10 @@ sales.generalSales = async function (request, response, target) {
 `;
     if (patientid) {
       query += ` AND b.PATIENTID = ${patientid}`
+    }
+
+    if (branch != 'all') {
+      query += ` AND pt.SAMPLING_CENTER = ${branch}`;
     }
 
     query += ` GROUP BY MONTH(pt.DATE) `
@@ -52,6 +59,11 @@ sales.generalSales = async function (request, response, target) {
     if (patientid) {
       query += ` AND b.PATIENTID = ${patientid}`;
     }
+
+    if (branch != 'all') {
+      query += `AND pt.SAMPLING_CENTER = ${branch}`;
+    }
+
     query += ` GROUP BY DAY(pt.DATE)`
   } else {
     // weekly
@@ -69,22 +81,25 @@ sales.generalSales = async function (request, response, target) {
       INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
       WHERE YEAR(pt.DATE) = YEAR(CURDATE())
       AND MONTH(pt.DATE) = MONTH(CURDATE())`
-      if (patientid) {
-        query += ` AND b.PATIENTID = ${patientid}`
-      }
-
-      query += ` GROUP BY WEEK(pt.DATE)`
+    if (patientid) {
+      query += ` AND b.PATIENTID = ${patientid}`
+    }
+    if (branch != 'all') {
+      query += `AND pt.SAMPLING_CENTER = ${branch}`;
+    }
+    query += ` GROUP BY WEEK(pt.DATE)`
   }
 
 
   connection.query(query, function (err, result) {
     if (err) {
       logger.error(err)
-      response.send({
-        message: err.message,
-        statusCode: 500,
-        status: 'error'
-      })
+      console.log(err)
+      // response.send({
+      //   message: err.message,
+      //   statusCode: 500,
+      //   status: 'error'
+      // })
     } else {
       response.send({
         statusCode: 200,
