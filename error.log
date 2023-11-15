@@ -1,0 +1,12 @@
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES ('prominent','3','bottle','bottle',NULL,'100','prom')","sqlMessage":"Column 'quantity' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES ('prominent','3','bottle','bottle',NULL,'100','prom')","sqlMessage":"Column 'quantity' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES ('prominent','3','bottle','bottle',NULL,'300','prom')","sqlMessage":"Column 'quantity' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES ('prominent','3','bottle','bottle',NULL,'300','prom')","sqlMessage":"Column 'quantity' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES ('prominent','3','bottle','bottle',NULL,'300','prom')","sqlMessage":"Column 'quantity' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES ('prominent','3','bottle','bottle',NULL,'300','prom')","sqlMessage":"Column 'quantity' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES ('prominent','3','bottle','bottle',NULL,'300','prom')","sqlMessage":"Column 'quantity' cannot be null","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

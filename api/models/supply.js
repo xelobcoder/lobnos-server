@@ -279,7 +279,7 @@ const new_stock = async function (request, response) {
     category,
     consumptionunit,
     purchaseunit,
-    unitquantity,
+    quantity,
     alertlevel,
     materialcode,
   } = request.body
@@ -305,7 +305,7 @@ const new_stock = async function (request, response) {
             category,
             consumptionunit,
             purchaseunit,
-            unitquantity,
+            quantity,
             alertlevel,
             materialcode,
           ],
