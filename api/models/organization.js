@@ -6,7 +6,7 @@ const connection = require('../db');
 let o = {};
 
 o.getOrganizations = (req, res) => {
-  let query = 'SELECT ID,NAME FROM organization';
+  let query = 'SELECT id,name FROM organization';
   // execute query
   connection.query(query, (err, result) => {
     if (err) {

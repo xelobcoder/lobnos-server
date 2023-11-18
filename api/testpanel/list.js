@@ -1,3 +1,4 @@
+const { convertKeysToLowerCase } = require('../../helper');
 const logger = require('../../logger');
 const connection = require('../db');
 const { allFieldsHasValues } = require('./categories')
@@ -321,11 +322,12 @@ const testpanel = {
     connection.query(`SELECT * FROM test_panels`, function (err, result) {
       if (err) logger.error(err)
       else {
+       const data = result.map( (item,index) => {return convertKeysToLowerCase(item)})
         response.send({
           statusCode: 200,
           status: "success",
           message: "Panels retrieved successfully",
-          data: result,
+          data
         });
       }
     })

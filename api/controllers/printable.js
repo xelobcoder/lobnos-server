@@ -6,6 +6,8 @@ const EmailService = require('../models/email');
 const { getBillingInvoiceData } = require('../models/invoice');
 const Payment = require('../models/payment')
 const result = new ResultPrint();
+const createReceipt = require('../models/billingReceipt');
+
 
 router.get('/api/v1/result/ready', async function (req, res) {
    new ResultPrint().get_printables(req, res)
@@ -140,7 +142,8 @@ router.post('/api/v1/result/approve', function (request, response) {
 
 
 router.get('/api/v1/billing/invoice', function (request, response) {
-   getBillingInvoiceData(request, response);
+   const { billingid } = request.query;
+   getBillingInvoiceData(billingid,response);
 })
 
 
@@ -150,6 +153,16 @@ router.get('/api/v1/billing/email/receipt', async function (request, response) {
       await new EmailService().forwardBillingReceipt(billingid);
    } else {
       customError(`billing id required`, 404, response);
+   }
+})
+
+
+router.get('/billing/receipt', async function (request, response) {
+   const {billingid} = request.query;
+   try {
+      createReceipt(response,billingid);
+   } catch (error) {
+      console.log(error)
    }
 })
 

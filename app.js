@@ -4,7 +4,7 @@ const app = express();
 const dotenv = require("dotenv");
 const EmailService = require('./api/models/email')
 const port = 5000;
-const { addBilling, addperformingTest, checkifActivated, getBilledClients, updateBilling } = require("./api/billing");
+const { Billing, checkifActivated, getBilledClients, updateBilling } = require("./api/billing");
 const branchesHandler = require("./api/branches");
 const resultChecker = require("./api/controllers/results");
 const Manager = require('./api/controllers/manager');
@@ -99,7 +99,13 @@ app.get('/api/v1/authenticate/employee/token', async function (request, response
 })
 
 app.post("/api/v1/billing", (req, res) => {
-  addBilling(req, res);
+  const { patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
+    outstanding, cost } = req.body;
+
+  const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
+    outstanding, cost);
+
+  billing.insetionProcess(req, res);
 });
 
 app.get("/api/v1/billedclients", (req, res) => {

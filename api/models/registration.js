@@ -1,5 +1,5 @@
 const { response } = require('express');
-const { customError } = require('../../helper');
+const { customError, promisifyQuery } = require('../../helper');
 const connection = require('../db');
 const logger = require('../../logger');
 const EmailService = require('./email');
@@ -39,19 +39,9 @@ class Registration {
     })
   }
 
-  getLastID = async function () {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT ID FROM new_patients ORDER BY ID DESC LIMIT 1`;
-
-      connection.query(query, function (err, result) {
-        if (err) {
-          console.log(err)
-        } else {
-          resolve(result)
-        }
-      })
-    })
-  }
+  getLastID = async function() {
+    return await promisifyQuery(`SELECT ID FROM new_patients ORDER BY ID DESC LIMIT 1`)
+  };
 
   generatePatientId = async () => {
     const date = new Date();
@@ -69,28 +59,18 @@ class Registration {
   }
 
   checkPatientIdExist = async (patientid) => {
-    return new Promise((resolve, reject) => {
-      let useKey;
-      if (patientid) {
-        useKey = patientid
-      } else {
-        useKey = this.patientid;
-      }
-
-      const query = `SELECT * FROM new_patients WHERE PATIENTID = ?`;
-      //  execute query
-      connection.query(query, [useKey], function (err, result) {
-        if (err) {
-          reject(err)
-        } else {
-          if (result.length == 0) {
-            resolve(false)
-          } else {
-            resolve(true)
-          }
-        }
-      })
-    })
+    let useKey;
+    if (patientid) {
+      useKey = patientid;
+    } else {
+      useKey = this.patientid;
+    }
+  try {
+    let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`,useKey);
+    const len = result.length; 
+    if (len === 0) { return false} else {return true};
+  } 
+  catch (err) {logger.error(err); return false;}
   }
 
   checkEmailOrMobileExist = async (email, mobile) => {
@@ -129,10 +109,6 @@ class Registration {
           reject(err)
         } else {
           const { affectedRows } = result;
-          if (email && affectedRows ===  1) {
-            // fire an email message to client to authenticate the email provided;
-            await new EmailService().clientRegistrationMailing(id, email);
-          }
           resolve(affectedRows);
         }
       })
@@ -234,6 +210,9 @@ class Registration {
                 statusCode: 200,
               });
             }
+            if (personalInformation?.email) {
+              try {new EmailService().fireClientAuthentication(id,personalInformation?.email)} catch(err) { logger.error(err)}
+            }
           }
         } else {
           while (idExist == true) {
@@ -262,6 +241,7 @@ class Registration {
         }
       }
     } catch (error) {
+      console.log(error)
       response.send({
         status: "error",
         message: "An error occured while trying to add new patient",

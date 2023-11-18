@@ -6,23 +6,10 @@ const applicationSettings = {};
 
 applicationSettings.getApplicationSettings = async function (request, response) {
   const query = `SELECT * FROM applicationsettings`;
-
-  connection.query(query, function (err, result) {
-    if (err) {
-      response.send({
-        message: err.message,
-        statusCode: 500,
-        status: "error"
-      })
-    }
-    if (result) {
-      response.send({
-        result,
-        statusCode: 200,
-        status: 'success'
-      })
-    }
-  })
+  try {
+    let result = await promisifyQuery(query);
+    if (!response) {return promisifyQuery(query)} else {response.send({message:'success', status:'success', statusCode:200, result})}
+  } catch (err) {logger.error(err)}
 }
 
 

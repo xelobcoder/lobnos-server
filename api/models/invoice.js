@@ -1,5 +1,6 @@
 const connection = require('../db');
-const { customError } = require('../../helper');
+const { customError, promisifyQuery, convertKeysToLowerCase } = require('../../helper');
+const logger = require('../../logger');
 
 const testInformation = async function (billingid) {
   return new Promise((resolve, reject) => {
@@ -12,52 +13,59 @@ const testInformation = async function (billingid) {
 
 
 const clientInformation = async function (billingid) {
-  return new Promise((resolve, reject) => {
-    const query = `SELECT 
-              CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS FULLNAME,
-              AGE,
-              AGETYPE,
-              BILLINGID,
-              DATE,
-              PAID_AMOUNT,
-              DISCOUNT,
-              PAYABLE,
-              MOBILE_NUMBER,
-              OUTSTANDING,
-              GENDER,
-              EMAIL,
-              DOB
-              FROM BILLING AS bb 
-          INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
-          WHERE bb.BILLINGID = ${billingid};
-     `;
-    connection.query(query, (err, result) => {
-      if (err) { reject(err); } else { resolve(result) }
-    })
-  })
+  try {
+    const query =  `SELECT 
+    CONCAT(np.FIRSTNAME," ",np.MIDDLENAME," ",np.LASTNAME) AS fullname,
+    age,
+    agetype,
+    billingid,
+    date,
+    paid_amount,
+    discount,
+    payable,
+    testcost,
+    (taxValue+testcost) AS total,
+    taxValue,
+    mobile_number,
+    outstanding,
+    gender,
+    email,
+    dob
+    FROM billing AS bb
+    INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
+    WHERE bb.BILLINGID = ?`;
+    return promisifyQuery(query, [billingid])
+  }
+  catch (err) {
+    logger.error(err)
+  }
 }
 
 
-async function getBillingInvoiceData(request, response) {
-  // we want to get the personal information of the client 
+async function getBillingInvoiceData(billingid, response) {
+  // we want to get the personal information of the client
   // and test subscribed to , amount paid and outdtanding bill if any
-
-  const { billingid } = request.query;
-
   if (billingid) {
     let Invoice = {}
 
     try {
       Invoice.testInformation = await testInformation(billingid);
       Invoice.clientInformation = await clientInformation(billingid)
-      response.send({
-        result: {
-          testInformation: Invoice.testInformation.length > 0 ? Invoice.testInformation : [],
-          clientInformation: Invoice.clientInformation.length > 0 ? Invoice.clientInformation[0] : {}
-        },
+      const resultset = {
+        testInformation: Invoice.testInformation.length > 0 ?
+          Invoice.testInformation.map((item, index) => { return convertKeysToLowerCase(item) })
+          : [],
+        clientInformation: Invoice.clientInformation.length > 0 ? Invoice.clientInformation[0] : {}
+      }
+      if (response) {
+        response.send({
+          result: resultset,
         message: 'success',
         statusCode: 200
       })
+      } else {
+        return resultset
+      }
     } catch (err) {
       customError(err?.message || err, 500, response)
     }

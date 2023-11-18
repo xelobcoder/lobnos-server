@@ -2,6 +2,7 @@ const { response } = require("express");
 const connection = require("./db");
 const { rejectedSample } = require("./models/rejected");
 const logger = require("../logger");
+const { promisifyQuery, customError, convertKeysToLowerCase } = require("../helper");
 
 
 let filteredTest_in_date = function (test, res) {
@@ -28,30 +29,35 @@ let filteredTest_in_date = function (test, res) {
 }
 
 const getPhelobotomy = async (req, res) => {
-  let myquery = `SELECT
-    IF(p.MIDDLENAME IS NULL, CONCAT(p.FIRSTNAME, " ", p.LASTNAME), 
-        CONCAT(p.FIRSTNAME, " ", p.MIDDLENAME, " ", p.LASTNAME)) AS FULLNAME,
-        p.PATIENTID,
-        CONCAT(p.AGE, " ", p.AGETYPE) AS AGE,
-    p.GENDER,
-    p.MOBILE_NUMBER AS MOBILENUMBER,
-    b.BILLINGID AS BILLINGID,
-    DATE(t.DATE) AS DATE,
-    t.URGENCY AS URGENCY
-  FROM new_patients AS p
-  INNER JOIN billing AS b ON p.PATIENTID = b.PATIENTID
-  INNER JOIN performing_test AS t ON b.BILLINGID = t.BILLINGID
-  INNER JOIN test_ascension AS ts ON b.BILLINGID = ts.BILLINGID
-  INNER JOIN test_panels AS v ON v.ID = ts.TESTID
-  WHERE ts.collection = 'false'
-  GROUP BY b.BILLINGID
-  ORDER BY b.BILLINGID DESC
-  LIMIT 50;
+  let myquery = `
+        SELECT
+          CASE
+              WHEN p.MIDDLENAME IS NULL THEN CONCAT(p.FIRSTNAME, " ", p.LASTNAME)
+              ELSE CONCAT(p.FIRSTNAME, " ", p.MIDDLENAME, " ", p.LASTNAME)
+          END AS fullname,
+          p.patientid,
+          CONCAT(p.age, " ", p.agetype) AS age,
+          p.gender,
+          p.mobile_number AS mobilenumber,
+          b.billingid AS billingid,
+        b.billedon AS date,
+        b.clientstatus 
+      FROM new_patients AS p
+      INNER JOIN billing AS b ON p.patientid = b.patientid
+      INNER JOIN test_ascension AS ts ON b.billingid = ts.billingid
+      WHERE ts.collection = 'false'
+      GROUP BY b.billingid
+      ORDER BY b.billingid DESC
+      LIMIT 20
   `;
-  connection.query(myquery, (err, result) => {
-    if (err) {logger.error(err)};
-    res.send(result)
-  })
+  try {
+    let result = await promisifyQuery(myquery);
+    res.send({ message: 'success', statusCode: 200, result, status: 'success' });
+  } catch (err) {
+    customError(`error fetching data`, 500, res);
+    logger.error(err);
+  }
+
 }
 
 const get_client_query = function (req, res) {
@@ -107,86 +113,78 @@ const updatePhelobotomy = async (id, content, status, alltaken, completedTime, r
 }
 
 
-const postSection = function (request, response) {
-  const { testInfo, message, alltaken, billingid } = request.body;
+const postSection = async function (request, response) {
+  const { testinfo, employeeid } = request.body;
 
-  //1. update test test_ascension 
-  // 2. upate performing test
-  const checkifExist = function (billingid, testid, collected) {
-    connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`, [billingid, testid], function (err, result) {
-      if (err) {
-        {logger.error(err)};
-      }
-      else {
-        updateResult(billingid, testid, collected)
-      }
-    })
-  }
+  if (Array.isArray(testinfo) && testinfo.length > 0 && employeeid) {
+    try {
+      connection.beginTransaction(async function (err) {
+        if (err) { logger.error(err) };
+        testinfo.forEach(async function (item, index) {
 
+          const { samplemessage, testid, collection, collection_date, billingid } = item;
 
+          const updateTestAscensionQuery = `UPDATE test_ascension SET collection = ?,
+         collection_date = ? WHERE billingid = ? AND testid = ?`;
 
-  const updateResult = function (billingid, testid, collected) {
-    if (collected === true) {
-      const updateStatement = `UPDATE TEST_ASCENSION SET COLLECTION = 'true',
-      COLLECTION_DATE = CURDATE() WHERE BILLINGID = ? AND TESTID =? `
+          const ascensionValues = [collection, collection_date, billingid, testid];
 
-      connection.query(updateStatement, [billingid, testid], function (err, result) {
-        if (err) {
-          {logger.error(err)};
-        }
-        else {
-          if (result.affectedRows > 0) {
-            return;
+          const updatedAscension = await promisifyQuery(updateTestAscensionQuery, ascensionValues);
+
+          console.log(updatedAscension, testinfo)
+
+          if (updatedAscension.affectedRows > 0) {
+
+            const approvalstatus = (collection === 'true' || collection === true) ? 1 : 0;
+
+            const updateSampleStatusQuery = `UPDATE samplestatus SET samplemessage = ?,approvalstatus = ?,  phelobotomist = ? WHERE testid = ? AND billingid = ?`;
+
+            const sampleStatusValues = [samplemessage, approvalstatus, employeeid, testid, billingid];
+
+            await promisifyQuery(updateSampleStatusQuery, sampleStatusValues);
+
+            if (index === testinfo.length - 1) {
+              connection.commit(function (err) {
+                if (err) {
+                  connection.rollback(function () {
+                    { logger.error(err) };
+                  });
+                }
+                response.send({ message: 'updated successfully', statusCode: 200, status: 'success', })
+              });
+            }
           }
-        }
-      })
-    }
+        });
+      });
 
+    }
+    catch (err) {
+      logger.error(err);
+      //  rollback
+      connection.rollback();
+    }
   }
-
-
-  if (Array.isArray(testInfo)) {
-    let target = testInfo.length;
-    let counter = 0;
-    for (const current of testInfo) {
-      const { testid, collected, billingid } = current;
-      checkifExist(billingid, testid, collected)
-      counter++;
-    }
-    if (counter == target) {
-      response.send({
-        message: 'updated successfully',
-        statusCode: 200
-      })
-    }
-  } else {
-    response.send({
-      message: `${testInfo}, an array expected`,
-      status: 'error', statusCode: 401
-    })
-  }
-
 }
 
 const getAscensionWithDetails = async function (billingid, response) {
-  const statement = `SELECT * FROM test_ascension AS t 
-  INNER JOIN test_panels AS p
-  ON t.testid = p.ID
-  WHERE billingid = ${billingid} AND t.collection = 'false'`;
+  const statement = `SELECT DISTINCT * FROM test_ascension AS t 
+  INNER JOIN test_panels AS p ON t.testid = p.ID
+  INNER JOIN samplestatus AS s ON s.ascensionid = t.id
+  WHERE t.billingid = ? AND t.collection = 'false'
+`;
 
-  connection.query(statement, function (err, result) {
-    if (err) {
-      {logger.error(err)};
-    }
+  try {
+    const result = await promisifyQuery(statement, billingid);
 
-    if (result) {
-      response.send({
-        result,
-        status: 'success',
-        statusCode: 200
-      })
-    }
-  })
+    const transformed = result.map((item, index) => {
+      return convertKeysToLowerCase(item);
+    })
+
+    response.send({ message: 'success', statusCode: 200, result: transformed, status: 'success' });
+  } catch (err) {
+    logger.error(err);
+    customError('error fetching data', 500, response);
+  }
 }
 
 

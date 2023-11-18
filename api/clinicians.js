@@ -1,6 +1,7 @@
 const { response } = require('express');
 const connection = require('./db');
 const logger = require('../logger');
+const { convertKeysToLowerCase } = require('../helper');
 
 
 // get all clinicians
@@ -11,7 +12,10 @@ const getClinicians = (req, res) => {
       if (err) {
          logger.error(err)
       }
-      res.send({ statusCode: 200, result })
+    else {
+      res.send({ statusCode: 200, result: result.length === 0 ? [] :
+      result.map( (item,index) => {return convertKeysToLowerCase(item)}) })
+    }
    })
 }
 

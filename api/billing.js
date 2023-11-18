@@ -3,139 +3,116 @@ const { beginTransaction, query } = require('./models/result');
 const connection = require('./db');
 const { checkpatient } = require('./register');
 const logger = require('../logger')
-const { customError } = require('../helper');
+const { customError, promisifyQuery } = require('../helper');
 const { getApplicationSettings } = require('./models/applicationSettings');
 
 
-// add test to performing test
-/**
- * 
- * @param {string} patientid  unique indentifier of the patient which run through the lifecycle of the patient in this software
- * @param {integer} billingid  unique  billing for the day test
- * @param {array} test  string  testnames seperated by comma or an array of testname
- * @param {string} urgency  urgency of the test
- * @param {object} res response object 
- * @param {string} samplingCenter name of the sampling center
- * @returns 
- */
-const addperformingTest = (patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res) => {
-  // // check if test is an array or a string , if string,check to see if is not empty
-  // const isValid = Array.isArray(test) || (typeof test == 'string' && test != '') ? true : false;
-  // if test is an array
-  // if patient id and billing id are not empty
-  if (patientid != '' && billingid != '') {
-    // push data into performing test table
-    let values = [
-      patientid,
-      billingid,
-      urgency,
-      samplingCenter,
-    ];
+class Billing {
+  constructor(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
+    outstanding, cost) {
+    this.patientid = patientid;
+    this.clinician = clinician;
+    this.organization = organization;
+    this.test = test;
+    this.payable = payable;
+    this.testcost = testcost;
+    this.paid = paid;
+    this.taxIncluded = taxIncluded;
+    this.taxValue = taxValue;
+    this.status = status;
+    this.discount = discount;
+    this.paymentmode = paymentmode;
+    this.samplingCenter = samplingCenter;
+    this.outstanding = outstanding;
+    this.cost = cost;
+  }
 
-    let sql = `INSERT INTO performing_test (PATIENTID,BILLINGID,URGENCY,SAMPLING_CENTER) VALUES (?,?,?,?)`;
-    connection.query(sql, values, (err, result) => {
-      if (err) {
-        logger.log(err)
+  insertNewBilling = async function (request, response) {
+    const query = `INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`; 
+
+    const values = [this.patientid, this.clinician, this.organization, this.paid, this.payable, this.paymentmode, this.outstanding, this.discount, this.samplingCenter, this.taxIncluded, this.taxValue, this.status, this.testcost];
+
+    try {
+      const { affectedRows, insertId } = await promisifyQuery(query, values);
+      return affectedRows > 0 ? insertId : false;
+    } catch (err) { logger.error(err) }
+  }
+
+
+  updateBillingHistory = async function (billingid) {
+    const query = `UPDATE billinghx SET paymentMode = ?,Amount = ? WHERE billingid = ?`;
+    const values = [this.paymentmode, this.paid, billingid];
+    return promisifyQuery(query, values);
+  }
+
+  isCompleteFlow = async function () {
+    try {
+      const settings = await getApplicationSettings();
+      if (settings && settings.length > 0) { return settings[0].completeFlow == 1 ? true : false }
+    } catch (err) { logger.error(err) }
+  }
+
+  updateApprovalStatus = async function (billingid, testid) {
+    const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
+    const values = [billingid, testid];
+    return promisifyQuery(query, values);
+  }
+
+  isValidForDayEntry = async function () {
+    const query = `SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE`;
+    const values = [this.patientid];
+    try {
+      const result = await promisifyQuery(query, values);
+      return result[0]['COUNT(*)'] > 0 ? false : true;
+    } catch (err) { logger.error(err) }
+  }
+
+  async AddtoTestAscenstion(billingid) {
+    if (Array.isArray(this.test) && this.test.length > 0) {
+      const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
+      VALUES(?,?,?,CURRENT_DATE)`;
+      // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
+      if (await this.isCompleteFlow()) {
+        this.test.map(async (item, index) => { await promisifyQuery(query, [item, billingid, 'false']) })
+      } else {
+        this.test.map(async (item, index) => {
+          await promisifyQuery(query, [item, billingid, 'true']);
+          await this.updateApprovalStatus(billingid, item);
+        });
       }
-      else {
-        billingHx(billingid, paymentmode, paid, test, res)
+    }
+  }
+
+  async insetionProcess(request, response) {
+    if (await this.isValidForDayEntry()) {
+      try {
+        connection.beginTransaction(async (err) => {
+          if (err) { logger.error(err) }
+          const billingid = await this.insertNewBilling();
+          await this.AddtoTestAscenstion(billingid);
+          await this.updateBillingHistory(billingid);
+          connection.commit((err) => {
+            if (err) { logger.error(err);
+            connection.rollback();
+           }
+            console.log(billingid, '--billingid')
+            response.status(200).json({ message: 'billing successfully',billingid, statusCode: 200, status: 'success' })
+          })
+        })
+      } catch (err) {
+        logger.error(err);
+        connection.rollback((err) => {
+          if (err) { logger.error(err) }; customError(err.message, 500, response);
+        })
       }
-    });
-  } else {
-    return `${patientid} or ${billingid} not provided`
+    } else {
+      customError(`client billed on same day. Kindly check the billing history to update billing`, 401, response);
+    }
   }
 }
 
-const getTargetApplicationSetting = async function (target) {
-  const query = `SELECT * FROM applicationsettings`;
 
-  return new Promise((resolve, reject) => {
-    connection.query(query, (err, result) => {
-      if (err) {
-        reject(err)
-      }
-      else {
-        if (result.length == 0) {
-          resolve(false);
-        } else {
-          const state = result[0][target];
-          state == 0 ? resolve(false) : resolve(true)
-        }
-      }
-    })
-  })
-}
-
-
-
-const AddtoTestAscenstion = function (test, billingid, res) {
-
-
-  getTargetApplicationSetting('completeFlow')
-    .then((flow) => {
-      let insertion = function (billingid, testid) {
-        connection.query(`INSERT INTO TEST_ASCENSION (BILLINGID,TESTID) VALUES (?,?)`, [billingid, testid], function (err, result) {
-          if (err) {
-            customError(err.message, 500, res)
-          }
-        })
-      }
-
-      if (!flow) {
-        insertion = function (billingid, testid) {
-          const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
-        VALUES(?,?,?,CURRENT_DATE)`;
-
-          const values = [testid, billingid, 'true'];
-
-          connection.query(query, values, function (err, result) {
-            if (err) {
-              customError(err.message, 500, res)
-            } else {
-              const queryString = `UPDATE samplestatus  SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
-              connection.query(queryString, [billingid, testid], function (err, result) {
-                if (err) {
-                  customError(err.message, 500, res)
-                }
-              })
-            }
-          })
-        }
-      }
-
-
-
-      if (Array.isArray(test)) {
-        let count = 0;
-        test.forEach((item, index) => { insertion(billingid, item); count++ })
-        setTimeout(function () {
-          if (count == test.length) {
-            res.status(200).json({
-              message: 'billing successfully',
-              code: 1,
-              statusCode: 200,
-              status: 'success'
-            })
-          }
-        }, 500)
-      }
-    })
-    .catch((err) => console.log(err))
-
-}
-
-
-const billingHx = function (billingid, paymentmode, paid, test, res) {
-  // insert to billing hx 
-  const hxStatement = `INSERT INTO BILLINGHX (BILLINGID,PAYMENTMODE,AMOUNT) VALUES (?,?,?)`;
-
-  connection.query(hxStatement, [billingid, paymentmode, paid], function (err, result) {
-    if (err) {
-      logger;
-    }
-  })
-  AddtoTestAscenstion(test, billingid, res)
-}
 
 /**
  * 
@@ -172,108 +149,6 @@ const clientPaymentStatus = async function (patientid) {
       }
     })
   })
-}
-// add new billing
-const addBilling = async (req, res) => {
-  // we extract the application settings,
-  // if all debts must be paid before the next transaction is activated 
-  // we check if the client is owning or not and procead ellow
-  const billingSetting = await getTargetApplicationSetting('PaidBillsBeforeTransaction');
-
-  const { patientid, clinicians, organizations, test, cost, paid, urgency, discount, paymentmode, samplingCenter } = req.body;
-
-
-
-  if (patientid) {
-    const status = await clientPaymentStatus(patientid);
-    const pushDb = function () {
-      // get outstanding balance
-      let outstanding = cost - discount - paid;
-      // get type
-      let type = paymentmode == 'invoice' ? 'POSTPAID' : 'PREPAID';
-      // billing data
-      let values = [parseInt(patientid), clinicians, organizations, paid, cost, type, outstanding, parseInt(discount)];
-
-
-      const writeDb = function () {
-
-        // insert billing data into billing stable
-        let sql = `INSERT INTO billing (PATIENTID,CLINICIAN,ORGANIZATION,PAID_AMOUNT,PAYABLE,TYPE,OUTSTANDING,DISCOUNT) VALUES (?,?,?,?,?,?,?,?)`;
-
-        connection.query(sql, values, (err, result) => {
-          if (err) { logger.error(err) }
-          if (result) {
-            let billingid = result.insertId;
-            // add test to performing test
-            addperformingTest(patientid, billingid, urgency, samplingCenter, paymentmode, paid, test, res)
-          }
-        })
-      }
-
-
-      if (billingSetting) {
-        if (parseInt(cost) != parseInt(paid)) {
-          res.send({
-            message: 'Application settings updated to ensure all service are paid for fully',
-            status: 'success',
-            statusCode: 401,
-            code: 'AppSett'
-          })
-        } else {
-          writeDb();
-        }
-      } else {
-        writeDb();
-      }
-    }
-
-
-
-    if (billingSetting) {
-      // NB: 1 client not owning 
-      // -1 facillity own client
-      // 0 client owe
-
-      if (status == 0) {
-        res.send({
-          statusCode: 200,
-          code: 0,
-          status: 'success',
-          message: 'client has outstanding bill to clear'
-        })
-      }
-
-      if (status == null) {
-        res.send({
-          statusCode: 401,
-          status: 'error',
-          code: null,
-          message: 'No patientid not found'
-        })
-      }
-
-      if (status == -1) {
-        res.send({
-          statusCode: 200,
-          code: -1,
-          status: 'success',
-          message: 'facillity has outstanding change to be given to client'
-        })
-      }
-
-      if (status == 1) {
-        pushDb();
-      }
-
-    }
-    else {
-      pushDb()
-    }
-  } else {
-    customError(`patientid required`, 401, res)
-  }
-
-
 }
 
 
@@ -485,8 +360,7 @@ const updateBilling = async function (request, response) {
 }
 
 module.exports = {
-  addBilling,
-  addperformingTest,
+  Billing,
   updateBilling,
   checkifActivated,
   getBilledClients
