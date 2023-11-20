@@ -131,15 +131,12 @@ const postSection = async function (request, response) {
 
           const updatedAscension = await promisifyQuery(updateTestAscensionQuery, ascensionValues);
 
-          console.log(updatedAscension, testinfo)
 
           if (updatedAscension.affectedRows > 0) {
 
-            const approvalstatus = (collection === 'true' || collection === true) ? 1 : 0;
+            const updateSampleStatusQuery = `UPDATE samplestatus SET samplemessage = ?,  phelobotomist = ? WHERE testid = ? AND billingid = ?`;
 
-            const updateSampleStatusQuery = `UPDATE samplestatus SET samplemessage = ?,approvalstatus = ?,  phelobotomist = ? WHERE testid = ? AND billingid = ?`;
-
-            const sampleStatusValues = [samplemessage, approvalstatus, employeeid, testid, billingid];
+            const sampleStatusValues = [samplemessage,employeeid, testid, billingid];
 
             await promisifyQuery(updateSampleStatusQuery, sampleStatusValues);
 
@@ -188,7 +185,7 @@ const getAscensionWithDetails = async function (billingid, response) {
 }
 
 
-const sampleAssesment = function (req, res) {
+const sampleAssesment = async function (req, res) {
   const { billingid } = req.query;
 
   if (!billingid) {
@@ -200,31 +197,39 @@ const sampleAssesment = function (req, res) {
   } else {
     //  test collection must be true in test ascension table 
     const statement = `
-    SELECT DISTINCT NAME,
-        SAMPLE,
-        t.collection,
-        t.testid,
-        t.billingid
-      from test_ascension AS t
-        INNER JOIN test_panels AS tt ON tt.ID = t.testid
-        INNER JOIN samplestatus AS ss ON ss.testid = t.testid
-      WHERE t.billingid = ?
-        AND t.collection = 'true'
-        AND ss.approvalstatus = 0
+        SELECT DISTINCT NAME,
+            SAMPLE,
+            t.collection,
+            t.testid,
+            t.billingid,
+            t.id,
+            ss.rejectionmessage,
+            ss.approvalstatus
+          from test_ascension AS t
+            INNER JOIN test_panels AS tt ON tt.ID = t.testid
+            INNER JOIN samplestatus AS ss ON ss.testid = t.testid
+          WHERE t.billingid = ?
+            AND t.collection = 'true'
+            AND ss.approvalstatus = 0
+            AND ss.rejectionmessage IS NULL
+            AND t.collection_date IS NOT NULL
+         GROUP BY t.testid
 `;
 
-    connection.query(statement, billingid, function (err, result) {
-      if (err) {
-        {logger.error(err)};
+    try {
+      let result = await promisifyQuery(statement, billingid);
+      if (result.length > 0 && Array.isArray(result)) {
+        result = result.map((item, index) => {
+          return convertKeysToLowerCase(item);
+        })
       }
-
-      res.send({
-        message: 'success',
-        statusCode: 200,
-        status: 'success',
-        result
-      })
-    })
+      res.send({ message: 'success', statusCode: 200, result, status: 'success' });
+    }
+    catch (err) {
+      logger.error(err);
+      console.log(err)
+      customError('error fetching data', 500, res);
+    }
   }
 }
 

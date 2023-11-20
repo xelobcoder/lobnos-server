@@ -123,34 +123,25 @@ app.put("/api/v1/billing", function (request, response) {
 // sample api endpoint
 
 app.get("/api/v1/sample", function (request, response) {
-  let sampleHandle = new SampleHandler(
-    request.query.status,
-    new Date(),
-    request,
-    response
-  );
-  const { status, date } = request.query;
+  let sampleHandle = new SampleHandler(request, response);
+  sampleHandle.getCollectedSamples();
+ 
 
-  if (!status && !date) {
-    sampleHandle.getRecords();
-  } else {
-    if (status && !date) {
-      sampleHandle.getStatus(status);
-    } else if (!status && date) {
-      sampleHandle.getDate(date);
-    } else {
-      sampleHandle.getSelectedStutusAndDate(date, status);
-    }
-  }
+  // if (!status && !date) {
+  //   sampleHandle.getRecords();
+  // } else {
+  //   if (status && !date) {
+  //     sampleHandle.getStatus(status);
+  //   } else if (!status && date) {
+  //     sampleHandle.getDate(date);
+  //   } else {
+  //     sampleHandle.getSelectedStutusAndDate(date, status);
+  //   }
+  // }
 });
 
 app.put("/api/v1/sample", function (request, response) {
-  let sampleHandle = new SampleHandler(
-    request.query.status,
-    new Date(),
-    request,
-    response
-  );
+  const  sampleHandle = new SampleHandler( request,response);
   sampleHandle.updateRecords(request, response);
 });
 

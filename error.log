@@ -69,3 +69,46 @@
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT * FROM test_ascension AS t \n  INNER JOIN test_panels AS p ON t.testid = p.ID\n  INNER JOIN samplestatus AS ON s.ascensionid = t.ID\n  WHERE t.billingid = '192' AND t.collection = 'false'\n","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ON s.ascensionid = t.ID\n  WHERE t.billingid = '192' AND t.collection = 'false'' at line 3","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT * FROM test_ascension AS t \n  INNER JOIN test_panels AS p ON t.testid = p.ID\n  INNER JOIN samplestatus AS ON s.ascensionid = t.ID\n  WHERE t.billingid = '192' AND t.collection = 'false'\n","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ON s.ascensionid = t.ID\n  WHERE t.billingid = '192' AND t.collection = 'false'' at line 3","sqlState":"42000"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n    UPDATE samplestatus SET\n     approvalstatus = 0\n     , message = 'kqwdKkasK' WHERE billingid = 146 AND testid = 1","sqlMessage":"Unknown column 'message' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n    SELECT\n    SUM(b.PAYABLE) AS salesAmount,\n    COUNT(b.BILLINGID) AS totalCases,\n    SUM(b.DISCOUNT) AS discount,\n    SUM(PAID_AMOUNT) AS totalAmountReceived,\n    pt.DATE AS date,\n        DAY(pt.DATE) AS 'Day'\n    FROM billing AS b\n    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID\n    WHERE YEAR(pt.DATE) = YEAR(CURDATE()) AND MONTH(pt.DATE) = MONTH(CURDATE())\nAND pt.SAMPLING_CENTER = undefined GROUP BY DAY(pt.DATE)","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n       SELECT\n        SUM(PAYABLE) AS salesAmount,\n        CASE\n            WHEN DAY(pt.DATE) BETWEEN 1 AND 7 THEN 'First Week'\n            WHEN DAY(pt.DATE) BETWEEN 8 AND 14 THEN 'Second Week'\n            WHEN DAY(pt.DATE) BETWEEN 15 AND 21 THEN 'Third Week'\n            WHEN DAY(pt.DATE) BETWEEN 22 AND 31 THEN 'Fourth Week'\n        END AS 'Week',\n        COUNT(b.BILLINGID) AS totalCases\n      FROM billing AS b\n      INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID\n      WHERE YEAR(pt.DATE) = YEAR(CURDATE())\n      AND MONTH(pt.DATE) = MONTH(CURDATE())AND pt.SAMPLING_CENTER = undefined GROUP BY WEEK(pt.DATE)","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n    SELECT DISTINCT NAME,\n        SAMPLE,\n        t.collection,\n        t.testid,\n        t.billingid,\n        ss.declinemessage,\n        ss.approvalstatus\n      from test_ascension AS t\n        INNER JOIN test_panels AS tt ON tt.ID = t.testid\n        INNER JOIN samplestatus AS ss ON ss.testid = t.testid\n      WHERE t.billingid = '192'\n        AND t.collection = 'true'\n        AND ss.approvalstatus = 0\n","sqlMessage":"Unknown column 'ss.declinemessage' in 'field list'","sqlState":"42S22"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(2023854,0,0,600,600,4,0,70,NULL,true,20,'routine',650)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(2023854,0,0,600,600,4,0,70,NULL,true,20,'routine',650)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}

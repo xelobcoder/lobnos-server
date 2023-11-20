@@ -1,3 +1,5 @@
+const { customError, promisifyQuery, convertKeysToLowerCase } = require('../../helper');
+const logger = require('../../logger');
 const connection = require('../db')
 
 // use case scenario
@@ -59,93 +61,47 @@ const updateSamplerRecord = async function (request, response) { }
 
 
 const rejectedSample = async function (request, response) {
-  const type = request.query.type;
-
-  if (!type) {
-    response.status(404).send({
-      message: 'type required',
-      statusCode: 404
-    })
-  }
-  else {
-    if (type === 'getsampleinfo') {
-      const billingid = request.query.billingid;
-      if (billingid) {
-        let query = `
-       SELECT np.AGE AS age,
-          pt.BILLINGID AS bilingid,
-          np.AGETYPE AS agetype,
-          np.ACTIVATION_STATUS AS activationStatus,
+  const SQL_QUERY = `
+  SELECT 
+  b.billingid,
+          CONCAT(np.age," ",np.agetype) AS age,
           np.MOBILE_NUMBER AS mobileNumber,
           np.GENDER AS gender,
           np.EMAIL AS email,
-          pt.URGENCY AS urgency,
-          pt.SAMPLING_CENTER AS samplingCenter,
-          np.MARITAL_STATUS AS maritalStatus,
-          pt.INSPECTION_TIME AS inspectionTime,
-          pt.PHELOBOTOMIST AS phelobotomist,
-          pt.DATE AS 'date',
+          ss.rejectionmessage,
+          b.billedon AS date,
+          ss.approvalstatus,
+          ss.sampleMessage,
+          ss.disputedon,
+          ss.disputedby,
+          ss.disputereason,
+          tp.NAME,
+          ss.testid,
+          ss.samplevalidatedon,
+          ss.validatedby,
+          ta.collection_date,
           CASE
             WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, " ", np.LASTNAME)
-            ELSE CONCAT(
-              np.FIRSTNAME,
-              " ",
-              np.MIDDLENAME,
-              " ",
-              np.LASTNAME
-            )
+            ELSE CONCAT(np.FIRSTNAME," ", np.MIDDLENAME," ",np.LASTNAME)
           END AS fullname
         FROM new_patients AS np
-          inner join performing_test AS pt ON np.PATIENTID = pt.PATIENTID
-        WHERE pt.BILLINGID = ${billingid}
-        `;
-        // execute query
-        connection.query(query, (err, result) => {
-          if (err) {
-            console.log(err)
-            response.status(400).send({
-              statusCode: 301,
-              message: 'error occured'
-            })
-          }
-          // send the response 
-          else {
-            response.status(200).send({
-              statusCode: 200,
-              message: 'success',
-              result
-            })
-          }
-        })
-      }
-      else {
-        response.status(400).send({
-          statusCode: 301,
-          message: 'billingid is required'
-        })
-      }
+        INNER JOIN billing AS b ON b.patientid = np.PATIENTID
+        INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
+        INNER JOIN test_ascension AS ta ON ta.id = ss.ascensionid
+        INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+        WHERE ss.rejectionmessage IS NOT NULL AND ss.approvalstatus = 0 AND ta.collection = 'true' AND ss.disputereason IS NULL
+  `
+
+  try {
+    let result = await promisifyQuery(SQL_QUERY);
+    if (result.length > 0 && Array.isArray(result)) {
+      result = result.map((item, index) => { return convertKeysToLowerCase(item) })
     }
-    else if (type === 'getvalidationstatus') {
-      const billingid = request.query.billingid;
-      if (billingid) {
-        getSampleManagerValidation(request, response, billingid)
-      } else {
-        response.status(404).send({
-          message: 'include',
-          statusCode: 404
-        })
-      }
-    }
-    else if (type == 'getRejectedClientSample') {
-      const billingid = request.query.billingid;
-      getSampleList(billingid, response)
-    }
-    else {
-      response.status(404).send({
-        message: 'type not recognized',
-        statusCode: 404
-      })
-    }
+    response.send({ statusCode: 200, status: 'success', message: 'success', result });
+  } catch (err) {
+    logger.error(err);
+    console.log(err)
+    customError('error fetching data', 500, response);
   }
 }
 
@@ -175,7 +131,32 @@ const RejectedSampleApproval = async function (request, response) {
 
 
 
+const disputeRejection = async function (request, response) {
+  const { billingid, testid, disputereason, disputedby, disputedon } = request.body;
+
+  const DISPUTE_QUERY = `UPDATE samplestatus SET disputereason = ?, disputedby = ?, disputedon = ?
+   WHERE billingid = ? AND testid = ?`;
+
+  const values = [disputereason, disputedby, disputedon, billingid, testid];
+
+  try {
+    const result = await promisifyQuery(DISPUTE_QUERY, values);
+    console.log(result)
+    if (result?.affectedRows == 1) {
+      response.send({ status: 'success', message: 'sample dispute logged successfully', statusCode: 200 })
+    } else {
+      response.send({ status: 'error', message: 'error logging sample dispute', statusCode: 500 })
+    }
+  } catch (err) {
+    logger.error(err);
+    customError('error updating data', 500, response);
+  }
+}
+
+
+
 module.exports = {
   rejectedSample,
-  RejectedSampleApproval
+  RejectedSampleApproval,
+  disputeRejection
 }
