@@ -112,3 +112,100 @@
 {"level":"error"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"level":"error","message":"employeeid not included or testinfo is not an array"}
+{"level":"error","message":"employeeid not included or testinfo is not an array"}
+{"level":"error","message":"employeeid not included or testinfo is not an array"}
+{"level":"error","message":"employeeid not included or testinfo is not an array"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n        SELECT ta.testid,\n              ta.billingid,\n              pt.URGENCY,\n              tt.NAME,\n              ta.declineMessage,\n              ta.actionPlan,\n        CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME,\" \", np.LASTNAME) \n            WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, \" \", np.MIDDLENAME, \" \", np.LASTNAME) \n            END AS fullname\n        FROM test_ascension AS ta\n            INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid\n            INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID\n            INNER JOIN test_panels AS tt ON tt.ID = ta.testid\n        WHERE ta.ready = 'true'\n        AND ta.ApprovalStatus = 0\n    ","sqlMessage":"Unknown column 'pt.URGENCY' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n        SELECT ta.testid,\n              ta.billingid,\n              pt.URGENCY,\n              tt.NAME,\n              ta.declineMessage,\n              ta.actionPlan,\n        CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME,\" \", np.LASTNAME) \n            WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, \" \", np.MIDDLENAME, \" \", np.LASTNAME) \n            END AS fullname\n        FROM test_ascension AS ta\n            INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid\n            INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID\n            INNER JOIN test_panels AS tt ON tt.ID = ta.testid\n        WHERE ta.ready = 'true'\n        AND ta.ApprovalStatus = 0\n    ","sqlMessage":"Unknown column 'pt.URGENCY' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n        SELECT ta.testid,\n              ta.billingid,\n              b.clientstatus AS urgency,\n              tt.NAME,\n              ta.declineMessage,\n              ta.actionPlan,\n        CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME,\" \", np.LASTNAME) \n            WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, \" \", np.MIDDLENAME, \" \", np.LASTNAME) \n            END AS fullname\n        FROM test_ascension AS ta\n            INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid\n            INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID\n            INNER JOIN test_panels AS tt ON tt.ID = ta.testid\n        WHERE ta.ready = 'true'\n        AND ta.ApprovalStatus = 0\n    ","sqlMessage":"Unknown column 'b.clientstatus' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n        SELECT ta.testid,\n              ta.billingid,\n              b.clientstatus AS urgency,\n              tt.NAME,\n              ta.declineMessage,\n              ta.actionPlan,\n        CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME,\" \", np.LASTNAME) \n            WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, \" \", np.MIDDLENAME, \" \", np.LASTNAME) \n            END AS fullname\n        FROM test_ascension AS ta\n            INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid\n            INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID\n            INNER JOIN test_panels AS tt ON tt.ID = ta.testid\n        WHERE ta.ready = 'true'\n        AND ta.ApprovalStatus = 0\n    ","sqlMessage":"Unknown column 'b.clientstatus' in 'field list'","sqlState":"42S22"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_function_full_blood_count\n         (parameter,unit,value,billingid,patientid)\n         VALUES ('wbc', '', 20, 197, 2023101429), ('neutrophils', 'g/dl', 39, 197, 2023101429), ('eosinophils', '', 349, 197, 2023101429), ('basophils', '', 939, 197, 2023101429), ('lymphocytes', '', 939, 197, 2023101429), ('monocytes', 'g/hj', 939, 197, 2023101429), ('mch', 'g/hj', 939, 197, 2023101429), ('mcv', 'g/hj', 939, 197, 2023101429), ('mchc', '%', 939, 197, 2023101429), ('rdw-cv', '%', 939, 197, 2023101429), ('rdw-sd', '%', 399, 197, 2023101429)\n         ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_function_full_blood_count\n         (parameter,unit,value,billingid,patientid)\n         VALUES ('wbc', '', 20, 197, 2023101429), ('neutrophils', 'g/dl', 39, 197, 2023101429), ('eosinophils', '', 349, 197, 2023101429), ('basophils', '', 939, 197, 2023101429), ('lymphocytes', '', 939, 197, 2023101429), ('monocytes', 'g/hj', 939, 197, 2023101429), ('mch', 'g/hj', 939, 197, 2023101429), ('mcv', 'g/hj', 939, 197, 2023101429), ('mchc', '%', 939, 197, 2023101429), ('rdw-cv', '%', 939, 197, 2023101429), ('rdw-sd', '%', 399, 197, 2023101429)\n         ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT t.parameter,t.unit,billingid,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM liver_function_test AS t INNER JOIN chemistry AS s ON s.parameter = t.parameter WHERE t.billingid = undefined","sqlMessage":"Table 'limsdb.liver_function_test' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT t.parameter,t.unit,billingid,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM liver_function_test AS t INNER JOIN chemistry AS s ON s.parameter = t.parameter WHERE t.billingid = undefined","sqlMessage":"Table 'limsdb.liver_function_test' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT t.parameter,t.unit,billingid,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM result_function_liver AS t INNER JOIN chemistry AS s ON s.parameter = t.parameter WHERE t.billingid = undefined","sqlMessage":"Table 'limsdb.chemistry' doesn't exist","sqlState":"42S02"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,t.unit,billingid,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM result_function_liver AS t INNER JOIN setup_liver_function_test AS s ON s.parameter = t.parameter WHERE t.billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_function_renal\n         (parameter,unit,value,billingid,patientid)\n         VALUES ('BUN', 'mg/dl', 44, 200, 2023101539), ('Creatinine', 'mg/dl', 44, 200, 2023101539), ('potasium', 'mg/dl', 44, 200, 2023101539), ('sodium', 'mg/dl', 44, 200, 2023101539), ('chloride', 'mg/dl', 444, 200, 2023101539), ('bicarbonate', 'mg/dl', 44, 200, 2023101539), ('albumin', 'mg/dl', 44, 200, 2023101539), ('ahDy', 'UH', 44, 200, 2023101539)\n         ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_function_renal\n         (parameter,unit,value,billingid,patientid)\n         VALUES ('BUN', 'mg/dl', 44, 200, 2023101539), ('Creatinine', 'mg/dl', 44, 200, 2023101539), ('potasium', 'mg/dl', 44, 200, 2023101539), ('sodium', 'mg/dl', 44, 200, 2023101539), ('chloride', 'mg/dl', 444, 200, 2023101539), ('bicarbonate', 'mg/dl', 44, 200, 2023101539), ('albumin', 'mg/dl', 44, 200, 2023101539), ('ahDy', 'UH', 44, 200, 2023101539)\n         ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_function_liver\n         (parameter,unit,value,billingid,patientid)\n         VALUES ('albumin', 'mg/dl', 55, 200, 2023101539), ('total protein', 'mg/dl', 55, 200, 2023101539), ('alp', 'mg/dl', 55, 200, 2023101539), ('ast', 'mg/dl', 55, 200, 2023101539), ('alt', 'mg/dl', 55, 200, 2023101539), ('bun', 'mg/dl', 555, 200, 2023101539), ('creatinine', 'mg/dl', 555, 200, 2023101539)\n         ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM result_cardiac_enzymes AS t INNER JOIN setup_cardiac_enzymes AS s ON s.parameter = t.parameter WHERE t.billingid = 196","sqlMessage":"Unknown column 't.unit' in 'field list'","sqlState":"42S22"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT \n        pt.billedon,\n        pt.billingid,\n        tt.collection,\n        (SELECT COUNT(*) FROM billing WHERE DATE(billedon) = '2023-11-21') AS registered,\n        tt.ready,\n        tt.collection_date,\n        tt.processing,\n        tt.testid,\n        tt.ApprovalStatus\n          FROM billiing AS pt\n        INNER JOIN test_ascension AS tt ON tt.billingid = pt.BILLINGID\n        WHERE DATE(pt.billedon) = '2023-11-21'\n       ","sqlMessage":"Table 'limsdb.billiing' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT \n        pt.billedon,\n        pt.billingid,\n        tt.collection,\n        (SELECT COUNT(*) FROM billing WHERE DATE(billedon) = '2023-11-21') AS registered,\n        tt.ready,\n        tt.collection_date,\n        tt.processing,\n        tt.testid,\n        tt.ApprovalStatus\n          FROM billiing AS pt\n        INNER JOIN test_ascension AS tt ON tt.billingid = pt.billingid\n        WHERE DATE(pt.billedon) = '2023-11-21'\n       ","sqlMessage":"Table 'limsdb.billiing' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT \n        pt.billedon,\n        pt.billingid,\n        tt.collection,\n        (SELECT COUNT(*) FROM billing WHERE DATE(billedon) = '2023-11-21') AS registered,\n        tt.ready,\n        tt.collection_date,\n        tt.processing,\n        tt.testid,\n        tt.ApprovalStatus\n          FROM billiing AS pt\n        INNER JOIN test_ascension AS tt ON tt.billingid = pt.billingid\n        WHERE DATE(pt.billedon) = '2023-11-21'\n       ","sqlMessage":"Table 'limsdb.billiing' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT \n        pt.billedon,\n        pt.billingid,\n        tt.collection,\n        (SELECT COUNT(*) FROM billing WHERE DATE(billedon) = '2023-11-21') AS registered,\n        tt.ready,\n        tt.collection_date,\n        tt.processing,\n        tt.testid,\n        tt.ApprovalStatus\n          FROM billiing AS pt\n        INNER JOIN test_ascension AS tt ON tt.billingid = pt.billingid\n        WHERE DATE(pt.billedon) = '2023-11-21'\n       ","sqlMessage":"Table 'limsdb.billiing' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT \n        pt.billedon,\n        pt.billingid,\n        tt.collection,\n        (SELECT COUNT(*) FROM billing WHERE DATE(billedon) = '2023-11-21') AS registered,\n        tt.ready,\n        tt.collection_date,\n        tt.processing,\n        tt.testid,\n        tt.ApprovalStatus\n          FROM billiing AS pt\n        INNER JOIN test_ascension AS tt ON tt.billingid = pt.billingid\n        WHERE DATE(pt.billedon) = '2023-11-21'\n       ","sqlMessage":"Table 'limsdb.billiing' doesn't exist","sqlState":"42S02"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

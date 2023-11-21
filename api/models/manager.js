@@ -1,6 +1,5 @@
 const logger = require("../../logger");
 const connection = require("../db");
-const { testTable } = require("./result");
 class Manager {
   constructor(employeeid, billingid, testid) {
     this.employeeid = employeeid;
@@ -45,7 +44,7 @@ class Manager {
           reject(err);
         }
         if (result && result.affectedRows > 0) {
-          reject(result);
+          resolve(result);
         }
       });
     });
@@ -57,7 +56,7 @@ class Manager {
     const query = ` 
         SELECT ta.testid,
               ta.billingid,
-              pt.URGENCY,
+              bb.clientstatus AS urgency,
               tt.NAME,
               ta.declineMessage,
               ta.actionPlan,
@@ -66,7 +65,6 @@ class Manager {
             END AS fullname
         FROM test_ascension AS ta
             INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid
-            INNER JOIN performing_test as pt ON pt.BILLINGID = bb.BILLINGID
             INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
             INNER JOIN test_panels AS tt ON tt.ID = ta.testid
         WHERE ta.ready = 'true'

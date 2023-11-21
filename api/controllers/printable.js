@@ -6,7 +6,8 @@ const EmailService = require('../models/email');
 const { getBillingInvoiceData } = require('../models/invoice');
 const Payment = require('../models/payment')
 const result = new ResultPrint();
-const createReceipt = require('../models/billingReceipt');
+const logger = require('../../logger');
+const PDFGENERATION = require('../models/pdfGeneration');
 
 
 router.get('/api/v1/result/ready', async function (req, res) {
@@ -76,21 +77,9 @@ router.get('/api/v1/result/preview', function (request, response) {
    const { test } = request.query;
    const category = testCategoryMapping[test];
 
-   if (!test) {
-      response.send({
-         statusCode: "401",
-         message: "test not found"
-      });
-   }
-
-   if (!category) {
-      response.send({
-         statusCode: "401",
-         message: "No categoy found for test"
-      });
-   }
-
-   if (category && test) {
+   if (!test || !category) {
+      customError(`test or category not found`, 404, response);
+   } else {
       if (category == "chemistry") {
          result.resultPreviewChemistry(request, response, category);
       } else if (category == "hema") {
@@ -158,12 +147,18 @@ router.get('/api/v1/billing/email/receipt', async function (request, response) {
 
 
 router.get('/billing/receipt', async function (request, response) {
-   const {billingid} = request.query;
-   try {
-      createReceipt(response,billingid);
-   } catch (error) {
-      console.log(error)
-   }
+   const { billingid, testname, testid } = request.query;
+   if (billingid, testname, testid) {
+      try {
+         const pdfgenerate = new PDFGENERATION(billingid, testid, testname);
+         const result = await pdfgenerate.generatePDFdata();
+         if (typeof result === 'object') { pdfgenerate.generatePDFResult(result, response) }
+         else { response.send({ status: 'error', message: result, statusCode: 404 }) }
+      } catch (error) {
+         logger.error(error);
+         customError('error fetching data', 500, response);
+      }
+   } else { customError('include billingid, testname and testid', 404, response)}
 })
 
 module.exports = router;

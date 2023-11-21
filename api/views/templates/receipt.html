@@ -4,73 +4,9 @@
 <head>
   <meta charset="utf-8" />
   <title>Receipt</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      line-height: 1.6;
-    }
-
-    .p-wrapper {
-      width: 50%;
-      float: left;
-    }
-
-    .bold {
-      font-weight: bold;
-    }
-
-    h1,
-    h2 {
-      color: #333;
-    }
-
-    hr {
-      border: 1px solid black;
-      margin: 4px !important;
-    }
-
-    p {
-      margin: 5px 0;
-    }
-
-    ul {
-      list-style: none;
-      padding-left: 0;
-    }
-
-    li {
-      margin-bottom: 5px;
-    }
-
-    /* Add more styles as needed */
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-
-    table>thead {
-      margin: 0;
-      padding: 0;
-    }
-
-    table>thead>tr>th {
-      margin: 0px !important;
-    }
-
-    table>tfoot,
-    table>thead>tr>th {
-      border-bottom: 1px solid #333;
-      border-top: 1px solid black;
-    }
-
-    .border-top{
-      border-top: 1px solid black;
-    }
-    .th {
-      border-bottom: 1px solid black;
-    }
-  </style>
+  <Link rel="stylesheet" href="http://localhost:5000/css/receipt.css">
 </head>
+
 
 <body>
   <h1 style="text-align: center;">Receipt</h1>
@@ -105,8 +41,8 @@
     <p class="p-wrapper">Date of Birth: {{this.clientInformation.dob}}</p> -->
   </div>
   <hr />
-  <table>
-    <thead>
+  <table >
+    <thead >
       <tr>
         <td class="th bold">Sr.No</td>
         <td class="th bold">Test Name</td>

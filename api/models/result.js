@@ -7,37 +7,9 @@ const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
 const { customError } = require("../../helper");
 const logger = require("../../logger");
+const { testTable } = require('../../helpers/testtables');
 
 
-const testTable = {
-  hepatitisb: "hepatitisBresult",
-  hepatitisc: "hepatitisCresult",
-  blood_grouping: "bloodgroup",
-  glycated_haemoglobin: "glycated_haemoglobin",
-  urinalysis: "urinalysisresult",
-  cardiac_enzymes: "result_cardiac_enzymes",
-  pregnancy_test: "result_pregnancy_test",
-  thyroid_functional_test: "result_thyroid_functional_test",
-  malaria: "malaria",
-  hepatitis_b_profile: "hepatitisb_profile",
-  widal: "result_widal",
-  betahcg: "result_beta_hcg",
-  aids: "result_aids",
-  liver_function_test: "result_function_liver",
-  renal_function_test: 'result_function_renal',
-  esr: "result_esr",
-  random_blood_sugar: "result_random_blood_sugar",
-  fasting_blood_sugar: "result_fasting_blood_sugar",
-  full_blood_count: 'result_function_full_blood_count',
-  haemoglobin_electrophoresis: 'result_haemoglobin_electrophoresis',
-  semen_analysis: 'semenAnalysis',
-  luteinizing_hormone: 'lhresult',
-  follicle_stimulating_hormone: 'fshresult',
-  lipid_profile: 'result_lipid_profile',
-  helicobacter_pylori: 'result_helicobacter_pylori',
-  scan: 'scanReport',
-  prostate_specific_antigen_test: 'psaresult'
-};
 
 class Result {
   constructor(billingid, testname) {
@@ -431,42 +403,13 @@ class Result {
         );
       } else {
         // update the result using the billing id
-        const updateQuery = `
-               UPDATE ${testTable[testname]} SET
-               APPEARANCE = ?,
-               KETONES = ?,
-               BILIRUBIN = ?,
-               NITRITE = ?,
-               SPECIFIC_GRAVITY = ?,
-               PH = ?,
-               UROBILINOGEN = ?,
-               BLOOD = ?,
-               COLOR = ?,
-               LEUKOCYTES = ?,
-               MICROALBUMIN = ?,
-               GLUCOSE = ?,
-               REMARKS = ?
-               WHERE billingid = ?
+        const updateQuery = ` UPDATE ${testTable[testname]} SET APPEARANCE = ?, KETONES = ?, BILIRUBIN = ?, NITRITE = ?,
+         SPECIFIC_GRAVITY = ?, PH = ?, UROBILINOGEN = ?, BLOOD = ?, COLOR = ?, LEUKOCYTES = ?, MICROALBUMIN = ?, 
+         GLUCOSE = ?, REMARKS = ? WHERE billingid = ?
             `;
 
-        connection.query(
-          updateQuery,
-          [
-            appearance,
-            ketones,
-            bilirubin,
-            nitrite,
-            specific_gravity,
-            ph,
-            urobilinogen,
-            blood,
-            color,
-            leukocytes,
-            microalbumin,
-            glucose,
-            remarks,
-            billingid,
-          ],
+        connection.query(updateQuery, [appearance, ketones, bilirubin, nitrite, specific_gravity, ph, urobilinogen, blood, color, leukocytes, microalbumin,
+          glucose, remarks, billingid,],
           (err, result) => {
             if (err) {
               errMessage(err, response);
@@ -869,101 +812,6 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
   async hvs(records, response) {
     console.log(records);
   }
-
-  // async thyroid(records, response) {
-  //   let messageLog = this.errMessage;
-
-  //   const { testdata, testname, billingid, comments, patientid, testid } =
-  //     records;
-  //   if (this.isTestValid) {
-  //     if (await this.ShouldCreateRecord()) {
-  //       const insertionQuery = `INSERT INTO ${testTable[testname]} 
-  //            (PARAMETER,BILLINGID,VALUE,PATIENTID,COMMENTS)
-  //            VALUES ?
-  //           `;
-  //       const values = [];
-  //       for (let i = 0; i < testdata.length; i++) {
-  //         values.push([
-  //           testdata[i]["parameter"],
-  //           billingid,
-  //           testdata[i]["value"],
-  //           patientid,
-  //           comments,
-  //         ]);
-  //       }
-
-  //       await this.useTransactionForResult(
-  //         insertionQuery,
-  //         [values],
-  //         testid,
-  //         response
-  //       );
-  //     } else {
-  //       const updateQuery = `
-  //            UPDATE ${testTable[testname]} SET
-  //            VALUE = ?,
-  //            COMMENTS  = ?,
-  //            UPDATED_ON = NOW()
-  //            WHERE BILLINGID = ${this.billingid} AND PARAMETER = ?
-  //           `;
-
-  //       let currentValue = 0;
-  //       let target = testdata.length;
-  //       while (currentValue < target) {
-  //         const workingParameter = testdata[currentValue]["parameter"];
-  //         const workingValue = testdata[currentValue]["value"];
-  //         connection.query(
-  //           updateQuery,
-  //           [workingValue, comments, workingParameter],
-  //           function (err, result) {
-  //             if (err) {
-  //               messageLog(err);
-  //             }
-  //             if (result) {
-  //               const { affectedRows } = result;
-
-  //               if (affectedRows != 1) {
-  //                 const query = `INSERT INTO ${testTable[testname]} (
-  //                       PARAMETER,
-  //                       BILLINGID,
-  //                       VALUE,
-  //                       PATIENTID,
-  //                       COMMENTS
-  //                     ) VALUES (?,?,?,?,?)`;
-
-  //                 connection.query(
-  //                   query,
-  //                   [
-  //                     workingParameter,
-  //                     billingid,
-  //                     workingValue,
-  //                     patientid,
-  //                     comments,
-  //                   ],
-  //                   function (err, result) {
-  //                     if (err) {
-  //                       logger.error(err);
-  //                     }
-  //                     return;
-  //                   }
-  //                 );
-  //               }
-  //             }
-  //           }
-  //         );
-  //         currentValue++;
-
-  //         if (currentValue == target) {
-  //           response.send({
-  //             status: "success",
-  //             message: "record updated successfully",
-  //             statusCode: 200,
-  //           });
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
 
   async betahcg(records, response) {
     let errMessage = this.errMessage;

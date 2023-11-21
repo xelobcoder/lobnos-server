@@ -7,11 +7,7 @@ router.get("/api/v1/operations/collection", async (req, res) => {
 
   const result = await collections.getAllReadyTest();
 
-  res.send({
-    statusCode: 200,
-    message: "success",
-    result,
-  });
+  res.send({ statusCode: 200, message: "success", result });
 });
 
 router.get("/api/v1/operations/test", async (req, res) => {

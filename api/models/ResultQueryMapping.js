@@ -1,28 +1,28 @@
-const bloodgrouping = `SELECT * FROM BLOODGROUP WHERE billingid = `
+const bloodgrouping = `SELECT * FROM BLOODGROUP `
 
-const malaria = `SELECT * FROM MALARIA WHERE BILLINGID =`
+const malaria = `SELECT * FROM MALARIA`
 
-const widal = `SELECT * FROM result_widal WHERE BILLINGID =`
+const widal = `SELECT * FROM result_widal`
 
-const urinalysis = `SELECT * FROM urinalysisresult WHERE BILLINGID =`
+const urinalysis = `SELECT * FROM urinalysisresult`
 
-const hepatitis_b_profile = `SELECT * FROM HEPATITISB_PROFILE WHERE BILLINGID =`
+const hepatitis_b_profile = `SELECT * FROM HEPATITISB_PROFILE`
 
-const pregnancy_test = `SELECT * FROM RESULT_PREGNANCY_TEST WHERE BILLINGID =`
+const pregnancy_test = `SELECT * FROM RESULT_PREGNANCY_TEST`
 
-const esr = `SELECT * FROM result_esr WHERE BILLINGID =`
+const esr = `SELECT * FROM result_esr`
 
-const hepatitisb =`SELECT * FROM hepatitisbresult WHERE BILLINGID =`
+const hepatitisb =`SELECT * FROM hepatitisbresult`
 
-const hepatitisc = `SELECT * FROM hepatitiscresult WHERE BILLINGID =`;
+const hepatitisc = `SELECT * FROM hepatitiscresult`;
 
-const helicobacter_pylori = `SELECT * FROM result_helicobacter_pylori WHERE billingid =`;
+const helicobacter_pylori = `SELECT * FROM result_helicobacter_pylori`;
 
 
 
 
 const mappWithBilingid = function (query, value) {
-  return (query += ` ${value}`)
+  return (query += ` WHERE billingid = ${value}`)
 }
 
 const MappingSetup = {

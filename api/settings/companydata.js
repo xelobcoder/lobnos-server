@@ -2,6 +2,7 @@ const connection = require("../db.js");
 const path = require('path');
 const fs = require('fs');
 const logger = require("../../logger.js");
+const { promisifyQuery, convertKeysToLowerCase, customError } = require("../../helper.js");
 
 let SQL_QUERY_ALL = "SELECT * FROM companyprofile";
 let SQL_QUERY_INSERT = `INSERT INTO companyprofile (NAME, EMAIL, MOTTO, PHONENUMBER, ADDRESS, WEBSITE, STREET, ALTERNATIVENUMBER) VALUES (?,?,?,?,?,?,?,?)`;
@@ -39,21 +40,17 @@ const AddCompanyInfo = function (request, response) {
 
 
 
-const getCompanyInfo = function (request, response) {
-   connection.query(SQL_QUERY_ALL, function (err, result) {
-      if (err) { logger.error(err) }
-      if (result) {
-         if (result.length > 0) {
-            const obj = {};
-            for (const [key, value] of Object.entries(result[0])) {
-               obj[key.toLowerCase()] = value
-            }
-            response.send(obj)
-         } else {
-            response.send([])
-         }
+const getCompanyInfo = async function (request, response) {
+   try {
+      let result = await promisifyQuery(SQL_QUERY_ALL);
+      if (result && result.length > 0) {
+         result = result.map((item, index) => { return convertKeysToLowerCase(item) })
+         if (response) { response.send(result) } else {return result}
       }
-   })
+   } catch (err) {
+      logger.error(err);
+      if (response) { customError('error getting company info', 500, response) }
+   }
 }
 
 

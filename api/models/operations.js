@@ -96,18 +96,16 @@ class Operations {
                   ' ',
                   np.LASTNAME) END AS FULLNAME,
                 np.PATIENTID,
-                pt.BILLINGID,
+                b.BILLINGID,
                 tp.CATEGORY
               FROM new_patients as np
-                INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
-                INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
-                INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
+                INNER JOIN billing as b ON np.PATIENTID = b.PATIENTID
+                INNER JOIN samplestatus AS ss ON ss.billingid = b.BILLINGID
+                INNER JOIN test_ascension AS ta ON ta.billingid = b.BILLINGID
                 INNER JOIN test_panels AS tp ON tp.ID = ss.testid
                 INNER JOIN departments AS d ON d.ID = tp.CATEGORY
-              WHERE ss.approvalstatus = 1 AND pt.DATE = CURRENT_DATE
+              WHERE ss.approvalstatus = 1 AND DATE(b.billedon) = CURRENT_DATE
     `;
-
-
     if (category != 'undefined') {
       if (category != 'all') {
         queryString += ` AND tp.CATEGORY = ${category}`
@@ -117,11 +115,9 @@ class Operations {
 
     }
 
-    queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound'`
-
-    queryString += ` GROUP BY pt.BILLINGID
-          ORDER BY pt.ID ASC
-      LIMIT 20`;
+    queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound'  GROUP BY b.billingid
+    ORDER BY b.billingid ASC
+LIMIT 20`
 
 
 
@@ -173,20 +169,20 @@ class Operations {
       let queryString = `
       SELECT DISTINCT tp.CATEGORY AS category,
           d.department AS department,
-          pt.DATE AS 'date',
           pt.BILLINGID AS billingid,
-          pt.PATIENTID AS patientid
+          pt.PATIENTID AS patientid,
+          pt.billedon AS 'date'
       FROM test_panels AS tp
         INNER JOIN test_ascension AS ta ON tp.ID = ta.testid
         INNER JOIN departments AS d ON d.id = tp.CATEGORY
         INNER JOIN samplestatus AS ss ON ss.testid = ta.testid
-        INNER JOIN performing_test AS pt ON pt.BILLINGID = ta.billingid
+        INNER JOIN billing AS pt ON pt.billingid = ta.billingid
       WHERE ta.collection = 'true'
         AND ss.approvalstatus = 1 
     `;
 
       if (stage == 'unentered') {
-        queryString += ` AND pt.DATE = CURRENT_DATE AND ta.ready = 'false'`
+        queryString += ` AND DATE(pt.billedon) = CURRENT_DATE AND ta.ready = 'false'`
       }
 
       if (stage == 'entered') {
@@ -197,7 +193,7 @@ class Operations {
 
       connection.query(queryString, function (err, result) {
         if (err) {
-          customError(err.message, 500)
+          customError(err.message, 500, response)
         } else {
           response.send({
             status: 'success',
@@ -221,14 +217,14 @@ class Operations {
                   ' ',
                   np.MIDDLENAME,
                   ' ',
-                  np.LASTNAME) END AS FULLNAME,
-                np.PATIENTID,
-                pt.BILLINGID,
-                tp.CATEGORY
+                  np.LASTNAME) END AS fullname,
+                np.PATIENTID AS patientid,
+                b.BILLINGID AS billingid,
+                tp.CATEGORY AS category
               FROM new_patients as np
-                INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
-                INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
-                INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
+                INNER JOIN billing as b ON np.PATIENTID = b.PATIENTID
+                INNER JOIN samplestatus AS ss ON ss.billingid = b.BILLINGID
+                INNER JOIN test_ascension AS ta ON ta.billingid = b.BILLINGID
                 INNER JOIN test_panels AS tp ON tp.ID = ss.testid
                 INNER JOIN departments AS d ON d.ID = tp.CATEGORY
             `
@@ -236,9 +232,9 @@ class Operations {
     queryString += ` WHERE ss.approvalstatus = 1 AND d.department <> 'ultrasound'`
 
     if (from && !to) {
-      queryString += ` AND pt.DATE BETWEEN '${from}' AND CURRENT_DATE`
+      queryString += ` AND DATE(b.billedon) BETWEEN '${from}' AND CURRENT_DATE`
     } else if (from && to) {
-      queryString += ` AND pt.DATE BETWEEN '${from}' AND  '${to}'`
+      queryString += ` AND DATE(b.billedon) BETWEEN '${from}' AND  '${to}'`
     } else {
       queryString = queryString;
     }
@@ -250,15 +246,16 @@ class Operations {
 
 
     if (billingid) {
-      queryString += ` AND pt.BILLINGID = ${billingid}`
+      queryString += ` AND b.billingid = ${billingid}`
     }
 
-    queryString += ` GROUP BY pt.BILLINGID DESC LIMIT 30`;
+    queryString += ` GROUP BY b.billingid DESC LIMIT 30`;
 
 
     connection.query(queryString, function (err, result) {
       if (err) {
-        customError(err.message, 500)
+        console.log(err)
+        customError(err.message, 500,response)
       } else {
         response.send({
           statusCode: 200,

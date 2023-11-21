@@ -87,11 +87,7 @@ const get_client_query = function (req, res) {
         })
       }
       else {
-        res.send({
-          message: 'success',
-          statusCode: 200,
-          result
-        })
+        res.send({ message: 'success', statusCode: 200, result })
       }
     })
   }
@@ -143,9 +139,7 @@ const postSection = async function (request, response) {
             if (index === testinfo.length - 1) {
               connection.commit(function (err) {
                 if (err) {
-                  connection.rollback(function () {
-                    { logger.error(err) };
-                  });
+                  connection.rollback(function () { { logger.error(err) }; });
                 }
                 response.send({ message: 'updated successfully', statusCode: 200, status: 'success', })
               });
@@ -160,6 +154,9 @@ const postSection = async function (request, response) {
       //  rollback
       connection.rollback();
     }
+  } else {
+    logger.error('employeeid not included or testinfo is not an array')
+    customError('invalid request', 400, response);
   }
 }
 
@@ -189,11 +186,7 @@ const sampleAssesment = async function (req, res) {
   const { billingid } = req.query;
 
   if (!billingid) {
-    res.send({
-      message: 'billingid required',
-      statusCode: 401,
-      status: 'error'
-    })
+    res.send({ message: 'billingid required', statusCode: 401, status: 'error' })
   } else {
     //  test collection must be true in test ascension table 
     const statement = `

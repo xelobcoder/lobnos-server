@@ -27,7 +27,6 @@
     "nodemailer": "^6.9.5",
     "nodemailer-smtp-transport": "^2.4.2",
     "pdf-creator-node": "^2.3.5",
-    "pdfkit": "^0.14.0",
     "uuidv4": "^6.2.13",
     "winston": "^3.10.0"
   }

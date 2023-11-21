@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+  <!-- bootstrap link -->
+  <Link rel="stylesheet" href="http://localhost:5000/css/receipt.css" />
+  <!-- bootstap -->
+</head>
+
+<body>
+  <div class="letter-header">
+    <!-- lab image -->
+    <div class="lab-image">
+      <!-- <img src="https://res.cloudinary.com/dz3gm9c3w/imageupload/v1606329599/LogoMak1" alt="lab image" /> -->
+    </div>
+    <div>
+      <span>Kairos Laboratory company limited</span>
+    </div>
+    <div>{{this.companyInfo.email}}</div>
+    <div>{{this.companyInfo.address}}</div>
+  </div>
+  <div class="grid-2">
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">fullname:</span>
+      <span class="text-capitalize">{{this.sampling.clientname}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">age:</span>
+      <span class="text-capitalize">{{this.sampling.age}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">gender:</span>
+      <span class="text-capitalize">{{this.sampling.gender}}</spa>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">mobile:</span>
+      <span class="text-capitalize">{{this.sampling.mobilenumber}}</span>
+    </div>
+    <!-- patientid -->
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">patientid</span>
+      <span class="text-capitalize">{{this.sampling.patientid}}</span>
+    </div>
+    <!-- bilingid -->
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">bilingid</span>
+      <span class="text-capitalize">{{this.sampling.billingid}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">sampling date:</span>
+      <span class="text-capitalize">{{this.sampling.collection_date}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">Branch:</span>
+      <span class="text-capitalize">{{this.sampling.samplingCenter}}</span>
+    </div>
+  </div>
+  <div>
+    {{this.testname}}
+  </div>
+  <table>
+    <thead class="thead">
+      <tr class="tr-header">
+        <td class="td-header">test description</td>
+        <td class="td-header">values</td>
+        <td class="td-header">reference</td>
+        <!-- <td>flag</td> -->
+      </tr>
+    </thead>
+    <tbody class="tbody">
+      <!-- for each -->
+      {{#each this.testInformation}}
+      <tr class="tr-body">
+        <td class="td-body text-capitalize">{{this.parameter}}</td>
+        <td class="td-body">{{this.value}} {{this.unit}}</td>
+        <td class="td-body">{{this.upper}}-{{this.lower}}</td>
+        <!-- <td>{{this.flag}}</td> -->
+      </tr>
+      {{/each }}
+  </table>
+  <div class="comments">
+    <div class="comments-label">comments</div>
+    <span>
+      {{this.comments}}
+    </span>
+  </div>
+</body>

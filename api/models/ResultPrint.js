@@ -1,61 +1,58 @@
 const connection = require("../db");
 const { Result, testTable } = require("./result");
 const { getAge } = require('../../api/test/setup/fbc');
+const { setups } = require('../../helpers/testtables');
 const logger = require('../../logger')
+const { promisifyQuery, customError } = require('../../helper')
 const ResultClass = new Result();
 const errMessage = ResultClass.errMessage;
-const {
-  MappingSetup,
-  mappWithBilingid,
-  testCategoryMapping,
-} = require("./ResultQueryMapping");
-const pushResponse = ResultClass.pushResponse;
-
-const LIVER_SETUP = "setup_liver_function_test";
-const RENAL_SETUP = "setup_renal_function_test";
-const CARDIAC_ENZYMES = "setup_cardiac_enzymes";
-const THYROID_SETUP = "setup_thyroid_test";
-const LIPID_PROFILE_SETUP = "setup_lipid_profile_test";
-const FULL_BLOOD_COUNT = 'result_function_full_blood_count'
-const BETAHCG = `setup_beta_hcg`;
-const ESR = `setup_esr`;
-const LHHORMONE = 'lhsetup';
-const FSHHORMONE = 'fshsetup';
+const { MappingSetup, mappWithBilingid, testCategoryMapping, } = require("./ResultQueryMapping");
 
 
-// this represent the setups in the database for those chemistry test, full blood count is give a 
+
+const emptySummry = [{ title: "registered clients", value: 0, },
+{ title: 'test count', value: 0 },
+{ title: "samples collected ", value: 0 },
+{ title: "processed test", value: 0, },
+{ title: "test ready ", value: 0 },
+{ title: "Approved test", value: 0, }
+]
+
+
+// this represent the setups in the database for those chemistry test, full blood count is give a
 // default string of empty so that using the billing id we could populate
 // with getAge
-const setups = {
-  liver_function_test: LIVER_SETUP,
-  renal_function_test: RENAL_SETUP,
-  cardiac_enzymes: CARDIAC_ENZYMES,
-  full_blood_count: '',
-  LHHORMONE,
-  FSHHORMONE
-};
+
 
 const samplingQuery = `
-      SELECT 
-        ts.collection_date,
-        ts.processing_date,
-        ts.ready_date,
-        pt.URGENCY AS urgency,
-        pt.Phelobotomist,
-        np.GENDER AS gender,
-        CASE 
-          WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME," ",np.LASTNAME)
-          WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) 
-        END AS fullname,
-        CONCAT(np.age," ",np.agetype) AS age,
-        pt.INSPECTION_TIME AS inspectionTime,
-        b.NAME as samplingCenter
+      SELECT
+      ts.ready_date,
+      b.clientstatus as urgency,
+      ts.collection_date,
+      np.patientid,
+      ss.approvalstatus,
+      ss.ascensionid,
+      ts.processing_date,
+      br.name AS samplingCenter,
+      b.billingid,
+      np.GENDER AS gender,
+      np.mobile_number AS mobilenumber,
+      r.employeeid,
+      ts.testid,
+      r.USERNAME AS phelobotomist,
+      np.GENDER AS gender,
+      CASE
+        WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME," ",np.LASTNAME)
+        WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME)
+      END AS clientname,
+      CONCAT(np.age," ",np.agetype) AS age
       FROM test_ascension AS ts
-      INNER JOIN performing_test AS pt ON pt.BILLINGID = ts.billingid
-      INNER JOIN branch AS b ON b.BRANCHID = pt.SAMPLING_CENTER
-      INNER JOIN new_patients as np ON np.PATIENTID = pt.PATIENTID
-      INNER JOIN billing as bb ON bb.BILLINGID = pt.BILLINGID
-      WHERE ts.billingid = ? and ts.testid = ?
+      INNER JOIN billing  AS b ON ts.billingid = b.billingid
+      INNER JOIN new_patients AS np ON np.patientid = b.patientid
+      INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
+      INNER JOIN roles AS r ON r.employeeid = ss.phelobotomist
+      INNER JOIN branch AS br ON br.branchid = b.branchid
+      where ts.billingid = ? AND ts.testid = ? GROUP BY ts.billingid LIMIT 1
     `;
 
 class ResultPrint {
@@ -137,7 +134,6 @@ class ResultPrint {
           if (err) {
             reject(err);
           }
-
           resolve(result);
         });
       });
@@ -150,19 +146,18 @@ class ResultPrint {
     const { querydate, content } = request.query;
 
     const query = `SELECT 
-        pt.DATE,
-        pt.BILLINGID,
+        pt.billedon,
+        pt.billingid,
         tt.collection,
-        (SELECT COUNT(*) FROM performing_test WHERE DATE = ?) AS registered,
+        (SELECT COUNT(*) FROM billing WHERE DATE(billedon) = ?) AS registered,
         tt.ready,
         tt.collection_date,
         tt.processing,
         tt.testid,
         tt.ApprovalStatus
-          FROM performing_test AS pt
-        INNER JOIN BILLING AS b ON b.billingid = pt.billingid
-        INNER JOIN test_ascension AS tt ON tt.billingid = b.BILLINGID
-        WHERE pt.DATE = ?
+          FROM billing AS pt
+        INNER JOIN test_ascension AS tt ON tt.billingid = pt.billingid
+        WHERE DATE(pt.billedon) = ?
        `;
 
     function getTodayDate() {
@@ -172,93 +167,45 @@ class ResultPrint {
       const day = String(currentDate.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     }
-
-    connection.query(
-      query,
-      [querydate || getTodayDate(), querydate || getTodayDate()],
-      (err, result) => {
-        if (err) {
-          logger.error(err);
-        } else {
-          if (result.length == 0) {
-            response.send([
-              {
-                title: "registered clients",
-                value: 0,
-              },
-              {
-                title: 'test count',
-                value: 0
-              },
-              {
-                title: "samples collected ",
-                value: 0,
-              },
-              {
-                title: "processed test",
-                value: 0,
-              },
-
-              {
-                title: "test ready ",
-                value: 0,
-              },
-              {
-                title: "Approved test",
-                value: 0,
-              },
-            ]);
-          } else {
-            const processing = result.filter((item, index) => {
-              return item.processing == "true" &&
-                item.collection == 'true'
-                && item.ready == 'true';
-            }).length;
-            const ready = result.filter((item, index) => {
-              return item.processing == "true" && item.ready == "true";
-            }).length;
-            const collection = result.filter((item, index) => {
-              return item.collection == "true";
-            }).length;
-            const approval = result.filter((item, index) => {
-              return item.ApprovalStatus == 1;
-            }).length;
-
-            const testcount = result.length;
+    try {
+      const result = await promisifyQuery(query, [querydate || getTodayDate(), querydate || getTodayDate()])
+      if (result && result.length > 0) {
+        const processing = result.filter((item, index) => {
+          return item.processing == "true" &&
+            item.collection == 'true'
+            && item.ready == 'true';
+        }).length;
+        const ready = result.filter((item, index) => {
+          return item.processing == "true" && item.ready == "true";
+        }).length;
+        const collection = result.filter((item, index) => {
+          return item.collection == "true";
+        }).length;
+        const approval = result.filter((item, index) => {
+          return item.ApprovalStatus == 1;
+        }).length;
+        const testcount = result.length;
+        response.send([{ title: "registered clients", value: result[0]?.["registered"], },
+        { title: 'test count', value: testcount }, { title: "samples collected ", value: collection, },
+        { title: "processed test", value: processing, }, { title: "test ready ", value: ready, },
+        { title: "Approved test", value: approval, },
+        ]);
+      } else { response.send(emptySummry) }
+    } catch (err) {
+      logger.error(err);
+      customError('error occured', 500, response);
+    }
+  }
 
 
-
-            response.send([
-              {
-                title: "registered clients",
-                value: result[0]?.["registered"],
-              },
-              {
-                title: 'test count',
-                value: testcount
-              },
-              {
-                title: "samples collected ",
-                value: collection,
-              },
-              {
-                title: "processed test",
-                value: processing,
-              },
-              {
-                title: "test ready ",
-                value: ready,
-              },
-              {
-                title: "Approved test",
-                value: approval,
-              },
-            ]);
-          }
-        }
-      }
-    );
-  };
+  getSamplingInformation = async (billing, testid) => {
+    try {
+      const sampling = await promisifyQuery(samplingQuery, [billing, testid]);
+      return sampling;
+    } catch (err) {
+      logger.error(err);
+    }
+  }
 
   resultPreviewChemistry = async function (request, response, category) {
     const { billingid, testid, test } = request.query;
@@ -288,29 +235,22 @@ class ResultPrint {
                WHERE rt.billingid = ?`;
       }
 
-
-      connection.query(samplingQuery, [billingid, testid], function (err, samplingResult) {
-        if (err) {
-          connection.rollback(function () {
-            logger.error(err);
-          });
+      connection.beginTransaction(async function (err) {
+        if (err) { logger.error(err); }
+        try {
+          let sampling = await new ResultPrint().getSamplingInformation(billingid, testid);
+          let resultQueryResult = await promisifyQuery(resultQuery, billingid);
+          responseResult.sampling = sampling;
+          responseResult.result = resultQueryResult;
+          responseResult.category = category
+          response.send(responseResult);
         }
-
-        responseResult.sampling = samplingResult;
-
-        connection.query(resultQuery, billingid, function (err, resultResult) {
-          if (err) {
-            connection.rollback(function () {
-              logger.error(err);
-            });
-          }
-
-          responseResult.result = resultResult;
-          responseResult.testcategory = category;
-          response.status(200).json(responseResult); // Send the response to the client
-        });
-      }
-      );
+        catch (err) {
+          logger.error(err);
+          console.log(err)
+          connection.rollback();
+        }
+      })
     } else {
       response.send({
         statusCode: 401,
@@ -319,7 +259,7 @@ class ResultPrint {
     }
   };
 
-  resultPreviewHematological = function (request, response) {
+  resultPreviewHematological = async function (request, response) {
     const { billingid, testid, test } = request.query;
 
     let responseResult = { sampling: [], result: [] };
@@ -327,79 +267,50 @@ class ResultPrint {
 
     const dbTable = MappingSetup[test];
 
-    if (
-      typeof dbTable != undefined &&
-      billingid &&
-      testid &&
-      test &&
-      category == "hema"
-    ) {
+    if (typeof dbTable != undefined && billingid && testid && test && category == "hema") {
       let query = mappWithBilingid(dbTable, billingid);
 
-      connection.beginTransaction(function (err) {
-        if (err) {
-          logger.error(err);
-        }
-
-        connection.query(query, function (err, result) {
-          if (err) {
-            connection.rollback(function () {
-              logger.error(err);
-            });
-          }
+    connection.beginTransaction(async function (err) {
+      if (err) { logger.error(err); }
+      try {
+        const result = await promisifyQuery(query);
           responseResult.result = result;
+          const sampling = await promisifyQuery(samplingQuery, [billingid, testid]);
+          responseResult.sampling = sampling;
+          responseResult.testcategory = category;
 
-          connection.query(
-            samplingQuery,
-            [billingid, testid],
-            function (err, result) {
-              if (err) {
-                connection.rollback(function () {
-                  logger.error(err);
-                });
-              }
-
-              responseResult.sampling = result;
-              responseResult.testcategory = category;
-              connection.commit(function (err) {
-                if (err) {
-                  connection.rollback(function () {
-                    logger.error(err);
-                  });
-                }
-                response.status(200).json(responseResult); // Send the response to the client
-              });
-            }
-          );
-        });
+          if (retrieve === false || retrieve == undefined) {
+            response.status(200).json(responseResult); // Send the response to the client
+          } else { return responseResult }
+        } catch (err) {
+          logger.error(err);
+          connection.rollback();
+        }
       });
     } else {
-      response.send({
-        statusCode: 401,
-        status: "error",
-        message: "include all necessary details",
-      });
+    response.send({ statusCode: 401, status: "error", message: "include all necessary details", });
     }
   };
 
-  getComments = function (billingid, testid, response) {
-    connection.query(
-      `SELECT * FROM result_comments WHERE BILLINGID = ? AND TESTID = ? `,
-      [billingid, testid],
-      function (err, result) {
-        response.send(result);
-      }
-    );
+  getComments = async function (billingid, testid, response) {
+    try {
+      const result = await promisifyQuery(`SELECT * FROM result_comments WHERE BILLINGID = ? AND TESTID = ? `,
+        [billingid, testid])
+      if (response) { response.send({ status: 'success', statusCode: 200, result }) } else { return result }
+    } catch (err) {
+      logger.error(err);
+      if (response) { customError('error occured', 500, response); } else { return err }
+    }
   };
 
   // this function would update the  test ascension table using the client blling id as to whether the result is approved or declined
   // decison query in the request is used here 
-  makeDecisionOnResult = function (request, response) {
+  makeDecisionOnResult = async function (request, response) {
     const { billingid, testid, decision, message } = request.body;
     // update query to change approval status 
-    let updateQuery = `UPDATE TEST_ASCENSION 
-    SET APPROVALSTATUS = true ,
-    APPROVEDBY = ?  WHERE BILLINGID = ? AND TESTID = ?`;
+    let updateQuery = `UPDATE test_ascension 
+    SET approvalstatus = true ,
+    approvedby = ?  WHERE billingid = ? AND testid = ?`;
     if (decision == 'decline') {
       const { declineMessage, actionplan } = message;
       if (declineMessage && actionplan) {
@@ -407,46 +318,34 @@ class ResultPrint {
           SET approvalStatus = 0,
           declineMessage ='${declineMessage}',
           actionPlan = '${actionplan}',
-          APPROVEDBY = ?  WHERE BILLINGID = ? AND TESTID = ?`
+          approvedby = ?  WHERE billingid = ? AND testid = ?`
       }
     }
-
-    connection.query(updateQuery, ['Tiifu Hamza', billingid, testid], function (err, result) {
-      if (err) {
+    try {
+      const queryResult = await promisifyQuery(updateQuery, [1, billingid, testid]);
+      const { affectedRows } = queryResult;
+      affectedRows == 1 ?
+        response.send({ status: 'success', statusCode: 200, message: 'update successful' })
+        :
+        response.send({ status: 'error', statusCode: 401, message: 'error updating data' })
+    } catch (err) {
         logger.error(err);
-      }
-      else {
-        if (result.affectedRows == 1) {
-          response.status(200).json({ status: 'success', statusCode: 200, message: 'update successful' })
-        }
-        else {
-          response.status(401).json({ status: 'error' })
-        }
-      }
-    })
+    customError('error occured', 500, response);
+  }
   }
 
-  checkApproval = async function (request, response) {
-    const { billingid, testid } = request.body;
-
-    const q = `SELECT ApprovalStatus FROM TEST_ASCENSION WHERE BILLINGID = ? AND TESTID = ?`;
-
-    connection.query(q, [billingid, testid], function (err, result) {
-      if (err) {
-        logger.error(err);
+  checkApproval = async function (billingid, testid, response) {
+    const q = `SELECT approvalstatus FROM test_ascension WHERE billingid = ? AND testid = ?`;
+    try {
+      const result = await promisifyQuery(q, [billingid, testid]);
+      if (result && result.length > 0) {
+        const { ApprovalStatus } = result[0];
+        const approved = ApprovalStatus == 1 ? true : false;
+        if (response) {response.send({approved})} else {return approved}
       } else {
-        if (result.length > 0) {
-          const { ApprovalStatus } = result[0];
-          if (ApprovalStatus == 1) {
-            response.send({ approved: true })
-          } else {
-            response.send({ approved: false })
-          }
-        } else {
-          response.send({ approved: null })
-        }
+        if (response) {response.send({approved:false})} else {return false}
       }
-    })
+    } catch { logger.error(err); } if (response) { response.send({ status: 'success', statusCode: 200, result }) }
   }
 
 
@@ -524,6 +423,8 @@ class ResultPrint {
     }
     )
   }
+
+
 }
 
 module.exports = ResultPrint;

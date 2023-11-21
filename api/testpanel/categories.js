@@ -11,7 +11,6 @@ function allFieldsHasValues(request) {
   let values = Object.values(request.body).filter((value, index) => {
     return value == "";
   });
-  console.log(values);
   //   return true if all values are present
   return values.length == 0 ? true : false;
 }
@@ -96,7 +95,7 @@ const getCategory = (request, response) => {
         response.send(result);
       });
     }
-  } else {
+  } else {    
     let query = "SELECT * FROM test_categories";
     // execute query
     connection.query(query, (err, result) => {

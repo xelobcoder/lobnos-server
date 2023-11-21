@@ -91,7 +91,6 @@ const rejectedSample = async function (request, response) {
         INNER JOIN test_panels AS tp ON tp.ID = ss.testid
         WHERE ss.rejectionmessage IS NOT NULL AND ss.approvalstatus = 0 AND ta.collection = 'true' AND ss.disputereason IS NULL
   `
-
   try {
     let result = await promisifyQuery(SQL_QUERY);
     if (result.length > 0 && Array.isArray(result)) {
