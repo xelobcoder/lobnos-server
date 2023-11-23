@@ -53,7 +53,7 @@ const testCategoryMapping = {
   pregnancy_test: 'hema',
   hepatitis_b:'hema',
   hepatitis_c:'hema',
-  full_blood_count: 'chemistry',
+  full_blood_count: 'fbc',
   esr: 'hema',
   helicobacter_pylori: 'hema'
 }

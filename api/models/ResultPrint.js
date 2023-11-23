@@ -339,13 +339,17 @@ class ResultPrint {
     try {
       const result = await promisifyQuery(q, [billingid, testid]);
       if (result && result.length > 0) {
-        const { ApprovalStatus } = result[0];
-        const approved = ApprovalStatus == 1 ? true : false;
+        const { approvalstatus } = result[0];
+        const approved = approvalstatus === 1 ? true : false;
         if (response) {response.send({approved})} else {return approved}
       } else {
         if (response) {response.send({approved:false})} else {return false}
       }
-    } catch { logger.error(err); } if (response) { response.send({ status: 'success', statusCode: 200, result }) }
+    } catch {
+      logger.error(err);
+      if (response) { response.send({ status: 'error', statusCode: 500, message: 'error occured in checking printing status' }) }
+      else { return false }
+    }
   }
 
 

@@ -44,7 +44,7 @@ const setups = {
   liver_function_test: LIVER_SETUP,
   renal_function_test: RENAL_SETUP,
   cardiac_enzymes: CARDIAC_ENZYMES,
-  full_blood_count: '',
+  full_blood_count: FULL_BLOOD_COUNT,
   LHHORMONE,
   FSHHORMONE
 };
@@ -55,6 +55,27 @@ const PDF_QUERIES = {
     return `SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,
     t.value,t.patientid FROM ${testname} AS t INNER JOIN ${setupname} AS s ON s.parameter = t.parameter WHERE t.billingid = ${billingid}`
   }
+
+
 }
 
-module.exports = { testTable, setups, PDF_QUERIES }
+
+const PatientQueries = {
+  chemistryTrend: function (testname, list, setuptable) {
+    return ` SELECT rf.parameter,rf.billingid,rf.value,rf.created_on,st.upper,st.lower,st.unit  FROM ${testname} AS rf INNER JOIN ${setuptable} AS st ON st.parameter = rf.parameter WHERE billingid IN (${list})`
+  },
+  getBillings: function (testname, patientid, instance) {
+    return `SELECT DISTINCT billingid FROM ${testname} WHERE patientid =  ? LIMIT ?`
+  },
+  getFbcTrend: function (gender, age, agetype) {
+    if (gender == 'male' && agetype == 'years' && parseInt(age) > 12) {
+      return `SELECT * FROM result_function_full_blood_count AS rf INNER JOIN setup_full_blood_count_test_male AS st ON st.parameter = rf.parameter WHERE rf.patientid = ? ORDER BY rf.created_on DESC`
+    } else if (gender == 'female' && agetype == 'years' && parseInt(age) > 12) {
+      return `SELECT * FROM result_function_full_blood_count AS rf INNER JOIN setup_full_count_count_female AS st ON st.parameter = rf.parameter WHERE rf.patientid = ? ORDER BY rf.created_on DESC`
+    } else {
+      return `SELECT * FROM result_function_full_blood_count AS rf INNER JOIN setup_full_blood_count_test_general AS st ON st.parameter = rf.parameter WHERE rf.patientid = ? ORDER BY rf.created_on DESC`
+    }
+  }
+}
+
+module.exports = { testTable, setups, PDF_QUERIES, PatientQueries }

@@ -615,9 +615,8 @@ class Result {
   }
 
   async liverfunctionTest(requestBody, response) {
-
-    const { testname, billingid, testid, patientid, records, comments } =
-      requestBody;
+    const { testname, billingid, testid, patientid, records, comments } = requestBody;
+    console.log(requestBody)
     let errMessage = this.errMessage;
     let pushResponse = this.pushResponse;
 

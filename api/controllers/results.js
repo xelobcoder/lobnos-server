@@ -1,4 +1,7 @@
 const router = require('express').Router();
+const { customError } = require('../../helper');
+const logger = require('../../logger');
+const Patient = require('../models/patientAnalytics');
 const { Result } = require('../models/result')
 // this api endpoint takes two query params , the billing id and the testid
 //  and checks if result have been entered 
@@ -136,14 +139,20 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
     }
   }
   catch (err) {
-    res.status(500).send({
-      message: err.message,
-      statusCode: 500
-    })
+    res.status(500).send({ message: err.message, statusCode: 500 })
   }
 })
 
 
-
+router.get(`/api/v1/result/patientrend/single`, async function (request, response) {
+  const { billingid, patientid, testid, test, instances } = request.query
+  try {
+    const result = await new Patient(patientid).getPatientTestTrend(parseInt(patientid), testid, test, instances);
+    response.send({statusCode: 200, status:'success', result});
+  } catch (err) {
+    logger.error(err)
+    customError('error occured', 500, response);
+  }
+})
 
 module.exports = router;

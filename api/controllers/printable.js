@@ -99,27 +99,18 @@ router.get('/api/v1/result/preview/comments', function (request, response) {
    if (billingid) {
       new ResultPrint().getComments(billingid, testid, response);
    } else {
-      response.send({
-         status: 'error',
-         statusCode: 401,
-         message: 'Include Billingid '
-      })
+      response.send({ status: 'error', statusCode: 401, message: 'Include Billingid ' })
    }
 })
 
 
 // this check if test for a client  is approved  for printing 
-
 router.post('/api/v1/test/result/preview/approved/check', function (request, response) {
    const { billingid, testid } = request.body;
-
    if (billingid && testid) {
-      new ResultPrint().checkApproval(request, response);
+      new ResultPrint().checkApproval(billingid, testid, response);
    } else {
-      response.status(401).json({
-         status: 'error',
-         message: 'include testid and billing in request body'
-      })
+      response.status(401).json({ status: 'error', message: 'include testid and billing in request body' })
    }
 })
 

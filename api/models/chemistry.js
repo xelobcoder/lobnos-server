@@ -130,10 +130,6 @@ class Chemistry {
         statusCode: 404,
       });
     }
-
-
-
-
     if (panelname in chemistryTables) {
       let query = `SELECT * FROM ${chemistryTables[panelname]}`;
       // execute query

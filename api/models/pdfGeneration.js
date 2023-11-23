@@ -36,15 +36,15 @@ class PDFGENERATION extends ResultPrint {
     }
 
     isValidTest() { return testTable[this.testname] != undefined ? testTable[this.testname] : false }
-    isCategoryAvailable(testname) { return testCategoryMapping[testname] != undefined ? testCategoryMapping[testname] : false }
-    isSetupAvailabble(testname) { return setups[testname] != undefined ? setups[testname] : false };
+    isCategoryAvailable() { return testCategoryMapping[this.testname] != undefined ? testCategoryMapping[this.testname] : false }
+    isSetupAvailabble() { return setups[this.testname] != undefined ? setups[this.testname] : false };
 
     async getChemistryTest() {
         if (await this.checkApproval(this.billingid, this.testid)) {
             const resulttable = this.isValidTest();
             if (resulttable) {
-                const setupName = this.isSetupAvailabble(this.testname);
-                const category = this.isCategoryAvailable(this.testname);
+                const setupName = this.isSetupAvailabble();
+                const category = this.isCategoryAvailable();
                 if (setupName && category && category == 'chemistry') {
                     const result = await promisifyQuery(PDF_QUERIES.chemistryQ(resulttable, setupName, this.billingid));
                     result.testname = this.testname

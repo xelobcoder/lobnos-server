@@ -1,10 +1,13 @@
-const { customError } = require("../../helper");
+const { customError, promisifyQuery, convertKeysToLowerCase } = require("../../helper");
 const logger = require("../../logger");
 const bcrypt = require('bcrypt')
 const connectionpool = require("../dbpool");
 const database_queries = require('../database/queries')
 const User = require('../LobnosAuth/user');
 const Registration = require('../models/registration');
+const PDFGENERATION = require("./pdfGeneration");
+const { PatientQueries } = require("../../helpers/testtables");
+const { response } = require("express");
 
 /**
  * Represents a Patient, a subclass of the Registration class.
@@ -94,7 +97,8 @@ class Patient extends Registration {
           response.send({ status: 'success', statusCode: 200, message: 'patient credentials updated successfully' })
         }
       } catch (err) {
-        console.log(err)
+        logger.error(err)
+        customError(err.message, 500, response)
       }
     }
   }
@@ -122,9 +126,80 @@ class Patient extends Registration {
       // 4. query the db table and return all params by count determined in the request query
 
     }
+
+  async transformDataset(list, data) {
+    return list.map((item, index) => {
+      const filtered = data.filter((e, i) => { if (e.billingid == parseInt(item)) { return convertKeysToLowerCase(e) } });
+      return { billingid: item, data: filtered, date: filtered.length > 0 ? filtered[0]['created_on'] : null }
+    }).sort((a, b) => { return new Date(a.date) - new Date(b.date) });
+  }
+
+
+  async getParameters(data) {
+    let parameters = [];
+    data.map((item, index) => {
+      if (!parameters.includes(item?.parameter)) { parameters.push(item?.parameter) }
+    })
+    return parameters;
+  }
+
+  async getPatientFullBloodCountTrend(listArray) {
+    const getClientGenderPacket = await promisifyQuery(`SELECT gender,age,agetype FROM new_patients WHERE patientid = ?`, this.patientid);
+
+    const gender = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['gender'] : null;
+    const age = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['age'] : null;
+    const agetype = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['agetype'] : null;
+
+    let trendDataSet = await promisifyQuery(PatientQueries.getFbcTrend(gender, age, agetype), [this.patientid]);
+
+    trendDataSet.map((item, index) => { return convertKeysToLowerCase(item) });
+
+    trendDataSet = trendDataSet.length > 0 ? trendDataSet.map((item, index) => {
+      return convertKeysToLowerCase(item)
+    }) : [];
+
+    const transformed = await this.transformDataset(listArray, trendDataSet);
+
+    const parameters = await this.getParameters(trendDataSet);
+
+    return { trend: transformed, category: 'fbc', supported: true, parameters }
+  }
+
+  getPatientTestTrend = async function (patientid, testid, testname, instances) {
+    const qualifiers = new PDFGENERATION(null, testid, testname);
+    const resultTable = qualifiers.isValidTest();
+    const setupTable = qualifiers.isSetupAvailabble()
+    if (resultTable) {
+      const category = qualifiers.isCategoryAvailable();
+      // billing id's of the client in format returned by sql query
+      const billingidx = await promisifyQuery(PatientQueries.getBillings(resultTable), [patientid, parseInt(instances)]);
+      // convert to Array of billingid's and then to string
+      const billingList = billingidx.length > 0 ? billingidx.map((item, index) => { return item?.billingid }).join(',') : null;
+      const listArray = billingList.split(',');
+      if (category === 'chemistry') {
+        if (billingList) {
+          const trendDataSet = await promisifyQuery(PatientQueries.chemistryTrend(resultTable, billingList, setupTable));
+
+          const parameters = await this.getParameters(trendDataSet);
+
+          // we want to transform the retrieve data to a more ussable format so it can be display on the client side according to the date||billingid
+          // and then sorted by date from the earliest to the latest
+          const transformed = await this.transformDataset(listArray, trendDataSet);
+
+          return { trend: transformed, category, parameters, supported: true }
+        } else {
+          return { trend: [], parameters: [], category, supported: true }
+        }
+      }
+      if (category === 'fbc') {
+       return this.getPatientFullBloodCountTrend(listArray);
+      }
+    } else {
+      throw new Error('Test not recognized or scripted for!!')
+    }
+  }
 }
 
 
-// console.log(new Patient())
 
 module.exports = Patient;
