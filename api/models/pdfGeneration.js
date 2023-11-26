@@ -1,6 +1,6 @@
 const pdf = require('pdf-creator-node');
 const fs = require('fs');
-const { customError, promisifyQuery, getFullBloodCountTrend } = require('../../helper');
+const { customError, promisifyQuery, getFullBloodCountTrend, convertKeysToLowerCase } = require('../../helper');
 const path = require('path');
 const { testTable, setups, PDF_QUERIES } = require('../../helpers/testtables');
 const { testCategoryMapping } = require('../../api/models/ResultQueryMapping');
@@ -13,7 +13,7 @@ const logger = require('../../logger');
 const rendererOptions = function (opt) {
     switch (opt) {
         case 'hema':
-            return './api/views/pdfs/result/basicHematology.html';
+            return './api/views/pdfs/result/hematological.html';
             break;
         case 'fbc':
             return './api/views/pdfs/result/chemistry.html';
@@ -47,6 +47,46 @@ class PDFGENERATION extends ResultPrint {
     isCategoryAvailable() { return testCategoryMapping[this.testname] != undefined ? testCategoryMapping[this.testname] : false }
     isSetupAvailabble() { return setups[this.testname] != undefined ? setups[this.testname] : false };
 
+
+    async getHematologicalTest(resulttable, testname) {
+        let result = null;
+        if (testname === 'malaria') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const parasites = { parameter: 'Parasite Number', value: result['parasitenumber'] };
+            const species = { parameter: 'Species', value: result['species'] };
+            const comments = result['comments'];
+            const resultdata = [parasites, species];
+            resultdata['comments'] = comments;
+            return resultdata;
+        }
+
+        if (testname === 'hepatitis_b_profile') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const hbeag = { parameter: 'HBeAg', value: result['hbeag'] };
+            const hbeab = { parameter: 'HBeAb', value: result['hbeab'] };
+            const hbsag = { parameter: 'HBsAg', value: result['hbsag'] };
+            const hbsab = { parameter: 'HBsAb', value: result['hbsab'] };
+            const hbcab = { parameter: 'HBcAb', value: result['hbcab'] };
+            const comments = result['comments'];
+            const resultdata = [hbeag, hbeab, hbsag, hbsab, hbcab];
+            resultdata['comments'] = comments;
+            return resultdata;
+        }
+
+        if (testname === 'helicobacter_pylori') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const specimen = { parameter: 'Specimen', value: result['specimen'] };
+            const hpylori = { parameter: 'result', value: result['result'] };
+            const resultdata = [specimen, hpylori];
+            const comments = result['comments'];
+            resultdata['comments'] = comments
+            return resultdata;
+        }
+    }
+
     async getChemistryTest() {
         if (await this.checkApproval(this.billingid, this.testid)) {
             const resulttable = this.isValidTest();
@@ -67,6 +107,11 @@ class PDFGENERATION extends ResultPrint {
                     const patientid = getPatientidResult.length > 0 ? getPatientidResult[0]['patientid'] : null;
                     // iniatialize patient class, patint is a subclass of Registration class
                     return await getFullBloodCountTrend(patientid);
+                }
+
+                if (category && category == 'hema') {
+                    const data = await this.getHematologicalTest(resulttable, this.testname);
+                    return data;
                 }
 
                 return result;
