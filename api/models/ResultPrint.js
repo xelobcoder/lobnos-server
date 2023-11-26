@@ -306,30 +306,21 @@ class ResultPrint {
   // this function would update the  test ascension table using the client blling id as to whether the result is approved or declined
   // decison query in the request is used here 
   makeDecisionOnResult = async function (request, response) {
-    const { billingid, testid, decision, message } = request.body;
+    const { billingid, testid, declineMessage, approvalstatus, actionPlan, approvedby } = request.body;
     // update query to change approval status 
     let updateQuery = `UPDATE test_ascension 
-    SET approvalstatus = true ,
+    SET approvalstatus = ? , actionPlan = ?,
+    declineMessage = ?,
     approvedby = ?  WHERE billingid = ? AND testid = ?`;
-    if (decision == 'decline') {
-      const { declineMessage, actionplan } = message;
-      if (declineMessage && actionplan) {
-        updateQuery = `UPDATE test_ascension
-          SET approvalStatus = 0,
-          declineMessage ='${declineMessage}',
-          actionPlan = '${actionplan}',
-          approvedby = ?  WHERE billingid = ? AND testid = ?`
-      }
-    }
     try {
-      const queryResult = await promisifyQuery(updateQuery, [1, billingid, testid]);
+      const queryResult = await promisifyQuery(updateQuery, [approvalstatus, actionPlan, declineMessage, approvedby, billingid, testid]);
       const { affectedRows } = queryResult;
       affectedRows == 1 ?
         response.send({ status: 'success', statusCode: 200, message: 'update successful' })
         :
         response.send({ status: 'error', statusCode: 401, message: 'error updating data' })
     } catch (err) {
-        logger.error(err);
+      logger.error(err);
     customError('error occured', 500, response);
   }
   }

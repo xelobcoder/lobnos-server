@@ -50,6 +50,7 @@ const testCategoryMapping = {
   blood_grouping: 'hema',
   urinalysis: 'hema',
   hepatitis_b_profile: 'hema',
+  syphilis: 'syphilis',
   pregnancy_test: 'hema',
   hepatitis_b:'hema',
   hepatitis_c:'hema',

@@ -1,4 +1,5 @@
 const connectionpool = require('./api/dbpool');
+const { PatientQueries } = require('./helpers/testtables');
 function customError(message, statusCode, response) {
   if (response) {
     response.send({
@@ -43,8 +44,23 @@ async function promisifyQuery(query, values) {
 
 }
 
+const getFullBloodCountTrend = async (patientid) => {
+  const getClientGenderPacket = await promisifyQuery(`SELECT gender,age,agetype FROM new_patients WHERE patientid = ?`, patientid);
+
+  const gender = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['gender'] : null;
+  const age = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['age'] : null;
+  const agetype = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['agetype'] : null;
+
+  let trendDataSet = await promisifyQuery(PatientQueries.getFbcTrend(gender, age, agetype), [patientid]);
+
+  trendDataSet = trendDataSet.length > 0 ? trendDataSet.map((item) => { return convertKeysToLowerCase(item); }) : [];
+
+  return trendDataSet;
+}
+
 module.exports = {
   customError,
   convertKeysToLowerCase,
+  getFullBloodCountTrend,
   promisifyQuery
 }

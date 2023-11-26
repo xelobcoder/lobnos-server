@@ -1,10 +1,21 @@
 body {
-  font-family:  SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono","Courier New",monospace;
-  line-height: 1.6;
+  font-family: Arial, sans-serif, Helvetica, sans-serif,'Times New Roman', Times, serif,'Open Sans', sans-serif;
+  font-size: 20px;
+  margin-top: 10%;
+  margin-left: 4%;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
 }
 
 .p-wrapper {
-  width: 50%;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  width: 50% ;
   float: left;
 }
 
@@ -12,97 +23,64 @@ body {
   font-weight: bold;
 }
 
-h1,
-h2 {
-  color: #333;
-}
-
-hr {
-  border: 1px solid black;
-  margin: 4px !important;
-}
-
-p {
-  margin: 5px 0;
-}
-
-ul {
-  list-style: none;
-  padding-left: 0;
-}
-
-li {
-  margin-bottom: 5px;
-}
-
-/* Add more styles as needed */
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-table>thead {
-  margin: 0;
-  padding: 0;
-}
-
-table>thead>tr>th {
-  margin: 0px !important;
-  float: left;
-}
-
-table>tfoot,
-table>thead>tr>th {
-  border-bottom: 1px solid #333;
-  border-top: 1px solid black;
-}
-
-.border-top{
-  border-top: 1px solid black;
-}
-.th {
-  border-bottom: 1px solid black;
-}
-
-.grid-2 {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-}
-.text-capitalize{
+.text-capitalize {
   text-transform: capitalize;
 }
 
-.thead {
-  border-bottom: 1px solid black;
-  border-top: 1px solid black;
+.testname {
+  text-align: center;
+  font-size: 24px;
+  font-weight: bold;
+  border-bottom: 2px solid black;
+  text-transform: uppercase;
+  margin: 20px 0;
 }
 
-.thead > .tr-header, .tbody > .tr-body{
-  margin: 0;
-  padding: 0;
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
 }
 
-.thead > .tr-header > .td-header{
+
+
+.tr-header {
+  /* height: 50px; */
+  border-bottom: 2px solid black;
+}
+
+.td-header{
+  font-weight: bold;
   font-size: 20px;
   text-transform: capitalize;
-  font-weight: bold;
 }
 
-.tbody > .tr-body > .td-body {
-  font-size: 17px;
+
+
+.td-body {
+  font-size: 20px;
+  text-transform: capitalize;
+}
+.td-body:first-child {
   font-weight: 500;
 }
+
 .comments {
   margin-top: 20px;
-  padding: 0;
 }
 
-
-.comments > .comments-label {
-  font-size: 23px;
-  text-transform: capitalize;
+.comments-label {
+  font-size: 20px;
   font-weight: bold;
+  margin-bottom: 10px;
 }
 
 
-
+@page {
+  counter-increment: page;
+  @bottom-center {
+    content: "Page " counter(page);
+    font-size: 12px;
+    font-family: Arial, sans-serif;
+  }
+}

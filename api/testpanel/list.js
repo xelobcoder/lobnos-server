@@ -1,4 +1,4 @@
-const { convertKeysToLowerCase } = require('../../helper');
+const { convertKeysToLowerCase, promisifyQuery } = require('../../helper');
 const logger = require('../../logger');
 const connection = require('../db');
 const { allFieldsHasValues } = require('./categories')
@@ -254,35 +254,25 @@ const testpanel = {
   },
   bulkTestUpdate: async function (request, response) {
     const { panel } = request.body;
-
-    if (!panel) {
-      response.send({
-        message: 'panel data in an array form required',
-        statusCode: 401,
-        status: 'error'
-      })
-    } else {
+    if (!panel) { response.send({ message: 'panel required', statusCode: '400', status: 'error' }) }
+    else {
       if (Array.isArray(panel) && panel.length > 0) {
-        panel.forEach((item, index) => {
-          const { ID, NAME, PRICE, SAMPLE, CATEGORY, QTY_REQUIRED } = item;
-
-          const queryString = `UPDATE test_panels SET 
-           NAME = ?,PRICE = ?,SAMPLE = ?,CATEGORY = ?,QTY_REQUIRED= ? WHERE ID  = ?`;
-
-          connection.query(queryString, [NAME, PRICE, SAMPLE, CATEGORY, QTY_REQUIRED, ID], function (err, result) {
-            if (err) {
-              console.log(err)
-            } else {
-              if (index + 1 == panel.length) {
-                response.send({
-                  message: 'update successful',
-                  statusCode: 201,
-                  status: 'success'
-                })
+        try {
+          panel.forEach(async (item, index) => {
+            const { id, name, price, sample, category, qty_required } = item;
+            const queryString = `UPDATE test_panels SET 
+             name = ?,price = ?,sample = ?,category = ?,qty_required = ? WHERE id  = ?`;
+            const result = await promisifyQuery(queryString, [name, price, sample, category, qty_required, id]);
+            if (result.affectedRows > 0) {
+              if (index === panel.length - 1) {
+                response.send({ message: 'update successful', statusCode: '201', status: 'success' })
               }
             }
           })
-        })
+        } catch (err) {
+          logger.error(err);
+          response.send({ message: err.message, statusCode: '500', status: 'error' })
+        }
       }
     }
   },
@@ -319,18 +309,16 @@ const testpanel = {
   },
 
   getpanelsbulk: async function (request, response) {
-    connection.query(`SELECT * FROM test_panels`, function (err, result) {
-      if (err) logger.error(err)
-      else {
-       const data = result.map( (item,index) => {return convertKeysToLowerCase(item)})
-        response.send({
-          statusCode: 200,
-          status: "success",
-          message: "Panels retrieved successfully",
-          data
-        });
-      }
-    })
+    const query = `SELECT * FROM test_panels`;
+
+    try {
+      let result = await promisifyQuery(query);
+      if (result.length > 0) { result = result.map((item, index) => { return convertKeysToLowerCase({ ...item, sampleid: null }) }) }
+      response.send({ message: 'success', statusCode: 200, status: 'success', data: result })
+    } catch (err) {
+      logger.error(err);
+      response.send({ message: err.message, statusCode: 500, status: 'error' })
+    }
   }
 };
 

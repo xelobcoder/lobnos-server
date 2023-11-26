@@ -276,3 +276,93 @@
 {"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_function_full_blood_count\n         (parameter,unit,value,billingid,patientid)\n         VALUES ('wbc', '', 444, 197, 2023101429), ('neutrophils', 'g/dl', 4, 197, 2023101429), ('eosinophils', '', 44, 197, 2023101429), ('basophils', '', 4, 197, 2023101429), ('lymphocytes', '', 44, 197, 2023101429), ('monocytes', 'g/hj', 4, 197, 2023101429), ('mch', 'g/hj', 4, 197, 2023101429), ('mcv', 'g/hj', 4, 197, 2023101429), ('mchc', '%', 4, 197, 2023101429), ('rdw-cv', '%', 44, 197, 2023101429), ('rdw-sd', '%', 4, 197, 2023101429)\n         ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
 {"level":"error"}
 {"level":"error"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"\n         INSERT INTO result_widal (TYPHIO,TYPHIH,PARATYPHIAH,PARATYPHIBH,BILLINGID,PATIENTID,COMMENTS) VALUES ('1/20','1/20','1/80','1/80',194,202310127,'jwdefjfj  hwvhwvhwdhv   hwdhhhfhw  hdhdhdh hdhhdh  hdhdhdh')\n            ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"\n         INSERT INTO result_widal (TYPHIO,TYPHIH,PARATYPHIAH,PARATYPHIBH,BILLINGID,PATIENTID,COMMENTS) VALUES ('1/20','1/20','1/80','1/80',194,202310127,'jwdefjfj  hwvhwvhwdhv   hwdhhhfhw  hdhdhdh hdhhdh  hdhdhdh')\n            ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"\n         INSERT INTO result_widal (TYPHIO,TYPHIH,PARATYPHIAH,PARATYPHIBH,BILLINGID,PATIENTID,COMMENTS) VALUES ('1/20','1/20','1/80','1/80',194,202310127,'jwdefjfj  hwvhwvhwdhv   hwdhhhfhw  hdhdhdh hdhhdh  hdhdhdh')\n            ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"\n         INSERT INTO result_widal (TYPHIO,TYPHIH,PARATYPHIAH,PARATYPHIBH,BILLINGID,PATIENTID,COMMENTS) VALUES ('1/20','1/80','1/80','1/160',194,202310127,'loqko')\n            ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"\n         INSERT INTO result_widal (TYPHIO,TYPHIH,PARATYPHIAH,PARATYPHIBH,BILLINGID,PATIENTID,COMMENTS) VALUES ('1/20','1/80','1/80','1/160',194,202310127,'loqko')\n            ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"level":"error"}
+{"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n    SELECT\n    SUM(b.PAYABLE) AS salesAmount,\n    COUNT(b.BILLINGID) AS totalCases,\n    SUM(b.DISCOUNT) AS discount,\n    SUM(PAID_AMOUNT) AS totalAmountReceived,\n    pt.DATE AS date,\n        DAY(pt.DATE) AS 'Day'\n    FROM billing AS b\n    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID\n    WHERE YEAR(pt.DATE) = YEAR(CURDATE()) AND MONTH(pt.DATE) = MONTH(CURDATE())\nAND pt.SAMPLING_CENTER = undefined GROUP BY DAY(pt.DATE)","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n    SELECT\n    SUM(b.PAYABLE) AS salesAmount,\n    COUNT(b.BILLINGID) AS totalCases,\n    SUM(b.DISCOUNT) AS discount,\n    SUM(PAID_AMOUNT) AS totalAmountReceived,\n    pt.DATE AS date,\n        DAY(pt.DATE) AS 'Day'\n    FROM billing AS b\n    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID\n    WHERE YEAR(pt.DATE) = YEAR(CURDATE()) AND MONTH(pt.DATE) = MONTH(CURDATE())\nAND pt.SAMPLING_CENTER = undefined GROUP BY DAY(pt.DATE)","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (205,'A','positive',202310127,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (205,'A','positive',202310127,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (205,'A','positive',202310127,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (205,'A','positive',202310127,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (205,'A','positive',202310127,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (205,'A','positive',202310127,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO syphilis (sampletype,result,reaction,billingid,comments,patientid) VALUES ('serum','negative','weakly reactive',206,'ekofkowdfjfjqjij  ufuwefhwehfqhf  wfwufjefjwdjf  qsufufjqefjw  ',2023101539)","sqlMessage":"Duplicate entry '206' for key 'billingid'","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * syphilis WHERE billingid = ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'syphilis WHERE billingid = ?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * syphilis WHERE billingid = '206'","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'syphilis WHERE billingid = '206'' at line 1","sqlState":"42000"}
+{"code":"ER_SP_DOES_NOT_EXIST","errno":1305,"index":0,"level":"error","sql":"\n      SELECT\n      ts.ready_date,\n      b.clientstatus as urgency,\n    CAST(GETDATE() AS DATE) AS collection_date,\n      np.patientid,\n      ss.approvalstatus,\n      ss.ascensionid,\n      ts.processing_date,\n      br.name AS samplingCenter,\n      b.billingid,\n      np.GENDER AS gender,\n      np.mobile_number AS mobilenumber,\n      r.employeeid,\n      ts.testid,\n      r.USERNAME AS phelobotomist,\n      np.GENDER AS gender,\n      CASE\n        WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME,\" \",np.LASTNAME)\n        WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME)\n      END AS clientname,\n      CONCAT(np.age,\" \",np.agetype) AS age\n      FROM test_ascension AS ts\n      INNER JOIN billing  AS b ON ts.billingid = b.billingid\n      INNER JOIN new_patients AS np ON np.patientid = b.patientid\n      INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid\n      INNER JOIN roles AS r ON r.employeeid = ss.phelobotomist\n      INNER JOIN branch AS br ON br.branchid = b.branchid\n      where ts.billingid = '206' AND ts.testid = '57' GROUP BY ts.billingid LIMIT 1\n    ","sqlMessage":"FUNCTION limsdb.GETDATE does not exist","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n      SELECT\n      ts.ready_date,\n      b.clientstatus as urgency,\n    SELECT CAST(GETDATE() AS DATE) AS collection_date,\n      np.patientid,\n      ss.approvalstatus,\n      ss.ascensionid,\n      ts.processing_date,\n      br.name AS samplingCenter,\n      b.billingid,\n      np.GENDER AS gender,\n      np.mobile_number AS mobilenumber,\n      r.employeeid,\n      ts.testid,\n      r.USERNAME AS phelobotomist,\n      np.GENDER AS gender,\n      CASE\n        WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME,\" \",np.LASTNAME)\n        WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME)\n      END AS clientname,\n      CONCAT(np.age,\" \",np.agetype) AS age\n      FROM test_ascension AS ts\n      INNER JOIN billing  AS b ON ts.billingid = b.billingid\n      INNER JOIN new_patients AS np ON np.patientid = b.patientid\n      INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid\n      INNER JOIN roles AS r ON r.employeeid = ss.phelobotomist\n      INNER JOIN branch AS br ON br.branchid = b.branchid\n      where ts.billingid = '206' AND ts.testid = '57' GROUP BY ts.billingid LIMIT 1\n    ","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'SELECT CAST(GETDATE() AS DATE) AS collection_date,\n      np.patientid,\n      ...' at line 4","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n      SELECT\n      ts.ready_date,\n      b.clientstatus as urgency,\n    SELECT CAST(GETDATE() AS DATE) AS collection_date,\n      np.patientid,\n      ss.approvalstatus,\n      ss.ascensionid,\n      ts.processing_date,\n      br.name AS samplingCenter,\n      b.billingid,\n      np.GENDER AS gender,\n      np.mobile_number AS mobilenumber,\n      r.employeeid,\n      ts.testid,\n      r.USERNAME AS phelobotomist,\n      np.GENDER AS gender,\n      CASE\n        WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME,\" \",np.LASTNAME)\n        WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME)\n      END AS clientname,\n      CONCAT(np.age,\" \",np.agetype) AS age\n      FROM test_ascension AS ts\n      INNER JOIN billing  AS b ON ts.billingid = b.billingid\n      INNER JOIN new_patients AS np ON np.patientid = b.patientid\n      INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid\n      INNER JOIN roles AS r ON r.employeeid = ss.phelobotomist\n      INNER JOIN branch AS br ON br.branchid = b.branchid\n      where ts.billingid = '206' AND ts.testid = '57' GROUP BY ts.billingid LIMIT 1\n    ","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'SELECT CAST(GETDATE() AS DATE) AS collection_date,\n      np.patientid,\n      ...' at line 4","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n      SELECT\n      ts.ready_date,\n      b.clientstatus as urgency,\n    (GETDATE() AS DATE) AS collection_date,\n      np.patientid,\n      ss.approvalstatus,\n      ss.ascensionid,\n      ts.processing_date,\n      br.name AS samplingCenter,\n      b.billingid,\n      np.GENDER AS gender,\n      np.mobile_number AS mobilenumber,\n      r.employeeid,\n      ts.testid,\n      r.USERNAME AS phelobotomist,\n      np.GENDER AS gender,\n      CASE\n        WHEN np.MIDDLENAME IS NULL THEN  CONCAT(np.FIRSTNAME,\" \",np.LASTNAME)\n        WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME)\n      END AS clientname,\n      CONCAT(np.age,\" \",np.agetype) AS age\n      FROM test_ascension AS ts\n      INNER JOIN billing  AS b ON ts.billingid = b.billingid\n      INNER JOIN new_patients AS np ON np.patientid = b.patientid\n      INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid\n      INNER JOIN roles AS r ON r.employeeid = ss.phelobotomist\n      INNER JOIN branch AS br ON br.branchid = b.branchid\n      where ts.billingid = '206' AND ts.testid = '57' GROUP BY ts.billingid LIMIT 1\n    ","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'AS DATE) AS collection_date,\n      np.patientid,\n      ss.approvalstatus,\n   ...' at line 4","sqlState":"42000"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM result_function_full_blood_count AS t INNER JOIN result_function_full_blood_count AS s ON s.parameter = t.parameter WHERE t.billingid = 194","sqlMessage":"Unknown column 's.upper' in 'field list'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

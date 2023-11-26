@@ -5,7 +5,7 @@ const beginTransaction = util
   .bind(connection);
 const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
-const { customError } = require("../../helper");
+const { customError, promisifyQuery } = require("../../helper");
 const logger = require("../../logger");
 const { testTable } = require('../../helpers/testtables');
 
@@ -1101,6 +1101,32 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
           }
         }
       });
+  }
+
+
+  async syphilis(records, response) {
+    const { sampletype, testname, testid, reaction, patientid, billingid, result, comments } = records;
+    try {
+      if (this.isTestValid()) {
+        if (await this.ShouldCreateRecord()) {
+          const queryString = `INSERT INTO ${testTable[testname]} (sampletype,result,reaction,billingid,comments,patientid) VALUES (?,?,?,?,?,?)`;
+          const values = [sampletype, result, reaction, billingid, comments, patientid];
+          await this.useTransactionForResult(queryString, values, testid, response);
+        }
+        else {
+          // we upated the result if it exist
+          const updateQuery = `UPDATE ${testTable[testname]} SET result = ?, reaction = ?, comments = ? WHERE billingid = ?`;
+          const values = [result, reaction, comments, billingid];
+          const queryresult = await promisifyQuery(updateQuery, values);
+          if (queryresult.affectedRows > 0) { response.send({ status: 'success', message: 'record updated successfully', statusCode: 200 }) } else {
+            response.send({ status: 'success', message: 'record not updated', statusCode: 401 })
+          }
+        }
+      } else { customError('test not found', 404, response) }
+    } catch (err) {
+      console.log(err)
+      logger.error(err);
+    }
   }
 
 }

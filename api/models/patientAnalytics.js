@@ -1,4 +1,4 @@
-const { customError, promisifyQuery, convertKeysToLowerCase } = require("../../helper");
+const { customError, promisifyQuery, convertKeysToLowerCase, getFullBloodCountTrend } = require("../../helper");
 const logger = require("../../logger");
 const bcrypt = require('bcrypt')
 const connectionpool = require("../dbpool");
@@ -7,7 +7,6 @@ const User = require('../LobnosAuth/user');
 const Registration = require('../models/registration');
 const PDFGENERATION = require("./pdfGeneration");
 const { PatientQueries } = require("../../helpers/testtables");
-const { response } = require("express");
 
 /**
  * Represents a Patient, a subclass of the Registration class.
@@ -19,6 +18,7 @@ const { response } = require("express");
 class Patient extends Registration {
   constructor(patientid) {
     super(patientid);
+    this.patientid = patientid;
   }
 
   runqueryPromise = async function (query, values) {
@@ -118,14 +118,6 @@ class Patient extends Registration {
     }
   }
 
-    isValidForAnalysis = async function (testid) {
-      // 1. get the category of the test
-      // 2. determine the parameter variations, eg hematological test do not have mu;tiple params like malaria, widal etc, 
-      // same cant be said about renal functional
-      // 3. Initial suppeort will be for chemistry results
-      // 4. query the db table and return all params by count determined in the request query
-
-    }
 
   async transformDataset(list, data) {
     return list.map((item, index) => {
@@ -143,20 +135,10 @@ class Patient extends Registration {
     return parameters;
   }
 
+
+
   async getPatientFullBloodCountTrend(listArray) {
-    const getClientGenderPacket = await promisifyQuery(`SELECT gender,age,agetype FROM new_patients WHERE patientid = ?`, this.patientid);
-
-    const gender = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['gender'] : null;
-    const age = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['age'] : null;
-    const agetype = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['agetype'] : null;
-
-    let trendDataSet = await promisifyQuery(PatientQueries.getFbcTrend(gender, age, agetype), [this.patientid]);
-
-    trendDataSet.map((item, index) => { return convertKeysToLowerCase(item) });
-
-    trendDataSet = trendDataSet.length > 0 ? trendDataSet.map((item, index) => {
-      return convertKeysToLowerCase(item)
-    }) : [];
+    const trendDataSet = await getFullBloodCountTrend(this.patientid);
 
     const transformed = await this.transformDataset(listArray, trendDataSet);
 
@@ -193,6 +175,10 @@ class Patient extends Registration {
       }
       if (category === 'fbc') {
        return this.getPatientFullBloodCountTrend(listArray);
+      }
+
+      if (category === 'hema') {
+        return 'Not supported'
       }
     } else {
       throw new Error('Test not recognized or scripted for!!')

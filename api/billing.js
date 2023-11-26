@@ -152,31 +152,21 @@ const clientPaymentStatus = async function (patientid) {
 }
 
 
-const checkifActivated = function (request, response) {
+const checkifActivated = async function (request, response) {
   //  get the billing id
   const { billingid } = request.query;
   // check if billing id is not empty
   if (billingid != '') {
     // join the billing and performing test table and new patients table using the aptient id wherw billing id is equal to the billing id
-    let mysql = `SELECT * FROM billing as b INNER JOIN performing_test as p ON b.BILLINGID = p.BILLINGID INNER JOIN new_patients as n
-     ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = '${billingid}'`;
-
-    connection.query(mysql, function (err, result) {
-      if (err) {
-        response.status(500).json({
-          message: 'error',
-          status: 'error',
-          statusCode: 500
-        });
-      }
-      if (result) {
-        response.status(200).json({
-          message: 'success',
-          result,
-          statusCode: 200
-        });
-      }
-    });
+    let mysql = `SELECT * FROM billing as b 
+    INNER JOIN new_patients as n
+         ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?`;
+    try {
+      let result = await promisifyQuery(mysql, [billingid]);
+      response.send({ message: 'success', statusCode: 200, result });
+    } catch (err) {
+      customError(err?.message, 500, response);
+    }
   }
   else { // if billing id is isNotEmptyFields
     response.status(400).json({
@@ -208,14 +198,12 @@ const getBilledClients = function (request, response) {
           b.TYPE,
           b.OUTSTANDING,
           b.DISCOUNT,
-          DATE(p.DATE) AS DATE,
-          pm.PaymentMode AS PAYMENT_MODE
+          DATE(b.billedon) AS DATE
         FROM billing AS b
-          INNER JOIN performing_test AS p ON b.PATIENTID = p.PATIENTID
           INNER JOIN new_patients AS np ON np.PATIENTID = b.PATIENTID
           INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
           INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
-          WHERE p.DATE = CURRENT_DATE
+          WHERE DATE(b.billedon) = CURRENT_DATE
     GROUP BY b.BILLINGID
     ORDER BY B.BILLINGID DESC
     LIMIT 20

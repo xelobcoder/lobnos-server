@@ -116,8 +116,9 @@ const insertdata = function (request, response) {
         // if all records are deleted ,resolves true else resolves false
         let count = 0;
         setupdata.map((item) => {
+          const {parameter,unit,lower,upper} = item;
           let SQL_QUERY = `INSERT INTO ${category_table} (PARAMETER,UNIT,LOWER,UPPER) VALUES (?,?,?,?)`
-          connection.query(SQL_QUERY, [item.PARAMETER, item.UNIT, item.LOWER, item.UPPER], (err, result) => {
+          connection.query(SQL_QUERY, [parameter,unit,lower,upper], (err, result) => {
             if (err) { console.log(err) }
             count++;
             count == setupdata.length ? response.send({ message: 'data inserted successfully' }) : null

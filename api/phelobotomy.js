@@ -160,12 +160,14 @@ const postSection = async function (request, response) {
   }
 }
 
-const getAscensionWithDetails = async function (billingid, response) {
-  const statement = `SELECT DISTINCT * FROM test_ascension AS t 
+const getAscensionWithDetails = async function (billingid, state, response) {
+  let statement = `SELECT DISTINCT * FROM test_ascension AS t 
   INNER JOIN test_panels AS p ON t.testid = p.ID
   INNER JOIN samplestatus AS s ON s.ascensionid = t.id
-  WHERE t.billingid = ? AND t.collection = 'false'
+  WHERE t.billingid = ?
 `;
+  
+  if (state == 'false') { statement  += ` AND t.collection = 'false'` }
 
   try {
     const result = await promisifyQuery(statement, billingid);

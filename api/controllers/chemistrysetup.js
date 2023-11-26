@@ -13,7 +13,6 @@ router.post('/api/v1/test/setup/chemistry', (req, res) => {
   const { category, data } = req.body;
 
   const chemistry = new Chemistry(category, data);
-  console.log(chemistry)
   if (chemistry.validateData()) {
     chemistry.clearTable()
       .then(result => {

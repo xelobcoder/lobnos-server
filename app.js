@@ -246,35 +246,6 @@ app.delete("/api/v1/testpanel/list", (req, res) => {
 
 
 
-// app.get("/api/v1/org", function (req, res) {
-//   const path = require('path');
-//   res.render(path.join(__dirname, 'api/views', 'templates/temporaryLogins.ejs'), {
-//     data: {
-//       username: 'tiifu hamza', password: 83839399, labname: 'Kairos Diagnostic center'
-//     }
-//   }
-//   )
-// });
 
 
-// app.get("/api/v1/re", function (req, res) {
-//   const path = require('path');
-//   res.render(path.join(__dirname, 'api/views', 'templates/billing.ejs'), {
-//     data: {
-//       message: 'We sorry to inform you the sample for full blood count have been rejected due to insufficiency of the blood to carry out the test and possible contamination',
-//       labname: 'Kairos Diagnostic center',
-//       header: 'sample rejection notice',
-//       testdata: [
-//         { test: 'psa', price: 40 },
-//         { test: 'psa', price: 40 },
-//         { test: 'psa', price: 40 },
-//         { test: 'psa', price: 40 },
-//         { test: 'psa', price: 40 },
-//         { test: 'psa', price: 40 },
-//         { test: 'psa', price: 40 }
-//       ]
-//     }
-//   }
-//   )
-// });
 

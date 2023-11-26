@@ -1,20 +1,29 @@
 const pdf = require('pdf-creator-node');
 const fs = require('fs');
-const { customError, promisifyQuery } = require('../../helper');
+const { customError, promisifyQuery, getFullBloodCountTrend } = require('../../helper');
 const path = require('path');
 const { testTable, setups, PDF_QUERIES } = require('../../helpers/testtables');
 const { testCategoryMapping } = require('../../api/models/ResultQueryMapping');
+const Patient = require('../../api/models/patientAnalytics');
 const ResultPrint = require('./ResultPrint');
 const { getCompanyInfo } = require('../settings/companydata');
 const logger = require('../../logger');
+
 
 const rendererOptions = function (opt) {
     switch (opt) {
         case 'hema':
             return './api/views/pdfs/result/basicHematology.html';
             break;
+        case 'fbc':
+            return './api/views/pdfs/result/chemistry.html';
+        break;
         case "chemistry":
             return './api/views/pdfs/result/chemistry.html';
+            break;
+        case 'syphilis':
+            return './api/views/pdfs/result/syphilis.html';
+            break;
         default:
             return './api/views/templates/receipt.html';
             break;
@@ -23,7 +32,6 @@ const rendererOptions = function (opt) {
 
 
 
-var html = fs.readFileSync(rendererOptions('chemistry'), 'utf8');
 
 
 
@@ -45,37 +53,56 @@ class PDFGENERATION extends ResultPrint {
             if (resulttable) {
                 const setupName = this.isSetupAvailabble();
                 const category = this.isCategoryAvailable();
+                let result = null;
                 if (setupName && category && category == 'chemistry') {
-                    const result = await promisifyQuery(PDF_QUERIES.chemistryQ(resulttable, setupName, this.billingid));
-                    result.testname = this.testname
-                    return result;
-                } else {
-                    return 'provided details incorrect';
+                    result = await promisifyQuery(PDF_QUERIES.chemistryQ(resulttable, setupName, this.billingid));
                 }
+
+                if (category === 'syphilis' && category) {
+                    result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);;
+                }
+
+                if (category && category == 'fbc') {
+                    const getPatientidResult = await promisifyQuery(PDF_QUERIES.getPatientid, [this.billingid]);
+                    const patientid = getPatientidResult.length > 0 ? getPatientidResult[0]['patientid'] : null;
+                    // iniatialize patient class, patint is a subclass of Registration class
+                    return await getFullBloodCountTrend(patientid);
+                }
+
+                return result;
             } else { return `${this.testname} is not a valid test` }
         } else {
-            customError('Test not approved for printing', 401, response);
+            return 'Test not approved for printing';
         }
     }
 
     async generatePDFdata() {
         try {
             const testInformation = await this.getChemistryTest();
-            const sampling = await this.getSamplingInformation(this.billingid, this.testid);
+            let sampling = await this.getSamplingInformation(this.billingid, this.testid);
             const companyinfo = await getCompanyInfo();
+            if (sampling.length > 0) {
+                sampling = sampling[0];
+                sampling['collection_date'] = sampling['collection_date'].toLocaleDateString();
+            } else {
+                sampling = {};
+            }
+            const testname = this.testname.includes('_') ? this.testname.split('_').join(' ') : this.testname;
             const comments = await this.getComments(this.billingid, this.testid);
             return {
-                testInformation, sampling: sampling.length > 0 ? sampling[0] : {},
+                testname, testInformation, sampling,
                 comments: comments.length > 0 ? comments[0]['comments'] : '', companyinfo: companyinfo.length > 0 ? companyinfo[0] : {}
             };
         } catch (err) {
             logger.error(err);
+            console.log(err);
             return ('error generating pdf data')
         }
     }
 
 
     async generatePDFResult(data, response) {
+        const html = fs.readFileSync(rendererOptions(this.isCategoryAvailable()), 'utf-8');
         var options = {
             format: "A3",
             orientation: "portrait",

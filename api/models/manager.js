@@ -1,3 +1,4 @@
+const { promisifyQuery, customError } = require("../../helper");
 const logger = require("../../logger");
 const connection = require("../db");
 class Manager {
@@ -52,13 +53,15 @@ class Manager {
     return promise;
   };
 
-  getReadyForApprovals = function (request, response) {
+  getReadyForApprovals = async function (request, response) {
     const query = ` 
         SELECT ta.testid,
               ta.billingid,
               bb.clientstatus AS urgency,
               tt.NAME,
               ta.declineMessage,
+              ta.approvedby,
+              ta.approvalstatus,
               ta.actionPlan,
         CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME," ", np.LASTNAME) 
             WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, " ", np.MIDDLENAME, " ", np.LASTNAME) 
@@ -68,14 +71,19 @@ class Manager {
             INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
             INNER JOIN test_panels AS tt ON tt.ID = ta.testid
         WHERE ta.ready = 'true'
-        AND ta.ApprovalStatus = 0
-    `
-    connection.query(query, function (err, result) {
-      if (err) {
-        logger.error(err);
+        AND ta.ApprovalStatus = 0 and declineMessage is null
+    `;
+
+    try {
+      let result = await promisifyQuery(query);
+      if (result.length > 0) {
+        result = result.sort((a, b) => a.urgency - b.urgency);
+        response.send(result);
       }
-      response.send(result);
-    })
+    } catch (err) {
+      logger.error(err.message);
+      customError(err?.message, 500, response);
+    }
   }
 
 }

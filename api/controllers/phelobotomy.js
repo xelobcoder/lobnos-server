@@ -33,12 +33,12 @@ router.route('/api/v1/phelobotomy')
 
 
 router.get('/api/v1/phelobotomy/ascension', function (request, response) {
-  const { billingid } = request.query;
-  if (billingid) {
-    getAscensionWithDetails(billingid, response)
+  const { billingid, state } = request.query;
+  if (billingid && state) {
+    getAscensionWithDetails(billingid,state, response)
   } else {
     response.send({
-      message: 'include billingid in the header as a query',
+      message: 'include billingid and state in the header as a query',
       statusCode: 401,
       status: 'error'
     })

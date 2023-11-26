@@ -130,6 +130,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'prostate_specific_antigen_test':
         await resultInstance.hormones(req.body, res);
         break;
+      case 'syphilis':
+        await resultInstance.syphilis(req.body, res);
+        break;
       default:
         return res.send({
           status: "error",
@@ -150,7 +153,8 @@ router.get(`/api/v1/result/patientrend/single`, async function (request, respons
     const result = await new Patient(patientid).getPatientTestTrend(parseInt(patientid), testid, test, instances);
     response.send({statusCode: 200, status:'success', result});
   } catch (err) {
-    logger.error(err)
+    logger.error(err);
+    console.log(err);
     customError('error occured', 500, response);
   }
 })

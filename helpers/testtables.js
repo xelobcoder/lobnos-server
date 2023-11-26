@@ -25,7 +25,8 @@ const testTable = {
   lipid_profile: 'result_lipid_profile',
   helicobacter_pylori: 'result_helicobacter_pylori',
   scan: 'scanReport',
-  prostate_specific_antigen_test: 'psaresult'
+  prostate_specific_antigen_test: 'psaresult',
+  syphilis: 'syphilis'
 };
 
 const LIVER_SETUP = "setup_liver_function_test";
@@ -54,9 +55,11 @@ const PDF_QUERIES = {
   chemistryQ: function (testname, setupname, billingid) {
     return `SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,
     t.value,t.patientid FROM ${testname} AS t INNER JOIN ${setupname} AS s ON s.parameter = t.parameter WHERE t.billingid = ${billingid}`
-  }
-
-
+  },
+  hematologicalQ: function (testname) {
+    return `SELECT * FROM ${testname} WHERE billingid = ?`;
+  },
+  getPatientid: `SELECT patientid FROM billing WHERE billingid = ?`
 }
 
 

@@ -137,19 +137,27 @@ router.get('/api/v1/billing/email/receipt', async function (request, response) {
 })
 
 
-router.get('/billing/receipt', async function (request, response) {
+router.get('/billing/result/pdf', async function (request, response) {
    const { billingid, testname, testid } = request.query;
    if (billingid, testname, testid) {
       try {
          const pdfgenerate = new PDFGENERATION(billingid, testid, testname);
          const result = await pdfgenerate.generatePDFdata();
-         if (typeof result === 'object') { pdfgenerate.generatePDFResult(result, response) }
-         else { response.send({ status: 'error', message: result, statusCode: 404 }) }
+         pdfgenerate.generatePDFResult(result, response)
       } catch (error) {
-         logger.error(error);
+         console.log(error);
          customError('error fetching data', 500, response);
       }
    } else { customError('include billingid, testname and testid', 404, response)}
+})
+
+
+
+router.get('/billing/receipt', async function (request, response) {
+   const { billingid } = request.query;
+   if (!billingid) { customError('billingid not provided', 404, response) } else {
+      
+   }
 })
 
 module.exports = router;
