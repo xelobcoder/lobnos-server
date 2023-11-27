@@ -34,7 +34,7 @@ const MappingSetup = {
   pregnancy_test,
   esr,
   hepatitis_b:hepatitisb,
-  hepatitis_c:hepatitisc,
+  hepatitis_c: hepatitisc,
   helicobacter_pylori
 }
 
@@ -51,13 +51,15 @@ const testCategoryMapping = {
   urinalysis: 'hema',
   hepatitis_b_profile: 'hema',
   syphilis: 'syphilis',
+  lipid_profile: 'chemistry',
   pregnancy_test: 'hema',
   hepatitis_b:'hema',
   hepatitis_c:'hema',
   full_blood_count: 'fbc',
   esr: 'hema',
   semen_analysis: 'hema',
-  helicobacter_pylori: 'hema'
+  helicobacter_pylori: 'hema',
+  thyroid_functional_test: 'chemistry',
 }
 
 module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }

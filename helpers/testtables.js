@@ -47,7 +47,9 @@ const setups = {
   cardiac_enzymes: CARDIAC_ENZYMES,
   full_blood_count: FULL_BLOOD_COUNT,
   LHHORMONE,
-  FSHHORMONE
+  FSHHORMONE,
+  thyroid_functional_test: THYROID_SETUP,
+  lipid_profile: LIPID_PROFILE_SETUP,
 };
 
 

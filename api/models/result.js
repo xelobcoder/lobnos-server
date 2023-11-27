@@ -43,6 +43,7 @@ class Result {
 
   async isResultEntered(testid) {
     // test for if is a valid test
+    console.log(this.testname)
     if (this.isTestValid() && this.testname in testCategoryMapping) {
       try {
         let result = null;
@@ -67,6 +68,10 @@ class Result {
             const setup = setups[this.testname];
             const resultTable = testTable[this.testname];
             result = await promisifyQuery(PDF_QUERIES.chemistryQ(resultTable, setup, this.billingid))
+            if (result.length === 0) {
+              result = await promisifyQuery(`SELECT * FROM ${setup}`);
+              result = result.length > 0 ? result.map(item => { return { ...item, value: 0 } }) : [];
+            }
             break;
           default:
             break;
@@ -77,7 +82,8 @@ class Result {
         return err;
       }
     } else {
-      return "test not recognized or not scripted for";
+      logger.error('Test not recognized or scripted for!!');
+      throw new Error('Test not recognized or scripted for!!')
     }
   }
 

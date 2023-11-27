@@ -19,7 +19,7 @@ router.get('/api/v1/test/result/check', async function (req, res) {
     else {
       result.length > 0 ?
         res.send({ statusCode: 200, status: 'success', message: 'result entered', result: true, records: result }) :
-        res.send({ statusCode: 200, status: 'success', message: 'result not entered',result: false})
+        res.send({ statusCode: 200, status: 'success', message: 'test params not setup',result: false})
     }
   }
   catch (err) {
