@@ -56,6 +56,7 @@ const testCategoryMapping = {
   hepatitis_c:'hema',
   full_blood_count: 'fbc',
   esr: 'hema',
+  semen_analysis: 'hema',
   helicobacter_pylori: 'hema'
 }
 

@@ -334,7 +334,7 @@ const database_queries = {
   },
   // dropping a table 
   deleteAllrows: function (tablename) {
-    let SQL_QUERY = `DELETE FROM  ${tablename}`;
+    let SQL_QUERY = `TRUNCATE TABLE  ${tablename}`;
     // return a promise 
     return new Promise(function (resolve, reject) {
       connection.query(SQL_QUERY, (err, result) => {

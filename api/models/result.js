@@ -5,9 +5,11 @@ const beginTransaction = util
   .bind(connection);
 const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
-const { customError, promisifyQuery } = require("../../helper");
+const { customError, promisifyQuery, getFullBloodCountTrend } = require("../../helper");
 const logger = require("../../logger");
-const { testTable } = require('../../helpers/testtables');
+const { testTable, PDF_QUERIES, setups } = require('../../helpers/testtables');
+const { testCategoryMapping } = require("./ResultQueryMapping");
+const { category_determiner } = require("../test/setup/fbc");
 
 
 
@@ -40,24 +42,42 @@ class Result {
   }
 
   async isResultEntered(testid) {
-    if (this.isTestValid()) {
-      return new Promise((resolve, reject) => {
-        let query =
-          `SELECT * FROM ${testTable[this.testname]
-          } WHERE billingid = ${this.billingid}`;
-        if (this.testname === 'scan' && testid) {
-          query += ` AND testid = ${testid}`
+    // test for if is a valid test
+    if (this.isTestValid() && this.testname in testCategoryMapping) {
+      try {
+        let result = null;
+        const testname = testCategoryMapping[this.testname];
+        switch (testname) {
+          case 'fbc':
+            const getPatientid = await promisifyQuery(`SELECT patientid FROM billing WHERE billingid = ?`, this.billingid);
+            // get result joined with the category of client full blood count e.g male,female,childred
+            const patientid = getPatientid.length > 0 ? getPatientid[0]['patientid'] : null;
+            result = await getFullBloodCountTrend(patientid);
+            if (result.length === 0) {
+              const getCategory = await category_determiner('filling', patientid);
+              result = await promisifyQuery(`SELECT * FROM ${getCategory}`);
+              result = result.length > 0 ? result.map(item => { return { ...item, value: 0 } }) : [];
+            }
+            break;
+          case 'hema':
+            let query = `SELECT * FROM ${testTable[this.testname]} WHERE billingid = ?`;
+            result = await promisifyQuery(query, this.billingid);
+            break;
+          case 'chemistry':
+            const setup = setups[this.testname];
+            const resultTable = testTable[this.testname];
+            result = await promisifyQuery(PDF_QUERIES.chemistryQ(resultTable, setup, this.billingid))
+            break;
+          default:
+            break;
         }
-        connection.query(query, (err, result) => {
-          if (err) {
-            console.log(err)
-            reject(err);
-          }
-          resolve(result);
-        });
-      });
+        return result;
+      } catch (err) {
+        logger.error(err);
+        return err;
+      }
     } else {
-      return "test not recognized";
+      return "test not recognized or not scripted for";
     }
   }
 

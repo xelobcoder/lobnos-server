@@ -85,6 +85,89 @@ class PDFGENERATION extends ResultPrint {
             resultdata['comments'] = comments
             return resultdata;
         }
+
+        if (testname === 'blood_grouping') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const abo = { parameter: 'ABO', value: result['abo'] };
+            const rh = { parameter: 'RH', value: result['rh'] };
+            const resultdata = [abo, rh];
+            const comments = result['comments'];
+            resultdata['comments'] = comments
+            return resultdata;
+        }
+
+        if (testname === 'widal') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const typhio = { parameter: 'Typhio', value: result['typhio'] };
+            const typhiH = { parameter: 'TyphiH', value: result['typhih'] };
+            const paratyphiah = { parameter: 'ParatyphiAH', value: result['paratyphiah'] };
+            const paratyphiBh = { parameter: 'ParatyphiBH', value: result['paratyphibh'] };
+            const resultdata = [typhio, typhiH, paratyphiah, paratyphiBh];
+            const comments = result['comments'];
+            resultdata['comments'] = comments
+            return resultdata;
+        }
+
+        if (testname === 'pregnancy_test') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const method = { parameter: 'Specimen', value: result['method'] };
+            const value = { parameter: 'Result', value: result['value'] };
+            const resultdata = [method, value];
+            const comments = result['comments'];
+            resultdata['comments'] = comments
+            return resultdata;
+        }
+
+        if (testname === 'semen_analysis') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const collectiondate = { parameter: 'Collection Date', value: new Date(result['collectiondate']).toLocaleDateString() }
+            const spermcount = { parameter: 'Sperm Count', value: result['spermcount'] };
+            const collectiontime = { parameter: 'Collection Time', value: result['collectiontime'] };
+            const abstinence = { parameter: 'Abstinence', value: result['abstinence'] };
+            const quantity = { parameter: 'Quantity', value: result['quantity'] };
+            const colour = { parameter: 'Colour', value: result['colour'] };
+            const consistency = { parameter: 'Consistency', value: result['consistency'] };
+            const motility = { parameter: 'Motility', value: result['motility'] };
+            const motilityGrade = { parameter: 'Motility Grade', value: result['motilitygrade'] };
+            const morphology = { parameter: 'Morphology', value: result['morphology'] };
+            const pusCells = { parameter: 'Pus Cells', value: result['puscells'] };
+            const rbcs = { parameter: 'RBCs', value: result['rbcs'] };
+            const liquefactionTime = { parameter: 'Liquefaction Time', value: result['liquefactiontime'] };
+            const ph = { parameter: 'PH', value: result['ph'] };
+            const fructose = { parameter: 'Fructose', value: result['fructose'] };
+            const epithelialCells = { parameter: 'Epithelial Cells', value: result['epithelialcells'] };
+            const resultdata = [collectiondate, collectiontime, spermcount, abstinence, quantity, colour, consistency, motility, motilityGrade, morphology, pusCells, rbcs, liquefactionTime, ph, fructose, epithelialCells];
+            const comments = result['impression'];
+            resultdata['comments'] = comments
+            return resultdata;
+        }
+
+        if (testname === 'urinalysis') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            const appearance = { parameter: 'Appearance', value: result['appearance'] };
+            const color = { parameter: 'Color', value: result['color'] };
+            const urobilinogen = { parameter: 'Urobilinogen', value: result['urobilinogen'] };
+            const ketones = { parameter: 'Ketones', value: result['ketones'] };
+            const bilirubin = { parameter: 'Bilirubin', value: result['bilirubin'] };
+            const nitrite = { parameter: 'Nitrite', value: result['nitrite'] };
+            const microalbumin = { parameter: 'Microalbumin', value: result['microalbumin'] };
+            const glucose = { parameter: 'Glucose', value: result['glucose'] };
+            const specific_gravity = { parameter: 'Specific Gravity', value: result['specific_gravity'] };
+            const ph = { parameter: 'PH', value: result['ph'] };
+            const microscopy = { parameter: 'Microscopy', value: result['microscopy'] };
+            const remarks = { parameter: 'Remarks', value: result['remarks'] };
+            const blood = { parameter: 'Blood', value: result['blood'] };
+            const leukocytes = { parameter: 'Leukocytes', value: result['leukocytes'] };
+            const resultdata = [appearance, color, urobilinogen, ketones, bilirubin, nitrite, microalbumin, glucose, specific_gravity, ph, microscopy, remarks, blood, leukocytes];
+            const comments = result['remarks'];
+            resultdata['comments'] = comments
+            return resultdata;
+        }
     }
 
     async getChemistryTest() {

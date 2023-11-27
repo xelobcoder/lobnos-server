@@ -1,4 +1,5 @@
 const router = require('express').Router();
+const { response } = require('express');
 const { customError } = require('../../helper');
 const logger = require('../../logger');
 const Patient = require('../models/patientAnalytics');
@@ -12,33 +13,17 @@ router.get('/api/v1/test/result/check', async function (req, res) {
     const resultChecker = new Result(billingid, testname);
     const result = await resultChecker.isResultEntered(testid);
     let records = await resultChecker.getTestResult(testid);
-
     if (!billingid && !testname) {
-      res.status(400).send({
-        message: 'Invalid data',
-        statusCode: 400,
-      })
+      res.status(400).send({ message: 'Invalid data', statusCode: 400 })
     }
     else {
-      result.length === 0 ?
-        res.send({
-          message: 'Result not entered',
-          statusCode: 200,
-          result: false
-        }) :
-        res.send({
-          message: 'Result entered',
-          statusCode: 200,
-          result: true,
-          records
-        })
+      result.length > 0 ?
+        res.send({ statusCode: 200, status: 'success', message: 'result entered', result: true, records: result }) :
+        res.send({ statusCode: 200, status: 'success', message: 'result not entered',result: false})
     }
   }
   catch (err) {
-    res.status(500).json({
-      message: err.message,
-      statusCode: 500
-    })
+     customError(err.message, 500, res);
   }
 })
 

@@ -59,6 +59,7 @@ table {
 
 .td-body {
   font-size: 20px;
+  line-height: 2;
   text-transform: capitalize;
 }
 .td-body:first-child {

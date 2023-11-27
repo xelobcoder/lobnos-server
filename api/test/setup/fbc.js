@@ -1,3 +1,4 @@
+const { promisifyQuery, customError } = require("../../../helper");
 const logger = require("../../../logger");
 const database_queries = require("../../database/queries");
 const connection = require("../../db");
@@ -98,75 +99,51 @@ const getAge = function (patientid = null, billingid = null) {
    * @returns {void}
    */
   
-const insertdata = function (request, response) {
+const insertdata = async function (request, response) {
   const { category, setupdata, setup } = request.body;
 
-  if (!category || category == null || category == undefined) {
-    response.send({
-      error: 'category essential'
-    })
-  }
-
-
-  if (category && setupdata) {
-    let category_table = category_determiner(category)
-    // delete all rows first
-    database_queries.deleteAllrows(category_table)
-      .then((resolve) => {
-        // if all records are deleted ,resolves true else resolves false
-        let count = 0;
-        setupdata.map((item) => {
-          const {parameter,unit,lower,upper} = item;
-          let SQL_QUERY = `INSERT INTO ${category_table} (PARAMETER,UNIT,LOWER,UPPER) VALUES (?,?,?,?)`
-          connection.query(SQL_QUERY, [parameter,unit,lower,upper], (err, result) => {
-            if (err) { console.log(err) }
-            count++;
-            count == setupdata.length ? response.send({ message: 'data inserted successfully' }) : null
-          })
-        })
-      })
+  if (!category || !setupdata || !(Array.isArray(setupdata))) {
+    customError('category or setupdata not defined or setupdata not in an array format', 404, response);
+    return;
+  } else {
+    try {
+      let category_table = category_determiner(category);
+      // truncate table
+      const truncateTable = `TRUNCATE TABLE ${category_table}`;
+      const insertData = `INSERT INTO ${category_table} (parameter,unit,lower,upper) VALUES (?,?,?,?)`;
+      await promisifyQuery(truncateTable);
+      // insert data
+      if (setupdata && setupdata.length > 0) {
+        let counter = 0;
+        for (const item of setupdata) {
+          const { parameter, unit, lower, upper } = item;
+          await promisifyQuery(insertData, [parameter, unit, lower, upper]);
+          counter++;
+        }
+        if (counter == setupdata.length) { response.send({ message: 'data inserted successfully', statusCode: 200, status: 'success' }) }
+      }
+    } catch (error) {
+      logger.error(error);
+      customError(error.message, 500, response);
+    }
   }
 }
 
 
 const getdata = async (request, response) => {
   let { category, patientid } = request.query
-
   let category_table = '';
-
-  if (patientid) {
-    category_table = await category_determiner(category, patientid)
-  } else {
-    category_table = category_determiner(category);
-  }
+  if (patientid) { category_table = await category_determiner(category, patientid) } else { category_table = category_determiner(category); }
 
   if (category) {
-    let SQL_QUERY = `SELECT * FROM ${category_table}`;
-    connection.query(SQL_QUERY, (err, result) => {
-      if (err) {
-        response.send({
-          status: 'error',
-          statusCode: 200,
-          message: 'occured in fetching data',
-        })
-      }
-      else {
-        const xlen = result.length;
-        if (xlen === 0) {
-          const results = async function () {
-            let data = await database_queries.getall(`setup_fullcount_paramters`, 20);
-            response.send(data)
-          }
-          results()
-        }
-        else {
-          response.send(result)
-        }
-      }
-
-    })
-  }
-  else {
+    try {
+      const result = await promisifyQuery(`SELECT * FROM ${category_table}`);
+      response.send({ statusCode: 200, message: 'data fetched successfully', result, status: 'success' })
+    } catch (error) {
+      logger.error(error);
+      customError(error.message, 500, response);
+    }
+  } else {
     response.send({
       message: category + " " + 'not defined'
     })
@@ -236,6 +213,7 @@ module.exports = {
   getdata,
   deleteData,
   getCreatedParams,
+  category_determiner,
   getAge
 }
 
