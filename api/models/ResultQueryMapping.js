@@ -49,6 +49,7 @@ const testCategoryMapping = {
   renal_function_test: 'chemistry',
   blood_grouping: 'hema',
   urinalysis: 'hema',
+  aids: 'hema',
   hepatitis_b_profile: 'hema',
   syphilis: 'syphilis',
   lipid_profile: 'chemistry',
@@ -61,6 +62,8 @@ const testCategoryMapping = {
   helicobacter_pylori: 'hema',
   thyroid_functional_test: 'chemistry',
   follicle_stimulating_hormone: 'endocrinology',
+  luteinizing_hormone: 'endocrinology',
+  glycated_heamoglobin: 'hema'
 }
 
 module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }

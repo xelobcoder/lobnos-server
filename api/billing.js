@@ -61,38 +61,43 @@ class Billing {
   }
 
   updateApprovalStatus = async function (billingid, testid) {
-    const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
-    const values = [billingid, testid];
+    try {
+      const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
+      const values = [billingid, testid];
     return promisifyQuery(query, values);
+    } catch (err) { logger.error(err) }
   }
 
-  isValidForDayEntry = async function () {
+  isValidForDayEntry = async function (patientid) {
     const query = `SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE`;
-    const values = [this.patientid];
     try {
-      const result = await promisifyQuery(query, values);
+      const result = await promisifyQuery(query, patientid);
       return result[0]['COUNT(*)'] > 0 ? false : true;
     } catch (err) { logger.error(err) }
   }
 
   async AddtoTestAscenstion(billingid) {
-    if (Array.isArray(this.test) && this.test.length > 0) {
-      const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
-      VALUES(?,?,?,CURRENT_DATE)`;
-      // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
-      if (await this.isCompleteFlow()) {
-        this.test.map(async (item, index) => { await promisifyQuery(query, [item, billingid, 'false']) })
-      } else {
-        this.test.map(async (item, index) => {
-          await promisifyQuery(query, [item, billingid, 'true']);
-          await this.updateApprovalStatus(billingid, item);
-        });
+    try {
+      if (Array.isArray(this.test) && this.test.length > 0) {
+        const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
+        VALUES(?,?,?,CURRENT_DATE)`;
+        // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
+        if (await this.isCompleteFlow()) {
+          this.test.map(async (item, index) => { await promisifyQuery(query, [item, billingid, 'false']) })
+        } else {
+          this.test.map(async (item, index) => {
+            await promisifyQuery(query, [item, billingid, 'true']);
+            await this.updateApprovalStatus(billingid, item);
+          });
+        }
       }
+    } catch (err) {
+      logger.error(err);
     }
   }
 
   async insetionProcess(request, response) {
-    if (await this.isValidForDayEntry()) {
+    if (await this.isValidForDayEntry(this.patientid)) {
       try {
         connection.beginTransaction(async (err) => {
           if (err) { logger.error(err) }
@@ -139,7 +144,7 @@ const clientPaymentStatus = async function (patientid) {
   FROM BILLING
   WHERE PATIENTID = ?`;
     const result = await promisifyQuery(query, patientid);
-    const status = result[0]['status'];
+    let status = result[0]['status'];
     if (status == null) {
       const isExist = await checkpatient(patientid);
       isExist ? status = 1 : status = null;
@@ -153,15 +158,13 @@ const clientPaymentStatus = async function (patientid) {
 
 
 
-const checkifActivated = async function (request, response) {
+const getClientBillingInformation = async function (request, response) {
   //  get the billing id
   const { billingid } = request.query;
   // check if billing id is not empty
-  if (billingid != '') {
+  if (billingid && billingid != '') {
     // join the billing and performing test table and new patients table using the aptient id wherw billing id is equal to the billing id
-    let mysql = `SELECT * FROM billing as b 
-    INNER JOIN new_patients as n
-         ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?`;
+    let mysql = `SELECT * FROM billing as b  INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?`;
     try {
       let result = await promisifyQuery(mysql, [billingid]);
       response.send({ message: 'success', statusCode: 200, result });
@@ -170,11 +173,7 @@ const checkifActivated = async function (request, response) {
     }
   }
   else { // if billing id is isNotEmptyFields
-    response.status(400).json({
-      message: 'billing id is required',
-      status: 'error',
-      statusCode: 400
-    });
+    customError('billing id is required', 400, response)
   }
 }
 
@@ -318,6 +317,6 @@ const updateBilling = async function (request, response) {
 module.exports = {
   Billing,
   updateBilling,
-  checkifActivated,
+  getClientBillingInformation,
   getBilledClients
 }

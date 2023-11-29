@@ -79,9 +79,7 @@ o.createAOrganization = async function (request, response) {
     region
   } = request.body;
 
-  const query = `INSERT INTO organization 
-    (name, location, street, mobile, address, website, email, gpsmapping, region)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+  const query = `INSERT INTO organization (name, location, street, mobile, address, website, email, gpsmapping, region) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
   const values = [
     name,

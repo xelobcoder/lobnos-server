@@ -48,6 +48,7 @@ class Result {
     if (this.isTestValid() && this.testname in testCategoryMapping) {
       try {
         let result = null;
+        let entered = false;
         const category = testCategoryMapping[this.testname];
         switch (category) {
           case 'fbc':
@@ -55,6 +56,7 @@ class Result {
             // get result joined with the category of client full blood count e.g male,female,childred
             const patientid = getPatientid.length > 0 ? getPatientid[0]['patientid'] : null;
             result = await getFullBloodCountTrend(patientid);
+            entered = result.length > 0 ? true : false;
             if (result.length === 0) {
               const getCategory = await category_determiner('filling', patientid);
               result = await promisifyQuery(`SELECT * FROM ${getCategory}`);
@@ -64,11 +66,13 @@ class Result {
           case 'hema':
             let query = `SELECT * FROM ${testTable[this.testname]} WHERE billingid = ?`;
             result = await promisifyQuery(query, this.billingid);
+            entered = result.length > 0 ? true : false;
             break;
           case 'chemistry':
             const setup = setups[this.testname];
             const resultTable = testTable[this.testname];
             result = await promisifyQuery(PDF_QUERIES.chemistryQ(resultTable, setup, this.billingid))
+            entered = result.length > 0 ? true : false;
             if (result.length === 0) {
               result = await promisifyQuery(`SELECT * FROM ${setup}`);
               result = result.length > 0 ? result.map(item => { return { ...item, value: 0 } }) : [];
@@ -78,6 +82,7 @@ class Result {
             const getPatientInfo = await new Registration().getPatientInfoUsingBillingId(this.billingid);
             const gender = getPatientInfo.length > 0 ? getPatientInfo[0]['gender'] : null;
             result = await promisifyQuery(PDF_QUERIES.endrinologyQ(testTable[this.testname], setups[this.testname], this.billingid, gender));
+            entered = result.length > 0 ? true : false;
             if (result.length === 0) {
               result = await promisifyQuery(`SELECT * FROM ${setups[this.testname]} WHERE gender = ?`, gender);
               result = result.length > 0 ? result.map(item => { return { ...item, value: 0 } }) : [];
@@ -85,9 +90,8 @@ class Result {
           default:
             break;
         }
-        return result;
+        return {result,entered }
       } catch (err) {
-        console.log(err)
         logger.error(err);
         return err;
       }
@@ -302,61 +306,28 @@ class Result {
   }
 
   async glycatedHaemoglobin(record, response) {
-    let errMessage = this.errMessage;
-    const {
-      billingid,
-      patientid,
-      glycated,
-      glucose,
-      method,
-      comment,
-      technology,
-    } = record;
+    const { billingid, patientid, comments, result, glucose, testid } = record;
     if (this.isTestValid) {
       if (await this.ShouldCreateRecord()) {
         // we create a query using the above data in order to populate the database
-        const creation = `INSERT INTO  ${testTable[this.testname]} (
-            BILLINGID,PATIENTID,RESULT,REMARKS,TECHNOLOGY,METHOD,GLUCOSE
-         ) VALUES (?,?,?,?,?,?,?)`;
-
-        let values = [
-          billingid,
-          patientid,
-          glycated,
-          comment,
-          technology,
-          method,
-          glucose,
-        ];
+        const insertQuery = `INSERT INTO  ${testTable[this.testname]} (billingid,comments,glucose,result,patientid)
+         VALUES (?,?,?,?,?)`;
+        let values = [billingid, comments, glucose, result, patientid];
         // execute query
-        await this.useTransactionForResult(creation, values, testid);
-
+        await this.useTransactionForResult(insertQuery, values, testid, response);
         // update test ascention table to update ready to true and result entered trure
       } else {
         // update the test record
-        const upateRecord = `UPDATE ${testTable[this.testname]} SET RESULT = ?,
-           REMARKS = ?,
-           TECHNOLOGY = ?,
-           METHOD= ?,
-           GLUCOSE = ? 
-           WHERE BILLINGID = ?`;
-
-        connection.query(
-          upateRecord,
-          [glycated, comment, technology, method, glucose, this.billingid],
-          (err, result) => {
-            if (err) {
-              console.log(err);
-              errMessage(err, response);
-            } else {
-              response.send({
-                status: "success",
-                message: "record updated successfully",
-                statusCode: 200,
-              });
-            }
-          }
-        );
+        const upateRecord = `UPDATE ${testTable[this.testname]} SET result = ?,
+           comments = ?,
+           glucose = ?
+           WHERE billingid  = ?`;
+        const isUpdated = await promisifyQuery(upateRecord, [result, comments, glucose, this.billingid]);
+        if (isUpdated?.affectedRows > 0) {
+          response.send({ statusCode: 200, status: 'success', message: 'record updated successfully' })
+        } else {
+          customError('updates failed', 500, response);
+        }
       }
     } else {
       this.errMessage({ message: "No such test found" });
@@ -1013,31 +984,6 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
 
   }
 
-
-  async hormones(requestbody, response) {
-    const { testname, billingid, testid, records, patientid } = requestbody;
-    const { parameter, unit, value, comments } = records;
-    if (this.isTestValid()) {
-      if (await this.ShouldCreateRecord()) {
-        const query = `INSERT INTO ${testTable[testname]} (parameter,billingid,patientid,value,comment,unit) VALUES (?,?,?,?,?,?)`;
-
-        await this.useTransactionForResult(query, [parameter, billingid, patientid, parseInt(value), comments, unit], testid, response)
-
-      } else {
-        // TODO: to update the result if present 
-        const updateQuery = `UPDATE ${testTable[testname]} SET value = ?, comment= ?, updated_on = NOW() WHERE billingid = ?`;
-
-        connection.query(updateQuery, [parseInt(value), comment, billingid], (err, result) => {
-          if (err) {
-            this.errMessage(err, response)
-          }
-          else {
-            this.pushResponse(result, response)
-          }
-        })
-      }
-    }
-  }
 
   async helicobacter_pylori(records, response) {
     const { specimen, billingid, patientid, testid, testname, result, comments } = records;

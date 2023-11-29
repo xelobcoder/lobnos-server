@@ -12,14 +12,15 @@ router.get('/api/v1/test/result/check', async function (req, res) {
     const { billingid, testname, testid } = req.query;
     const resultChecker = new Result(billingid, testname);
     const result = await resultChecker.isResultEntered(testid);
-    let records = await resultChecker.getTestResult(testid);
+    const records = result.result
     if (!billingid && !testname) {
       res.status(400).send({ message: 'Invalid data', statusCode: 400 })
     }
     else {
-      result.length > 0 ?
-        res.send({ statusCode: 200, status: 'success', message: 'result entered', result: true, records: result }) :
-        res.send({ statusCode: 200, status: 'success', message: 'test params not setup',result: false})
+      res.send({
+        statusCode: 200, status: 'success', message: result?.entered ? 'result entered' : 'result not entered',
+        result: result?.entered, records: result.result
+      })
     }
   }
   catch (err) {
@@ -43,7 +44,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case "blood_grouping":
         await resultInstance.BloodGroupingResult(req.body, res);
         break;
-      case "glycated_haemoglobin":
+      case "glycated_heamoglobin":
         await resultInstance.glycatedHaemoglobin(req.body, res);
         break;
       case "urinalysis":
@@ -101,7 +102,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
         await resultInstance.liverfunctionTest(req.body, res);
         break;
       case 'luteinizing_hormone':
-        await resultInstance.hormones(req.body, res);
+        await resultInstance.liverfunctionTest(req.body, res);
         break;
       case 'lipid_profile':
         await resultInstance.liverfunctionTest(req.body, res)
@@ -139,7 +140,6 @@ router.get(`/api/v1/result/patientrend/single`, async function (request, respons
     response.send({statusCode: 200, status:'success', result});
   } catch (err) {
     logger.error(err);
-    console.log(err);
     customError('error occured', 500, response);
   }
 })

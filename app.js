@@ -4,7 +4,7 @@ const app = express();
 const dotenv = require("dotenv");
 const EmailService = require('./api/models/email')
 const port = 5000;
-const { Billing, checkifActivated, getBilledClients, updateBilling } = require("./api/billing");
+const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing");
 const branchesHandler = require("./api/branches");
 const resultChecker = require("./api/controllers/results");
 const Manager = require('./api/controllers/manager');
@@ -115,7 +115,7 @@ app.get("/api/v1/billedclients", (req, res) => {
 });
 
 app.get("/api/v1/billing", function (request, response) {
-  checkifActivated(request, response);
+  getClientBillingInformation(request, response);
 });
 
 app.put("/api/v1/billing", function (request, response) {

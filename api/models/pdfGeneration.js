@@ -7,17 +7,21 @@ const { testCategoryMapping } = require('../../api/models/ResultQueryMapping');
 const ResultPrint = require('./ResultPrint');
 const { getCompanyInfo } = require('../settings/companydata');
 const logger = require('../../logger');
+const Registration = require('./registration');
 
 
 const rendererOptions = function (opt) {
     switch (opt) {
-        case 'hema':
+        case 'hema' :
             return './api/views/pdfs/result/hematological.html';
             break;
         case 'fbc':
             return './api/views/pdfs/result/chemistry.html';
         break;
         case "chemistry":
+            return './api/views/pdfs/result/chemistry.html';
+            break;
+        case "endocrinology":
             return './api/views/pdfs/result/chemistry.html';
             break;
         case 'syphilis':
@@ -49,80 +53,70 @@ class PDFGENERATION extends ResultPrint {
 
     async getHematologicalTest(resulttable, testname) {
         let result = null;
+        result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+        result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+        let resultdata = null;
         if (testname === 'malaria') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const parasites = { parameter: 'Parasite Number', value: result['parasitenumber'] };
             const species = { parameter: 'Species', value: result['species'] };
             const comments = result['comments'];
-            const resultdata = [parasites, species];
+            resultdata = [parasites, species];
             resultdata['comments'] = comments;
-            return resultdata;
         }
 
         if (testname === 'hepatitis_b_profile') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const hbeag = { parameter: 'HBeAg', value: result['hbeag'] };
             const hbeab = { parameter: 'HBeAb', value: result['hbeab'] };
             const hbsag = { parameter: 'HBsAg', value: result['hbsag'] };
             const hbsab = { parameter: 'HBsAb', value: result['hbsab'] };
             const hbcab = { parameter: 'HBcAb', value: result['hbcab'] };
             const comments = result['comments'];
-            const resultdata = [hbeag, hbeab, hbsag, hbsab, hbcab];
+             resultdata = [hbeag, hbeab, hbsag, hbsab, hbcab];
             resultdata['comments'] = comments;
-            return resultdata;
         }
 
         if (testname === 'helicobacter_pylori') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const specimen = { parameter: 'Specimen', value: result['specimen'] };
             const hpylori = { parameter: 'result', value: result['result'] };
-            const resultdata = [specimen, hpylori];
+             resultdata = [specimen, hpylori];
             const comments = result['comments'];
-            resultdata['comments'] = comments
-            return resultdata;
+            resultdata['comments'] = comments;
         }
 
         if (testname === 'blood_grouping') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const abo = { parameter: 'ABO', value: result['abo'] };
             const rh = { parameter: 'RH', value: result['rh'] };
-            const resultdata = [abo, rh];
+            resultdata = [abo, rh];
             const comments = result['comments'];
             resultdata['comments'] = comments
-            return resultdata;
+        }
+
+        if (testname === 'aids') {
+            const reaction = { parameter: 'Reaction', value: result['reaction'] };
+            resultdata = [reaction];
+            const comments = result['comments'];
+            resultdata['comments'] = comments
         }
 
         if (testname === 'widal') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const typhio = { parameter: 'Typhio', value: result['typhio'] };
             const typhiH = { parameter: 'TyphiH', value: result['typhih'] };
             const paratyphiah = { parameter: 'ParatyphiAH', value: result['paratyphiah'] };
             const paratyphiBh = { parameter: 'ParatyphiBH', value: result['paratyphibh'] };
-            const resultdata = [typhio, typhiH, paratyphiah, paratyphiBh];
+            resultdata = [typhio, typhiH, paratyphiah, paratyphiBh];
             const comments = result['comments'];
             resultdata['comments'] = comments
-            return resultdata;
         }
 
         if (testname === 'pregnancy_test') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const method = { parameter: 'Specimen', value: result['method'] };
             const value = { parameter: 'Result', value: result['value'] };
-            const resultdata = [method, value];
+            resultdata = [method, value];
             const comments = result['comments'];
             resultdata['comments'] = comments
-            return resultdata;
         }
 
         if (testname === 'semen_analysis') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const collectiondate = { parameter: 'Collection Date', value: new Date(result['collectiondate']).toLocaleDateString() }
             const spermcount = { parameter: 'Sperm Count', value: result['spermcount'] };
             const collectiontime = { parameter: 'Collection Time', value: result['collectiontime'] };
@@ -139,15 +133,12 @@ class PDFGENERATION extends ResultPrint {
             const ph = { parameter: 'PH', value: result['ph'] };
             const fructose = { parameter: 'Fructose', value: result['fructose'] };
             const epithelialCells = { parameter: 'Epithelial Cells', value: result['epithelialcells'] };
-            const resultdata = [collectiondate, collectiontime, spermcount, abstinence, quantity, colour, consistency, motility, motilityGrade, morphology, pusCells, rbcs, liquefactionTime, ph, fructose, epithelialCells];
+            resultdata = [collectiondate, collectiontime, spermcount, abstinence, quantity, colour, consistency, motility, motilityGrade, morphology, pusCells, rbcs, liquefactionTime, ph, fructose, epithelialCells];
             const comments = result['impression'];
             resultdata['comments'] = comments
-            return resultdata;
         }
 
         if (testname === 'urinalysis') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
             const appearance = { parameter: 'Appearance', value: result['appearance'] };
             const color = { parameter: 'Color', value: result['color'] };
             const urobilinogen = { parameter: 'Urobilinogen', value: result['urobilinogen'] };
@@ -162,17 +153,27 @@ class PDFGENERATION extends ResultPrint {
             const remarks = { parameter: 'Remarks', value: result['remarks'] };
             const blood = { parameter: 'Blood', value: result['blood'] };
             const leukocytes = { parameter: 'Leukocytes', value: result['leukocytes'] };
-            const resultdata = [appearance, color, urobilinogen, ketones, bilirubin, nitrite, microalbumin, glucose, specific_gravity, ph, microscopy, remarks, blood, leukocytes];
+            resultdata = [appearance, color, urobilinogen, ketones, bilirubin, nitrite, microalbumin, glucose, specific_gravity, ph, microscopy, remarks, blood, leukocytes];
             const comments = result['remarks'];
             resultdata['comments'] = comments
-            return resultdata;
         }
 
         if (testname === 'aids') {
-            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
-            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
-            console.log(result);
+            const reaction = { parameter: 'Reaction', value: result['reaction'] };
+            resultdata = [reaction];
+            const comments = result['comments'];
+            resultdata['comments'] = comments
         }
+
+        if (testname === 'glycated_heamoglobin') {
+            const averageGlucose = { parameter: 'Average Glucose', value: result['glucose'] };
+            const hba1c = { parameter: 'HBA1C', value: result['result'] };
+            resultdata = [averageGlucose, hba1c];
+            const comments = result['comments'];
+            resultdata['comments'] = comments
+        }
+
+        return resultdata;
     }
 
     async getChemistryTest() {
@@ -198,6 +199,14 @@ class PDFGENERATION extends ResultPrint {
 
                 if (category && category == 'hema') {
                     const data = await this.getHematologicalTest(resulttable, this.testname);
+                    return data;
+                }
+
+                if (category && category == 'endocrinology') { 
+                    const getPatientid = await new Registration().getPatientInfoUsingBillingId(this.billingid);
+                    const gender = getPatientid.length > 0 ? getPatientid[0]['gender'] : null;
+                    const query  = PDF_QUERIES.endrinologyQ(resulttable,setupName,this.billingid,gender)
+                    const data = await promisifyQuery(query, [this.billingid]);
                     return data;
                 }
 

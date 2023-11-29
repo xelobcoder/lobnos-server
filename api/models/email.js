@@ -6,7 +6,7 @@ const Patients = require('./patientAnalytics');
 const ejs = require('ejs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-const { customError } = require('../../helper');
+const { customError, promisifyQuery } = require('../../helper');
 const Registration = require('./registration');
 const { testInformation, clientInformation } = require('./invoice');
 
@@ -35,48 +35,19 @@ class EmailService {
   }
 
   async insertEmailSettings(records) {
-    return new Promise((resolve, reject) => {
-      const {
-        provider,
-        appusername,
-        apppassword,
-        verificationSubject,
-        readySubject,
-        sampleSubject,
-        billingSubject,
-      } = records;
-
+    try {
+      const { provider, appusername, apppassword, verificationSubject, readySubject, sampleSubject, billingSubject } = records;
       const query = `INSERT INTO generalemailsettings (provider,appusername,apppassword,verificationSubject,readySubject,sampleSubject, billingSubject
     ) VALUES(?,?,?,?,?,?,?)`;
-
-      const values = [
-        provider,
-        appusername,
-        apppassword,
-        verificationSubject,
-        readySubject,
-        sampleSubject,
-        billingSubject,
-      ];
-
-      connection.query(query, values, function (err, result) {
-        if (err) {
-          reject(err);
-          logger.error(err);
-        } else {
-          resolve(result);
-        }
-      });
-    });
+      const values = [provider, appusername, apppassword, verificationSubject, readySubject, sampleSubject, billingSubject];
+      return await promisifyQuery(query, values);
+    } catch (err) {
+      logger.error(err);
+    }
   }
 
   mailOptions(targetEmail, subject, html) {
-    return {
-      from: this.company,
-      to: targetEmail,
-      subject,
-      html
-    }
+    return { from: this.company, to: targetEmail, subject, html }
   }
 
   transportEmail = function (mailOptions) {
@@ -288,42 +259,5 @@ class EmailService {
 
 
 
-// new EmailService().forwardBillingReceipt(104)
-//   .then((data) => console.log(data))
-//   .catch((err) => console.log(err))
-
-
-// new EmailService().clientRegistrationMailing(202382112
-// )
-//   .then((da) => console.log(da))
-//   .catch((err) => console.log(err))
-
-
-
-
 module.exports = EmailService;
-
-
-
-// const fetch = require('node-fetch');
-
-// async function run() {
-//   const query = new URLSearchParams({
-//     clientid: 'string',
-//     clientsecret: 'string',
-//     from: 'string',
-//     to: 'string',
-//     content: 'string'
-//   }).toString();
-
-//   const resp = await fetch(
-//     `https://devp-sms03726-api.hubtel.com/v1/messages/send?${query}`,
-//     { method: 'GET' }
-//   );
-
-//   const data = await resp.text();
-//   console.log(data);
-// }
-
-// run();
 
