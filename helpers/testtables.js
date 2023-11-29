@@ -47,7 +47,7 @@ const setups = {
   cardiac_enzymes: CARDIAC_ENZYMES,
   full_blood_count: FULL_BLOOD_COUNT,
   LHHORMONE,
-  FSHHORMONE,
+  follicle_stimulating_hormone: FSHHORMONE,
   thyroid_functional_test: THYROID_SETUP,
   lipid_profile: LIPID_PROFILE_SETUP,
 };
@@ -62,6 +62,12 @@ const PDF_QUERIES = {
     return `SELECT * FROM ${testname} WHERE billingid = ?`;
   },
   getPatientid: `SELECT patientid FROM billing WHERE billingid = ?`
+  ,
+  endrinologyQ: function (testname, setupname, billingid, gender) {
+    return `SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,
+    t.value,t.patientid FROM ${testname} AS t INNER JOIN ${setupname} AS s ON s.parameter = t.parameter WHERE t.billingid = ${billingid} 
+    AND s.gender = '${gender}'`;
+  }
 }
 
 

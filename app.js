@@ -36,6 +36,7 @@ const patientAnalytics = require('./api/controllers/patients.controller');
 
 const cors = require("cors");
 const logger = require("./logger");
+const { promisifyQuery } = require("./helper");
 app.use(
   cors({
     origin: "*",
@@ -191,32 +192,17 @@ app.post('/api/v1/testpanel/bulkupdate', (request, response) => {
 })
 
 
-app.get('/api/v1/testpanel/list/update', function (req, res) {
+app.get('/api/v1/testpanel/list/update', async function (req, res) {
   const { billingid } = req.query;
   if (billingid) {
     try {
       const insertion = `SELECT * FROM test_panels AS tp  INNER JOIN
-     test_ascension AS ta ON  ta.testid = tp.ID WHERE ta.billingid = ${billingid}`
-      connection.query(insertion, billingid, (err, result) => {
-        if (err) { logger.error(err) }
-        if (result) {
-          res.send({
-            result: result.map((i, index) => {
-              let dataset = {}
-              // rewant to return all result in a pacticular string  format
-              // in upper case make suring to return all the result in upper case
-              for (key in i) {
-                dataset[key.toUpperCase()] = i[key]
-              }
-              return dataset
-            }),
-            message: 'success',
-            statusCode: 200
-          })
-        }
-      })
+     test_ascension AS ta ON  ta.testid = tp.ID WHERE ta.billingid = ?`
+      const result = await promisifyQuery(insertion, billingid);
+      res.send({ message: 'success', statusCode: 200, result })
     }
     catch (err) {
+      logger.error(err);
       console.log(err)
     }
   }

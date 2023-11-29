@@ -59,39 +59,24 @@ class Registration {
   }
 
   checkPatientIdExist = async (patientid) => {
-    let useKey;
-    if (patientid) {
-      useKey = patientid;
-    } else {
-      useKey = this.patientid;
-    }
-  try {
+    try {
+      let useKey;
+      useKey = patientid ? patientid : this.patientid;
     let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`,useKey);
-    const len = result.length; 
-    if (len === 0) { return false} else {return true};
-  } 
+      return result.length > 0 ? true : false;
+    } 
   catch (err) {logger.error(err); return false;}
   }
 
   checkEmailOrMobileExist = async (email, mobile) => {
-    if (email || mobile) {
-      return new Promise((resolve, reject) => {
-        const query = `SELECT * FROM new_patients WHERE EMAIL = ? OR MOBILE_NUMBER = ?`;
-        const values = [email, parseInt(mobile)];
-        connection.query(query, values, function (err, result) {
-          if (err) {
-            reject(err);
-          } else {
-            if (result.length > 0) {
-              resolve(true);
-            } else {
-              resolve(false)
-            }
-          }
-        })
-      })
-    } else {
-      return
+    if (email || mobile) { 
+      try {
+        const result = await promisifyQuery(`SELECT * FROM new_patients WHERE EMAIL = ? OR MOBILE_NUMBER = ?`, [email, parseInt(mobile)]);
+        return result.length > 0 ? true : false;
+      } catch (err) {
+        logger.error(err);
+        return false;
+      }
     }
   }
 
@@ -277,6 +262,12 @@ class Registration {
     } else {
       customError(`patient id not found`, 404, response)
     }
+  }
+  
+  async getPatientInfoUsingBillingId(billingid) { 
+    const query = `SELECT * FROM new_patients AS np INNER JOIN billing AS b ON b.patientid = np.patientid WHERE b.billingid = ?`;
+    const result = await promisifyQuery(query, [billingid]);
+    return result;
   }
 
 }

@@ -60,6 +60,7 @@ const testCategoryMapping = {
   semen_analysis: 'hema',
   helicobacter_pylori: 'hema',
   thyroid_functional_test: 'chemistry',
+  follicle_stimulating_hormone: 'endocrinology',
 }
 
 module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }

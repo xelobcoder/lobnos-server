@@ -43,20 +43,14 @@ const ADD_PATIENT_QUERY = `INSERT INTO NEW_PATIENTS (
  * @param {Number} patientid patientid
  * @returns {promise} promise returns a promise of true,false or error
  */
-var checkpatient = function (patientid) {
-  const CHECK_PATIENT_QUERY = `SELECT * FROM new_patients WHERE PATIENTID = ?`
-
-  return new Promise((resolve, reject) => {
-    // query db for patientid
-    connection.query(CHECK_PATIENT_QUERY, [patientid], (err, result) => {
-      if (err) {
-        reject(err)
-      }
-      if (result) {
-        result.length > 0 ? resolve(true) : resolve(false)
-      }
-    })
-  })
+var checkpatient = async function (patientid) {
+  try {
+    const CHECK_PATIENT_QUERY = `SELECT * FROM new_patients WHERE PATIENTID = ?`
+    const result = await promisifyQuery(CHECK_PATIENT_QUERY, patientid)
+    return result.length > 0 ? true : false
+  } catch (err) {
+    logger.error(err)
+  }
 }
 
 // step 2

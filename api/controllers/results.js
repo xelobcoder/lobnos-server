@@ -98,7 +98,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
         await resultInstance.glucose(req.body, res);
         break;
       case 'follicle_stimulating_hormone':
-        await resultInstance.hormones(req.body, res);
+        await resultInstance.liverfunctionTest(req.body, res);
         break;
       case 'luteinizing_hormone':
         await resultInstance.hormones(req.body, res);

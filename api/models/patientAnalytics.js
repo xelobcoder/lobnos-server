@@ -18,19 +18,13 @@ const { PatientQueries } = require("../../helpers/testtables");
 class Patient extends Registration {
   constructor(patientid) {
     super(patientid);
-    this.patientid = patientid;
   }
 
   runqueryPromise = async function (query, values) {
     return new Promise((resolve, reject) => {
-
       connectionpool.query(query, values, function (err, result) {
-        if (err) {
-          reject(err)
-        }
-        else {
-          resolve(result)
-        }
+        if (err) { reject(err) }
+        else { resolve(result) }
       })
     })
   }

@@ -4,19 +4,19 @@ const connection = require('../db');
 const { allFieldsHasValues } = require('./categories')
 const testpanel = {
   listquery: `SELECT 
-      tp.NAME,
-      tp.ID,
-      tp.PRICE,
-      tp.CREATED_ON,
-      tp.DESCRIPTION,
-      s.name AS SAMPLE,
-      tp.SAMPLE_CONTAINER,
-      tp.UNIT,
-      tp.QTY_REQUIRED,
-      d.department AS CATEGORY
+      tp.name,
+      tp.id,
+      tp.price,
+      tp.created_on,
+      tp.description,
+      s.name AS sample,
+      tp.sample_container,
+      tp.unit,
+      tp.qty_required,
+      d.department AS category
     FROM test_panels AS tp
-      INNER JOIN departments AS d ON d.id = tp.CATEGORY
-      INNER JOIN sampletype AS s ON s.id = tp.SAMPLE`,
+      INNER JOIN departments AS d ON d.id = tp.category
+      INNER JOIN sampletype AS s ON s.id = tp.sample`,
   listqueryid: function (action, id) {
     return `${action} FROM test_panels WHERE ID = ${id}`;
   },
@@ -46,36 +46,18 @@ const testpanel = {
       });
     });
   },
-  getPanels: function (request, response) {
-    if (this.hasquery(request)) {
-      const { id } = request.query;
-
-      connection.query(this.listqueryid('SELECT *', id), function (err, result) {
-        if (err) {
-          response.send({
-            statusCode: 500,
-            status: "error",
-            message: "Internal server error",
-          });
-        } else {
-          response.send({
-            statusCode: 200,
-            status: "success",
-            message: "Panel retrieved successfully",
-            data: result,
-          });
-        }
-      })
-    } else {
-      connection.query(this.listquery, (err, result) => {
-        if (err) { logger.error(err) };
-        response.send({
-          statusCode: 200,
-          status: "success",
-          message: "Panels retrieved successfully",
-          data: result,
-        });
-      });
+  getPanels: async function (request, response) {
+    try {
+      if (this.hasquery(request)) {
+        const { id } = request.query;
+        const result = await promisifyQuery(this.listqueryid('SELECT *', id));
+        response.send({ statusCode: 200, status: 'success', message: 'success', data: result })
+      } else {
+        const result = await promisifyQuery(this.listquery);
+        response.send({ statusCode: 200, status: 'success', message: 'success', data: result })
+      }
+    } catch (err) {
+      logger.error(err);
     }
   },
   updatePanel: function (request, response) {

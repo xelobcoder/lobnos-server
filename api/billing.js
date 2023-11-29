@@ -1,5 +1,3 @@
-const { response } = require('express');
-const { beginTransaction, query } = require('./models/result');
 const connection = require('./db');
 const { checkpatient } = require('./register');
 const logger = require('../logger')
@@ -7,6 +5,15 @@ const { customError, promisifyQuery } = require('../helper');
 const { getApplicationSettings } = require('./models/applicationSettings');
 
 
+/**
+ * The `Billing` class is responsible for handling billing operations, such as inserting new billing records, updating billing history, checking if a billing is valid for day entry, and adding tests to the test ascension table.
+ *
+ * @example
+ * const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost);
+ * billing.insetionProcess(request, response);
+ *
+ * @class
+ */
 class Billing {
   constructor(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
     outstanding, cost) {
@@ -96,7 +103,6 @@ class Billing {
             if (err) { logger.error(err);
             connection.rollback();
            }
-            console.log(billingid, '--billingid')
             response.status(200).json({ message: 'billing successfully',billingid, statusCode: 200, status: 'success' })
           })
         })
@@ -121,35 +127,30 @@ class Billing {
 
  */
 const clientPaymentStatus = async function (patientid) {
-  return new Promise((resolve, reject) => {
+  try {
     const query = `SELECT
-        SUM(PAID_AMOUNT) AS paidAmount,
-    SUM(PAYABLE) AS totalcostincurred,
-      CASE
-        WHEN SUM(PAID_AMOUNT) = SUM(PAYABLE) THEN 1
-        WHEN SUM(PAID_AMOUNT) > SUM(PAYABLE) THEN -1
-        WHEN SUM(PAID_AMOUNT) < SUM(PAYABLE) THEN 0
-      END AS status
-    FROM BILLING
-    WHERE PATIENTID = ${patientid}`;
+    SUM(PAID_AMOUNT) AS paidAmount,
+  SUM(PAYABLE) AS totalcostincurred,
+  CASE
+    WHEN SUM(PAID_AMOUNT) = SUM(PAYABLE) THEN 1
+    WHEN SUM(PAID_AMOUNT) > SUM(PAYABLE) THEN -1
+    WHEN SUM(PAID_AMOUNT) < SUM(PAYABLE) THEN 0
+  END AS status
+  FROM BILLING
+  WHERE PATIENTID = ?`;
+    const result = await promisifyQuery(query, patientid);
+    const status = result[0]['status'];
+    if (status == null) {
+      const isExist = await checkpatient(patientid);
+      isExist ? status = 1 : status = null;
+      return status;
+    } else {
+      return status;
+    }
 
-    connection.query(query, async (err, result) => {
-      if (err) {
-        reject(err)
-      } else {
-        //  check new_patients to verify if such client exist      
-        const status = result[0]['status']
-
-        if (status == null) {
-          const isExist = await checkpatient(patientid);
-          isExist ? resolve(1) : resolve(null);
-        } else {
-          resolve(status)
-        }
-      }
-    })
-  })
+  } catch (err) { logger.error(err) }
 }
+
 
 
 const checkifActivated = async function (request, response) {
@@ -179,7 +180,7 @@ const checkifActivated = async function (request, response) {
 
 
 
-const getBilledClients = function (request, response) {
+const getBilledClients = async function (request, response) {
   const mysql = `
       SELECT b.BILLINGID AS BILLINGID,
           CASE
@@ -209,38 +210,28 @@ const getBilledClients = function (request, response) {
     LIMIT 20
   `;
 
-  connection.query(mysql, function (err, result) {
-    if (err) {
-      response.status(500).json({
-        message: 'error',
-        status: 'error',
-        statusCode: 500
-      });
-    }
-    if (result) {
-      response.status(200).json({
-        message: 'success',
-        result,
-        statusCode: 200
-      });
-    }
-  })
+  try {
+    const result = await promisifyQuery(mysql);
+    response.send({ message: 'success', statusCode: 200, result });
+  } catch (err) {
+    customError(err?.message, 500, response);
+  }
 }
 
-/**
- * Updates the billing information in the database based on the provided request body.
- * Handles the deletion and addition of test IDs associated with the billing ID.
- * Uses a database connection and performs the necessary queries to update the data.
- * 
- * @param {Object} request - The request object containing the necessary data for updating the billing.
- * @param {Object} response - The response object used to send the result of the update operation.
- * @returns {void}
- */
-const updateBilling = async function (request, response) {
-  try {
-    const { test, totalcost, patientid, billingid, outstanding } = request.body;
 
-    if (!test || !totalcost || !patientid || !billingid || !outstanding) {
+const updateBilling = async function (request, response) {
+  /**
+   * Updates a billing record in the database and handles the addition and removal of related test records.
+   * 
+   * @param {object} request - The request object containing the data needed for updating the billing record.
+   * @param {object} response - The response object used to send the result of the update operation.
+   * @returns {void}
+   */
+  try {
+    const { test, totalcost, billingid, outstanding, taxIncluded, taxValue, discount } = request.body;
+    console.log(request.body)
+
+    if (!test || !totalcost || !billingid || !outstanding) {
       response.send({
         message: 'Invalid request body',
         statusCode: 400,
@@ -250,10 +241,12 @@ const updateBilling = async function (request, response) {
     }
 
     // update the billing table first
-    const updateCurrentBill = `UPDATE BILLING 
-        SET PAYABLE = ?,
-        OUTSTANDING = ?
-    WHERE BILLINGID = ?`;
+    const payable = taxValue + totalcost - discount;
+    const updateCurrentBill = `UPDATE billing 
+        SET testCost = ?, payable = ?,
+        outstanding = ?
+    WHERE billingid = ?`;
+
 
     // FLOW
     // 1. update billing table
@@ -262,88 +255,63 @@ const updateBilling = async function (request, response) {
     // 4. remove all test from the db that arrent in the test array
     // 5. add all test in the test array that arent in the test_ascention table
     // 6. all should be done using transactions so that if one shoudl fail then the commit should be roolled
-    connection.beginTransaction(function (err) {
+    connection.beginTransaction(async function (err) {
       if (err) { logger.error(err); }
+      const updateBilling = await promisifyQuery(updateCurrentBill, [totalcost, payable, outstanding, billingid]);
+      const isUpdated = updateBilling?.affectedRows > 0 ? true : false;
 
-      connection.query(updateCurrentBill, [totalcost, outstanding, billingid], function (error, results, fields) {
-        if (error) {
-          return connection.rollback(function () {
-            logger.error(err);
-          });
+      if (isUpdated) {
+        const getBillAscensions = await promisifyQuery(`SELECT * FROM test_ascension WHERE billingid = ?`, [billingid]);
+        const ascentionsDatabaseidx = getBillAscensions.map((item, index) => { return item.testid });
+        const userIdxCollections = test.map((item, index) => { return item.testid });
+
+        // we need to check to ensure only the test in idx collection are added and those that aren in idx collection but
+        // are in the ascentionsDatabaseidx are removed
+
+        const toDelete = [];
+        const toAdd = [];
+        const toIgnore = [];
+        userIdxCollections.forEach(async (item, index) => {
+          ascentionsDatabaseidx.includes(item) ? toIgnore.push(item) : toAdd.push(item)
+        })
+
+        ascentionsDatabaseidx.forEach(async (item, index) => {
+          userIdxCollections.includes(item) ?
+            toIgnore.includes(item) ? null : toIgnore.push(item)
+            : toDelete.push(item)
+        })
+
+        if (toAdd.length > 0) {
+          toAdd.forEach(async (item, index) => {
+            const addStatement = `INSERT INTO test_ascension(billingid,testid) VALUES (?,?)`;
+            await promisifyQuery(addStatement, [billingid, item]);
+          })
         }
 
-        connection.query(`SELECT * FROM TEST_ASCENSION WHERE BILLINGID = ?`, [billingid], function (err, result) {
+        if (toDelete.length > 0) {
+          toDelete.forEach(async (item, index) => {
+            const removeStatement = `DELETE FROM test_ascension WHERE testid = ? AND billingid = ?`;
+            await promisifyQuery(removeStatement, [item, billingid]);
+          })
+        }
+
+        connection.commit((err) => {
           if (err) {
-            return connection.rollback(function () {
-              logger.error(err)
-            });
+            logger.error(err);
+            connection.rollback((err) => {
+              if (err) { logger.error(err) }
+            })
+          } else {
+            response.send({ message: 'update successful', statusCode: 200, status: 'success' })
           }
-
-          if (Array.isArray(result) && result.length > 0) {
-            const db_testid = result.map((item, index) => { return item.testid })
-            const testidArray = test.map((item, index) => { return item.testid })
-            // delete all testid that are in db_testid and are not in the database  from the db
-            const toDelete = [];
-            const toAdd = [];
-            for (let i = 0; i < db_testid.length; i++) {
-              if (testidArray.includes(db_testid[i])) {
-                logger.info(`${db_testid[i]} found in current list hence skipping......`)
-              }
-              else {
-                toDelete.push(db_testid[i])
-              }
-            }
-
-            toDelete.forEach((item, index) => {
-              const removeStatement = `DELETE FROM TEST_ASCENSION WHERE BILLINGID = ${billingid} AND TESTID = ${item}`;
-              connection.query(removeStatement, function (err, result) {
-                if (err) {
-                  return connection.rollback(function () {
-                    logger.error(err);
-                  })
-                }
-              })
-            })
-
-
-            for (let i = 0; i < testidArray.length; i++) {
-              if (db_testid.includes(testidArray[i])) {
-                console.log(`${testidArray[i]} of testarray found in current list hence skipping......`)
-              } else {
-                toAdd.push(testidArray[i])
-              }
-            }
-
-            toAdd.forEach((item, index) => {
-              const addStatement = `INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (${billingid},${item})`;
-              connection.query(addStatement, function (err, result) {
-                if (err) {
-                  return connection.rollback(function () {
-                    logger.error(err);
-                  })
-                }
-              })
-            })
-          }
-
-          connection.commit(function (err) {
-            if (err) {
-              return connection.rollback(function () {
-                logger.error(err);
-              });
-            }
-            response.send({
-              message: 'update successful',
-              statusCode: 200,
-              status: 'success'
-            })
-          });
-        });
-      });
+        })
+      }
     });
 
   } catch (err) {
-    console.log(err)
+    connection.rollback((err) => {
+      logger.error(err);
+    })
   }
 }
 

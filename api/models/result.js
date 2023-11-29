@@ -10,6 +10,8 @@ const logger = require("../../logger");
 const { testTable, PDF_QUERIES, setups } = require('../../helpers/testtables');
 const { testCategoryMapping } = require("./ResultQueryMapping");
 const { category_determiner } = require("../test/setup/fbc");
+const Patient = require("./patientAnalytics");
+const Registration = require("./registration");
 
 
 
@@ -43,12 +45,11 @@ class Result {
 
   async isResultEntered(testid) {
     // test for if is a valid test
-    console.log(this.testname)
     if (this.isTestValid() && this.testname in testCategoryMapping) {
       try {
         let result = null;
-        const testname = testCategoryMapping[this.testname];
-        switch (testname) {
+        const category = testCategoryMapping[this.testname];
+        switch (category) {
           case 'fbc':
             const getPatientid = await promisifyQuery(`SELECT patientid FROM billing WHERE billingid = ?`, this.billingid);
             // get result joined with the category of client full blood count e.g male,female,childred
@@ -73,11 +74,20 @@ class Result {
               result = result.length > 0 ? result.map(item => { return { ...item, value: 0 } }) : [];
             }
             break;
+          case 'endocrinology':
+            const getPatientInfo = await new Registration().getPatientInfoUsingBillingId(this.billingid);
+            const gender = getPatientInfo.length > 0 ? getPatientInfo[0]['gender'] : null;
+            result = await promisifyQuery(PDF_QUERIES.endrinologyQ(testTable[this.testname], setups[this.testname], this.billingid, gender));
+            if (result.length === 0) {
+              result = await promisifyQuery(`SELECT * FROM ${setups[this.testname]} WHERE gender = ?`, gender);
+              result = result.length > 0 ? result.map(item => { return { ...item, value: 0 } }) : [];
+            }
           default:
             break;
         }
         return result;
       } catch (err) {
+        console.log(err)
         logger.error(err);
         return err;
       }
@@ -91,24 +101,14 @@ class Result {
 
 
   async getTestResult(testid) {
-    if (this.isTestValid) {
-      return new Promise((resolve, reject) => {
-        let query = `SELECT * FROM ${testTable[this.testname]
-          } WHERE billingid = ${this.billingid}`;
-
-        if (this.testname === 'scan' && testid) {
-          query += ` AND testid=${testid}`
-        }
-        connection.query(query, (err, result) => {
-          if (err) {
-            console.log(err)
-            reject(err);
-          }
-          resolve(result);
-        });
-      });
-    } else {
-      return "test not recognized";
+    try {
+      let query = `SELECT * FROM ${testTable[this.testname]} WHERE billingid = ${this.billingid}`;
+      if (this.testname === 'scan' && testid) {
+        query += ` AND testid=${testid}`
+      }
+      return this.isTestValid() ? await promisifyQuery(query) : 'test not recognized';
+    } catch (err) {
+      logger.error(err);
     }
   }
 
@@ -642,74 +642,31 @@ class Result {
 
   async liverfunctionTest(requestBody, response) {
     const { testname, billingid, testid, patientid, records, comments } = requestBody;
-    console.log(requestBody)
-    let errMessage = this.errMessage;
-    let pushResponse = this.pushResponse;
-
     if (this.isTestValid()) {
-      if (await this.ShouldCreateRecord()) {
-        const insertionQuery = `INSERT INTO ${testTable[testname]}
-         (parameter,unit,value,billingid,patientid)
-         VALUES ?
-         `;
-        const mappedValues = records.map((item, index) => {
-          return [
-            item.parameter,
-            item.unit,
-            parseInt(item.value),
-            billingid,
-            patientid,
-          ];
-        });
-
-        await this.useTransactionForResult(
-          insertionQuery,
-          [mappedValues],
-          testid,
-          response,
-          comments
-        );
-      } else {
-        try {
-          const target = records.length - 1;
-          records.forEach((item, index) => {
-            const updateQuery = `
-            UPDATE ${testTable[testname]}
-            SET value = ?,
-            unit = ?
-            WHERE billingid = ? AND parameter = ?
-          `;
-            const { value, unit, parameter } = item;
-
-            connection.query(
-              updateQuery,
-              [value, unit, billingid, parameter],
-              (err, result) => {
-                if (err) {
-                  this.errMessage(err, response);
-                }
-                if (result) {
-                  if (index === target) {
-                    connection.query(
-                      `UPDATE RESULT_COMMENTS
-                  SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`,
-                      [comments, this.billingid, testid],
-                      function (err, result) {
-                        if (err) {
-                          errMessage(err, response);
-                        }
-                        pushResponse(result, response);
-                      }
-                    );
-                  }
-                }
-              }
-            );
+      try {
+        if (await this.ShouldCreateRecord()) {
+          const insertionQuery = `INSERT INTO ${testTable[testname]} (parameter,unit,value,billingid,patientid) VALUES ?`;
+          const mappedValues = records.map((item, index) => {
+            return [item.parameter, item.unit, parseInt(item.value), billingid, patientid];
           });
-        } catch (err) {
-          this.errMessage(err, response);
+          await this.useTransactionForResult(insertionQuery, [mappedValues], testid, response, comments);
+        } else {
+          const pushCommentsQuery = `UPDATE result_comments SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`;
+          const updateQuery = `UPDATE ${testTable[testname]} SET value = ?, unit = ? WHERE billingid = ? AND parameter = ?`;
+          records.forEach(async (item, index) => {
+            const { value, unit, parameter } = item;
+            await promisifyQuery(updateQuery, [value, unit, billingid, parameter]);
+            if (index == records.length - 1) {
+              const result = await promisifyQuery(pushCommentsQuery, [comments, billingid, testid]);
+              this.pushResponse(result, response)
+            }
+          });
         }
+      } catch (err) {
+        logger.error(err);
       }
+    } else {
+      customError('test not found', 404, response);
     }
   }
 
@@ -1057,14 +1014,14 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
   }
 
 
-  async hormones(records, response) {
-    const { testname, billingid, testid, parameter, value, comment, patientid } = records;
-
+  async hormones(requestbody, response) {
+    const { testname, billingid, testid, records, patientid } = requestbody;
+    const { parameter, unit, value, comments } = records;
     if (this.isTestValid()) {
       if (await this.ShouldCreateRecord()) {
-        const query = `INSERT INTO ${testTable[testname]} (parameter,billingid,patientid,value,comment) VALUES (?,?,?,?,?)`;
+        const query = `INSERT INTO ${testTable[testname]} (parameter,billingid,patientid,value,comment,unit) VALUES (?,?,?,?,?,?)`;
 
-        await this.useTransactionForResult(query, [parameter, billingid, patientid, parseInt(value), comment], testid, response)
+        await this.useTransactionForResult(query, [parameter, billingid, patientid, parseInt(value), comments, unit], testid, response)
 
       } else {
         // TODO: to update the result if present 

@@ -410,3 +410,62 @@
 {"level":"error","message":"Test not recognized or scripted for!!"}
 {"level":"error","message":"Test not recognized or scripted for!!"}
 {"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO BLOODGROUP (BILLINGID,BGROUP,RHESUS,PATIENTID,REMARKS) VALUES (205,'AB','positive',202310127,NULL)","sqlMessage":"Column 'REMARKS' cannot be null","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":"employeeid not included or testinfo is not an array"}
+{"level":"error","message":"employeeid not included or testinfo is not an array"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN undefined AS s ON s.parameter = t.parameter WHERE t.billingid = 211","sqlMessage":"Table 'limsdb.undefined' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN undefined AS s ON s.parameter = t.parameter WHERE t.billingid = 211","sqlMessage":"Table 'limsdb.undefined' doesn't exist","sqlState":"42S02"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211","sqlMessage":"Unknown column 't.unit' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211","sqlMessage":"Unknown column 't.unit' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211","sqlMessage":"Unknown column 't.unit' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211","sqlMessage":"Unknown column 't.unit' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO fshresult (parameter,billingid,patientid,value,comment) VALUES (NULL,211,2023101537,NaN,NULL)","sqlMessage":"Unknown column 'NaN' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO fshresult (parameter,billingid,patientid,value,comment) VALUES (NULL,211,2023101537,NaN,NULL)","sqlMessage":"Unknown column 'NaN' in 'field list'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211 \n    WHERE s.gender = male","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE s.gender = male' at line 3","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211 \n    WHERE s.gender = male","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE s.gender = male' at line 3","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211 \n    WHERE s.gender = 'male'","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE s.gender = 'male'' at line 3","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM fshresult AS t INNER JOIN fshsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 211 \n    WHERE s.gender = 'male'","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE s.gender = 'male'' at line 3","sqlState":"42000"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO fshresult (parameter,billingid,patientid,value,comment) VALUES (NULL,211,2023101537,NaN,NULL)","sqlMessage":"Unknown column 'NaN' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO fshresult (parameter,billingid,patientid,value,comment) VALUES (NULL,211,2023101537,NaN,NULL)","sqlMessage":"Unknown column 'NaN' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO fshresult (parameter,billingid,patientid,value,comment) VALUES (NULL,211,2023101537,NaN,NULL)","sqlMessage":"Unknown column 'NaN' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO fshresult (parameter,billingid,patientid,value,comment,unit) VALUES (NULL,211,2023101537,NaN,NULL,NULL)","sqlMessage":"Unknown column 'NaN' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO TEST_ASCENSION (BILLINGID, TESTID) VALUES (211,undefined)","sqlMessage":"Unknown column 'undefined' in 'field list'","sqlState":"42S22"}
+{"level":"error","message":null}
+{"level":"error","message":null}
+{"level":"error","message":null}
+{"level":"error","message":null}
+{"level":"error","message":null}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_pregnancy_test (\n         METHOD,\n         VALUE,\n         PATIENTID,\n         BILLINGID,\n         COMMENTS,\n         TESTID\n      ) VALUE('Blood','positive',2023101537,211,'kdkdkwek',14)","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_pregnancy_test (\n         METHOD,\n         VALUE,\n         PATIENTID,\n         BILLINGID,\n         COMMENTS,\n         TESTID\n      ) VALUE('Urine','negative',2023101537,211,'kkefkf',14)","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_pregnancy_test (\n         METHOD,\n         VALUE,\n         PATIENTID,\n         BILLINGID,\n         COMMENTS,\n         TESTID\n      ) VALUE('Urine','negative',2023101537,211,'kkekek',14)","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error"}

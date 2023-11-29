@@ -4,7 +4,6 @@ const { customError, promisifyQuery, getFullBloodCountTrend, convertKeysToLowerC
 const path = require('path');
 const { testTable, setups, PDF_QUERIES } = require('../../helpers/testtables');
 const { testCategoryMapping } = require('../../api/models/ResultQueryMapping');
-const Patient = require('../../api/models/patientAnalytics');
 const ResultPrint = require('./ResultPrint');
 const { getCompanyInfo } = require('../settings/companydata');
 const logger = require('../../logger');
@@ -168,6 +167,12 @@ class PDFGENERATION extends ResultPrint {
             resultdata['comments'] = comments
             return resultdata;
         }
+
+        if (testname === 'aids') {
+            result = await promisifyQuery(PDF_QUERIES.hematologicalQ(resulttable), [this.billingid]);
+            result = result.length > 0 ? result.map((item, index) => { return convertKeysToLowerCase(item) })[0] : [];
+            console.log(result);
+        }
     }
 
     async getChemistryTest() {
@@ -188,7 +193,6 @@ class PDFGENERATION extends ResultPrint {
                 if (category && category == 'fbc') {
                     const getPatientidResult = await promisifyQuery(PDF_QUERIES.getPatientid, [this.billingid]);
                     const patientid = getPatientidResult.length > 0 ? getPatientidResult[0]['patientid'] : null;
-                    // iniatialize patient class, patint is a subclass of Registration class
                     return await getFullBloodCountTrend(patientid);
                 }
 
