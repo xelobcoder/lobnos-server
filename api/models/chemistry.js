@@ -61,9 +61,7 @@ class Chemistry {
       // must satisfy paramter, unit, lower, upper
       for (let i = 0; i < this.data.length; i++) {
         for (let j = 0; j < this.data[i].length; j++) {
-          if (this.data[i][j] === undefined) return false;
-          if (this.data[i][j] === null) return false;
-          if (this.data[i][j] === "") return false;
+          if ([null,undefined,""].includes(this.data[i][j])) return false;
         }
       }
     }
@@ -194,4 +192,4 @@ class Chemistry {
   }
 }
 
-module.exports = Chemistry;
+// module.exports = Chemistry;

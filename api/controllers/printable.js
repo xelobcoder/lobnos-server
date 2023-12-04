@@ -31,10 +31,10 @@ router.get('/api/v1/result/ready/crm/summary', (req, res) => {
 
 
 
-router.get('/api/v1/billing/payment/info/client',
-   async (request, response) => {
+router.get('/api/v1/billing/payment/info/client', async (request, response) => {
+   const billingid = request.query.billingid;
       const payment = new Payment();
-      if (request.query.billingid) {
+      if (billingid) {
          try {
             const result = await payment.getTransactionData(request.query.billingid);
             response.send({ result, statusCode: 200, status: 'success' })

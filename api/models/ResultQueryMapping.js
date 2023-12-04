@@ -53,6 +53,7 @@ const testCategoryMapping = {
   hepatitis_b_profile: 'hema',
   syphilis: 'syphilis',
   lipid_profile: 'chemistry',
+  betahcg: 'hema',
   pregnancy_test: 'hema',
   hepatitis_b:'hema',
   hepatitis_c:'hema',
@@ -63,7 +64,11 @@ const testCategoryMapping = {
   thyroid_functional_test: 'chemistry',
   follicle_stimulating_hormone: 'endocrinology',
   luteinizing_hormone: 'endocrinology',
-  glycated_heamoglobin: 'hema'
+  glycated_heamoglobin: 'hema',
+  clotting_and_bleeding_time: 'hema',
+  random_blood_sugar: 'glucose',
+  fasting_blood_sugar: 'glucose',
+  stool_analysis: 'hema',
 }
 
 module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }

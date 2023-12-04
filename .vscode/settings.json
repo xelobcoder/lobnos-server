@@ -1,0 +1,11 @@
+{
+    "workbench.editor.pinnedTabSizing": "shrink",
+    "editor.tabSize": 2,
+    "editor.fontFamily": "Cascadia Code",
+    "editor.tabCompletion": "on",
+    "editor.wordWrap": "on",
+    "editor.wordWrapColumn": 140,
+    "editor.formatOnSave": false,
+    "editor.fontSize": 15,
+    "editor.bracketPairColorization.enabled": true,
+}

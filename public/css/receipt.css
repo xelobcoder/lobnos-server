@@ -1,6 +1,7 @@
 body {
-  font-family: Arial, sans-serif, Helvetica, sans-serif,'Times New Roman', Times, serif,'Open Sans', sans-serif;
+  /* font-family: Arial, sans-serif, Helvetica, sans-serif,'Times New Roman', Times, serif,'Open Sans', sans-serif; */
   font-size: 20px;
+  font-family: Cascadia Code PL, Consolas, 'Courier New', monospace;
   margin-top: 10%;
   margin-left: 4%;
 }

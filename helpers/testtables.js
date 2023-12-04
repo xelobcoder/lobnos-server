@@ -26,7 +26,9 @@ const testTable = {
   helicobacter_pylori: 'result_helicobacter_pylori',
   scan: 'scanReport',
   prostate_specific_antigen_test: 'psaresult',
-  syphilis: 'syphilis'
+  syphilis: 'syphilis',
+  clotting_and_bleeding_time: 'clotbleedingtime',
+  stool_analysis: 'stoolanalysisResult',
 };
 
 const LIVER_SETUP = "setup_liver_function_test";
@@ -39,7 +41,11 @@ const BETAHCG = `setup_beta_hcg`;
 const ESR = `setup_esr`;
 const LHHORMONE = 'lhsetup';
 const FSHHORMONE = 'fshsetup';
-
+const bloodCulture = 'bloodcultureandsensitivitytestsetup';
+const HAEMOGLOBIN_ELECTROPHORESIS = 'haemoglobinelectrophoresis';
+const PSAHORMONE = 'psasetup'
+const BLOODCULTURE = 'bloodcultureandsensitivitytestsetup';
+const GLUCOSE = 'setupglucose';
 
 const setups = {
   liver_function_test: LIVER_SETUP,
@@ -50,6 +56,14 @@ const setups = {
   follicle_stimulating_hormone: FSHHORMONE,
   thyroid_functional_test: THYROID_SETUP,
   lipid_profile: LIPID_PROFILE_SETUP,
+  betahcg: BETAHCG,
+  haemoglobin_electrophoresis: HAEMOGLOBIN_ELECTROPHORESIS,
+  blood_culture_and_sensitivity_test: bloodCulture,
+  prostate_specific_antigen_test: PSAHORMONE,
+  esr: ESR,
+  bloodCulture: BLOODCULTURE,
+  random_blood_sugar: GLUCOSE,
+  fasting_blood_sugar: GLUCOSE
 };
 
 
@@ -67,8 +81,24 @@ const PDF_QUERIES = {
     return `SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,
     t.value,t.patientid FROM ${testname} AS t INNER JOIN ${setupname} AS s ON s.parameter = t.parameter WHERE t.billingid = ${billingid} 
     AND s.gender = '${gender}'`;
+  },
+  glucoseQ: function (testname,table,setupname) { 
+    let query = `SELECT * FROM ${table} INNER JOIN ${setupname}`;
+
+    if (testname === 'random_blood_sugar') {
+      query += ` WHERE parameter = 'random blood sugar'`
+    }
+
+    if (testname === 'fasting_blood_sugar') {
+      query += ` WHERE parameter = 'fasting blood sugar'`
+    }
+
+    query += `AND billingid  = ?`;
+
+    return query;
   }
 }
+
 
 
 const PatientQueries = {

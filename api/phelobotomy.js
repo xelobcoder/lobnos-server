@@ -192,8 +192,8 @@ const sampleAssesment = async function (req, res) {
   } else {
     //  test collection must be true in test ascension table 
     const statement = `
-        SELECT DISTINCT NAME,
-            SAMPLE,
+        SELECT DISTINCT name,
+            sample,
             t.collection,
             t.testid,
             t.billingid,
@@ -201,7 +201,7 @@ const sampleAssesment = async function (req, res) {
             ss.rejectionmessage,
             ss.approvalstatus
           from test_ascension AS t
-            INNER JOIN test_panels AS tt ON tt.ID = t.testid
+            INNER JOIN test_panels AS tt ON tt.id = t.testid
             INNER JOIN samplestatus AS ss ON ss.testid = t.testid
           WHERE t.billingid = ?
             AND t.collection = 'true'

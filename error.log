@@ -649,3 +649,531 @@
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM lhresult AS t INNER JOIN lhsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 212 \n    AND s.gender = 'male'","sqlMessage":"Unknown column 't.unit' in 'field list'","sqlState":"42S22"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM lhresult AS t INNER JOIN lhsetup AS s ON s.parameter = t.parameter WHERE t.billingid = 212 \n    AND s.gender = 'male'","sqlMessage":"Unknown column 't.created_on' in 'field list'","sqlState":"42S22"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO lhresult (parameter,billingid,patientid,value,comment,unit) VALUES (NULL,212,2023101537,NaN,NULL,NULL)","sqlMessage":"Unknown column 'NaN' in 'field list'","sqlState":"42S22"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO clotbleedingtime (billingid,patientid,comments,bleedingTime,clottingTime) VALUES(212,2023101537,NULL,NULL,NULL)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO clotbleedingtime (billingid,patientid,comments,bleedingTime,clottingTime) VALUES(212,2023101537,NULL,NULL,NULL)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO clotbleedingtime (billingid,patientid,comments,bleedingTime,clottingTime) VALUES(212,2023101537,NULL,NULL,NULL)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO clotbleedingtime (billingid,patientid,comments,bleedingTime,clottingTime) VALUES(212,2023101537,NULL,NULL,NULL)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO clotbleedingtime (billingid,patientid,comments,bleedingTime,clottingTime) VALUES(212,2023101537,NULL,NULL,NULL)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO clotbleedingtime (billingid,patientid,comments,bleedingTime,clottingTime) VALUES(212,2023101537,'<p>hefhdhdh</p>',NULL,NULL)","sqlMessage":"Column 'bleedingTime' cannot be null","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM new_patients WHERE PATIENTID = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO setupliteraturereview (testname,literature) VALUES(NULL,'<p>jwdjdkwdk</p>')","sqlMessage":"Column 'testname' cannot be null","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM ","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM ","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 1","sqlState":"42000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO setup_esr (agelimit,upper,lower,gender) VALUES ('under 50 years',200,50,'female')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO setup_esr (agelimit,upper,lower,gender) VALUES ('over 50 years',200,50,'male')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO setup_esr (agelimit,upper,lower,gender) VALUES ('over 50 years',200,50,'female')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO bloodcultureandsensitivitytestsetup (parameter,unit,lower,upper) VALUES(NULL,NULL,NULL,NULL)","sqlMessage":"Unknown column 'parameter' in 'field list'","sqlState":"42S22"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(2023101538,0,0,120,120,3,0,NULL,4,true,20,'moderate',100)","sqlMessage":"Column 'discount' cannot be null","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"employeeid not included or testinfo is not an array"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM result_fasting_blood_sugar AS t INNER JOIN setupglucose AS s ON s.parameter = t.parameter WHERE t.billingid = 213","sqlMessage":"Unknown column 't.parameter' in 'field list'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM result_fasting_blood_sugar INNER JOIN setupglucoseWHERE parameter = 'fasting blood sugar'AND billingid  = '213'","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '= 'fasting blood sugar'AND billingid  = '213'' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM result_fasting_blood_sugar INNER JOIN setupglucoseWHERE parameter = 'fasting blood sugar'AND billingid  = '213'","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '= 'fasting blood sugar'AND billingid  = '213'' at line 1","sqlState":"42000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_random_blood_sugar\n        (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)\n        VALUES (214,2023101539,'400','mg/dl','<p>kfiwefiq</p>')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_random_blood_sugar\n        (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)\n        VALUES (214,2023101539,'400','mg/dl','<p>kfiwefiq</p>')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_random_blood_sugar\n        (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)\n        VALUES (214,2023101539,'400','mg/dl','<p>kfiwefiq</p>')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_random_blood_sugar\n        (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)\n        VALUES (214,2023101539,'400','mg/dl','<p>kfiwefiq</p>')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_random_blood_sugar\n        (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)\n        VALUES (214,2023101539,'400','mg/dl','<p>kfiwefiq</p>')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO result_random_blood_sugar\n        (BILLINGID,PATIENTID,RESULT,UNIT,COMMENTS)\n        VALUES (214,2023101539,'400','mg/dl','<p>kfiwefiq</p>')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysis WHERE billingid = undefined","sqlMessage":"Table 'limsdb.stoolanalysis' doesn't exist","sqlState":"42S02"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM stoolanalysisResult WHERE billingid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO stoolanalysisResult(billingid,patientid,results,comments,employeeid) VALUES (214,2023101539,'[{\\\"name\\\":\\\"color\\\",\\\"value\\\":\\\"Yellow\\\"},{\\\"name\\\":\\\"consistency\\\",\\\"value\\\":\\\"liquid\\\"},{\\\"name\\\":\\\"Frank blood\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Mucus\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Parasites\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Reaction\\\",\\\"value\\\":\\\"Acidic\\\"},{\\\"name\\\":\\\"Occult blood\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"RBC\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Pus cells\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Macrophages\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Fat globules\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Starch granules\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Vegetable cells\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Ova\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Cysts\\\",\\\"value\\\":\\\"present\\\"}]',NULL,2)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO stoolanalysisResult(billingid,patientid,results,comments,employeeid) VALUES (214,2023101539,'[{\\\"name\\\":\\\"color\\\",\\\"value\\\":\\\"Yellow\\\"},{\\\"name\\\":\\\"consistency\\\",\\\"value\\\":\\\"liquid\\\"},{\\\"name\\\":\\\"Frank blood\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Mucus\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Parasites\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Reaction\\\",\\\"value\\\":\\\"Acidic\\\"},{\\\"name\\\":\\\"Occult blood\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"RBC\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Pus cells\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Macrophages\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Fat globules\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Starch granules\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Vegetable cells\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Ova\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Cysts\\\",\\\"value\\\":\\\"present\\\"}]',NULL,2)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO stoolanalysisResult(billingid,patientid,results,comments,employeeid) VALUES (214,2023101539,'[{\\\"name\\\":\\\"color\\\",\\\"value\\\":\\\"Yellow\\\"},{\\\"name\\\":\\\"consistency\\\",\\\"value\\\":\\\"liquid\\\"},{\\\"name\\\":\\\"Frank blood\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Mucus\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Parasites\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Reaction\\\",\\\"value\\\":\\\"Acidic\\\"},{\\\"name\\\":\\\"Occult blood\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"RBC\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Pus cells\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Macrophages\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Fat globules\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Starch granules\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Vegetable cells\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Ova\\\",\\\"value\\\":\\\"present\\\"},{\\\"name\\\":\\\"Cysts\\\",\\\"value\\\":\\\"present\\\"}]',NULL,2)","sqlMessage":"Column 'comments' cannot be null","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}

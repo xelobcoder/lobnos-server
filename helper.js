@@ -58,9 +58,15 @@ const getFullBloodCountTrend = async (patientid) => {
   return trendDataSet;
 }
 
+
+const rowAffected = (result) => {
+  return result.affectedRows > 0 ? true : false;
+ }
+
 module.exports = {
   customError,
   convertKeysToLowerCase,
   getFullBloodCountTrend,
-  promisifyQuery
+  promisifyQuery,
+  rowAffected
 }

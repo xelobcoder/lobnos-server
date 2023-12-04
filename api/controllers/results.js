@@ -19,7 +19,7 @@ router.get('/api/v1/test/result/check', async function (req, res) {
     else {
       res.send({
         statusCode: 200, status: 'success', message: result?.entered ? 'result entered' : 'result not entered',
-        result: result?.entered, records: result.result
+        result: result?.entered, records
       })
     }
   }
@@ -51,7 +51,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
         await resultInstance.urinalysisResult(req.body, res);
         break;
       case "cardiac_enzymes":
-        await resultInstance.cardiacEnzymes(req.body, res);
+        await resultInstance.liverfunctionTest(req.body, res);
         break;
       case "pregnancy_test":
         await resultInstance.pregnancyTest(req.body, res);
@@ -119,12 +119,14 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
       case 'syphilis':
         await resultInstance.syphilis(req.body, res);
         break;
+      case 'clotting_and_bleeding_time':
+        await resultInstance.clotandbleed(req.body, res);
+        break;
+      case 'stool_analysis':
+        await resultInstance.stoolAnalysis(req.body, res);
+        break;
       default:
-        return res.send({
-          status: "error",
-          message: "test not found",
-          statusCode: 400,
-        });
+        return res.send({status: "error",message: "test not found",statusCode: 400});
     }
   }
   catch (err) {
@@ -143,5 +145,16 @@ router.get(`/api/v1/result/patientrend/single`, async function (request, respons
     customError('error occured', 500, response);
   }
 })
+
+router.get('/api/v1/result/reference/betahcg', async function (request, response) { 
+  try {
+    const result = await new Result().getBetaHcgReference();
+    response.send({statusCode: 200, status:'success', result});
+  } catch (err) {
+    logger.error(err);
+    customError('error occured', 500, response);
+  }
+})
+
 
 module.exports = router;
