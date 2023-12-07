@@ -107,7 +107,6 @@ class Result {
         return {result,entered }
       } catch (err) {
         logger.error(err);
-        console.log(err)
         return err;
       }
     } else {
@@ -199,7 +198,7 @@ class Result {
   // hepatitis B and C have the same database table templates hence right if we use thr samapel
   async hepatitisBresult(records, response) {
     // destructure our object
-    const { billingid, result, patientid, scientistid, testid, remarks } = records;
+    const { billingid, results, patientid, employeeid, testid, comments} = records;
     // this check if a template for such test exist
     const isValid = this.isTestValid();
     // check if data with billing id exist in the db table
@@ -209,54 +208,29 @@ class Result {
     if (isValid) {
       if (create) {
         const query = `INSERT INTO ${testTable[this.testname]} (
-            BILLINGID,
-            RESULTS,
-            PATIENTID,
-            SCIENTISTID,
-            REMARKS
+            billingid,
+            results,
+            patientid,
+            employeeid,
+            comments
          ) VALUES (?,?,?,?,?)`;
         // connection to db to pass result
-        connection.query(query, [billingid, result, patientid, scientistid, remarks], function (err, result) {
-          if (err) {
-
-            response.send({
-              status: "error",
-              statusCode: 500,
-              message: err.message,
-            });
-          } else {
-            const ops = new operations().initiateReady(testid, billingid);
-
-            ops.then((initiated) => {
-              if (initiated) {
-                response.send({
-                  statusCode: 201,
-                  message: "record inserted successfully",
-                  status: "success",
-                });
-              }
-            }).catch((err) => console.log(err))
-
-          }
-        })
+        const values = [billingid, results, patientid, employeeid, comments];
+        const queryResult  = await promisifyQuery(query, values);
+        if (queryResult.insertId > 0) {
+          const ops = await new operations().initiateReady(testid, billingid);
+          ops?.affectedRows > 1 ? response.send({ statusCode: 200, status: 'success', comments: 'result entered successfully' }) :
+            response.send({statusCode:200, message:'result not entered',status:'failure'})
+        }
 
       } else {
-        const query = `UPDATE hepatitisBresult SET results = '${result}', remarks = '${remarks}' WHERE billingid = ${billingid}`;
-        connection.query(query, (err, result) => {
-          if (err) {
-            response.send({
-              status: "error",
-              statusCode: 500,
-              message: err.message,
-            });
-          } else {
-            response.send({
-              statusCode: 201,
-              message: "record updated successfully",
-              status: "success",
-            });
-          }
-        });
+        const query = `UPDATE ${testTable[this.testname]} SET results = ?, comments = ? WHERE billingid =  ? `;
+        const values = [results, comments, billingid];
+        const updateQueryResult = await promisifyQuery(query, values);
+        updateQueryResult?.affectedRows > 0 ?
+          response.send({ statusCode: 200, status: 'success', comments: 'result updated successfully' })
+          :
+          response.send({ statusCode: 200, status: 'success', comments: 'result not updated' });
       }
     } else {
       this.errMessage({ err: "test not found" });
@@ -532,25 +506,17 @@ class Result {
   }
 
   async malaria(records, response) {
-    const {
-      testname,
-      testid,
-      patientid,
-      billingid,
-      species,
-      number,
-      comments,
-    } = records;
+    const {testname,testid,patientid,billingid,species, parasitenumber,comments,employeeid} = records;
     // if test is a valid test
     if (this.isTestValid) {
       if (await this.ShouldCreateRecord()) {
         const malariaQuery = `INSERT INTO ${testTable[testname]} 
-               (PARASITENUMBER,SPECIES,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?,?)
+               (PARASITENUMBER,SPECIES,COMMENTS,BILLINGID,PATIENTID,employeeid) VALUES (?,?,?,?,?,?)
                `;
         // using transaction to execute multiple query
         await this.useTransactionForResult(
           malariaQuery,
-          [number, species, comments, billingid, patientid],
+          [parasitenumber, species, comments, billingid, patientid,employeeid],
           testid,
           response
         );
@@ -560,12 +526,13 @@ class Result {
              SET PARASITENUMBER = ?,
              SPECIES = ?,
              COMMENTS = ?,
-             UPDATED_ON = NOW()
+             UPDATED_ON = NOW(),
+             employeeid = ?
              WHERE BILLINGID = ?
             `;
         connection.query(
           updateQuery,
-          [number, species, comments, billingid],
+          [parasitenumber, species, comments,employeeid, billingid],
           (err, result) => {
             if (err) {
               this.errMessage(err, response);
@@ -580,21 +547,21 @@ class Result {
   }
 
   async liverfunctionTest(requestBody, response) {
-    const { testname, billingid, testid, patientid, records, comments } = requestBody;
+    const { testname, billingid, testid, patientid, records, comments,employeeid } = requestBody;
     if (this.isTestValid()) {
       try {
         if (await this.ShouldCreateRecord()) {
-          const insertionQuery = `INSERT INTO ${testTable[testname]} (parameter,unit,value,billingid,patientid) VALUES ?`;
+          const insertionQuery = `INSERT INTO ${testTable[testname]} (parameter,unit,value,billingid,patientid,employeeid) VALUES ?`;
           const mappedValues = records.map((item, index) => {
-            return [item.parameter, item.unit, parseInt(item.value), billingid, patientid];
+            return [item.parameter, item.unit, parseInt(item.value), billingid, patientid,employeeid];
           });
           await this.useTransactionForResult(insertionQuery, [mappedValues], testid, response, comments);
         } else {
           const pushCommentsQuery = `UPDATE result_comments SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`;
-          const updateQuery = `UPDATE ${testTable[testname]} SET value = ?, unit = ? WHERE billingid = ? AND parameter = ?`;
+          const updateQuery = `UPDATE ${testTable[testname]} SET value = ?, unit = ?,updated_on = NOW(),employeeid = ? WHERE billingid = ? AND parameter = ?`;
           records.forEach(async (item, index) => {
             const { value, unit, parameter } = item;
-            await promisifyQuery(updateQuery, [value, unit, billingid, parameter]);
+           await promisifyQuery(updateQuery, [value, unit, employeeid, billingid, parameter]);
             if (index == records.length - 1) {
               const result = await promisifyQuery(pushCommentsQuery, [comments, billingid, testid]);
               this.pushResponse(result, response)

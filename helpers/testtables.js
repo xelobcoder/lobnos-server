@@ -1,6 +1,6 @@
 const testTable = {
-  hepatitisb: "hepatitisBresult",
-  hepatitisc: "hepatitisCresult",
+  hepatitis_b: "hepatitisBresult",
+  hepatitis_c: "hepatitisCresult",
   blood_grouping: "bloodgroup",
   glycated_heamoglobin: "glycated_haemoglobin",
   urinalysis: "urinalysisresult",
@@ -29,6 +29,7 @@ const testTable = {
   syphilis: 'syphilis',
   clotting_and_bleeding_time: 'clotbleedingtime',
   stool_analysis: 'stoolanalysisResult',
+  beta_thalassemia: 'betathalassemia'
 };
 
 const LIVER_SETUP = "setup_liver_function_test";
@@ -46,6 +47,7 @@ const HAEMOGLOBIN_ELECTROPHORESIS = 'haemoglobinelectrophoresis';
 const PSAHORMONE = 'psasetup'
 const BLOODCULTURE = 'bloodcultureandsensitivitytestsetup';
 const GLUCOSE = 'setupglucose';
+const BETATHALASSEMIA = 'setupbetathalassemia';
 
 const setups = {
   liver_function_test: LIVER_SETUP,
@@ -63,7 +65,8 @@ const setups = {
   esr: ESR,
   bloodCulture: BLOODCULTURE,
   random_blood_sugar: GLUCOSE,
-  fasting_blood_sugar: GLUCOSE
+  fasting_blood_sugar: GLUCOSE,
+  beta_thalassemia: BETATHALASSEMIA
 };
 
 

@@ -4,7 +4,7 @@ const connectionData = {
  host: 'localhost',
  user: 'root',
  password: '',
- database: 'limsdb',
+  database: 'limsdb',
 }
 
 
@@ -23,7 +23,7 @@ connectionpool.getConnection((err, connection) => {
   }
  }
 
- if (connection) connection.release();
+  if (connection) connection.release();
 
  return;
 });

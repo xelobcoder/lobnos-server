@@ -56,7 +56,8 @@ const testCategoryMapping = {
   betahcg: 'hema',
   pregnancy_test: 'hema',
   hepatitis_b:'hema',
-  hepatitis_c:'hema',
+  hepatitis_c: 'hema',
+  beta_thalassemia: 'chemistry',
   full_blood_count: 'fbc',
   esr: 'hema',
   semen_analysis: 'hema',
@@ -69,6 +70,8 @@ const testCategoryMapping = {
   random_blood_sugar: 'glucose',
   fasting_blood_sugar: 'glucose',
   stool_analysis: 'hema',
+  urinalysis: 'hema',
 }
 
 module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }
+

@@ -35,10 +35,10 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
     const { billingid, testname } = req.body;
     const resultInstance = new Result(billingid, testname)
     switch (testname) {
-      case "hepatitisb":
+      case "hepatitis_b":
         await resultInstance.hepatitisBresult(req.body, res);
         break;
-      case "hepatitisc":
+      case "hepatitis_c":
         await resultInstance.hepatitisBresult(req.body, res);
         break;
       case "blood_grouping":
@@ -81,6 +81,9 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
         await resultInstance.semenAnalysis(req.body, res);
         break;
       case "thyroid_functional_test":
+        await resultInstance.liverfunctionTest(req.body, res);
+        break;
+      case "beta_thalassemia":
         await resultInstance.liverfunctionTest(req.body, res);
         break;
       case "betahcg":

@@ -7,6 +7,7 @@ const { promisifyQuery, customError } = require('../../helper');
 
 router.get('/api/v1/test/setup/entry', async (req, res) => {
   const { testname } = req.query;
+
   try {
     if (testname) { 
       const test = new TestSetup(testname);
