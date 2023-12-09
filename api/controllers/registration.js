@@ -70,6 +70,20 @@ router.get('/api/v1/register/personalinformation', async (request, response) => 
   }
 })
 
+router.get('/api/v1/register/checkmobile', async (request, response) => { 
+  const { mobileno } = request.query;
+  if (!mobileno) {
+    customError(`mobileno not included in the request`, 400, response)
+  } else {
+    const data = await database_queries.getsingleid(mobileno, 'new_patients', 'mobile_number');
+    if (data.length > 0) {
+      response.send({ statusCode: 200, status: 'success', exist: true })
+    } else {
+      response.send({ statusCode: 200, status: 'success', exist: false })
+    }
+  }
+})
+
 router.get('/api/v1/register/addressingformation', async (request, response) => {
   const { patientid } = request.query;
   if (!patientid) {

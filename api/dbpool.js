@@ -20,7 +20,11 @@ connectionpool.getConnection((err, connection) => {
   }
   if (err.code === 'ECONNREFUSED') {
    console.error('Database connection was refused.');
-  }
+   }
+   
+   if (err.code === 'ER_DUP_ENTRY') {
+     console.log('Duplicates values violation occured');
+   }
  }
 
   if (connection) connection.release();

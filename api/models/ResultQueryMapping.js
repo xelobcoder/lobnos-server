@@ -69,6 +69,7 @@ const testCategoryMapping = {
   clotting_and_bleeding_time: 'hema',
   random_blood_sugar: 'glucose',
   fasting_blood_sugar: 'glucose',
+  prostate_specific_antigen_test: 'chemistry',
   stool_analysis: 'hema',
   urinalysis: 'hema',
 }

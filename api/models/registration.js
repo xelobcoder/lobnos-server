@@ -40,22 +40,11 @@ class Registration {
   }
 
   getLastID = async function() {
-    return await promisifyQuery(`SELECT ID FROM new_patients ORDER BY ID DESC LIMIT 1`)
+    return await promisifyQuery(`SELECT id FROM new_patients ORDER BY id DESC LIMIT 1`)
   };
 
-  generatePatientId = async () => {
-    const date = new Date();
-    const day = date.getDate();
-    const month = date.getMonth();
-    const year = date.getFullYear();
-
-    const lastid = await this.getLastID();
-    if (lastid.length == 0) {
-      return `${year}${month}${day}`
-    } else {
-      const { ID } = lastid[0];
-      return `${year}${month}${day}${ID}`
-    }
+  generatePatientId =  () => {
+    return Date.now();
   }
 
   checkPatientIdExist = async (patientid) => {
@@ -65,7 +54,7 @@ class Registration {
     let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`,useKey);
       return result.length > 0 ? true : false;
     } 
-  catch (err) {logger.error(err); return false;}
+   catch (err) {logger.error(err); return false;}
   }
 
   checkEmailOrMobileExist = async (email, mobile) => {
@@ -80,24 +69,36 @@ class Registration {
     }
   }
 
-  personalInformation = async (id, records) => {
-    return new Promise((resolve, reject) => {
-      const { firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years } = records;
+  isClientSame = async (clientdata) => {
+    try {
+      const { dob, mobile, mobileownership, email } = clientdata;
+      if (mobile.length == 0 && email.length == 0) return false;
+     
+      const getData = await promisifyQuery(`SELECT * FROM new_patients WHERE mobile_number = ?  AND contactpointer = ? OR email = ?`, [mobile,mobileownership, email]);
 
-      const query = `INSERT INTO new_patients (PATIENTID,FIRSTNAME,LASTNAME,MIDDLENAME,EMAIL,AGE,AGETYPE,DOB,MARITAL_STATUS,MOBILE_NUMBER,OCCUPATION,GENDER,ORGANIZATION)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      return getData.length > 0 ? true : false;
+    } catch (err) {
+      logger.error(err);
+     }
+  }
+ 
+  personalInformation = async (records) => {
+    const patientid = this.generatePatientId();
+    try { 
+      const { firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years,mobileownership } = records;
+
+      const query = `INSERT INTO new_patients (patientid,FIRSTNAME,LASTNAME,MIDDLENAME,EMAIL,AGE,AGETYPE,DOB,MARITAL_STATUS,MOBILE_NUMBER,OCCUPATION,GENDER,ORGANIZATION,contactpointer)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
       // query values
-      const values = [id, firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization]
+      const values = [patientid,firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization,mobileownership]
       // execute query
-      connection.query(query, values, async function (err, result) {
-        if (err) {
-          reject(err)
-        } else {
-          const { affectedRows } = result;
-          resolve(affectedRows);
-        }
-      })
-    })
+      const result = await promisifyQuery(query, values);
+      
+      return result.affectedRows;
+    } catch (err) {
+      console.log(err)
+      logger.error(err)
+    }
   }
 
 
@@ -146,85 +147,28 @@ class Registration {
     // destructure information from the personal information provided
     // we will push the data into the new patient table in the database
     try {
-      const id = await this.generatePatientId();
-      const idExist = await this.checkPatientIdExist(id)
-      const EmailNumberExist = await this.checkEmailOrMobileExist(personalInformation.email, personalInformation.mobile)
-      // if false we insert into the database table
-      if (EmailNumberExist) {
+      const isAlreadyRegistered = await this.isClientSame(personalInformation);
+      // // if false we insert into the database table
+      if (isAlreadyRegistered) {
         response.send({
           status: "warning",
-          message:
-            "client exist in the database, kindly activate client to continue",
+          message: personalInformation?.mobileownership == 'relative' ?
+            "Number or emaill associated with a patientid.Please search and bill client to continue"
+            :
+            "Number or email is a associated with  a different patient. Select relative if person is a relative",
           statusCode: 404,
         });
+        return;
       }
-      else {
-        if (!idExist) {
-          let result = await this.personalInformation(id, personalInformation);
-          // if the result is 1 then we have successfully added the patient information
-          if (result == 1) {
-            if (await this.isBulkRegistration() === true) {
-              let insetAddress = await this.addressingInformation(id, addressingInformation);
-              if (insetAddress) {
-                let insetEmmergency = await this.emmergencyInformation(id, emmergencyInformation);
-                if (insetEmmergency == 1) {
-                  response.send({
-                    status: "success",
-                    message: "patient information added successfully",
-                    statusCode: 200,
-                  });
-                } else {
-                  response.send({
-                    status: "error",
-                    message: "failure in adding patient emmergency information",
-                    statusCode: 500,
-                  });
-                }
-              } else {
-                response.send({
-                  status: "error",
-                  message: "failure in adding patient address information",
-                  statusCode: 500,
-                });
-              }
 
-            } else {
-              response.send({
-                status: "success",
-                message: "patient information added successfully",
-                statusCode: 200,
-              });
-            }
-            if (personalInformation?.email) {
-              try {new EmailService().fireClientAuthentication(id,personalInformation?.email)} catch(err) { logger.error(err)}
-            }
-          }
-        } else {
-          while (idExist == true) {
-            let currentid = await this.generatePatientId();
-            let existid = await this.checkPatientIdExist(currentid);
-            if (existid == false) {
-              let result = await this.personalInformation(currentid, personalInformation);
-              // if the result is 1 then we have successfully added the patient information
-              if (result == 1) {
-                response.send({
-                  status: "success",
-                  message: "patient information added successfully",
-                  statusCode: 200,
-                });
-              }
-              else {
-                response.send({
-                  status: "error",
-                  message: "patient information not added",
-                  statusCode: 500,
-                });
-              }
-              break;
-            }
-          }
-        }
+      if (!isAlreadyRegistered) {
+        const isInsertedCount  = await this.personalInformation(personalInformation);
+        isInsertedCount == 1 ?
+          response.send({ statusCode: 200, status: "success", message: 'new client added successfully' })
+          :
+          response.send({statusCode: 200, status: "success", message: 'new client not added'})
       }
+      
     } catch (error) {
       console.log(error)
       response.send({
@@ -270,6 +214,20 @@ class Registration {
     return result;
   }
 
+
+  async filterPatientUsingClient(input) {
+    try {
+      //  filter based on the provided input, it could fullname or patientid or mobile number or email
+    // we concat db fullname,lastname and middlename to get fullname
+      const query = `SELECT DISTINCT * FROM new_patients WHERE CONCAT(firstname,' ',lastname,' ',middlename) LIKE ? OR patientid LIKE ? OR mobile_number LIKE ? OR email LIKE ?`;
+      const values = [`%${input}%`, `%${input}%`, `%${input}%`, `%${input}%}`]
+      const result = await promisifyQuery(query, values);
+     return result;
+    } catch (error) {
+      logger.error(error)
+      return false;
+    }
+  }
 }
 
 

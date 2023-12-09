@@ -1,5 +1,4 @@
 const router = require('express').Router();
-const { response } = require('express');
 const { customError } = require('../../helper');
 const logger = require('../../logger');
 const Patient = require('../models/patientAnalytics');
@@ -117,7 +116,7 @@ router.post('/api/v1/test/result/enter', async function (req, res) {
         await resultInstance.scanResult(req.body, res);
         break;
       case 'prostate_specific_antigen_test':
-        await resultInstance.hormones(req.body, res);
+        await resultInstance.liverfunctionTest(req.body, res);
         break;
       case 'syphilis':
         await resultInstance.syphilis(req.body, res);

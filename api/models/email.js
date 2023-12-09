@@ -24,6 +24,10 @@ class EmailService {
     this.company = company || process.env.EMAILCOMPANY;
   }
 
+  validateCredentials() {
+    return this.user && this.password && this.provider && this.company ? true : false;
+  }
+
   createTransport() {
     return nodemailer.createTransport({
       service: this.provider,
@@ -51,28 +55,20 @@ class EmailService {
   }
 
   transportEmail = function (mailOptions) {
-    if (this.user && this.password && this.provider && this.company) {
-      this.createTransport().sendMail(mailOptions, (error, info) => {
-        if (error) {
-          logger.log("error", error);
-        } else {
-          console.log(`Email sent: ${info.response}`);
-        }
-      });
-    } else {
-      return false;
-    }
+    if (!this.validateCredentials()) return false;
+    const callback = async (error, info) => { if (err) {logger.error(err)}};
+    this.createTransport().sendMail(mailOptions, callback);
   }
 
   async isEmailAuthenticated(patientid) {
-    // we want to verify using the patientid if patient is authenticated via email and the email is authenticated
-    let result = await runPromise(`SELECT * FROM patients_settings WHERE PATIENTID = ?`, [patientid]);
-    if (result.length === 0) return false;
-    else {
-      const { authenticated, authenticationMode } = result[0];
-      if (authenticationMode === 'EMAIL' && authenticated == 1) return true;
-      else return false;
+    try {
+      // we want to verify using the patientid if patient is authenticated via email and the email is authenticated
+      let result = await runPromise(`SELECT * FROM patients_settings WHERE PATIENTID = ?`, [patientid]);
+      if (result.length === 0) return false;
+        const { authenticated, authenticationMode } = result[0];
+        return authenticationMode === 'EMAIL' && authenticated == 1? true: false
     }
+    catch (err) { console.log(err) }
   }
 
   async sendAuthenticateEmail(emailAdd, patientid) {
@@ -100,7 +96,7 @@ class EmailService {
         if (response) {
           response.send({ message: 'Email authenticated.Your temporary logins will be sent to you via email', statusCode: 200, status: 'success' });
         }
-        const logins = await this.fireClientTemporaryLogins(patientid);
+        const logins = await this.sendTemporaryEmailCredentials(patientid);
         const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/temporaryLogins.ejs'), { data: logins });
         this.transportEmail(this.mailOptions(email, 'TEMPORARY PATIENT LOGINS', html));
       } else {
@@ -120,39 +116,35 @@ class EmailService {
 
 
   async fireClientAuthentication(patientid, email) {
-    //  1. patient only provided? get personal information and check if email address is available
+    //  1. patientid only provided? get personal information and check if email address is available
     // 2. if yes, send verification message 
     // 3. if no , return 
     // --- if email address is provided as second arguments , send verification message right away
+    if (!patientid) return false;
+    if (patientid && email) {
+      const patternValid = email.length > 5 && email.includes(".") && email.includes("@");
+       return  patternValid ? this.sendAuthenticateEmail(email, patientid) : false;
+    };
     if (patientid && !email) {
       const cI = await database_queries.getsingleid(patientid, 'new_patients', 'PATIENTID');
-      if (cI.length > 0 && cI[0]['EMAIL']) {
-        const emailAdd = cI[0]['EMAIL'];
-        this.sendAuthenticateEmail(emailAdd, patientid);
+      if (cI.length > 0 && cI[0]['email']) {
+        const emailAddress = cI[0]['email'];
+        this.sendAuthenticateEmail(emailAddress, patientid);
       }
-    } else if (patientid && email) {
-      this.sendAuthenticateEmail(email, patientid);
-    } else {
-      return false;
-    }
+    }  
   }
 
 
-  async fireClientTemporaryLogins(patientid, response) {
-    if (patientid && typeof patientid === 'number') {
+  async sendTemporaryEmailCredentials(patientid, response) {
+    try { 
+      if (!patientid || typeof patientid !== 'number') throw new Error('Patientid must be type Number');
       const query = `SELECT * FROM patients_credentials where PATIENTID = ?`;
       const outcome = await runPromise(query, patientid);
-      if (outcome && outcome.length > 0) {
-        const { username, password } = outcome[0];
-        const updated = outcome[0]['updated']
-        if (updated === 'true') return false;
-        if (response) {
-          response.send({ result: outcome[0] });
-        }
-        if (updated === 'false') {
-          return { username, password };
-        }
-      }
+      if (outcome && outcome.length == 0 || outcome[0]['updated'] == 'true') return false;
+      const { username, password } = outcome[0];
+      return response ? response.send({ result: outcome[0] }) : { username, password };
+    } catch (err) {
+      logger.error(err);
     }
   }
 

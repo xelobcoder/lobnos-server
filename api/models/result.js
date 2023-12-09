@@ -10,7 +10,6 @@ const logger = require("../../logger");
 const { testTable, PDF_QUERIES, setups } = require('../../helpers/testtables');
 const { testCategoryMapping } = require("./ResultQueryMapping");
 const { category_determiner } = require("../test/setup/fbc");
-const Patient = require("./patientAnalytics");
 const Registration = require("./registration");
 
 
@@ -62,7 +61,6 @@ class Result {
               result = result.length > 0 ? result.map(item => { return { ...item, value: 0 } }) : [];
             }
             break;
-
           case 'hema':
             let query = `SELECT * FROM ${testTable[this.testname]} WHERE billingid = ?`;
             result = await promisifyQuery(query, this.billingid);
@@ -197,43 +195,46 @@ class Result {
   }
   // hepatitis B and C have the same database table templates hence right if we use thr samapel
   async hepatitisBresult(records, response) {
-    // destructure our object
-    const { billingid, results, patientid, employeeid, testid, comments} = records;
-    // this check if a template for such test exist
-    const isValid = this.isTestValid();
-    // check if data with billing id exist in the db table
-    const create = (await this.getTestResult(billingid)).length > 0 ? false : true;
+    try {
+// destructure our object
+const { billingid, results, patientid, employeeid, testid, comments} = records;
+// this check if a template for such test exist
+const isValid = this.isTestValid();
+// check if data with billing id exist in the db table
+const create = (await this.getTestResult(billingid)).length > 0 ? false : true;
 
-    // populate based on the method
-    if (isValid) {
-      if (create) {
-        const query = `INSERT INTO ${testTable[this.testname]} (
-            billingid,
-            results,
-            patientid,
-            employeeid,
-            comments
-         ) VALUES (?,?,?,?,?)`;
-        // connection to db to pass result
-        const values = [billingid, results, patientid, employeeid, comments];
-        const queryResult  = await promisifyQuery(query, values);
-        if (queryResult.insertId > 0) {
-          const ops = await new operations().initiateReady(testid, billingid);
-          ops?.affectedRows > 1 ? response.send({ statusCode: 200, status: 'success', comments: 'result entered successfully' }) :
-            response.send({statusCode:200, message:'result not entered',status:'failure'})
-        }
+// populate based on the method
+if (isValid) {
+  if (create) {
+    const query = `INSERT INTO ${testTable[this.testname]} (
+        billingid,
+        results,
+        patientid,
+        employeeid,
+        comments
+     ) VALUES (?,?,?,?,?)`;
+    const values = [billingid, results, patientid, employeeid, comments];
+    const queryResult  = await promisifyQuery(query, values);
+    if (queryResult.insertId > 0) {
+      const ops = await new operations().initiateReady(testid, billingid);
+      ops.affectedRows > 1 ? response.send({ statusCode: 200, status: 'success', message: 'result entered successfully' }) :
+        response.send({statusCode:200, message:'result not entered',status:'failure'})
+    }
 
-      } else {
-        const query = `UPDATE ${testTable[this.testname]} SET results = ?, comments = ? WHERE billingid =  ? `;
-        const values = [results, comments, billingid];
-        const updateQueryResult = await promisifyQuery(query, values);
-        updateQueryResult?.affectedRows > 0 ?
-          response.send({ statusCode: 200, status: 'success', comments: 'result updated successfully' })
-          :
-          response.send({ statusCode: 200, status: 'success', comments: 'result not updated' });
-      }
-    } else {
-      this.errMessage({ err: "test not found" });
+  } else {
+    const query = `UPDATE ${testTable[this.testname]} SET results = ?, comments = ? WHERE billingid =  ? `;
+    const values = [results, comments, billingid];
+    const updateQueryResult = await promisifyQuery(query, values);
+    updateQueryResult?.affectedRows > 0 ?
+      response.send({ statusCode: 200, status: 'success', message: 'result updated successfully' })
+      :
+      response.send({ statusCode: 200, status: 'success', message: 'result not updated' });
+  }
+} else {
+  this.errMessage({ err: "test not found" });
+}
+    } catch (err) {
+      logger.error(err)
     }
   }
 
