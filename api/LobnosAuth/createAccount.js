@@ -3,6 +3,7 @@ const User = require("../LobnosAuth/user");
 const jwt = require("jsonwebtoken");
 const { customError, convertKeysToLowerCase } = require('../../helper');
 const logger = require("../../logger");
+const { del } = require("../database/queries");
 
 const createNewAccount = async (req, res) => {
   const { name, password, role, email } = req.body;
@@ -55,6 +56,7 @@ const userLogin = async (req, res) => {
 
   if (userExist) {
     let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email);
+
     // decode userinformation
     let decoded = jwt.decode(userinformation);
 

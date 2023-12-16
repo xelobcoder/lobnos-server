@@ -1,7 +1,7 @@
 const { promisifyQuery, customError, convertKeysToLowerCase } = require('../helper');
 const logger = require('../logger');
 const connection = require('./db');
-const EmailService = require('./models/email');
+const EmailService = require('./EmailServices/email');
 const { database_queries } = require("./testResult");
 // YET TO BE CODED
 // AFTER CHANGE OF STATUS CLIENT WOULD BE NOTIFIED VIA EMAIL

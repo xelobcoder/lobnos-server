@@ -1,5 +1,6 @@
 const { customError, promisifyQuery } = require("../../helper");
 const logger = require("../../logger");
+const EmailService = require("../EmailServices/email");
 
 const applicationSettings = {};
 
@@ -73,6 +74,27 @@ applicationSettings.updatePreference = async function (request, response) {
   }
 }
 
+
+applicationSettings.generalEmailSettings = async function (records) {
+  if (typeof records != 'object') return false;
+  // first truncate the table
+  const truncate = `TRUNCATE TABLE generalemailsettings`;
+  let isTruncated = await promisifyQuery(truncate);
+  if (isTruncated) { 
+    return new EmailService().insertEmailSettings(records);
+  }
+}
+ 
+applicationSettings.getGeneralEmaiSettings = async function () {
+  try {
+    const query = `SELECT * FROM generalemailsettings`;
+    return await promisifyQuery(query);
+  } catch (err) {
+    logger.error(err);
+    return false;
+  }
+}
+ 
 
 applicationSettings.addTax = async function (request, response) {
   const { value, name } = request.body;

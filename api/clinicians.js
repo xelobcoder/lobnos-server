@@ -1,22 +1,20 @@
 const { response } = require('express');
 const connection = require('./db');
 const logger = require('../logger');
-const { convertKeysToLowerCase } = require('../helper');
+const { convertKeysToLowerCase, promisifyQuery } = require('../helper');
+const { parse } = require('dotenv');
 
 
 // get all clinicians
-const getClinicians = (req, res) => {
-   let query = 'SELECT * FROM clinicianbasicinfo';
-   // execute query
-   connection.query(query, (err, result) => {
-      if (err) {
-         logger.error(err)
-      }
-    else {
-      res.send({ statusCode: 200, result: result.length === 0 ? [] :
-      result.map( (item,index) => {return convertKeysToLowerCase(item)}) })
-    }
-   })
+const getClinicians = async (req, res) => {
+   try {
+      let result = await promisifyQuery('SELECT * FROM clinicianbasicinfo');
+      result = result.length > 0 ?
+         result.map(item => convertKeysToLowerCase(item)) : result;
+      res.send({ statusCode: 200, status: 'success', result });
+   } catch (err) {
+      logger.error(err);
+   }
 }
 
 // update clinicians
@@ -252,7 +250,72 @@ const getTopPerformingClinicians = async function (request, response) {
    }
 };
 
+var CLINICIAN_QUERY_SUM = `SELECT 
+b.billingid,
+np.patientid,
+tp.name,
+tt.testid,
+tt.approvalStatus AS approval,
+tt.collection,
+tt.ready,
+tt.processing,
+np.firstname,
+np.lastname,
+np.middlename,
+b.clinician,
+b.billedon
+FROM test_ascension AS tt INNER JOIN billing AS b ON tt.billingid = b.billingid
+INNER JOIN new_patients AS np ON np.patientid = b.patientid INNER JOIN test_panels AS tp ON tp.ID = tt.testid
+WHERE b.clinician = ?`
 
+const getClinicianResult = async function (clinicianid, startdate, enddate) {
+   try {
+      let query = CLINICIAN_QUERY_SUM;
+
+      let values = [parseInt(clinicianid)];
+
+      if (startdate && enddate) {
+         query+= ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+         values.push(startdate);
+         values.push(enddate);
+      } else {
+         query+= ` AND DATE(b.billedon) = DATE(CURRENT_DATE) ORDER BY b.billedon DESC`;
+      }
+
+      let result = await promisifyQuery(query, values);
+
+      // get unique billingid
+
+      let unique = [...new Set(result.map(item => item.billingid))];
+
+      let transformed = [];
+
+      for (let i = 0; i < unique.length; i++) { 
+         let current_filtered = result.filter(item => item.billingid === unique[i]);
+         let obj = {};
+         obj.billingid = unique[i];
+         obj.fullname = current_filtered[0]?.firstname + " " + current_filtered[0]?.middlename + " " + current_filtered[0]?.lastname;
+         obj.billingdate = current_filtered[0]?.billedon;
+         let ready_count = current_filtered.filter(item => item.ready === 'true').length;
+         obj.ready_count = ready_count;
+         obj.totaltest = current_filtered.length;
+
+         transformed.push(obj);
+      }
+
+      return transformed;
+   }
+   catch (error) {
+      logger.error(error);
+   }
+}
+
+
+const getBillingTestBasedByClinician = async function (billingid, clinicianid) {
+   const query = CLINICIAN_QUERY_SUM + ` AND b.billingid = ?`;
+   const result = await promisifyQuery(query, [clinicianid, billingid]);
+   return result;
+}
 
 
 module.exports = {
@@ -261,5 +324,7 @@ module.exports = {
    deleteClinicians,
    postClinicianBasicInfo,
    getSingleClinician,
-   getTopPerformingClinicians
+   getTopPerformingClinicians,
+   getClinicianResult,
+   getBillingTestBasedByClinician
 }

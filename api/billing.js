@@ -3,6 +3,8 @@ const { checkpatient } = require('./register');
 const logger = require('../logger')
 const { customError, promisifyQuery } = require('../helper');
 const { getApplicationSettings } = require('./models/applicationSettings');
+const EmailService = require('./EmailServices/email');
+const applicationSettings = require('./models/applicationSettings');
 
 
 /**
@@ -96,7 +98,7 @@ class Billing {
     }
   }
 
-  async insetionProcess(request, response) {
+  async insertionProcess(request, response) {
     if (await this.isValidForDayEntry(this.patientid)) {
       try {
         connection.beginTransaction(async (err) => {
@@ -104,11 +106,24 @@ class Billing {
           const billingid = await this.insertNewBilling();
           await this.AddtoTestAscenstion(billingid);
           await this.updateBillingHistory(billingid);
-          connection.commit((err) => {
+          connection.commit(async (err) => {
             if (err) { logger.error(err);
-            connection.rollback();
+              connection.rollback();
+              return;
            }
-            response.status(200).json({ message: 'billing successfully',billingid, statusCode: 200, status: 'success' })
+            response.status(200).json({ message: 'billing successfully', billingid, statusCode: 200, status: 'success' })
+            const settings = await applicationSettings.getGeneralEmaiSettings();
+            const { provider, email, apppassword } = settings[0];
+            const services = new EmailService(email, apppassword, provider, "kairos diagnostic center");
+            const isSent = await services.forwardBillingReceipt(billingid);
+            if (isSent === true) {
+              services.emailLogdb('billing receipt', billingid, 1);
+              logger.info(`billing receipt sent to client with billing id ${billingid}`);
+              return;
+            }
+            services.emailLogdb('billing receipt', billingid, 0);
+            logger.info(`billing receipt not sent to client with billing id ${billingid}`);
+            return;
           })
         })
       } catch (err) {

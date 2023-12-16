@@ -3,12 +3,13 @@ const { customError, promisifyQuery, convertKeysToLowerCase } = require('../../h
 const logger = require('../../logger');
 
 const testInformation = async function (billingid) {
-  return new Promise((resolve, reject) => {
-    const query = `SELECT PRICE,NAME FROM test_panels WHERE ID IN (SELECT TESTID FROM test_ascension WHERE BILLINGID = ${billingid})`;
-    connection.query(query, (err, result) => {
-      if (err) { reject(err); } else { resolve(result) }
-    })
-  })
+  try {
+    const query = `SELECT price,name FROM test_panels WHERE ID IN (SELECT testid FROM test_ascension WHERE BILLINGID = ?)`;
+     return promisifyQuery(query, [billingid]);
+  } catch (err) {
+    logger.error(err);
+    throw new Error(err);
+  }
 }
 
 

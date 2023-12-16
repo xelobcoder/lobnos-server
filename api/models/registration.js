@@ -2,7 +2,7 @@ const { response } = require('express');
 const { customError, promisifyQuery } = require('../../helper');
 const connection = require('../db');
 const logger = require('../../logger');
-const EmailService = require('./email');
+const EmailService = require('../EmailServices/email');
 
 
 /**
@@ -39,6 +39,39 @@ class Registration {
     })
   }
 
+
+  temporaryOrder = async (records) => {
+    const { clinicianid, data ,patientid} = records;
+    if (!clinicianid || !data) return 'please add clinicianid and data';
+    try {
+      const isRequestedToday = await promisifyQuery(`SELECT * FROM billingtemporarytable WHERE clinicianid = ? AND patientid = ? AND DATE(created_on) = CURRENT_DATE `, [clinicianid, patientid]);
+      
+      if (typeof data == 'object' && data.length > 0 && isRequestedToday.length == 0) { 
+        const transformedData = JSON.stringify(data);
+        const query = `INSERT INTO billingtemporarytable (clinicianid,data,patientid) VALUES (?,?,?)`;
+        const values = [clinicianid, transformedData,patientid];
+        const result = await promisifyQuery(query, values);
+        return result.affectedRows == 1 ? true : false;
+      }
+      return false;
+    } catch (err) {
+      logger.error(err)
+      throw new Error(err);
+    }
+   }
+
+  getTemporaryOrders = async (clinicianid) => { 
+    if (!clinicianid) return new Error("Clinicianid not provided");
+    try {
+      const query = `SELECT * FROM billingtemporarytable  AS bt
+      INNER JOIN new_patients  AS np ON np.patientid = bt.patientid WHERE bt.clinicianid = ? AND bt.processed = 0 ORDER BY bt.id DESC LIMIT 20`;
+    const result = await promisifyQuery(query, [clinicianid]);
+    return result;
+    } catch (err) {
+      logger.error(err);
+      throw new Error(err);
+   }
+  }
   getLastID = async function() {
     return await promisifyQuery(`SELECT id FROM new_patients ORDER BY id DESC LIMIT 1`)
   };
@@ -125,8 +158,7 @@ class Registration {
     return new Promise((resolve, reject) => {
       const { emmergencyContact, emmergencyContactNumber, relationship, location, address, occupation } = records;
       //  update the record of the addressing information table using the result query
-      const query = `UPDATE patientemmergencycontactinformation SET emmergencyContactName = ?,emmergencyContactNumber = ?,
-    relationship = ?,occupation = ?, address = ? WHERE patientid = ?`;
+      const query = `UPDATE patientemmergencycontactinformation SET emmergencyContactName = ?,emmergencyContactNumber = ?, relationship = ?,occupation = ?, address = ? WHERE patientid = ?`;
       // execute the query
       const values = [emmergencyContact, emmergencyContactNumber, relationship, occupation, address, id];
       // execute the query

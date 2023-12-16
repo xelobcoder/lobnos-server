@@ -2,7 +2,8 @@ const express = require("express");
 const connection = require('./api/db')
 const app = express();
 const dotenv = require("dotenv");
-const EmailService = require('./api/models/email')
+const EmailService = require('./api/EmailServices/email');
+// const emailReceiptRouter = require("./api/controllers/EmailFiles/receipt")
 const port = 5000;
 const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing");
 const branchesHandler = require("./api/branches");
@@ -91,6 +92,7 @@ app.use(branchesHandler);
 app.use(registrationRouter);
 app.use(applicationsettingsRouter);
 app.use(patientAnalytics);
+// app.use(emailReceiptRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
@@ -107,7 +109,7 @@ app.post("/api/v1/billing", (req, res) => {
   const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
     outstanding, cost);
 
-  billing.insetionProcess(req, res);
+  billing.insertionProcess(req, res);
 });
 
 app.get("/api/v1/billedclients", (req, res) => {
