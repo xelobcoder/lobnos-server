@@ -45,7 +45,10 @@ class Billing {
     try {
       const { affectedRows, insertId } = await promisifyQuery(query, values);
       return affectedRows > 0 ? insertId : false;
-    } catch (err) { logger.error(err) }
+    } catch (err) { 
+      logger.error(err);
+      throw new Error(err.message);
+     }
   }
 
 
@@ -98,32 +101,35 @@ class Billing {
     }
   }
 
-  async insertionProcess(request, response) {
+  async insertionProcess(request, response) {              
     if (await this.isValidForDayEntry(this.patientid)) {
       try {
         connection.beginTransaction(async (err) => {
           if (err) { logger.error(err) }
           const billingid = await this.insertNewBilling();
+          if (!billingid) { customError('billing failed', 500, response); connection.rollback();}
           await this.AddtoTestAscenstion(billingid);
           await this.updateBillingHistory(billingid);
           connection.commit(async (err) => {
             if (err) { logger.error(err);
               connection.rollback();
-              return;
+            } else {
+              response.status(200).json({ message: 'billing successfully', billingid, statusCode: 200, status: 'success' })
+                const settings = await applicationSettings.getGeneralEmaiSettings();
+                const { provider, email, apppassword } = settings[0];
+                const services = new EmailService(email, apppassword, provider, "kairos diagnostic center");
+              const isSent = await services.forwardBillingReceipt(billingid);
+              if (isSent === true) {
+               await  services.emailLogdb('billing receipt', billingid, 1);
+                logger.info(`billing receipt sent to client with billing id ${billingid}`);
+                return;
+              } else {
+                 await  services.emailLogdb('billing receipt', billingid, '0', isSent);
+                logger.info(`billing receipt not sent to client with billing id ${billingid}`);
+                return;
+              }
+            
            }
-            response.status(200).json({ message: 'billing successfully', billingid, statusCode: 200, status: 'success' })
-            const settings = await applicationSettings.getGeneralEmaiSettings();
-            const { provider, email, apppassword } = settings[0];
-            const services = new EmailService(email, apppassword, provider, "kairos diagnostic center");
-            const isSent = await services.forwardBillingReceipt(billingid);
-            if (isSent === true) {
-              services.emailLogdb('billing receipt', billingid, 1);
-              logger.info(`billing receipt sent to client with billing id ${billingid}`);
-              return;
-            }
-            services.emailLogdb('billing receipt', billingid, 0);
-            logger.info(`billing receipt not sent to client with billing id ${billingid}`);
-            return;
           })
         })
       } catch (err) {

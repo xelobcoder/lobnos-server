@@ -141,7 +141,9 @@ class User {
     else {
       jwt.verify(accessToken, accessSecret, (err, user) => {
         err ? res.send({
-          err: err.message, expiredIn: err.expiredAt
+          err: err.message, expiredIn: err.expiredAt,
+          message: "Application licenced expired, please contact admin for renewal",
+          status: 401
         }) : next()
       }
       )

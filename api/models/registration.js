@@ -123,7 +123,7 @@ class Registration {
       const query = `INSERT INTO new_patients (patientid,FIRSTNAME,LASTNAME,MIDDLENAME,EMAIL,AGE,AGETYPE,DOB,MARITAL_STATUS,MOBILE_NUMBER,OCCUPATION,GENDER,ORGANIZATION,contactpointer)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
       // query values
-      const values = [patientid,firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization,mobileownership]
+      const values = [patientid, firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization, mobileownership || 'self'];
       // execute query
       const result = await promisifyQuery(query, values);
       

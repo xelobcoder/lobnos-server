@@ -59,14 +59,18 @@ applicationSettings.getSmsSettings = async function (request, response) {
 
 
 applicationSettings.updatePreference = async function (request, response) {
-  const { registration, rejection, result, approval, transactions, birthday } = request.body;
-  const query = `UPDATE emailpreference SET registration = ?, result = ? , rejection = ?, approval  = ? , transactions = ? ,updated_on = NOW(),
-  birthday = ? WHERE id = 1`;
-  const values = [registration, result, rejection, approval, transactions, birthday];
+  const { registration, rejection, result, approval, transactions, birthday,billing } = request.body;
+  // truncate the table
+  const truncate = await promisifyQuery(`TRUNCATE TABLE emailpreference`);
+
+  if (!truncate) { customError('error occured', 500, response); return }
+  
+  const query = `INSERT INTO emailpreference (registration,result,rejection,approval,transactions,birthday,billing) VALUES (?,?,?,?,?,?,?)`;
+  const values = [registration, result, rejection, approval, transactions, birthday,billing];
   try {
     const result = await promisifyQuery(query, values);
     if (result) {
-      response.send({ message: 'updated successfully', status: 'success', statusCode: 200 });
+      response.send({ message: result.affectedRows ==  1 ? 'updated successfully' : 'update failed', status: 'success', statusCode: 200 });
     }
   } catch (err) {
     logger.error(err);

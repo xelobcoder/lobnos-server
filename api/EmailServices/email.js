@@ -5,7 +5,7 @@ const Patients = require('../models/patientAnalytics');
 const ejs = require('ejs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
-const { customError, promisifyQuery } = require('../../helper');
+const { customError, promisifyQuery, convertKeysToLowerCase } = require('../../helper');
 const Registration = require('../models/registration');
 const { testInformation, clientInformation } = require('../models/invoice');
 
@@ -57,6 +57,123 @@ class EmailService {
     }
   }
 
+ /**
+       * Retrieves a range of email log records from the database.
+       * 
+       * @param {number} start - The starting index of the email log records to retrieve.
+       * @param {number} [limit=20] - The maximum number of email log records to retrieve. Default is 20.
+       * @param {object} [response] - The response object to send the result to. If not provided, the result will be returned directly.
+       * @returns {Array} - An array of objects representing the email log records within the specified range.
+       * Each object contains the following properties:
+       *   - id (number): The unique identifier of the email log record.
+       *   - type (string): The type of email log (e.g., "sent", "received").
+       *   - target (string): The target email address of the email log.
+       *   - success (boolean): Indicates whether the email was sent successfully or not.
+       */
+  async getEmailLog(start, limit = 20, response) {
+      try {
+          if (!start) return false;
+          const end = parseInt(start) + parseInt(limit);
+          const query = `SELECT * FROM emaillog WHERE id BETWEEN ? AND ? LIMIT ?`;
+          const result = await promisifyQuery(query, [start, end,limit]);
+          if (!response) return result;
+          response.send({ message: 'success', statusCode: 200, result });
+      } catch (err) {
+          logger.error(err);
+          if (response) customError(err, 404, response);
+      }
+  }
+
+
+  async customSearch(record) { 
+    try {
+      const { email, category } = record;
+      const staffQuery = `SELECT * FROM roles WHERE email LIKE ?`;
+      const patientQuery = `SELECT * FROM new_patients WHERE email LIKE ?`;
+      let result;
+      switch (category) {
+        case 'staff':
+          result = await promisifyQuery(staffQuery, `%${email}%`);
+          result = result.map((item) => { 
+            item = convertKeysToLowerCase(item);
+            return  {fullname: item?.username, email: item?.email, employeeid: item?.employeeid}
+          });
+          break;
+        case 'clients':
+          result = await promisifyQuery(patientQuery, `%${email}%`);
+          break;
+        case 'bulk clients':
+          result = await promisifyQuery('SELECT email FROM new_patients');
+          break;
+        case 'bulk staff':
+          result = await promisifyQuery('SELECT email FROM roles');
+          break;
+        default:
+          result = [];
+          break;
+      }
+      return result;
+    } catch (err) {
+      logger.error(err);
+      return "error occured";
+    }
+  }
+
+  async saveComposedEmailDraft(subject, draft,employeeid) {
+    try {
+      const query = `INSERT INTO composedemails (subject,body,employeeid) VALUES(?,?,?)`;
+      const result = await promisifyQuery(query, [subject, draft,employeeid]);
+      return result.affectedRows > 0 ? true : false;
+    } catch (err) {
+      logger.error(err);
+      return err?.message;
+    }
+  }
+
+
+  async getComposedEmailDraft(target,limit = 20) { 
+    try {
+      let query = `SELECT * FROM composedemails`;
+      if (target && target == 'draft') query += ` WHERE ispublished = 'false'`;
+      if (target && target == 'published') query += ` WHERE ispublished = 'true'`;
+      query += `order by id desc limit ?`;
+      return await promisifyQuery(query,[limit]);
+    } catch (err) {
+      logger.error(err);
+      return err?.message;
+    }
+  }
+  async getEmailSummaryByDay(response) { 
+    try {
+      const query = `SELECT DATE_FORMAT(date, '%Y-%m-%d') AS date, COUNT(id) AS total,
+      SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failed,
+      SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success FROM emaillog GROUP BY DATE_FORMAT(date, '%Y-%m-%d')`;
+      const result = await promisifyQuery(query);
+      if (response) response.send({ status: 'success', statusCode: 200, result });
+      return result;
+    } catch (err) {
+      logger.error(err);
+      if (response) { customError(err, 404, response); return; }
+      return "error occured";
+    }
+  }
+
+  async emailSummary(response) {
+    try {
+      const query = `SELECT COUNT(id) AS total,
+      SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failed,
+      SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success FROM emaillog`;
+      const result = await promisifyQuery(query);
+      if (response) response.send({ status: 'success', statusCode: 200, result });
+      return result;
+    }
+    catch (err) {
+      logger.error(err);
+      if (response) { customError(err, 404, response); return; }
+      return "error occured";
+    }
+  }
+
   async isEmailAuthenticated(patientid) {
     try {
       // we want to verify using the patientid if patient is authenticated via email and the email is authenticated
@@ -72,18 +189,17 @@ class EmailService {
   }
 
   async sendAuthenticateEmail(emailAdd, patientid) {
-    if (emailAdd && patientid) {
-      try {
-        // generate a jwt token for client
-        const token = jwt.sign({ email: emailAdd, patientid }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
-        // render html using ejs templating egine
-        const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/verifyemail.ejs'), { token });
-        // forward the email
-        this.transportEmail(this.mailOptions(emailAdd, 'EMAIL VERIFICATION', html));
-      } catch (err) {
-        logger.error(err)
-      }
-    } else return `all parameters not provided`;
+    if (!emailAdd || !patientid) return `all parameters not provided`;
+    try {
+      // generate a jwt token for client
+      const token = jwt.sign({ email: emailAdd, patientid }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
+      // render html using ejs templating egine
+      const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/verifyemail.ejs'), { token });
+      // forward the email
+      this.transportEmail(this.mailOptions(emailAdd, 'EMAIL VERIFICATION', html));
+    } catch (err) {
+      logger.error(err)
+    }
   }
 /**
  * 
@@ -207,20 +323,18 @@ class EmailService {
        * Inserts email log data into the emaillog table in the database.
        * 
        * @param {string} type - The type of email log.
-       * @param {string} target - The billingid of the email log.
+       * @param {number} target - The billingid of the email log.
        * @param {boolean} success - Indicates whether the email was sent successfully or not.
+       * @param {string} [reason] - The reason why the email was not sent successfully.
        * @returns {Promise<any>} - The result of the query.
        * @throws {Error} - If an error occurs during the execution of the query.
        */
-  async emailLogdb(type, target, success) {
+  async emailLogdb(typer, target, success, reason) {
+    if (!typer ||!target || !success) return 'all parameters not provided';
       try {
-        if (type && target && success) {
-          const query = `INSERT INTO emaillog (type,target,success) VALUES(?,?,?)`;
-          const result = await promisifyQuery(query, [type, target, success]);
+        const query = `INSERT INTO emaillog (type,target,success,reason) VALUES(?,?,?,?)`;
+        const result = await promisifyQuery(query, [typer, target, success, reason]);
           return result;
-        } else {
-          return 'invalid parameters';
-        }
       } catch (err) {
         throw new Error(err);
      }
@@ -239,7 +353,8 @@ class EmailService {
     try {
       let testdata = await testInformation(billingid);
       let personalInfo = await clientInformation(billingid);
-      const email = personalInfo[0]?.email;
+      const email = personalInfo[0]['email'];
+      if (email == "" || email == undefined || email == null) return 'email not provided';
       if (testdata.length > 0 && personalInfo.length > 0 && email) {
           const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/billing.ejs'), { data: {testdata,personalInfo: personalInfo[0]} });
           const mail = this.mailOptions(email, 'Transaction Alert', html)

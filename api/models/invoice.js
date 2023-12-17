@@ -35,7 +35,8 @@ const clientInformation = async function (billingid) {
     FROM billing AS bb
     INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
     WHERE bb.BILLINGID = ?`;
-    return promisifyQuery(query, [billingid])
+    const result = await promisifyQuery(query, [billingid]);
+    return result;
   }
   catch (err) {
     logger.error(err)

@@ -1,16 +1,13 @@
 const express = require("express");
-const connection = require('./api/db')
 const app = express();
-const dotenv = require("dotenv");
-const EmailService = require('./api/EmailServices/email');
-// const emailReceiptRouter = require("./api/controllers/EmailFiles/receipt")
+const emailRouterController = require("./api/controllers/email.controller");
 const port = 5000;
 const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing");
 const branchesHandler = require("./api/branches");
 const resultChecker = require("./api/controllers/results");
 const Manager = require('./api/controllers/manager');
 const operationsRouter = require("./api/controllers/operations");
-const { getOrganizations } = require("./api/models/organization");
+// const { getOrganizations } = require("./api/models/organization");
 const registrationRouter = require('./api/controllers/registration');
 const rejectedRouter = require("./api/controllers/rejected");
 const activation = require("./api/activation");
@@ -28,32 +25,19 @@ const LoginsRouter = require("./api/controllers/logins");
 const resultprintRouter = require('./api/controllers/printable')
 const organizationRouter = require('./api/controllers/organization');
 const applicationsettingsRouter = require('./api/controllers/applicationSettings');
-dotenv.config();
 const generalSalesRouter = require('./api/controllers/sales');
-const cookieSession = require('cookie-session');
 const patientAnalytics = require('./api/controllers/patients.controller');
-
-
-
-const cors = require("cors");
 const logger = require("./logger");
+const cors = require("cors");
+
+
 const { promisifyQuery } = require("./helper");
-app.use(
-  cors({
-    origin: "*",
-    credentials: false
-  })
-);
-
+app.use( cors({origin: "*",credentials: false}));
 app.use(express.static('public'))
-
 app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`);
 });
 
-app.use(cookieSession({
-  name: 'x-auth-token', maxAge: 24 * 60 * 60 * 1000, httpOnly: false, keys: ['hwooooooo']
-}))
 
 // manage with cors
 // manage with body-parser
@@ -68,7 +52,7 @@ app.use(express.urlencoded({ extended: true }));
 //   if (req.url == '/api/v1/register') {
 //     next();
 //   } else {
-// new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+//    new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
 //   }
 // })
 
@@ -76,7 +60,8 @@ app.use(express.urlencoded({ extended: true }));
 // api endpoints
 
 app.use(Manager)
-app.use(organizationRouter)
+app.use(organizationRouter);
+app.use(emailRouterController);
 app.use(LoginsRouter);
 app.use(ChemistryRoutes);
 app.use(phelobotomyRouter);
@@ -92,7 +77,6 @@ app.use(branchesHandler);
 app.use(registrationRouter);
 app.use(applicationsettingsRouter);
 app.use(patientAnalytics);
-// app.use(emailReceiptRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });
@@ -129,19 +113,6 @@ app.put("/api/v1/billing", function (request, response) {
 app.get("/api/v1/sample", function (request, response) {
   let sampleHandle = new SampleHandler(request, response);
   sampleHandle.getCollectedSamples();
- 
-
-  // if (!status && !date) {
-  //   sampleHandle.getRecords();
-  // } else {
-  //   if (status && !date) {
-  //     sampleHandle.getStatus(status);
-  //   } else if (!status && date) {
-  //     sampleHandle.getDate(date);
-  //   } else {
-  //     sampleHandle.getSelectedStutusAndDate(date, status);
-  //   }
-  // }
 });
 
 app.put("/api/v1/sample", function (request, response) {
