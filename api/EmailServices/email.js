@@ -1,27 +1,18 @@
 const logger = require('../../logger');
 const nodemailer = require('nodemailer');
 const database_queries = require('../database/queries');
-const Patients = require('../models/patientAnalytics');
 const ejs = require('ejs');
 const path = require('path');
-const jwt = require('jsonwebtoken');
 const { customError, promisifyQuery, convertKeysToLowerCase } = require('../../helper');
 const Registration = require('../models/registration');
 const { testInformation, clientInformation } = require('../models/invoice');
-
-
-
-
+const configuration = require('../../helpers/configuration');
 
 
 class EmailService {
-  constructor(appusername, apppassword, provider, company) {
-    this.user = appusername || process.env.EMAILAPPNAME;
-    this.password = apppassword || process.env.EMAILPASSWORD;
-    this.provider = provider || process.env.EMAILPROVIDER;
-    this.company = company || process.env.EMAILCOMPANY;
+  constructor(employeeid) {
+    this.employeeid = employeeid;
   }
-
   validateCredentials() {
     return this.user && this.password && this.provider && this.company ? true : false;
   }
@@ -44,11 +35,18 @@ class EmailService {
   }
 
   mailOptions(targetEmail, subject, html) {
+    this.company = 'Kairos Diagnostics Center';
     return { from: this.company, to: targetEmail, subject, html }
   }
 
-  transportEmail = function (mailOptions) {
+  transportEmail = async function (mailOptions) {
     try {
+      const settings = await this.getEmailSettings();
+      if (settings.length == 0) return false;
+      this.provider = settings[0]['provider'];
+      this.user = settings[0]['email'];
+      this.password = settings[0]['apppassword'];
+
       if (!this.validateCredentials()) return false;
       this.createTransport().sendMail(mailOptions);
       return true;
@@ -130,14 +128,128 @@ class EmailService {
     }
   }
 
-
-  async getComposedEmailDraft(target,limit = 20) { 
+  async updateEmailComposed(id, subject, draft, employeeid) { 
     try {
-      let query = `SELECT * FROM composedemails`;
-      if (target && target == 'draft') query += ` WHERE ispublished = 'false'`;
-      if (target && target == 'published') query += ` WHERE ispublished = 'true'`;
-      query += `order by id desc limit ?`;
-      return await promisifyQuery(query,[limit]);
+      const query = `UPDATE composedemails SET subject = ?, body = ?, employeeid = ? WHERE id = ?`;
+      const result = await promisifyQuery(query, [subject, draft, employeeid, id]);
+      return result.affectedRows > 0 ? true : false;
+    } catch (err) {
+      logger.error(err);
+      return err?.message;
+    }
+  }
+
+
+  async updateEmailTarget(id, target,schedule) {
+    if (!target || !id) return "provide target and id";
+    if (typeof id !== 'number') return TypeError('id must be type number');
+    console.log(schedule);
+    try {
+      const update = `UPDATE composedemails SET target = ?, ispublished = ? WHERE id = ?`;
+      return await promisifyQuery(update, [target, 'true', id]);
+      } catch (err) {
+        throw new Error(err?.message);
+    }
+  }
+
+
+  async shedular(id, target) { 
+    return null;
+  }
+
+
+  async sendComposedEmail(records) {
+    try {
+      if (records.length == 0) return false;
+       const { id, subject, body, target, employeeid } = records[0];
+       const emails = JSON.parse(target);
+        if (emails.length == 0) return false;
+        const html = `<html><body>${body}</body></html>`;
+        const mailOptions = this.mailOptions(emails[0]['email'], subject, html);
+        const status = await this.transportEmail(mailOptions);
+      return status;
+   } catch (err) {
+     logger.error(err);
+   }
+  }
+
+  async isAddressAuthenticated(email, target) {
+    if (!email || !target) return 'email and target are required';
+    if (target === 'staff') {
+
+    }  
+  }
+
+  async publishEmail(records) {
+    const { id, target, category,schedule} = records;
+    // update target and ispublished on the db table
+    // try sending email to clients 
+    // if all bullk email, check cpu cores and if more than 2, send 
+    // else schedule a time when the server is less busy to send
+    // mostly at night
+    if (!(await this.isEmailServiceActivated())) return "Email service is not activated";
+
+    const isBulk = ["bulk clients", "bulk staff"].includes(category);
+
+    const isFormatValid = Array.isArray(target);
+   
+    let refinedTarget;
+
+    if (!isBulk && !isFormatValid) return 'target must be an array of email addresses';
+
+    if (!isBulk && isFormatValid) { 
+      refinedTarget = target.map(item => { return { email: item?.email } });
+      refinedTarget = JSON.stringify(refinedTarget);
+    }
+
+    if (isBulk) {
+      refinedTarget = category;
+    }
+
+    const isupdated = await this.updateEmailTarget(parseInt(id), refinedTarget,schedule);
+
+    if (isupdated.affectedRows == 0) return false;
+
+    if (configuration.possibleWorkers <= 2 && (refinedTarget == "all staffs" || refinedTarget == "all clients")) {
+      this.shedular(id, target);
+      return;
+    } else {
+      const getemail = await this.getComposedEmailDraft('published', 1, 'full', id);
+      this.sendComposedEmail(getemail);
+    }
+    
+  }
+  async getComposedEmailDraft(target,limit=20,mode,id) { 
+    try { 
+      let query = `SELECT `;
+      let values = [];
+      if (mode == 'brief') {
+        query += `id,created_on,ispublished,subject,target,employeeid FROM composedemails`;
+      } else {
+        query += ` * FROM composedemails`
+      }
+      if (target == 'draft') { 
+        query += ` WHERE ispublished = 'false'`
+      }
+      if (target == 'published') {
+        query += ` WHERE ispublished = 'true'`;
+      }
+
+      if (id != null && target) {
+        query += ` AND id = ?`;
+        values.push(parseInt(id));
+      }
+
+      if (id != null && !target) {
+        query += ` WHERE id = ?`;
+        values.push(parseInt(id));
+      }
+
+      query += ` order by id desc limit ?`;
+      values.push(parseInt(limit));
+
+
+      return await promisifyQuery(query,values);
     } catch (err) {
       logger.error(err);
       return err?.message;
@@ -176,7 +288,7 @@ class EmailService {
 
   async isEmailAuthenticated(patientid) {
     try {
-      // we want to verify using the patientid if patient is authenticated via email and the email is authenticated
+      // we want to verify using the patientid if patient is authenticated via email
       let result = await runPromise(`SELECT * FROM patients_settings WHERE PATIENTID = ?`, [patientid]);
       if (result.length === 0) return false;
         const { authenticated, authenticationMode } = result[0];
@@ -292,7 +404,7 @@ class EmailService {
   }
 
   async isEmailServiceActivated() {
-    const appset = await runPromise(`SELECT emailNotification FROM applicationsettings`);
+    const appset = await promisifyQuery(`SELECT emailNotification FROM applicationsettings`);
     if (appset.length > 0) {
       const emailActivation = appset[0]['emailNotification'];
       return  emailActivation === 0 ? false : true;

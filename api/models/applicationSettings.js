@@ -15,10 +15,10 @@ applicationSettings.getApplicationSettings = async function (request, response) 
 
 
 applicationSettings.updateApplicationSettings = async function (request, response) {
-  const { bulkregistration, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting } = request.body;
-  const query = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,completeFlow,approvalbeforeprinting) VALUES (?,?,?,?,?,?,?,?)`;
+  const { bulkregistration,emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting } = request.body;
+  const query = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,completeFlow,approvalbeforeprinting,emailNotification) VALUES (?,?,?,?,?,?,?,?,?)`;
   const TruncateTable = `TRUNCATE TABLE applicationsettings`;
-  const values = [bulkregistration, fontsize, textcolor, BackgroundColor, DeactivateBilling24hrs, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting];
+  const values = [bulkregistration, fontsize, textcolor, BackgroundColor, DeactivateBilling24hrs, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting,emailNotification];
   try {
     const result = await promisifyQuery(TruncateTable);
     if (result) {
