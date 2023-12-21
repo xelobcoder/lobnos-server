@@ -1,9 +1,7 @@
-const { response } = require('express');
 const { customError, promisifyQuery } = require('../../helper');
 const connection = require('../db');
 const logger = require('../../logger');
 const EmailService = require('../EmailServices/email');
-
 
 /**
  * The `Registration` class is responsible for handling the registration of new patients in a healthcare system.
@@ -126,8 +124,8 @@ class Registration {
       const values = [patientid, firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization, mobileownership || 'self'];
       // execute query
       const result = await promisifyQuery(query, values);
-      
-      return result.affectedRows;
+
+      return {count: result.affectedRows, id: patientid};
     } catch (err) {
       console.log(err)
       logger.error(err)
@@ -178,6 +176,7 @@ class Registration {
     const { personalInformation, addressingInformation, emmergencyInformation } = request.body;
     // destructure information from the personal information provided
     // we will push the data into the new patient table in the database
+    // if successuly registered, a mail is sent to the client to authenticate email, if only is email is present
     try {
       const isAlreadyRegistered = await this.isClientSame(personalInformation);
       // // if false we insert into the database table
@@ -193,13 +192,7 @@ class Registration {
         return;
       }
 
-      if (!isAlreadyRegistered) {
-        const isInsertedCount  = await this.personalInformation(personalInformation);
-        isInsertedCount == 1 ?
-          response.send({ statusCode: 200, status: "success", message: 'new client added successfully' })
-          :
-          response.send({statusCode: 200, status: "success", message: 'new client not added'})
-      }
+      return await this.personalInformation(personalInformation);
       
     } catch (error) {
       console.log(error)

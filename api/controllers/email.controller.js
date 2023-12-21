@@ -1,7 +1,7 @@
 const router = require('express').Router();
 const { customError } = require('../../helper');
 const EmailService = require('../EmailServices/email');
-
+const path = require("node:path");
 
 router.get("/api/v1/email/summary", async function (request, response) {
   await new EmailService().emailSummary(response);
@@ -65,8 +65,31 @@ router.post("/api/v1/email/publish", async function (request, response) {
   const { id } = request.body;
   if (!id) { customError("Id is required", 404, response); return; }
   const result = await new EmailService().publishEmail(request.body);
-  if (result != true) {
-     customError(result,404,response);
-   }
- })
+  response.send({ statusCode: 200, message: result, status: "success" })
+})
+ 
+
+router.get("/verifyemail", async function (request, response) {
+  response.render(path.join(__dirname,"../views/pages/verifyemail.ejs"));
+})
+
+
+router.get("/api/v1/verify/email/token", async function (request, response) { 
+  const { token } = request.query;
+  try
+  {
+    const eservice = new EmailService();
+    const isVerify = await  eservice.verifyEmailToken(token);
+    if (typeof isVerify == "string") { customError(isVerify, 400, response); return; }
+   
+    if (isVerify) {
+      response.send({ statusCode: 200, message: "Email verified successfully. Temporary access credentials sent to your mail.Kindly access it and use it to login to the client or patient portal. You are adviced to quickly update credentials as soon as possible", status: "success" });
+      // update client isAuthenicated to true
+      await eservice.emailLogdb('email token verification',isVerify,true);
+      await eservice.updateAuthenticationMode(isVerify);
+    }
+  } catch (err) {
+    customError(err.message, 400, response);
+  }
+})
 module.exports = router;

@@ -19,7 +19,7 @@ const activation = {
         END AS FULLNAME,
         DATE, 
         ACTIVATION_STATUS
-        FROM new_patients ORDER BY ID DESC LIMIT 3
+        FROM new_patients ORDER BY ID DESC LIMIT 10
         `
 
       connection.query(activationQuery, (err, result) => {

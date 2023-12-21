@@ -7,14 +7,15 @@ const { customError, promisifyQuery, convertKeysToLowerCase } = require('../../h
 const Registration = require('../models/registration');
 const { testInformation, clientInformation } = require('../models/invoice');
 const configuration = require('../../helpers/configuration');
+const User = require('../LobnosAuth/user');
 
 
 class EmailService {
   constructor(employeeid) {
     this.employeeid = employeeid;
   }
-  validateCredentials() {
-    return this.user && this.password && this.provider && this.company ? true : false;
+  validateCredentials(user, password, provider, company) {
+    return user && password && provider && company ? true : false;
   }
 
   createTransport() {
@@ -42,13 +43,17 @@ class EmailService {
   transportEmail = async function (mailOptions) {
     try {
       const settings = await this.getEmailSettings();
-      if (settings.length == 0) return false;
-      this.provider = settings[0]['provider'];
-      this.user = settings[0]['email'];
-      this.password = settings[0]['apppassword'];
+      if (settings.length === 0) return 'email settings not provided';
+      const { email, apppassword, provider } = settings[0];
+      this.user = email;
+      this.password = apppassword;
+      this.provider = provider;
+      this.company = 'Kairos Diagnostics Center';
 
-      if (!this.validateCredentials()) return false;
-      this.createTransport().sendMail(mailOptions);
+      if (!this.validateCredentials(this.user, this.password, this.provider, this.company)) return 'invalid credentials';
+      
+      this.createTransport(this.provider, this.user, this.password).sendMail(mailOptions);
+      // true, a success
       return true;
     } catch (err) {
       throw new Error('Email failed');
@@ -68,11 +73,11 @@ class EmailService {
        *   - target (string): The target email address of the email log.
        *   - success (boolean): Indicates whether the email was sent successfully or not.
        */
-  async getEmailLog(start, limit = 20, response) {
+  async getEmailLog(start, limit = 10, response) {
       try {
           if (!start) return false;
           const end = parseInt(start) + parseInt(limit);
-          const query = `SELECT * FROM emaillog WHERE id BETWEEN ? AND ? LIMIT ?`;
+          const query = `SELECT * FROM emaillog WHERE id BETWEEN ? AND ?  ORDER BY id DESC LIMIT ?`;
           const result = await promisifyQuery(query, [start, end,limit]);
           if (!response) return result;
           response.send({ message: 'success', statusCode: 200, result });
@@ -86,8 +91,8 @@ class EmailService {
   async customSearch(record) { 
     try {
       const { email, category } = record;
-      const staffQuery = `SELECT * FROM roles WHERE email LIKE ?`;
-      const patientQuery = `SELECT * FROM new_patients WHERE email LIKE ?`;
+      const staffQuery = `SELECT * FROM roles WHERE email LIKE ? AND emailAuthenticated = 'true'`;
+      const patientQuery = `SELECT * FROM new_patients AS np INNER JOIN patients_settings AS pt ON pt.patientid = np.patientid WHERE np.email LIKE ? AND emailAuthenticated = 'true'`;
       let result;
       switch (category) {
         case 'staff':
@@ -143,7 +148,6 @@ class EmailService {
   async updateEmailTarget(id, target,schedule) {
     if (!target || !id) return "provide target and id";
     if (typeof id !== 'number') return TypeError('id must be type number');
-    console.log(schedule);
     try {
       const update = `UPDATE composedemails SET target = ?, ispublished = ? WHERE id = ?`;
       return await promisifyQuery(update, [target, 'true', id]);
@@ -163,11 +167,12 @@ class EmailService {
       if (records.length == 0) return false;
        const { id, subject, body, target, employeeid } = records[0];
        const emails = JSON.parse(target);
-        if (emails.length == 0) return false;
-        const html = `<html><body>${body}</body></html>`;
-        const mailOptions = this.mailOptions(emails[0]['email'], subject, html);
-        const status = await this.transportEmail(mailOptions);
-      return status;
+      if (emails.length == 0) return false;
+      const html = `<html><body>${body}</body></html>`;
+      emails.forEach((item, index) => {
+        const mailOptions = this.mailOptions(item['email'], subject, html);
+        this.transportEmail(mailOptions);
+      })
    } catch (err) {
      logger.error(err);
    }
@@ -187,6 +192,7 @@ class EmailService {
     // if all bullk email, check cpu cores and if more than 2, send 
     // else schedule a time when the server is less busy to send
     // mostly at night
+
     if (!(await this.isEmailServiceActivated())) return "Email service is not activated";
 
     const isBulk = ["bulk clients", "bulk staff"].includes(category);
@@ -198,7 +204,7 @@ class EmailService {
     if (!isBulk && !isFormatValid) return 'target must be an array of email addresses';
 
     if (!isBulk && isFormatValid) { 
-      refinedTarget = target.map(item => { return { email: item?.email } });
+      refinedTarget = target.map(item => { return { email: item?.email} });
       refinedTarget = JSON.stringify(refinedTarget);
     }
 
@@ -210,14 +216,17 @@ class EmailService {
 
     if (isupdated.affectedRows == 0) return false;
 
-    if (configuration.possibleWorkers <= 2 && (refinedTarget == "all staffs" || refinedTarget == "all clients")) {
+    if (configuration.possibleWorkers <= 2 && (refinedTarget == "all staffs" || refinedTarget == "all clients"))
+    {
       this.shedular(id, target);
-      return;
-    } else {
-      const getemail = await this.getComposedEmailDraft('published', 1, 'full', id);
-      this.sendComposedEmail(getemail);
     }
-    
+    else
+    {
+      const getemail = await this.getComposedEmailDraft('published', 1, 'full', id);
+      const status = await this.sendComposedEmail(getemail);
+      return status;
+    }
+    return;
   }
   async getComposedEmailDraft(target,limit=20,mode,id) { 
     try { 
@@ -300,81 +309,115 @@ class EmailService {
     }
   }
 
+  async updateAuthenticationMode(patientid) {
+    if (!patientid) return 'patientid not provided';
+    try
+    {
+      const query = `UPDATE patients_settings SET authenticationMode = 'email', emailAuthenticated = 'true' WHERE patientid = ?`;
+       const isUpdated =  await promisifyQuery(query, [patientid]);
+      return isUpdated.affectedRows == 1 ? true : false;
+    } catch (err) {
+      throw new Error(err);
+    }
+  }
   async sendAuthenticateEmail(emailAdd, patientid) {
     if (!emailAdd || !patientid) return `all parameters not provided`;
     try {
       // generate a jwt token for client
-      const token = jwt.sign({ email: emailAdd, patientid }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '30m' });
+      const token = await new User().tokenizeData({ email: emailAdd, patientid: patientid }, '30m');
       // render html using ejs templating egine
       const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/verifyemail.ejs'), { token });
       // forward the email
       this.transportEmail(this.mailOptions(emailAdd, 'EMAIL VERIFICATION', html));
     } catch (err) {
+      console.log(err)
       logger.error(err)
     }
+  }
+
+  validateTokenData = function (token) {
+    const { email, patientid } = token;
+    if (!email || !patientid) return false;
+    return true;
   }
 /**
  * 
  * @param {*} token generated user token valid for a pacticular period
- * @param {*} response response object 
  * @returns 
  */
-  async verifyEmailToken(token, response) {
+  async verifyEmailToken(token) {
     try {
-      const ourDecodedToken = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-      const { patientid, email } = ourDecodedToken;
+      const ourDecodedToken = await new User().verifyToken(token);
+      const tokenValid = this.validateTokenData(ourDecodedToken);
+
+      if (!tokenValid) return 'Invalid token';
+
+      const { email, patientid } = ourDecodedToken;
+
       const isValidId = await new Registration().checkPatientIdExist(patientid);
 
-      if (patientid && email && isValidId) {
-        if (response) {
-          response.send({ message: 'Email authenticated.Your temporary logins will be sent to you via email', statusCode: 200, status: 'success' });
-        }
-        const logins = await this.sendTemporaryEmailCredentials(patientid);
-        const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/temporaryLogins.ejs'), { data: logins });
-        this.transportEmail(this.mailOptions(email, 'TEMPORARY PATIENT LOGINS', html));
-      } else {
-        if (response) {customError(`invalid token provided`, 404, response);return;};
-        return false;
-      }
+      if (!isValidId) return 'Invalid patientid';
+      const isSent = await this.sendTemporaryCredentials(patientid, email);
+      return isSent === true ? patientid : false;
     } catch (err) {
-      if (response) {
-        customError(err, 404, response);
-      }
       logger.error(err)
+      throw new Error(err);
     }
   }
 
+
+  async sendTemporaryCredentials(patientid,email) {
+    const credentials = await this.getTemporaryCredentials(patientid);
+    const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/temporaryLogins.ejs'), { data: credentials });
+    const issent = await this.transportEmail(this.mailOptions(email, 'Temporary Patient Portal Access Credentials ', html));
+    if (!issent) {
+      this.emailLogdb('temporary credentials', patientid, false, 'email not sent'); // failures are logged in the database;
+    };
+    return issent;
+   }
+
+  
 
   async fireClientAuthentication(patientid, email) {
     //  1. patientid only provided? get personal information and check if email address is available
     // 2. if yes, send verification message 
     // 3. if no , return 
     // --- if email address is provided as second arguments , send verification message right away
-    if (!patientid) return false;
-    if (patientid && email) {
-      const patternValid = email.length > 5 && email.includes(".") && email.includes("@");
-       return  patternValid ? this.sendAuthenticateEmail(email, patientid) : false;
-    };
-    if (patientid && !email) {
-      const cI = await database_queries.getsingleid(patientid, 'new_patients', 'PATIENTID');
-      if (cI.length > 0 && cI[0]['email']) {
-        const emailAddress = cI[0]['email'];
-        this.sendAuthenticateEmail(emailAddress, patientid);
-      }
-    }  
+    try 
+    {
+      if (!patientid) return false;
+      if (patientid && email) {
+        const patternValid = email.length > 5 && email.includes(".") && email.includes("@");
+        const isRight = patternValid ? this.sendAuthenticateEmail(email, patientid) : false;
+        if (!isRight) return false;
+      };
+      if (patientid && !email) {
+        const cI = await database_queries.getsingleid(patientid, 'new_patients', 'patientid');
+        if (cI.length > 0 && cI[0]['email']) {
+          const emailAddress = cI[0]['email'];
+          this.sendAuthenticateEmail(emailAddress, patientid);
+        }
+      }  
+      this.emailLogdb('Authentication email', patientid, true, 'email sent'); // success are logged in the database;
+      return true;
+    } catch (err) {
+      logger.error(err);
+      this.emailLogdb('Authentication email', patientid, false, 'email not sent'); // failures are logged in the database;
+    }
   }
 
 
-  async sendTemporaryEmailCredentials(patientid, response) {
+  async getTemporaryCredentials(patientid, response) {
     try { 
       if (!patientid || typeof patientid !== 'number') throw new Error('Patientid must be type Number');
       const query = `SELECT * FROM patients_credentials where PATIENTID = ?`;
-      const outcome = await runPromise(query, patientid);
+      const outcome = await promisifyQuery(query, patientid);
       if (outcome && outcome.length == 0 || outcome[0]['updated'] == 'true') return false;
       const { username, password } = outcome[0];
       return response ? response.send({ result: outcome[0] }) : { username, password };
     } catch (err) {
       logger.error(err);
+      throw new Error(err);
     }
   }
 

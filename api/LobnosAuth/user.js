@@ -2,7 +2,7 @@ const bcrypt = require("bcrypt");
 const connection = require("../db");
 const jwt = require("jsonwebtoken");
 const logger = require("../../logger");
-const { convertKeysToLowerCase, promisifyQuery } = require("../../helper");
+const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../helper");
 
 
 
@@ -15,6 +15,16 @@ class User {
     this.password = password;
     this.role = role;
     this.email = email;
+  }
+
+  catchExemption = async (codebase) => {
+    if (typeof codebase !== 'function') return 'function type required'
+    try {
+      return codebase();
+    } catch (err) {
+      logger.error(err);
+      throw new Error(err?.message || "something went wrong");
+    }
   }
 
   checkUserExist() {
@@ -33,126 +43,68 @@ class User {
   };
 
   getUserData = async (email) => {
-    return new Promise((resolve, reject) => {
-      const queryString = `SELECT * FROM roles WHERE EMAIL = '${email}'`;
-      connection.query(queryString, (err, result) => {
-        if (err) {
-          logger.error(err);
-        }
-        // if result return with a length of 0 then user does not exist
-        if (result.length == 0) {
-          resolve(false);
-        }
-        // if result return with a length of 1 then user exist
-        else {
-          if (result.length > 0) {
-            const data = result[0];
-            delete data.PASSWORD;
-            resolve(data)
-          } else {
-            resolve(false)
-          }
-        }
-      });
-    });
+    try {
+      const queryString = `SELECT * FROM roles WHERE EMAIL = ?`;
+      const result = await promisifyQuery(queryString, email);
+      if (result.length === 0) return false;
+      const data = result[0];
+       return data;
+    } catch (err) {
+      logger.error(err);
+      return false;
+   }
   };
 
-  createUser = () => {
-    return new Promise((resolve, reject) => {
-      this.checkUserExist()
-        .then((userexist) => {
-          if (userexist) {
-            resolve("user already exist");
-          } else {
-            // insert the user into the database
-            this.hashPassword()
-              .then((hashedPassword) => {
-                this.insertionOne(this.name, hashedPassword)
-                  .then((result) => {
-                    resolve(result);
-                  })
-                  .catch((err) => {
-                    reject(err);
-                  });
-              })
-              .catch((err) => {
-                console.log(err);
-              });
-          }
-        })
-        .catch((err) => {
-          console.log(err);
-        });
-    });
+  createUser = async () => {
+    try {
+      const isUserExist = await this.checkUserExist();
+      if (isUserExist) return "user already exist";
+      const hashPassword = await this.hashPassword();
+      const insertion = await this.insertionOne(this.name, hashPassword);
+      return insertion;
+    } catch (err) {
+      logger.error(err);
+      throw new Error(err?.message || "error creating user");
+   }
   };
 
-  checkLogins = (email, password) => {
-    return new Promise((resolve, reject) => {
-      this.hashPassword(password)
-        .then((hashedPassword) => {
-          const queryString = `SELECT * FROM roles WHERE EMAIL = '${email}'`;
-          connection.query(queryString, (err, result) => {
-            if (err) {
-              reject(err);
-            }
-            if (result.length === 0) {
-              resolve(false);
-            }
-            if (result.length > 0) {
-              const rpass = result[0]["PASSWORD"];
-              bcrypt.compare(password, rpass, (err, result) => {
-                err ? reject(err) : resolve(result);
-              });
-            }
-          });
-        })
-        .catch((err) => {
-          console.log(err);
-        });
-    });
+  checkLogins = async (email, password) => {
+    const queryString = `SELECT password FROM roles WHERE EMAIL = ?`;
+    try {
+      const storedPassword = await promisifyQuery(queryString, email);
+      if (storedPassword.length === 0) return false;
+      return await bcrypt.compare(password, storedPassword[0]?.password);
+    } catch (err) {
+      logger.error(err);
+      throw new Error(err?.message || "something went wrong");
+    }
   };
 
   createAccessTokenCredentials = async (accesskey, email) => {
-    let accessToken;
-    return new Promise((resolve, reject) => {
-      this.getUserData(email)
-        .then((result) => {
-          accessToken = jwt.sign({ ...result }, accesskey, {
-            expiresIn: "10w",
-          });
-          resolve(accessToken);
-        })
-        .catch((err) => {
-          reject(err);
-        });
-    });
+    try {
+      const result = await this.getUserData(email);
+      const accessToken = jwt.sign({ ...result }, accesskey, { expiresIn: "1y" });
+       return accessToken;
+    } catch (err) {
+      logger.error(err);
+      throw new Error(err?.message || "something went wrong");
+     }
   };
 
 
   validateRequestToken = async (req, res, next, accessSecret) => {
     // CHECK FOR ACCESS TOKEN IN AUTHORIZATION HEADER OF REQUEST bearer token
     const accessToken = req.headers.authorization && req.headers.authorization.split(' ')[1];
-    if (!accessToken) {
-      res.send({
-        status: 401,
-        message: 'Unauthorized to acesss service.'
-      })
+    if (!accessToken) { customError('Unauthorized to acesss service.', 401, res); return };
+    const cb = (err, user) => { 
+      if (err) { customError("Application licenced expired, please contact admin for renewal", 401, res); return }
+      next();
     }
-    else {
-      jwt.verify(accessToken, accessSecret, (err, user) => {
-        err ? res.send({
-          err: err.message, expiredIn: err.expiredAt,
-          message: "Application licenced expired, please contact admin for renewal",
-          status: 401
-        }) : next()
-      }
-      )
-    }
+     await this.verifyToken(accessToken,process.env.ACCESS_TOKEN_SECRET,cb);
   }
 
   validateEmployeeToken = async function (request, response) {
     const { employeeid, token } = request.query;
-
     const x = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
 
     if (x) {
@@ -160,28 +112,29 @@ class User {
     }
   }
 
+  verifyToken = async (token) => {
+    return jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+  }
+
+  tokenizeData = async (data,expiresIn) => {
+    return jwt.sign({ ...data }, process.env.ACCESS_TOKEN_SECRET, { expiresIn })
+  }
+
 
   userExistWithId = async (id) => {
-    const promise = new Promise((resolve, reject) => {
-      const gq = `SELECT * FROM roles WHERE EMPLOYEEID = ${id}`
-
-      connection.query(gq, (err, result) => {
-        if (err) { reject(err) }
-        else {
-          const len = result.length;
-          if (len == 0) { resolve(false) } else { resolve(result) }
-        }
-      })
-    })
-    return promise;
+   try
+   {
+      const query = `SELECT * FROM roles WHERE EMPLOYEEID = ?`;
+      const result = await promisifyQuery(query, id);
+      return result.length === 0 ? false : result;
+    }
+    catch
+   (err) {
+     logger.error(err);
+     throw new Error(err?.message || "something went wrong");
+    }
   }
 }
 
-// const  u1 = new User('tiifu','tiifu','admin','tiifu@gmail.com');
-
-// u1.createUser()
-
-// console.log(process.env.ACCESS_TOKEN_SECRET)
-// console.log(u1.then((t) => console.log(t)))
 
 module.exports = User;

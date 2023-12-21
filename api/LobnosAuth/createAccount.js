@@ -47,16 +47,13 @@ const createNewAccount = async (req, res) => {
  */
 const userLogin = async (req, res) => {
   const { name, password, email } = req.body;
-
   //  check if user and password exist in db
   const user = new User(name, password);
-
   const userExist = await user.checkLogins(email, password);
 
+  if (!userExist) { customError('Invalid Login credentials', 400, res);  return};
 
-  if (userExist) {
-    let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email);
-
+  let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email);
     // decode userinformation
     let decoded = jwt.decode(userinformation);
 
@@ -66,15 +63,6 @@ const userLogin = async (req, res) => {
       message: 'Login successful',
       user: convertKeysToLowerCase(decoded), token: userinformation
     })
-
-  }
-  else {
-    res.send({
-      status: 'error',
-      statusCode: 400,
-      message: 'Invalid Login credentials',
-    })
-  }
 }
 
 

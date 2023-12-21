@@ -2,15 +2,22 @@ const router = require('express').Router();
 const { customError, convertKeysToLowerCase } = require('../../helper');
 const database_queries = require('../database/queries');
 const Registration = require('../models/registration');
-
+const EmailService = require('../EmailServices/email');
 
 router.get("/api/v1/register", (request, response) => {
 
 });
 
-router.post("/api/v1/register", (request, response) => {
+router.post("/api/v1/register", async (request, response) => {
   const register = new Registration();
-  register.addNewPatient(request, response)
+  const emailSevice = new EmailService();
+  const outcome = await register.addNewPatient(request, response);
+  if (outcome != undefined && outcome?.count > 0) {
+    const { count, id } = outcome;
+   let isSent= await  emailSevice.fireClientAuthentication(id);
+    response.send({ statusCode: 200, status: "success", message: "Patient registered successfully" });
+    console.log(isSent)
+  }
 });
 
 router.put('/api/v1/register/personalinformation', async (request, response) => {
