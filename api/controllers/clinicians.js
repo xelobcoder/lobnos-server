@@ -9,6 +9,7 @@ const {
 } = require('../../api/clinicians');
 const { customError } = require('../../helper');
 const logger = require('../../logger');
+const database_queries = require('../database/queries');
 const Registration = require('../models/registration');
 
 const router = require('express').Router();
@@ -97,10 +98,26 @@ router.post('/api/v1/orders/temporary', async function (request, response) {
  
 
 router.get('/api/v1/orders/temporary', async function (request, response) {
-  const { clinicianid } = request.query;
-  if (!clinicianid) { customError('please add clinicianid', 401, response); return }
+  const { clinicianid ,target} = request.query;
+  if (!target) {
+    customError('please addd target for query ', 401, response);
+    return;
+  }
   try {
-    const result = await new Registration().getTemporaryOrders(clinicianid);
+    const result = await new Registration().getTemporaryOrders(target,clinicianid);
+    response.send({statusCode: 200, status: 'success', result})
+  } catch (err) {
+    customError('Something wrong ocured', 500, response)
+  }
+})
+
+
+
+router.get('/api/v1/orders/temporary/processing', async function (request, response) { 
+  const { id } = request.query;
+  if (!id) customError('please add id', 401, response);
+  try {
+    let result = await new Registration().getTemporaryOrdersProcessing(id);
     response.send({statusCode: 200, status: 'success', result})
   } catch (err) {
     customError('Something wrong ocured', 500, response)

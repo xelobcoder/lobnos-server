@@ -8,4 +8,21 @@
     "editor.formatOnSave": false,
     "editor.fontSize": 14,
     "editor.bracketPairColorization.enabled": true,
+    "editor.defaultFormatter": "biomejs.biome",
+    "sqltools.connections": [
+        {
+            "mysqlOptions": {
+                "authProtocol": "default",
+                "enableSsl": "Disabled"
+            },
+            "previewLimit": 50,
+            "server": "localhost",
+            "port": 3306,
+            "driver": "MySQL",
+            "name": "xconnect",
+            "database": "limsdb",
+            "username": "root",
+            "password": ""
+        }
+    ]
 }

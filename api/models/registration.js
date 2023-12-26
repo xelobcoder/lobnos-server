@@ -2,6 +2,7 @@ const { customError, promisifyQuery } = require('../../helper');
 const connection = require('../db');
 const logger = require('../../logger');
 const EmailService = require('../EmailServices/email');
+const database_queries = require('../database/queries');
 
 /**
  * The `Registration` class is responsible for handling the registration of new patients in a healthcare system.
@@ -58,17 +59,55 @@ class Registration {
     }
    }
 
-  getTemporaryOrders = async (clinicianid) => { 
-    if (!clinicianid) return new Error("Clinicianid not provided");
+  getTemporaryOrders = async (target,clinicianid) => { 
+    if (!target) return new Error("target for query not provided");
+
+    const values = [];
     try {
-      const query = `SELECT * FROM billingtemporarytable  AS bt
-      INNER JOIN new_patients  AS np ON np.patientid = bt.patientid WHERE bt.clinicianid = ? AND bt.processed = 0 ORDER BY bt.id DESC LIMIT 20`;
-    const result = await promisifyQuery(query, [clinicianid]);
+      let query = `SELECT * FROM billingtemporarytable  AS bt
+      INNER JOIN new_patients  AS np ON np.patientid = bt.patientid`;
+
+      if (target == 'clinician' || target == 'organization') { 
+        query += ` WHERE bt.clinicianid = ? AND bt.processed = 0`;
+        values.push(clinicianid);
+      } else {
+        query += ` WHERE bt.processed = 0`
+      }
+     query += ` ORDER BY bt.orderid DESC LIMIT 20`;
+
+      const result = await promisifyQuery(query, values);
+        
     return result;
     } catch (err) {
       logger.error(err);
+      console.log(err)
       throw new Error(err);
    }
+  }
+
+
+  getTemporaryOrdersProcessing = async (id) => { 
+    try
+    {
+      let  data = await database_queries.getsingleid(id, 'billingtemporarytable', 'orderid');
+      if (data.length == 0) return [];
+      const { clinicianid } = data[0];
+      const cliniciandata = await database_queries.getsingleid(parseInt(clinicianid), 'clinicianbasicinfo', 'id');
+
+      data = data.map((item) => { 
+        if (item.data) {
+          item.data = JSON.parse(item.data);
+        }
+        return item;
+      });
+
+      return data[0];
+    } catch (err) 
+    {
+      logger.error(err);
+      console.log(err)
+      throw new Error(err);
+    }
   }
   getLastID = async function() {
     return await promisifyQuery(`SELECT id FROM new_patients ORDER BY id DESC LIMIT 1`)
