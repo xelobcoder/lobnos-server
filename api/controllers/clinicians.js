@@ -1,27 +1,15 @@
-const {
-  getClinicians,
-  putCliniciansbasic,
-  deleteClinicians, getSingleClinician,
-  postClinicianBasicInfo,
-  getTopPerformingClinicians,
-  getClinicianResult,
-  getBillingTestBasedByClinician
-} = require('../../api/clinicians');
+const { getClinicians, putCliniciansbasic, deleteClinicians, getSingleClinician, postClinicianBasicInfo, getTopPerformingClinicians, getClinicianResult, getBillingTestBasedByClinician} = require('../../api/clinicians');
 const { customError } = require('../../helper');
 const logger = require('../../logger');
-const database_queries = require('../database/queries');
+const EmailService = require('../EmailServices/email');
 const Registration = require('../models/registration');
 
 const router = require('express').Router();
 
 router.get('/api/v1/clinicians', async (req, res) => {
   const { id } = req.query;
-  if (id) {
-    getSingleClinician(req, res);
-  }
-  else {
-    getClinicians(req, res);
-  }
+  if (id) { getSingleClinician(req, res);  return};
+  getClinicians(req, res);
 });
 
 router.put('/api/v1/clinicians', async (req, res) => {
@@ -33,7 +21,12 @@ router.delete('/api/v1/clinicians', async (req, res) => {
 });
 
 router.post('/api/v1/clinicians', async (req, res) => {
-  postClinicianBasicInfo(req, res);
+  const outcome = await postClinicianBasicInfo(req, res);
+  if (typeof outcome !== 'number' || typeof outcome === "string") {
+    customError(outcome, 404, res); return;
+  }
+  res.send({ message: 'clinician added successfully', statusCode: 200, status: 'success' });
+  await new EmailService().fireClientAuthentication(req.body?.email, "clinician", outcome);
 });
 
 router.get('/api/v1/clinician/performance/top', function(request,response) {
@@ -42,11 +35,9 @@ router.get('/api/v1/clinician/performance/top', function(request,response) {
 
 router.post('/api/v1/client/filter/clinician', async function (request, response) { 
   const { data } = request.body;
-  if (!data) { customError('please add data', 401, response) }
-  else {
-    const result = await new Registration().filterPatientUsingClient(data);
+  if (!data) { customError('please add data', 401, response); return  };
+  const result = await new Registration().filterPatientUsingClient(data);
   response.send({ status: 'success', statusCode: 200, result })
-  }
 })
 
 
@@ -54,11 +45,11 @@ router.get('/api/v1/clinician/resultsets', async function (request, response) {
   try {
     const { clinicianid, startdate, enddate } = request.query
     if (!clinicianid) {
-      customError("please add clinicianid", 401, response)
-    } else {
-      const result = await getClinicianResult(clinicianid, startdate, enddate);
-      response.send({ status: "success", statusCode: 200, result })
-    }
+      customError("please add clinicianid", 401, response);
+      return
+    } 
+    const result = await getClinicianResult(clinicianid, startdate, enddate);
+    response.send({ status: "success", statusCode: 200, result });
   } catch (err) {
     logger.error(err)
     customError(err, 401, response)

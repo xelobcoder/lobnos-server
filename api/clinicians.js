@@ -105,70 +105,49 @@ const deleteClinicians = (req, res) => {
    )
 }
 
+const isClinicianExist = async function (email,mobile) {
+   if (!email || !mobile) return false;
+   const matched = await promisifyQuery(`SELECT * FROM clinicianbasicinfo WHERE EMAIL = ? OR phone = ?`, [email, mobile])
+   return matched.length > 0 ? true : false;
+}
 
-const postClinicianBasicInfo = (req, res) => {
-   const { id, name, phone, email, location, address, occupation } = req.body;
+
+
+const postClinicianBasicInfo = async (req, res) => {
+   const { id, name, phone, email, location, address, occupation, organization } = req.body;
+   
+   if (!phone || !email) return `phone number and email required`;
+
+   const isValidNumber = (number) => {
+      return number.length === 10 && number.startsWith(0 || '0');
+   }
+  
+   // We check if number is valid and not more than 10 and begins with 0
+   if (!isValidNumber(phone) || !email.includes("@")) return 'Valid phonenumber and email required';
+
+   
+   if (await isClinicianExist(email, phone)) return 'email or phone number is already registered with a clinician';
 
    // module, occupation, commission, momo, bankName, accountName, branch, account
+   const values = [name, phone, email, location, address, occupation,organization];
 
    //  we insert into the database
    let query = `INSERT INTO clinicianbasicinfo 
-            (NAME,PHONE,EMAIL,LOCATION,ADDRESS,
-            OCCUPATION) 
-            VALUES (?,?,?,?,?,?)`;
+            (name,phone,email,location,address,
+            occupation,organization) 
+            VALUES (?,?,?,?,?,?,?)`;
 
-   const values = [name, phone, email, location, address, occupation];
-   // we chrck if the email already exist
-   let check = `SELECT * FROM clinicianbasicinfo WHERE EMAIL = ?`;
+   const result = await promisifyQuery(query, values);
+   const { insertId } = result;
 
-   // We check if number is valid and not more than 10 and begins with 0
-
-   const isValidNumber = (number) => {
-      if (number.length === 10 && number.startsWith('0')) {
-         return true
-      }
+   if (insertId !== 0) {
+        // generate randams words and store it as temporay password
+         const random = require("node:crypto").randomBytes(5).toString('hex');
+         const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
+      await promisifyQuery(tempCredentials, [random]);
+      return insertId;
    }
-
-   if (isValidNumber(phone) && email.includes('@')) {
-      // execute query
-      connection.query(check, email, (err, result) => {
-         if (err) {
-            logger.error(err)
-         }
-         if (result.length > 0) {
-            // if id is provided and userexist we update the info
-            //  else we send already exist message 
-            if (id) {
-               putCliniciansbasic(req, res);
-            } else {
-               res.send({
-                  message: 'clinician with such email already exist',
-                  statusCode: 200,
-                  status: 'success'
-               })
-            }
-         }
-         else {
-            // insert into the database
-            connection.query(query, values, (err, result) => {
-               if (err) {
-                  logger.error(err)
-               }
-               res.send({
-                  message: 'Clinician added successfully',
-                  statusCode: 200,
-                  status: 'success'
-               })
-            }
-            )
-         }
-      })
-   } else {
-      res.send({
-         message: 'Invalid phone number or email',
-         statusCode: 400
-      })
-   }
+   return 'adding new clinician failed';
 }
 
 

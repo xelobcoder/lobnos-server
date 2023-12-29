@@ -414,48 +414,68 @@ class EmailService {
     }
   }
 
-  async isEmailAuthenticated(patientid) {
+  async isEmailAuthenticated(identifier, target) {
+    console.log(identifier,target)
     try {
       // we want to verify using the patientid if patient is authenticated via email
-      let result = await runPromise(`SELECT * FROM patients_settings WHERE PATIENTID = ?`, [patientid]);
-      if (result.length === 0) return false;
-      const { authenticated, authenticationMode } = result[0];
-      return authenticationMode === 'email' & authenticated == 1 ? true : false
+      let result = false;
+      
+      if (target === 'patient') {
+        result = await promisifyQuery(`SELECT * FROM patients_settings WHERE PATIENTID = ?`, [identifier]);
+        if (result.length === 0) return false;
+        const { authenticated, authenticationMode } = result[0];
+        return authenticationMode === 'email' & authenticated == 1 ? true : false
+      }
+
+      if (target === "clinician") {
+        result = await promisifyQuery(`SELECT * FROM clinicianscredentials WHERE clinicianid = ?`, [identifier]);
+        if (result.length === 0) return false;
+        const { isAuthenticated, authenticationMode } = result[0];
+        return authenticationMode === 'email' & isAuthenticated == 1 ? true : false
+      }
+      return result;
     }
     catch (err) {
-      logger.error(err);
+     logger.error(err);
       return new Error(err);
     }
   }
 
-  async updateAuthenticationMode(patientid) {
-    if (!patientid) return 'patientid not provided';
+  async updateAuthMode(target,identifier) {
+    if (!identifier  || !target) return 'required params not provided';
     try {
-      const query = `UPDATE patients_settings SET authenticationMode = 'email', emailAuthenticated = 'true' WHERE patientid = ?`;
-      const isUpdated = await promisifyQuery(query, [patientid]);
+      let query;
+
+      if (target === "patient") {
+        query = `UPDATE patients_settings SET authenticationMode = 'email', emailAuthenticated = 'true' WHERE patientid = ?`;
+      }
+
+      if (target === "clinician") {
+        query = `UPDATE clinicianscredentials SET authenticationMode = 'email', isAuthenticated = 1,authenticatedon = NOW() WHERE clinicianid = ? `;
+      }
+      const isUpdated = await promisifyQuery(query, [identifier]);
+
       return isUpdated.affectedRows == 1 ? true : false;
     } catch (err) {
       throw new Error(err);
     }
   }
-  /**
-   * Sends an authentication email to the specified email address.
-   * @param {string} emailAdd - The email address to send the email to.
-   * @param {string} patientid - The patient ID associated with the email.
-   * @returns {string} - A message indicating if all parameters were provided.
-   */
-  async sendAuthenticateEmail(emailAdd, patientid) {
-    if (!emailAdd || !patientid) return `all parameters not provided`;
+
+  generateToken = async (data) => {
+    if (!data) return false;
+    return await new User().tokenizeData(data, '30m');
+  }
+  
+  async sendAuthenticateEmail(token,email, subject = 'EMAIL VERIFICATION') {
     try {
-      // generate a jwt token for client
-      const token = await new User().tokenizeData({ email: emailAdd, patientid: patientid }, '30m');
+      if (!token || !email) return 'Token  or email not provided';
       // render html using ejs templating egine
       const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/verifyemail.ejs'), { token });
       // forward the email
-      this.transportEmail(this.mailOptions(emailAdd, 'EMAIL VERIFICATION', html));
+      return this.transportEmail(this.mailOptions(email, subject, html));
     } catch (err) {
-      console.log(err)
       logger.error(err)
+      throw new Error(err);
     }
   }
 
@@ -467,8 +487,8 @@ class EmailService {
    * @returns {boolean} - Returns true if the token data is valid, otherwise false.
    */
   validateTokenData = function (token) {
-    const { email, patientid } = token;
-    if (!email || !patientid) return false;
+    const { email, target,identifier } = token;
+    if (!email || !target || !identifier) return false;
     return true;
   }
   /**
@@ -476,22 +496,42 @@ class EmailService {
    * @param {*} token generated user token valid for a pacticular period
    * @returns 
    */
-  async verifyEmailToken(token) {
+  async verifyClientAuthToken(token) {
     try {
       const ourDecodedToken = await new User().verifyToken(token);
       const tokenValid = this.validateTokenData(ourDecodedToken);
-
       if (!tokenValid) return 'Invalid token';
 
-      const { email, patientid } = ourDecodedToken;
+      let isValidId;
 
-      const isValidId = await new Registration().checkPatientIdExist(patientid);
+      const { email, target, identifier } = ourDecodedToken;
 
-      if (!isValidId) return 'Invalid patientid';
-      const isSent = await this.sendTemporaryCredentials(patientid, email);
-      return isSent === true ? patientid : false;
+      if (target === "patient") {
+        isValidId = await new Registration().checkPatientIdExist(identifier);
+      }
+
+      if (target === "clinician") {
+        const data = await database_queries.getsingleid(identifier, `clinicianbasicinfo`, `id`);
+        isValidId = data.length > 0 && email === data[0]['email'];
+      }
+
+      if (!isValidId) return 'Invalid identifier';
+      // check if already Authenticated;
+      const isAuthenticated = await  this.isEmailAuthenticated(identifier, target);
+
+      if (isAuthenticated) {
+        return 'Already Authenticated';
+      }
+            // update authentication mode
+      const isModeUpdated = await this.updateAuthMode(target, identifier);
+      // send temporary creentials
+      const getCredentials = await this.getTempClinicianCredentials(identifier);
+      const { password } = getCredentials[0];
+      // send initial credentials.
+      this.sendTemporaryCredentials({identifier:password, email});
+      return isModeUpdated;
     } catch (err) {
-      logger.error(err)
+      logger.error(err);
       throw new Error(err);
     }
   }
@@ -503,48 +543,49 @@ class EmailService {
    * @param {string} email - The email address of the patient.
    * @returns {Promise<boolean>} - A promise that resolves to a boolean indicating whether the email was sent successfully.
    */
-  async sendTemporaryCredentials(patientid, email) {
-    const credentials = await this.getTemporaryCredentials(patientid);
+  async sendTemporaryCredentials(credentials) {
+    const { identifier, email } = credentials;
+    if (!identifier || !email) return 'Required credentials details not provided';
+
     const html = await ejs.renderFile(path.join(__dirname, '../views', 'templates' + '/temporaryLogins.ejs'), { data: credentials });
-    const issent = await this.transportEmail(this.mailOptions(email, 'Temporary Patient Portal Access Credentials ', html));
-    if (!issent) {
-      this.emailLogdb('temporary credentials', patientid, false, 'email not sent'); // failures are logged in the database;
-    };
+
+    const issent = await (this.transportEmail(this.mailOptions(email, 'Temporary Patient Portal Access Credentials ', html)));
+
+     !issent && this.emailLogdb('temporary credentials', patientid, false, 'email not sent'); 
+  
     return issent;
+  }
+
+  async getTempClinicianCredentials(id) {
+    try 
+    {
+      const credentials = await promisifyQuery(`SELECT * FROM clinicianscredentials WHERE clinicianid = ?`, [id]);
+      return credentials;
+    } catch (err) {
+      logger.error(err);
+    }
   }
 
 
 
-  /**
-   * Fires client authentication process.
-   * @param {string} patientid - The patient ID.
-   * @param {string} email - The email address.
-   * @returns {boolean} - Returns true if the authentication email is sent successfully, otherwise false.
-   */
-  async fireClientAuthentication(patientid, email) {
-    //  1. patientid only provided? get personal information and check if email address is available
-    // 2. if yes, send verification message 
-    // 3. if no , return 
-    // --- if email address is provided as second arguments , send verification message right away
+  async fireClientAuthentication(email, target,identifier) {
     try {
-      if (!patientid) return false;
-      if (patientid && email) {
-        const patternValid = email.length > 5 && email.includes(".") && email.includes("@");
-        const isRight = patternValid ? this.sendAuthenticateEmail(email, patientid) : false;
-        if (!isRight) return false;
-      };
-      if (patientid && !email) {
-        const cI = await database_queries.getsingleid(patientid, 'new_patients', 'patientid');
-        if (cI.length > 0 && cI[0]['email']) {
-          const emailAddress = cI[0]['email'];
-          this.sendAuthenticateEmail(emailAddress, patientid);
-        }
-      }
-      this.emailLogdb('Authentication email', patientid, true, 'email sent'); // success are logged in the database;
+      if (!email || !target) return false;
+      if (target != "clinician" && !identifier) return false;
+      const patternValid = email.length > 5 && email.includes(".") && email.includes("@");
+      if (!patternValid) return false;
+     
+      let tokendata = { email, identifier, target };
+      
+      const token = await this.generateToken(tokendata);
+
+      if (token) await this.sendAuthenticateEmail(token, email);
+      
+      this.emailLogdb('Authentication email', identifier, true, 'email sent'); // success are logged in the database;
       return true;
     } catch (err) {
       logger.error(err);
-      this.emailLogdb('Authentication email', patientid, false, 'email not sent'); // failures are logged in the database;
+      this.emailLogdb('Authentication email', identifier, false, 'email not sent'); // failures
     }
   }
 
@@ -556,7 +597,7 @@ class EmailService {
    * @returns {object|boolean} - The temporary credentials or false if not found.
    * @throws {Error} - If there is an error retrieving the credentials.
    */
-  async getTemporaryCredentials(patientid, response) {
+  async getTempPatientCredentials(patientid, response) {
     try {
       if (!patientid || typeof patientid !== 'number') throw new Error('Patientid must be type Number');
       const query = `SELECT * FROM patients_credentials where PATIENTID = ?`;

@@ -79,17 +79,18 @@ router.get("/api/v1/verify/email/token", async function (request, response) {
   try
   {
     const eservice = new EmailService();
-    const isVerify = await  eservice.verifyEmailToken(token);
-    if (typeof isVerify == "string") { customError(isVerify, 400, response); return; }
+    const isVerify = await eservice.verifyClientAuthToken(token);
+
+    if (typeof isVerify == "string") { 
+      customError(isVerify, 400, response); return; 
+    }
    
     if (isVerify) {
-      response.send({ statusCode: 200, message: "Email verified successfully. Temporary access credentials sent to your mail.Kindly access it and use it to login to the client or patient portal. You are adviced to quickly update credentials as soon as possible", status: "success" });
-      // update client isAuthenicated to true
-      await eservice.emailLogdb('email token verification',isVerify,true);
-      await eservice.updateAuthenticationMode(isVerify);
+      response.send({ statusCode: 200, message: "Email verified successfully. Temporary access credentials will be sent to your mail.Kindly access it and use it to login to your portal. You are adviced to quickly update credentials as soon as possible", status: "success" });
     }
+    
   } catch (err) {
-    customError(err.message, 400, response);
+    customError("Link is expired", 400, response);
   }
 })
 module.exports = router;

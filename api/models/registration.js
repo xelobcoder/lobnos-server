@@ -93,7 +93,6 @@ class Registration {
       if (data.length == 0) return [];
       const { clinicianid } = data[0];
       const cliniciandata = await database_queries.getsingleid(parseInt(clinicianid), 'clinicianbasicinfo', 'id');
-
       data = data.map((item) => { 
         if (item.data) {
           item.data = JSON.parse(item.data);
@@ -105,7 +104,6 @@ class Registration {
     } catch (err) 
     {
       logger.error(err);
-      console.log(err)
       throw new Error(err);
     }
   }

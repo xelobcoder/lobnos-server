@@ -33,18 +33,22 @@ const logger = require("./logger");
 const cors = require("cors");
 
 
-if (cluster.isMaster) { 
-  console.log(`Master ${process.pid} is running`);
-  // Fork workers.
-  for (let i = 1; i < os.cpus().length; i++) {
-    cluster.fork();
-  }
-} else {
-  console.log(`Worker ${process.pid} started`);
-  app.listen(port, () => {
-    console.log(`listening at http://localhost:${port}`);
-  });
-}
+// if (cluster.isMaster) { 
+//   console.log(`Master ${process.pid} is running`);
+//   // Fork workers.
+//   for (let i = 1; i < os.cpus().length; i++) {
+//     cluster.fork();
+//   }
+// } else {
+//   console.log(`Worker ${process.pid} started`);
+//   app.listen(port, () => {
+//     console.log(`listening at http://localhost:${port}`);
+//   });
+// }
+
+app.listen(port, () => {
+  console.log(`listening at http://localhost:${port}`);
+});
 
 
 const { promisifyQuery } = require("./helper");

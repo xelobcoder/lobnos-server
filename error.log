@@ -1800,3 +1800,50 @@
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM billingtemporarytable  AS bt\n      INNER JOIN new_patients  AS np ON np.patientid = bt.patientid WHERE bt.clinicianid = '29' AND bt.processed = 0 WHERE bt.processed = 0 ORDER BY bt.orderid DESC LIMIT 20","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE bt.processed = 0 ORDER BY bt.orderid DESC LIMIT 20' at line 2","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM billingtemporarytable  AS bt\n      INNER JOIN new_patients  AS np ON np.patientid = bt.patientid WHERE bt.clinicianid = '29' AND bt.processed = 0 WHERE bt.processed = 0 ORDER BY bt.orderid DESC LIMIT 20","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE bt.processed = 0 ORDER BY bt.orderid DESC LIMIT 20' at line 2","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM billingtemporarytable  AS bt\n      INNER JOIN new_patients  AS np ON np.patientid = bt.patientid WHERE bt.clinicianid = '29' AND bt.processed = 0 WHERE bt.processed = 0 ORDER BY bt.orderid DESC LIMIT 20","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'WHERE bt.processed = 0 ORDER BY bt.orderid DESC LIMIT 20' at line 2","sqlState":"42000"}
+{"expiredAt":"2023-12-28T22:07:15.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-28T21:12:35.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM 'clinicianbasicinfo' WHERE 'id' = 29","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ''clinicianbasicinfo' WHERE 'id' = 29' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM 'clinicianbasicinfo' WHERE 'id' = 29","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ''clinicianbasicinfo' WHERE 'id' = 29' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM 'clinicianbasicinfo' WHERE 'id' = 29","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ''clinicianbasicinfo' WHERE 'id' = 29' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM 'clinicianbasicinfo' WHERE 'id' = 29","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ''clinicianbasicinfo' WHERE 'id' = 29' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM ? WHERE id = 29","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? WHERE id = 29' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"expiredAt":"2023-12-29T08:39:02.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error","message":"jwt malformed","name":"JsonWebTokenError"}
+{"level":"error","message":"jwt malformed","name":"JsonWebTokenError"}
+{"level":"error","message":"jwt malformed","name":"JsonWebTokenError"}
+{"level":"error","message":"jwt malformed","name":"JsonWebTokenError"}
+{"level":"error","message":"jwt malformed","name":"JsonWebTokenError"}
+{"level":"error","message":"invalid token","name":"JsonWebTokenError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T09:28:03.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T10:17:36.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T10:17:36.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T10:17:36.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"expiredAt":"2023-12-29T10:17:36.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
