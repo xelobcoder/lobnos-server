@@ -1,5 +1,4 @@
 const bcrypt = require("bcrypt");
-const connection = require("../db");
 const jwt = require("jsonwebtoken");
 const logger = require("../../logger");
 const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../helper");
@@ -17,15 +16,6 @@ class User {
     this.email = email;
   }
 
-  catchExemption = async (codebase) => {
-    if (typeof codebase !== 'function') return 'function type required'
-    try {
-      return codebase();
-    } catch (err) {
-      logger.error(err);
-      throw new Error(err?.message || "something went wrong");
-    }
-  }
 
   checkUserExist() {
     return promisifyQuery(`SELECT * FROM roles WHERE email`, this.email)
@@ -37,6 +27,9 @@ class User {
     return this.password;
   };
 
+  isPasswordSame = async (password, hashpassword)  => {
+    return await bcrypt.compare(password,hashpassword);
+  }
   insertionOne = async (name, password) => {
     return promisifyQuery(`INSERT INTO roles (USERNAME,PASSWORD,ROLE,EMAIL) 
       VALUES (?,?,?,?)`,[name,password,this.role,this.email])
@@ -60,8 +53,7 @@ class User {
       const isUserExist = await this.checkUserExist();
       if (isUserExist) return "user already exist";
       const hashPassword = await this.hashPassword();
-      const insertion = await this.insertionOne(this.name, hashPassword);
-      return insertion;
+      return await this.insertionOne(this.name, hashPassword);
     } catch (err) {
       logger.error(err);
       throw new Error(err?.message || "error creating user");
@@ -84,7 +76,7 @@ class User {
     try {
       const result = await this.getUserData(email);
       const accessToken = jwt.sign({ ...result }, accesskey, { expiresIn: "1y" });
-       return accessToken;
+      return accessToken;
     } catch (err) {
       logger.error(err);
       throw new Error(err?.message || "something went wrong");
@@ -104,12 +96,14 @@ class User {
   }
 
   validateEmployeeToken = async function (request, response) {
-    const { employeeid, token } = request.query;
-    const x = jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
-
-    if (x) {
-      response.send({ statusCode: 200, status: 'success', user: convertKeysToLowerCase(x) });
-    }
+    try {
+      const {token } = request.query;
+      if (!token) { customError("token not provided", 404, response); return; }
+      const tokenvalid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET);
+       tokenvalid && response.send({ statusCode: 200, status: 'success', user: convertKeysToLowerCase(tokenvalid) });
+    } catch (err) {
+      customError(err?.message || 'Expired token', 404, response);
+   }
   }
 
   verifyToken = async (token) => {

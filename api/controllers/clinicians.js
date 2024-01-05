@@ -105,10 +105,10 @@ router.get('/api/v1/orders/temporary', async function (request, response) {
 
 
 router.get('/api/v1/orders/temporary/processing', async function (request, response) { 
-  const { id } = request.query;
-  if (!id) customError('please add id', 401, response);
+  const { orderid } = request.query;
+  if (!orderid) customError('please add id', 401, response);
   try {
-    let result = await new Registration().getTemporaryOrdersProcessing(id);
+    let result = await new Registration().getTemporaryOrdersProcessing(orderid);
     response.send({statusCode: 200, status: 'success', result})
   } catch (err) {
     customError('Something wrong ocured', 500, response)

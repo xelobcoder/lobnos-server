@@ -1,7 +1,7 @@
 const { response } = require('express');
 const connection = require('./db');
 const logger = require('../logger');
-const { convertKeysToLowerCase, promisifyQuery } = require('../helper');
+const { convertKeysToLowerCase, promisifyQuery, customError } = require('../helper');
 const { parse } = require('dotenv');
 
 
@@ -18,91 +18,65 @@ const getClinicians = async (req, res) => {
 }
 
 // update clinicians
-const putCliniciansbasic = (req, res) => {
+const putCliniciansbasic = async (req, res) => {
    //     we update the query 
-   const { name, phone, email, location, address, module, occupation,
-      commission, momo, bankName, accountName, branch, account, id } = req.body;
-
+   const { name, phone, email, location, address, occupation,id } = req.body;
+   
+   if (!id) { customError("Clinician id not added", 404, res); return }
+   
    // check if id exist 
-   let check = `SELECT * FROM clinicianbasicinfo WHERE ID = ?`;
-   // update query
+   if (isClinicianExist(id)) {
+      customError('Clinician already exist', 200, res); return;
+   }
 
+   // update query
    let query = `UPDATE clinicianbasicinfo SET NAME = ?, PHONE = ?, EMAIL = ?, LOCATION = ?,
      ADDRESS = ?,OCCUPATION = ? WHERE ID = ?`;
 
-
    const values = [name, phone, email, location, address, occupation, id];
-
    // execute query
    // is id available, if yes continue or send response with message of no id
+   const isUpdated = await promisifyQuery(query, values);
 
-   if (id) {
-      connection.query(check, [id], (err, result) => {
-         if (err) {
-            logger.error(err)
-         }
-         if (result.length > 0) {
-            connection.query(query, values, (err, result) => {
-               if (err) {
-                  logger.error(err)
-               }
-               if (result) {
-                  const { affectedRows } = result;
-                  if (affectedRows > 0) {
-                     res.send({
-                        statusCode: 200,
-                        message: 'Clinician updated successfully',
-                        status: 'success'
-                     })
-                  } else {
-                     res.send({
-                        statusCode: 401,
-                        message: 'Clinician not updated',
-                     })
-                     connection.end()
-                  }
-               }
-            })
-         }
-      })
-   } else {
-      res.send({
-         statusCode: 401,
-         message: 'clinician id not included'
-      })
-   }
+   isUpdated.affectedRows === 1 ?
+   res.send({
+      statusCode: 200,
+      message: 'Clinician updated successfully',
+      status: 'success'
+   }):
+   res.send({
+      statusCode: 401,
+      message: 'Clinician not updated',
+   })
+   return;
 }
 
 
 // delete clinician
 
-const deleteClinicians = (req, res) => {
-   const { id } = req.body;
-   let query = `DELETE FROM clinician WHERE ID = ?`;
-   // execute query
-   connection.query(query, [id], (err, result) => {
-      if (err) {
-         logger.error(err)
-      }
-      else {
-         const { affectedRows } = result;
-         if (affectedRows == 1) {
-            res.send({
-               statusCode: 200,
-               status: 'success',
-               message: 'Deleted successfully'
-            })
-         } else {
-            res.send({
-               statusCode: 500,
-               status: 'error',
-               message: 'something occured. Wrong ID provided'
-            })
-         }
-      }
-
+const deleteClinicians = async (req, res) => {
+   try {
+      const { id } = req.body;
+      if (!id) { customError("id required", 404, res); return }
+      let query = `DELETE FROM clinician WHERE ID = ?`;
+      // execute query
+      const result = await promisifyQuery(query, [id]);
+      result?.affectedRows === 1 ?
+      res.send({
+         statusCode: 200,
+         status: 'success',
+         message: 'Deleted successfully'
+      })
+         :
+         res.send({
+            statusCode: 500,
+            status: 'error',
+            message: 'something occured. Wrong ID provided'
+         })
+   } catch (err) {
+      logger.error(err);
+      customError('Something wrong occured deleting clinician record', 500, res);
    }
-   )
 }
 
 const isClinicianExist = async function (email,mobile) {

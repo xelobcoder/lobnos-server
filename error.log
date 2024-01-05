@@ -1847,3 +1847,11 @@
 {"expiredAt":"2023-12-29T10:17:36.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
 {"expiredAt":"2023-12-29T10:17:36.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
 {"expiredAt":"2023-12-29T10:17:36.000Z","level":"error","message":"jwt expired","name":"TokenExpiredError"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM billingtemporarytable WHERE orderid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}

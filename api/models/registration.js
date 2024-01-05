@@ -89,18 +89,38 @@ class Registration {
   getTemporaryOrdersProcessing = async (id) => { 
     try
     {
-      let  data = await database_queries.getsingleid(id, 'billingtemporarytable', 'orderid');
-      if (data.length == 0) return [];
-      const { clinicianid } = data[0];
-      const cliniciandata = await database_queries.getsingleid(parseInt(clinicianid), 'clinicianbasicinfo', 'id');
-      data = data.map((item) => { 
-        if (item.data) {
-          item.data = JSON.parse(item.data);
-        }
-        return item;
-      });
+      let  getorder = await database_queries.getsingleid(id, 'billingtemporarytable', 'orderid');
+      if (getorder.length == 0) return [];
+       const _this = getorder[0];
+      _this.tax = [];
+      _this.totalTax = 0;
+      _this.paid = 0;
+      _this.total = 0;
+      const { clinicianid, data } = _this;
+      const transformeddata = JSON.parse(data) || [];
+      _this.data = transformeddata || [];
+      _this.totaltestcost = 0;
 
-      return data[0];
+      if (transformeddata.length > 0) {
+        _this.data = transformeddata.filter((item, index) => { return item.name !== "" && item.price !== 0 });
+        // total test cost exclusive of tax 
+        const { data } = _this;
+        _this.totaltestcost = data.reduce((a, b, index) => { return a + b.price }, 0);
+      }
+      // get taxes 
+      const getTax = await promisifyQuery(`SELECT * FROM tax WHERE apply = 'Yes'`);
+
+      if (getTax.length > 0) {
+        _this.tax = getTax;
+        _this.taxRate = getTax.reduce((a, b, index) => { return a + b.value }, 0);
+        _this.totalTax = parseFloat((_this.totaltestcost) * (_this.taxRate / 100));
+      }
+
+      _this.total = _this.totalTax + _this.totaltestcost;
+      _this.payableAmount = _this.total;
+      let cliniciandata = await database_queries.getsingleid(parseInt(clinicianid), 'clinicianbasicinfo', 'id');
+      _this.cliniciandata = cliniciandata.length > 0 ?  cliniciandata[0] : null;
+      return _this;
     } catch (err) 
     {
       logger.error(err);
@@ -119,7 +139,7 @@ class Registration {
     try {
       let useKey;
       useKey = patientid ? patientid : this.patientid;
-    let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`,useKey);
+     let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`,useKey);
       return result.length > 0 ? true : false;
     } 
    catch (err) {logger.error(err); return false;}
@@ -139,11 +159,9 @@ class Registration {
 
   isClientSame = async (clientdata) => {
     try {
-      const { dob, mobile, mobileownership, email } = clientdata;
+      const { mobile, mobileownership, email } = clientdata;
       if (mobile.length == 0 && email.length == 0) return false;
-     
       const getData = await promisifyQuery(`SELECT * FROM new_patients WHERE mobile_number = ?  AND contactpointer = ? OR email = ?`, [mobile,mobileownership, email]);
-
       return getData.length > 0 ? true : false;
     } catch (err) {
       logger.error(err);
@@ -154,9 +172,8 @@ class Registration {
     const patientid = this.generatePatientId();
     try { 
       const { firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years,mobileownership } = records;
-
       const query = `INSERT INTO new_patients (patientid,FIRSTNAME,LASTNAME,MIDDLENAME,EMAIL,AGE,AGETYPE,DOB,MARITAL_STATUS,MOBILE_NUMBER,OCCUPATION,GENDER,ORGANIZATION,contactpointer)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
       // query values
       const values = [patientid, firstname, lastname, middlename, email, age, ageType, `${years}-${months}-${days}`, maritalstatus, mobile, occupation, gender, patientOrganization, mobileownership || 'self'];
       // execute query
@@ -171,22 +188,15 @@ class Registration {
 
 
   addressingInformation = async (id, records) => {
-    return new Promise((resolve, reject) => {
+    try {
       const { area, region, gpsLocation, address } = records;
-      //  update the record of the addressing information table using the result query
       const query = `UPDATE patientsaddress SET area = ?,region = ?,gpsLocation = ?,address = ? WHERE patientid = ?`;
-
       const values = [area, region, gpsLocation, address, id];
-      // execute the query
-      connection.query(query, values, function (err, result) {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(result.affectedRows)
-        }
-      }
-      )
-    })
+      const result = await promisifyQuery(query, values);
+      return result.affectedRows;
+    } catch (err) {
+      throw new Error(err?.message ||  err)
+    }
   }
 
   emmergencyInformation = async (id, records) => {

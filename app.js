@@ -105,12 +105,10 @@ app.get('/api/v1/authenticate/employee/token', async function (request, response
 })
 
 app.post("/api/v1/billing", (req, res) => {
-  const { patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
-    outstanding, cost } = req.body;
+  const { patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost } = req.body;
 
   const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
     outstanding, cost);
-
   billing.insertionProcess(req, res);
 });
 

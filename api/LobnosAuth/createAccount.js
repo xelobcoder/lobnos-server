@@ -7,32 +7,23 @@ const { del } = require("../database/queries");
 
 const createNewAccount = async (req, res) => {
   const { name, password, role, email } = req.body;
-
   if (name == '' || password == '' || role == '', email == '') {
-    res.send({
-      status: 400,
-      message: 'Bad Request'
-    })
+    customError(400, 'Bad Request Request', res); return;
   }
-
-  else {
-    // cinstanitate user class
-    const user = new User(name, password, role, email)
-    const isUser = await user.checkUserExist();
-    if (Array.isArray(isUser) && isUser.length === 0) {
-      try {
-        const hashedPassword = await user.hashPassword();
-        const insert = await user.insertionOne(name, hashedPassword);
-        if (insert) res.send({ status: 'success', message: 'user created successfully' })
-      } catch (err) {
-        res.send({ status: 'error', message: err })
-        logger.error(err);
-      }
-    } else { res.send({ status: 'error', message: 'user already exist' }) }
-  }
+  // instanitate user class
+  const user = new User(name, password, role, email)
+  const isUser = await user.checkUserExist();
+  if (Array.isArray(isUser) && isUser.length === 0) {
+    try {
+      const hashedPassword = await user.hashPassword();
+      const insert = await user.insertionOne(name, hashedPassword);
+      if (insert) res.send({ status: 'success', message: 'user created successfully' })
+    } catch (err) {
+      res.send({ status: 'error', message: err })
+      logger.error(err);
+    }
+  } else { res.send({ status: 'error', message: 'user already exist' }) }
 }
-
-
 
 /**
  * Handles the login process for a user.
@@ -55,7 +46,7 @@ const userLogin = async (req, res) => {
 
   let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email);
     // decode userinformation
-    let decoded = jwt.decode(userinformation);
+  let decoded = jwt.decode(userinformation);
 
     res.send({
       status: 'success',
