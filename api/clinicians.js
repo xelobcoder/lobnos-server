@@ -203,23 +203,23 @@ const getTopPerformingClinicians = async function (request, response) {
    }
 };
 
-var CLINICIAN_QUERY_SUM = `SELECT 
-b.billingid,
-np.patientid,
-tp.name,
-tt.testid,
-tt.approvalStatus AS approval,
-tt.collection,
-tt.ready,
-tt.processing,
-np.firstname,
-np.lastname,
-np.middlename,
-b.clinician,
-b.billedon
-FROM test_ascension AS tt INNER JOIN billing AS b ON tt.billingid = b.billingid
-INNER JOIN new_patients AS np ON np.patientid = b.patientid INNER JOIN test_panels AS tp ON tp.ID = tt.testid
-WHERE b.clinician = ?`
+const CLINICIAN_QUERY_SUM = `SELECT 
+         b.billingid,
+         np.patientid,
+         tp.name,
+         tt.testid,
+         tt.approvalStatus AS approval,
+         tt.collection,
+         tt.ready,
+         tt.processing,
+         np.firstname,
+         np.lastname,
+         np.middlename,
+         b.clinician,
+         b.billedon
+      FROM test_ascension AS tt INNER JOIN billing AS b ON tt.billingid = b.billingid
+      INNER JOIN new_patients AS np ON np.patientid = b.patientid INNER JOIN test_panels AS tp ON tp.ID = tt.testid
+      WHERE b.clinician = ?`
 
 const getClinicianResult = async function (clinicianid, startdate, enddate) {
    try {
@@ -236,7 +236,6 @@ const getClinicianResult = async function (clinicianid, startdate, enddate) {
       }
 
       let result = await promisifyQuery(query, values);
-
       // get unique billingid
 
       let unique = [...new Set(result.map(item => item.billingid))];

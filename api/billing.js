@@ -78,69 +78,52 @@ class Billing {
     try {
       const result = await promisifyQuery(query, patientid);
       return result[0]['COUNT(*)'] > 0 ? false : true;
-    } catch (err) { logger.error(err) }
+    }
+    catch (err) {
+      logger.error(err);
+      throw new Error(err);
+    }
   }
 
   async AddtoTestAscenstion(billingid) {
     try {
-      if (Array.isArray(this.test) && this.test.length > 0) {
-        const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
-        VALUES(?,?,?,CURRENT_DATE)`;
-        // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
-        if (await this.isCompleteFlow()) {
-          this.test.map(async (item, index) => { await promisifyQuery(query, [item, billingid, 'false']) })
-        } else {
-          this.test.map(async (item, index) => {
-            await promisifyQuery(query, [item, billingid, 'true']);
-            await this.updateApprovalStatus(billingid, item);
-          });
-        }
-      }
+      if (Array.isArray(this.test) && this.test.length == 0) return false; 
+      const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
+      VALUES(?,?,?,CURRENT_DATE)`;
+      // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
+      const status = await this.isCompleteFlow() ? 'false' : 'true';
+      this.test.map(async (item, index) => {
+        await promisifyQuery(query, [item, billingid, status]);
+        if (status === "false") await this.updateApprovalStatus(billingid, item);
+      }); 
+      return true;
     } catch (err) {
       logger.error(err);
+      throw new Error(err?.message || err);
     }
   }
 
   async insertionProcess(request, response) {              
-    if (await this.isValidForDayEntry(this.patientid)) {
-      try {
+    try {
+      const valid = await this.isValidForDayEntry(this.patientid);
+      if (!valid) { return `client billed on same day. Kindly check the billing history to update billing`; }
         connection.beginTransaction(async (err) => {
-          if (err) { logger.error(err) }
+          if (err) { logger.error(err); return false;}
           const billingid = await this.insertNewBilling();
-          if (!billingid) { customError('billing failed', 500, response); connection.rollback();}
+          if (!billingid) { customError('billing failed', 500, response); connection.rollback(); return false; }
           await this.AddtoTestAscenstion(billingid);
           await this.updateBillingHistory(billingid);
           connection.commit(async (err) => {
-            if (err) { logger.error(err);
-              connection.rollback();
-            } else {
-              response.status(200).json({ message: 'billing successfully', billingid, statusCode: 200, status: 'success' })
-                const settings = await applicationSettings.getGeneralEmaiSettings();
-                const { provider, email, apppassword } = settings[0];
-                const services = new EmailService(email, apppassword, provider, "kairos diagnostic center");
-              const isSent = await services.forwardBillingReceipt(billingid);
-              if (isSent === true) {
-               await  services.emailLogdb('billing receipt', billingid, 1);
-                logger.info(`billing receipt sent to client with billing id ${billingid}`);
-                return;
-              } else {
-                 await  services.emailLogdb('billing receipt', billingid, '0', isSent);
-                logger.info(`billing receipt not sent to client with billing id ${billingid}`);
-                return;
-              }
-            
-           }
+            if (err) { logger.error(err); connection.rollback(); return false; }
           })
         })
-      } catch (err) {
-        logger.error(err);
-        connection.rollback((err) => {
-          if (err) { logger.error(err) }; customError(err.message, 500, response);
-        })
-      }
-    } else {
-      customError(`client billed on same day. Kindly check the billing history to update billing`, 401, response);
-    }
+      return true;
+    } catch (err) {
+      logger.error(err);
+      connection.rollback((err) => {
+        if (err) { logger.error(err) }; customError(err?.message ||"something wrong occuured", 500, response);
+      })
+ }
   }
 }
 

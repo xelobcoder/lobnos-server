@@ -79,7 +79,7 @@ router.post("/api/v1/login/clinicians", async (request, response) => {
 
         const getUserDetails = await promisifyQuery(query, [email]);
 
-        if (getUserDetails.length === 0) { customError("Invalid credentials seen", 404, res); return }
+        if (getUserDetails.length === 0) { customError("Invalid credentials seen", 404, response); return }
 
         const { ispasswordUpdated,clinicianid} = getUserDetails[0];
 
@@ -103,6 +103,7 @@ router.post("/api/v1/login/clinicians", async (request, response) => {
             return;
         }
     } catch (err) {
+       console.log(err);
         customError('Something wrong has occured', 404, response);
     }
 })

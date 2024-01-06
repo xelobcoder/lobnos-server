@@ -1,7 +1,7 @@
 const connection = require("../db");
 const User = require("../LobnosAuth/user");
 const jwt = require("jsonwebtoken");
-const { customError, convertKeysToLowerCase } = require('../../helper');
+const { customError, convertKeysToLowerCase, promisifyQuery } = require('../../helper');
 const logger = require("../../logger");
 const { del } = require("../database/queries");
 
@@ -57,9 +57,7 @@ const userLogin = async (req, res) => {
 }
 
 
-
-const getAllLogins = async (req, res) => {
-  /**
+ /**
    * Retrieves all login information from the "roles" table and sends the result as a response to the client.
    * 
    * @param {Object} req - The request object containing information about the HTTP request.
@@ -67,24 +65,14 @@ const getAllLogins = async (req, res) => {
    * @returns {void}
    */
 
-  // create a SQL query to get all logins
-  const queryString = `SELECT * FROM roles ORDER BY EMPLOYEEID DESC LIMIT 20;`;
-
-  // execute query
-  connection.query(queryString, (err, result) => {
-    if (err) {
-      res.status(400).send({
-        statusCode: 301,
-        message: 'An error occurred'
-      });
-    } else {
-      res.status(200).send({
-        statusCode: 200,
-        message: 'Success',
-        result
-      });
-    }
-  });
+const getAllLogins = async (req, res) => {
+  try {
+    const result = await promisifyQuery(`SELECT * FROM roles ORDER BY EMPLOYEEID DESC LIMIT 20`);
+    res.send({ message: "success", result, statusCode: 200 });
+  } catch (err) {
+    customError("somethin wrong occured", 301, res);
+    logger.error(err);
+  }
 };
 
 

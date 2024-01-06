@@ -51,7 +51,7 @@ app.listen(port, () => {
 });
 
 
-const { promisifyQuery } = require("./helper");
+const { promisifyQuery, customError } = require("./helper");
 app.use( cors({origin: "*",credentials: false}));
 app.use(express.static('public'))
 
@@ -104,12 +104,17 @@ app.get('/api/v1/authenticate/employee/token', async function (request, response
   new User().validateEmployeeToken(request, response);
 })
 
-app.post("/api/v1/billing", (req, res) => {
+app.post("/api/v1/billing", async (req, res) => {
   const { patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost } = req.body;
 
-  const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
-    outstanding, cost);
-  billing.insertionProcess(req, res);
+  const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost);
+
+  const result = await billing.insertionProcess(req, res);
+  
+
+  typeof result === "number" && response.status(200).json({ message: 'billing successfully', billingid: result, statusCode: 200, status: 'success' }); 
+  typeof result === "boolean" && result === false && customError("something wrong occured adding new billing", 404, res);
+
 });
 
 app.get("/api/v1/billedclients", (req, res) => {

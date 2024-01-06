@@ -1855,3 +1855,43 @@
 {"level":"error"}
 {"level":"error"}
 {"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM billingtemporarytable WHERE orderid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM billingtemporarytable WHERE orderid = undefined","sqlMessage":"Unknown column 'undefined' in 'where clause'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,NULL,NULL,3000,3000,'cash',NULL,'669',1,false,0,NULL,3669)","sqlMessage":"Column 'clinician' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,NULL,NULL,3000,3000,'cash',NULL,'669',1,false,0,NULL,3669)","sqlMessage":"Column 'clinician' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,NULL,3000,3000,'cash',NULL,'669',1,false,0,NULL,3669)","sqlMessage":"Column 'organization' cannot be null","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '? AND DATE(billedon) = CURRENT_DATE' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,0,3000,3000,'cash',NULL,'669',1,false,0,NULL,3669)","sqlMessage":"Column 'outstanding' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,0,3000,3000,'cash',0,'669',1,false,0,NULL,3669)","sqlMessage":"Column 'clientstatus' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,0,3000,3000,'cash',0,'669',1,false,0,NULL,3669)","sqlMessage":"Column 'clientstatus' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,0,3000,3000,'cash',0,'669',1,false,0,NULL,3669)","sqlMessage":"Column 'clientstatus' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,0,3000,3000,'cash',0,669,1,false,0,NULL,3669)","sqlMessage":"Column 'clientstatus' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,0,3000,3000,'cash',0,669,1,false,0,NULL,3669)","sqlMessage":"Column 'clientstatus' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702808069956,41,0,3000,3000,'cash',0,669,1,false,0,NULL,3669)","sqlMessage":"Column 'clientstatus' cannot be null","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

@@ -18,24 +18,16 @@ class Registration {
   }
 
   isBulkRegistration = async function () {
-    return new Promise((resolve, reject) => {
-      const query = `SELECT  bulkregistration FROM applicationsettings`;
-      //  connecting to database 
-      connection.query(query, function (err, result) {
-        if (err) {
-          reject(err)
-        } else {
-          if (result.length == 0) resolve(false);
-          else {
-            const { bulkregistration } = result[0];
-            if (bulkregistration == 0) resolve(false)
-            else {
-              resolve(true)
-            }
-          }
-        }
-      })
-    })
+    try {
+      const query = `SELECT  bulkregistration FROM applicationsettings`
+      const result = await promisifyQuery(query)
+      if (result.length === 0) return false
+      const { bulkregistration } = result[0];
+      return bulkregistration === 1
+    } catch (err) {
+      logger.error(err);
+      throw new Error(err);
+    }
   }
 
 
@@ -59,7 +51,7 @@ class Registration {
     }
    }
 
-  getTemporaryOrders = async (target,clinicianid) => { 
+  getTemporaryOrders = async (target,clinicianid,date) => { 
     if (!target) return new Error("target for query not provided");
 
     const values = [];
@@ -67,11 +59,16 @@ class Registration {
       let query = `SELECT * FROM billingtemporarytable  AS bt
       INNER JOIN new_patients  AS np ON np.patientid = bt.patientid`;
 
-      if (target == 'clinician' || target == 'organization') { 
+      if (target == 'clinician' ) { 
         query += ` WHERE bt.clinicianid = ? AND bt.processed = 0`;
         values.push(clinicianid);
       } else {
         query += ` WHERE bt.processed = 0`
+      }
+
+      if (date) {
+        query += ` AND DATE(bt.created_on) = ?`;
+        values.push(date);
       }
      query += ` ORDER BY bt.orderid DESC LIMIT 20`;
 
@@ -80,7 +77,6 @@ class Registration {
     return result;
     } catch (err) {
       logger.error(err);
-      console.log(err)
       throw new Error(err);
    }
   }
@@ -91,21 +87,28 @@ class Registration {
     {
       let  getorder = await database_queries.getsingleid(id, 'billingtemporarytable', 'orderid');
       if (getorder.length == 0) return [];
-       const _this = getorder[0];
+      const { clinicianid, organizationid, data,patientid,orderid} = getorder[0];
+      let _this = {};
       _this.tax = [];
-      _this.totalTax = 0;
+      _this.patientid = patientid;
+      _this.orderid = orderid;
+      _this.clinician = clinicianid;
+      _this.organization = organizationid;
+      _this.taxValue = 0;
+      _this.taxRate = 0;
+      _this.taxIncluded = false;
       _this.paid = 0;
-      _this.total = 0;
-      const { clinicianid, data } = _this;
+      _this.cost = 0;
+      _this.samplingCenter = null;
       const transformeddata = JSON.parse(data) || [];
-      _this.data = transformeddata || [];
-      _this.totaltestcost = 0;
+      _this.test = transformeddata || [];
+      _this.testcost = 0;
 
       if (transformeddata.length > 0) {
-        _this.data = transformeddata.filter((item, index) => { return item.name !== "" && item.price !== 0 });
+        _this.test = transformeddata.filter((item, index) => { return item.name !== "" && item.price !== 0 });
         // total test cost exclusive of tax 
-        const { data } = _this;
-        _this.totaltestcost = data.reduce((a, b, index) => { return a + b.price }, 0);
+        const { test} = _this;
+        _this.testcost = test.reduce((a, b, index) => { return a + b.price }, 0);
       }
       // get taxes 
       const getTax = await promisifyQuery(`SELECT * FROM tax WHERE apply = 'Yes'`);
@@ -113,13 +116,19 @@ class Registration {
       if (getTax.length > 0) {
         _this.tax = getTax;
         _this.taxRate = getTax.reduce((a, b, index) => { return a + b.value }, 0);
-        _this.totalTax = parseFloat((_this.totaltestcost) * (_this.taxRate / 100));
+        _this.taxValue = parseFloat((_this.testcost) * (_this.taxRate / 100));
+        _this.taxIncluded = true;
+      }
+      _this.cost = _this.taxValue + _this.testcost;
+      _this.payable = _this.total;
+      _this.paymentmode = "";
+      let cliniciandata = await database_queries.getsingleid(parseInt(clinicianid), 'clinicianbasicinfo', 'id');
+    
+      if (cliniciandata.length > 0) {
+        _this.clinicianname = cliniciandata[0]['name'];
       }
 
-      _this.total = _this.totalTax + _this.totaltestcost;
-      _this.payableAmount = _this.total;
-      let cliniciandata = await database_queries.getsingleid(parseInt(clinicianid), 'clinicianbasicinfo', 'id');
-      _this.cliniciandata = cliniciandata.length > 0 ?  cliniciandata[0] : null;
+      delete _this.data;
       return _this;
     } catch (err) 
     {
@@ -135,11 +144,22 @@ class Registration {
     return Date.now();
   }
 
+  updateProcessedOrder = async function (orderid) {
+    try
+    {
+      if (!orderid) throw new Error("orderid required");
+      const result = await promisifyQuery(`UPDATE billingtemporarytable SET processed = 1 WHERE orderid = ?`, [orderid]);
+      return result.affectedRows === 1 ? true : false;
+    } catch (err) {
+      throw new Error(err);
+    }
+  }
+
   checkPatientIdExist = async (patientid) => {
     try {
       let useKey;
       useKey = patientid ? patientid : this.patientid;
-     let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`,useKey);
+      let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`,useKey);
       return result.length > 0 ? true : false;
     } 
    catch (err) {logger.error(err); return false;}

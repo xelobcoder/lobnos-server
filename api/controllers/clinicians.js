@@ -2,7 +2,9 @@ const { getClinicians, putCliniciansbasic, deleteClinicians, getSingleClinician,
 const { customError } = require('../../helper');
 const logger = require('../../logger');
 const EmailService = require('../EmailServices/email');
+const {Billing }= require("../../api/billing");
 const Registration = require('../models/registration');
+const database_queries = require('../database/queries');
 
 const router = require('express').Router();
 
@@ -89,13 +91,13 @@ router.post('/api/v1/orders/temporary', async function (request, response) {
  
 
 router.get('/api/v1/orders/temporary', async function (request, response) {
-  const { clinicianid ,target} = request.query;
+  const { clinicianid ,target,date} = request.query;
   if (!target) {
     customError('please addd target for query ', 401, response);
     return;
   }
   try {
-    const result = await new Registration().getTemporaryOrders(target,clinicianid);
+    const result = await new Registration().getTemporaryOrders(target,clinicianid,date);
     response.send({statusCode: 200, status: 'success', result})
   } catch (err) {
     customError('Something wrong ocured', 500, response)
@@ -112,6 +114,37 @@ router.get('/api/v1/orders/temporary/processing', async function (request, respo
     response.send({statusCode: 200, status: 'success', result})
   } catch (err) {
     customError('Something wrong ocured', 500, response)
+  }
+})
+
+
+router.post("/api/v1/orders/processed", async function (request, response) {
+  try
+  {
+    const { patientid, clinician, organization, orderid, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost } = request.body;
+
+    const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
+      outstanding, cost);
+    
+    const outcome = await billing.insertionProcess(request, response);
+
+    if (typeof outcome === "string") {
+      customError(outcome, 404, response);
+    }
+    if (typeof outcome === "boolean") {
+      // we update the temporary orders
+    if (outcome !== true) { customError("error in processsing order", 404, response); return; } 
+      const isUpdated = await new Registration().updateProcessedOrder(orderid);
+      if (!isUpdated) {
+        customError("error processing order", 500, response); return;
+      }
+      response.send({ message: 'order processed successfully', statusCode: 200, status: "success" });
+    }
+  } 
+  catch (err) 
+  {
+    console.log(err);
+    customError(err?.message || err, 500, response);
   }
 })
 
