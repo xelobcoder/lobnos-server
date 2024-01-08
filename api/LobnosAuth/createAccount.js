@@ -220,27 +220,16 @@ const getPermissions = async (permissions, response) => {
   const userClass = new User();
   const user = await userClass.userExistWithId(permissions);
 
-  if (!user) {
-    throw new Error("User does not exist");
-  }
-
-  return new Promise((resolve, reject) => {
+  if (!user) throw new Error("User does not exist");
     const userData = user[0];
     let obj = {};
     for (const [key, value] of Object.entries(userData)) {
-      if (key == 'PERMISSIONS') {
-        if (value) {
-          obj[key.toLowerCase()] = JSON.parse(value);
-        } else {
-          obj[key.toLowerCase()] = {}
+        if (key == 'permissions') {
+            if (value !== '{}') obj[key.toLowerCase()] = JSON.parse(value);
+            if (value === null || value === undefined) obj[key.toLowerCase()] = {};
         }
-      }
-      if (key == 'USERNAME' || key == 'ROLE') {
-        obj[key.toLowerCase()] = value;
-      }
     }
-    resolve(obj)
-  })
+    return obj;
 }
 
 const updateUserPermission = async function (request, response) {

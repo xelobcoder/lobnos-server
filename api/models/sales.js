@@ -14,34 +14,33 @@ sales.generalSales = async function (request, response, target, branch) {
     query = `SELECT 
     SUM(PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
-    YEAR(pt.DATE) AS 'Year'
-    FROM billing AS b
-    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID`;
+    YEAR(b.billedon) AS 'Year'
+    FROM billing AS b`;
+
     if (patientid) {
       query += ` WHERE b.PATIENTID = ${patientid}`
     }
     if (branch != 'all') {
-      query += ` AND pt.SAMPLING_CENTER = ${branch}`;
+      query += ` WHERE b.branchid = ${branch}`;
     }
-    query += ` GROUP BY YEAR(pt.DATE)`;
+    query += ` GROUP BY YEAR(b.billedon)`;
   } else if (target == 'monthly') {
     query = `SELECT
     SUM(PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
-    MONTHNAME(pt.DATE) AS 'Month'
+    MONTHNAME(b.billedon) AS 'Month'
     FROM billing AS b
-    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
-    WHERE YEAR(pt.DATE) = YEAR(CURDATE())
+    WHERE YEAR(b.billedon) = YEAR(CURDATE())
 `;
     if (patientid) {
       query += ` AND b.PATIENTID = ${patientid}`
     }
 
     if (branch != 'all') {
-      query += ` AND pt.SAMPLING_CENTER = ${branch}`;
+      query += ` AND b.branchid = ${branch}`;
     }
 
-    query += ` GROUP BY MONTH(pt.DATE) `
+    query += ` GROUP BY MONTH(b.billedon) `
 
   } else if (target == 'daily') {
     query = `
@@ -50,44 +49,42 @@ sales.generalSales = async function (request, response, target, branch) {
     COUNT(b.BILLINGID) AS totalCases,
     SUM(b.DISCOUNT) AS discount,
     SUM(PAID_AMOUNT) AS totalAmountReceived,
-    pt.DATE AS date,
-        DAY(pt.DATE) AS 'Day'
+    b.billedon AS date,
+        DAY(b.billedon) AS 'Day'
     FROM billing AS b
-    INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
-    WHERE YEAR(pt.DATE) = YEAR(CURDATE()) AND MONTH(pt.DATE) = MONTH(CURDATE())
+    WHERE YEAR(b.billedon) = YEAR(CURDATE()) AND MONTH(b.billedon) = MONTH(CURDATE())
 `;
     if (patientid) {
       query += ` AND b.PATIENTID = ${patientid}`;
     }
 
     if (branch != 'all') {
-      query += `AND pt.SAMPLING_CENTER = ${branch}`;
+      query += `AND b.branchid = ${branch}`;
     }
 
-    query += ` GROUP BY DAY(pt.DATE)`
+    query += ` GROUP BY DAY(b.billedon)`
   } else {
     // weekly
     query = `
        SELECT
         SUM(PAYABLE) AS salesAmount,
         CASE
-            WHEN DAY(pt.DATE) BETWEEN 1 AND 7 THEN 'First Week'
-            WHEN DAY(pt.DATE) BETWEEN 8 AND 14 THEN 'Second Week'
-            WHEN DAY(pt.DATE) BETWEEN 15 AND 21 THEN 'Third Week'
-            WHEN DAY(pt.DATE) BETWEEN 22 AND 31 THEN 'Fourth Week'
+            WHEN DAY(b.billedon) BETWEEN 1 AND 7 THEN 'First Week'
+            WHEN DAY(b.billedon) BETWEEN 8 AND 14 THEN 'Second Week'
+            WHEN DAY(b.billedon) BETWEEN 15 AND 21 THEN 'Third Week'
+            WHEN DAY(b.billedon) BETWEEN 22 AND 31 THEN 'Fourth Week'
         END AS 'Week',
         COUNT(b.BILLINGID) AS totalCases
       FROM billing AS b
-      INNER JOIN performing_test as pt ON b.BILLINGID = pt.BILLINGID
-      WHERE YEAR(pt.DATE) = YEAR(CURDATE())
-      AND MONTH(pt.DATE) = MONTH(CURDATE())`
+      WHERE YEAR(b.billedon) = YEAR(CURDATE())
+      AND MONTH(b.billedon) = MONTH(CURDATE())`
     if (patientid) {
       query += ` AND b.PATIENTID = ${patientid}`
     }
     if (branch != 'all') {
-      query += `AND pt.SAMPLING_CENTER = ${branch}`;
+      query += `AND b.branchid = ${branch}`;
     }
-    query += ` GROUP BY WEEK(pt.DATE)`
+    query += ` GROUP BY WEEK(b.billedon)`
   }
 
 

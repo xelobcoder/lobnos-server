@@ -262,7 +262,6 @@ class Registration {
       return await this.personalInformation(personalInformation);
       
     } catch (error) {
-      console.log(error)
       response.send({
         status: "error",
         message: "An error occured while trying to add new patient",

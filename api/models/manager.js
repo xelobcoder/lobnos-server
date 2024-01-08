@@ -12,45 +12,31 @@ class Manager {
     let defaultDuration = "daily";
   };
 
-  verificationManager() {
+  async verificationManager() {
     // we will check if manager exist in table in the database
     // if true , we continue else we return A 401 error 
-    const sqlQuery = `SELECT * FROM roles WHERE employeeid = ? `;
-    return new Promise((resolve, reject) => {
-      connection.query(sqlQuery, [this.employeeid], function (err, result) {
-        if (err) { reject(err.message) }
-        else {
-          result.length > 0 && result[0]['ROLE'] == ('Manager' || 'manager') ? resolve(true) : resolve(false)
-        }
-      })
-    })
+      const sqlQuery = `SELECT * FROM roles WHERE employeeid = ? `;
+      const result = await promisifyQuery(sqlQuery, [this.employeeid]);
+      return result.length > 0 && result[0]["role"].toLowerCase() === "manager";
   }
 
   insertApproval = async (approvalStatus, message = null) => {
-    let insertNewResult = `
-    UPDATE test_ascension SET ApprovalStatus = ?,
+      try {
+          let insertNewResult = `
+            UPDATE test_ascension SET ApprovalStatus = ?,
     ApprovedBy = ? `;
 
-    if (approvalStatus == false) {
-      insertNewResult += `,DeclineMessage = '${message}' `
-    }
+          if (approvalStatus == false) {
+              insertNewResult += `,DeclineMessage = '${message}' `
+          }
+          insertNewResult += `WHERE billingid = ? AND testid = ? `
+          const values = [approvalStatus, this.employeeid, this.billingid, this.testid];
 
-    insertNewResult += `WHERE billingid = ? AND testid = ? `
-
-    const values = [approvalStatus, this.employeeid, this.billingid, this.testid];
-
-    let promise = new Promise((reject, resolve) => {
-      connection.query(insertNewResult, values, (err, result) => {
-        if (err) {
-          reject(err);
-        }
-        if (result && result.affectedRows > 0) {
-          resolve(result);
-        }
-      });
-    });
-
-    return promise;
+          return await promisifyQuery(insertNewResult, values);
+      } catch (err) {
+          logger.error(err?.message || message);
+          throw new Error(err);
+      }
   };
 
   getReadyForApprovals = async function (request, response) {

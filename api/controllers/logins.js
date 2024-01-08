@@ -32,22 +32,14 @@ router.post('/api/v1/logins/update', async (request, response) => {
 })
 
 router.post('/api/v1/authenticate', async (request, response) => {
-   const { email, password } = request.body
-
-   if (!email || !password) {
-      response.send({
-         statusCode: 400,
-         message: 'Bad Request',
-      })
-   }
-   else {
-      userLogin(request, response)
-   }
+    const { email, password } = request.body;
+    if (!email || !password) { customError("Bad Request", 400, response); return; }
+    userLogin(request, response)
 })
 
 
 router.put('/api/v1/user/authentication/activate', async (request, response) => {
-   activateAUser(request, response)
+    activateAUser(request, response);
 })
 
 

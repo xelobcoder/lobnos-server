@@ -104,7 +104,7 @@ o.createAOrganization = async function (request, response) {
     connection.query(query, values, function (err, result) {
       if (err) {
         console.log(err)
-        // logger.error(err);
+        logger.error(err);
       }
       if (result) {
         result.affectedRows === 1 ?
@@ -122,31 +122,6 @@ o.createAOrganization = async function (request, response) {
 
 
 o.updateOrganizationBasic = async function (request, response) {
-
-  // const {
-  //   id,
-  //   commission,
-  //   momo,
-  //   bankName,
-  //   accountName,
-  //   branch,
-  //   account,
-  //   person,
-  //   email,
-  //   contactPerson,
-  //   contactEmail,
-  //   name,
-  //   location,
-  //   street,
-  //   mobile,
-  //   address,
-  //   website,
-  //   module,
-  //   gpsMapping,
-  //   region,
-  //   district
-  // } = request.query;
-
   const {
     name,
     location,
@@ -343,14 +318,10 @@ o.getTopPerformance = async function (request, response) {
   const { count, from, to } = request.query;
 
   if (!count) {
-    response.send({
-      message: 'count represent top count required',
-      statusCode: 401,
-      status: 'warning'
-    })
+      customError('count represent top count required', 401, response);
   } else {
     let query_string = `
-           SELECT DISTINCT o.ID AS id,
+      SELECT DISTINCT o.ID AS id,
           o.name,
           oc.commission AS commissionRate,
           (  SELECT SUM(b.PAYABLE)
@@ -360,10 +331,9 @@ o.getTopPerformance = async function (request, response) {
             WHERE o.id = o.id
           ) AS commissionEarned,
           SUM(b.payable) AS TotalSales
-        FROM organization AS o
-          INNER JOIN BILLING AS b ON b.ORGANIZATION = o.id
+     FROM organization AS o
+          INNER JOIN billing AS b ON b.organization = o.id
           INNER JOIN organizationaccountinformation AS oc ON oc.organizationid = o.id
-          INNER JOIN performing_test AS pt ON pt.billingid = b.billingid
       `;
 
     if (from && to) {

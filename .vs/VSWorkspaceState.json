@@ -1,9 +1,9 @@
 {
   "ExpandedNodes": [
     "",
-    "\\api\\controllers",
-    "\\FlowCharts"
+    "\\api",
+    "\\api\\controllers"
   ],
-  "SelectedNode": "\\FlowCharts\\clinician.drawio",
+  "SelectedNode": "\\api\\controllers\\manager.js",
   "PreviewInSolutionExplorer": false
 }
