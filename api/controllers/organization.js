@@ -2,6 +2,9 @@ const router = require('express').Router();
 const multer = require('multer')
 const path = require('path');
 const fs = require('fs');
+const o = require('../models/organization');
+const { customError } = require('../../helper');
+const Organization = require("../models/organization/index");
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -29,7 +32,7 @@ const upload = multer({ storage }).single('file')
 
 
 
-const o = require('../models/organization');
+
 
 router.get('/api/v1/organization', function (request, response) {
   o.getOrganizations(request, response);
@@ -100,4 +103,15 @@ router.get('/api/v1/organization/performance/top', function (request, response) 
   o.getTopPerformance(request, response)
 })
 
+router.get("/api/v1/organization/detail/report/monthly", async function (request, response) {
+  const { organizationid } = request.query;
+  if (!organizationid) { customError('id required', 404, response); return; };
+
+    try {
+        const report = await new Organization(organizationid).generateSalesReport();
+        response.send({status: 'success',statusCode: 200, result: report})
+    } catch (err) {
+        customError("something wrong occured", 500, response);
+    }
+})
 module.exports = router;

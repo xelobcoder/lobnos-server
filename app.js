@@ -111,7 +111,7 @@ app.post("/api/v1/billing", async (req, res) => {
 
   const result = await billing.insertionProcess(req, res);
   
-
+  typeof result === "string" && customError(result, 400, res);
   typeof result === "number" && response.status(200).json({ message: 'billing successfully', billingid: result, statusCode: 200, status: 'success' }); 
   typeof result === "boolean" && result === false && customError("something wrong occured adding new billing", 404, res);
 

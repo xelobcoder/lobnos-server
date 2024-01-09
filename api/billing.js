@@ -201,6 +201,7 @@ const getBilledClients = async function (request, response) {
           b.PATIENTID,
           b.TYPE,
           b.OUTSTANDING,
+          pm.PaymentMode,
           b.DISCOUNT,
           DATE(b.billedon) AS DATE
         FROM billing AS b

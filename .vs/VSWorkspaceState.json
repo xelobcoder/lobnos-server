@@ -2,8 +2,10 @@
   "ExpandedNodes": [
     "",
     "\\api",
-    "\\api\\controllers"
+    "\\api\\controllers",
+    "\\api\\models",
+    "\\api\\models\\organization"
   ],
-  "SelectedNode": "\\api\\controllers\\manager.js",
+  "SelectedNode": "\\api\\models\\error.log",
   "PreviewInSolutionExplorer": false
 }
