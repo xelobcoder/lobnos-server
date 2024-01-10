@@ -4,7 +4,7 @@ const logger = require("../../../logger");
 const INITQUERY =` SUM(payable) AS payable, SUM(discount) AS discountedAmount, COUNT(*) AS referedCases
 FROM billing WHERE organization = ?`
 
-const MONTHLYSALESQUERY = `SELECT ` + INITQUERY+ ` AND MONTH(billedon) = MONTH(CURRENT_DATE)`;
+const MONTHLYSALESQUERY = `SELECT ` + INITQUERY + ` AND MONTH(billedon) = MONTH(CURRENT_DATE)`;
 
 const WEEKLYSALESQUERY = `SELECT 
             CASE 

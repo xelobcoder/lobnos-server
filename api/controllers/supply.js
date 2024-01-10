@@ -1,4 +1,5 @@
-const router = require('express').Router()
+const router = require('express').Router();
+const Supply = require("../models/supply.js");
 const {
   new_supplier,
   get_suppliers,
@@ -40,17 +41,23 @@ const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = r
 const { getCategory } = require('../testpanel/categories.js');
 const { customError } = require('../../helper.js');
 
-router.get('/api/v1/suppliers', function (request, response) {
-  const hasQuery = Object.keys(request.query).length > 0
-  if (!hasQuery) {
-    get_suppliers(request, response)
-  } else {
-    specificSupllier(request, response)
+router.get('/api/v1/suppliers', async function (request, response) {
+  try {
+    const result = await new Supply().getSuppliers(request.query);
+    response.send({ result, statusCode: 200, status: 'success' });
+  } catch (err) {
+    customError("something went wrong", 500, response);
+    logger.err(err);
   }
 })
 
-router.post('/api/v1/suppliers', function (request, response) {
-  new_supplier(request, response)
+router.post('/api/v1/suppliers', async function (request, response) {
+  try {
+    const result = await new Supply().addSupplier(request.body);
+    response.send({ message: result ? 'stock added successfully' : 'stock addition failed', statusCode: 200, status: "success" });
+  } catch (err) {
+    customError("something went wrong", 500, response);
+   }
 })
 
 router.delete('/api/v1/suppliers', function (request, response) {
