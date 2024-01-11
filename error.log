@@ -1952,3 +1952,85 @@
 {"level":"error"}
 {"level":"error"}
 {"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM warehouse","sqlMessage":"Table 'limsdb.warehouse' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM warehouse","sqlMessage":"Table 'limsdb.warehouse' doesn't exist","sqlState":"42S02"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse ON sh.warehouse = warehouse.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse ON sh.warehouse = warehouse.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse ON sh.warehouse = warehouse.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse ON sh.warehouse = warehouse.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_NON_UNIQ_ERROR","errno":1052,"index":0,"level":"error","sql":"SELECT * FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = sh.id GROUP BY id LIMIT 10 OFFSET 0","sqlMessage":"Column 'id' in group statement is ambiguous","sqlState":"23000"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT sh.id,sh.warehouse as warehouseid,wc.name,sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id GROUP BY sh.id LIMIT 10 OFFSET 0","sqlMessage":"Unknown column 'wc.name' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT sh.id,sh.warehouse as warehouseid,wc.name,sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id GROUP BY sh.id LIMIT 10 OFFSET 0","sqlMessage":"Unknown column 'wc.name' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT sh.id,sh.warehouse as warehouseid,wc.warehouse,sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id GROUP BY sh.id LIMIT 10 OFFSET 0","sqlMessage":"Unknown column 'wc.warehouse' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT sh.id,sh.warehouse as warehouseid,wc.warehouse,sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id GROUP BY sh.id LIMIT 10 OFFSET 0","sqlMessage":"Unknown column 'wc.warehouse' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT sh.id,sh.warehouse as warehouseid,wc.name as warehouse,sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id GROUP BY sh.id LIMIT 10 OFFSET 0","sqlMessage":"Unknown column 'wc.name' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT sh.id,sh.warehouse as warehouseid,wc.name as warehouse,sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id GROUP BY sh.id LIMIT 10 OFFSET 0","sqlMessage":"Unknown column 'wc.name' in 'field list'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM shelves WHERE warehouseid = '2'","sqlMessage":"Unknown column 'warehouseid' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT * FROM shelves WHERE warehouseid = 2","sqlMessage":"Unknown column 'warehouseid' in 'where clause'","sqlState":"42S22"}

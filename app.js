@@ -30,6 +30,7 @@ const organizationRouter = require('./api/controllers/organization');
 const applicationsettingsRouter = require('./api/controllers/applicationSettings');
 const generalSalesRouter = require('./api/controllers/sales');
 const patientAnalytics = require('./api/controllers/patients.controller');
+const WarehouseRouter = require("./api/controllers/Inventory/warehouse");
 const logger = require("./logger");
 const cors = require("cors");
 
@@ -98,6 +99,7 @@ app.use(registrationRouter);
 app.use(applicationsettingsRouter);
 app.use(stocksRouter);
 app.use(patientAnalytics);
+app.use(WarehouseRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" });

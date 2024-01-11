@@ -1,10 +1,11 @@
 const connectionpool = require('./api/dbpool');
 const { PatientQueries } = require('./helpers/testtables');
+const logger = require('./logger');
 function customError(message, statusCode, response) {
   if (!response) {
-    throw new Error('response required'); 
+    throw new TypeError("Http response object required");
   }
-  response.send({message,statusCode,status: 'error'})
+  response.send({ message: message || "something wrong occured", statusCode: statusCode || 500, status: 'error' });
 }
 
 
