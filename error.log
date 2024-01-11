@@ -1938,3 +1938,17 @@
 {"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO supplier (name,address,email,contactperson,region,phonenumber) VALUES ('Tiifu adams','yipala r/c primary school','xelobcoder@gmail.com','tiifu hamza kojo hamza','Savannah','02474448484')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
 {"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO supplier (name,address,email,contactperson,region,phonenumber) VALUES ('Tiifu adams','yipala r/c primary school','xelobcoder@gmail.com','tiifu hamza kojo hamza','Savannah','02474448484')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
 {"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO supplier (name,address,email,contactperson,region,phonenumber) VALUES ('Tiifu adams','yipala r/c primary school','xelobcoder@gmail.com','tiifu hamza kojo hamza','Savannah','02474448484')","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

@@ -1,10 +1,5 @@
-const connection = require('../db')
-const database_queries = require('../database/queries')
-const { promisifyQuery, paginationQuery } = require('../../helper')
-
-const NEWSUPPLIERQUERY = `INSERT INTO supplier (name,address,email,contactperson,region,phonenumber) VALUES (?,?,?,?,?,?)`;
-const GETSUPPLIERSQUERY = `SELECT * FROM supplier ORDER BY supplierid DESC LIMIT ? OFFSET ?`;
-const UPDATESUPPLIERQUERY = `UPDATE supplier SET name = ?, address = ?, region = ?, contactperson = ?, email = ?, phonenumber = ? WHERE supplierid = ?`;
+const { rowAffected, paginationQuery, promisifyQuery } = require("../../../helper");
+const database_queries = require("../../database/queries");
 const NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES (?,?,?,?,?,?,?)`;
 const GETGENERALSTOCK = ` SELECT 
                       ns.name as name,
@@ -36,120 +31,6 @@ const FILTERSTOCKQUERY = `SELECT
     FROM generalstocks AS gs
     INNER JOIN stockcategory AS  sc ON sc.id = gs.category
     WHERE gs.name  LIKE ? OR sc.category LIKE ? ORDER BY gs.name LIMIT ? OFFSET ?`;
-class Supplys {
-  constructor(supplierid) {
-    this.supplierid = supplierid;
-  }
-
-  async addSupplier(records) {
-    const { name, address, email, contactperson, region, phonenumber } = records;
-    const result = await promisifyQuery(NEWSUPPLIERQUERY, [name, address, email, contactperson, region, phonenumber]);
-    return result.insertId != null; 
-  }
-
-  async deleteSupplier(id) {
-    if (!id) return false;
-    return await database_queries.del([supplierid], 'supplier', 'supplierid');
-  }
-
-  async getSuppliers(data) {
-    try {
-      return paginationQuery(data,GETSUPPLIERSQUERY);
-    } catch (err) {
-      throw new Error(err);
-    }
-  }
-  async updateSupplier(supplierid, records) {
-    if (supplierid) return false;
-    const { name, address, region, contactperson, email, phonenumber } = records;
-    const values = [name, address, region, contactperson, email, phonenumber, supplierid];
-    return await promisifyQuery(UPDATESUPPLIERQUERY, values);
-  }
-
-  async getSupplier(supplierid) {
-    if (!supplierid) return false;
-    return await database_queries.getsingleid([supplierid], 'supplier', 'SUPPLIERID');
-    }
-
-    async postCommodity(records) {
-        const { name, category } = records;
-        if (!name || !category) throw new Error("name and category required");
-        const query = `INSERT INTO commodity (COMMODITY,CATEGORY) VALUES (?,?)`;
-        const result = await promisifyQuery(query, [name, category]);
-        return result;
-    }
-  
-}
-
-
-
-
-
-
-  // let items_found_in_db = 0;
-
-  // const checkCommodityExist = (commodity) => {
-
-  //   let query = `SELECT * FROM commodity WHERE COMMODITY = ?`
-
-  //   connection.query(query, [commodity.name], function (err, result) {
-  //     if (err) {
-  //       response.send({
-  //         status: 'error',
-  //         err,
-  //       })
-  //     }
-  //     if (result) {
-  //       if (result.length === 0) {
-  //         insertCommodity(commodity)
-  //       }
-  //       else {
-  //         items_found_in_db++;
-  //       }
-  //     }
-  //   })
-  // }
-
-  // if (isArray && !isSingle) {
-  //   let target = datasource.length
-  //   let counter = 0
-  //   while (counter < target) {
-  //     checkCommodityExist(datasource[counter])
-  //     counter++
-  //   }
-  //   if (counter === target) {
-  //     response.send({
-  //       status: 'success',
-  //       message: 'commodity added successfully to the database however some commodity already exist in the database',
-  //     })
-  //   }
-  // }
-  // else {
-  //   response.send({
-  //     status: 'error',
-  //     message: 'no commodity provided',
-  //   })
-  // }
-
-
-// const getCommodity = async function (request, response) {
-//   let query = `SELECT * FROM commodity`
-//   connection.query(query, function (err, result) {
-//     if (err) {
-//       response.send({
-//         status: 'error',
-//         err,
-//       })
-//     }
-//     if (result) {
-//       response.send({
-//         status: 'success',
-//         result,
-//       })
-//     }
-//   })
-// }
-
 
 class Inventory {
   constructor(stockid) {
@@ -157,18 +38,17 @@ class Inventory {
   }
 
   async checkStockExist(stockname) {
-    const item = await database_queries.getsingleid(stockname, "generalstocks", "name");
+    const item = await promisifyQuery(`SELECT * FROM generalstocks WHERE name = ?`, [stockname]);
     return item.length > 0;
   }
 
  async  addNewStock(records) {
    const { name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode } = records;
-   if (this.checkStockExist(name)) return false;
+   if (await this.checkStockExist(name)) return 'EXIST';
 
-   const values =  [ name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode]
+   const values = [name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode];
    const pushStock = await promisifyQuery(NEWSTOCKQUERY, values);
-
-   return pushStock.affectedRows > 0;
+   return rowAffected(pushStock);
   }
 
   async updateAstock(records) {
@@ -176,7 +56,7 @@ class Inventory {
     if (stockid) throw new Error("stockid required");
     const values = [consumptionunit, purchaseunit, quantity, alertlevel, materialcode, date, name, category, stockid];
     const update = await promisifyQuery(UPDATEASTOCKQUERY, values);
-    return update.affectedRows > 0;
+    return rowAffected(update);
   }
 
     async deleteAstock(stockid) {
@@ -215,7 +95,7 @@ class Inventory {
     async deleteStockCategory(stockid) {
         if (!stockid) throw new Error("stockid required");
         const isdeleted = await database_queries.del(id, "stockcategory", "id");
-        return isdeleted.affectedRows > 0;
+        return rowAffected(isdeleted);
     }
 
   async getGeneralUnExpiredStocks(requestQuery) {
@@ -228,19 +108,12 @@ class Inventory {
 
     async filterstock(filteringValue) {
         if (!filteringValue) return [];
-        let data = await paginationQuery(FILTERSTOCKQUERY, [filteringValue, filteringValue]);
+      let data = await paginationQuery({},FILTERSTOCKQUERY, [filteringValue, filteringValue]);
         if (data.length === 0) return data;
         data.map((item, index) => { return { ...item, quantityrequired: 0 } });
         return data;
   }
-
 }
 
 
-
-module.exports = {
-  getCommodity,
-  Supplys,
-  Inventory
-}
-
+module.exports = Inventory;

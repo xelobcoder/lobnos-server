@@ -38,9 +38,10 @@ async function promisifyQuery(query, values) {
 }
 
 async function paginationQuery(pageQuery, query, values) {
-  const { count, page } = pageQuery
-  const pageSize = parseInt(count) || 10;
-  const currentPage = (parseInt(page) || 1) - 1;
+  let useQuery = {count: pageQuery?.count || 10, page:  pageQuery?.page || 1}
+  const { count, page } = useQuery;
+  const pageSize = parseInt(count);
+  const currentPage = (parseInt(page)) - 1;
   const offset = currentPage * pageSize;
   let newValues = [pageSize, offset];
   if (values && values.length > 0) newValues = [...values, ...newValues];

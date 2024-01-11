@@ -1,11 +1,6 @@
 {
   "ExpandedNodes": [
-    "",
-    "\\api\\controllers",
-    "\\api\\controllers\\EmailFiles",
-    "\\api\\models",
-    "\\api\\models\\organization"
+    ""
   ],
-  "SelectedNode": "\\xconnect.session.sql",
   "PreviewInSolutionExplorer": false
 }

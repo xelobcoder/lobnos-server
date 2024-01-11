@@ -27,7 +27,7 @@ const placeOrder = async function (request, response) {
     return promisifyQuery(query, values);
   }
 
-  const checkOrderExist = async (item, transactionid) => {
+  const checkOrderExist = async (item) => {
     const { supplierid, stockid } = item;
     // select where stockid = stockid , received = false and supplierid = supplierid
     const query = `SELECT COUNT(*) AS count FROM orders WHERE stockid = ? AND  received = ? AND supplierid = ?`;
@@ -49,7 +49,7 @@ const placeOrder = async function (request, response) {
           Exit.push(item)
         } else {
           let added = await addNewOrder(orderTransactionid, item);
-          let affectedRows = added?.affectedRows;
+          const affectedRows = added?.affectedRows;
           if (affectedRows === 1) successCount++;
         };
       } catch (err) {

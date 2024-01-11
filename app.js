@@ -12,6 +12,7 @@ const operationsRouter = require("./api/controllers/operations");
 // const { getOrganizations } = require("./api/models/organization");
 const registrationRouter = require('./api/controllers/registration');
 const rejectedRouter = require("./api/controllers/rejected");
+const stocksRouter = require("./api/controllers/Inventory/stocks");
 const activation = require("./api/activation");
 const { getCategory, putCategory, deleteCategory, postCategory } = require("./api/testpanel/categories");
 const clinicianRouter = require("./api/controllers/clinicians");
@@ -33,23 +34,23 @@ const logger = require("./logger");
 const cors = require("cors");
 
 
-if (cluster.isMaster) { 
-  console.log(`Master ${process.pid} is running`);
-  // Fork workers.
-  for (let i = 1; i < os.cpus().length; i++) {
-    cluster.fork();
-  }
-} else {
-  console.log(`Worker ${process.pid} started`);
-  app.listen(port, () => {
-    console.log(`listening at http://localhost:${port}`);
-  });
-}
+// if (cluster.isMaster) { 
+//   console.log(`Master ${process.pid} is running`);
+//   // Fork workers.
+//   for (let i = 1; i < os.cpus().length; i++) {
+//     cluster.fork();
+//   }
+// } else {
+//   console.log(`Worker ${process.pid} started`);
+//   app.listen(port, () => {
+//     console.log(`listening at http://localhost:${port}`);
+//   });
+// }
 
 
-// app.listen(port, () => {
-//   console.log(`listening at http://localhost:${port}`);
-// });
+app.listen(port, () => {
+  console.log(`listening at http://localhost:${port}`);
+});
 
 
 const { promisifyQuery, customError } = require("./helper");
@@ -95,6 +96,7 @@ app.use(generalSalesRouter);
 app.use(branchesHandler);
 app.use(registrationRouter);
 app.use(applicationsettingsRouter);
+app.use(stocksRouter);
 app.use(patientAnalytics);
 
 app.get("/", (req, res) => {
