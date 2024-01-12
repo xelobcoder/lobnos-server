@@ -95,7 +95,7 @@ router.post("/api/v1/login/clinicians", async (request, response) => {
             return;
         }
     } catch (err) {
-       console.log(err);
+        logger.error(err);
         customError('Something wrong has occured', 404, response);
     }
 })

@@ -54,8 +54,8 @@ router.get('/api/v1/stocks/filter', async function (request, response) {
 
 router.get('/api/v1/stock', async function (request, response) {
   try {
-    const { page, count } = request.query;
-    const result = await inventory.getStocks({page,count});
+    const { page, count,warehouseid} = request.query;
+    const result = await inventory.getStocks({page,count},warehouseid);
     response.send({ result, statusCode: 200, status: "success" });
   } catch (err) {
     logger.error(err);

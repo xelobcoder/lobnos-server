@@ -61,7 +61,4 @@ class Supplys {
   
 }
 
-
-
-
 module.exports = Supplys;

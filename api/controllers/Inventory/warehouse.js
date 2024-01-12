@@ -10,7 +10,6 @@ router.post("/api/v1/inventory/warehouse", async function (request, response) {
     const { name } = request.body
     if (!name) { customError("include name of warehouse", 404, response); return}
     const result = await warehouse.addWareHouse(name);
-    console.log(result)
     if (result === true) {
       response.send({ message: 'New warehouse added successuly', statusCode: 200, status: 'success' });
     } else if (result === 'EXIST') {
@@ -32,15 +31,14 @@ router.get("/api/v1/inventory/warehouse", async function (request, response) {
 })
 
 
-router.put("/api/v1/inventory/warehouse/:id", async function (request, response) {
+router.put("/api/v1/inventory/warehouse", async function (request, response) {
   try {
-    const { id } = request.params;
-    const { name } = request.body;
-    if (!name || !id) {
+    const { name ,warehouseid} = request.body;
+    if (!name || !warehouseid) {
       customError("include name and id of warehouse", 400, response);
       return;
     }
-    const updated = await warehouse.updateWarehouse(id, name);
+    const updated = await warehouse.updateWarehouse(warehouseid, name);
     response.send({
       message: updated ? "Warehouse updated successfully" : "Warehouse not updated,kindly check warehouse id provided", statusCode: updated ? 200 : 400,
       status: updated ? "success" : "error"
@@ -80,13 +78,13 @@ router.get("/api/v1/inventory/shelve", async function (request, response) {
       response.send({ statusCode: 200, status: 'success', result: matched });
       return;
     }
-    
-    if (target && typeof target === "number") {
+    const parsedString = parseInt(target);
+    if (typeof parsedString === "number") {
       const matched = await warehouse.getShelf(target);
       response.send({ statusCode: 200, result: matched, status: "success" });
       return;
     }
-    customError("wrong target provided", 404, response);
+    customError("wrong target type provided", 404, response);
   } catch (err) { logger.error(err); customError(err?.message,500,response); }
 })
 
@@ -108,7 +106,20 @@ router.get("/api/v1/inventory/warehouse/shelves", async function (request, respo
     response.send({statusCode: 200, status:'success', result})
   } catch (err) {
     logger.error(err);
-    console.log(err)
+    customError("something wrong occured", 500, response);
+  }
+})
+
+router.get("/api/v1/inventory/warehouse/shelves/items", async function (request, response) {
+  try {
+    const { warehouseid,shelfid } = request.query;
+    if (!warehouseid || !shelfid) { customError("Warehouseid and shelfid are required", 404, response); return; }
+    const nwWarehouseid = parseInt(warehouseid);
+    const nwShelfid = parseInt(shelfid);
+    const result = await warehouse.getGeneralWareSelfItems(nwWarehouseid,nwShelfid);
+    response.send({statusCode: 200, status:'success', result})
+  } catch (err) {
+    logger.error(err);
     customError("something wrong occured", 500, response);
   }
 })

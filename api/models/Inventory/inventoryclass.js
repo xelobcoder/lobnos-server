@@ -12,7 +12,8 @@ const GETGENERALSTOCK = ` SELECT
                       ns.alertlevel as alertlevel,
                       ns.materialcode as materialcode
                       FROM generalstocks AS ns INNER JOIN stockcategory AS sc ON sc.id = ns.category
-                      LIMIT ? OFFSET ?`;
+                      INNER JOIN warehouse AS wc ON ns.warehouse = wc.id
+                      INNER JOIN shelves AS sh ON sh.id = ns.shelf `;
 
 const EXPIREDSTOCKSQUERY = `SELECT productordersid, stockid, quantity, expirydate, received, receiveddate, expirydate, Batchnumber, name, suppliername, purchaseunit FROM orders WHERE RECEIVED = 'TRUE' AND DATE(expirydate) < DATE(NOW()) ORDER BY expirydate ASC LIMIT ? OFFSET ?`;
 
@@ -65,7 +66,12 @@ class Inventory {
       return await promisifyQuery(DELETEASTOCKQUERY, [parseInt(stockid)])
   }
 
-   async getStocks(query) {
+  async getStocks(query, warehouseid) {
+    let newQuery = GETGENERALSTOCK
+    if (warehouseid && warehouseid != 'all') {
+      newQuery += ` WHERE warehouse = ?`;
+    }
+    newQuery += ` LIMIT ? OFFSET ?`
       const data = await paginationQuery(query,GETGENERALSTOCK);
       return data;
   } 

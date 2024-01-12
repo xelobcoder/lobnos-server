@@ -7,88 +7,79 @@ class Payment {
     this.patientid = patientid;
   }
 
-  getClientTransactionInformation = (request, response) => {
-    const { patientid, month, date, count } = request.query;
+  getClientTransactionInformation = async (request, response) => {
+    try {
+      const { patientid, month, date, count } = request.query;
 
-    const months = {
-      january: "1",
-      february: "2",
-      march: "3",
-      april: "4",
-      may: "5",
-      june: "6",
-      july: "7",
-      august: "8",
-      september: "9",
-      october: "10",
-      november: "11",
-      december: "12",
-    };
-
-    let modelQuery = `
-			SELECT 
-				np.PATIENTID AS patientid,
-				CONCAT(np.FIRSTNAME,' ',np.MIDDLENAME,' ',np.LASTNAME) AS fullname,
-				np.EMAIL AS email,
-				CONCAT(0,np.MOBILE_NUMBER) AS mobileNumber,
-				b.BILLINGID AS billingid,
-				b.OUTSTANDING AS outstanding,
-				b.DISCOUNT AS discount,
-				b.PAID_AMOUNT AS paid_amount,
-				b.PAYABLE AS payable,
-				DATE(pt.DATE) as date
-			FROM new_patients AS np
-			INNER JOIN performing_test as pt ON pt.PATIENTID = np.PATIENTID
-			INNER JOIN billing as b ON b.BILLINGID = pt.BILLINGID
-		`;
-
-    if (patientid) {
-      modelQuery += ` WHERE np.PATIENTID = ${patientid}`;
-    }
-
-    if (month && patientid) {
-      modelQuery += ` AND MONTH(pt.DATE) = ${months[month]}`;
-    } else if (month) {
-      modelQuery += ` WHERE MONTH(pt.DATE) = ${months[month]}`;
-    } else {
-      modelQuery = modelQuery;
-    }
-
-    if (date && !patientid && !month) {
-      modelQuery += ` WHERE DATE(pt.DATE) = '${date}'`;
-    } else if ((date && patientid) || (date && month)) {
-      modelQuery += ` AND DATE(pt.DATE) = '${date}'`;
-    } else {
-      modelQuery = modelQuery;
-    }
-
-    if (count) {
-      modelQuery += `
-			ORDER BY b.BILLINGID DESC
-			LIMIT ${count}
-		`;
-    } else {
-      modelQuery += `
-			ORDER BY b.BILLINGID DESC
-			LIMIT 10
-		`;
-    }
-
-    connection.query(modelQuery, (err, result) => {
-      if (err) {
-        logger.error(err)
-        response.send({
-          statusCode: 500,
-          message: "Internal server error",
-        });
-      } else {
-        response.send({
-          result,
-          statusCode: 200,
-          status: "success",
-        });
+      const months = {
+        january: "1",
+        february: "2",
+        march: "3",
+        april: "4",
+        may: "5",
+        june: "6",
+        july: "7",
+        august: "8",
+        september: "9",
+        october: "10",
+        november: "11",
+        december: "12",
+      };
+  
+      let modelQuery = `
+        SELECT 
+          np.PATIENTID AS patientid,
+          CONCAT(np.FIRSTNAME,' ',np.MIDDLENAME,' ',np.LASTNAME) AS fullname,
+          np.EMAIL AS email,
+          CONCAT(0,np.MOBILE_NUMBER) AS mobileNumber,
+          b.BILLINGID AS billingid,
+          b.OUTSTANDING AS outstanding,
+          b.DISCOUNT AS discount,
+          b.PAID_AMOUNT AS paid_amount,
+          b.PAYABLE AS payable,
+          DATE(pt.DATE) as date
+        FROM new_patients AS np
+        INNER JOIN performing_test as pt ON pt.PATIENTID = np.PATIENTID
+        INNER JOIN billing as b ON b.BILLINGID = pt.BILLINGID
+      `;
+  
+      if (patientid) {
+        modelQuery += ` WHERE np.PATIENTID = ${patientid}`;
       }
-    });
+  
+      if (month && patientid) {
+        modelQuery += ` AND MONTH(pt.DATE) = ${months[month]}`;
+      } else if (month) {
+        modelQuery += ` WHERE MONTH(pt.DATE) = ${months[month]}`;
+      } else {
+        modelQuery = modelQuery;
+      }
+  
+      if (date && !patientid && !month) {
+        modelQuery += ` WHERE DATE(pt.DATE) = '${date}'`;
+      } else if ((date && patientid) || (date && month)) {
+        modelQuery += ` AND DATE(pt.DATE) = '${date}'`;
+      } else {
+        modelQuery = modelQuery;
+      }
+  
+      if (count) {
+        modelQuery += `
+        ORDER BY b.BILLINGID DESC
+        LIMIT ${count}
+      `;
+      } else {
+        modelQuery += `
+        ORDER BY b.BILLINGID DESC
+        LIMIT 10
+      `;
+      }
+      const result = await promisifyQuery(modelQuery);
+      response.send({ result, statusCode: 200, status: "success"});
+    } catch (err) {
+      logger.error(err);
+      customError("something went wrong", 500, response);
+    }
   };
 
 
@@ -155,8 +146,7 @@ class Payment {
       let target = debts.length;
       let current = 0;
       let balance = amount;
-      while (current < target) {
-        console.log('starting looop', balance)
+      while (current < target && balance != 0) {
         const { outstanding, paid, payable, discount, billingid } = debts[0];
         if (balance > outstanding) {
           // update single
@@ -187,9 +177,7 @@ class Payment {
   updatePayment = async (request, response) => {
     // get the current billing billinfo
     // update the record and update the database
-    // 1.
     const { billingid, outstanding, pay, paymentMode } = request.body;
-
     const getQuery = `SELECT * FROM BILLING WHERE BILLINGID = ${billingid}`
     connection.query(getQuery, function (err, result) {
       if (err) { logger.error(err); }
@@ -240,42 +228,24 @@ class Payment {
     );
   };
   paymentMode = async (request, response) => {
-    connection.query(`SELECT * FROM paymentmodes`, (err, result) => {
-      if (err) {
-        logger.error(err);
-      }
-      response.send({
-        data: result || [],
-        status: "success",
-        statusCode: 200,
-      });
-    });
+    try {
+      const result = await promisifyQuery(`SELECT * FROM paymentmodes`);
+      response.send({ data: result || [], status: "success", statusCode: 200});
+    } catch (err) {
+      customError("somthing went wrong", 500, response);
+   }
   };
 
-  specificBillTransactionHx = (request, response) => {
-    const billingid = request.query.billingid;
-    if (billingid) {
-      let query = `SELECT * FROM billingHx WHERE BILLINGID = ?  ORDER BY KeyID DESC`;
-      connection.query(query, billingid, function (err, result) {
-        if (err) {
-          logger.error(err);
-        }
-        response.send(result);
-      });
-    } else {
-      response.send({
-        statusCode: 401,
-        status: "error",
-        message: "billingid as query param required",
-      });
-    }
+  specificBillTransactionHx = async (request, response) => {
+    try {
+      const { billingid } = request.query;
+      if (!billingid) { customError('billingid is required as a query', 401, response); return; }
+      const result = await promisifyQuery(`SELECT * FROM billingHx WHERE BILLINGID = ?  ORDER BY KeyID DESC`,[billingid]);
+      response.send(result);
+    } catch (err) {
+      customError("somthing went wrong", 500, response);
+   }
   };
 }
 
 module.exports = Payment;
-
-// console.log(
-//   new Payment().clearClientDebtBulk(202382112, 1000)
-//     .then((data) => console.log(data))
-//     .catch((err) => console.log(err))
-// )

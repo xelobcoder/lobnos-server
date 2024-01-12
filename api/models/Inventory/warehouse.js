@@ -58,11 +58,21 @@ class WareHouse {
 
   async getWarehouseShelves(warehouseId) {
     if (!warehouseId) throw new Error('warehouseid not provided');
-    return await promisifyQuery(`SELECT * FROM shelves WHERE warehouse = ?`,[parseInt(warehouseId)]);
+    return await promisifyQuery(`SELECT sh.id,sh.warehouse as warehouseid,wh.name as warehouse,
+    sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id
+    WHERE sh.warehouse = ? GROUP BY sh.id ORDER BY sh.id DESC`, [parseInt(warehouseId)]);
   }
 
   async getShelves() {
-    return await paginationQuery({},`SELECT sh.id,sh.warehouse as warehouseid,wh.name as warehouse,sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id GROUP BY sh.id LIMIT ? OFFSET ?`);
+    return await paginationQuery({}, `SELECT sh.id,sh.warehouse as warehouseid,wh.name AS warehouse,
+    sh.name FROM shelves AS sh INNER JOIN warehouse AS wh ON sh.warehouse = wh.id
+    GROUP BY sh.id ORDER BY sh.id DESC LIMIT ? OFFSET ?`);
+  }
+
+  async getGeneralWareSelfItems(warehouseId, shelfId) {
+    if (!warehouseId || !shelfId) throw new Error("warehouseid and shelf id are required");
+    const result = await promisifyQuery(`SELECT stockid, name FROM generalstocks WHERE warehouse = ? AND shelf = ?`, [warehouseId, shelfId]);
+    return result;
   }
 
   async updateShelf(shelfId, newName) {
