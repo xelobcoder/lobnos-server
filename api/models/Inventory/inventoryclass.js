@@ -1,14 +1,17 @@
 const { rowAffected, paginationQuery, promisifyQuery } = require("../../../helper");
 const database_queries = require("../../database/queries");
-const NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode) VALUES (?,?,?,?,?,?,?)`;
+const NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode,warehouse,shelf) VALUES (?,?,?,?,?,?,?,?,?)`;
 const GETGENERALSTOCK = ` SELECT 
                       ns.name as name,
                       ns.stockid as stockid,
-                      sc.category as category,
+                      sc.category as categoryname,
                       ns.consumptionunit as consumptionunit,
                       ns.purchaseunit as purchaseunit,
                       ns.quantity as quantity,
                       ns.date as date,
+                      wc.id as warehouse,
+                      sc.id as category,
+                      sh.id as shelf,
                       ns.alertlevel as alertlevel,
                       ns.materialcode as materialcode
                       FROM generalstocks AS ns INNER JOIN stockcategory AS sc ON sc.id = ns.category
@@ -19,7 +22,7 @@ const EXPIREDSTOCKSQUERY = `SELECT productordersid, stockid, quantity, expirydat
 
 const GENERALUNEXPIREDSTOCKS = `SELECT * FROM generalstocks WHERE expirydate >= NOW() AND status = 'received' ORDER BY productordersid LIMIT ? OFFSET ?`;
 
-const UPDATEASTOCKQUERY = `UPDATE generalstocks SET   consumptionunit = ?,  purchaseunit = ?,  quantity = ?,  alertlevel = ?,  materialcode = ?,  date = ?,  name = ?,  category = ? WHERE stockid = ?`;
+const UPDATEASTOCKQUERY = `UPDATE generalstocks SET  consumptionunit = ?,  purchaseunit = ?,  alertlevel = ?,  materialcode = ?,  date = ?,  name = ?,  category = ?,warehouse = ? , shelf = ? WHERE stockid = ?`;
 
 const DELETEASTOCKQUERY = `DELETE FROM newstock WHERE stockid = ?`;
 
@@ -44,18 +47,22 @@ class Inventory {
   }
 
  async  addNewStock(records) {
-   const { name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode } = records;
+   const { name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode,warehouse,shelf } = records;
    if (await this.checkStockExist(name)) return 'EXIST';
 
-   const values = [name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode];
+   if (!category  || typeof category != 'number' || !name) throw new Error("category of type number required and name required");
+   const values = [name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf];
+   
    const pushStock = await promisifyQuery(NEWSTOCKQUERY, values);
    return rowAffected(pushStock);
   }
 
   async updateAstock(records) {
-    const { stockid, name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, tax, date } = records;
-    if (stockid) throw new Error("stockid required");
-    const values = [consumptionunit, purchaseunit, quantity, alertlevel, materialcode, date, name, category, stockid];
+    const { stockid, name, category, consumptionunit, purchaseunit,  alertlevel, materialcode,
+     warehouse,shelf, date } = records;
+    if (!stockid) throw new Error("stockid required");
+    if (!category || typeof category != 'number' || !(category > 0)) throw new Error('category must be a number greater than 0');
+    const values = [consumptionunit, purchaseunit, alertlevel, materialcode, date, name, category, warehouse, shelf,stockid];
     const update = await promisifyQuery(UPDATEASTOCKQUERY, values);
     return rowAffected(update);
   }
@@ -67,13 +74,16 @@ class Inventory {
   }
 
   async getStocks(query, warehouseid) {
+    let data = [];
     let newQuery = GETGENERALSTOCK
     if (warehouseid && warehouseid != 'all') {
-      newQuery += ` WHERE warehouse = ?`;
-    }
-    newQuery += ` LIMIT ? OFFSET ?`
-      const data = await paginationQuery(query,GETGENERALSTOCK);
+      newQuery += ` WHERE warehouse = ?  ORDER BY ns.stockid LIMIT ? OFFSET ?`;
+      data = await paginationQuery(query, GETGENERALSTOCK,[parseInt(warehouseid)]);
       return data;
+    }
+    newQuery += `ORDER by ns.stockid LIMIT ? OFFSET ?`
+    data = await paginationQuery(query,GETGENERALSTOCK);
+    return data;
   } 
 
   async getAstock(stockid) {

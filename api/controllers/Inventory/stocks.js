@@ -2,11 +2,19 @@ const router = require("express").Router();
 const { customError } = require("../../../helper");
 const logger = require("../../../logger");
 const Inventory = require("../../models/Inventory/inventoryclass");
-
 const inventory = new Inventory();
 
-router.put('/api/v1/stock', function (request, response) {
-  updateAstock(request, response)
+router.put('/api/v1/stock', async function (request, response) {
+  try {
+    const result = await inventory.updateAstock(request.body);
+   if (result === true) {
+    response.send({ message: 'updated successfully', statusCode: 200, status: 'success' });
+   } else {
+    response.send({ message: 'stock not updated', statusCode: 404, status: 'error' });
+  }
+  } catch (err) {
+    customError( 'something went wrong', 500, response);
+ }
 })
 
 router.post('/api/v1/stock/category', function (request, response) {
