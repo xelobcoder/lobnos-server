@@ -1,6 +1,5 @@
 const router = require("express").Router();
-const { request } = require("express");
-const { customError } = require("../../../helper");
+const { customError, promisifyQuery } = require("../../../helper");
 const logger = require("../../../logger");
 const Inventory = require("../../models/Inventory/inventoryclass");
 const inventory = new Inventory();
@@ -55,7 +54,6 @@ router.put('/api/v1/stock/category', async function (request, response) {
         response.send({ message: 'updated failed' });
     }
   } catch (err) {
-    console.log(err)
     customError("somthing went wrong",404,response);
     logger.error(err); 
   }
@@ -124,6 +122,58 @@ router.get('/api/v1/stock', async function (request, response) {
     customError("something wrong occured", 500, response);
  }
 })
+router.delete('/api/v1/stock/brands', async function (request, response) {
+  try {
+    const isdeleted = await inventory.deleteStockBrand(request.body);
+    if (isdeleted === true) {
+      response.send({message: 'brand successfully deleted', statusCode: 200, status: "success" });
+    } else if (isdeleted === false) {
+      customError('deleting brand failed', 404, response);
+    } else {
+      customError('stockid and brandid are required', 404, response);
+    }
+  } catch (err) {
+    logger.error(err)
+    customError('something went wrong', 500, response);
+ }
+})
+router.get('/api/v1/stock/brands', async function (request, response) {
+  try {
+    const result = await inventory.getAstockBrands(request.query)
+    response.send({ statusCode: 200, status: 'success', result });
+  } catch (err) {
+    logger.error(err);
+    customError("something wrong occured", 500, response);
+ }
+})
 
+router.put('/api/v1/stock/brands', async function (request, response) {
+  try {
+    const isUpdated = await inventory.updateAStockBrand(request.body);
+    if (isUpdated) {
+      response.send({ message: 'brand updated successfully', statusCode: 200, status: "success" });
+    } else {
+      customError('updating brand failed', 404, response);
+    }
+  } catch (err) {
+    logger.error(err);
+    customError("something wrong occured", 500, response);
+ }
+})
+
+router.post('/api/v1/stock/brands', async function (request, response) {
+  try {
+    const addBrand = await inventory.addStockBrand(request.body);
+    if (addBrand) {
+      response.send({ message: 'brand added successfully', statusCode: 200, status: "success" });
+    } else {
+      customError('adding brand failed', 404, response);
+    }
+  } catch (err) {
+    logger.error(err);
+    customError("something wrong occured", 500, response);
+ }
+})
 
 module.exports = router;
+

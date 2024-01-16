@@ -1,6 +1,7 @@
 const { rowAffected, paginationQuery, promisifyQuery } = require("../../../helper")
 const database_queries = require("../../database/queries")
-const NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode,warehouse,shelf) VALUES (?,?,?,?,?,?,?,?,?)`
+const NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode,warehouse,shelf) VALUES (?,?,?,?,?,?,?,?,?)`;
+const DELETESTOCKABRANDQUERY = 'DELETE FROM stocksbrands WHERE stockid = ? && brandid = ?';
 const GETGENERALSTOCK = ` SELECT 
                       ns.name as name,
                       ns.stockid as stockid,
@@ -131,6 +132,46 @@ class Inventory {
     return await paginationQuery(query, EXPIREDSTOCKSQUERY)
   }
 
+  async deleteStockBrand(records) {
+    const { stockid, brandid } = records;
+    if (!stockid || !brandid) return "stockid and brandid are required";
+
+    const deleteResult = await promisifyQuery(DELETESTOCKABRANDQUERY, [stockid,brandid]);
+
+    return rowAffected(deleteResult);
+  }
+
+  async getAstockBrands(records) {
+    const { count, page, stockid } = records;
+    if (!stockid) throw new Error("stockid not provided");
+    const result = await paginationQuery({ count, page }, `SELECT * FROM stocksbrands WHERE stockid = ? LIMIT ? OFFSET ?`,[stockid]);
+    return result;
+  }
+
+  async addStockBrand(records) {
+    const { brand, stockid } = records;
+
+    if (!brand || !stockid) throw new Error('brand name and stockid required');
+
+    const ADDSTOCKBRAND = `INSERT INTO stocksbrands (brand,stockid) VALUES (?,?)`;
+
+    return rowAffected(await promisifyQuery(ADDSTOCKBRAND, [brand, stockid]));
+  }
+
+  async updateAStockBrand(records) {
+    const { brand, stockid, brandid } = records;
+
+    if (!brand || !stockid || !brandid) {
+      throw new Error('brand,brandid and stockid are all required');
+    }
+
+    const UPDATESTOCKBRANDQUERY = `UPDATE stocksbrands SET brand = ? WHERE stockid = ? AND brandid = ?`;
+
+    const isUpdated = await promisifyQuery(UPDATESTOCKBRANDQUERY, [brand,stockid, brandid]);
+
+    return rowAffected(isUpdated);
+  }
+ 
   async filterstock(filteringValue, query) {
     let SQLQUERY = FILTERSTOCKQUERY;
     if (!filteringValue) return []
