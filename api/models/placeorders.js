@@ -1,4 +1,4 @@
-const { promisifyQuery, customError } = require('../../helper');
+const { promisifyQuery, customError, rowAffected } = require('../../helper');
 const logger = require('../../logger');
 const connection = require('../db');
 
@@ -173,10 +173,14 @@ const addToStockTransactions = async function (data) {
 
 const updateOrderReceivedTransactionSummary = async function (summary) {
   const { orderTransactionid, method, amount, total } = summary;
+  if (parseFloat(amount) < 0 || 
+  parseFloat(total) < 0 ||!orderTransactionid) return false;
   const query = `UPDATE orderreceivedaccountsummary SET method  = ?,debit = ?, taxAmount = ?,updatedOn=NOW()  WHERE orderTransactionid = ?`
   const values = [method, total, amount, orderTransactionid];
-  return promisifyQuery(query, values);
+  rowAffected(await promisifyQuery(query, values));
 }
+
+
 const purchaseOrdersToStock = async function (request, response) {
   const { data, tax, totalprice } = request.body;
   if (data && tax && data.length > 0 && totalprice) {
@@ -233,18 +237,14 @@ const purchaseOrdersToStock = async function (request, response) {
       if (current === targetRef && successRow === current) {
         let queryResponse = await updateOrderReceivedTransactionSummary({
           orderTransactionid,
-          total: totalprice,
+          total: parseFloat(totalprice),
           method: tax?.method,
-          amount: tax?.amount,
+          amount: parseFloat(tax?.amount),
         });
-        const isRecordUpdated = queryResponse.affectedRows == 1 ? true : false;
-        if (isRecordUpdated) {
-          response.send({
-            message: "order updated successfully",
-            statusCode: 200,
-            status: "success",
-          });
-        }
+
+        if (queryResponse === false) return;
+
+        response.send({ message: "order updated successfully", statusCode: 200, status: "success"});
       }
     }
   } else {

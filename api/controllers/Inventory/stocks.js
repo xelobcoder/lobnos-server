@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const { request } = require("express");
 const { customError } = require("../../../helper");
 const logger = require("../../../logger");
 const Inventory = require("../../models/Inventory/inventoryclass");
@@ -13,14 +14,52 @@ router.put('/api/v1/stock', async function (request, response) {
     response.send({ message: 'stock not updated', statusCode: 404, status: 'error' });
   }
   } catch (err) {
-    customError( 'something went wrong', 500, response);
+    customError( 'something went wrong'
+    , 500, response);
  }
 })
 
-router.post('/api/v1/stock/category', function (request, response) {
-  addNewStockCategory(request, response)
+router.post('/api/v1/stock/category', async function (request, response) {
+  try {
+    const newStkCat = await inventory.addStockCategory(request.body);
+    if (newStkCat === true) {
+      response.send({ message: 'stock category successfully added', statusCode: 200, status: 'success' });
+    } else if (newStkCat === 1) {
+      response.send({ message: "stock category already exist", statusCode: 200, status: 'success' });
+    } else {
+      response.send({ message: 'stock category not added', statusCode: 400, status: 'error' });
+    }
+  } catch (err) {
+    customError(
+      err?.sqlMessage ? 'something wrong occured' : err,
+      err?.sqlMessage ? 500 : 404,
+      response
+    );
+    logger.error(err); 
+  }
 })
 
+
+router.put('/api/v1/stock/category', async function (request, response) {
+  try {
+    const updateStkCat = await inventory.updateStockCategory(request.body);
+    if (updateStkCat === true) {
+      response.send({ message: 'updated successfully', statusCode: 200, status: 'success' });
+    } 
+
+    if (updateStkCat === 1) {
+      customError('stock category not found', 404, response);
+    }
+
+    if (updateStkCat === false) {
+        response.send({ message: 'updated failed' });
+    }
+  } catch (err) {
+    console.log(err)
+    customError("somthing went wrong",404,response);
+    logger.error(err); 
+  }
+})
 router.get('/api/v1/stock/category', async function (request, response) {
   try {
     const data = await inventory.getStockCategory();
@@ -31,8 +70,23 @@ router.get('/api/v1/stock/category', async function (request, response) {
   }
 })
 
-router.delete('/api/v1/stock/category', function (request, response) {
-  deleteStockCategory(request, response)
+router.delete('/api/v1/stock/category', async function (request, response) {
+  try {
+    const { id } = request.body;
+  if (!id) {
+    customError('category id not included in body', 404, response);
+  } else {
+    const deleteStock = await inventory.deleteStockCategory(id);
+    response.send({
+      message: deleteStock === true ? 'category deleted successfully' : 'Category not deleted',
+      statusCode: deleteStock === true ? 200 : 404,
+      status: deleteStock ? 'success' : 'error'
+    })
+  }
+  } catch (err) {
+    console.log(err);
+    customError(err, 500, response);
+  }
 })
 
 router.delete('/api/v1/stock', function (request, response) {
@@ -55,7 +109,7 @@ router.get('/api/v1/stocks/filter', async function (request, response) {
   if (!filter)
     customError(`filter not included in the request query`, 404, response);
   else {
-    const result = await inventory.filterstock(`%${filter}%`.trim());
+    const result = await inventory.filterstock(`%${filter}%`.trim(),request.query);
     response.send({ result, statusCode: 200, status: "success" });
   }
 })

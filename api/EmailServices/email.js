@@ -630,7 +630,8 @@ class EmailService {
       const { patientid } = billdata[0];
      // use the patient id to get the email
      const person = await database_queries.getsingleid(parseInt(patientid), 'new_patients', 'PATIENTID')
-      if (person.length === 0 || person[0]?.email === null) return false;
+     
+     if (person.length === 0 || person[0]?.email === null) return false;
       
      const { email } = person[0];
 
@@ -645,7 +646,7 @@ class EmailService {
      const status = await this.transportEmail(mailOptions);
      return status;
     } catch (err) {
-      logger.error(err)
+      logger.error(err);
       throw new Error(err);
     }
   }

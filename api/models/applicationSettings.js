@@ -59,7 +59,7 @@ applicationSettings.getSmsSettings = async function (request, response) {
 
 
 applicationSettings.updatePreference = async function (request, response) {
-  const { registration, rejection, result, approval, transactions, birthday,billing } = request.body;
+  const { registration, rejection, result, approval, transactions, birthday, billing } = request.body;
   // truncate the table
   const truncate = await promisifyQuery(`TRUNCATE TABLE emailpreference`);
 
@@ -80,6 +80,7 @@ applicationSettings.updatePreference = async function (request, response) {
 
 
 applicationSettings.generalEmailSettings = async function (records) {
+  console.log(records)
   if (typeof records != 'object') return false;
   // first truncate the table
   const truncate = `TRUNCATE TABLE generalemailsettings`;

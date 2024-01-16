@@ -1,0 +1,4 @@
+1.On placeorer list, a warning that indicatess items already requested and yet unresolved;
+2. Able to See incomplete Orders Delivered to US;
+3. Placeorder should generate a report should failure okay and client should be able to see it 
+4. 

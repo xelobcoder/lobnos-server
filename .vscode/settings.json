@@ -8,7 +8,7 @@
     "editor.formatOnSave": false,
     "editor.fontSize": 15,
     "editor.bracketPairColorization.enabled": true,
-    "editor.defaultFormatter": "biomejs.biome",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "sqltools.connections": [
         {
             "mysqlOptions": {

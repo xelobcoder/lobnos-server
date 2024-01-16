@@ -232,6 +232,29 @@ app.delete("/api/v1/testpanel/list", (req, res) => {
 
 
 
+// setInterval(() => {
+//   // if (new Date() > new Date('2024-01-13T17:40:00')) {
+//   //   console.log('time passed');
+//   // }
+//   // return
+// }, 500);
+
+const targetTime = new Date('2024-01-13T18:23:00');
+
+const checkTime = () => {
+  if (new Date() > targetTime) {
+    console.log('time passed');
+  } else {
+    const timeDifference = targetTime - new Date();
+    setTimeout(checkTime, timeDifference);
+  }
+};
+
+// Initial call to start the checking
+checkTime();
+
+
+
 
 
 
