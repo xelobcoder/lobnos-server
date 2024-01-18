@@ -1,8 +1,6 @@
 const { rowAffected, paginationQuery, promisifyQuery, customError } = require("../../../helper")
 const logger = require("../../../logger")
 const database_queries = require("../../database/queries")
-const connection = require("../../db")
-const connectionpool = require("../../dbpool")
 const NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode,warehouse,shelf) VALUES (?,?,?,?,?,?,?,?,?)`
 const DELETESTOCKABRANDQUERY = "DELETE FROM stocksbrands WHERE stockid = ? && brandid = ?"
 const GETGENERALSTOCK = ` SELECT 
