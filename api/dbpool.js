@@ -28,7 +28,6 @@ connectionpool.getConnection((err, connection) => {
  }
 
   if (connection) connection.release();
-
  return;
 });
 

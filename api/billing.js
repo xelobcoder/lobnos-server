@@ -233,8 +233,7 @@ const updateBilling = async function (request, response) {
    */
   try {
     const { test, totalcost, billingid, outstanding, taxIncluded, taxValue, discount } = request.body;
-    console.log(request.body)
-
+    
     if (!test || !totalcost || !billingid || !outstanding) {
       response.send({
         message: 'Invalid request body',

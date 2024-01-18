@@ -19,6 +19,7 @@ const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = r
 const { getCategory } = require('../testpanel/categories.js');
 const { customError } = require('../../helper.js');
 const logger = require('../../logger.js');
+const Inventory = require('../models/Inventory/inventoryclass.js');
 
 router.get('/api/v1/suppliers', async function (request, response) {
   try {
@@ -96,8 +97,14 @@ router.delete('/api/v1/orders', function (request, response) {
 })
 
 
-router.post('/api/v1/purchases', function (request, response) {
-  purchaseOrdersToStock(request, response)
+router.post('/api/v1/purchases', async function (request, response) {
+  try
+  {
+    const { data, tax, totalprice } = request.body;
+     await new Inventory().receivePurchaseStocks(data, totalprice, tax, response);
+  } catch (err) {
+    customError("something wrong occured",500,response)
+  }
 })
 
 

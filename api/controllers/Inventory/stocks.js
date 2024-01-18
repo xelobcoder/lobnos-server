@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { customError, promisifyQuery } = require("../../../helper");
+const { customError} = require("../../../helper");
 const logger = require("../../../logger");
 const Inventory = require("../../models/Inventory/inventoryclass");
 const inventory = new Inventory();
@@ -122,6 +122,18 @@ router.get('/api/v1/stock', async function (request, response) {
     customError("something wrong occured", 500, response);
  }
 })
+
+router.get('/api/v1/stock/expirestocks', async function (request, response) {
+  try 
+  {
+    const expireStocks = await inventory.getGeneralExpired(request.query);
+    response.send({statusCode: 200, status: 'success',result: expireStocks});
+  } catch (err) {
+    customError("something wrong occured",500,response);
+  }
+})
+
+
 router.delete('/api/v1/stock/brands', async function (request, response) {
   try {
     const isdeleted = await inventory.deleteStockBrand(request.body);
@@ -167,6 +179,7 @@ router.post('/api/v1/stock/brands', async function (request, response) {
     if (addBrand) {
       response.send({ message: 'brand added successfully', statusCode: 200, status: "success" });
     } else {
+      logger.error(err);
       customError('adding brand failed', 404, response);
     }
   } catch (err) {

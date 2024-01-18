@@ -1,5 +1,8 @@
-const { rowAffected, paginationQuery, promisifyQuery } = require("../../../helper")
-const database_queries = require("../../database/queries")
+const { rowAffected, paginationQuery, promisifyQuery, customError } = require("../../../helper");
+const logger = require("../../../logger");
+const database_queries = require("../../database/queries");
+const connection = require("../../db");
+const connectionpool = require("../../dbpool");
 const NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode,warehouse,shelf) VALUES (?,?,?,?,?,?,?,?,?)`;
 const DELETESTOCKABRANDQUERY = 'DELETE FROM stocksbrands WHERE stockid = ? && brandid = ?';
 const GETGENERALSTOCK = ` SELECT 
@@ -213,10 +216,86 @@ class Inventory {
     const data = await this.customization()
     const nearExpiry = parseInt(data?.expirydays) || 21
     console.log(nearExpiry, data);
+  }
 
+  async updateStockOrders (data) {
+    const query = `UPDATE orders SET received = ?, quantityReceived = ?, receiveddate = ?, status = ?, expirydate = ?,
+     batchnumber = ?, balance = ?,brand = ? , price = ?, totalamount = ? WHERE productordersid = ? AND orderTransactionid = ? AND stockid =?`;
+    return promisifyQuery(query, data);
+  }
+  
+  async updateOrderReceivedTransactionSummary  (summary) {
+    const { orderTransactionid, method, amount, total } = summary;
+    if (parseFloat(amount) < 0 || 
+    parseFloat(total) < 0 ||!orderTransactionid) return false;
+    const query = `UPDATE orderreceivedaccountsummary SET method  = ?,debit = ?, taxAmount = ?,updatedOn=NOW()  WHERE orderTransactionid = ?`
+    const values = [method, total, amount, orderTransactionid];
+    return await promisifyQuery(query, values);
+  }
+
+  async receivePurchaseStocks(records, total, tax, response) {
+    try { 
+      if (records.length === 0) {
+        if (response) {
+          customError("data must contain an array of products", 500, response);
+          return;
+        } else {
+          throw new Error("data must be greater than 0");
+        }
+      };
+
+      if (!tax || !Object.keys(tax).includes("amount") || !Object.keys(tax).includes("method")) {
+        if (response) {
+          customError("Tax is an object with properties amount and method", 500, response);
+          return;
+        } else {
+          throw new Error("Tax is an object with properties amount and method")
+        }
+      } 
+
+    const { orderTransactionid } = records[0];
+    const requiredDataSource = records.map((item, index) => {
+      const { productordersid, received, quantityReceived, receiveddate, status, expirydate,
+        batchnumber, balance, brandid, price, totalamount, orderTransactionid, stockid
+      } = item;
+
+      return [received, quantityReceived, receiveddate, status, expirydate, batchnumber, balance, parseInt(brandid), parseFloat(price), parseFloat(totalamount), productordersid, orderTransactionid, stockid];
+    });
+
+  
+    let successCount = 0;
+    let errorCount = 0;
+    let current = 0;
+    let ordersSummaryUpdated = false;
+
+    while (current < records.length) {
+      const updateRecord = await this.updateStockOrders(requiredDataSource[current]);
+      rowAffected(updateRecord) ? successCount++ : errorCount++;
+      current++;
+    }
+
+    if (successCount === records.length) {
+      const summary = {
+        orderTransactionid,
+        total: parseFloat(total),
+        method: tax?.method,
+        amount: parseFloat(tax?.amount),
+      }
+      
+      const updateSummary = await this.updateOrderReceivedTransactionSummary(summary);     
+      ordersSummaryUpdated = rowAffected(updateSummary);
+    }
+
+      return !response ?
+        ordersSummaryUpdated :
+        response.send({ message: 'order updated successfully', statusCode: 200, status: 'success' });
+      
+    } catch (err) {
+      logger.error( err)
+      throw new Error(err);
+    }
   }
 }
 
 module.exports = Inventory
 
-new Inventory().getNearExpiry()

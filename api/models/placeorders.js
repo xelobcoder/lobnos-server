@@ -1,6 +1,15 @@
-const { promisifyQuery, customError, rowAffected } = require('../../helper');
+const { promisifyQuery, customError, rowAffected, paginationQuery } = require('../../helper');
 const logger = require('../../logger');
 const connection = require('../db');
+const Inventory = require('./Inventory/inventoryclass');
+
+
+class Orders extends Inventory {
+  constructor(stockid,orderid) {
+    super(stockid);
+    this.orderid = orderid;
+  }
+}
 
 
 const placeOrder = async function (request, response) {
@@ -75,15 +84,31 @@ const placeOrder = async function (request, response) {
 
 
 const getOrders = async function (request, response) {
-  const { orderTransactionid } = request.query;
+  const { orderTransactionid, includebrands } = request.query;
+  const queryValues = [];
   let query = `SELECT * FROM orders WHERE received = 'FALSE'`;
   if (orderTransactionid) {
     query += ` AND orderTransactionid = ?`
+    queryValues.push(orderTransactionid);
   }
-  query += ` ORDER BY productordersid DESC LIMIT 50`
-  // execute the query
+  query += ` ORDER BY productordersid DESC LIMIT ? OFFSET ?`
+
   try {
-    let result = await promisifyQuery(query, orderTransactionid)
+    let result = {};
+    result.products = await paginationQuery(request.query, query, queryValues);
+
+    if (includebrands) {
+      const getbrands = result.products.map((item, index) => item.stockid);
+
+      if (getbrands.length > 0) {
+      
+        const stocksBrands = await promisifyQuery(`SELECT stockid,brandid,brand FROM stocksbrands WHERE Stockid IN ( ?)`, [getbrands.join(",")]);
+        
+        result.stockBrands = stocksBrands;
+      } else {
+        result.stockBrands = [];
+      }
+    } 
     response.send({ result, status: 'success', statusCode: 200 })
   } catch (err) {
     customError(err, 500, response)
@@ -181,81 +206,8 @@ const updateOrderReceivedTransactionSummary = async function (summary) {
 }
 
 
-const purchaseOrdersToStock = async function (request, response) {
-  const { data, tax, totalprice } = request.body;
-  if (data && tax && data.length > 0 && totalprice) {
-    const { orderTransactionid } = data[0];
-    let targetRef = data.length;
-    let current = 0;
-    let errRows = 0;
-    let successRow = 0;
-    // transform data to fit mysql bulk data entry
-    const requiredDataSource = data.map((item, index) => {
-      const {
-        productordersid,
-        received,
-        quantityReceived,
-        receiveddate,
-        status,
-        expirydate,
-        batchnumber,
-        balance,
-        brand,
-        price,
-        totalamount,
-        orderTransactionid,
-        stockid
-      } = item;
-
-      return [
-        received,
-        quantityReceived,
-        receiveddate,
-        status,
-        expirydate,
-        batchnumber,
-        balance,
-        brand,
-        price,
-        totalamount,
-        productordersid,
-        orderTransactionid,
-        stockid
-      ];
-    });
-    while (current < targetRef) {
-      // using map to get the items in the array
-      const result = await updateOrders(requiredDataSource[current]);
-      let isUpdated = result.affectedRows == 1 ? true : false;
-      // update orderAccountSummary;
-      if (isUpdated === false) {
-        errRows++;
-      } else {
-        successRow++;
-      }
-      current++;
-      if (current === targetRef && successRow === current) {
-        let queryResponse = await updateOrderReceivedTransactionSummary({
-          orderTransactionid,
-          total: parseFloat(totalprice),
-          method: tax?.method,
-          amount: parseFloat(tax?.amount),
-        });
-
-        if (queryResponse === false) return;
-
-        response.send({ message: "order updated successfully", statusCode: 200, status: "success"});
-      }
-    }
-  } else {
-    customError(
-      `All required params in request body not provided`,
-      404,
-      response
-    );
-  }
-}
 
 
 
-module.exports = { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock };
+
+module.exports = { placeOrder, getOrders, deleteAspecificOrder }
