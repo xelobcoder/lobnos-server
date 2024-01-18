@@ -46,20 +46,31 @@ class Inventory {
     this.stockid = stockid || null
   }
 
+   /**
+       * Checks if a stock with a given name exists in the `generalstocks` table of a database.
+       * 
+       * @param {string} stockname - The name of the stock to check for existence.
+       * @returns {boolean} - `true` if the stock exists, `false` if it does not exist.
+       * 
+       * @example
+       * const inventory = new Inventory();
+       * const stockExists = await inventory.checkStockExist("exampleStockName");
+       * console.log(stockExists); // true or false
+       */
   async checkStockExist(stockname) {
-    const item = await promisifyQuery(`SELECT * FROM generalstocks WHERE name = ?`, [stockname])
-    return item.length > 0
+      const item = await promisifyQuery(`SELECT * FROM generalstocks WHERE name = ?`, [stockname])
+      return item.length > 0
   }
 
   async addNewStock(records) {
-    const { name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf } = records
-    if (await this.checkStockExist(name)) return "EXIST"
+      const { name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf } = records
+      if (await this.checkStockExist(name)) return "EXIST"
 
-    if (!category || typeof category != "number" || !name) throw new Error("category of type number required and name required")
-    const values = [name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf]
+      if (!category || typeof category != "number" || !name) throw new Error("category of type number required and name required")
+      const values = [name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf]
 
-    const pushStock = await promisifyQuery(NEWSTOCKQUERY, values)
-    return rowAffected(pushStock)
+      const pushStock = await promisifyQuery(NEWSTOCKQUERY, values)
+      return rowAffected(pushStock)
   }
 
   async updateAstock(records) {
