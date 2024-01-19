@@ -188,5 +188,12 @@ router.post('/api/v1/stock/brands', async function (request, response) {
  }
 })
 
+
+router.post('/api/v1/inventory/analytics/purchasetoconsume', async function(request,response){
+  console.log(request.body);
+  const result = await inventory.purchasetoConsumeInsight(request.body);
+  response.send(result);
+})
+
 module.exports = router;
 

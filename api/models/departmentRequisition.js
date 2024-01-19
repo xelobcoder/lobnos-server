@@ -3,6 +3,7 @@ const connection = require("../db");
 const { get } = require("../controllers/results");
 const logger = require("../../logger");
 const { promisifyQuery, customError } = require("../../helper");
+const Inventory = require("./Inventory/inventoryclass");
 
 const uuidv4 = require("uuid").v4;
 
@@ -377,19 +378,60 @@ const getDepartmentStockLot = async (request, response) => {
 const generalStoreLotNo = async (request, response) => {
   const { stockidx } = request.query;
 
-  if (stockidx) {
-    const query = `SELECT brand,stockid,batchnumber,quantity FROM orders WHERE stockid IN (${stockidx})  
-  AND CURRENT_DATE < expirydate AND received = 'TRUE';
-`;
-    try {
-      let result = await promisifyQuery(query);
-      response.send({ result, statusCode: 200, status: 'success' })
-    } catch (err) {
-      customError(`occured`, 500, response);
+  if (!stockidx) throw new Error('list of store ids required');
+
+  let _this = {};
+
+  const stockid_collection = stockidx.split(",").map((item) => parseInt(item));
+
+  if (stockid_collection.length === 0) return [];
+
+  if (stockid_collection.length > 0) {
+    const inventory = new Inventory();
+
+    const outPromise = async (data) => await Promise.all(data);
+
+    const stockBrandsArray = stockid_collection.map(
+      async (a, i) => {
+        // get individual stocks brands using their id (s).
+        const data = await inventory.getAstockBrands({ stockid: a });
+        const stkbrand = data.map((x, y) => {
+          return x?.brandid;
+        })
+        return {stockid:a , brands: stkbrand}
+    });
+    const stocksbrands = await outPromise(stockBrandsArray);
+
+    const haveBrands = stocksbrands.filter((a, i) => a.brands.length > 0);
+    
+    let products = [];
+
+    if (haveBrands.length > 0) {
+      products = haveBrands.map(async (u, v) => {
+        const { stockid, brands } = u;
+        return await inventory.isDebitable(stockid, brands);
+      });
     }
-  } else {
-    customError(`stockid not provided in the query of the request`, 404, response);
+
+    console.log(await outPromise(products));
   }
+
+
+ response.send(_this)
+
+//   if (stockidx) {
+//     const query = `SELECT brand,stockid,batchnumber,quantity FROM orders WHERE stockid IN (${stockidx})  
+//   AND CURRENT_DATE < expirydate AND received = 'TRUE';
+// `;
+//     try {
+//       let result = await promisifyQuery(query);
+//       response.send({ result, statusCode: 200, status: 'success' })
+//     } catch (err) {
+//       customError(`occured`, 500, response);
+//     }
+//   } else {
+//     customError(`stockid not provided in the query of the request`, 404, response);
+//   }
 }
 
 

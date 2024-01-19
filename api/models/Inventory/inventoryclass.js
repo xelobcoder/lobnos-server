@@ -325,6 +325,80 @@ class Inventory {
       throw new Error(err)
     }
   }
+
+  async getDebitHxSingle(productordersid, stockid, brandid, batchnumber) {
+    const DEBITHX = `SELECT * FROM  generalstoredebithx WHERE productordersid = ? AND 
+    stockid = ? AND brandid = ? AND batchnumber = ?`; 
+    const queryValues = [productordersid, stockid, brandid, batchnumber];
+    return await promisifyQuery(DEBITHX, queryValues);
+  }
+
+  async getCreditHxSingle(productordersid, stockid, brandid, batchnumber) {
+    const CREDITHX = `SELECT * FROM  generalstorecredithx WHERE productordersid = ? AND 
+    stockid = ? AND brandid = ? AND batchnumber = ?`; 
+    const queryValues = [productordersid, stockid, brandid, batchnumber];
+    return await promisifyQuery(CREDITHX, queryValues);
+  }
+
+  async isDebitable(stockid, brands) {
+    if (Array.isArray(brands) === false || brands.length === 0) {
+      throw TypeError('Array required and must not be empty');
+    }
+    const list = brands.join(",");
+    
+    const QUERY = `SELECT 
+    chx.credit - SUM(dhx.debitqty) as storeQty,
+    chx.productordersid,
+    chx.stockid,
+    chx.brandid,
+    chx.batchnumber,
+    stb.brand
+    FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
+     AS chx ON chx.productordersid = dhx.productordersid
+     INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
+      WHERE chx.stockid = ?  AND  chx.brandid IN (${list})`
+    let data = await promisifyQuery(QUERY, [stockid]);
+
+    return data.length === 0 ?
+      []
+      :
+      data.filter((a, b) => a['storeQty'] > 0);
+  }
+
+  async purchasetoConsumeInsight(data) {
+    const { stockid, records } = data;
+
+    if (!stockid || !records) throw new Error("stockid and records are required");
+
+    const ORDERHX = `SELECT 
+                  date as orderdate,
+                  productordersid,
+                  receiveddate,
+                  batchnumber,
+                  brand,
+                  stockid,
+    DATEDIFF(date,receiveddate) as pt_to_grn FROM orders WHERE stockid = ? 
+    AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`;
+
+    const getStockOrdersHx = await promisifyQuery(ORDERHX, [stockid, records]);
+
+    let result = [];
+
+    if (getStockOrdersHx.length > 0) {
+      result = await Promise.all(getStockOrdersHx.map(async (transaction, i) => {
+        const { batchnumber, brand, stockid, productordersid } = transaction;
+        const getCreditHx = await this.getCreditHxSingle(productordersid,stockid,brand,batchnumber);  
+        const getDebitHx = await this.getDebitHxSingle(productordersid, stockid, brand, batchnumber);
+        transaction.credithistory = getCreditHx;
+        transaction.debithistory = getDebitHx;
+        return transaction;
+      }))
+    }
+
+    console.log(result);
+    
+    return result;
+  }
 }
 
 module.exports = Inventory

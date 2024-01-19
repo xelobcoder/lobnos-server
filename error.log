@@ -2296,3 +2296,6 @@
 {"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
 {"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
 {"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)\n    VALUES(1702110827377,41,0,1000,1000,'cash',0,100,NULL,false,0,'none',1100)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"UPDATE orders SET received = 'TRUE', quantityReceived = 1000, receiveddate = '2024-01-19', status = 'received', expirydate = '2024-02-11',\n     batchnumber = 'lot737', balance = 0,brand = 34 , price = 10, totalamount = 10000 WHERE productordersid = 31 AND orderTransactionid = 1705673160086 AND stockid =2","sqlMessage":"Unknown column 'productordersid' in 'field list'","sqlState":"42S22"}
+{"level":"error"}
