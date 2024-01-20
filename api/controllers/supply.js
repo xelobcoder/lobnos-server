@@ -17,9 +17,10 @@ const {
 
 const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require('../models/placeorders.js');
 const { getCategory } = require('../testpanel/categories.js');
-const { customError } = require('../../helper.js');
+const { customError, responseError } = require('../../helper.js');
 const logger = require('../../logger.js');
 const Inventory = require('../models/Inventory/inventoryclass.js');
+const Departments = require('../models/Departments/DepartmentClass.js');
 
 router.get('/api/v1/suppliers', async function (request, response) {
   try {
@@ -117,15 +118,39 @@ router.post('/api/v1/departments/requisitions', function (request, response) {
 
 
 
-router.get('/api/v1/departments/requisitions', function (request, response) {
+router.get('/api/v1/departments/requisitions', async function (request, response) {
   const hasQuery = Object.keys(request.query).length > 0
   if (!hasQuery) {
     getDepartmentsRequisitions(request, response)
   } else {
-    specificDepartmentRequisition(request, response)
+    const result = await specificDepartmentRequisition(request, response);
+    response.send({result, statusCode: 200, status: 'success'})
   }
 })
 
+router.get('/api/v1/store/departments/requisitions', async function (request, response) {
+  const hasQuery = Object.keys(request.query).length > 0
+  if (!hasQuery) {
+    getDepartmentsRequisitions(request, response)
+  } else {
+    const { id } = request.query;
+    if (!id) {
+      customError('departmentid required in query', 404, response);
+    }
+    const deptReq = await new Departments(id).StoreServeDeptReq();
+    response.send({result:deptReq, statusCode: 200, status: 'success'})
+  }
+})
+
+router.get('/api/v1/departments/requisitions/summary', async function (request, response) {
+  try {
+    const result = await new Departments().getPendingdepartmentReqSummary();
+    response.send({ statusCode: 200, result, status: 'success' });
+  } catch (err) {
+    console.log(err)
+    responseError(response);
+   }
+})
 
 
 router.get('/api/v1/departments/stocks', function (request, response) {

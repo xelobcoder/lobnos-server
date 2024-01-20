@@ -142,9 +142,11 @@ const getDepartmentsRequisitions = async function (request, response) {
   });
 };
 
-const specificDepartmentRequisition = async function (request, response, include = false) {
+const specificDepartmentRequisition = async function (request, response) {
   const { id, type } = request.query;
   // join department requisition table with  name of department  table and name of newstock table
+  if (!id) return new Error('id required');
+
   let mysql_query = `SELECT  drh.id,
         drh.departmentid, 
         drh.stockid, 
@@ -165,45 +167,22 @@ const specificDepartmentRequisition = async function (request, response, include
 
 
   if (type === "pending") {
-    mysql_query += ` WHERE drh.departmentid = ${id} AND quantity_approved IS NULL `
+    mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NULL `
   }
 
   if (type === "approved") {
-    mysql_query += ` WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'approved'`
+    mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved'`
   }
 
   if (type === "rejected") {
-    mysql_query += ` WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'rejected'`
+    mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'rejected'`
   }
 
   if (type === "received") {
-    mysql_query += `WHERE drh.departmentid = ${id} AND quantity_approved IS NOT NULL AND status = 'received'`
+    mysql_query += `WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'received'`
   }
 
-  if (id === undefined || id === null) {
-    response.send({
-      status: "error",
-      message: "department requisition id not included",
-    });
-  } else {
-    connection.query(mysql_query, function (err, result) {
-      if (err) {
-        response.send({
-          status: "error",
-          message: err.message,
-        });
-      }
-
-      if (result) {
-        response.send({
-          status: "success",
-          message: "success",
-          result: result,
-          statusCode: 200,
-        });
-      }
-    });
-  }
+  return promisifyQuery(mysql_query,[parseInt(id)]);
 };
 
 
@@ -420,8 +399,6 @@ const generalStoreLotNo = async (request, response) => {
           data.debitable = credithx;
         }
         if (debithx.length > 0) {
-          // const otherbrands = await promisifyQuery(`SELECT * FROM generalstorecredithx WHERE
-          // productordersid IS NOT`);
           let debitable = await inventory.isDebitable(stockid, brands);
           const debitableBrands = debitable.map((x, y) => x?.brandid);
           const creditBrands = [];

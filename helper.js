@@ -7,7 +7,9 @@ function customError(message, statusCode, response) {
   }
   response.send({ message: message || "something wrong occured", statusCode: statusCode || 500, status: 'error' });
 }
-
+function responseError(response) {
+  response.send({ message: "something wrong occured", statusCode:  500, status: 'error' });
+}
 
 function convertKeysToLowerCase(obj) {
   if (typeof obj !== 'object' || Array.isArray(obj)) {throw new Error('Input must be an object');
@@ -73,6 +75,7 @@ module.exports = {
   customError,
   convertKeysToLowerCase,
   getFullBloodCountTrend,
+  responseError,
   promisifyQuery,
   paginationQuery,
   rowAffected
