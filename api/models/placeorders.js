@@ -102,7 +102,7 @@ const getOrders = async function (request, response) {
 
       if (getbrands.length > 0) {
       
-        const stocksBrands = await promisifyQuery(`SELECT stockid,brandid,brand FROM stocksbrands WHERE Stockid IN ( ?)`, [getbrands.join(",")]);
+        const stocksBrands = await promisifyQuery(`SELECT stockid,brandid,brand FROM stocksbrands WHERE Stockid IN (${getbrands.join(",")})`);
         
         result.stockBrands = stocksBrands;
       } else {

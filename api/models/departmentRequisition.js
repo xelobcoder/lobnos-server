@@ -376,62 +376,79 @@ const getDepartmentStockLot = async (request, response) => {
 
 
 const generalStoreLotNo = async (request, response) => {
-  const { stockidx } = request.query;
+  const { stockidx } = request.query
 
-  if (!stockidx) throw new Error('list of store ids required');
+  if (!stockidx) throw new Error("list of store ids required")
+  let _this = {}
 
-  let _this = {};
+  const stockid_collection = stockidx.split(",").map((item) => parseInt(item))
+  if (stockid_collection.length === 0) return []
 
-  const stockid_collection = stockidx.split(",").map((item) => parseInt(item));
+    const inventory = new Inventory()
+    const outPromise =  (data) =>  Promise.all(data)
+    const stockBrandsArray = stockid_collection.map(async (a, i) => {
+      // get individual stocks brands using their id (s).
+      const data = await inventory.getAstockBrands({ stockid: a })
+      const stkbrand = data.map((x, y) => {return x?.brandid})
+      return { stockid: a, brands: stkbrand }
+    })
 
-  if (stockid_collection.length === 0) return [];
-
-  if (stockid_collection.length > 0) {
-    const inventory = new Inventory();
-
-    const outPromise = async (data) => await Promise.all(data);
-
-    const stockBrandsArray = stockid_collection.map(
-      async (a, i) => {
-        // get individual stocks brands using their id (s).
-        const data = await inventory.getAstockBrands({ stockid: a });
-        const stkbrand = data.map((x, y) => {
-          return x?.brandid;
-        })
-        return {stockid:a , brands: stkbrand}
-    });
-    const stocksbrands = await outPromise(stockBrandsArray);
-
+    const stocksbrands = await outPromise(stockBrandsArray)
     const haveBrands = stocksbrands.filter((a, i) => a.brands.length > 0);
-    
-    let products = [];
+
+
+    let products = []
 
     if (haveBrands.length > 0) {
       products = haveBrands.map(async (u, v) => {
-        const { stockid, brands } = u;
-        return await inventory.isDebitable(stockid, brands);
+        const { stockid, brands } = u
+        const debithx = await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE stockid = ${stockid} AND brandid IN (${brands.join(",")})`);
+        return  {...u, debithx}
       });
+
+      products = (await outPromise(products));
+   
+      // if debit hx is empty,it means the credit stock hasnt been used so we send the credit hx
+
+      products = products.map(async (v, i) => {
+        const { debithx, stockid, brands } = v;
+        const data = {};
+        if (debithx.length == 0) {
+          const credithx = await promisifyQuery(`SELECT * FROM generalstorecredithx
+          AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${brands.join(",")})`);
+          data.stockid = stockid;
+          data.debitable = credithx;
+        }
+        if (debithx.length > 0) {
+          // const otherbrands = await promisifyQuery(`SELECT * FROM generalstorecredithx WHERE
+          // productordersid IS NOT`);
+          let debitable = await inventory.isDebitable(stockid, brands);
+          const debitableBrands = debitable.map((x, y) => x?.brandid);
+          const creditBrands = [];
+
+          for (let i = 0; i < brands.length; i++) {
+            if (!debitableBrands.includes(brands[i])) creditBrands.push(brands[i]);
+          }
+
+          let unCapturedDebitable = await promisifyQuery(`SELECT * FROM generalstorecredithx
+          AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${creditBrands.join(",")})`);
+          data.stockid = stockid;
+          data.debitable = [...debitable,...unCapturedDebitable];
+          
+        }
+        
+        data.debitable = data.debitable.map((item, index) => {
+          if (!item?.storeQty) {
+            const { productordersid, stockid, credit, brandid,batchnumber,brand} = item;
+            return { storeQty: credit, productordersid, stockid, brandid, batchnumber, brand };
+          }
+          return item;
+        })
+        return data
+      })
+      products = (await outPromise(products)).filter( (u,v) => u.debitable.length > 0)
     }
-
-    console.log(await outPromise(products));
-  }
-
-
- response.send(_this)
-
-//   if (stockidx) {
-//     const query = `SELECT brand,stockid,batchnumber,quantity FROM orders WHERE stockid IN (${stockidx})  
-//   AND CURRENT_DATE < expirydate AND received = 'TRUE';
-// `;
-//     try {
-//       let result = await promisifyQuery(query);
-//       response.send({ result, statusCode: 200, status: 'success' })
-//     } catch (err) {
-//       customError(`occured`, 500, response);
-//     }
-//   } else {
-//     customError(`stockid not provided in the query of the request`, 404, response);
-//   }
+    response.send(products)
 }
 
 
@@ -466,7 +483,6 @@ const consumeDepartmentStock = async function (request, response) {
         let hxResult = await promisifyQuery(hxQuery, hxValues);
 
         if (hxResult?.affectedRows > 0) {
-          console.log(hxResult)
           response.send({ message: 'stock successfully consumed', statusCode: 200, status: 'success' })
         }
       }

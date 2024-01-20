@@ -1,3 +1,4 @@
+const { query } = require("express")
 const { rowAffected, paginationQuery, promisifyQuery, customError } = require("../../../helper")
 const logger = require("../../../logger")
 const database_queries = require("../../database/queries")
@@ -345,7 +346,7 @@ class Inventory {
       throw TypeError('Array required and must not be empty');
     }
     const list = brands.join(",");
-    
+
     const QUERY = `SELECT 
     chx.credit - SUM(dhx.debitqty) as storeQty,
     chx.productordersid,
