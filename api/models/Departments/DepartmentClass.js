@@ -60,11 +60,12 @@ class Departments {
   async StoreServeDeptReq() {
     if (!this.departmentid) return new Error('Departmentid Required');
 
-    const pendingReqt = await this.getDeptSpecificReqData(this.departmentid, 'pending');
+    const pendingReqt = await this.getDeptSpecificReqData(this.departmentid, 'approved');
     let stockidx = [];
     if (pendingReqt.length == 0) return pendingReqt;
 
     stockidx = pendingReqt.map((reqt, index) => parseInt(reqt.stockid));
+
 
     if (stockidx.length === 0) return [];
 
@@ -132,11 +133,17 @@ class Departments {
     
     for (let i = 0; i < pendingReqt.length; i++) {
       for (let j = 0; j < products.length; j++) {
+        const toRemove = ['quantity,requisitionid','brand','batchnumber'];
         if (pendingReqt[i]['stockid'] === products[j]['stockid']) {
           pendingReqt[i]['debitable'] = products[j]['debitable'];
+          toRemove.map((item, index) => delete pendingReqt[i][item]);
+          pendingReqt[i]['requesteddate'] = new Date(pendingReqt[i]['date']).toLocaleDateString();
+          delete pendingReqt[i]['date']
         }
       }
     }
+
+    // pendingReqt = pendingReqt.map
 
     return pendingReqt;
   }

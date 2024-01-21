@@ -127,6 +127,14 @@ router.get('/api/v1/departments/requisitions', async function (request, response
     response.send({result, statusCode: 200, status: 'success'})
   }
 })
+router.get('/api/v1/store/departments/requisitions/serve', async function (request, response) {
+  const { departmentid } = request.query;
+  if (!departmentid) {
+    customError('departmentid not provided', 404, response); return;
+  }
+  const data = await new Departments(departmentid).StoreServeDeptReq();
+  response.send({statusCode: 200,status:'success', result: data});
+})
 
 router.get('/api/v1/store/departments/requisitions', async function (request, response) {
   const hasQuery = Object.keys(request.query).length > 0
@@ -134,10 +142,8 @@ router.get('/api/v1/store/departments/requisitions', async function (request, re
     getDepartmentsRequisitions(request, response)
   } else {
     const { id } = request.query;
-    if (!id) {
-      customError('departmentid required in query', 404, response);
-    }
-    const deptReq = await new Departments(id).StoreServeDeptReq();
+    if (!id) { return customError('departmentid required in query', 404, response);}
+    const deptReq = await new Departments(id).getDeptSpecificReqData(id, 'pending');
     response.send({result:deptReq, statusCode: 200, status: 'success'})
   }
 })
