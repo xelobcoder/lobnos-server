@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { customError } = require("../../../helper");
+const { customError, responseError, promisifyQuery } = require("../../../helper");
 const logger = require("../../../logger");
 const WareHouse = require("../../models/Inventory/warehouse");
 const warehouse = new WareHouse();
@@ -124,4 +124,36 @@ router.get("/api/v1/inventory/warehouse/shelves/items", async function (request,
   }
 })
 
+
+router.post('/api/v1/inventory/settings', async (request, response) => {
+  try
+  {
+    const { setting } = request.body;
+    if (!setting) return customError('settings body not added', 404, response);
+    const isDbData = await promisifyQuery(`SELECT * FROM inventorycustomization`);
+    const value = JSON.stringify(setting);
+    if (isDbData.length === 0) {
+      await promisifyQuery(`INSERT INTO inventorycustomization (settings) VALUE (?)`, [value]);
+      response.send({ status: 'success' });
+    } else {
+      await promisifyQuery(`UPDATE inventorycustomization SET settings = ? WHERE id  = ?`, [value, isDbData[0]['id']]);
+      response.send({ status: 'success' });
+    }
+  } catch (err) {
+    console.log(err)
+    logger.error(err);
+    responseError(response);
+  }
+})
+
+router.get('/api/v1/invenasync tory/settings', async function (request, response) {
+  try { 
+    const data = await promisifyQuery(`SELECT * FROM inventorycustomization`);
+    if (data.length > 0) {
+      const { settings } = data[0];
+      return response.send({ result: JSON.parse(settings) });
+    } 
+    response.send({result: {}});
+  } catch(err) {responseError(response)}
+})
 module.exports = router;

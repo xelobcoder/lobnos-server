@@ -198,8 +198,7 @@ const patchRequisition = async function (request, response, requi_id) {
 
   const values = [quantity_approved, store_supplied, batchnumber, brand, parseInt(requi_id)];
 
-  if (requi_id === undefined || requi_id === null ||
-    quantity_approved === undefined || quantity_approved === null || store_supplied === undefined || store_supplied === null) {
+  if (departmentid) {
     response.send({
       status: "error",
       message: "required fields not included",

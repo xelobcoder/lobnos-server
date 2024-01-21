@@ -166,8 +166,22 @@ router.delete('/api/v1/departments/stocks', function (request, response) {
 })
 
 
-router.patch('/api/v1/departments/requisitions', function (request, response) {
+
+router.patch('/api/v1/departments/requisitions/stage1', async function (request, response) {
+  try
+  {
+    const { status, quantity, requisitionid } = request.body;
+    const isUpdated = await new Departments().updateRequisitionApproval(quantity, requisitionid, status);
+    response.send({ status: isUpdated ? 'success' : 'failed'});
+  } catch (err) {
+    console.log(err)
+    customError(err,404,response)
+  }
+})
+
+router.patch('/api/v1/departments/requisitions/stage2', function (request, response) {
   const { id } = request.query;
+  console.log(id,request.body)
   patchRequisition(request, response, id)
 })
 

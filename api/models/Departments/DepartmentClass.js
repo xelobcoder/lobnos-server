@@ -1,4 +1,4 @@
-const { promisifyQuery } = require("../../../helper");
+const { promisifyQuery, rowAffected } = require("../../../helper");
 const Inventory = require('./../Inventory/inventoryclass');
 class Departments {
   constructor(departmentid) {
@@ -56,6 +56,7 @@ class Departments {
   
     return promisifyQuery(mysql_query,[parseInt(id)]);
   }
+
   async StoreServeDeptReq() {
     if (!this.departmentid) return new Error('Departmentid Required');
 
@@ -89,10 +90,9 @@ class Departments {
           return  {...u, debithx}
         });
   
-        products = (await outPromise(products));
+        products = await outPromise(products);
      
         // if debit hx is empty,it means the credit stock hasnt been used so we send the credit hx
-  
         products = products.map(async (v, i) => {
           const { debithx, stockid, brands } = v;
           const data = {};
@@ -140,7 +140,37 @@ class Departments {
 
     return pendingReqt;
   }
-  
+
+  async updateRequisitionApproval(quantity,requisitionid,status) {
+    if (!requisitionid || !status ) throw new Error('requisitionid && status is required');
+    const qty = parseInt(quantity);
+    if (isNaN(requisitionid) || isNaN(qty)) throw new Error('valid integers required');
+
+    if (qty < 0) return false;
+      const query = `UPDATE departmentrequisitionhx SET quantity_approved = ?,status = ? WHERE  id = ?`;
+      const result = await promisifyQuery(query, [quantity,status, requisitionid]);
+      return rowAffected(result);
+  }
+
+  async updateDepartmentRequisition(records, departmentid) {
+    if (!departmentid) throw new Error('Department id required');
+    const { quantity_approved, store_supplied, brandid, batchnumber } = records;
+
+    if (!quantity_approved || !store_supplied || !brandid || !batchnumber) {
+      throw new Error('records must contain quantity_approved, store_supplied, brandi and batchnumber');
+    }
+      
+    const mysql_query = `UPDATE departmentrequisitionhx
+                SET quantity_approved = ?,
+                store_supplied = ?,
+                batchnumber = ?,
+                brand = ?,
+          status = 'approved' WHERE id = ?`;
+
+    const values = [quantity_approved, store_supplied, batchnumber, brandid, parseInt(departmentid)];
+
+    return await promisifyQuery(mysql_query, values);
+  }
 }
 
 
