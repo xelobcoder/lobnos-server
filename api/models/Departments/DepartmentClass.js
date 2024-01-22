@@ -1,7 +1,7 @@
 const { promisifyQuery, rowAffected, customError } = require("../../../helper");
 const connectionpool = require("../../dbpool");
 const Inventory = require('./../Inventory/inventoryclass');
-const inventory = new Inventory();
+const inventory = new Inventory().n
 class Departments {
   constructor(departmentid) {
     this.departmentid = departmentid;
