@@ -43,7 +43,7 @@ class Departments {
     }
   
     if (type === "approved") {
-      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved'`
+      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved' AND store_supplied = 0`
     }
   
     if (type === "rejected") {
@@ -144,6 +144,16 @@ class Departments {
     return pendingReqt;
   }
 
+  async checkStoreSuppliedAlready(requisitionid) {
+    if (!requisitionid) throw new Error('requisition id is required');
+
+    const CHECKQUERY = `SELECT store_supplied FROM departmentrequisitionhx WHERE id = ?`;
+
+    const row = await promisifyQuery(CHECKQUERY, [requisitionid]);
+
+    return row[0]['store_count'] == 1;
+  } 
+
   async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type) {
     const newEscrowQuery = `
       INSERT INTO stocksEsrow (productordersid, stockid, brandid, batchnumber, qty, type)
@@ -153,36 +163,58 @@ class Departments {
     return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type]);
   }
   
-  async serveApprovedReqt(data, approvedQty, requisitionid) {
-    if (!Array.isArray(data) || approvedQty < 0 || !requisitionid) {
-      throw new Error('Invalid data provided');
-    }
-  
-    const totalServed = data.reduce((acc, item) => acc + item.served, 0);
-    if (totalServed !== approvedQty) {
-      return 'MISMATCH';
-    }
-  
-    const updateQuery = `
-      UPDATE departmentrequisitionhx
-      SET store_supplied = 1, approvedon = NOW()
-      WHERE id = ?
+  async checkEscrowOrderExists(productordersid, stockid, brandid, batchnumber) {
+    const checkEscrowQuery = `
+      SELECT COUNT(*) as count
+      FROM stocksEsrow
+      WHERE productordersid = ? AND stockid = ? AND brandid = ? AND batchnumber = ?
     `;
   
-    const isUpdated = rowAffected(await promisifyQuery(updateQuery, [requisitionid]));
+    const result = await promisifyQuery(checkEscrowQuery, [productordersid, stockid, brandid, batchnumber]);
+    const orderCount = result[0].count;
   
-    if (isUpdated) {
-      const filterData = data.filter(item => item.served > 0);
-      const results = await Promise.all(filterData.map(async ({ productordersid, stockid, brandid, batchnumber, served, type = 'debit' }) => {
-        const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type);
-        return rowAffected(outcome);
-      }));
+    return orderCount > 0;
+  }
+
   
-      const passedCount = results.filter(value => value === true).length;
-  
-      console.log(passedCount);
-  
-      return passedCount === filterData.length - 1 ? 'PASSED' : 'FAILED';
+
+  async serveApprovedReqt(data, approvedQty, requisitionid) {
+    try
+    {
+      if (!Array.isArray(data) || approvedQty < 0 || !requisitionid) {
+        throw new Error('Invalid data provided');
+      }
+    
+      const totalServed = data.reduce((acc, item) => acc + item.served, 0);
+      if (totalServed !== approvedQty) {
+        return 'MISMATCH';
+      }
+
+      if (await this.checkStoreSuppliedAlready(requisitionid)) return 'ALREADY SUPPLIED';
+    
+      const updateQuery = `
+        UPDATE departmentrequisitionhx
+        SET store_supplied = 1, approvedon = NOW()
+        WHERE id = ?
+      `;
+    
+      const isUpdated = rowAffected(await promisifyQuery(updateQuery, [requisitionid]));
+    
+      if (isUpdated) {
+        const filterData = data.filter(item => item.served > 0);
+        const results = await Promise.all(filterData.map(async ({ productordersid, stockid, brandid, batchnumber, served, type = 'debit' }) => {
+          const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type);
+          return rowAffected(outcome);
+        }));
+    
+        const passedCount = results.filter(value => value === true).length;
+    
+        console.log(passedCount,filterData.length);
+    
+        return passedCount === filterData.length ? 'PASSED' : 'FAILED';
+      }
+    } catch (err) {
+      throw new Error(err);
     }
   }
   

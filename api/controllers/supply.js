@@ -154,10 +154,30 @@ router.post('/api/v1/store/departments/requisitions/serve', async function (requ
     
     const result = await new Departments().serveApprovedReqt(data, qtyApproved, requisitionid);
     
-    console.log(result);
+    switch (result) {
+      case 'PASSED':
+        response.send({ status: 'success' });
+        break;
+    
+      case 'FAILED':
+        response.send({ status: 'failed', message: 'stock not added to esrow. You might have omitted something' });
+        break;
+    
+      case 'MISMATCH':
+        response.send({ message: 'qty approved and served qty do not match', status: 'failed' });
+        break;
+    
+      case 'ALREADY SUPPLIED':
+        response.send({ message: 'ALREADY SUPPLIED', status: 'failed' });
+        break;
+    
+      default:
+        response.send({ status: 'pending' });
+    }
+    
   }
   catch (err) {
-    
+    responseError(response);
   }
 })
 
