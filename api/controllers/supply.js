@@ -17,7 +17,7 @@ const {
 
 const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require('../models/placeorders.js');
 const { getCategory } = require('../testpanel/categories.js');
-const { customError, responseError } = require('../../helper.js');
+const { customError, responseError, NotFound } = require('../../helper.js');
 const logger = require('../../logger.js');
 const Inventory = require('../models/Inventory/inventoryclass.js');
 const Departments = require('../models/Departments/DepartmentClass.js');
@@ -127,6 +127,8 @@ router.get('/api/v1/departments/requisitions', async function (request, response
     response.send({result, statusCode: 200, status: 'success'})
   }
 })
+
+
 router.get('/api/v1/store/departments/requisitions/serve', async function (request, response) {
   const { departmentid } = request.query;
   if (!departmentid) {
@@ -135,6 +137,30 @@ router.get('/api/v1/store/departments/requisitions/serve', async function (reque
   const data = await new Departments(departmentid).StoreServeDeptReq();
   response.send({statusCode: 200,status:'success', result: data});
 })
+
+
+router.post('/api/v1/store/departments/requisitions/serve', async function (request, response) {
+  try
+  {
+    const { data,qtyApproved,requisitionid} = request.body
+    if (!data || !qtyApproved ||  !requisitionid) {
+      NotFound(response)
+      return
+    }
+    if (!Array.isArray(data) || data.length === 0) {
+      customError("data must be an array and must be greater than 0", 404, response)
+      return;
+    }
+    
+    const result = await new Departments().serveApprovedReqt(data, qtyApproved, requisitionid);
+    
+    console.log(result);
+  }
+  catch (err) {
+    
+  }
+})
+
 
 router.get('/api/v1/store/departments/requisitions', async function (request, response) {
   const hasQuery = Object.keys(request.query).length > 0

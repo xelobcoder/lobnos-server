@@ -26,6 +26,10 @@ function convertKeysToLowerCase(obj) {
 }
 
 
+function NotFound(response) {
+  response.send({ message: 'Data not found', status: 'error' });
+}
+
 async function promisifyQuery(query, values) {
   return new Promise((resolve, reject) => {
     connectionpool.query(query, values, function (err, result) {
@@ -77,6 +81,7 @@ module.exports = {
   getFullBloodCountTrend,
   responseError,
   promisifyQuery,
+  NotFound,
   paginationQuery,
   rowAffected
 }

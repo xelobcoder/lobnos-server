@@ -1,4 +1,4 @@
-const { promisifyQuery, rowAffected } = require("../../../helper");
+const { promisifyQuery, rowAffected, customError } = require("../../../helper");
 const Inventory = require('./../Inventory/inventoryclass');
 class Departments {
   constructor(departmentid) {
@@ -141,10 +141,51 @@ class Departments {
       }
     }
 
-    // pendingReqt = pendingReqt.map
-
     return pendingReqt;
   }
+
+  async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type) {
+    const newEscrowQuery = `
+      INSERT INTO stocksEsrow (productordersid, stockid, brandid, batchnumber, qty, type)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+  
+    return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type]);
+  }
+  
+  async serveApprovedReqt(data, approvedQty, requisitionid) {
+    if (!Array.isArray(data) || approvedQty < 0 || !requisitionid) {
+      throw new Error('Invalid data provided');
+    }
+  
+    const totalServed = data.reduce((acc, item) => acc + item.served, 0);
+    if (totalServed !== approvedQty) {
+      return 'MISMATCH';
+    }
+  
+    const updateQuery = `
+      UPDATE departmentrequisitionhx
+      SET store_supplied = 1, approvedon = NOW()
+      WHERE id = ?
+    `;
+  
+    const isUpdated = rowAffected(await promisifyQuery(updateQuery, [requisitionid]));
+  
+    if (isUpdated) {
+      const filterData = data.filter(item => item.served > 0);
+      const results = await Promise.all(filterData.map(async ({ productordersid, stockid, brandid, batchnumber, served, type = 'debit' }) => {
+        const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type);
+        return rowAffected(outcome);
+      }));
+  
+      const passedCount = results.filter(value => value === true).length;
+  
+      console.log(passedCount);
+  
+      return passedCount === filterData.length - 1 ? 'PASSED' : 'FAILED';
+    }
+  }
+  
 
   async updateRequisitionApproval(quantity,requisitionid,status) {
     if (!requisitionid || !status ) throw new Error('requisitionid && status is required');
@@ -157,6 +198,8 @@ class Departments {
       return rowAffected(result);
   }
 
+
+
   async updateDepartmentRequisition(records, departmentid) {
     if (!departmentid) throw new Error('Department id required');
     const { quantity_approved, store_supplied, brandid, batchnumber } = records;
@@ -165,12 +208,10 @@ class Departments {
       throw new Error('records must contain quantity_approved, store_supplied, brandi and batchnumber');
     }
       
-    const mysql_query = `UPDATE departmentrequisitionhx
-                SET quantity_approved = ?,
+    const mysql_query = `UPDATE departmentrequisitionhx SET
                 store_supplied = ?,
                 batchnumber = ?,
-                brand = ?,
-          status = 'approved' WHERE id = ?`;
+                brand = ? WHERE id = ? AND status ='approved'` ;
 
     const values = [quantity_approved, store_supplied, batchnumber, brandid, parseInt(departmentid)];
 
