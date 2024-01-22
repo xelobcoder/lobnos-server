@@ -32,17 +32,25 @@ function NotFound(response) {
 
 async function promisifyQuery(query, values) {
   return new Promise((resolve, reject) => {
-    connectionpool.query(query, values, function (err, result) {
-      if (err) {
-        reject(err)
+    connectionpool.getConnection((getConnectionError, connection) => {
+      if (getConnectionError) {
+        reject(getConnectionError);
+        return;
       }
-      else {
-        resolve(result)
-      }
-    })
-  })
 
+      connection.query(query, values, (queryError, result) => {
+        connection.release();
+
+        if (queryError) {
+          reject(queryError);
+        } else {
+          resolve(result);
+        }
+      });
+    });
+  });
 }
+
 
 async function paginationQuery(pageQuery, query, values) {
   let useQuery = {count: pageQuery?.count || 10, page:  pageQuery?.page || 1}

@@ -1,5 +1,7 @@
 const { promisifyQuery, rowAffected, customError } = require("../../../helper");
+const connectionpool = require("../../dbpool");
 const Inventory = require('./../Inventory/inventoryclass');
+const inventory = new Inventory();
 class Departments {
   constructor(departmentid) {
     this.departmentid = departmentid;
@@ -154,13 +156,13 @@ class Departments {
     return row[0]['store_count'] == 1;
   } 
 
-  async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type) {
+  async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type,requisitionid) {
     const newEscrowQuery = `
-      INSERT INTO stocksEsrow (productordersid, stockid, brandid, batchnumber, qty, type)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO stocksEsrow (productordersid, stockid, brandid, batchnumber, qty, type,requisitionid)
+      VALUES (?, ?, ?, ?, ?, ?,?)
     `;
   
-    return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type]);
+    return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type,requisitionid]);
   }
   
   async checkEscrowOrderExists(productordersid, stockid, brandid, batchnumber) {
@@ -192,24 +194,19 @@ class Departments {
 
       if (await this.checkStoreSuppliedAlready(requisitionid)) return 'ALREADY SUPPLIED';
     
-      const updateQuery = `
-        UPDATE departmentrequisitionhx
-        SET store_supplied = 1, approvedon = NOW()
-        WHERE id = ?
-      `;
+
     
-      const isUpdated = rowAffected(await promisifyQuery(updateQuery, [requisitionid]));
-    
+      const isUpdated = await this.updateDeptReqtAfterSupplied(1, requisitionid);
+
+
       if (isUpdated) {
         const filterData = data.filter(item => item.served > 0);
-        const results = await Promise.all(filterData.map(async ({ productordersid, stockid, brandid, batchnumber, served, type = 'debit' }) => {
-          const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type);
+        const results = await Promise.all(filterData.map(async ({ productordersid, stockid, brandid, batchnumber, served, type = 'debit'}) => {
+          const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type,requisitionid);
           return rowAffected(outcome);
         }));
     
         const passedCount = results.filter(value => value === true).length;
-    
-        console.log(passedCount,filterData.length);
     
         return passedCount === filterData.length ? 'PASSED' : 'FAILED';
       }
@@ -232,22 +229,66 @@ class Departments {
 
 
 
-  async updateDepartmentRequisition(records, departmentid) {
-    if (!departmentid) throw new Error('Department id required');
-    const { quantity_approved, store_supplied, brandid, batchnumber } = records;
-
-    if (!quantity_approved || !store_supplied || !brandid || !batchnumber) {
-      throw new Error('records must contain quantity_approved, store_supplied, brandi and batchnumber');
-    }
-      
+  async updateDeptReqtAfterSupplied(store_supplied,requisitionid) {
+    if (!store_supplied || !requisitionid) throw new Error('Department id required');
+    
     const mysql_query = `UPDATE departmentrequisitionhx SET
-                store_supplied = ?,
-                batchnumber = ?,
-                brand = ? WHERE id = ? AND status ='approved'` ;
+                store_supplied = ?
+                WHERE id = ?` ;
 
-    const values = [quantity_approved, store_supplied, batchnumber, brandid, parseInt(departmentid)];
+    const values = [store_supplied,parseInt(requisitionid)];
 
-    return await promisifyQuery(mysql_query, values);
+    return  rowAffected(await promisifyQuery(mysql_query, values));
+  }
+
+  async updateQtyDeptReceived(quantityReceived,departmentReceived,status,employeeid,requisitionid) {
+    const update_query = `UPDATE departmentrequisitionhx 
+       SET quantityReceived = ?, departmentReceived = ?, 
+       status = ?, receivingemployee = ? WHERE id = ?`;
+    
+       const values = [quantityReceived, departmentReceived, status, employeeid, requisitionid];
+
+       return rowAffected( await promisifyQuery(update_query, values));
+  }
+
+  async getEsrowReqt(requisitionid) {
+    if (!requisitionid) throw new Error('requisition id is required');
+
+    return await promisifyQuery(`SELECT * FROM stocksesrow WHERE requisitionid = ?`, [requisitionid]);
+  }
+
+  async updateReqtAfterReceivedDept(records) {
+    const { quantityReceived, departmentReceived, id, status, employeeid, requisitionid } = records;
+
+    if (!quantityReceived || !departmentReceived || !id || !employeeid || !requisitionid) {
+      throw new Error('quantityReceived, departmentReceived,requisitionid, id, status and employee id required');
+    }
+
+    let esrowItems = await this.getEsrowReqt(requisitionid);
+
+    if (esrowItems.length <= 0) return 'NO ITEM IN ESCROW';
+
+    function isToday(dateString) {
+      const today = new Date();
+      const itemDate = new Date(dateString);
+      return (
+        itemDate.getDate() === today.getDate() &&
+        itemDate.getMonth() === today.getMonth() &&
+        itemDate.getFullYear() === today.getFullYear()
+      );
+    }
+    // check validity of esrow, must be pending and the receivedon be equal to today
+    esrowItems = esrowItems.filter((item, index) => item?.status == "pending" && isToday());
+
+
+    if (esrowItems.length === 0) return 'EXPIRED ESROW TIME,RE-REQUEST AGAIN';
+    
+
+    await promisifyQuery('START TRANSACTION');
+
+    await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id);
+  
+await inventory.newGenStrDebitHx()
   }
 }
 
