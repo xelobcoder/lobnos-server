@@ -137,8 +137,6 @@ class Departments {
         if (pendingReqt[i]['stockid'] === products[j]['stockid']) {
           pendingReqt[i]['debitable'] = products[j]['debitable'];
           toRemove.map((item, index) => delete pendingReqt[i][item]);
-          pendingReqt[i]['requesteddate'] = new Date(pendingReqt[i]['date']).toLocaleDateString();
-          delete pendingReqt[i]['date']
         }
       }
     }

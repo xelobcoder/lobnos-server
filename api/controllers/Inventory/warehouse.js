@@ -189,13 +189,12 @@ router.post("/api/v1/inventory/settings", async (request, response) => {
 			response.send({ status: "success" })
 		}
 	} catch (err) {
-		console.log(err)
 		logger.error(err)
 		responseError(response)
 	}
 })
 
-router.get("/api/v1/invenasync tory/settings", async function (request, response) {
+router.get("/api/v1/inventory/settings", async function (request, response) {
 	try {
 		const data = await promisifyQuery(`SELECT * FROM inventorycustomization`)
 		if (data.length > 0) {
