@@ -1,16 +1,16 @@
 {
     "workbench.editor.pinnedTabSizing": "shrink",
     "editor.tabSize": 2,
-    "editor.fontFamily": "Cascadia code",
+    "editor.fontFamily": "Menlo,Monaco,'Courier',monoaspace",
     "editor.tabCompletion": "on",
     "editor.wordWrap": "on",
     "editor.wordWrapColumn": 140,
-    "editor.formatOnSave": false,
+    "editor.formatOnSave": true,
     "editor.fontSize": 15,
     "editor.autoClosingComments": "always",
     "editor.bracketPairColorization.enabled": true,
     "editor.suggest.showColors": true,
-    // "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "sqltools.connections": [
         {
             "mysqlOptions": {

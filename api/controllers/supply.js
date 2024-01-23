@@ -177,6 +177,8 @@ router.post('/api/v1/store/departments/requisitions/serve', async function (requ
     
   }
   catch (err) {
+    console.log(err)
+    logger.error(err);
     responseError(response);
   }
 })
@@ -223,10 +225,10 @@ router.patch('/api/v1/departments/requisitions/stage1', async function (request,
   try
   {
     const { status, quantity, requisitionid } = request.body;
-    console.log(request.body)
     const isUpdated = await new Departments().updateRequisitionApproval(quantity, requisitionid, status);
     response.send({ status: isUpdated ? 'success' : 'failed'});
   } catch (err) {
+    console.log(err)
     customError(err, 404, response);
   }
 })

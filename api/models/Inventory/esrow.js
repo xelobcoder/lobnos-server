@@ -6,7 +6,6 @@ class Escrow {
 
   async getEsrowReqt() {
     if (!this.requisitionid) throw new Error("requisition id is required")
-
     return await promisifyQuery(`SELECT * FROM stocksesrow WHERE requisitionid = ?`, [this.requisitionid])
   }
 

@@ -1,12 +1,9 @@
-const { promisifyQuery, rowAffected, customError } = require("../../../helper")
+const { promisifyQuery, rowAffected } = require("../../../helper")
 const logger = require("../../../logger")
 const database_queries = require("../../database/queries")
-const connection = require("../../db")
-const connectionpool = require("../../dbpool")
 const Escrow = require("../Inventory/esrow")
 const Inventory = require("./../Inventory/inventoryclass")
 
-const inventory = new Inventory()
 class Departments {
   constructor(departmentid) {
     this.departmentid = departmentid
@@ -14,7 +11,7 @@ class Departments {
 
   async getPendingdepartmentReqSummary() {
     let query = `SELECT COUNT(hx.id) AS pending,hx.departmentid,d.department
-    FROM departmentrequisitionhx AS hx INNER JOIN departments AS d ON hx.departmentid = d.id WHERE quantity_approved IS NULL`
+    FROM departmentrequisition AS hx INNER JOIN departments AS d ON hx.departmentid = d.id WHERE quantity_approved IS NULL`
     if (this.departmentid) {
       query += ` AND departmentid = ?`
     }
@@ -27,20 +24,18 @@ class Departments {
     if (!id) return new Error("id required")
 
     let mysql_query = `SELECT  drh.id,
-          drh.departmentid, 
-          drh.stockid, 
-          drh.quantity_requested,
-          drh.quantity_approved,
-          drh.status,
-           drh.date,
-           drh.requisitionid,
-           drh.comsumptionunit,
-           d.department,ns.stockid,
-           drh.batchnumber,
-           drh.brand,
-           ns.name,
-           ns.quantity
-           FROM departmentrequisitionhx AS drh
+                    drh.departmentid, 
+                    drh.stockid, 
+                    drh.quantity_requested,
+                    drh.quantity_approved,
+                    drh.status,
+                    drh.date,
+                    drh.requisitionid,
+                    drh.comsumptionunit,
+                    d.department,ns.stockid,
+                    ns.name,
+                    ns.quantity
+                    FROM departmentrequisition AS drh
           INNER JOIN departments AS d ON d.id = drh.departmentid
           INNER JOIN generalstocks AS ns ON ns.stockid = drh.stockid`
 
@@ -69,7 +64,7 @@ class Departments {
     const pendingReqt = await this.getDeptSpecificReqData(this.departmentid, "approved")
     let stockidx = []
 
-    if (pendingReqt.length == 0) return pendingReqt;
+    if (pendingReqt.length == 0) return pendingReqt
 
     stockidx = pendingReqt.map((reqt, index) => parseInt(reqt.stockid))
 
@@ -116,21 +111,23 @@ class Departments {
         }
         if (debithx.length > 0) {
           let debitable = await inventory.isDebitable(stockid, brands)
-          const debitableBrands = debitable.map((x, y) => x?.brandid);
+          const debitableBrands = debitable.map((x, y) => x?.brandid)
 
-          const creditBrands = [];
+          const creditBrands = []
 
           for (let i = 0; i < brands.length; i++) {
             if (!debitableBrands.includes(brands[i])) creditBrands.push(brands[i])
           }
-          
-          let unCapturedDebitable = [];
-     
+
+          let unCapturedDebitable = []
+
           if (creditBrands.length > 0) {
             unCapturedDebitable = await promisifyQuery(`SELECT * FROM generalstorecredithx
-            AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${creditBrands.length === 1 ? creditBrands[0] :  creditBrands.join(",")})`)
+            AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${
+              creditBrands.length === 1 ? creditBrands[0] : creditBrands.join(",")
+            })`)
           }
-          
+
           data.stockid = stockid
           data.debitable = [...debitable, ...unCapturedDebitable]
         }
@@ -163,7 +160,7 @@ class Departments {
   async checkStoreSuppliedAlready(requisitionid) {
     if (!requisitionid) throw new Error("requisition id is required")
 
-    const CHECKQUERY = `SELECT store_supplied FROM departmentrequisitionhx WHERE id = ?`
+    const CHECKQUERY = `SELECT store_supplied FROM departmentrequisition WHERE id = ?`
 
     const row = await promisifyQuery(CHECKQUERY, [requisitionid])
 
@@ -193,6 +190,7 @@ class Departments {
   }
 
   async serveApprovedReqt(data, approvedQty, requisitionid) {
+    console.log(data)
     try {
       if (!Array.isArray(data) || approvedQty < 0 || !requisitionid) {
         throw new Error("Invalid data provided")
@@ -210,7 +208,9 @@ class Departments {
       if (isUpdated) {
         const filterData = data.filter((item) => item.served > 0)
         const results = await Promise.all(
-          filterData.map(async ({ productordersid, stockid, brandid, batchnumber, served, type = "debit" }) => {
+          filterData.map(async (item, index) => {
+            const { productordersid, stockid, brandid, batchnumber, served, type = "debit" } = item
+            // TODO: include departmentid here
             const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type, requisitionid)
             return rowAffected(outcome)
           })
@@ -221,6 +221,7 @@ class Departments {
         return passedCount === filterData.length ? "PASSED" : "FAILED"
       }
     } catch (err) {
+      console.log(err)
       throw new Error(err)
     }
   }
@@ -231,7 +232,7 @@ class Departments {
     if (isNaN(requisitionid) || isNaN(qty)) throw new Error("valid integers required")
 
     if (qty < 0) return false
-    const query = `UPDATE departmentrequisitionhx SET quantity_approved = ?,status = ?, approvedOn = NOW() WHERE  id = ?`
+    const query = `UPDATE departmentrequisition SET quantity_approved = ?,status = ?, approvedOn = NOW() WHERE  id = ?`
     const result = await promisifyQuery(query, [quantity, status, requisitionid])
     return rowAffected(result)
   }
@@ -239,7 +240,7 @@ class Departments {
   async updateDeptReqtAfterSupplied(store_supplied, requisitionid) {
     if (!store_supplied || !requisitionid) throw new Error("Department id required")
 
-    const mysql_query = `UPDATE departmentrequisitionhx SET
+    const mysql_query = `UPDATE departmentrequisition SET
                 store_supplied = ?
                 WHERE id = ?`
 
@@ -249,7 +250,7 @@ class Departments {
   }
 
   async updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, requisitionid) {
-    const update_query = `UPDATE departmentrequisitionhx 
+    const update_query = `UPDATE departmentrequisition 
        SET quantityReceived = ?, departmentReceived = ?, 
        status = ?, receivingemployee = ? WHERE id = ?`
 
@@ -257,7 +258,6 @@ class Departments {
 
     return rowAffected(await promisifyQuery(update_query, values))
   }
-
 
   async updateReqtAfterReceivedDept(records) {
     const { quantityReceived, departmentReceived, id, status, employeeid } = records
@@ -281,27 +281,26 @@ class Departments {
     }
     // check validity of esrow, must be pending and the receivedon be equal to today
     // Filter esrowItems based on the condition
-    esrowItems = esrowItems.filter((item) => item?.status === "pending" && isToday(item?.addedon));
+    esrowItems = esrowItems.filter((item) => item?.status === "pending" && isToday(item?.addedon))
     // Check if there are any items left
     if (esrowItems.length === 0) {
       esrow.updateEscrow(id, "canceled")
       // delete requisition
-      await database_queries.del(id, "departmentrequisitionhx", "id")
-      return "EXPIRED ESROW TIME, REQUEST AGAIN";
+      await database_queries.del(id, "departmentrequisition", "id")
+      return "EXPIRED ESROW TIME, REQUEST AGAIN"
     }
 
     try {
       await promisifyQuery("START TRANSACTION")
-      await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id);
+      await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id)
       await Promise.all(
         esrowItems.map(async (item, index) => {
-
           return esrow.pushNewGenDebitHx({ ...item, debitqty: item?.qty })
         })
       )
       await esrow.updateEscrow(id, "received")
       await promisifyQuery("COMMIT")
-      return "UPATED SUCCESSFULLY";
+      return "UPATED SUCCESSFULLY"
     } catch (error) {
       logger.error(error)
       await promisifyQuery("ROLLBACK")

@@ -48,7 +48,7 @@ const newdepartmentRequisition = (request, response) => {
     });
   } else {
     const checkIfStockIsAlreadyRequisitioned = async () => {
-      const query = `SELECT * FROM departmentrequisitionhx
+      const query = `SELECT * FROM departmentrequisition
        WHERE stockid = ? AND departmentid = ? AND quantity_approved IS NULL`;
       try {
         return await promisifyQuery(query, [stockid, departmentid]);
@@ -68,7 +68,7 @@ const newdepartmentRequisition = (request, response) => {
           });
         } else {
           const newdepartmentRequisition = async () => {
-            const sql_query = `INSERT INTO departmentrequisitionhx
+            const sql_query = `INSERT INTO departmentrequisition
           (stockid, departmentid, quantity_requested, comsumptionunit, requisitionid,requestingemployee)
           VALUES (?,?,?,?,?,?)`;
 
@@ -119,7 +119,7 @@ const newdepartmentRequisition = (request, response) => {
 const getDepartmentsRequisitions = async function (request, response) {
   const query = `
     SELECT *
-    FROM departmentrequisitionhx
+    FROM departmentrequisition
     ORDER BY id DESC
     LIMIT 20;
   `;
@@ -161,7 +161,7 @@ const specificDepartmentRequisition = async function (request, response) {
          drh.brand,
          ns.name,
          ns.quantity
-         FROM departmentrequisitionhx AS drh
+         FROM departmentrequisition AS drh
         INNER JOIN departments AS d ON d.id = drh.departmentid
         INNER JOIN generalstocks AS ns ON ns.stockid = drh.stockid`
 
@@ -189,7 +189,7 @@ const specificDepartmentRequisition = async function (request, response) {
 const patchRequisition = async function (request, response, requi_id) {
   // update the department requisition table with the quantity approved and the status=approved
   const { quantity_approved, store_supplied, brand, batchnumber } = request.body;
-  const mysql_query = `UPDATE departmentrequisitionhx
+  const mysql_query = `UPDATE departmentrequisition
    SET quantity_approved = ?,
    store_supplied = ?,
    batchnumber = ?,
@@ -303,7 +303,7 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
   }
   else {
     // this updates `quantityReceived` and `departmentReceived` fields
-    const update_query = `UPDATE departmentrequisitionhx 
+    const update_query = `UPDATE departmentrequisition
        SET quantityReceived = ?, departmentReceived = ?, 
        status = ?, receivingemployee = ? WHERE id = ?`;
 
@@ -442,7 +442,6 @@ const consumeDepartmentStock = async function (request, response) {
   if (stockdata.length > 0) {
     const prev = parseInt(stockdata[0]['quantity']);
     const conqty = parseInt(consumeqty);
-    console.log(prev, conqty);
     if (prev >= conqty) {
       const balance = prev - conqty;
       const updateQuery = `UPDATE departmentconsumption SET quantity = ? 

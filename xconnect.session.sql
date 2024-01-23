@@ -10,14 +10,16 @@ BEGIN
 
   -- Check if a batch is available in departmentconsumption
   SELECT COUNT(*) INTO batchAvailable
-  FROM departmentconsumption WHERE stockid = NEW.stockid AND batchnumber = OLD.batchnumber AND departmentid = OLD.departmentid AND brand = OLD.brand;
+  FROM departmentsmainsupply WHERE stockid = NEW.stockid AND departmentid = OLD.departmentid
 
   -- If department received the item and the quantity received is greater than 0
-  IF NEW.departmentReceived = 1 AND NEW.quantityReceived > 0 AND OLD.store_supplied = 1 THEN
+  IF NEW.departmentReceived = 1 AND NEW.quantityReceived > 0 AND OLD.store_supplied
+  = 1
+   THEN
     -- Update department consumption if a batch is available
     IF batchAvailable > 0 THEN 
       -- Update the quantity in departmentconsumption
-      UPDATE departmentconsumption SET quantity = NEW.quantityReceived + quantity
+      UPDATE departmentsmainsupply SET quantity = NEW.quantityReceived + quantity
       WHERE stockid = NEW.stockid AND departmentid = OLD.departmentid;
     
       -- Update the historical record in departmentconsumptionhx
@@ -26,7 +28,7 @@ BEGIN
     VALUES (OLD.departmentid,NEW.stockid,OLD.batchnumber,OLD.brand,NEW.quantityReceived,NEW.receivingemployee);
     ELSE 
       -- Insert a new record in departmentconsumption if no batch is available
-      INSERT INTO departmentconsumption (quantity, stockid, departmentid, batchnumber, brand) 
+      INSERT INTO departmentsmainsupply (quantity, stockid, departmentid, batchnumber, brand) 
       VALUES (NEW.quantityReceived, OLD.stockid, OLD.departmentid, OLD.batchnumber, OLD.brand);
     END IF;
 
