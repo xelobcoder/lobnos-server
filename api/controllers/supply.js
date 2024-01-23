@@ -207,14 +207,14 @@ router.get('/api/v1/departments/requisitions/summary', async function (request, 
 
 router.get('/api/v1/departments/stocks', function (request, response) {
   const { id } = request.query;
-  getDeptStocks(request, response, id)
+  getDeptStocks(request, response, id);
 })
 
 
 
 router.delete('/api/v1/departments/stocks', function (request, response) {
   const { id } = request.query;
-  deleteDeptStocks(request, response, id)
+  deleteDeptStocks(request, response, id);
 })
 
 
@@ -223,6 +223,7 @@ router.patch('/api/v1/departments/requisitions/stage1', async function (request,
   try
   {
     const { status, quantity, requisitionid } = request.body;
+    console.log(request.body)
     const isUpdated = await new Departments().updateRequisitionApproval(quantity, requisitionid, status);
     response.send({ status: isUpdated ? 'success' : 'failed'});
   } catch (err) {
@@ -237,10 +238,10 @@ router.patch('/api/v1/departments/requisitions/stage2', function (request, respo
 
 
 router.put('/api/v1/departments/requisitions', async function (request, response) {
-  console.log(request.body)
-  // updateRequisitionAfterReceivedDept(request, response)
+  updateRequisitionAfterReceivedDept(request, response)
   const result = await new Departments().updateReqtAfterReceivedDept(request.body);
-  console.log(result);
+  console.log(result)
+  response.send({status:'success',message: result});
 })
 
 

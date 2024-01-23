@@ -229,8 +229,20 @@ class Inventory {
   }
 
   async updateStockOrders(data) {
-    const query = `UPDATE orders SET received = ?, quantityReceived = ?, receiveddate = ?, status = ?, expirydate = ?,
-     batchnumber = ?, balance = ?,brand = ? , price = ?, totalamount = ? WHERE productordersid = ? AND orderTransactionid = ? AND stockid =?`
+    const query = `UPDATE orders
+     SET received = ?,
+      quantityReceived = ?,
+      receiveddate = ?,
+       status = ?,
+       expirydate = ?,
+     batchnumber = ?,
+      balance = ?,
+      brand = ? ,
+       price = ?,
+        totalamount = ? 
+        WHERE productordersid = ?
+         AND orderTransactionid = ? 
+         AND stockid =?`
     return promisifyQuery(query, data)
   }
 
