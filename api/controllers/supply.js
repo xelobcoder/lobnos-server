@@ -226,20 +226,21 @@ router.patch('/api/v1/departments/requisitions/stage1', async function (request,
     const isUpdated = await new Departments().updateRequisitionApproval(quantity, requisitionid, status);
     response.send({ status: isUpdated ? 'success' : 'failed'});
   } catch (err) {
-    console.log(err)
-    customError(err,404,response)
+    customError(err, 404, response);
   }
 })
 
 router.patch('/api/v1/departments/requisitions/stage2', function (request, response) {
   const { id } = request.query;
-  console.log(id,request.body)
   patchRequisition(request, response, id)
 })
 
 
-router.put('/api/v1/departments/requisitions', function (request, response) {
-  updateRequisitionAfterReceivedDept(request, response)
+router.put('/api/v1/departments/requisitions', async function (request, response) {
+  console.log(request.body)
+  // updateRequisitionAfterReceivedDept(request, response)
+  const result = await new Departments().updateReqtAfterReceivedDept(request.body);
+  console.log(result);
 })
 
 

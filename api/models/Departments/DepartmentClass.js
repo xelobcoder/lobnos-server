@@ -255,11 +255,11 @@ class Departments {
   async updateReqtAfterReceivedDept(records) {
     const { quantityReceived, departmentReceived, id, status, employeeid, requisitionid } = records
 
-    if (!quantityReceived || !departmentReceived || !id || !employeeid || !requisitionid) {
-      throw new Error("quantityReceived, departmentReceived,requisitionid, id, status and employee id required")
+    if (!quantityReceived || !departmentReceived || !id || !employeeid ) {
+      throw new Error("quantityReceived, departmentReceived, id, status and employee id required")
     }
 
-    let esrowItems = await this.getEsrowReqt(requisitionid)
+    let esrowItems = await this.getEsrowReqt(id);
 
     if (esrowItems.length <= 0) return "NO ITEM IN ESCROW"
 
