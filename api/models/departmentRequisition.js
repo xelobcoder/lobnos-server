@@ -157,8 +157,6 @@ const specificDepartmentRequisition = async function (request, response) {
          drh.requisitionid,
          drh.comsumptionunit,
          d.department,ns.stockid,
-         drh.batchnumber,
-         drh.brand,
          ns.name,
          ns.quantity
          FROM departmentrequisition AS drh

@@ -11,12 +11,12 @@ class Escrow {
 
 
   async pushNewGenDebitHx(record){
-    const { stockid, brandid, productordersid, debitqty, batchnumber } = record;
+    const { stockid, brandid, productordersid, debitqty, batchnumber,departmentid} = record;
 
     const query = `INSERT INTO 
-          generalstoredebithx(stockid,batchnumber,brandid,productordersid,debitqty)
-          VALUES(?,?,?,?,?)`;
-    const values = [stockid, batchnumber, brandid, productordersid, debitqty];
+          generalstoredebithx(stockid,batchnumber,brandid,productordersid,debitqty,departmentid)
+          VALUES(?,?,?,?,?,?)`;
+    const values = [stockid, batchnumber, brandid, productordersid, debitqty,departmentid];
 
     const result = await promisifyQuery(query, values);
 
@@ -30,7 +30,7 @@ class Escrow {
     }
     let query = `UPDATE stocksesrow SET status = ?`
     if (status === 'received') {
-      query += ` ,receivedon = NOW() `;
+      query += ` ,receivedon = NOW()`;
     }
     query += ` WHERE requisitionid = ?`;
     

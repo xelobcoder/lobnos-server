@@ -1,0 +1,12 @@
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO \n          generalstoredebithx(stockid,batchnumber,brandid,productordersid,debitqty)\n          VALUES(2,'lot55',34,8,200)","sqlMessage":"Unknown column 'batchnumber' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO \n          generalstoredebithx(stockid,batchnumber,brandid,productordersid,debitqty)\n          VALUES(2,'lot55',34,8,100)","sqlMessage":"Unknown column 'batchnumber' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"INSERT INTO \n          generalstoredebithx(stockid,batchnumber,brandid,productordersid,debitqty,departmentid)\n          VALUES(2,'lot55',34,8,100,8)","sqlMessage":"Unknown column 'batchnumber' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 51","sqlMessage":"Unknown column 'brandid' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 52","sqlMessage":"Unknown column 'brandid' in 'field list'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 52","sqlMessage":"Unknown column 'batchnumber' in 'where clause'","sqlState":"42S22"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 52","sqlMessage":"Unknown column 'batchnumber' in 'where clause'","sqlState":"42S22"}

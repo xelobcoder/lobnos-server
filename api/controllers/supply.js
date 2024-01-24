@@ -142,8 +142,8 @@ router.get('/api/v1/store/departments/requisitions/serve', async function (reque
 router.post('/api/v1/store/departments/requisitions/serve', async function (request, response) {
   try
   {
-    const { data,qtyApproved,requisitionid} = request.body
-    if (!data || !qtyApproved ||  !requisitionid) {
+    const { data, qtyApproved, requisitionid, departmentid } = request.body
+    if (!data || !qtyApproved || !requisitionid || !departmentid) {
       NotFound(response)
       return
     }
@@ -152,7 +152,7 @@ router.post('/api/v1/store/departments/requisitions/serve', async function (requ
       return;
     }
     
-    const result = await new Departments().serveApprovedReqt(data, qtyApproved, requisitionid);
+    const result = await new Departments().serveApprovedReqt(data, qtyApproved, requisitionid,departmentid);
     
     switch (result) {
       case 'PASSED':
@@ -240,7 +240,7 @@ router.patch('/api/v1/departments/requisitions/stage2', function (request, respo
 
 
 router.put('/api/v1/departments/requisitions', async function (request, response) {
-  updateRequisitionAfterReceivedDept(request, response)
+  // updateRequisitionAfterReceivedDept(request, response)
   const result = await new Departments().updateReqtAfterReceivedDept(request.body);
   console.log(result)
   response.send({status:'success',message: result});

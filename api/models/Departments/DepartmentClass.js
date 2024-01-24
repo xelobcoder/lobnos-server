@@ -164,16 +164,16 @@ class Departments {
 
     const row = await promisifyQuery(CHECKQUERY, [requisitionid])
 
-    return row[0]["store_count"] == 1
+    return row[0]["store_supplied"] == 1;
   }
 
-  async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type, requisitionid) {
+  async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type, requisitionid,departmentid) {
     const newEscrowQuery = `
-      INSERT INTO stocksEsrow (productordersid, stockid, brandid, batchnumber, qty, type,requisitionid)
-      VALUES (?, ?, ?, ?, ?, ?,?)
+      INSERT INTO stocksEsrow (productordersid, stockid, brandid, batchnumber, qty, type,requisitionid,departmentid)
+      VALUES (?, ?, ?, ?, ?, ?,?,?)
     `
 
-    return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type, requisitionid])
+    return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type, requisitionid,departmentid])
   }
 
   async checkEscrowOrderExists(productordersid, stockid, brandid, batchnumber) {
@@ -189,10 +189,9 @@ class Departments {
     return orderCount > 0
   }
 
-  async serveApprovedReqt(data, approvedQty, requisitionid) {
-    console.log(data)
+  async serveApprovedReqt(data, approvedQty, requisitionid,departmentid) {
     try {
-      if (!Array.isArray(data) || approvedQty < 0 || !requisitionid) {
+      if (!Array.isArray(data) || approvedQty < 0 || !requisitionid || !departmentid) {
         throw new Error("Invalid data provided")
       }
 
@@ -210,8 +209,7 @@ class Departments {
         const results = await Promise.all(
           filterData.map(async (item, index) => {
             const { productordersid, stockid, brandid, batchnumber, served, type = "debit" } = item
-            // TODO: include departmentid here
-            const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type, requisitionid)
+            const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type, requisitionid, departmentid);
             return rowAffected(outcome)
           })
         )
@@ -260,10 +258,11 @@ class Departments {
   }
 
   async updateReqtAfterReceivedDept(records) {
-    const { quantityReceived, departmentReceived, id, status, employeeid } = records
+    console.log(records)
+    const { quantityReceived, departmentReceived, id, status, employeeid, departmentid } = records
 
-    if (!quantityReceived || !departmentReceived || !id || !employeeid) {
-      throw new Error("quantityReceived, departmentReceived, id, status and employee id required")
+    if (!quantityReceived || !departmentReceived || !id || !employeeid || !departmentid) {
+      throw new Error("quantityReceived, departmentReceived, requisitionid, departmentid status and employee id required")
     }
 
     let esrow = new Escrow(id)
@@ -279,7 +278,7 @@ class Departments {
         itemDate.getDate() === today.getDate() && itemDate.getMonth() === today.getMonth() && itemDate.getFullYear() === today.getFullYear()
       )
     }
-    // check validity of esrow, must be pending and the receivedon be equal to today
+    // check validity of esrow, must be pending and the addedon must be equal to today
     // Filter esrowItems based on the condition
     esrowItems = esrowItems.filter((item) => item?.status === "pending" && isToday(item?.addedon))
     // Check if there are any items left
@@ -293,16 +292,18 @@ class Departments {
     try {
       await promisifyQuery("START TRANSACTION")
       await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id)
-      await Promise.all(
-        esrowItems.map(async (item, index) => {
-          return esrow.pushNewGenDebitHx({ ...item, debitqty: item?.qty })
-        })
-      )
+      // await Promise.all(
+      //   esrowItems.map(async (item, index) => {
+      //     console.log(item);
+      //     return esrow.pushNewGenDebitHx({ ...item, debitqty: item?.qty })
+      //   })
+      // )
       await esrow.updateEscrow(id, "received")
       await promisifyQuery("COMMIT")
       return "UPATED SUCCESSFULLY"
     } catch (error) {
       logger.error(error)
+      console.log(error)
       await promisifyQuery("ROLLBACK")
     } finally {
       console.log("done")
