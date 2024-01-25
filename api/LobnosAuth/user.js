@@ -114,6 +114,11 @@ class User {
     return jwt.sign({ ...data }, process.env.ACCESS_TOKEN_SECRET, { expiresIn })
   }
 
+  getUserRole = async (employeeid) => {
+    const data = await promisifyQuery(`SELECT role FROM roles WHERE employeeid = ?`, [employeeid]);
+    return data.length > 0 ? data[0]['role'] : null;
+  }
+
 
   userExistWithId = async (id) => {
    try

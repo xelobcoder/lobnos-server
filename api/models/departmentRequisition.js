@@ -1,12 +1,7 @@
-const { query } = require("express");
 const connection = require("../db");
-const { get } = require("../controllers/results");
 const logger = require("../../logger");
 const { promisifyQuery, customError } = require("../../helper");
 const Inventory = require("./Inventory/inventoryclass");
-
-const uuidv4 = require("uuid").v4;
-
 
 /**
  * Handles a POST request to create a new department requisition.
@@ -34,19 +29,13 @@ const uuidv4 = require("uuid").v4;
 const newdepartmentRequisition = (request, response) => {
   const { stockid, departmentid, quantity, comsumptionunit, employeeid } = request.body;
 
-  const requisitionid = uuidv4();
-  console.log(request.body)
   const isNotEmptyFields = Object.values(request.body).filter((field) => {
     return field === "" || field === null;
   });
 
-  if (isNotEmptyFields.length > 0) {
-    response.send({
-      statusCode: 400,
-      status: "error",
-      message: "All fields are required",
-    });
-  } else {
+  if (isNotEmptyFields.length > 0) return customError({ message: 'all fields are required', statusCode: 404, response }); 
+
+
     const checkIfStockIsAlreadyRequisitioned = async () => {
       const query = `SELECT * FROM departmentrequisition
        WHERE stockid = ? AND departmentid = ? AND quantity_approved IS NULL`;
@@ -69,7 +58,7 @@ const newdepartmentRequisition = (request, response) => {
         } else {
           const newdepartmentRequisition = async () => {
             const sql_query = `INSERT INTO departmentrequisition
-          (stockid, departmentid, quantity_requested, comsumptionunit, requisitionid,requestingemployee)
+          (stockid, departmentid, quantity_requested, comsumptionunit,requestingemployee)
           VALUES (?,?,?,?,?,?)`;
 
             try {
@@ -78,7 +67,6 @@ const newdepartmentRequisition = (request, response) => {
                 departmentid,
                 quantity,
                 comsumptionunit,
-                requisitionid,
                 employeeid
               ]);
               return result;
@@ -115,7 +103,6 @@ const newdepartmentRequisition = (request, response) => {
         });
       });
   }
-};
 const getDepartmentsRequisitions = async function (request, response) {
   const query = `
     SELECT *
