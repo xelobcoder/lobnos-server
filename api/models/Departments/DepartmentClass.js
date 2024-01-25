@@ -20,11 +20,11 @@ class Departments {
   }
 
   async getDeptSpecificReqData(id, type) {
-  try {
-    // join department requisition table with  name of department  table and name of newstock table
-    if (!id) return new Error("id required")
+    try {
+      // join department requisition table with  name of department  table and name of newstock table
+      if (!id) return new Error("id required")
 
-    let mysql_query = `SELECT  drh.id,
+      let mysql_query = `SELECT  drh.id,
                         drh.departmentid, 
                         drh.stockid, 
                         drh.quantity_requested,
@@ -39,30 +39,30 @@ class Departments {
               INNER JOIN departments AS d ON d.id = drh.departmentid
               INNER JOIN generalstocks AS ns ON ns.stockid = drh.stockid`
 
-    if (type === "pending") {
-      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NULL AND store_supplied = 0 `
-    }
+      if (type === "pending") {
+        mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NULL AND store_supplied = 0 `
+      }
 
-    if (type === "approved") {
-      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved' AND store_supplied = 0`
-    }
+      if (type === "approved") {
+        mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved' AND store_supplied = 0`
+      }
 
-    if (type === "rejected") {
-      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'rejected'`
-    }
+      if (type === "rejected") {
+        mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'rejected'`
+      }
 
-    if (type === "received") {
-      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'received'`
-    }
+      if (type === "received") {
+        mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'received'`
+      }
 
-    if (type === "receiving") {
-      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved' AND store_supplied = 1`
-    }
+      if (type === "receiving") {
+        mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved' AND store_supplied = 1`
+      }
 
-    return promisifyQuery(mysql_query, [parseInt(id)])
-  } catch (err) {
-    throw new Error(err)
-  }
+      return promisifyQuery(mysql_query, [parseInt(id)])
+    } catch (err) {
+      throw new Error(err)
+    }
   }
 
   async StoreServeDeptReq() {
@@ -171,16 +171,16 @@ class Departments {
 
     const row = await promisifyQuery(CHECKQUERY, [requisitionid])
 
-    return row[0]["store_supplied"] == 1;
+    return row[0]["store_supplied"] == 1
   }
 
-  async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type, requisitionid,departmentid) {
+  async addProductEscrow(productordersid, stockid, brandid, batchnumber, qty, type, requisitionid, departmentid) {
     const newEscrowQuery = `
       INSERT INTO stocksEsrow (productordersid, stockid, brandid, batchnumber, qty, type,requisitionid,departmentid)
       VALUES (?, ?, ?, ?, ?, ?,?,?)
     `
 
-    return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type, requisitionid,departmentid])
+    return await promisifyQuery(newEscrowQuery, [productordersid, stockid, brandid, batchnumber, qty, type, requisitionid, departmentid])
   }
 
   async checkEscrowOrderExists(productordersid, stockid, brandid, batchnumber) {
@@ -196,7 +196,7 @@ class Departments {
     return orderCount > 0
   }
 
-  async serveApprovedReqt(data, approvedQty, requisitionid,departmentid) {
+  async serveApprovedReqt(data, approvedQty, requisitionid, departmentid) {
     try {
       if (!Array.isArray(data) || approvedQty < 0 || !requisitionid || !departmentid) {
         throw new Error("Invalid data provided")
@@ -216,7 +216,16 @@ class Departments {
         const results = await Promise.all(
           filterData.map(async (item, index) => {
             const { productordersid, stockid, brandid, batchnumber, served, type = "debit" } = item
-            const outcome = await this.addProductEscrow(productordersid, stockid, brandid, batchnumber, served, type, requisitionid, departmentid);
+            const outcome = await this.addProductEscrow(
+              productordersid,
+              stockid,
+              brandid,
+              batchnumber,
+              served,
+              type,
+              requisitionid,
+              departmentid
+            )
             return rowAffected(outcome)
           })
         )
@@ -299,21 +308,38 @@ class Departments {
     try {
       await promisifyQuery("START TRANSACTION")
       await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id)
-      // await Promise.all(
-      //   esrowItems.map(async (item, index) => {
-      //     console.log(item);
-      //     return esrow.pushNewGenDebitHx({ ...item, debitqty: item?.qty })
-      //   })
-      // )
       await esrow.updateEscrow(id, "received")
       await promisifyQuery("COMMIT")
       return "UPATED SUCCESSFULLY"
     } catch (error) {
       logger.error(error)
-      console.log(error)
       await promisifyQuery("ROLLBACK")
     } finally {
       console.log("done")
+    }
+  }
+
+  async getDepartmentBrandBatch(stockid,departmentid) {
+    try {
+      if (!stockid || !departmentid) {
+        throw new Error("stockid and departmentid are required")
+      }
+      const queryString = `SELECT id,
+      bt.batchnumber,
+      bb.brand,
+      bb.brandid,
+      bt.departmentid,
+      bt.quantity
+      FROM departmentsmainsupply AS bt INNER JOIN stocksbrands AS bb ON bb.brandid = bt.brand
+        WHERE bt.stockid = ?
+        AND bt.departmentid = ?`
+      const values = [stockid, departmentid]
+
+      let result = await promisifyQuery(queryString, values)
+      return result;
+    } catch (err) {
+      console.log(err)
+      throw new Error(err);
     }
   }
 }

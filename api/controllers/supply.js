@@ -8,7 +8,7 @@ const {
   specificDepartmentRequisition,
   getDeptStocks,
   deleteDeptStocks,
-  getDepartmentStockLot,
+  // getDepartmentStockLot,
   patchRequisition,
   updateRequisitionAfterReceivedDept,
   generalStoreLotNo,
@@ -264,8 +264,17 @@ router.put('/api/v1/departments/requisitions', async function (request, response
 
 
 // consume 
-router.get('/api/v1/stock/department/consume/lot', function (request, response) {
-  getDepartmentStockLot(request, response);
+router.get('/api/v1/stock/department/consume/lot', async function (request, response) {
+  try {
+    const { stockid, departmentid } = request.query;
+  if (!stockid || !departmentid) {
+    return customError('departmentid and stockid are required', 404, response);
+  }
+    const result = await new Departments().getDepartmentBrandBatch( stockid,departmentid);
+    response.send({ result, statusCode: 200, status: 'success' });
+  } catch (err) {
+    responseError(response);
+  }
 })
 
 

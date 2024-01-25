@@ -312,30 +312,6 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 };
 
 
-const getDepartmentStockLot = async (request, response) => {
-  const { stockid, departmentid } = request.query;
-
-  if (!stockid && departmentid) customError(`Stockid and departmentid required`, 404, response);
-
-  if (stockid) {
-    try {
-      const queryString = `SELECT id,
-      batchnumber,
-      brand,
-      departmentid,
-      quantity
-      FROM departmentconsumption WHERE stockid = ? 
-      AND departmentid = ?`;
-      const values = [stockid, departmentid];
-
-      let result = await promisifyQuery(queryString, values);
-      response.send({ result, statusCode: 200, status: 'success' })
-    } catch (err) {
-      customError(`Occured in retrieving lots and brands of stock`, 500, response);
-    }
-  }
-}
-
 
 
 const generalStoreLotNo = async (request, response) => {
@@ -463,7 +439,6 @@ module.exports = {
   getDeptStocks,
   deleteDeptStocks,
   patchRequisition,
-  getDepartmentStockLot,
   updateRequisitionAfterReceivedDept,
   consumeDepartmentStock,
   generalStoreLotNo
