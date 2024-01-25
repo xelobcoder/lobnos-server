@@ -235,8 +235,7 @@ class Departments {
         return passedCount === filterData.length ? "PASSED" : "FAILED"
       }
     } catch (err) {
-      console.log(err)
-      throw new Error(err)
+      throw new Error(err);
     }
   }
 
@@ -256,7 +255,7 @@ class Departments {
 
     const mysql_query = `UPDATE departmentrequisition SET
                 store_supplied = ?
-                WHERE id = ?`
+                WHERE id = ?`;
 
     const values = [store_supplied, parseInt(requisitionid)]
 
@@ -274,7 +273,6 @@ class Departments {
   }
 
   async updateReqtAfterReceivedDept(records) {
-    console.log(records)
     const { quantityReceived, departmentReceived, id, status, employeeid, departmentid } = records
 
     if (!quantityReceived || !departmentReceived || !id || !employeeid || !departmentid) {
@@ -306,17 +304,15 @@ class Departments {
     }
 
     try {
-      await promisifyQuery("START TRANSACTION")
-      await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id)
-      await esrow.updateEscrow(id, "received")
-      await promisifyQuery("COMMIT")
-      return "UPATED SUCCESSFULLY"
+      const updateQty = await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id);
+      if (updateQty) {
+        const updateEsrow = await esrow.updateEscrow(id, "received");
+        return updateEsrow ? 'UPDATED SUCCESSFULLY' : 'UPDATE FAILED';
+      }
     } catch (error) {
-      logger.error(error)
-      await promisifyQuery("ROLLBACK")
-    } finally {
-      console.log("done")
-    }
+      logger.error(error);
+      throw new Error(error);
+    } 
   }
 
   async getDepartmentBrandBatch(stockid,departmentid) {

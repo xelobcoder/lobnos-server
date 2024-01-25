@@ -314,79 +314,79 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 
 
 
-const generalStoreLotNo = async (request, response) => {
-  const { stockidx } = request.query
+// const generalStoreLotNo = async (request, response) => {
+//   const { stockidx } = request.query
 
-  if (!stockidx) throw new Error("list of store ids required")
-  let _this = {}
+//   if (!stockidx) throw new Error("list of store ids required")
+//   let _this = {}
 
-  const stockid_collection = stockidx.split(",").map((item) => parseInt(item))
-  if (stockid_collection.length === 0) return []
+//   const stockid_collection = stockidx.split(",").map((item) => parseInt(item))
+//   if (stockid_collection.length === 0) return []
 
-    const inventory = new Inventory()
-    const outPromise =  (data) =>  Promise.all(data)
-    const stockBrandsArray = stockid_collection.map(async (a, i) => {
-      // get individual stocks brands using their id (s).
-      const data = await inventory.getAstockBrands({ stockid: a })
-      const stkbrand = data.map((x, y) => {return x?.brandid})
-      return { stockid: a, brands: stkbrand }
-    })
+//     const inventory = new Inventory()
+//     const outPromise =  (data) =>  Promise.all(data)
+//     const stockBrandsArray = stockid_collection.map(async (a, i) => {
+//       // get individual stocks brands using their id (s).
+//       const data = await inventory.getAstockBrands({ stockid: a })
+//       const stkbrand = data.map((x, y) => {return x?.brandid})
+//       return { stockid: a, brands: stkbrand }
+//     })
 
-    const stocksbrands = await outPromise(stockBrandsArray)
-    const haveBrands = stocksbrands.filter((a, i) => a.brands.length > 0);
+//     const stocksbrands = await outPromise(stockBrandsArray)
+//     const haveBrands = stocksbrands.filter((a, i) => a.brands.length > 0);
 
 
-    let products = []
+//     let products = []
 
-    if (haveBrands.length > 0) {
-      products = haveBrands.map(async (u, v) => {
-        const { stockid, brands } = u
-        const debithx = await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE stockid = ${stockid} AND brandid IN (${brands.join(",")})`);
-        return  {...u, debithx}
-      });
+//     if (haveBrands.length > 0) {
+//       products = haveBrands.map(async (u, v) => {
+//         const { stockid, brands } = u
+//         const debithx = await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE stockid = ${stockid} AND brandid IN (${brands.join(",")})`);
+//         return  {...u, debithx}
+//       });
 
-      products = (await outPromise(products));
+//       products = (await outPromise(products));
    
-      // if debit hx is empty,it means the credit stock hasnt been used so we send the credit hx
+//       // if debit hx is empty,it means the credit stock hasnt been used so we send the credit hx
 
-      products = products.map(async (v, i) => {
-        const { debithx, stockid, brands } = v;
-        const data = {};
-        if (debithx.length == 0) {
-          const credithx = await promisifyQuery(`SELECT * FROM generalstorecredithx
-          AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${brands.join(",")})`);
-          data.stockid = stockid;
-          data.debitable = credithx;
-        }
-        if (debithx.length > 0) {
-          let debitable = await inventory.isDebitable(stockid, brands);
-          const debitableBrands = debitable.map((x, y) => x?.brandid);
-          const creditBrands = [];
+//       products = products.map(async (v, i) => {
+//         const { debithx, stockid, brands } = v;
+//         const data = {};
+//         if (debithx.length == 0) {
+//           const credithx = await promisifyQuery(`SELECT * FROM generalstorecredithx
+//           AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${brands.join(",")})`);
+//           data.stockid = stockid;
+//           data.debitable = credithx;
+//         }
+//         if (debithx.length > 0) {
+//           let debitable = await inventory.isDebitable(stockid, brands);
+//           const debitableBrands = debitable.map((x, y) => x?.brandid);
+//           const creditBrands = [];
 
-          for (let i = 0; i < brands.length; i++) {
-            if (!debitableBrands.includes(brands[i])) creditBrands.push(brands[i]);
-          }
+//           for (let i = 0; i < brands.length; i++) {
+//             if (!debitableBrands.includes(brands[i])) creditBrands.push(brands[i]);
+//           }
 
-          let unCapturedDebitable = await promisifyQuery(`SELECT * FROM generalstorecredithx
-          AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${creditBrands.join(",")})`);
-          data.stockid = stockid;
-          data.debitable = [...debitable,...unCapturedDebitable];
+//           let unCapturedDebitable = await promisifyQuery(`SELECT * FROM generalstorecredithx
+//           AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${creditBrands.join(",")})`);
+//           data.stockid = stockid;
+//           data.debitable = [...debitable,...unCapturedDebitable];
           
-        }
+//         }
         
-        data.debitable = data.debitable.map((item, index) => {
-          if (!item?.storeQty) {
-            const { productordersid, stockid, credit, brandid,batchnumber,brand} = item;
-            return { storeQty: credit, productordersid, stockid, brandid, batchnumber, brand };
-          }
-          return item;
-        })
-        return data
-      })
-      products = (await outPromise(products)).filter( (u,v) => u.debitable.length > 0)
-    }
-    response.send(products)
-}
+//         data.debitable = data.debitable.map((item, index) => {
+//           if (!item?.storeQty) {
+//             const { productordersid, stockid, credit, brandid,batchnumber,brand} = item;
+//             return { storeQty: credit, productordersid, stockid, brandid, batchnumber, brand };
+//           }
+//           return item;
+//         })
+//         return data
+//       })
+//       products = (await outPromise(products)).filter( (u,v) => u.debitable.length > 0)
+//     }
+//     response.send(products)
+// }
 
 
 
@@ -401,7 +401,7 @@ module.exports = {
   deleteDeptStocks,
   patchRequisition,
   updateRequisitionAfterReceivedDept,
-  generalStoreLotNo
+  // generalStoreLotNo
 };
 
 

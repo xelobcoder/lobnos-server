@@ -15,3 +15,5 @@
 {"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"INSERT INTO inventoryanalyticssummary (nearExpiryCount,expiredCount,belowAlertLevel) VALUES (?,?,?)","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?,?,?)' at line 1","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"INSERT INTO inventoryanalyticssummary (nearExpiryCount,expiredCount,belowAlertLevel) VALUES (6,?,?)","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?,?)' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"level":"error"}

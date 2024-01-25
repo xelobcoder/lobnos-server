@@ -11,7 +11,7 @@ const {
   // getDepartmentStockLot,
   patchRequisition,
   updateRequisitionAfterReceivedDept,
-  generalStoreLotNo,
+  // generalStoreLotNo,
   consumeDepartmentStock,
 } = require("../models/departmentRequisition.js")
 
@@ -193,7 +193,6 @@ router.post('/api/v1/store/departments/requisitions/serve', async function (requ
     
   }
   catch (err) {
-    console.log(err)
     logger.error(err);
     responseError(response);
   }
@@ -203,12 +202,16 @@ router.post('/api/v1/store/departments/requisitions/serve', async function (requ
 router.get('/api/v1/store/departments/requisitions', async function (request, response) {
   const hasQuery = Object.keys(request.query).length > 0
   if (!hasQuery) {
-    getDepartmentsRequisitions(request, response)
+    getDepartmentsRequisitions(request, response);
   } else {
     const { id } = request.query;
-    if (!id) { return customError('departmentid required in query', 404, response);}
+    if (!id) {
+      customError('departmentid required in query', 404, response); return;
+    }
     const deptReq = await new Departments(id).getDeptSpecificReqData(id, 'pending');
-    response.send({result:deptReq, statusCode: 200, status: 'success'})
+    if (deptReq) {
+      response.send({result:deptReq, statusCode: 200, status: 'success'})
+    }
   }
 })
 
@@ -278,9 +281,9 @@ router.get('/api/v1/stock/department/consume/lot', async function (request, resp
 })
 
 
-router.get('/api/v1/stock/general/lotno', function (request, response) {
-  generalStoreLotNo(request, response);
-})
+// router.get('/api/v1/stock/general/lotno', function (request, response) {
+//   generalStoreLotNo(request, response);
+// })
 
 
 router.post('/api/v1/departments/stock/consume', async function (request, response) {
