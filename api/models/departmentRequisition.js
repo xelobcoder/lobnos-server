@@ -391,12 +391,12 @@ const generalStoreLotNo = async (request, response) => {
 
 
 const consumeDepartmentStock = async function (request, response) {
-  const { stockname, stockid, departmentid, consumeqty, brand, batchnumber } = request.body;
+  const { employeeid, stockid, departmentid, consumeqty, brand, batchnumber,brandid } = request.body;
 
   // get stockitem
-  const retrieveQuery = `SELECT * FROM departmentconsumption WHERE stockid = ? AND departmentid = ? AND brand = ? AND batchnumber = ?`;
+  const retrieveQuery = `SELECT * FROM departmentsmainsupply WHERE stockid = ? AND departmentid = ? AND brand = ? AND batchnumber = ?`;
 
-  const retrieveValues = [stockid, parseInt(departmentid), brand, batchnumber];
+  const retrieveValues = [stockid, parseInt(departmentid), brandid, batchnumber];
 
   const stockdata = await promisifyQuery(retrieveQuery, retrieveValues);
 
@@ -405,16 +405,16 @@ const consumeDepartmentStock = async function (request, response) {
     const conqty = parseInt(consumeqty);
     if (prev >= conqty) {
       const balance = prev - conqty;
-      const updateQuery = `UPDATE departmentconsumption SET quantity = ? 
+      const updateQuery = `UPDATE departmentsmainsupply SET quantity = ? 
       WHERE departmentid  = ? AND batchnumber = ? AND stockid = ?  AND brand = ?`;
 
-      const updateValues = [balance, departmentid, batchnumber, stockid, brand];
+      const updateValues = [balance, departmentid, batchnumber, stockid, brandid];
       const updateConsumption = await promisifyQuery(updateQuery, updateValues);
 
       if (updateConsumption && updateConsumption.affectedRows == 1) {
-        const hxQuery = `INSERT INTO departmentconsumptionhx (department,stockid,batchnumber,brand,debit,credit,employeeid) VALUES (?,?,?,?,?,?,?)`;
+        const hxQuery = `INSERT INTO departmentconsumptionhx (department,stockid,batchnumber,brand,debit,employeeid) VALUES (?,?,?,?,?,?)`;
 
-        const hxValues = [departmentid, stockid, batchnumber, brand, conqty, 0, 3];
+        const hxValues = [departmentid, stockid, batchnumber, brandid, conqty,employeeid];
 
         let hxResult = await promisifyQuery(hxQuery, hxValues);
 

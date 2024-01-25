@@ -325,14 +325,13 @@ class Departments {
         throw new Error("stockid and departmentid are required")
       }
       const queryString = `SELECT id,
-      bt.batchnumber,
-      bb.brand,
-      bb.brandid,
-      bt.departmentid,
-      bt.quantity
+              bt.batchnumber,
+              bb.brand,
+              bb.brandid,
+              bt.departmentid,
+              bt.quantity
       FROM departmentsmainsupply AS bt INNER JOIN stocksbrands AS bb ON bb.brandid = bt.brand
-        WHERE bt.stockid = ?
-        AND bt.departmentid = ?`
+      WHERE bt.stockid = ? AND bt.departmentid = ?`
       const values = [stockid, departmentid]
 
       let result = await promisifyQuery(queryString, values)
