@@ -284,7 +284,16 @@ router.get('/api/v1/stock/general/lotno', function (request, response) {
 
 
 router.post('/api/v1/departments/stock/consume', async function (request, response) {
-  consumeDepartmentStock(request, response);
+  try {
+    const result = await new Requisition().consumeDepartmentStock(request.body)
+    if (result === true) {
+      response.send({ message: "stock successfully consumed", statusCode: 200, status: "success" })
+    } else {
+      response.send({ statusCode: 404, message: result, status: 'warning' });
+    }
+  } catch (err) {
+    responseError(response)
+  }
 })
 
 module.exports = router

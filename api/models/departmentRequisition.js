@@ -390,45 +390,6 @@ const generalStoreLotNo = async (request, response) => {
 
 
 
-const consumeDepartmentStock = async function (request, response) {
-  const { employeeid, stockid, departmentid, consumeqty, brand, batchnumber,brandid } = request.body;
-
-  // get stockitem
-  const retrieveQuery = `SELECT * FROM departmentsmainsupply WHERE stockid = ? AND departmentid = ? AND brand = ? AND batchnumber = ?`;
-
-  const retrieveValues = [stockid, parseInt(departmentid), brandid, batchnumber];
-
-  const stockdata = await promisifyQuery(retrieveQuery, retrieveValues);
-
-  if (stockdata.length > 0) {
-    const prev = parseInt(stockdata[0]['quantity']);
-    const conqty = parseInt(consumeqty);
-    if (prev >= conqty) {
-      const balance = prev - conqty;
-      const updateQuery = `UPDATE departmentsmainsupply SET quantity = ? 
-      WHERE departmentid  = ? AND batchnumber = ? AND stockid = ?  AND brand = ?`;
-
-      const updateValues = [balance, departmentid, batchnumber, stockid, brandid];
-      const updateConsumption = await promisifyQuery(updateQuery, updateValues);
-
-      if (updateConsumption && updateConsumption.affectedRows == 1) {
-        const hxQuery = `INSERT INTO departmentconsumptionhx (department,stockid,batchnumber,brand,debit,employeeid) VALUES (?,?,?,?,?,?)`;
-
-        const hxValues = [departmentid, stockid, batchnumber, brandid, conqty,employeeid];
-
-        let hxResult = await promisifyQuery(hxQuery, hxValues);
-
-        if (hxResult?.affectedRows > 0) {
-          response.send({ message: 'stock successfully consumed', statusCode: 200, status: 'success' })
-        }
-      }
-    } else {
-      customError(`qty to be consumed must be less than qty available`, 404, response);
-    }
-  } else {
-    customError('Not found ', 404, response)
-  }
-}
 
 // ---------------------------
 
@@ -440,7 +401,6 @@ module.exports = {
   deleteDeptStocks,
   patchRequisition,
   updateRequisitionAfterReceivedDept,
-  consumeDepartmentStock,
   generalStoreLotNo
 };
 

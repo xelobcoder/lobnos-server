@@ -18,7 +18,7 @@ class Requisition extends Departments {
 
     try {
       const result = await promisifyQuery(query, [stockid, departmentid])
-      return result.length === 0
+      return result.length === 0;
     } catch (error) {
       logger.error(error)
       throw new Error(error)
@@ -91,7 +91,7 @@ class Requisition extends Departments {
     return rowAffected(await promisifyQuery(mysql_query, [departmentid]))
   }
   async consumeDepartmentStock(records) {
-    const { employeeid, stockid, departmentid, consumeqty, batchnumber, brandid } = records
+    const { employeeid, stockid, departmentid, consumeqty, batchnumber, brandid } = records;
 
     // get stockitem
     const retrieveQuery = `SELECT * FROM departmentsmainsupply WHERE stockid = ? AND departmentid = ? AND brand = ? AND batchnumber = ?`
@@ -105,7 +105,7 @@ class Requisition extends Departments {
     const conqty = parseInt(consumeqty)
     const isOkay = prev >= conqty
 
-    if (isOkay) return "qty to be consumed must be less than qty available"
+    if (!isOkay) return "qty to be consumed must be less than qty available"
 
     const balance = prev - conqty
     const updateQuery = `UPDATE departmentsmainsupply SET quantity = ? 
@@ -119,12 +119,12 @@ class Requisition extends Departments {
       await promisifyQuery("START TRANSACTION")
       await promisifyQuery(updateQuery, updateValues)
       await promisifyQuery(hxQuery, hxValues)
-      await promisifyQuery("COMMIT")
-      response.send({ message: "stock successfully consumed", statusCode: 200, status: "success" })
+      await promisifyQuery("COMMIT");
+      return true;
     } catch (err) {
-      console.log(err)
-      logger.err(err)
-      await promisifyQuery("ROLLBACK")
+      await promisifyQuery("ROLLBACK");
+      logger.err(err);
+      throw new Error(err);
     }
   }
 

@@ -205,44 +205,22 @@ class Inventory {
     return data
   }
 
-  async getCustomizationData(response) {
-    return await promisifyQuery(`SELECT * FROM inventoryCustomization`)
-  }
-
-  parseJsonData(data) {
-    if (data === "{}" || data === null || data === undefined) return false
-    return JSON.parse(data)
-  }
-
-  async customization() {
-    const unparsed = await this.getCustomizationData()
-    if (unparsed.length === 0) return
-    const { settings } = unparsed[0]
-
-    return this.parseJsonData(settings)
-  }
-
-  async getNearExpiry() {
-    const data = await this.customization()
-    const nearExpiry = parseInt(data?.expirydays) || 21
-    console.log(nearExpiry, data)
-  }
 
   async updateStockOrders(data) {
     const query = `UPDATE orders
-     SET received = ?,
-      quantityReceived = ?,
-      receiveddate = ?,
-       status = ?,
-       expirydate = ?,
-     batchnumber = ?,
-      balance = ?,
-      brand = ? ,
-       price = ?,
-        totalamount = ? 
-        WHERE productordersid = ?
-         AND orderTransactionid = ? 
-         AND stockid =?`
+              SET received = ?,
+                  quantityReceived = ?,
+                  receiveddate = ?,
+                  status = ?,
+                  expirydate = ?,
+                  batchnumber = ?,
+                  balance = ?,
+                  brand = ? ,
+                  price = ?,
+                  totalamount = ? 
+              WHERE productordersid = ?
+              AND orderTransactionid = ? 
+              AND stockid =?`
     return promisifyQuery(query, data)
   }
 
@@ -267,8 +245,7 @@ class Inventory {
 
       if (!tax || !Object.keys(tax).includes("amount") || !Object.keys(tax).includes("method")) {
         if (response) {
-          customError("Tax is an object with properties amount and method", 500, response)
-          return
+          return customError("Tax is an object with properties amount and method", 500, response)
         } else {
           throw new Error("Tax is an object with properties amount and method")
         }
@@ -360,15 +337,15 @@ class Inventory {
     const list = brands.join(",");
 
     const QUERY = `SELECT 
-    chx.credit - SUM(dhx.debitqty) as storeQty,
-    chx.productordersid,
-    chx.stockid,
-    chx.brandid,
-    chx.batchnumber,
-    stb.brand
-    FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
-     AS chx ON chx.productordersid = dhx.productordersid
-     INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
+              chx.credit - SUM(dhx.debitqty) as storeQty,
+              chx.productordersid,
+              chx.stockid,
+              chx.brandid,
+              chx.batchnumber,
+              stb.brand
+      FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
+      AS chx ON chx.productordersid = dhx.productordersid
+      INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
       WHERE chx.stockid = ?  AND  chx.brandid IN (${list})`
     let data = await promisifyQuery(QUERY, [stockid]);
 
@@ -407,11 +384,9 @@ class Inventory {
         return transaction;
       }))
     }
-
-    console.log(result);
-    
     return result;
   }
 }
 
 module.exports = Inventory
+
