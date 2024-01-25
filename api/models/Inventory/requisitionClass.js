@@ -19,7 +19,7 @@ class Requisition extends Departments {
 
    try {
      const result = await promisifyQuery(query, [stockid, departmentid]);
-     return result.length > 0 ? false : true;
+     return result.length === 0;
    } catch (error) {
      logger.error(error);
      throw new Error(error);
@@ -36,16 +36,18 @@ class Requisition extends Departments {
       });
     
       if (isNotEmptyFields.length > 0) return customError({ message: 'all fields are required', statusCode: 404, response }); 
-  
-      if (!this.canRequestNew(stockid, departmentid)) return false;
+    
+      if (!(await this.canRequestNew(stockid, departmentid))) return 'requisition already made and unresolved';
   
       const sql_query = `INSERT INTO departmentrequisition
       (stockid, departmentid, quantity_requested, comsumptionunit,requestingemployee)
-      VALUES (?,?,?,?,?,?)`;
+      VALUES (?,?,?,?,?)`;
   
-      const values = [ stockid, departmentid, quantity, comsumptionunit, employeeid]
+      const values = [stockid, departmentid, quantity, comsumptionunit, employeeid];
+
       const result = await promisifyQuery(sql_query, values);
-      return rowAffected(result);
+      
+      return rowAffected(result) ? 'requisition successful' : 'requisition failed';
     } catch (err) {
       logger.error(err);
       throw new Error(err);
@@ -91,4 +93,11 @@ class Requisition extends Departments {
 
     return rowAffected(await promisifyQuery(mysql_query, [departmentid]));
   }
+
+  async deleteUnAttendedRequistions() {
+   
+ }
 }
+
+
+module.exports = Requisition;

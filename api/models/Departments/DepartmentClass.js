@@ -20,27 +20,27 @@ class Departments {
   }
 
   async getDeptSpecificReqData(id, type) {
+  try {
     // join department requisition table with  name of department  table and name of newstock table
     if (!id) return new Error("id required")
 
     let mysql_query = `SELECT  drh.id,
-                    drh.departmentid, 
-                    drh.stockid, 
-                    drh.quantity_requested,
-                    drh.quantity_approved,
-                    drh.status,
-                    drh.date,
-                    drh.requisitionid,
-                    drh.comsumptionunit,
-                    d.department,ns.stockid,
-                    ns.name,
-                    ns.quantity
-                    FROM departmentrequisition AS drh
-          INNER JOIN departments AS d ON d.id = drh.departmentid
-          INNER JOIN generalstocks AS ns ON ns.stockid = drh.stockid`
+                        drh.departmentid, 
+                        drh.stockid, 
+                        drh.quantity_requested,
+                        drh.quantity_approved,
+                        drh.status,
+                        drh.date,
+                        drh.comsumptionunit,
+                        d.department,ns.stockid,
+                        ns.name,
+                        ns.quantity
+                        FROM departmentrequisition AS drh
+              INNER JOIN departments AS d ON d.id = drh.departmentid
+              INNER JOIN generalstocks AS ns ON ns.stockid = drh.stockid`
 
     if (type === "pending") {
-      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NULL `
+      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NULL AND store_supplied = 0 `
     }
 
     if (type === "approved") {
@@ -52,10 +52,17 @@ class Departments {
     }
 
     if (type === "received") {
-      mysql_query += `WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'received'`
+      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'received'`
+    }
+
+    if (type === "receiving") {
+      mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved' AND store_supplied = 1`
     }
 
     return promisifyQuery(mysql_query, [parseInt(id)])
+  } catch (err) {
+    throw new Error(err)
+  }
   }
 
   async StoreServeDeptReq() {
