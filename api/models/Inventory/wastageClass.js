@@ -7,8 +7,13 @@ class WastageInventory extends Inventory {
     this.stockid = stockid
   }
 
+  /**
+   * Calculates the amount of a product that is currently in stock and not used.
+   *
+   * @param {number} productordersid - The ID of the product order for which to calculate the product in stock.
+   * @returns {number|boolean} - The amount of the product that is currently in stock and not used. Returns false if there is no product in stock.
+   */
   async calculateProductInstock(productordersid) {
-    // get amount in stock and not used
     const debitHx = await this.getDebitHxSingle(productordersid)
     if (debitHx.length === 0) return false
 
@@ -24,8 +29,8 @@ class WastageInventory extends Inventory {
   }
 
   async isWastageDebitHxExist(productordersid) {
-    const result = await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE wastage = 1 AND productordersid = ?`, [productordersid]);
-    return result.length > 0;
+    const result = await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE wastage = 1 AND productordersid = ?`, [productordersid])
+    return result.length > 0
   }
 
   async disposeoffExpireProduct(records) {
@@ -33,7 +38,7 @@ class WastageInventory extends Inventory {
     if (!productordersid) {
       throw new Error("required keys not found in object provided")
     }
-    if (await this.isWastageDebitHxExist(productordersid)) return 'EXIST';
+    if (await this.isWastageDebitHxExist(productordersid)) return "EXIST"
     const total = await this.calculateProductInstock(productordersid, stockid, brandid)
     const isDebited = await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
     if (isDebited) {
