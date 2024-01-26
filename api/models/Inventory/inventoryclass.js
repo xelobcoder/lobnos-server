@@ -21,7 +21,9 @@ const GETGENERALSTOCK = ` SELECT
                       INNER JOIN warehouse AS wc ON ns.warehouse = wc.id
                       INNER JOIN shelves AS sh ON sh.id = ns.shelf`
 
-const EXPIREDSTOCKSQUERY = `SELECT productordersid, stockid, quantity, expirydate, received, receiveddate, expirydate, Batchnumber, name, suppliername, purchaseunit FROM orders WHERE RECEIVED = 'TRUE' AND DATE(expirydate) < DATE(NOW()) ORDER BY expirydate ASC LIMIT ? OFFSET ?`
+const EXPIREDSTOCKSQUERY = `SELECT o.productordersid,s.brand, o.stockid, o.quantity, o.expirydate, o.received, o.receiveddate, o.expirydate, o.Batchnumber,s.brandid, o.name, o.suppliername, o.purchaseunit FROM orders AS o INNER JOIN stocksbrands AS s
+ON o.brand = s.brandid
+ WHERE o.RECEIVED = 'TRUE' AND DATE(o.expirydate) < DATE(NOW()) ORDER BY o.expirydate ASC LIMIT ? OFFSET ?`
 
 const GENERALUNEXPIREDSTOCKS = `SELECT * FROM generalstocks WHERE expirydate >= NOW() AND status = 'received' ORDER BY productordersid LIMIT ? OFFSET ?`
 
@@ -47,31 +49,31 @@ class Inventory {
     this.stockid = stockid || null
   }
 
-   /**
-       * Checks if a stock with a given name exists in the `generalstocks` table of a database.
-       * 
-       * @param {string} stockname - The name of the stock to check for existence.
-       * @returns {boolean} - `true` if the stock exists, `false` if it does not exist.
-       * 
-       * @example
-       * const inventory = new Inventory();
-       * const stockExists = await inventory.checkStockExist("exampleStockName");
-       * console.log(stockExists); // true or false
-       */
+  /**
+   * Checks if a stock with a given name exists in the `generalstocks` table of a database.
+   *
+   * @param {string} stockname - The name of the stock to check for existence.
+   * @returns {boolean} - `true` if the stock exists, `false` if it does not exist.
+   *
+   * @example
+   * const inventory = new Inventory();
+   * const stockExists = await inventory.checkStockExist("exampleStockName");
+   * console.log(stockExists); // true or false
+   */
   async checkStockExist(stockname) {
-      const item = await promisifyQuery(`SELECT * FROM generalstocks WHERE name = ?`, [stockname])
-      return item.length > 0
+    const item = await promisifyQuery(`SELECT * FROM generalstocks WHERE name = ?`, [stockname])
+    return item.length > 0
   }
 
   async addNewStock(records) {
-      const { name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf } = records
-      if (await this.checkStockExist(name)) return "EXIST"
+    const { name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf } = records
+    if (await this.checkStockExist(name)) return "EXIST"
 
-      if (!category || typeof category != "number" || !name) throw new Error("category of type number required and name required")
-      const values = [name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf]
+    if (!category || typeof category != "number" || !name) throw new Error("category of type number required and name required")
+    const values = [name, category, consumptionunit, purchaseunit, quantity, alertlevel, materialcode, warehouse, shelf]
 
-      const pushStock = await promisifyQuery(NEWSTOCKQUERY, values)
-      return rowAffected(pushStock)
+    const pushStock = await promisifyQuery(NEWSTOCKQUERY, values)
+    return rowAffected(pushStock)
   }
 
   async updateAstock(records) {
@@ -205,7 +207,6 @@ class Inventory {
     return data
   }
 
-
   async updateStockOrders(data) {
     const query = `UPDATE orders
               SET received = ?,
@@ -316,28 +317,38 @@ class Inventory {
     }
   }
 
-  async getDebitHxSingle(productordersid, stockid, brandid, batchnumber) {
-    const DEBITHX = `SELECT * FROM  generalstoredebithx WHERE productordersid = ? AND 
-    stockid = ? AND brandid = ? AND batchnumber = ?`; 
-    const queryValues = [productordersid, stockid, brandid, batchnumber];
-    return await promisifyQuery(DEBITHX, queryValues);
+  async getDebitHxSingle(productordersid) {
+    const DEBITHX = `SELECT * FROM  generalstoredebithx WHERE productordersid = ?`
+    const queryValues = [productordersid]
+    return await promisifyQuery(DEBITHX, queryValues)
+  }
+
+  async addDebitHx(productordersid, stockid, batchnumber, brandid,debitqty, wastage = 0) {
+    if (!productordersid || !stockid || !batchnumber || !brandid) {
+      throw new Error("brandid ,stockid ,batchnumber and productordersid are required")
+    }
+    const query = `INSERT INTO generalstoredebithx (productordersid,stockid,brandid,batchnumber,wastage,debitqty)
+    VALUES(?,?,?,?,?,?)`
+
+    return rowAffected(await promisifyQuery(query, [productordersid, stockid, brandid, batchnumber,wastage,debitqty]))
   }
 
   async getCreditHxSingle(productordersid, stockid, brandid, batchnumber) {
     const CREDITHX = `SELECT * FROM  generalstorecredithx WHERE productordersid = ? AND 
-    stockid = ? AND brandid = ? AND batchnumber = ?`; 
-    const queryValues = [productordersid, stockid, brandid, batchnumber];
-    return await promisifyQuery(CREDITHX, queryValues);
+    stockid = ? AND brandid = ? AND batchnumber = ?`
+    const queryValues = [productordersid, stockid, brandid, batchnumber]
+    return await promisifyQuery(CREDITHX, queryValues)
   }
 
   async isDebitable(stockid, brands) {
     if (Array.isArray(brands) === false || brands.length === 0) {
-      throw TypeError('Array required and must not be empty');
+      throw TypeError("Array required and must not be empty")
     }
-    const list = brands.join(",");
-
-    const QUERY = `SELECT 
+    const list = brands.join(",")
+    // BUG ----
+    const QUERY = `SELECT DISTINCT
               chx.credit - SUM(dhx.debitqty) as storeQty,
+              chx.id AS creditid,
               chx.productordersid,
               chx.stockid,
               chx.brandid,
@@ -347,18 +358,16 @@ class Inventory {
       AS chx ON chx.productordersid = dhx.productordersid
       INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
       WHERE chx.stockid = ?  AND  chx.brandid IN (${list})`
-    let data = await promisifyQuery(QUERY, [stockid]);
+    let data = await promisifyQuery(QUERY, [stockid])
+    console.log(data)
 
-    return data.length === 0 ?
-      []
-      :
-      data.filter((a, b) => a['storeQty'] > 0);
+    return data.length === 0 ? [] : data.filter((a, b) => a["storeQty"] > 0)
   }
 
   async purchasetoConsumeInsight(data) {
-    const { stockid, records } = data;
+    const { stockid, records } = data
 
-    if (!stockid || !records) throw new Error("stockid and records are required");
+    if (!stockid || !records) throw new Error("stockid and records are required")
 
     const ORDERHX = `SELECT 
                   date as orderdate,
@@ -368,23 +377,25 @@ class Inventory {
                   brand,
                   stockid,
     DATEDIFF(date,receiveddate) as pt_to_grn FROM orders WHERE stockid = ? 
-    AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`;
+    AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`
 
-    const getStockOrdersHx = await promisifyQuery(ORDERHX, [stockid, records]);
+    const getStockOrdersHx = await promisifyQuery(ORDERHX, [stockid, records])
 
-    let result = [];
+    let result = []
 
     if (getStockOrdersHx.length > 0) {
-      result = await Promise.all(getStockOrdersHx.map(async (transaction, i) => {
-        const { batchnumber, brand, stockid, productordersid } = transaction;
-        const getCreditHx = await this.getCreditHxSingle(productordersid,stockid,brand,batchnumber);  
-        const getDebitHx = await this.getDebitHxSingle(productordersid, stockid, brand, batchnumber);
-        transaction.credithistory = getCreditHx;
-        transaction.debithistory = getDebitHx;
-        return transaction;
-      }))
+      result = await Promise.all(
+        getStockOrdersHx.map(async (transaction, i) => {
+          const { batchnumber, brand, stockid, productordersid } = transaction
+          const getCreditHx = await this.getCreditHxSingle(productordersid, stockid, brand, batchnumber)
+          const getDebitHx = await this.getDebitHxSingle(productordersid, stockid, brand, batchnumber)
+          transaction.credithistory = getCreditHx
+          transaction.debithistory = getDebitHx
+          return transaction
+        })
+      )
     }
-    return result;
+    return result
   }
 }
 

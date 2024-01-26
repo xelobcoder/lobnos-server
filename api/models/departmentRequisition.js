@@ -307,8 +307,6 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
       });
     }
   }
-
-
 };
 
 
