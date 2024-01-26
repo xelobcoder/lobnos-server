@@ -139,7 +139,13 @@ router.post("/api/v1/consume/expirestock", async function (request, response) {
     const { productordersid ,stockid, brandid,batchnumber} = request.body
     if (productordersid && stockid && brandid && batchnumber) {
       const isDispose = await wastage.disposeoffExpireProduct(request.body)
-      console.log(isDispose)
+      if (isDispose === true) {
+        response.send({ message: "stock successfully disposed as wastage", statusCode: 200, status: "success" })
+      } else if (isDispose === "EXIST") {
+        response.send({ message: "stock was already successfully disposed as wastage", statusCode: 200, status: "success" })
+      } else {
+        customError("something wrong occured or the right data not provided", 404, response)
+      }
     } else {
       customError("include productordersid ,stockid, brandid,batchnumber", 404, response)
     }

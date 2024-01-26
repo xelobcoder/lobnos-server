@@ -18,3 +18,4 @@
 {"level":"error"}
 {"level":"error"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 117","sqlMessage":"Unknown column 'OL.productordersid' in 'field list'","sqlState":"42S22"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}

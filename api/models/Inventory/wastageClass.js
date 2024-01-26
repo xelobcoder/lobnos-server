@@ -24,7 +24,7 @@ class WastageInventory extends Inventory {
   }
 
   async updateOrdersWastage(productordersid, state) {
-    const updateQ = `UPDATE orders SET expiredDisposed = ? WHERE productordersid = ?`
+    const updateQ = `UPDATE orders SET expiredDisposed = ?, disposaldate = NOW() WHERE productordersid = ?`
     return await promisifyQuery(updateQ, [state, productordersid])
   }
 
@@ -34,12 +34,15 @@ class WastageInventory extends Inventory {
   }
 
   async disposeoffExpireProduct(records) {
-    const { productordersid, brand, brandid, stockid, batchnumber } = records
+    const { productordersid, brandid, stockid, batchnumber } = records
     if (!productordersid) {
       throw new Error("required keys not found in object provided")
     }
-    if (await this.isWastageDebitHxExist(productordersid)) return "EXIST"
-    const total = await this.calculateProductInstock(productordersid, stockid, brandid)
+    if (await this.isWastageDebitHxExist(productordersid)) {
+      await this.updateOrdersWastage(productordersid, 1)
+      return "EXIST"
+    }
+    const total = this.calculateProductInstock(productordersid, stockid, brandid)
     const isDebited = await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
     if (isDebited) {
       return rowAffected(await this.updateOrdersWastage(productordersid, 1))
