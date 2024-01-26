@@ -126,9 +126,10 @@ router.get("/api/v1/stock", async function (request, response) {
 
 router.get("/api/v1/stock/expirestocks", async function (request, response) {
   try {
-    const expireStocks = await inventory.getGeneralExpired(request.query)
+    const expireStocks = await inventory.getGeneralExpired(request.query);
     response.send({ statusCode: 200, status: "success", result: expireStocks })
   } catch (err) {
+    console.log(err);
     customError("something wrong occured", 500, response)
   }
 })

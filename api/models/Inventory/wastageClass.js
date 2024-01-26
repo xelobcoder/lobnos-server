@@ -1,4 +1,4 @@
-const { promisifyQuery } = require("../../../helper")
+const { promisifyQuery, rowAffected } = require("../../../helper")
 const Inventory = require("./inventoryclass")
 
 class WastageInventory extends Inventory {
@@ -18,15 +18,28 @@ class WastageInventory extends Inventory {
     return parseInt(qtyReceived) - parseInt(totalDebited)
   }
 
+  async updateOrdersWastage(productordersid, state) {
+    const updateQ = `UPDATE orders SET expiredDisposed = ? WHERE productordersid = ?`
+    return await promisifyQuery(updateQ, [state, productordersid])
+  }
+
+  async isWastageDebitHxExist(productordersid) {
+    const result = await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE wastage = 1 AND productordersid = ?`, [productordersid]);
+    return result.length > 0;
+  }
+
   async disposeoffExpireProduct(records) {
     const { productordersid, brand, brandid, stockid, batchnumber } = records
     if (!productordersid) {
       throw new Error("required keys not found in object provided")
     }
+    if (await this.isWastageDebitHxExist(productordersid)) return 'EXIST';
     const total = await this.calculateProductInstock(productordersid, stockid, brandid)
-
     const isDebited = await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
-    console.log(isDebited)
+    if (isDebited) {
+      return rowAffected(await this.updateOrdersWastage(productordersid, 1))
+    }
+    return null
   }
 }
 
