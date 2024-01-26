@@ -262,7 +262,7 @@ const upDateInventoryAnalyticSummary = async () => {
   }
 }
 
-// upDateInventoryAnalyticSummary()
+upDateInventoryAnalyticSummary()
 
 
 

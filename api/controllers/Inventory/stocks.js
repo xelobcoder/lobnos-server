@@ -1,6 +1,7 @@
 const router = require("express").Router();
 const { customError, responseError } = require("../../../helper")
 const logger = require("../../../logger")
+const Inventoryanalytics = require("../../models/Inventory/inventoryAnalytics")
 const Inventory = require("../../models/Inventory/inventoryclass")
 const WastageInventory = require("../../models/Inventory/wastageClass")
 const wastage = new WastageInventory()
@@ -126,17 +127,17 @@ router.get("/api/v1/stock", async function (request, response) {
 
 router.get("/api/v1/stock/expirestocks", async function (request, response) {
   try {
-    const expireStocks = await inventory.getGeneralExpired(request.query);
+    const expireStocks = await inventory.getGeneralExpired(request.query)
     response.send({ statusCode: 200, status: "success", result: expireStocks })
   } catch (err) {
-    console.log(err);
+    console.log(err)
     customError("something wrong occured", 500, response)
   }
 })
 
 router.post("/api/v1/consume/expirestock", async function (request, response) {
   try {
-    const { productordersid ,stockid, brandid,batchnumber} = request.body
+    const { productordersid, stockid, brandid, batchnumber } = request.body
     if (productordersid && stockid && brandid && batchnumber) {
       const isDispose = await wastage.disposeoffExpireProduct(request.body)
       if (isDispose === true) {
@@ -150,11 +151,20 @@ router.post("/api/v1/consume/expirestock", async function (request, response) {
       customError("include productordersid ,stockid, brandid,batchnumber", 404, response)
     }
   } catch (err) {
-    console.log(err);
+    console.log(err)
     responseError(response)
   }
 })
 
+router.get("/api/v1/inventory/analytics/summary", async function (request, response) {
+  try {
+    const analy = new Inventoryanalytics()
+    const summary = { ...(await analy.getInvSummaryAnalytics()), incompleteOrders: await analy.getIncompOrdersCount() }
+    response.send({ status: "success", result: summary })
+  } catch (err) {
+    responseError(response)
+  }
+})
 
 router.delete('/api/v1/stock/brands', async function (request, response) {
   try {

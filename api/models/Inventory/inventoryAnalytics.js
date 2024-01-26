@@ -49,24 +49,30 @@ class Inventoryanalytics {
   }
 
   async getInvSummaryAnalytics() {
-    return await promisifyQuery(`SELECT * FROM inventoryanalyticssummary`)
+    const data = await promisifyQuery(`SELECT * FROM inventoryanalyticssummary`);
+    return data.length > 0 ?  this.parseJsonData(data[0]['settings']) : {}
+  }
+
+  async getIncompOrdersCount() {
+    const query = `SELECT COUNT(*) AS count FROM orders WHERE received  = 'FALSE'`
+    const result = await promisifyQuery(query)
+    return result.length > 0 ? result[0]["count"] : null
   }
 
   async updateInvenAnalSummary() {
-    const updateQ = `UPDATE inventoryanalyticssummary
-    SET nearExpiryCount = ?,expiredCount = ?,belowAlertLevel = ?
-    WHERE id  = 1`
+    const updateQ = `UPDATE inventoryanalyticssummary SET settings = ? WHERE id  = 1`
     const insertQ = `INSERT INTO inventoryanalyticssummary (nearExpiryCount,expiredCount,belowAlertLevel) VALUES (?,?,?)`
     try {
       const n = await this.getNearExpiry()
       const e = await this.getExpiredCount()
       const b = await this.getBelowAlert()
       const isAvail = (await this.getInvSummaryAnalytics()).length > 0
+      const data = JSON.stringify({ nearExpiryCount: n, belowAlertLevel: b, expiredCount: e })
 
       if (isAvail) {
-        await promisifyQuery(updateQ, [n, e, b])
+        await promisifyQuery(updateQ, [data])
       } else {
-        await promisifyQuery(insertQ, [n, e, b])
+        await promisifyQuery(insertQ, [data])
       }
     } catch (err) {
       await promisifyQuery("ROLLBACK")
