@@ -92,6 +92,7 @@ class Inventoryanalytics {
     const result = await promisifyQuery(query)
     return result.length > 0 ? result[0]["count"] : 0
   }
+
 }
 
 module.exports = Inventoryanalytics

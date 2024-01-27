@@ -14,11 +14,12 @@ class WastageInventory extends Inventory {
    * @returns {number|boolean} - The amount of the product that is currently in stock and not used. Returns false if there is no product in stock.
    */
   async calculateProductInstock(productordersid) {
-    const debitHx = await this.getDebitHxSingle(productordersid)
-    if (debitHx.length === 0) return false
-
     let data = await promisifyQuery(`SELECT quantityReceived AS qty FROM orders WHERE productordersid = ?`, [productordersid])
     const qtyReceived = data.length > 0 ? data[0]["qty"] : 0
+
+    const debitHx = await this.getDebitHxSingle(productordersid)
+    if (debitHx.length === 0) return qtyReceived;
+
     const totalDebited = debitHx.reduce((p, c, i) => p + c?.debitqty, 0)
     return parseInt(qtyReceived) - parseInt(totalDebited)
   }
@@ -57,9 +58,9 @@ class WastageInventory extends Inventory {
       await this.updateOrdersWastage(productordersid, 1)
       return "EXIST"
     }
-    const total = await this.calculateProductInstock(productordersid, stockid, brandid)
+    const total = await this.calculateProductInstock(productordersid)
     const isDebited = await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
-
+    console.log(total, isDebited);
     if (isDebited) {
       return rowAffected(await this.updateOrdersWastage(productordersid, 1))
     }

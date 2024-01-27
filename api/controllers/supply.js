@@ -150,7 +150,8 @@ router.get('/api/v1/store/departments/requisitions/serve', async function (reque
     const data = await new Departments(departmentid).StoreServeDeptReq();
     response.send({statusCode: 200,status:'success', result: data});
   } catch (err) {
-    responseError(err);
+    console.log(err)
+    responseError(response);
  }
 })
 

@@ -7,6 +7,43 @@ const WastageInventory = require("../../models/Inventory/wastageClass")
 const wastage = new WastageInventory()
 const inventory = new Inventory()
 
+
+
+ 
+const urgentActions = async (action, response) => {
+  const analytics = new Inventoryanalytics()
+  if (action === "nearexpiry") {
+    let result = await analytics.getNearExpiry()
+    result = await Promise.all(
+      result.map(async (item, index) => {
+        const tt = await wastage.calculateProductInstock(item?.productordersid)
+        return { ...item, qty_in_stock: tt }
+      })
+    )
+    response.send({ result, status: "success" })
+  } else if (action === "expired") {
+    let result = await analytics.getExpiredCount()
+    result = result.map(async (item, index) => {
+      const { productordersid, batchnumber, receiveddate, expirydate, quantityReceived, name, expiredDisposed } = item
+      let amtInstock = 0
+      if (expiredDisposed === 1) {
+        amtInstock = await wastage.calcalulateWastageTotal(productordersid)
+      } else {
+        const tt = await wastage.calculateProductInstock(productordersid)
+        amtInstock = tt;
+      }
+      return { receiveddate, batchnumber, expirydate, quantityReceived, name, expiredqty: amtInstock, expiredDisposed }
+    })
+    result = await Promise.all(result)
+    response.send({ result, status: "success" })
+  } else if (action === "belowalert") {
+    const result = await analytics.getBelowAlert()
+    response.send({ result, status: "success" })
+  } else {
+    response.send({ result: [], status: "warning" })
+  }
+}
+
 router.put("/api/v1/stock", async function (request, response) {
   try {
     const result = await inventory.updateAstock(request.body)
@@ -156,39 +193,10 @@ router.post("/api/v1/consume/expirestock", async function (request, response) {
   }
 })
 
-
 router.get("/api/v1/inventory/analytics/urgentactions", async function (request, response) {
   try {
     const { action } = request.query
-    const analytics = new Inventoryanalytics()
-    if (action === "nearexpiry") {
-      let result = await analytics.getNearExpiry()
-      result = await Promise.all(result.map(async (item, index) => {
-        const tt = await wastage.calculateProductInstock(item?.productordersid);
-        return { ...item, qty_in_stock:  tt === false ? item?.quantityReceived: tt};
-      }))
-      response.send({ result, status: "success" })
-    } else if (action === "expired") {
-      let result = await analytics.getExpiredCount()
-      result = result.map(async (item, index) => {
-        const { productordersid, batchnumber, receiveddate, expirydate, quantityReceived, name, expiredDisposed } = item
-        let amtInstock = 0;
-        if (expiredDisposed === 1) {
-         amtInstock = await wastage.calcalulateWastageTotal(productordersid);
-        } else {
-          const tt = await wastage.calculateProductInstock(productordersid);
-          amtInstock = tt === false ? quantityReceived : amtInstock;
-        }
-        return { receiveddate,batchnumber, expirydate, quantityReceived, name, expiredqty: amtInstock, expiredDisposed }
-      })
-      result = await Promise.all(result)
-      response.send({ result, status: "success" })
-    } else if (action === "belowalert") {
-      const result = await analytics.getBelowAlert()
-      response.send({ result, status: "success" })
-    } else {
-      response.send({ result: [], status: "warning" })
-    }
+    urgentActions(action, response)
   } catch (err) {
     console.log(err)
   }

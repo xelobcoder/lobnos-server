@@ -74,12 +74,17 @@ class Departments {
     if (pendingReqt.length == 0) return pendingReqt
 
     stockidx = pendingReqt.map((reqt, index) => parseInt(reqt.stockid))
-
-    if (stockidx.length === 0) return []
+    const uniqueStockidx = []
+    for (let i = 0; i < stockidx.length; i++) {
+      if (!uniqueStockidx.includes(stockidx[i])) {
+        uniqueStockidx.push(stockidx[i])
+      }
+    }
+    if (uniqueStockidx.length === 0) return []
 
     const inventory = new Inventory()
     const outPromise = (data) => Promise.all(data)
-    const stockBrandsArray = stockidx.map(async (a, i) => {
+    const stockBrandsArray = uniqueStockidx.map(async (a, i) => {
       // get individual stocks brands using their id (s).
       const data = await inventory.getAstockBrands({ stockid: a })
       const stkbrand = data.map((x, y) => {
@@ -97,7 +102,7 @@ class Departments {
       products = haveBrands.map(async (u, v) => {
         const { stockid, brands } = u
         const debithx = await promisifyQuery(
-          `SELECT * FROM generalstoredebithx WHERE stockid = ${stockid} AND brandid IN (${brands.join(",")})`
+          `SELECT DISTINCT * FROM generalstoredebithx WHERE stockid = ${stockid} AND brandid IN (${brands.join(",")}) AND wastage = 0`
         )
         return { ...u, debithx }
       })
@@ -118,21 +123,17 @@ class Departments {
         }
         if (debithx.length > 0) {
           let debitable = await inventory.isDebitable(stockid, brands)
-          const debitableBrands = debitable.map((x, y) => x?.brandid)
-
-          const creditBrands = []
-
-          for (let i = 0; i < brands.length; i++) {
-            if (!debitableBrands.includes(brands[i])) creditBrands.push(brands[i])
-          }
 
           let unCapturedDebitable = []
 
-          if (creditBrands.length > 0) {
-            unCapturedDebitable = await promisifyQuery(`SELECT * FROM generalstorecredithx
-            AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${
-              creditBrands.length === 1 ? creditBrands[0] : creditBrands.join(",")
-            })`)
+          if (brands.length > 0) {
+            unCapturedDebitable = await promisifyQuery(`
+            SELECT * FROM generalstorecredithx
+            AS chx 
+            INNER JOIN orders AS o ON o.productordersid = chx.productordersid
+            WHERE chx.stockid = ${stockid} AND o.expiredDisposed IS NULL  AND chx.brandid IN (${
+              brands.length === 1 ? brands[0] : brands.join(",")
+            }) GROUP BY chx.brandid, chx.productordersid,chx.brandid,chx.stockid`)
           }
 
           data.stockid = stockid

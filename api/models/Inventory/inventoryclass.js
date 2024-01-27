@@ -359,21 +359,27 @@ class Inventory {
     const list = brands.join(",")
     // BUG ----
     const QUERY = `SELECT DISTINCT
-              chx.credit - SUM(dhx.debitqty) as storeQty,
+              chx.credit,
               chx.id AS creditid,
               chx.productordersid,
               chx.stockid,
               chx.brandid,
               chx.batchnumber,
-              stb.brand
+              stb.brand,
+              dhx.debitqty
       FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
       AS chx ON chx.productordersid = dhx.productordersid
       INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
-      WHERE chx.stockid = ?  AND  chx.brandid IN (${list})`
+      WHERE chx.stockid = ?  AND dhx.wastage = 0 AND  chx.brandid IN (${list}) GROUP BY chx.productordersid, chx.batchnumber,chx.brandid ,chx.stockid`
     let data = await promisifyQuery(QUERY, [stockid])
-    console.log(data)
 
-    return data.length === 0 ? [] : data.filter((a, b) => a["storeQty"] > 0)
+    data = data
+      .map((item, index) => {
+        const storeQty = parseInt(item.credit) - parseInt(item.debitqty)
+        return { ...item, storeQty }
+      })
+      .filter((a, b) => a["storeQty"] > 0)
+    return data
   }
 
   async purchasetoConsumeInsight(data) {
