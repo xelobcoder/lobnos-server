@@ -162,7 +162,11 @@ router.get("/api/v1/inventory/analytics/urgentactions", async function (request,
     const { action } = request.query
     const analytics = new Inventoryanalytics()
     if (action === "nearexpiry") {
-      const result = await analytics.getNearExpiry()
+      let result = await analytics.getNearExpiry()
+      result = await Promise.all(result.map(async (item, index) => {
+        const tt = await wastage.calculateProductInstock(item?.productordersid);
+        return { ...item, qty_in_stock:  tt === false ? item?.quantityReceived: tt};
+      }))
       response.send({ result, status: "success" })
     } else if (action === "expired") {
       let result = await analytics.getExpiredCount()
@@ -177,7 +181,6 @@ router.get("/api/v1/inventory/analytics/urgentactions", async function (request,
         }
         return { receiveddate,batchnumber, expirydate, quantityReceived, name, expiredqty: amtInstock, expiredDisposed }
       })
-
       result = await Promise.all(result)
       response.send({ result, status: "success" })
     } else if (action === "belowalert") {
