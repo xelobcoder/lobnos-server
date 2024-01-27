@@ -23,6 +23,21 @@ class WastageInventory extends Inventory {
     return parseInt(qtyReceived) - parseInt(totalDebited)
   }
 
+  async getOrderWastageData(productordersid) {
+    if (!productordersid) {
+      throw new Error("productordersid required")
+    }
+    return await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE productordersid = ? AND wastage = 1`, [productordersid])
+  }
+
+  async calcalulateWastageTotal(productordersid) {
+    if (!productordersid) return new Error("productordersid required")
+    let data = await this.getOrderWastageData(productordersid);
+    if (data.length === 0) return 0;
+    data = data.reduce((acc, cur) => acc + cur?.debitqty, 0);
+    return data
+  }
+
   async updateOrdersWastage(productordersid, state) {
     const updateQ = `UPDATE orders SET expiredDisposed = ?, disposaldate = NOW() WHERE productordersid = ?`
     return await promisifyQuery(updateQ, [state, productordersid])
@@ -42,13 +57,16 @@ class WastageInventory extends Inventory {
       await this.updateOrdersWastage(productordersid, 1)
       return "EXIST"
     }
-    const total = this.calculateProductInstock(productordersid, stockid, brandid)
+    const total = await this.calculateProductInstock(productordersid, stockid, brandid)
     const isDebited = await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
+
     if (isDebited) {
       return rowAffected(await this.updateOrdersWastage(productordersid, 1))
     }
     return null
   }
 }
+
+
 
 module.exports = WastageInventory

@@ -156,10 +156,49 @@ router.post("/api/v1/consume/expirestock", async function (request, response) {
   }
 })
 
+
+router.get("/api/v1/inventory/analytics/urgentactions", async function (request, response) {
+  try {
+    const { action } = request.query
+    const analytics = new Inventoryanalytics()
+    if (action === "nearexpiry") {
+      const result = await analytics.getNearExpiry()
+      response.send({ result, status: "success" })
+    } else if (action === "expired") {
+      let result = await analytics.getExpiredCount()
+      result = result.map(async (item, index) => {
+        const { productordersid, batchnumber, receiveddate, expirydate, quantityReceived, name, expiredDisposed } = item
+        let amtInstock = 0;
+        if (expiredDisposed === 1) {
+         amtInstock = await wastage.calcalulateWastageTotal(productordersid);
+        } else {
+          const tt = await wastage.calculateProductInstock(productordersid);
+          amtInstock = tt === false ? quantityReceived : amtInstock;
+        }
+        return { receiveddate,batchnumber, expirydate, quantityReceived, name, expiredqty: amtInstock, expiredDisposed }
+      })
+
+      result = await Promise.all(result)
+      response.send({ result, status: "success" })
+    } else if (action === "belowalert") {
+      const result = await analytics.getBelowAlert()
+      response.send({ result, status: "success" })
+    } else {
+      response.send({ result: [], status: "warning" })
+    }
+  } catch (err) {
+    console.log(err)
+  }
+})
+
 router.get("/api/v1/inventory/analytics/summary", async function (request, response) {
   try {
     const analy = new Inventoryanalytics()
-    const summary = { ...(await analy.getInvSummaryAnalytics()), incompleteOrders: await analy.getIncompOrdersCount() }
+    const summary = {
+      ...(await analy.getInvSummaryAnalytics()),
+      incompleteOrders: await analy.getIncompOrdersCount(),
+      completedOrdersCount: await analy.completeOrdersCount(),
+    }
     response.send({ status: "success", result: summary })
   } catch (err) {
     responseError(response)

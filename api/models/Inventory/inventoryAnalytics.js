@@ -24,33 +24,39 @@ class Inventoryanalytics {
     return this.parseJsonData(settings)
   }
 
-  async getNearExpiry() {
+  async getNearExpiry(count) {
     const data = await this.customization()
     const nearExpiry = parseInt(data?.expirydays) + 1 || 22
-    const query = `SELECT COUNT(*) AS count FROM  orders AS o
+    const query = `SELECT DISTINCT ${count ? "COUNT(*) AS count" : "*"} FROM  orders AS o
     INNER JOIN mainstoresupply AS m ON m.stockid = o.stockid
-    WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < ?;
-    `
+    WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < ?  AND o.expiredDisposed IS NULL`
     const rowsCount = await promisifyQuery(query, nearExpiry)
-    return rowsCount.length > 0 ? rowsCount[0]["count"] : 0
+    if (count) {
+      return rowsCount.length > 0 ? rowsCount[0]["count"] : 0
+    }
+    return rowsCount
   }
 
-  async getBelowAlert() {
-    const query = `SELECT COUNT(*) AS count FROM generalStocks where quantity < alertlevel`
+  async getBelowAlert(count) {
+    const query = `SELECT ${count ? "COUNT(*) AS count" : "*"} FROM generalStocks where quantity < alertlevel`
     const data = await promisifyQuery(query)
-    return data.length > 0 ? data[0]["count"] : 0
+    if (count) {
+      return data.length > 0 ? data[0]["count"] : 0
+    }
+    return data
   }
 
-  async getExpiredCount() {
-    const query = `SELECT COUNT(*) AS count FROM orders WHERE RECEIVED = 'TRUE'
+  async getExpiredCount(count) {
+    const query = `SELECT ${count ? "COUNT(*) AS count" : "*"} FROM orders WHERE RECEIVED = 'TRUE'
     AND status ='received' AND DATE(expirydate) < DATE(NOW())`
     const data = await promisifyQuery(query)
-    return data.length > 0 ? data[0]["count"] : 0
+    if (count) return data.length > 0 ? data[0]["count"] : 0
+    return data
   }
 
   async getInvSummaryAnalytics() {
-    const data = await promisifyQuery(`SELECT * FROM inventoryanalyticssummary`);
-    return data.length > 0 ?  this.parseJsonData(data[0]['settings']) : {}
+    const data = await promisifyQuery(`SELECT * FROM inventoryanalyticssummary`)
+    return data.length > 0 ? this.parseJsonData(data[0]["settings"]) : {}
   }
 
   async getIncompOrdersCount() {
@@ -61,14 +67,14 @@ class Inventoryanalytics {
 
   async updateInvenAnalSummary() {
     const updateQ = `UPDATE inventoryanalyticssummary SET settings = ? WHERE id  = 1`
-    const insertQ = `INSERT INTO inventoryanalyticssummary (nearExpiryCount,expiredCount,belowAlertLevel) VALUES (?,?,?)`
+    const insertQ = `INSERT INTO inventoryanalyticssummary (settings) VALUES (?)`
     try {
-      const n = await this.getNearExpiry()
-      const e = await this.getExpiredCount()
-      const b = await this.getBelowAlert()
-      const isAvail = (await this.getInvSummaryAnalytics()).length > 0
+      const n = await this.getNearExpiry(true)
+      const e = await this.getExpiredCount(true)
+      const b = await this.getBelowAlert(true)
+      const getSettings = await promisifyQuery(`SELECT * FROM inventoryanalyticssummary`)
       const data = JSON.stringify({ nearExpiryCount: n, belowAlertLevel: b, expiredCount: e })
-
+      const isAvail = getSettings.length > 0
       if (isAvail) {
         await promisifyQuery(updateQ, [data])
       } else {
@@ -80,6 +86,14 @@ class Inventoryanalytics {
       throw new Error(err)
     }
   }
+
+  async completeOrdersCount() {
+    const query = `SELECT COUNT(*) AS count FROM orders WHERE received = 'TRUE'`
+    const result = await promisifyQuery(query)
+    return result.length > 0 ? result[0]["count"] : 0
+  }
 }
 
 module.exports = Inventoryanalytics
+
+new Inventoryanalytics().updateInvenAnalSummary()
