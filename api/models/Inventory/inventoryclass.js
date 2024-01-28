@@ -23,7 +23,7 @@ const GETGENERALSTOCK = ` SELECT
 
 const EXPIREDSTOCKSQUERY = `SELECT o.productordersid,s.brand, o.stockid, o.quantity, o.expirydate, o.received, o.receiveddate, o.expirydate, o.Batchnumber,s.brandid, o.name, o.suppliername, o.purchaseunit FROM orders AS o INNER JOIN stocksbrands AS s
 ON o.brand = s.brandid
- WHERE o.RECEIVED = 'TRUE' AND DATE(o.expirydate) < DATE(NOW()) AND o.expiredDisposed IS NULL ORDER BY o.expirydate ASC LIMIT ? OFFSET ?`
+ WHERE o.RECEIVED = 'TRUE' AND DATE(o.expirydate) < CURRENT_DATE AND o.expiredDisposed IS NULL ORDER BY o.expirydate ASC LIMIT ? OFFSET ?`
 
 const EXPIREDPRODUCTSMINI = `SELECT productordersid FROM orders WHERE RECEIVED = 'TRUE' AND DATE(expirydate) < DATE(NOW())`;
 
@@ -109,6 +109,11 @@ class Inventory {
     return await promisifyQuery(`SELECT * FROM generalstocks WHERE stockid = ?`, [stockid])
   }
 
+  async getMainSupplyStock(stockid, brandid) {
+    if (!brandid || !stockid) return new Error("stockid and brandid required")
+    return await promisifyQuery(`SELECT *  FROM mainstoresupply WHERE stockid = ? AND brandid  = ?`, [stockid, brandid])
+  }
+
   async getExpiredStock(query) {
     return await paginationQuery(query, EXPIREDSTOCKSQUERY)
   }
@@ -146,12 +151,6 @@ class Inventory {
   }
 
   async getGeneralExpired(query) {
-    // // get all productordersid of expired products
-    // let  expiredPtIds = await promisifyQuery(EXPIREDPRODUCTSMINI);    
-    // if (expiredPtIds.length === 0) return [];
-    // expiredPtIds = expiredPtIds.map((a, i) => parseInt(a?.productordersid)).toString();
-    
-    // const isWastageDebitedQ = `SELECT * FROM generalstoredebithx`
     return await paginationQuery(query, EXPIREDSTOCKSQUERY)
   }
 
@@ -331,16 +330,12 @@ class Inventory {
     return await promisifyQuery(DEBITHX, queryValues)
   }
 
-
-
-  async addDebitHx(productordersid, stockid, batchnumber, brandid,debitqty, wastage = 0) {
+  async addDebitHx(productordersid, stockid, batchnumber, brandid, debitqty, wastage = 0) {
     if (!productordersid || !stockid || !batchnumber || !brandid) {
       throw new Error("brandid ,stockid ,batchnumber and productordersid are required")
     }
     const query = `INSERT INTO generalstoredebithx (productordersid,stockid,brandid,batchnumber,wastage,debitqty)
-    VALUES(?,?,?,?,?,?)`;
-
-
+    VALUES(?,?,?,?,?,?)`
 
     return rowAffected(await promisifyQuery(query, [productordersid, stockid, brandid, batchnumber, wastage, debitqty]))
   }
@@ -414,6 +409,39 @@ class Inventory {
       )
     }
     return result
+  }
+
+  async updateGeneralStocksQty(qty, stockid, operation = "minus") {
+    if (!qty || !stockid) return new Error("qty and stockid are all required")
+
+    if (qty < 0) return new Error("qty must be greater than 0")
+
+    const stockinfo = await this.getAstock(stockid)
+    if (stockinfo.length === 0) return "Not Found"
+    const quantity = parseInt(stockinfo[0]["quantity"])
+
+    const newQty = operation === "add" ? quantity + qty : quantity - qty
+
+    const update = await promisifyQuery(`UPDATE generalstocks SET quantity = ? WHERE stockid = ?`, [newQty, stockid])
+    return rowAffected(update)
+  }
+
+  async updateMainSupplyGeneral(stockid, brandid, qty, operation) {
+    if (!stockid || !brandid || !qty) {
+      throw new Error("stockid ,qty and brandid are required")
+    }
+    const info = await this.getMainSupplyStock(stockid, brandid)
+    if (info.length === 0) return null
+    const infoqty = parseInt(info[0]["quantity"])
+
+    const newQty = operation === "add" ? infoqty + qty : infoqty - qty
+    const update = await promisifyQuery(
+      `UPDATE mainstoresupply SET quantity = ? WHERE stockid = ?
+    AND brandid = ?`,
+      [newQty, stockid, brandid]
+    )
+
+    return rowAffected(update)
   }
 }
 

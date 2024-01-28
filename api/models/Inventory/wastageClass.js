@@ -54,17 +54,23 @@ class WastageInventory extends Inventory {
     if (!productordersid) {
       throw new Error("required keys not found in object provided")
     }
-    if (await this.isWastageDebitHxExist(productordersid)) {
+
+    if (await this.isWastageDebitHxExist(productordersid)) return 'EXIST';
+
+    const total = await this.calculateProductInstock(productordersid);
+    try {
+      await promisifyQuery("START TRANSACTION")
+      await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
       await this.updateOrdersWastage(productordersid, 1)
-      return "EXIST"
+      await this.updateMainSupplyGeneral(stockid, brandid,total, "reduce")
+      await this.updateGeneralStocksQty(total, stockid, "reduce")
+      await promisifyQuery("COMMIT");
+      return true;
+    } catch (err) {
+      await promisifyQuery("ROLLBACK")
+      console.log(err)
+      logger.error(err)
     }
-    const total = await this.calculateProductInstock(productordersid)
-    const isDebited = await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
-    console.log(total, isDebited);
-    if (isDebited) {
-      return rowAffected(await this.updateOrdersWastage(productordersid, 1))
-    }
-    return null
   }
 }
 

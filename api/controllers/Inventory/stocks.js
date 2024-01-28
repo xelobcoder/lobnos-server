@@ -6,43 +6,11 @@ const Inventory = require("../../models/Inventory/inventoryclass")
 const WastageInventory = require("../../models/Inventory/wastageClass")
 const wastage = new WastageInventory()
 const inventory = new Inventory()
-
+const urgentActions = require('../../models/Inventory/urgentActions');
 
 
  
-const urgentActions = async (action, response) => {
-  const analytics = new Inventoryanalytics()
-  if (action === "nearexpiry") {
-    let result = await analytics.getNearExpiry()
-    result = await Promise.all(
-      result.map(async (item, index) => {
-        const tt = await wastage.calculateProductInstock(item?.productordersid)
-        return { ...item, qty_in_stock: tt }
-      })
-    )
-    response.send({ result, status: "success" })
-  } else if (action === "expired") {
-    let result = await analytics.getExpiredCount()
-    result = result.map(async (item, index) => {
-      const { productordersid, batchnumber, receiveddate, expirydate, quantityReceived, name, expiredDisposed } = item
-      let amtInstock = 0
-      if (expiredDisposed === 1) {
-        amtInstock = await wastage.calcalulateWastageTotal(productordersid)
-      } else {
-        const tt = await wastage.calculateProductInstock(productordersid)
-        amtInstock = tt;
-      }
-      return { receiveddate, batchnumber, expirydate, quantityReceived, name, expiredqty: amtInstock, expiredDisposed }
-    })
-    result = await Promise.all(result)
-    response.send({ result, status: "success" })
-  } else if (action === "belowalert") {
-    const result = await analytics.getBelowAlert()
-    response.send({ result, status: "success" })
-  } else {
-    response.send({ result: [], status: "warning" })
-  }
-}
+
 
 router.put("/api/v1/stock", async function (request, response) {
   try {
@@ -205,10 +173,11 @@ router.get("/api/v1/inventory/analytics/urgentactions", async function (request,
 router.get("/api/v1/inventory/analytics/summary", async function (request, response) {
   try {
     const analy = new Inventoryanalytics()
+
     const summary = {
       ...(await analy.getInvSummaryAnalytics()),
-      incompleteOrders: await analy.getIncompOrdersCount(),
-      completedOrdersCount: await analy.completeOrdersCount(),
+      incompleteOrders: await analy.getIncompOrdersCount(true),
+      completedOrdersCount: await analy.completeOrdersCount(true),
     }
     response.send({ status: "success", result: summary })
   } catch (err) {
