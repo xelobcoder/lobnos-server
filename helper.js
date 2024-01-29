@@ -30,25 +30,46 @@ function NotFound(response) {
   response.send({ message: 'Data not found', status: 'error' });
 }
 
-async function promisifyQuery(query, values) {
+async function promisifyQuery(query, values = []) {
   return new Promise((resolve, reject) => {
     connectionpool.getConnection((getConnectionError, connection) => {
       if (getConnectionError) {
-        reject(getConnectionError);
-        return;
+        reject(getConnectionError)
+        return
       }
 
       connection.query(query, values, (queryError, result) => {
-        connection.release();
+        connection.release()
 
         if (queryError) {
-          reject(queryError);
+          reject(queryError)
         } else {
-          resolve(result);
+          resolve(result)
         }
-      });
-    });
-  });
+      })
+    })
+  })
+}
+
+async function retryableTransaction(fn, maxRetries = 3, delayBetweenRetries = 1000) {
+  let retries = 0;
+
+  async function attempt() {
+    try {
+      await fn();
+    } catch (error) {
+      if (error.code === 'ER_LOCK_WAIT_TIMEOUT' && retries < maxRetries) {
+        retries++;
+        console.warn(`Lock wait timeout, retrying (${retries}/${maxRetries})...`);
+        await new Promise(resolve => setTimeout(resolve, delayBetweenRetries));
+        return attempt();
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  await attempt();
 }
 
 
@@ -91,5 +112,6 @@ module.exports = {
   promisifyQuery,
   NotFound,
   paginationQuery,
-  rowAffected
+  rowAffected,
+  retryableTransaction
 }

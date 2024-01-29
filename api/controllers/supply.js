@@ -140,14 +140,28 @@ router.get("/api/v1/departments/requisitions", async function (request, response
   }
 })
 
-
 router.get('/api/v1/store/departments/requisitions/serve', async function (request, response) {
   try {
     const { departmentid } = request.query;
     if (!departmentid) {
       customError('departmentid not provided', 404, response); return;
     }
-    const data = await new Departments(departmentid).StoreServeDeptReq();
+    const data = await new Departments().getDeptSpecificReqData(departmentid, 'approved');
+    response.send({statusCode: 200,status:'success', result: data});
+  } catch (err) {
+    console.log(err)
+    responseError(response);
+ }
+})
+
+
+router.get('/api/v1/store/departments/requisitions/serve/supply', async function (request, response) {
+  try {
+    const { departmentid, stockid } = request.query;
+    if (!departmentid || !stockid) {
+      customError('departmentid or stockid  not provided', 404, response); return;
+    }
+    const data = await new Departments().StoreServeDeptReq(departmentid,stockid);
     response.send({statusCode: 200,status:'success', result: data});
   } catch (err) {
     console.log(err)
@@ -194,6 +208,7 @@ router.post('/api/v1/store/departments/requisitions/serve', async function (requ
     
   }
   catch (err) {
+    console.log(err);
     logger.error(err);
     responseError(response);
   }
@@ -260,9 +275,7 @@ router.patch('/api/v1/departments/requisitions/stage2', function (request, respo
 
 
 router.put('/api/v1/departments/requisitions', async function (request, response) {
-  // updateRequisitionAfterReceivedDept(request, response)
   const result = await new Departments().updateReqtAfterReceivedDept(request.body);
-  console.log(result)
   response.send({status:'success',message: result});
 })
 

@@ -51,3 +51,36 @@
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT COUNT(*) AS count FROM  orders AS o WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < 22  AND < o.expirydate","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '< o.expirydate' at line 1","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT COUNT(*) AS count FROM  orders AS o WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < 22  AND \n    < o.expirydate","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '< o.expirydate' at line 2","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT COUNT(*) AS count FROM  orders AS o WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < 22  AND \n    DATE(CURRENT_DATE )< DATE(o.expirydate","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '' at line 2","sqlState":"42000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":" INSERT INTO departmentrequisitionhx (productordersid, stockid, brandid, batchnumber, qty, requisitionid,departmentid)\n    VALUES (28, 7, 42, 'mild23', 1000,NULL,135)","sqlMessage":"Column 'requisitionid' cannot be null","sqlState":"23000"}
+{"code":"ER_LOCK_DEADLOCK","errno":1213,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 136","sqlMessage":"Deadlock found when trying to get lock; try restarting transaction","sqlState":"40001"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE generalstocks SET quantity = 7000 WHERE stockid = 7","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 137","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE departmentsmainsupply SET \n      quantity = 1806 WHERE stockid = 7 AND  brand = 42 AND batchnumber = 'mild23'","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE generalstocks SET quantity = 6000 WHERE stockid = 7","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE departmentsmainsupply SET \n      quantity = 996 WHERE stockid = 7 AND  brand = 42 AND batchnumber = 'mildj'","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE departmentsmainsupply SET \n      quantity = 1394 WHERE stockid = 7 AND  brand = 42 AND batchnumber = 'mildj'","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 141","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"level":"error"}
+{"code":"ER_LOCK_WAIT_TIMEOUT","errno":1205,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 148","sqlMessage":"Lock wait timeout exceeded; try restarting transaction","sqlState":"HY000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"DELETE * FROM stocksesrow WHERE requisitionid = 154","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '* FROM stocksesrow WHERE requisitionid = 154' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"code":"ER_UNKNOWN_TABLE","errno":1109,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 158","sqlMessage":"Unknown table 'generalstocks' in field list","sqlState":"42S02"}
+{"code":"ER_UNKNOWN_TABLE","errno":1109,"index":0,"level":"error","sql":"UPDATE stocksesrow SET status = 'received' ,receivedon = NOW() WHERE requisitionid = 159","sqlMessage":"Unknown table 'generalstocks' in field list","sqlState":"42S02"}
