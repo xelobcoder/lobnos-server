@@ -142,7 +142,7 @@ router.get("/api/v1/stock/expirestocks", async function (request, response) {
 
 router.post("/api/v1/consume/expirestock", async function (request, response) {
   try {
-    const { productordersid, stockid, brandid, batchnumber } = request.body
+    const { productordersid, stockid, brandid, batchnumber } = request.body;
     if (productordersid && stockid && brandid && batchnumber) {
       const isDispose = await wastage.disposeoffExpireProduct(request.body)
       if (isDispose === true) {
@@ -156,7 +156,6 @@ router.post("/api/v1/consume/expirestock", async function (request, response) {
       customError("include productordersid ,stockid, brandid,batchnumber", 404, response)
     }
   } catch (err) {
-    console.log(err)
     responseError(response)
   }
 })
@@ -166,7 +165,7 @@ router.get("/api/v1/inventory/analytics/urgentactions", async function (request,
     const { action } = request.query
     urgentActions(action, response)
   } catch (err) {
-    console.log(err)
+    logger.error(err)
   }
 })
 

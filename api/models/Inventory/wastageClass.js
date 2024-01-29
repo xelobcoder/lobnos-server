@@ -7,34 +7,33 @@ class WastageInventory extends Inventory {
     this.stockid = stockid
   }
 
-  /**
-   * Calculates the amount of a product that is currently in stock and not used.
-   *
-   * @param {number} productordersid - The ID of the product order for which to calculate the product in stock.
-   * @returns {number|boolean} - The amount of the product that is currently in stock and not used. Returns false if there is no product in stock.
-   */
-  async calculateProductInstock(productordersid) {
-    let data = await promisifyQuery(`SELECT quantityReceived AS qty FROM orders WHERE productordersid = ?`, [productordersid])
+  async calculateProductInstock(stockid, brand, batchnumber) {
+    let data = await promisifyQuery(
+      `SELECT quantity as qty from mainstoresupply  WHERE stockid = ? AND batchnumber = ? AND brandid  = ?`,
+      [stockid, batchnumber, brand]
+    )
+
     const qtyReceived = data.length > 0 ? data[0]["qty"] : 0
 
-    const debitHx = await this.getDebitHxSingle(productordersid)
-    if (debitHx.length === 0) return qtyReceived;
+    // const debitHx = await this.getDebitHxSingle(productordersid)
+    // if (debitHx.length === 0) return qtyReceived
 
-    const totalDebited = debitHx.reduce((p, c, i) => p + c?.debitqty, 0)
-    return parseInt(qtyReceived) - parseInt(totalDebited)
+    // const totalDebited = debitHx.reduce((p, c, i) => p + c?.debitqty, 0)
+    // return parseInt(qtyReceived) - parseInt(totalDebited)
+    return qtyReceived
   }
 
-  async getOrderWastageData(productordersid) {
-    if (!productordersid) {
-      throw new Error("productordersid required")
-    }
-    return await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE productordersid = ? AND wastage = 1`, [productordersid])
+  async getOrderWastageData(stockid, brandid, batchnumber) {
+    return await promisifyQuery(
+      `SELECT * FROM generalstoredebithx WHERE stockid = ? AND brandid  = ? AND batchnumber = ?  AND wastage = 1`,
+      [stockid, brandid, batchnumber]
+    )
   }
 
-  async calcalulateWastageTotal(productordersid) {
-    if (!productordersid) return new Error("productordersid required")
-    let data = await this.getOrderWastageData(productordersid);
-    if (data.length === 0) return 0;
+  async calcalulateWastageTotal(stockid, brandid, batchnumber) {
+    if (!stockid || !batchnumber || !brandid) return new Error("batchnumber , stockid && brandid are required")
+    let data = await this.getOrderWastageData(stockid, brandid, batchnumber)
+    if (data.length === 0) return 0
     data = data.reduce((acc, cur) => acc + cur?.debitqty, 0);
     return data
   }
@@ -55,19 +54,19 @@ class WastageInventory extends Inventory {
       throw new Error("required keys not found in object provided")
     }
 
-    if (await this.isWastageDebitHxExist(productordersid)) return 'EXIST';
+    if (await this.isWastageDebitHxExist(productordersid)) return "EXIST"
 
-    const total = await this.calculateProductInstock(productordersid);
+    const total = await this.calculateProductInstock(stockid,brandid,batchnumber)
     try {
-      await promisifyQuery("START TRANSACTION")
-      await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
+      // await promisifyQuery("START TRANSACTION")
+      await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1);
       await this.updateOrdersWastage(productordersid, 1)
-      await this.updateMainSupplyGeneral(stockid, brandid,total, "reduce")
-      await this.updateGeneralStocksQty(total, stockid, "reduce")
-      await promisifyQuery("COMMIT");
-      return true;
+      // await this.updateMainSupplyGeneral(stockid, brandid, total, "reduce")
+      // await this.updateGeneralStocksQty(total, stockid, "reduce")
+      // await promisifyQuery("COMMIT")
+      return true
     } catch (err) {
-      await promisifyQuery("ROLLBACK")
+      // await promisifyQuery("ROLLBACK")
       console.log(err)
       logger.error(err)
     }

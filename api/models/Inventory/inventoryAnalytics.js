@@ -28,7 +28,7 @@ class Inventoryanalytics {
     const data = await this.customization()
     const nearExpiry = parseInt(data?.expirydays) + 1 || 22
     const query = `SELECT DISTINCT ${
-      count ? "COUNT(*) AS count" : "productordersid, name,receiveddate,expirydate,quantityReceived,expiredDisposed"
+      count ? "COUNT(*) AS count" : "productordersid, name,receiveddate,expirydate,quantityReceived,expiredDisposed,batchnumber,brand,stockid"
     } FROM  orders AS o WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < ?  AND 
     DATE(CURRENT_DATE ) < DATE(o.expirydate)`
     const rowsCount = await promisifyQuery(query, nearExpiry)
@@ -49,7 +49,7 @@ class Inventoryanalytics {
 
   async getExpiredCount(count) {
     const query = `SELECT ${count ? "COUNT(*) AS count" : "*"} FROM orders WHERE RECEIVED = 'TRUE'
-    AND status ='received' AND DATE(expirydate) < CURRENT_DATE`
+    AND status = 'received' AND DATE(expirydate) < CURRENT_DATE`
     const data = await promisifyQuery(query)
     if (count) return data.length > 0 ? data[0]["count"] : 0
     return data

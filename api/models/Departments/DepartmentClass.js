@@ -154,6 +154,7 @@ class Departments {
         const results = await Promise.all(
           filterData.map(async (item, index) => {
             const { productordersid, stockid, brandid, batchnumber, served, type = "debit" } = item
+            console.log(item);
             const outcome = await this.addProductEscrow(
               productordersid,
               stockid,

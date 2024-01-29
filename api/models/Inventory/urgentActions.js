@@ -5,10 +5,11 @@ const wastage = new Wastage()
 
 const urgentActions = async (action, response) => {
   if (action === "nearexpiry") {
-    let result = await analytics.getNearExpiry()
+    let result = await analytics.getNearExpiry(); 
     result = await Promise.all(
       result.map(async (item, index) => {
-        const tt = await wastage.calculateProductInstock(item?.productordersid)
+        const { batchnumber, brand, stockid } = item;
+        const tt = await wastage.calculateProductInstock(stockid,brand,batchnumber);
         return { ...item, qty_in_stock: tt }
       })
     )
@@ -16,12 +17,12 @@ const urgentActions = async (action, response) => {
   } else if (action === "expired") {
     let result = await analytics.getExpiredCount()
     result = result.map(async (item, index) => {
-      const { productordersid, batchnumber, receiveddate, expirydate, quantityReceived, name, expiredDisposed } = item
+      const {batchnumber, receiveddate, expirydate, quantityReceived, name, expiredDisposed ,stockid,brand} = item
       let amtInstock = 0
       if (expiredDisposed === 1) {
-        amtInstock = await wastage.calcalulateWastageTotal(productordersid)
+        amtInstock = await wastage.calcalulateWastageTotal(stockid, brand, batchnumber);
       } else {
-        const tt = await wastage.calculateProductInstock(productordersid)
+        const tt = await wastage.calculateProductInstock(stockid,brand,batchnumber);
         amtInstock = tt
       }
       return { receiveddate, batchnumber, expirydate, quantityReceived, name, expiredqty: amtInstock, expiredDisposed }
