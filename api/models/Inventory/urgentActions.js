@@ -5,7 +5,7 @@ const wastage = new Wastage()
 
 const urgentActions = async (action, response) => {
   if (action === "nearexpiry") {
-    let result = await analytics.getNearExpiry(); 
+    let result = await analytics.getNearExpiry()
 
     const newArray = []
 
@@ -17,27 +17,30 @@ const urgentActions = async (action, response) => {
       })
     )
 
+    // ensuring we have unique stocks
     for (let i = 0; i < result.length; i++) {
-      if (newArray.length === 0) {
-        newArray.push(result[i])
-      } else {
-        const matched = result.filter((item, index) => {
-          const { batchnumber, brand, stockid } = item
-          return batchnumber == result[i]["batchnumber"] && brand == result[i]["brand"] && stockid == result[i]["stockid"]
-        })
+      const matched = result.filter((item, index) => {
+        const { batchnumber, brand, stockid } = item
+        return batchnumber == result[i]["batchnumber"] && brand == result[i]["brand"] && stockid == result[i]["stockid"]
+      })
 
-        if (matched.length === 0) {
-          newArray.push(result[i])
-        } else {
-          const sum = [...matched, result[i]].reduce((a, b) => a + b.quantityReceived, 0)
+      const filterNew = newArray.filter((u, t) => {
+        const { batchnumber, brand, stockid } = u
+        return batchnumber == result[i]["batchnumber"] && brand == result[i]["brand"] && stockid == result[i]["stockid"]
+      })
+
+      if (newArray.length === 0) {
+        const sum = [...matched].reduce((a, b) => a + b.quantityReceived, 0)
+        newArray.push({ ...result[i], quantityReceived: sum })
+      } else {
+        if (filterNew.length == 0) {
+          const sum = [...matched].reduce((a, b) => a + b.quantityReceived, 0)
           newArray.push({ ...result[i], quantityReceived: sum })
         }
       }
     }
 
-    console.log(newArray)
-
-    response.send({ result, status: "success" })
+    response.send({ result: newArray, status: "success" })
   } else if (action === "expired") {
     let result = await analytics.getExpiredCount()
     result = result.map(async (item, index) => {
