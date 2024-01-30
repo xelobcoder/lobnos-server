@@ -6,13 +6,37 @@ const wastage = new Wastage()
 const urgentActions = async (action, response) => {
   if (action === "nearexpiry") {
     let result = await analytics.getNearExpiry(); 
+
+    const newArray = []
+
     result = await Promise.all(
       result.map(async (item, index) => {
-        const { batchnumber, brand, stockid } = item;
-        const tt = await wastage.calculateProductInstock(stockid,brand,batchnumber);
+        const { batchnumber, brand, stockid } = item
+        const tt = await wastage.calculateProductInstock(stockid, brand, batchnumber)
         return { ...item, qty_in_stock: tt }
       })
     )
+
+    for (let i = 0; i < result.length; i++) {
+      if (newArray.length === 0) {
+        newArray.push(result[i])
+      } else {
+        const matched = result.filter((item, index) => {
+          const { batchnumber, brand, stockid } = item
+          return batchnumber == result[i]["batchnumber"] && brand == result[i]["brand"] && stockid == result[i]["stockid"]
+        })
+
+        if (matched.length === 0) {
+          newArray.push(result[i])
+        } else {
+          const sum = [...matched, result[i]].reduce((a, b) => a + b.quantityReceived, 0)
+          newArray.push({ ...result[i], quantityReceived: sum })
+        }
+      }
+    }
+
+    console.log(newArray)
+
     response.send({ result, status: "success" })
   } else if (action === "expired") {
     let result = await analytics.getExpiredCount()
