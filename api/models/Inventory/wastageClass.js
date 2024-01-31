@@ -1,4 +1,4 @@
-const { promisifyQuery, rowAffected } = require("../../../helper")
+const { promisifyQuery, rowAffected, paginationQuery } = require("../../../helper")
 const Inventory = require("./inventoryclass")
 
 class WastageInventory extends Inventory {
@@ -8,10 +8,11 @@ class WastageInventory extends Inventory {
   }
 
   async calculateProductInstock(stockid, brand, batchnumber) {
-    let data = await promisifyQuery(
-      `SELECT quantity as qty from mainstoresupply  WHERE stockid = ? AND batchnumber = ? AND brandid  = ?`,
-      [stockid, batchnumber, brand]
-    )
+    let data = await promisifyQuery(`SELECT quantity as qty from mainstoresupply  WHERE stockid = ? AND batchnumber = ? AND brandid  = ?`, [
+      stockid,
+      batchnumber,
+      brand,
+    ])
 
     const qtyReceived = data.length > 0 ? data[0]["qty"] : 0
 
@@ -34,7 +35,7 @@ class WastageInventory extends Inventory {
     if (!stockid || !batchnumber || !brandid) return new Error("batchnumber , stockid && brandid are required")
     let data = await this.getOrderWastageData(stockid, brandid, batchnumber)
     if (data.length === 0) return 0
-    data = data.reduce((acc, cur) => acc + cur?.debitqty, 0);
+    data = data.reduce((acc, cur) => acc + cur?.debitqty, 0)
     return data
   }
 
@@ -56,10 +57,10 @@ class WastageInventory extends Inventory {
 
     if (await this.isWastageDebitHxExist(productordersid)) return "EXIST"
 
-    const total = await this.calculateProductInstock(stockid,brandid,batchnumber)
+    const total = await this.calculateProductInstock(stockid, brandid, batchnumber)
     try {
       // await promisifyQuery("START TRANSACTION")
-      await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1);
+      await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
       await this.updateOrdersWastage(productordersid, 1)
       // await this.updateMainSupplyGeneral(stockid, brandid, total, "reduce")
       // await this.updateGeneralStocksQty(total, stockid, "reduce")
@@ -71,8 +72,49 @@ class WastageInventory extends Inventory {
       logger.error(err)
     }
   }
+
+  async getQuarterlyData(quarters, count = 10, page = 1, departmentid) {
+    if (!quarters && !(quarters < 3 && quarters > 0)) {
+      throw new Error("quarters are required and must be between 1 and 3")
+    }
+
+    let query = `SELECT 
+            sb.brand,
+            dhx.batchnumber,
+            o.name,
+            o.expirydate,
+            dhx.debitdate,
+            o.receiveddate,
+            o.pricing,
+            o.price,
+            dhx.debitqty,
+     CASE
+       WHEN o.pricing = 'unit' THEN (dhx.debitqty * o.price)
+       WHEN o.pricing = 'absolute' THEN (dhx.debitqty + o.price) 
+    END AS debitAmount
+    FROM generalstoredebithx AS dhx INNER JOIN orders AS o ON o.productordersid = dhx.productordersid INNER JOIN stocksbrands AS sb ON sb.brandid = dhx.brandid
+     WHERE dhx.wastage = 1`
+
+    if (quarters == 1) query += ` AND MONTH(dhx.debitdate)  BETWEEN 1 AND 4`
+    if (quarters == 2) query += ` AND MONTH(dhx.debitdate)  BETWEEN 5 AND 8`
+    if (quarters == 3) query += ` AND MONTH(dhx.debitdate)  BETWEEN 5 AND 12`
+
+    const values = []
+
+    if (departmentid && !isNaN(departmentid)) {
+      query += ` AND dhx.departmentid = ?`
+      values.push(departmentid)
+    }
+
+    query += ` LIMIT ? OFFSET ?`
+
+    if (count && page) {
+      values.push(count)
+      values.push(page)
+    }
+
+    return await paginationQuery({ count, page }, query)
+  }
 }
-
-
 
 module.exports = WastageInventory

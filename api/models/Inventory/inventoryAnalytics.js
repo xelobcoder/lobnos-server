@@ -28,7 +28,9 @@ class Inventoryanalytics {
     const data = await this.customization()
     const nearExpiry = parseInt(data?.expirydays) + 1 || 22
     const query = `SELECT DISTINCT ${
-      count ? "COUNT(*) AS count" : "productordersid, name,receiveddate,expirydate,quantityReceived,expiredDisposed,batchnumber,brand,stockid"
+      count
+        ? "COUNT(*) AS count"
+        : "productordersid, name,receiveddate,expirydate,quantityReceived,expiredDisposed,batchnumber,brand,stockid"
     } FROM  orders AS o WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < ?  AND 
     DATE(CURRENT_DATE ) < DATE(o.expirydate)`
     const rowsCount = await promisifyQuery(query, nearExpiry)
@@ -101,8 +103,53 @@ class Inventoryanalytics {
       throw new Error(err)
     }
   }
+
+  async getWastagePerQuarters(departmentid) {
+    let query = `SELECT dhx.productordersid,
+    CASE
+       WHEN o.pricing = 'unit' THEN (dhx.debitqty * o.price)
+       WHEN o.pricing = 'absolute' THEN (dhx.debitqty + o.price) 
+    END AS debitAmount,
+    CASE
+       WHEN MONTH(dhx.debitdate)  BETWEEN 1 AND 4 THEN 1
+       WHEN MONTH (dhx.debitdate) BETWEEN 5 AND 8 THEN 2
+       WHEN MONTH (dhx.debitdate) BETWEEN 5 AND 8 THEN 3
+    END AS quarter,
+            o.pricing,
+            o.quantityReceived,
+            o.price,
+            o.totalamount,
+            dhx.wastage,
+            dhx.debitqty,
+            dhx.departmentid
+     FROM generalstoredebithx AS dhx INNER JOIN  orders AS o
+     ON o.productordersid = dhx.productordersid WHERE dhx.wastage = 1`
+
+    if (departmentid) {
+      query += ` AND departmentid = ?`
+    }
+
+    let result  = await promisifyQuery(query, [departmentid])
+    
+    if (result.length === 0) return result;
+
+    const reducer = (data) => {
+      return data.reduce((sum, current) => sum + current?.debitAmount, 0);
+    }
+
+    const totalWastage = reducer(result);
+    
+    const firstQ = reducer(result.filter((a, b) => a.quarter === 1));
+    const secondQ = reducer(result.filter((a, b) => a.quarter === 2));
+    const thirdQ = reducer(result.filter((a, b) => a.quarter === 3));
+
+    return {
+      firstQ,secondQ,thirdQ,totalWastage
+    }
+  }
+
 }
 
 module.exports = Inventoryanalytics
 
-// new Inventoryanalytics().updateInvenAnalSummary()
+new Inventoryanalytics().getWastagePerQuarters()

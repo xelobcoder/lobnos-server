@@ -31,6 +31,7 @@ const applicationsettingsRouter = require('./api/controllers/applicationSettings
 const generalSalesRouter = require('./api/controllers/sales');
 const patientAnalytics = require('./api/controllers/patients.controller');
 const WarehouseRouter = require("./api/controllers/Inventory/warehouse");
+const wastagesRouter = require("./api/controllers/Inventory/wastages");
 const logger = require("./logger");
 const cors = require("cors");
 
@@ -95,6 +96,8 @@ app.use(applicationsettingsRouter)
 app.use(stocksRouter)
 app.use(patientAnalytics)
 app.use(WarehouseRouter)
+app.use(wastagesRouter);
+
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" })
