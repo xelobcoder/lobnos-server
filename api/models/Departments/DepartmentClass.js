@@ -63,6 +63,7 @@ class Departments {
 
       return promisifyQuery(mysql_query, [parseInt(id)])
     } catch (err) {
+      console.log(err);
       throw new Error(err)
     }
   }
@@ -74,9 +75,7 @@ class Departments {
 
     const brands = await inventory.getAstockBrands({ stockid })
 
-    const stocksbrands = brands.map((a, i) => {
-      return a.brandid
-    })
+    const stocksbrands = brands.map((a, i) => a.brandid)
 
     if (stocksbrands.length === 0) return []
 
@@ -154,7 +153,7 @@ class Departments {
         const results = await Promise.all(
           filterData.map(async (item, index) => {
             const { productordersid, stockid, brandid, batchnumber, served, type = "debit" } = item
-            console.log(item);
+            console.log(item)
             const outcome = await this.addProductEscrow(
               productordersid,
               stockid,
@@ -328,10 +327,31 @@ class Departments {
       let result = await promisifyQuery(queryString, values)
       return result
     } catch (err) {
-      console.log(err)
       throw new Error(err)
     }
+  }
+
+  async getDepartmentExpired(departmentid) {
+    if (!departmentid) throw new Error("departmentid is required")
+    const query = `SELECT 
+          dm.stockid,
+          sc.brand,
+          dm.brand AS brandid,
+          dm.quantity As qtyAvailable,
+          dm.batchnumber,
+          gs.name,
+          od.expirydate
+     FROM departmentsmainsupply AS dm
+     INNER JOIN orders AS od ON dm.stockid = od.stockid
+     INNER JOIN stocksbrands AS sc ON sc.brandid = dm.brand
+     INNER JOIN generalstocks AS gs ON gs.stockid = dm.stockid
+     WHERE od.stockid = dm.stockid AND dm.batchnumber = od.batchnumber AND dm.brand = od.brand AND dm.expiredDisposed = 0 GROUP BY dm.batchnumber,dm.brand, dm.stockid HAVING  DATE(od.expirydate) <= CURRENT_DATE`
+
+    const result = await promisifyQuery(query)
+    return result;
   }
 }
 
 module.exports = Departments
+
+new Departments().getDepartmentExpired(8)

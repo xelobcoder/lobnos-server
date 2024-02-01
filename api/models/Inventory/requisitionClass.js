@@ -53,7 +53,7 @@ class Requisition extends Departments {
   }
 
   async getDepartmentsRequisitions(queryset = { count: 10, page: 1 }) {
-    const query = ` SELECT * FROM departmentrequisition ORDER BY id ASC LIMIT ? OFFSET`
+    const query = ` SELECT * FROM departmentrequisition ORDER BY id ASC LIMIT ? OFFSET ?`
     return paginationQuery(queryset, query)
   }
 
@@ -68,11 +68,11 @@ class Requisition extends Departments {
               WHERE ds.deptid = ? 
     `
 
-    if (!this.departmentid || !departmentid) {
+    if (!departmentid) {
       return new Error("departmentid required")
     }
 
-    return await promisifyQuery(query, [this.departmentid || departmentid])
+    return await promisifyQuery(query, [departmentid])
   }
 
   async deleteDeptStocks(departmentid, employeeid) {

@@ -32,11 +32,11 @@ const generalSalesRouter = require('./api/controllers/sales');
 const patientAnalytics = require('./api/controllers/patients.controller');
 const WarehouseRouter = require("./api/controllers/Inventory/warehouse");
 const wastagesRouter = require("./api/controllers/Inventory/wastages");
-const logger = require("./logger");
-const cors = require("cors");
+const inventoryDepartmentRouter = require("./api/controllers/Inventory/departments")
+const logger = require("./logger")
+const cors = require("cors")
 
-
-// if (cluster.isMaster) { 
+// if (cluster.isMaster) {
 //   console.log(`Master ${process.pid} is running`);
 //   // Fork workers.
 //   for (let i = 1; i < os.cpus().length; i++) {
@@ -49,13 +49,11 @@ const cors = require("cors");
 //   });
 // }
 
-
 app.listen(port, () => {
-  console.log(`listening at http://localhost:${port}`);
-});
+  console.log(`listening at http://localhost:${port}`)
+})
 
-
-const { promisifyQuery, customError } = require("./helper");
+const { promisifyQuery, customError } = require("./helper")
 const Inventoryanalytics = require("./api/models/Inventory/inventoryAnalytics")
 app.use(cors({ origin: "*", credentials: false }))
 app.use(express.static("public"))
@@ -96,8 +94,8 @@ app.use(applicationsettingsRouter)
 app.use(stocksRouter)
 app.use(patientAnalytics)
 app.use(WarehouseRouter)
-app.use(wastagesRouter);
-
+app.use(wastagesRouter)
+app.use(inventoryDepartmentRouter)
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" })

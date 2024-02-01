@@ -73,7 +73,22 @@ class WastageInventory extends Inventory {
     }
   }
 
-  async getQuarterlyData(quarters, count = 10, page = 1, departmentid) {
+  async disposeoffDeptProduct(records) {
+    const { brandid, stockid, batchnumber, departmentid } = records
+
+    if (!departmentid || !stockid || !batchnumber || !brandid) {
+      throw new Error("departmentid,batchnumber, brandid and stockid required")
+    }
+
+    const query = `UPDATE departmentsmainsupply SET expiredDisposed = ?, 
+     disposaldate = NOW() WHERE departmentid = ? AND batchnumber = ? AND brand = ? AND stockid = ? `
+
+    const queryR = await promisifyQuery(query, [1, parseInt(departmentid), batchnumber, parseInt(brandid), parseInt(stockid)])
+
+    return rowAffected(queryR)
+  }
+
+  async getQuarterlyData(quarters, count = 10, page = 1) {
     if (!quarters && !(quarters < 3 && quarters > 0)) {
       throw new Error("quarters are required and must be between 1 and 3")
     }
@@ -83,6 +98,7 @@ class WastageInventory extends Inventory {
             dhx.batchnumber,
             o.name,
             o.expirydate,
+            MONTH(dhx.debitdate) AS month,
             dhx.debitdate,
             o.receiveddate,
             o.pricing,
@@ -99,21 +115,27 @@ class WastageInventory extends Inventory {
     if (quarters == 2) query += ` AND MONTH(dhx.debitdate)  BETWEEN 5 AND 8`
     if (quarters == 3) query += ` AND MONTH(dhx.debitdate)  BETWEEN 5 AND 12`
 
-    const values = []
-
-    if (departmentid && !isNaN(departmentid)) {
-      query += ` AND dhx.departmentid = ?`
-      values.push(departmentid)
-    }
-
     query += ` LIMIT ? OFFSET ?`
 
-    if (count && page) {
-      values.push(count)
-      values.push(page)
-    }
-
     return await paginationQuery({ count, page }, query)
+  }
+
+  async getMonthlySummaryByQuarters(quarters) {
+    let query = `SELECT 
+    MONTH(dhx.debitdate) AS month,
+    CASE
+    WHEN o.pricing = 'unit' THEN (dhx.debitqty * o.price)
+    WHEN o.pricing = 'absolute' THEN (dhx.debitqty + o.price) 
+    END AS debitAmount
+    FROM generalstoredebithx AS dhx INNER JOIN orders AS o ON o.productordersid = dhx.productordersid INNER JOIN stocksbrands AS sb ON sb.brandid = dhx.brandid
+    WHERE dhx.wastage = 1
+`
+
+    if (quarters == 1) query += ` AND MONTH(dhx.debitdate)  BETWEEN 1 AND 4`
+    if (quarters == 2) query += ` AND MONTH(dhx.debitdate)  BETWEEN 5 AND 8`
+    if (quarters == 3) query += ` AND MONTH(dhx.debitdate)  BETWEEN 5 AND 12`
+
+    return await promisifyQuery(query)
   }
 }
 

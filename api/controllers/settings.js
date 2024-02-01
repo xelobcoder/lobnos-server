@@ -27,9 +27,9 @@ router.put('/api/v1/departments', async (request, response) => {
 
 
 // get a speciiic department
-router.get('/api/v1/departments/:id', async (request, response) => {
-  getSpecificDepartment(request, response)
-})
+// router.get('/api/v1/departments/:id', async (request, response) => {
+//   getSpecificDepartment(request, response)
+// })
 
 
 

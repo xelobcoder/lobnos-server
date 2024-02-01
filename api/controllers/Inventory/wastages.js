@@ -31,9 +31,25 @@ router.get(`${baseurl}inventory/wastages/data/quarters`, async function (request
     }
 
     const result = await wastage.getQuarterlyData(quarters, count, page, departmentid)
-    response.send({ result, status: 'success' });
+    response.send({ result, status: "success" })
   } catch (err) {
-    console.log(err);
+    console.log(err)
+    responseError(response)
+  }
+})
+
+router.get(`${baseurl}inventory/wastages/data/quarters/summary`, async function (request, response) {
+  try {
+    const { quarters, departmentid = null } = request.query
+
+    if (!quarters) {
+      customError("quarters required", 404, response)
+    }
+
+    const result = await wastage.getMonthlySummaryByQuarters(quarters)
+    response.send({ result, status: "success" })
+  } catch (err) {
+    console.log(err)
     responseError(response)
   }
 })

@@ -209,40 +209,7 @@ const patchRequisition = async function (request, response, requi_id) {
   }
 }
 
-const getDeptStocks = async function (request, response, id) {
-  const mysql_query = `SELECT 
-  np.stockid,np.name,ds.quantityAvailable,sc.category,np.consumptionunit FROM generalstocks 
-  AS np INNER JOIN departmentstocks AS
-  ds ON np.stockid = ds.stockid INNER 
-  JOIN departments AS d ON d.id = ds.deptid 
-  INNER JOIN stockcategory AS sc On sc.id = np.category
-  WHERE ds.deptid = ${id} `;
 
-  if (id === undefined || id === null) {
-    response.send({
-      status: "error",
-      message: "department id not included",
-    });
-  } else {
-    connection.query(mysql_query, function (err, result) {
-      if (err) {
-        logger.error(err)
-        response.send({
-          status: "error",
-          message: err.message,
-        });
-      }
-
-      if (result) {
-        response.send({
-          status: "success",
-          message: "success",
-          result,
-        });
-      }
-    });
-  }
-};
 
 const deleteDeptStocks = async function (request, response, id) {
   // delete stock from department stock table using the stockid
@@ -310,92 +277,10 @@ const updateRequisitionAfterReceivedDept = async function (request, response) {
 };
 
 
-
-
-// const generalStoreLotNo = async (request, response) => {
-//   const { stockidx } = request.query
-
-//   if (!stockidx) throw new Error("list of store ids required")
-//   let _this = {}
-
-//   const stockid_collection = stockidx.split(",").map((item) => parseInt(item))
-//   if (stockid_collection.length === 0) return []
-
-//     const inventory = new Inventory()
-//     const outPromise =  (data) =>  Promise.all(data)
-//     const stockBrandsArray = stockid_collection.map(async (a, i) => {
-//       // get individual stocks brands using their id (s).
-//       const data = await inventory.getAstockBrands({ stockid: a })
-//       const stkbrand = data.map((x, y) => {return x?.brandid})
-//       return { stockid: a, brands: stkbrand }
-//     })
-
-//     const stocksbrands = await outPromise(stockBrandsArray)
-//     const haveBrands = stocksbrands.filter((a, i) => a.brands.length > 0);
-
-
-//     let products = []
-
-//     if (haveBrands.length > 0) {
-//       products = haveBrands.map(async (u, v) => {
-//         const { stockid, brands } = u
-//         const debithx = await promisifyQuery(`SELECT * FROM generalstoredebithx WHERE stockid = ${stockid} AND brandid IN (${brands.join(",")})`);
-//         return  {...u, debithx}
-//       });
-
-//       products = (await outPromise(products));
-   
-//       // if debit hx is empty,it means the credit stock hasnt been used so we send the credit hx
-
-//       products = products.map(async (v, i) => {
-//         const { debithx, stockid, brands } = v;
-//         const data = {};
-//         if (debithx.length == 0) {
-//           const credithx = await promisifyQuery(`SELECT * FROM generalstorecredithx
-//           AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${brands.join(",")})`);
-//           data.stockid = stockid;
-//           data.debitable = credithx;
-//         }
-//         if (debithx.length > 0) {
-//           let debitable = await inventory.isDebitable(stockid, brands);
-//           const debitableBrands = debitable.map((x, y) => x?.brandid);
-//           const creditBrands = [];
-
-//           for (let i = 0; i < brands.length; i++) {
-//             if (!debitableBrands.includes(brands[i])) creditBrands.push(brands[i]);
-//           }
-
-//           let unCapturedDebitable = await promisifyQuery(`SELECT * FROM generalstorecredithx
-//           AS chx INNER JOIN stocksbrands AS sb ON sb.brandid = chx.brandid WHERE chx.stockid = ${stockid} AND chx.brandid IN (${creditBrands.join(",")})`);
-//           data.stockid = stockid;
-//           data.debitable = [...debitable,...unCapturedDebitable];
-          
-//         }
-        
-//         data.debitable = data.debitable.map((item, index) => {
-//           if (!item?.storeQty) {
-//             const { productordersid, stockid, credit, brandid,batchnumber,brand} = item;
-//             return { storeQty: credit, productordersid, stockid, brandid, batchnumber, brand };
-//           }
-//           return item;
-//         })
-//         return data
-//       })
-//       products = (await outPromise(products)).filter( (u,v) => u.debitable.length > 0)
-//     }
-//     response.send(products)
-// }
-
-
-
-
-// ---------------------------
-
 module.exports = {
   newdepartmentRequisition,
   getDepartmentsRequisitions,
   specificDepartmentRequisition,
-  getDeptStocks,
   deleteDeptStocks,
   patchRequisition,
   updateRequisitionAfterReceivedDept,
