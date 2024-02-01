@@ -1,6 +1,8 @@
 const { promisifyQuery, paginationQuery } = require("../../../helper")
 const logger = require("../../../logger")
+const Departments = require("../Departments/DepartmentClass")
 const Inventory = require("./inventoryclass")
+const WastageInventory = require("./wastageClass")
 
 class Inventoryanalytics {
   constructor(stockid, departmentid) {
@@ -104,7 +106,28 @@ class Inventoryanalytics {
     }
   }
 
-  async getWastagePerQuarters(departmentid) {
+  async quartersReducer(result) {
+    if (!result) return null
+
+    const reducer = (data) => {
+      return data.reduce((sum, current) => sum + current?.debitAmount, 0)
+    }
+
+    const totalWastage = reducer(result)
+
+    const firstQ = reducer(result.filter((a, b) => a.quarter === 1))
+    const secondQ = reducer(result.filter((a, b) => a.quarter === 2))
+    const thirdQ = reducer(result.filter((a, b) => a.quarter === 3))
+
+    return {
+      firstQ,
+      secondQ,
+      thirdQ,
+      totalWastage,
+    }
+  }
+
+  async getWastagePerQuarters() {
     let query = `SELECT dhx.productordersid,
     CASE
        WHEN o.pricing = 'unit' THEN (dhx.debitqty * o.price)
@@ -125,31 +148,41 @@ class Inventoryanalytics {
      FROM generalstoredebithx AS dhx INNER JOIN  orders AS o
      ON o.productordersid = dhx.productordersid WHERE dhx.wastage = 1`
 
-    if (departmentid) {
-      query += ` AND departmentid = ?`
-    }
+    let result = await promisifyQuery(query)
 
-    let result  = await promisifyQuery(query, [departmentid])
-    
-    if (result.length === 0) return result;
+    if (result.length === 0) return result
 
-    const reducer = (data) => {
-      return data.reduce((sum, current) => sum + current?.debitAmount, 0);
-    }
-
-    const totalWastage = reducer(result);
-    
-    const firstQ = reducer(result.filter((a, b) => a.quarter === 1));
-    const secondQ = reducer(result.filter((a, b) => a.quarter === 2));
-    const thirdQ = reducer(result.filter((a, b) => a.quarter === 3));
-
-    return {
-      firstQ,secondQ,thirdQ,totalWastage
-    }
+    return this.quartersReducer(result)
   }
+
+  async getDepartmentWastageByQuartersSummary(departmentid) {
+    if (!departmentid) throw new Error("departmentid required")
+    const departmentWastageQuarters = `
+      SELECT 
+      CASE
+          WHEN o.pricing = 'unit' THEN (dchx.debit * o.price)
+          WHEN o.pricing = 'absolute' THEN (dchx.debit + o.price) 
+      END AS debitAmount,
+      MONTH(dchx.date) AS month,
+      CASE
+          WHEN MONTH(dchx.date)  BETWEEN 1 AND 4 THEN 1
+          WHEN MONTH (dchx.date) BETWEEN 5 AND 8 THEN 2
+          WHEN MONTH (dchx.date) BETWEEN 5 AND 8 THEN 3
+      END AS quarter
+      FROM departmentconsumptionhx AS dchx INNER JOIN orders AS o ON
+          dchx.stockid = o.stockid
+      INNER JOIN stocksbrands AS sb ON sb.brandid = dchx.brand
+      WHERE
+          dchx.wastage = 1   AND department = ? AND o.stockid = dchx.stockid AND dchx.batchnumber = o.batchnumber AND dchx.brand = o.brand GROUP BY dchx.batchnumber,dchx.brand, dchx.stockid
+`
+    const data = await promisifyQuery(departmentWastageQuarters, [departmentid])
+
+    return await this.quartersReducer(data)
+  }
+
 
 }
 
 module.exports = Inventoryanalytics
 
-new Inventoryanalytics().getWastagePerQuarters()
+new Inventoryanalytics().getDepartmentWastageByQuartersSummary(8)

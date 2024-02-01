@@ -1,4 +1,5 @@
 const { promisifyQuery, rowAffected, paginationQuery } = require("../../../helper")
+const Departments = require("../Departments/DepartmentClass")
 const Inventory = require("./inventoryclass")
 
 class WastageInventory extends Inventory {
@@ -56,36 +57,41 @@ class WastageInventory extends Inventory {
     }
 
     if (await this.isWastageDebitHxExist(productordersid)) return "EXIST"
-
     const total = await this.calculateProductInstock(stockid, brandid, batchnumber)
     try {
-      // await promisifyQuery("START TRANSACTION")
       await this.addDebitHx(productordersid, stockid, batchnumber, brandid, total, 1)
       await this.updateOrdersWastage(productordersid, 1)
-      // await this.updateMainSupplyGeneral(stockid, brandid, total, "reduce")
-      // await this.updateGeneralStocksQty(total, stockid, "reduce")
-      // await promisifyQuery("COMMIT")
       return true
     } catch (err) {
-      // await promisifyQuery("ROLLBACK")
       console.log(err)
       logger.error(err)
     }
   }
 
   async disposeoffDeptProduct(records) {
-    const { brandid, stockid, batchnumber, departmentid } = records
+    const { brandid, stockid, batchnumber, departmentid, employeeid, qtyAvailable } = records
 
-    if (!departmentid || !stockid || !batchnumber || !brandid) {
-      throw new Error("departmentid,batchnumber, brandid and stockid required")
+    if (!departmentid || !stockid || !batchnumber || !brandid || !employeeid) {
+      throw new Error("departmentid,batchnumber,employeeid, brandid and stockid required")
     }
 
     const query = `UPDATE departmentsmainsupply SET expiredDisposed = ?, 
-     disposaldate = NOW() WHERE departmentid = ? AND batchnumber = ? AND brand = ? AND stockid = ? `
+          disposaldate = NOW(),
+          quantity = 0,
+          employeeid = ?
+      WHERE departmentid = ? AND batchnumber = ? AND brand = ? AND stockid = ?`
 
-    const queryR = await promisifyQuery(query, [1, parseInt(departmentid), batchnumber, parseInt(brandid), parseInt(stockid)])
+    const queryR = await promisifyQuery(query, [
+      1,
+      parseInt(employeeid),
+      parseInt(departmentid),
+      batchnumber,
+      parseInt(brandid),
+      parseInt(stockid),
+    ])
 
-    return rowAffected(queryR)
+    const isdisposed = rowAffected(queryR)
+    return isdisposed
   }
 
   async getQuarterlyData(quarters, count = 10, page = 1) {
@@ -137,6 +143,65 @@ class WastageInventory extends Inventory {
 
     return await promisifyQuery(query)
   }
+
+  async getDeptMonthlySummaryWastages(quarters, departmentid) {
+    if (!departmentid || !quarters) {
+      throw new Error("derpartmentid and quarters required and quarters must be less than 3 and more than 0")
+    }
+    let query = `SELECT 
+                      CASE
+                          WHEN o.pricing = 'unit' THEN (dchx.debit * o.price)
+                          WHEN o.pricing = 'absolute' THEN (dchx.debit + o.price) 
+                      END AS debitAmount,
+                      MONTH(dchx.date) AS month
+                      FROM departmentconsumptionhx AS dchx INNER JOIN orders AS o ON
+                          dchx.stockid = o.stockid
+                      INNER JOIN stocksbrands AS sb ON sb.brandid = dchx.brand
+                      WHERE
+        dchx.wastage = 1   AND dchx.department = ? AND o.stockid = dchx.stockid AND dchx.batchnumber = o.batchnumber AND dchx.brand = o.brand`
+
+    if (quarters == 1) query += ` AND MONTH(dchx.date)  BETWEEN 1 AND 4`
+    if (quarters == 2) query += ` AND MONTH(dchx.date)  BETWEEN 5 AND 8`
+    if (quarters == 3) query += ` AND MONTH(dchx.date)  BETWEEN 5 AND 12`
+
+    query += ` GROUP BY dchx.batchnumber,dchx.brand, dchx.stockid`
+
+    return await promisifyQuery(query, [parseInt(departmentid)]);
+  }
+
+  async getDeptQuarterlyWastageData(quarters, departmentid, count = 10, page = 1) {
+    if (!quarters || !(quarters < 4 && quarters > 0) || !departmentid) {
+      throw new Error("quarters are required and must be between 1 and 3 and departmentid required")
+    }
+
+    let query = `SELECT 
+            sb.brand,
+            dchx.batchnumber,
+            o.name,
+            o.expirydate,
+            MONTH(dchx.date) AS month,
+            dchx.date AS debitdate,
+            o.pricing,
+            o.price,
+            dchx.debit as debitqty,
+     CASE
+       WHEN o.pricing = 'unit' THEN (dchx.debit * o.price)
+       WHEN o.pricing = 'absolute' THEN (dchx.debit + o.price) 
+    END AS debitAmount
+    FROM departmentconsumptionhx AS dchx INNER JOIN orders AS o ON
+    dchx.stockid = o.stockid
+     INNER JOIN stocksbrands AS sb ON sb.brandid = dchx.brand
+     WHERE dchx.wastage = 1   AND department = ? AND o.stockid = dchx.stockid AND dchx.batchnumber = o.batchnumber AND dchx.brand = o.brand`
+
+    if (quarters == 1) query += ` AND MONTH(dchx.date)  BETWEEN 1 AND 4`
+    if (quarters == 2) query += ` AND MONTH(dchx.date)  BETWEEN 5 AND 8`
+    if (quarters == 3) query += ` AND MONTH(dchx.date)  BETWEEN 5 AND 12`
+
+    query += ` GROUP BY dchx.batchnumber,dchx.brand, dchx.stockid LIMIT ? OFFSET ?`
+
+    return await paginationQuery({ count, page }, query, [departmentid])
+  }
 }
 
 module.exports = WastageInventory
+

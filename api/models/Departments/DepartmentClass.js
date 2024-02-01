@@ -3,8 +3,6 @@ const logger = require("../../../logger")
 const database_queries = require("../../database/queries")
 const Escrow = require("../Inventory/esrow")
 const Inventory = require("./../Inventory/inventoryclass")
-const Wastage = require("../Inventory/wastageClass")
-const wastage = new Wastage()
 
 class Departments {
   constructor(departmentid) {
@@ -63,7 +61,7 @@ class Departments {
 
       return promisifyQuery(mysql_query, [parseInt(id)])
     } catch (err) {
-      console.log(err);
+      console.log(err)
       throw new Error(err)
     }
   }
@@ -243,14 +241,14 @@ class Departments {
     return rowAffected(await promisifyQuery(query, [qty, stockid, brandid, batchnumber, departmentid]))
   }
 
-  async updateDepartmentMainStocks(records) {
+  async updateDepartmentMainStocks(records, arithmetric = "add") {
     const { stockid, brandid, batchnumber, qty } = records
 
     if (await this.isDeptHaveStockBrand(stockid, brandid, batchnumber)) {
       const info = await this.getDeptHaveStockBrand(stockid, brandid, batchnumber, 1)
       const current_qty = info[0]["quantity"]
-      const updated_qty = parseInt(current_qty) + parseInt(qty)
-      await promisifyQuery(
+      const updated_qty = arithmetric === "add" ? parseInt(current_qty) + parseInt(qty) : parseInt(current_qty) - parseInt(qty)
+      return await promisifyQuery(
         `UPDATE departmentsmainsupply SET 
       quantity = ? WHERE stockid = ? AND  brand = ? AND batchnumber = ?`,
         [updated_qty, stockid, brandid, batchnumber]
@@ -333,25 +331,38 @@ class Departments {
 
   async getDepartmentExpired(departmentid) {
     if (!departmentid) throw new Error("departmentid is required")
-    const query = `SELECT 
-          dm.stockid,
-          sc.brand,
-          dm.brand AS brandid,
-          dm.quantity As qtyAvailable,
-          dm.batchnumber,
-          gs.name,
-          od.expirydate
-     FROM departmentsmainsupply AS dm
-     INNER JOIN orders AS od ON dm.stockid = od.stockid
-     INNER JOIN stocksbrands AS sc ON sc.brandid = dm.brand
-     INNER JOIN generalstocks AS gs ON gs.stockid = dm.stockid
-     WHERE od.stockid = dm.stockid AND dm.batchnumber = od.batchnumber AND dm.brand = od.brand AND dm.expiredDisposed = 0 GROUP BY dm.batchnumber,dm.brand, dm.stockid HAVING  DATE(od.expirydate) <= CURRENT_DATE`
-
-    const result = await promisifyQuery(query)
-    return result;
+    const query = `
+              SELECT 
+              dm.stockid,
+              sc.brand,
+              dm.brand AS brandid,
+              dm.quantity AS qtyAvailable,
+              dm.batchnumber,
+              gs.name,
+              od.expirydate
+          FROM 
+              departmentsmainsupply AS dm
+          INNER JOIN 
+              orders AS od ON dm.stockid = od.stockid
+          INNER JOIN 
+              stocksbrands AS sc ON sc.brandid = dm.brand
+          INNER JOIN 
+              generalstocks AS gs ON gs.stockid = dm.stockid
+          WHERE 
+              od.stockid = dm.stockid 
+              AND dm.batchnumber = od.batchnumber 
+              AND dm.brand = od.brand 
+              AND dm.expiredDisposed = 0 
+              AND DATE(od.expirydate) < CURRENT_DATE
+              AND dm.departmentid = ?
+          GROUP BY 
+    dm.batchnumber, dm.brand, dm.stockid, dm.quantity, gs.name, od.expirydate
+`
+    const result = await promisifyQuery(query, [departmentid,departmentid])
+    return result
   }
 }
 
 module.exports = Departments
 
-new Departments().getDepartmentExpired(8)
+// new Departments().getDepartmentExpired(8)
