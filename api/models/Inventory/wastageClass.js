@@ -158,13 +158,14 @@ class WastageInventory extends Inventory {
                           dchx.stockid = o.stockid
                       INNER JOIN stocksbrands AS sb ON sb.brandid = dchx.brand
                       WHERE
-        dchx.wastage = 1   AND dchx.department = ? AND o.stockid = dchx.stockid AND dchx.batchnumber = o.batchnumber AND dchx.brand = o.brand`
+        dchx.wastage = 1   AND dchx.department = ? AND o.stockid = dchx.stockid AND dchx.batchnumber = o.batchnumber AND dchx.brand = o.brand
+        GROUP BY dchx.batchnumber,dchx.brand, dchx.stockid`
 
     if (quarters == 1) query += ` AND MONTH(dchx.date)  BETWEEN 1 AND 4`
     if (quarters == 2) query += ` AND MONTH(dchx.date)  BETWEEN 5 AND 8`
     if (quarters == 3) query += ` AND MONTH(dchx.date)  BETWEEN 5 AND 12`
 
-    query += ` GROUP BY dchx.batchnumber,dchx.brand, dchx.stockid`
+    // query += ` GROUP BY dchx.batchnumber,dchx.brand, dchx.stockid`
 
     return await promisifyQuery(query, [parseInt(departmentid)]);
   }
