@@ -77,20 +77,24 @@ router.get('/api/v1/result/preview', function (request, response) {
    const { test } = request.query;
    const category = testCategoryMapping[test];
 
-   if (!test || !category) {
-      customError(`test or category not found`, 404, response);
-   } else {
-      if (category == "chemistry") {
-         result.resultPreviewChemistry(request, response, category);
-      } else if (category == "hema") {
-         result.resultPreviewHematological(request, response, category);
+   try {
+      if (!test || !category) {
+         customError(`test or category not found`, 404, response);
       } else {
-         response.send({
-            statusCode: "400",
-            message: "Category not found",
-         });
+         if (category == "chemistry") {
+            result.resultPreviewChemistry(request, response, category);
+         } else if (category == "hema") {
+            result.resultPreviewHematological(request, response, category);
+         } else {
+            response.send({
+               statusCode: "400",
+               message: "Category not found",
+            });
+         }
       }
-   }
+   } catch (err) {
+      console.log(err);
+  }
 })
 
 

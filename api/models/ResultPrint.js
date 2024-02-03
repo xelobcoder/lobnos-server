@@ -200,28 +200,37 @@ class ResultPrint {
 
   getSamplingInformation = async (billing, testid) => {
     try {
-      const sampling = await promisifyQuery(samplingQuery, [billing, testid]);
-      return sampling;
+      let sampling = await promisifyQuery(samplingQuery, [billing, testid])
+      if (sampling.length == 0) return {}
+      sampling = sampling.map((item, index) => {
+        const processing_time = new Date(item?.processing_date).toLocaleTimeString()
+        const collection_time = new Date(item?.collection_date).toLocaleTimeString()
+        const ready_time = new Date(item?.ready_date).toLocaleTimeString()
+        const processing_date = new Date(item?.processing_date).toLocaleDateString()
+        const collection_date = new Date(item?.collection_date).toLocaleDateString()
+        const ready_date = new Date(item?.ready_date).toLocaleDateString()
+        return { ...item, processing_date, collection_date, ready_date, processing_time, collection_time, ready_time }
+      })
+      return sampling[0]
     } catch (err) {
-      logger.error(err);
+      logger.error(err)
     }
   }
 
   resultPreviewChemistry = async function (request, response, category) {
-    const { billingid, testid, test } = request.query;
-    let responseResult = { sampling: [], result: [] };
-    const testname = testTable[test];
-    let testSetup = setups[test];
-
+    const { billingid, testid, test } = request.query
+    let responseResult = { sampling: [], result: [] }
+    const testname = testTable[test]
+    let testSetup = setups[test]
 
     if (testname && billingid && testid) {
       // once it is full_blood_count , we use the billingid and getAge function
       // to get the gender result reference
-      if (test == 'full_blood_count') {
-        testSetup = await getAge(null, billingid);
+      if (test == "full_blood_count") {
+        testSetup = await getAge(null, billingid)
       }
 
-      let resultQuery;
+      let resultQuery
 
       if (typeof testSetup != undefined) {
         resultQuery = `SELECT
@@ -232,65 +241,58 @@ class ResultPrint {
                   rt.value
                FROM ${testSetup} AS st
                   INNER JOIN ${testname} AS rt ON rt.parameter = st.PARAMETER
-               WHERE rt.billingid = ?`;
-      }
+               WHERE rt.billingid = ?`
 
-      connection.beginTransaction(async function (err) {
-        if (err) { logger.error(err); }
-        try {
-          let sampling = await new ResultPrint().getSamplingInformation(billingid, testid);
-          let resultQueryResult = await promisifyQuery(resultQuery, billingid);
-          responseResult.sampling = sampling;
-          responseResult.result = resultQueryResult;
-          responseResult.category = category
-          response.send(responseResult);
-        }
-        catch (err) {
-          logger.error(err);
-          console.log(err)
-          connection.rollback();
-        }
-      })
-    } else {
-      response.send({
-        statusCode: 401,
-        status: "error",
-      });
+        console.log(await promisifyQuery(resultQuery))
+      }
     }
-  };
+    //   connection.beginTransaction(async function (err) {
+    //     if (err) { logger.error(err); }
+    //     try {
+    //       let sampling = await new ResultPrint().getSamplingInformation(billingid, testid);
+    //       let resultQueryResult = await promisifyQuery(resultQuery, billingid);
+    //       responseResult.sampling = sampling;
+    //       responseResult.result = resultQueryResult;
+    //       responseResult.category = category
+    //       response.send(responseResult);
+    //     }
+    //     catch (err) {
+    //       logger.error(err);
+    //       connection.rollback();
+    //     }
+    //   })
+    // } else {
+    //   console.log(err);
+    //   response.send({
+    //     statusCode: 401,
+    //     status: "error",
+    //   });
+    // }
+  }
 
   resultPreviewHematological = async function (request, response) {
-    const { billingid, testid, test } = request.query;
+    const { billingid, testid, test } = request.query
 
-    let responseResult = { sampling: [], result: [] };
-    const category = testCategoryMapping[test];
-
-    const dbTable = MappingSetup[test];
-
-    if (typeof dbTable != undefined && billingid && testid && test && category == "hema") {
-      let query = mappWithBilingid(dbTable, billingid);
-
-    connection.beginTransaction(async function (err) {
-      if (err) { logger.error(err); }
-      try {
-        const result = await promisifyQuery(query);
-          responseResult.result = result;
-          const sampling = await promisifyQuery(samplingQuery, [billingid, testid]);
-          responseResult.sampling = sampling;
-          responseResult.testcategory = category;
-
-          if (retrieve === false || retrieve == undefined) {
-            response.status(200).json(responseResult); // Send the response to the client
-          } else { return responseResult }
-        } catch (err) {
-          logger.error(err);
-          connection.rollback();
-        }
-      });
-    } else {
-    response.send({ statusCode: 401, status: "error", message: "include all necessary details", });
+    if (!billingid || !testid || !test) {
+      customError("billingid, testid && test required", 404, response)
     }
-  };
+
+    let responseResult = {}
+    const category = testCategoryMapping[test]
+    const dbTable = MappingSetup[test]
+    const query = dbTable + ` WHERE billingid = ?`
+    try {
+      const result = await promisifyQuery(query, [billingid])
+      responseResult.result = result.length > 0 ? result[0] : {}
+      let sampling = await this.getSamplingInformation(billingid, testid);
+      responseResult.sampling = sampling
+      responseResult.testcategory = category
+      response.send(responseResult)
+    } catch (err) {
+      logger.error(err)
+      console.log(err)
+    }
+  }
 
   getComments = async function (billingid, testid, response) {
     try {

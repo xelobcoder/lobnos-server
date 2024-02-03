@@ -44,12 +44,15 @@ const getCompanyInfo = async function (request, response) {
    try {
       let result = await promisifyQuery(SQL_QUERY_ALL);
       if (result && result.length > 0) {
-         result = result.map((item, index) => { return convertKeysToLowerCase(item) })
-         if (response) { response.send(result) } else {return result}
+         result = result.map((item, index) => {
+           return convertKeysToLowerCase(item)
+         })
+         return response ? response.send(result[0]) : result
       }
    } catch (err) {
       logger.error(err);
-      if (response) { customError('error getting company info', 500, response) }
+      response &&
+         customError('error getting company info', 500, response);
    }
 }
 

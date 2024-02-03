@@ -1,9 +1,9 @@
 body {
-  /* font-family: Arial, sans-serif, Helvetica, sans-serif,'Times New Roman', Times, serif,'Open Sans', sans-serif; */
   font-size: 20px;
-  font-family: Cascadia Code PL, Consolas, 'Courier New', monospace;
-  margin-top: 10%;
+  /* font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif; */
+  /* margin-top: 10%; */
   margin-left: 4%;
+  font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
 }
 
 .grid-2 {

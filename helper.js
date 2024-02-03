@@ -11,6 +11,38 @@ function responseError(response) {
   response.send({ message: "something wrong occured", statusCode:  500, status: 'error' });
 }
 
+
+const removeHtmlTags = (string) => {
+  const _stringArray = string.split("")
+  let start = 0
+  let end = 0
+
+  for (let i = 0; i < _stringArray.length; i++) {
+    if (_stringArray[i] === "<") {
+      start = i
+    }
+
+    if (_stringArray[i] === ">") {
+      end = i
+      break
+    }
+  }
+
+  const umatched = _stringArray.map((item, index) => {
+    if (index >= start && index <= end) {
+      return ""
+    }
+    return item
+  })
+
+  const result = umatched.join("")
+
+  if (umatched.includes("<") || umatched.includes(">")) {
+    return removeHtmlTags(result)
+  }
+  return result
+}
+
 function convertKeysToLowerCase(obj) {
   if (typeof obj !== 'object' || Array.isArray(obj)) {throw new Error('Input must be an object');
   }
@@ -111,6 +143,7 @@ module.exports = {
   responseError,
   promisifyQuery,
   NotFound,
+  removeHtmlTags,
   paginationQuery,
   rowAffected,
   retryableTransaction

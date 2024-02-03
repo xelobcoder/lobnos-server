@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 
 <head>
   <meta charset="UTF-8">
@@ -12,6 +12,20 @@
 </head>
 
 <body class="result-body">
+  <h2 style="margin-left: 20%;margin-right: 20%; border-bottom: 1px solid black; text-transform: uppercase;text-align: center;">Labhill Diagnostic And Imaging Center 
+  </h2>
+ <div style="margin-bottom: 20px;"> 
+  <div style="width: 50%;">
+    <img height="150px" width="150px" src="http://localhost:5000/asserts/34.jpg"/>
+  </div>
+  <div style="width: 30%; margin-left: 80%;margin-top: -180px;">
+      <p>Kalpohin lowcost 30A</p>
+      <p>Tiifu Residential area </p>
+      <p>Kalpohin lowcost 30A</p>
+      <p>Tiifu Residential area </p>
+  </div>
+ </div>
+ <h3 style="text-align: center; text-transform: uppercase; background-color: black;color: white;">Personal Information</h3>
   <div class="grid-2">
     <div class="p-wrapper">
       <span class="bold text-capitalize">fullname:</span>
@@ -31,12 +45,12 @@
     </div>
     <!-- patientid -->
     <div class="p-wrapper">
-      <span class="bold text-capitalize">patientid</span>
+      <span class="bold text-capitalize">patientid:</span>
       <span class="text-capitalize">{{this.sampling.patientid}}</span>
     </div>
     <!-- bilingid -->
     <div class="p-wrapper">
-      <span class="bold text-capitalize">bilingid</span>
+      <span class="bold text-capitalize">bilingid:</span>
       <span class="text-capitalize">{{this.sampling.billingid}}</span>
     </div>
     <div class="p-wrapper">
@@ -48,8 +62,43 @@
       <span class="text-capitalize">{{this.sampling.samplingCenter}}</span>
     </div>
   </div>
+  <h3 style="text-transform: uppercase;text-align: center; border-bottom: 2px solid black;" >Sampling Information</h3>
+  <div class="grid-2">
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">ascensionid:</span>
+      <span class="text-capitalize">{{this.sampling.ascensionid}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">collection:</span>
+      <span class="text-capitalize">{{this.sampling.collection_date}} {{this.sampling.collection_time}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">processing:</span>
+      <span class="text-capitalize">{{this.sampling.processing_date}} {{this.sampling.processing_time}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">result ready on:</span>
+      <span class="text-capitalize">{{this.sampling.ready_date}} {{this.sampling.ready_time}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">samplingCenter:</span>
+      <span class="text-capitalize">{{this.sampling.samplingCenter}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">phelobotomist:</span>
+      <span class="text-capitalize">{{this.sampling.phelobotomist}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">urgency:</span>
+      <span class="text-capitalize">{{this.sampling.urgency}}</span>
+    </div>
+    <div class="p-wrapper">
+      <span class="bold text-capitalize">inspectionTime:</span>
+      <span class="text-capitalize">{{this.sampling.inspectionTime}}</span>
+    </div>
+  </div>
   <div class="testname">
-    {{this.testname}}
+   <span> {{this.testname}} report</span>
   </div>
   <table>
     <thead class="thead">
