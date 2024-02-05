@@ -40,21 +40,21 @@ const removeHtmlTags = (string) => {
   if (umatched.includes("<") || umatched.includes(">")) {
     return removeHtmlTags(result)
   }
-  return result
+  return result.toLowerCase()
 }
 
 function convertKeysToLowerCase(obj) {
-  if (typeof obj !== 'object' || Array.isArray(obj)) {throw new Error('Input must be an object');
+  if (typeof obj !== "object" || Array.isArray(obj)) {
+    throw new Error("Input must be an object")
   }
-  const result = {};
+  const result = {}
 
   for (const key in obj) {
     if (obj.hasOwnProperty(key)) {
-      result[key.toLowerCase()] = obj[key];
+      result[key.toLowerCase()] = obj[key]
     }
   }
-
-  return result;
+  return result
 }
 
 

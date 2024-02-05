@@ -1,28 +1,39 @@
 const router = require('express').Router();
-const { customError } = require('../../helper');
-const ResultPrint = require('../models/ResultPrint');
-const { testCategoryMapping } = require('../models/ResultQueryMapping');
-const EmailService = require('../EmailServices/email');
-const { getBillingInvoiceData } = require('../models/invoice');
-const Payment = require('../models/payment')
-const result = new ResultPrint();
-const logger = require('../../logger');
-const PDFGENERATION = require('../models/pdfGeneration');
+const { customError, responseError } = require("../../helper")
+const ResultPrint = require("../models/ResultPrint")
+const { testCategoryMapping } = require("../models/ResultQueryMapping")
+const EmailService = require("../EmailServices/email")
+const { getBillingInvoiceData } = require("../models/invoice")
+const Payment = require("../models/payment")
+const result = new ResultPrint()
+const logger = require("../../logger")
+const PDFGENERATION = require("../models/pdfGeneration")
 
-
-router.get('/api/v1/result/ready', async function (req, res) {
-   new ResultPrint().get_printables(req, res)
+router.get("/api/v1/result/ready", async function (req, res) {
+  new ResultPrint().get_printables(req, res)
 })
 
-router.get('/api/v1/ready/crm/summary/advanced', function (request, response) {
-   new ResultPrint().advancedTablesSearch(request, response);
+router.get("/api/v1/ready/crm/summary/advanced", function (request, response) {
+  new ResultPrint().advancedTablesSearch(request, response)
 })
 
-router.get('/api/v1/result/ready/:id', async (req, res) => {
-   const billingid = parseInt(req.params.id.slice(1));
-   new ResultPrint().get_extrainfo_test(billingid, req, res)
+router.get("/api/v1/result/ready/:id", async (req, res) => {
+  const billingid = parseInt(req.params.id.slice(1))
+  new ResultPrint().get_extrainfo_test(billingid, req, res)
 })
 
+router.post("/api/v1/result/ready/updateprint/count", async function (request, response) {
+  try {
+    const { id, count } = request.body
+    if (!id || !count) return customError("test ascension id and count  of print required",404,response)
+    const result = await new ResultPrint().updatePrintCount(id, count)
+    response.send({ status: result === true ? "success" : "failed" })
+  } catch (err) {
+     console.log(err);
+    logger.error(err)
+    responseError(response)
+  }
+})
 
 router.get('/api/v1/result/ready/crm/summary', (req, res) => {
    new ResultPrint().get_summary_ready_page(req, res)
