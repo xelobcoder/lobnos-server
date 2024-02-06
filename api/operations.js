@@ -1,64 +1,42 @@
-const Operations = require("../models/operations");
+const { response } = require("express")
+const { customError, rowAffected } = require("../helper")
+const Operations = require("../models/operations")
 
-const router = require("express").Router();
+const router = require("express").Router()
 
 router.get("/api/v1/operations/collection", async (req, res) => {
-  const collections = new Operations();
+  const collections = new Operations()
+  const result = await collections.getAllReadyTest()
+  res.send({ statusCode: 200, message: "success", result })
+})
 
-  const result = await collections.getAllReadyTest();
-
-  res.send({ statusCode: 200, message: "success", result });
-});
-
-router.get("/api/v1/operations/test", async (req, res) => {
-  // get the billingid from the request
-  const { billingid } = req.query;
-
+router.get("/api/v1/operations/test", async (request, response) => {
+  const { billingid } = request.query
   if (!billingid) {
-    return res.status(400).send({
-      statusCode: 400,
-      message: "Invalid billingid",
-    });
-  } else {
-    const result = await new Operations(billingid).billingTest();
-    if (result === "Billingid is not ready for testing") {
-      return res.status(400).send({
-        statusCode: 400,
-        message: result,
-      });
-    } else {
-      res.send({
-        statusCode: 200,
-        message: "success",
-        result,
-      });
-    }
+    return customError("invalid billingid", 404, response)
   }
-});
+  const result = await new Operations(billingid).billingTest()
+  if (result === "Billingid is not ready for testing") {
+    return customError(result, 404, response)
+  } else {
+    response.send({ statusCode: 200, message: "success", result })
+  }
+})
 
 router.put("/api/v1/operations/test", async (req, res) => {
-  // get the billingid from the request and the testid
-
-  const { billingid, testid } = req.query;
-
+  const { billingid, testid } = req.query
   if (!billingid || !testid) {
-    return res.status(400).send({
-      statusCode: 400,
-      message: "billing id or testid is missing",
-    });
-  } else {
-    const updatesProcessing = new Operations(billingid);
-    const result = await updatesProcessing.initiateStart(testid, billingid);
-    if (result.affectedRows === 1) {
-      res.send({
-        statusCode: 200, message: "success", result
-      });
-    } else {
-      res.send({
-        statusCode: 400, message: "failed to update", result
-      });
-    }
+    return customError("billing id or testid is missing", 404, res)
   }
-});
 
-module.exports = router;
+  const updatesProcessing = new Operations(billingid)
+  const result = await updatesProcessing.initiateStart(testid, billingid)
+
+  if (rowAffected(result)) {
+    res.send({ statusCode: 200, message: "success", result })
+  } else {
+    customError("failed to update", 400, res)
+  }
+})
+
+module.exports = router

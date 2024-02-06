@@ -13,34 +13,35 @@ function responseError(response) {
 
 
 const removeHtmlTags = (string) => {
-  const _stringArray = string.split("")
-  let start = 0
-  let end = 0
+   const removeTags = (string, starter, ended) => {
+     const _stringArray = string.trim().split("")
+     let start = 0
+     let end = 0
 
-  for (let i = 0; i < _stringArray.length; i++) {
-    if (_stringArray[i] === "<") {
-      start = i
-    }
+     for (let i = 0; i < _stringArray.length; i++) {
+       if (_stringArray[i] === starter) {
+         start = i
+       }
 
-    if (_stringArray[i] === ">") {
-      end = i
-      break
-    }
-  }
+       if (_stringArray[i] === ended) {
+         end = i
+         break
+       }
+     }
 
-  const umatched = _stringArray.map((item, index) => {
-    if (index >= start && index <= end) {
-      return ""
-    }
-    return item
-  })
+     const umatched = _stringArray.map((item, index) => {
+       if (!(index >= start && index <= end)) return item
+     })
 
-  const result = umatched.join("")
+     const result = umatched.join("")
 
-  if (umatched.includes("<") || umatched.includes(">")) {
-    return removeHtmlTags(result)
-  }
-  return result.toLowerCase()
+     if (umatched.includes(starter) || umatched.includes(ended)) {
+       return removeHtmlTags(result)
+     }
+     return result.toLowerCase()
+   }
+   const st1 = removeTags(string, "<", ">")
+  return st1.split("&nbsp;").join("").split("&nbs").join("");
 }
 
 function convertKeysToLowerCase(obj) {
