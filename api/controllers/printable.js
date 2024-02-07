@@ -8,6 +8,7 @@ const Payment = require("../models/payment")
 const result = new ResultPrint()
 const logger = require("../../logger")
 const PDFGENERATION = require("../models/pdfGeneration")
+const payment = new Payment()
 
 router.get("/api/v1/result/ready", async function (req, res) {
   new ResultPrint().get_printables(req, res)
@@ -19,92 +20,87 @@ router.get("/api/v1/ready/crm/summary/advanced", function (request, response) {
 
 router.get("/api/v1/result/ready/:id", async (req, res) => {
   const billingid = parseInt(req.params.id.slice(1))
-  new ResultPrint().get_extrainfo_test(billingid, req, res)
+  new ResultPrint().get_extrainfo_test(billingid, res)
 })
 
 router.post("/api/v1/result/ready/updateprint/count", async function (request, response) {
   try {
     const { id, count } = request.body
-    if (!id || !count) return customError("test ascension id and count  of print required",404,response)
+    if (!id || !count) return customError("test ascension id and count  of print required", 404, response)
     const result = await new ResultPrint().updatePrintCount(id, count)
     response.send({ status: result === true ? "success" : "failed" })
   } catch (err) {
-     console.log(err);
+    console.log(err)
     logger.error(err)
     responseError(response)
   }
 })
 
-router.get('/api/v1/result/ready/crm/summary', (req, res) => {
-   new ResultPrint().get_summary_ready_page(req, res)
+router.get("/api/v1/result/ready/crm/summary", (req, res) => {
+  new ResultPrint().get_summary_ready_page(req, res)
 })
 
+router.get("/api/v1/billing/payment/info/client", async (request, response) => {
+  try {
+    const result = await payment.getClientTransactionInformation(request.query, response)
+    response.send({ result, statusCode: 200, status: "success" })
+  } catch (err) {
+    customError(err?.message, 500, response)
+  }
+})
 
+router.get("/api/v1/billing/client/bulk/outstanding", async function (request, response) {
+  const { patientid } = request.query
+  if (!patientid) {
+    customError(`patientid required`, 404, response)
+  } else {
+    const result = await payment.allClientDebtTransactions(patientid)
+    response.send({ result, statusCode: 200, status: "success" })
+  }
+})
 
+router.post("/api/v1/billing/client/clear/outstandingdebt", async function (request, response) {
+  const { patientid, paymentmode, amountpaid, employeeid } = request.body
+  if (!patientid || !paymentmode || !amountpaid || !employeeid) {
+    return customError("include amountpaid, paymentmode,employeeid and patientid in request body", 404, response)
+  }
+  const result = await payment.clearClientDebtBulk(patientid, amountpaid, paymentmode, employeeid)
+  if (result === true) {
+    response.send({ message: "updated successfully", status: "success", statusCode: "200" })
+  } else {
+    response.send({ message: "updated failed", status: "failed", statusCode: "500" })
+  }
+})
+router.get("/api/v1/paymentmodes", function (request, response) {
+  payment.paymentMode(request, response)
+})
 
-router.get('/api/v1/billing/payment/info/client', async (request, response) => {
-   const billingid = request.query.billingid;
-      const payment = new Payment();
-      if (billingid) {
-         try {
-            const result = await payment.getTransactionData(request.query.billingid);
-            response.send({ result, statusCode: 200, status: 'success' })
-         } catch (err) {
-            customError(err?.message, 500, response);
-         }
+router.get("/api/v1/billing/client/transactionhx", function (request, response) {
+  payment.specificBillTransactionHx(request, response)
+})
+
+router.post("/api/v1/billing/payment/update", function (request, response) {
+  payment.updatePayment(request, response)
+})
+
+router.get("/api/v1/result/preview", function (request, response) {
+  const { test } = request.query
+  const category = testCategoryMapping[test]
+
+  try {
+    if (!test || !category) {
+      customError(`test or category not found`, 404, response)
+    } else {
+      if (category == "chemistry") {
+        result.resultPreviewChemistry(request, response, category)
+      } else if (category == "hema") {
+        result.resultPreviewHematological(request, response, category)
       } else {
-         payment.getClientTransactionInformation(request, response)
+        customError("Category not found", 400, response)
       }
-   }
-);
-
-
-router.get('/api/v1/billing/client/bulk/outstanding', async function (request, response) {
-   const { patientid } = request.query;
-   if (!patientid) {
-      customError(`patientid required`, 404, response);
-   } else {
-      const result = await new Payment().allClientDebtTransactions(patientid);
-      response.send({ result, statusCode: 200, status: 'success' })
-   }
-})
-
-
-
-router.get('/api/v1/paymentmodes', function (request, response) {
-   new Payment().paymentMode(request, response)
-})
-
-router.get('/api/v1/billing/client/transactionhx', function (request, response) {
-   new Payment().specificBillTransactionHx(request, response)
-})
-
-router.post('/api/v1/billing/payment/update', function (request, response) {
-   new Payment().updatePayment(request, response);
-})
-
-
-router.get('/api/v1/result/preview', function (request, response) {
-   const { test } = request.query;
-   const category = testCategoryMapping[test];
-
-   try {
-      if (!test || !category) {
-         customError(`test or category not found`, 404, response);
-      } else {
-         if (category == "chemistry") {
-            result.resultPreviewChemistry(request, response, category);
-         } else if (category == "hema") {
-            result.resultPreviewHematological(request, response, category);
-         } else {
-            response.send({
-               statusCode: "400",
-               message: "Category not found",
-            });
-         }
-      }
-   } catch (err) {
-      console.log(err);
+    }
+  } catch (err) {
+    logger.error(err)
   }
 })
 

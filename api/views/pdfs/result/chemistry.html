@@ -1,14 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Document</title>
-  <!-- bootstrap link -->
-  <!-- favicon -->
+  <title>{{this.testname}}</title>
   <link rel="stylesheet" href="http://localhost:5000/css/receipt.css" />
-  <!-- bootstap -->
 </head>
 
 <body class="result-body">
@@ -16,7 +12,7 @@
   </h2>
  <div style="margin-bottom: 20px;"> 
   <div style="width: 50%;">
-    <img height="150px" width="150px" src="http://localhost:5000/asserts/34.jpg"/>
+    <img height="150px" width="150px" src="http://localhost:5000/api/v1/settings/companyprofile/images"/>
   </div>
   <div style="width: 30%; margin-left: 80%;margin-top: -180px;">
       <p>Kalpohin lowcost 30A</p>
@@ -106,7 +102,6 @@
         <td class="td-header">test description</td>
         <td class="td-header">values</td>
         <td class="td-header">reference</td>
-        <!-- <td>flag</td> -->
       </tr>
     </thead>
     <tbody class="tbody">
@@ -114,16 +109,19 @@
       {{#each this.testInformation}}
       <tr class="tr-body">
         <td class="td-body text-capitalize">{{this.parameter}}</td>
-        <td class="td-body">{{this.value}} {{this.unit}}</td>
-        <td class="td-body">{{this.upper}}-{{this.lower}}</td>
-        <!-- <td>{{this.flag}}</td> -->
+        <td  style="text-transform: lowercase;" class="td-body">
+          {{this.value}} {{this.unit}}
+        </td>
+        <td class="td-body" style="text-transform: lowercase;">
+          {{this.lower}} - {{this.upper}} {{this.unit}}
+        </td>
       </tr>
       {{/each }}
   </table>
   <div class="comments">
-    <div class="comments-label">comments</div>
-    <span>
+    <div class="comments-label">Comments</div>
+    <div>
       {{this.comments}}
-    </span>
+    </div>
   </div>
 </body>

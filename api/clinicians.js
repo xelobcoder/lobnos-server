@@ -1,171 +1,163 @@
-const { response } = require('express');
-const connection = require('./db');
-const logger = require('../logger');
-const { convertKeysToLowerCase, promisifyQuery, customError } = require('../helper');
-const { parse } = require('dotenv');
-
+const connection = require("./db")
+const logger = require("../logger")
+const { convertKeysToLowerCase, promisifyQuery, customError } = require("../helper")
 
 // get all clinicians
 const getClinicians = async (req, res) => {
-   try {
-      let result = await promisifyQuery('SELECT * FROM clinicianbasicinfo');
-      result = result.length > 0 ?
-         result.map(item => convertKeysToLowerCase(item)) : result;
-      res.send({ statusCode: 200, status: 'success', result });
-   } catch (err) {
-      logger.error(err);
-   }
+  try {
+    let result = await promisifyQuery("SELECT * FROM clinicianbasicinfo")
+    result = result.length > 0 ? result.map((item) => convertKeysToLowerCase(item)) : result
+    res.send({ statusCode: 200, status: "success", result })
+  } catch (err) {
+    logger.error(err)
+  }
 }
 
 // update clinicians
 const putCliniciansbasic = async (req, res) => {
-   //     we update the query 
-   const { name, phone, email, location, address, occupation,id } = req.body;
-   
-   if (!id) { customError("Clinician id not added", 404, res); return }
-   
-   // check if id exist 
-   if (isClinicianExist(id)) {
-      customError('Clinician already exist', 200, res); return;
-   }
+  //     we update the query
+  const { name, phone, email, location, address, occupation, id } = req.body
 
-   // update query
-   let query = `UPDATE clinicianbasicinfo SET NAME = ?, PHONE = ?, EMAIL = ?, LOCATION = ?,
-     ADDRESS = ?,OCCUPATION = ? WHERE ID = ?`;
+  if (!id) {
+    customError("Clinician id not added", 404, res)
+    return
+  }
 
-   const values = [name, phone, email, location, address, occupation, id];
-   // execute query
-   // is id available, if yes continue or send response with message of no id
-   const isUpdated = await promisifyQuery(query, values);
+  // check if id exist
+  if (isClinicianExist(id)) {
+    customError("Clinician already exist", 200, res)
+    return
+  }
 
-   isUpdated.affectedRows === 1 ?
-   res.send({
-      statusCode: 200,
-      message: 'Clinician updated successfully',
-      status: 'success'
-   }):
-   res.send({
-      statusCode: 401,
-      message: 'Clinician not updated',
-   })
-   return;
+  // update query
+  let query = `UPDATE clinicianbasicinfo SET NAME = ?, PHONE = ?, EMAIL = ?, LOCATION = ?,
+     ADDRESS = ?,OCCUPATION = ? WHERE ID = ?`
+
+  const values = [name, phone, email, location, address, occupation, id]
+  // execute query
+  // is id available, if yes continue or send response with message of no id
+  const isUpdated = await promisifyQuery(query, values)
+
+  isUpdated.affectedRows === 1
+    ? res.send({
+        statusCode: 200,
+        message: "Clinician updated successfully",
+        status: "success",
+      })
+    : res.send({
+        statusCode: 401,
+        message: "Clinician not updated",
+      })
+  return
 }
-
 
 // delete clinician
 
 const deleteClinicians = async (req, res) => {
-   try {
-      const { id } = req.body;
-      if (!id) { customError("id required", 404, res); return }
-      let query = `DELETE FROM clinician WHERE ID = ?`;
-      // execute query
-      const result = await promisifyQuery(query, [id]);
-      result?.affectedRows === 1 ?
-      res.send({
-         statusCode: 200,
-         status: 'success',
-         message: 'Deleted successfully'
-      })
-         :
-         res.send({
-            statusCode: 500,
-            status: 'error',
-            message: 'something occured. Wrong ID provided'
-         })
-   } catch (err) {
-      logger.error(err);
-      customError('Something wrong occured deleting clinician record', 500, res);
-   }
+  try {
+    const { id } = req.body
+    if (!id) {
+      customError("id required", 404, res)
+      return
+    }
+    let query = `DELETE FROM clinician WHERE ID = ?`
+    // execute query
+    const result = await promisifyQuery(query, [id])
+    result?.affectedRows === 1
+      ? res.send({
+          statusCode: 200,
+          status: "success",
+          message: "Deleted successfully",
+        })
+      : res.send({
+          statusCode: 500,
+          status: "error",
+          message: "something occured. Wrong ID provided",
+        })
+  } catch (err) {
+    logger.error(err)
+    customError("Something wrong occured deleting clinician record", 500, res)
+  }
 }
 
-const isClinicianExist = async function (email,mobile) {
-   if (!email || !mobile) return false;
-   const matched = await promisifyQuery(`SELECT * FROM clinicianbasicinfo WHERE EMAIL = ? OR phone = ?`, [email, mobile])
-   return matched.length > 0 ? true : false;
+const isClinicianExist = async function (email, mobile) {
+  if (!email || !mobile) return false
+  const matched = await promisifyQuery(`SELECT * FROM clinicianbasicinfo WHERE EMAIL = ? OR phone = ?`, [email, mobile])
+  return matched.length > 0 ? true : false
 }
-
-
 
 const postClinicianBasicInfo = async (req, res) => {
-   const { id, name, phone, email, location, address, occupation, organization } = req.body;
-   
-   if (!phone || !email) return `phone number and email required`;
+  const { id, name, phone, email, location, address, occupation, organization } = req.body
 
-   const isValidNumber = (number) => {
-      return number.length === 10 && number.startsWith(0 || '0');
-   }
-  
-   // We check if number is valid and not more than 10 and begins with 0
-   if (!isValidNumber(phone) || !email.includes("@")) return 'Valid phonenumber and email required';
+  if (!phone || !email) return `phone number and email required`
 
-   
-   if (await isClinicianExist(email, phone)) return 'email or phone number is already registered with a clinician';
+  const isValidNumber = (number) => {
+    return number.length === 10 && number.startsWith(0 || "0")
+  }
 
-   // module, occupation, commission, momo, bankName, accountName, branch, account
-   const values = [name, phone, email, location, address, occupation,organization];
+  // We check if number is valid and not more than 10 and begins with 0
+  if (!isValidNumber(phone) || !email.includes("@")) return "Valid phonenumber and email required"
 
-   //  we insert into the database
-   let query = `INSERT INTO clinicianbasicinfo 
+  if (await isClinicianExist(email, phone)) return "email or phone number is already registered with a clinician"
+
+  // module, occupation, commission, momo, bankName, accountName, branch, account
+  const values = [name, phone, email, location, address, occupation, organization]
+
+  //  we insert into the database
+  let query = `INSERT INTO clinicianbasicinfo 
             (name,phone,email,location,address,
             occupation,organization) 
-            VALUES (?,?,?,?,?,?,?)`;
+            VALUES (?,?,?,?,?,?,?)`
 
-   const result = await promisifyQuery(query, values);
-   const { insertId } = result;
+  const result = await promisifyQuery(query, values)
+  const { insertId } = result
 
-   if (insertId !== 0) {
-        // generate randams words and store it as temporay password
-         const random = require("node:crypto").randomBytes(5).toString('hex');
-         const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
-      await promisifyQuery(tempCredentials, [random]);
-      return insertId;
-   }
-   return 'adding new clinician failed';
+  if (insertId !== 0) {
+    // generate randams words and store it as temporay password
+    const random = require("node:crypto").randomBytes(5).toString("hex")
+    const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`
+    await promisifyQuery(tempCredentials, [random])
+    return insertId
+  }
+  return "adding new clinician failed"
 }
-
-
-
 
 const getSingleClinician = (req, res) => {
-   const { id } = req.query;
-   // get the id 
-   let query = `SELECT * FROM clinicianbasicinfo WHERE ID = ?`;
-   // execute query
-   connection.query(query, [id], (err, result) => {
-      if (err) {
-         logger.error(err)
-      }
-      res.send({
-         statusCode: 200,
-         result,
-         status: 'success'
-      })
-   }
-   )
+  const { id } = req.query
+  // get the id
+  let query = `SELECT * FROM clinicianbasicinfo WHERE ID = ?`
+  // execute query
+  connection.query(query, [id], (err, result) => {
+    if (err) {
+      logger.error(err)
+    }
+    res.send({
+      statusCode: 200,
+      result,
+      status: "success",
+    })
+  })
 }
-
-
 
 /**
  * Retrieves the top performing clinicians based on their total sales.
- * 
+ *
  * @param {object} request - The request object containing the query parameters.
  * @param {object} response - The response object used to send the result back to the client.
  * @returns {void}
  */
 const getTopPerformingClinicians = async function (request, response) {
-   const { count } = request.query;
+  const { count } = request.query
 
-   // Check if count parameter is provided
-   if (!count) {
-      response.send({
-         message: 'count represent top count required',
-         statusCode: 401,
-         status: 'warning'
-      });
-   } else {
-      let query_string = `
+  // Check if count parameter is provided
+  if (!count) {
+    response.send({
+      message: "count represent top count required",
+      statusCode: 401,
+      status: "warning",
+    })
+  } else {
+    let query_string = `
          SELECT DISTINCT c.ID AS id,
                   c.NAME AS name,
                   c.COMMISSION AS commissionRate,
@@ -178,30 +170,30 @@ const getTopPerformingClinicians = async function (request, response) {
             INNER JOIN BILLING AS b ON b.CLINICIAN = c.ID
          GROUP BY c.ID,
             c.NAME ORDER BY TotalSales DESC
-      `;
+      `
 
-      query_string += ` LIMIT ${count}`;
+    query_string += ` LIMIT ${count}`
 
-      // Execute the SQL query
-      connection.query(query_string, function (err, result) {
-         if (err) {
-            // Send error response if query execution fails
-            response.send({
-               message: err.message,
-               statusCode: 500,
-               status: 'error'
-            });
-         } else {
-            // Send success response with the result
-            response.send({
-               result,
-               statusCode: 200,
-               status: 'success'
-            });
-         }
-      });
-   }
-};
+    // Execute the SQL query
+    connection.query(query_string, function (err, result) {
+      if (err) {
+        // Send error response if query execution fails
+        response.send({
+          message: err.message,
+          statusCode: 500,
+          status: "error",
+        })
+      } else {
+        // Send success response with the result
+        response.send({
+          result,
+          statusCode: 200,
+          status: "success",
+        })
+      }
+    })
+  }
+}
 
 const CLINICIAN_QUERY_SUM = `SELECT 
          b.billingid,
@@ -222,61 +214,58 @@ const CLINICIAN_QUERY_SUM = `SELECT
       WHERE b.clinician = ?`
 
 const getClinicianResult = async function (clinicianid, startdate, enddate) {
-   try {
-      let query = CLINICIAN_QUERY_SUM;
+  try {
+    let query = CLINICIAN_QUERY_SUM
 
-      let values = [parseInt(clinicianid)];
+    let values = [parseInt(clinicianid)]
 
-      if (startdate && enddate) {
-         query+= ` AND DATE(b.billedon) BETWEEN ? AND ?`;
-         values.push(startdate);
-         values.push(enddate);
-      } else {
-         query+= ` AND DATE(b.billedon) = DATE(CURRENT_DATE) ORDER BY b.billedon DESC`;
-      }
+    if (startdate && enddate) {
+      query += ` AND DATE(b.billedon) BETWEEN ? AND ?`
+      values.push(startdate)
+      values.push(enddate)
+    } else {
+      query += ` AND DATE(b.billedon) = DATE(CURRENT_DATE) ORDER BY b.billedon DESC`
+    }
 
-      let result = await promisifyQuery(query, values);
-      // get unique billingid
+    let result = await promisifyQuery(query, values)
+    // get unique billingid
 
-      let unique = [...new Set(result.map(item => item.billingid))];
+    let unique = [...new Set(result.map((item) => item.billingid))]
 
-      let transformed = [];
+    let transformed = []
 
-      for (let i = 0; i < unique.length; i++) { 
-         let current_filtered = result.filter(item => item.billingid === unique[i]);
-         let obj = {};
-         obj.billingid = unique[i];
-         obj.fullname = current_filtered[0]?.firstname + " " + current_filtered[0]?.middlename + " " + current_filtered[0]?.lastname;
-         obj.billingdate = current_filtered[0]?.billedon;
-         let ready_count = current_filtered.filter(item => item.ready === 'true').length;
-         obj.ready_count = ready_count;
-         obj.totaltest = current_filtered.length;
+    for (let i = 0; i < unique.length; i++) {
+      let current_filtered = result.filter((item) => item.billingid === unique[i])
+      let obj = {}
+      obj.billingid = unique[i]
+      obj.fullname = current_filtered[0]?.firstname + " " + current_filtered[0]?.middlename + " " + current_filtered[0]?.lastname
+      obj.billingdate = current_filtered[0]?.billedon
+      let ready_count = current_filtered.filter((item) => item.ready === "true").length
+      obj.ready_count = ready_count
+      obj.totaltest = current_filtered.length
 
-         transformed.push(obj);
-      }
+      transformed.push(obj)
+    }
 
-      return transformed;
-   }
-   catch (error) {
-      logger.error(error);
-   }
+    return transformed
+  } catch (error) {
+    logger.error(error)
+  }
 }
-
 
 const getBillingTestBasedByClinician = async function (billingid, clinicianid) {
-   const query = CLINICIAN_QUERY_SUM + ` AND b.billingid = ?`;
-   const result = await promisifyQuery(query, [clinicianid, billingid]);
-   return result;
+  const query = CLINICIAN_QUERY_SUM + ` AND b.billingid = ?`
+  const result = await promisifyQuery(query, [clinicianid, billingid])
+  return result
 }
 
-
 module.exports = {
-   getClinicians,
-   putCliniciansbasic,
-   deleteClinicians,
-   postClinicianBasicInfo,
-   getSingleClinician,
-   getTopPerformingClinicians,
-   getClinicianResult,
-   getBillingTestBasedByClinician
+  getClinicians,
+  putCliniciansbasic,
+  deleteClinicians,
+  postClinicianBasicInfo,
+  getSingleClinician,
+  getTopPerformingClinicians,
+  getClinicianResult,
+  getBillingTestBasedByClinician,
 }

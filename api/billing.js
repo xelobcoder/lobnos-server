@@ -17,113 +17,160 @@ const applicationSettings = require('./models/applicationSettings');
  * @class
  */
 class Billing {
-  constructor(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
-    outstanding, cost) {
-    this.patientid = patientid;
-    this.clinician = clinician;
-    this.organization = organization;
-    this.test = test;
-    this.payable = payable;
-    this.testcost = testcost;
-    this.paid = paid;
-    this.taxIncluded = taxIncluded;
-    this.taxValue = taxValue;
-    this.status = status;
-    this.discount = discount;
-    this.paymentmode = paymentmode;
-    this.samplingCenter = samplingCenter;
-    this.outstanding = outstanding;
-    this.cost = cost;
+  constructor(
+    patientid,
+    clinician,
+    organization,
+    test,
+    payable,
+    testcost,
+    paid,
+    taxIncluded,
+    taxValue,
+    status,
+    discount,
+    paymentmode,
+    samplingCenter,
+    outstanding,
+    cost
+  ) {
+    this.patientid = patientid
+    this.clinician = clinician
+    this.organization = organization
+    this.test = test
+    this.payable = payable
+    this.testcost = testcost
+    this.paid = paid
+    this.taxIncluded = taxIncluded
+    this.taxValue = taxValue
+    this.status = status
+    this.discount = discount
+    this.paymentmode = paymentmode
+    this.samplingCenter = samplingCenter
+    this.outstanding = outstanding
+    this.cost = cost
   }
 
-  insertNewBilling = async function (request, response) {
-    const query = `INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost)
-    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`; 
+  insertNewBilling = async function (employeeid) {
+    const query = `INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
-    const values = [this.patientid, this.clinician, this.organization, this.paid, this.payable, this.paymentmode, this.outstanding, this.discount, this.samplingCenter, this.taxIncluded, this.taxValue, this.status, this.testcost];
+    const values = [
+      this.patientid,
+      this.clinician,
+      this.organization,
+      this.paid,
+      this.payable,
+      this.paymentmode,
+      this.outstanding,
+      this.discount,
+      this.samplingCenter,
+      this.taxIncluded,
+      this.taxValue,
+      this.status,
+      this.testcost,
+      employeeid,
+    ]
 
     try {
-      const { affectedRows, insertId } = await promisifyQuery(query, values);
-      return affectedRows > 0 ? insertId : false;
-    } catch (err) { 
-      logger.error(err);
-      throw new Error(err.message);
-     }
+      const { affectedRows, insertId } = await promisifyQuery(query, values)
+      return affectedRows > 0 ? insertId : false
+    } catch (err) {
+      logger.error(err)
+      throw new Error(err.message)
+    }
   }
 
-
   updateBillingHistory = async function (billingid) {
-    const query = `UPDATE billinghx SET paymentMode = ?,Amount = ? WHERE billingid = ?`;
-    const values = [this.paymentmode, this.paid, billingid];
-    return promisifyQuery(query, values);
+    const query = `UPDATE billinghx SET paymentMode = ?,Amount = ? WHERE billingid = ?`
+    const values = [this.paymentmode, this.paid, billingid]
+    return promisifyQuery(query, values)
   }
 
   isCompleteFlow = async function () {
     try {
-      const settings = await getApplicationSettings();
-      if (settings && settings.length > 0) { return settings[0].completeFlow == 1 ? true : false }
-    } catch (err) { logger.error(err) }
+      const settings = await getApplicationSettings()
+      if (settings && settings.length > 0) {
+        return settings[0].completeFlow == 1 ? true : false
+      }
+    } catch (err) {
+      logger.error(err)
+    }
   }
 
   updateApprovalStatus = async function (billingid, testid) {
     try {
-      const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
-      const values = [billingid, testid];
-    return promisifyQuery(query, values);
-    } catch (err) { logger.error(err) }
+      const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`
+      const values = [billingid, testid]
+      return promisifyQuery(query, values)
+    } catch (err) {
+      logger.error(err)
+    }
   }
 
   isValidForDayEntry = async function (patientid) {
-    const query = `SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE`;
+    const query = `SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE`
     try {
-      const result = await promisifyQuery(query, patientid);
-      return result[0]['COUNT(*)'] > 0 ? false : true;
-    }
-    catch (err) {
-      logger.error(err);
-      throw new Error(err);
+      const result = await promisifyQuery(query, patientid)
+      return result[0]["COUNT(*)"] > 0 ? false : true
+    } catch (err) {
+      logger.error(err)
+      throw new Error(err)
     }
   }
 
   async AddtoTestAscenstion(billingid) {
     try {
-      if (Array.isArray(this.test) && this.test.length == 0) return false; 
+      if (Array.isArray(this.test) && this.test.length == 0) return false
       const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
-      VALUES(?,?,?,CURRENT_DATE)`;
+      VALUES(?,?,?,CURRENT_DATE)`
       // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
-      const status = await this.isCompleteFlow() ? 'false' : 'true';
+      const status = (await this.isCompleteFlow()) ? "false" : "true"
       this.test.map(async (item, index) => {
-        await promisifyQuery(query, [item, billingid, status]);
-        if (status === "false") await this.updateApprovalStatus(billingid, item);
-      }); 
-      return true;
+        await promisifyQuery(query, [item, billingid, status])
+        if (status === "false") await this.updateApprovalStatus(billingid, item)
+      })
+      return true
     } catch (err) {
-      logger.error(err);
-      throw new Error(err?.message || err);
+      logger.error(err)
+      throw new Error(err?.message || err)
     }
   }
 
-  async insertionProcess(request, response) {              
+  async insertionProcess(request, response, employeeid) {
     try {
-      const valid = await this.isValidForDayEntry(this.patientid);
-      if (!valid) { return `client billed on same day. Kindly check the billing history to update billing`; }
-        connection.beginTransaction(async (err) => {
-          if (err) { logger.error(err); return false;}
-          const billingid = await this.insertNewBilling();
-          if (!billingid) { customError('billing failed', 500, response); connection.rollback(); return false; }
-          await this.AddtoTestAscenstion(billingid);
-          await this.updateBillingHistory(billingid);
-          connection.commit(async (err) => {
-            if (err) { logger.error(err); connection.rollback(); return false; }
-          })
+      const valid = await this.isValidForDayEntry(this.patientid)
+      if (!valid) {
+        return `client billed on same day. Kindly check the billing history to update billing`
+      }
+      connection.beginTransaction(async (err) => {
+        if (err) {
+          logger.error(err)
+          throw new Error(err);
+        }
+        const billingid = await this.insertNewBilling(employeeid)
+        if (!billingid) {
+          connection.rollback()
+          throw new Error("billing failed");
+        }
+        await this.AddtoTestAscenstion(billingid)
+        await this.updateBillingHistory(billingid)
+        connection.commit(async (err) => {
+          if (err) {
+            logger.error(err)
+            connection.rollback();
+            throw new Error(err);
+          }
         })
-      return true;
-    } catch (err) {
-      logger.error(err);
-      connection.rollback((err) => {
-        if (err) { logger.error(err) }; customError(err?.message ||"something wrong occuured", 500, response);
       })
- }
+      return true
+    } catch (err) {
+      logger.error(err)
+      connection.rollback((err) => {
+          logger.error(err)
+        throw new Error(err);
+      })
+    }
   }
 }
 

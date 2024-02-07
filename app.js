@@ -53,7 +53,7 @@ app.listen(port, () => {
   console.log(`listening at http://localhost:${port}`)
 })
 
-const { promisifyQuery, customError } = require("./helper")
+const { promisifyQuery, customError, responseError } = require("./helper")
 const Inventoryanalytics = require("./api/models/Inventory/inventoryAnalytics")
 app.use(cors({ origin: "*", credentials: false }))
 app.use(express.static("public"))
@@ -106,48 +106,54 @@ app.get("/api/v1/authenticate/employee/token", async function (request, response
 })
 
 app.post("/api/v1/billing", async (req, res) => {
-  const {
-    patientid,
-    clinician,
-    organization,
-    test,
-    payable,
-    testcost,
-    paid,
-    taxIncluded,
-    taxValue,
-    status,
-    discount,
-    paymentmode,
-    samplingCenter,
-    outstanding,
-    cost,
-  } = req.body
+  try {
+    const {
+      patientid,
+      clinician,
+      organization,
+      test,
+      payable,
+      testcost,
+      paid,
+      taxIncluded,
+      taxValue,
+      status,
+      discount,
+      paymentmode,
+      samplingCenter,
+      outstanding,
+      cost,
+      employeeid,
+    } = req.body
 
-  const billing = new Billing(
-    patientid,
-    clinician,
-    organization,
-    test,
-    payable,
-    testcost,
-    paid,
-    taxIncluded,
-    taxValue,
-    status,
-    discount,
-    paymentmode,
-    samplingCenter,
-    outstanding,
-    cost
-  )
+    const billing = new Billing(
+      patientid,
+      clinician,
+      organization,
+      test,
+      payable,
+      testcost,
+      paid,
+      taxIncluded,
+      taxValue,
+      status,
+      discount,
+      paymentmode,
+      samplingCenter,
+      outstanding,
+      cost
+    )
 
-  const result = await billing.insertionProcess(req, res)
+    const result = await billing.insertionProcess(req, res, employeeid);
 
-  typeof result === "string" && customError(result, 400, res)
-  typeof result === "number" &&
-    response.status(200).json({ message: "billing successfully", billingid: result, statusCode: 200, status: "success" })
-  typeof result === "boolean" && result === false && customError("something wrong occured adding new billing", 404, res)
+    if (result === true) {
+      res.status(200).json({ message: "billing successfully", billingid: result, statusCode: 200, status: "success" })
+    } else {
+      customError(result, 404, res)
+    }
+  } catch (err) {
+    responseError(res)
+  }
 })
 
 app.get("/api/v1/billedclients", (req, res) => {

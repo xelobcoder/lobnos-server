@@ -1,31 +1,17 @@
-const { customError, promisifyQuery } = require("../../helper");
-const logger = require("../../logger");
-const connection = require("../db");
+const { customError, promisifyQuery, paginationQuery } = require("../../helper")
+const logger = require("../../logger")
+const connection = require("../db")
 
 class Payment {
   constructor(patientid) {
-    this.patientid = patientid;
+    this.patientid = patientid
   }
 
-  getClientTransactionInformation = async (request, response) => {
+  getClientTransactionInformation = async (records, response) => {
     try {
-      const { patientid, month, date, count } = request.query;
+      const { patientid, from, to, count = 10, page = 1 } = records
+      const values = []
 
-      const months = {
-        january: "1",
-        february: "2",
-        march: "3",
-        april: "4",
-        may: "5",
-        june: "6",
-        july: "7",
-        august: "8",
-        september: "9",
-        october: "10",
-        november: "11",
-        december: "12",
-      };
-  
       let modelQuery = `
         SELECT 
           np.PATIENTID AS patientid,
@@ -37,215 +23,212 @@ class Payment {
           b.DISCOUNT AS discount,
           b.PAID_AMOUNT AS paid_amount,
           b.PAYABLE AS payable,
-          DATE(pt.DATE) as date
+          DATE(b.billedon) as date
         FROM new_patients AS np
-        INNER JOIN performing_test as pt ON pt.PATIENTID = np.PATIENTID
-        INNER JOIN billing as b ON b.BILLINGID = pt.BILLINGID
-      `;
-  
+        INNER JOIN billing as b ON np.patientid = b.patientid
+      `
+
       if (patientid) {
-        modelQuery += ` WHERE np.PATIENTID = ${patientid}`;
+        modelQuery += ` WHERE np.PATIENTID = ?`
+        values.push(parseInt(patientid))
       }
-  
-      if (month && patientid) {
-        modelQuery += ` AND MONTH(pt.DATE) = ${months[month]}`;
-      } else if (month) {
-        modelQuery += ` WHERE MONTH(pt.DATE) = ${months[month]}`;
+
+      if (from && patientid) {
+        values.push(from)
+        if (to) {
+          modelQuery += ` AND DATE(b.billedon) BETWEEN ? AND ?`
+          values.push(to)
+        } else {
+          modelQuery += ` AND DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`
+        }
+      } else if (!patientid && from) {
+        values.push(from)
+        if (!to) {
+          modelQuery += ` WHERE DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`
+        } else {
+          modelQuery += ` WHERE DATE(b.billedon) BETWEEN ? AND ?`
+          values.push(to)
+        }
       } else {
-        modelQuery = modelQuery;
+        modelQuery = modelQuery
       }
-  
-      if (date && !patientid && !month) {
-        modelQuery += ` WHERE DATE(pt.DATE) = '${date}'`;
-      } else if ((date && patientid) || (date && month)) {
-        modelQuery += ` AND DATE(pt.DATE) = '${date}'`;
-      } else {
-        modelQuery = modelQuery;
-      }
-  
-      if (count) {
-        modelQuery += `
-        ORDER BY b.BILLINGID DESC
-        LIMIT ${count}
-      `;
-      } else {
-        modelQuery += `
-        ORDER BY b.BILLINGID DESC
-        LIMIT 10
-      `;
-      }
-      const result = await promisifyQuery(modelQuery);
-      response.send({ result, statusCode: 200, status: "success"});
+
+      modelQuery += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `
+     
+      const result = await paginationQuery({ count, page }, modelQuery, values)
+
+      return result
     } catch (err) {
       logger.error(err);
-      customError("something went wrong", 500, response);
+      throw new Error(err)
     }
-  };
-
+  }
 
   getClientFullOutstanding = async (patientid, billingid) => {
     if (!billingid || !patientid) {
       return `patientid && billing required`
-    }
-    else {
-      let modelQuery = `SELECT SUM(PAID_AMOUNT) AS paid,SUM(PAYABLE) AS total FROM billing WHERE PATIENTID = ? `;
-      let result = await promisifyQuery(modelQuery, [patientid]);
+    } else {
+      let modelQuery = `SELECT SUM(PAID_AMOUNT) AS paid,SUM(PAYABLE) AS total FROM billing WHERE PATIENTID = ? `
+      let result = await promisifyQuery(modelQuery, [patientid])
       if (result.length > 0) {
-        const { total, paid } = result[0];
-        const outstanding = total - paid;
-        return outstanding === 0 ? 0 : outstanding;
+        const { total, paid } = result[0]
+        const outstanding = total - paid
+        return outstanding
       }
     }
   }
 
-  getTransactionData = async function (billingid) {
-    if (!billingid) {
-      return `billingid is required`;
-    }
-    else {
+  getTransactionData = async function (patientid) {
+    if (!patientid) {
+      throw new Error("patientid not included")
+    } else {
       let modelQuery = `SELECT * FROM billing AS b INNER JOIN new_patients AS np ON
-      b.patientid = np.patientid WHERE billingid = ? `;
-      return promisifyQuery(modelQuery, [billingid]);
+      b.patientid = np.patientid WHERE np.patientid = ? `
+      return promisifyQuery(modelQuery, [patientid])
     }
   }
 
   allClientDebtTransactions = async (patientid) => {
     if (!patientid) {
-      return `billingid is required`;
+      return `billingid is required`
     } else {
-      let modelQuery = `SELECT pt.date,b.billingid,b.outstanding,b.paid_amount AS paid,b.payable,b.discount
-        FROM billing AS b
-          INNER JOIN performing_test AS pt ON pt.billingid = b.billingid
-        WHERE b.patientid = ?
-          AND b.OUTSTANDING > 0`;
+      let modelQuery = `SELECT 
+      billedon AS date,
+      billingid,
+      outstanding,
+      paid_amount AS paid,
+      payable,
+      discount
+      FROM billing 
+      WHERE patientid = ?
+      AND outstanding > 0`
       return promisifyQuery(modelQuery, [parseInt(patientid)])
     }
   }
 
   updateSingleTransactionDebt = async (billingid, paid, outstanding) => {
-    const model = `UPDATE billing SET  PAID_AMOUNT = ?,OUTSTANDING = ? WHERE BILLINGID = ?`;
+    const model = `UPDATE billing SET  PAID_AMOUNT = ?,OUTSTANDING = ? WHERE BILLINGID = ?`
     try {
-      return promisifyQuery(model, [paid, outstanding, billingid]);
+      return promisifyQuery(model, [paid, outstanding, billingid])
     } catch (err) {
-      return err;
+      return err
     }
   }
 
-
-  updateTransactionHx = async (billingid, payment, amount) => {
-    const model = `INSERT INTO billingHx (BILLINGID,paymentmode,amount) VALUES (?,?,?)`;
-    return promisifyQuery(model, [billingid, payment, amount]);
+  updateTransactionHx = async (billingid, payment, amount, employeeid) => {
+    const model = `INSERT INTO billingHx (BILLINGID,paymentmode,amount,employeeid) VALUES (?,?,?,?)`
+    return promisifyQuery(model, [billingid, payment, amount, employeeid])
   }
 
-  clearClientDebtBulk = async (patientid, amount) => {
+  clearClientDebtBulk = async (patientid, amount, pymode,employeeid) => {
     if (!patientid) {
-      return `billingid is required`;
+      return `billingid is required`
     } else {
-      let debts = await this.allClientDebtTransactions(patientid);
+      let debts = await this.allClientDebtTransactions(patientid)
       // updating single transaction one by one
-      let target = debts.length;
-      let current = 0;
-      let balance = amount;
-      while (current < target && balance != 0) {
-        const { outstanding, paid, payable, discount, billingid } = debts[0];
-        if (balance > outstanding) {
+      let target = debts.length
+      let current = 0
+      let balance = amount
+      while (current < target && balance > 0) {
+        const { outstanding, paid, payable, discount, billingid } = debts[0]
+        if (balance >= outstanding) {
           // update single
-          // subtract outstanding from balance 
-          // compare balance with the next outstanding 
-          // break loop if outstanding is greater than the balance 
-          await this.updateSingleTransactionDebt(billingid, payable, 0);
-          await this.updateTransactionHx(billingid, 4, outstanding);
-          balance = balance - outstanding;
-          current++;
+          // subtract outstanding from balance
+          // compare balance with the next outstanding
+          // break loop if outstanding is greater than the balance
+          await this.updateSingleTransactionDebt(billingid, payable, 0)
+          await this.updateTransactionHx(billingid, pymode, outstanding,employeeid)
+          balance = balance - outstanding
+          current++
         }
 
-        if ((balance < outstanding) && balance > 0) {
+        if (balance < outstanding && balance > 0) {
           // new outstanding;
-          const paidAmout = parseInt(paid) + balance;
+          const paidAmout = parseInt(paid) + balance
           const nwOutstanding = parseInt(payable) - (parseInt(discount) + parseInt(paid) + parseInt(balance))
-          await this.updateSingleTransactionDebt(billingid, paidAmout, nwOutstanding)
-          await this.updateTransactionHx(billingid, 4, balance);
-          balance = 0;
-          current++;
-        }
-        if (balance == 0) {
-          break;
+          await this.updateSingleTransactionDebt(billingid, paidAmout, nwOutstanding,employeeid)
+          await this.updateTransactionHx(billingid, pymode, balance,employeeid)
+          balance = 0
+          current++
         }
       }
+      return balance === 0 ? true : false
     }
   }
   updatePayment = async (request, response) => {
     // get the current billing billinfo
     // update the record and update the database
-    const { billingid, outstanding, pay, paymentMode } = request.body;
+    const { billingid, outstanding, pay, paymentMode } = request.body
     const getQuery = `SELECT * FROM BILLING WHERE BILLINGID = ${billingid}`
     connection.query(getQuery, function (err, result) {
-      if (err) { logger.error(err); }
+      if (err) {
+        logger.error(err)
+      }
       if (result) {
         if (result.length > 0) {
-          const previousPayment = result[0]["PAID_AMOUNT"];
-          const discount = result[0]["DISCOUNT"];
-          const oldstanding = result[0]["OUTSTANDING"];
+          const previousPayment = result[0]["PAID_AMOUNT"]
+          const discount = result[0]["DISCOUNT"]
+          const oldstanding = result[0]["OUTSTANDING"]
           if (oldstanding <= 0) {
-            response.send({ status: "success", statusCode: 200, message: "Client is in good standing", });
+            response.send({ status: "success", statusCode: 200, message: "Client is in good standing" })
           } else {
-            const newAmount = previousPayment + parseInt(pay);
-            const nOutstanding = result[0]["PAYABLE"] - newAmount - discount;
+            const newAmount = previousPayment + parseInt(pay)
+            const nOutstanding = result[0]["PAYABLE"] - newAmount - discount
             const updateQuery = `UPDATE BILLING 
 							SET OUTSTANDING = ?,
 							PAID_AMOUNT = ?
 							WHERE BILLINGID = ?
-							`;
-            const values = [nOutstanding, newAmount, billingid];
+							`
+            const values = [nOutstanding, newAmount, billingid]
             connection.query(updateQuery, values, function (err, result) {
-              if (err) { logger.error(err); } else {
+              if (err) {
+                logger.error(err)
+              } else {
                 // update paymentHx to have a transaction hx of the client in terms of that billingid
-                const { affectedRows } = result;
+                const { affectedRows } = result
                 if (affectedRows == 1) {
-                  const updateHxQuery = `INSERT INTO billingHx (BILLINGID,paymentmode,amount) VALUES (?,?,?)`;
-                  connection.query(
-                    updateHxQuery,
-                    [billingid, paymentMode, pay],
-                    (err, result) => {
-                      if (err) {
-                        logger.error(err);
-                      } else {
-                        response.send({
-                          message: "Payment update successfully",
-                          status: "success",
-                          statusCode: 200,
-                        });
-                      }
+                  const updateHxQuery = `INSERT INTO billingHx (BILLINGID,paymentmode,amount) VALUES (?,?,?)`
+                  connection.query(updateHxQuery, [billingid, paymentMode, pay], (err, result) => {
+                    if (err) {
+                      logger.error(err)
+                    } else {
+                      response.send({
+                        message: "Payment update successfully",
+                        status: "success",
+                        statusCode: 200,
+                      })
                     }
-                  );
+                  })
                 }
               }
-            });
+            })
           }
         }
       }
-    }
-    );
-  };
+    })
+  }
   paymentMode = async (request, response) => {
     try {
-      const result = await promisifyQuery(`SELECT * FROM paymentmodes`);
-      response.send({ data: result || [], status: "success", statusCode: 200});
+      const result = await promisifyQuery(`SELECT * FROM paymentmodes`)
+      response.send({ data: result || [], status: "success", statusCode: 200 })
     } catch (err) {
-      customError("somthing went wrong", 500, response);
-   }
-  };
+      customError("somthing went wrong", 500, response)
+    }
+  }
 
   specificBillTransactionHx = async (request, response) => {
     try {
-      const { billingid } = request.query;
-      if (!billingid) { customError('billingid is required as a query', 401, response); return; }
-      const result = await promisifyQuery(`SELECT * FROM billingHx WHERE BILLINGID = ?  ORDER BY KeyID DESC`,[billingid]);
-      response.send(result);
+      const { billingid } = request.query
+      if (!billingid) {
+        customError("billingid is required as a query", 401, response)
+        return
+      }
+      const result = await promisifyQuery(`SELECT * FROM billingHx WHERE BILLINGID = ?  ORDER BY KeyID DESC`, [billingid])
+      response.send(result)
     } catch (err) {
-      customError("somthing went wrong", 500, response);
-   }
-  };
+      customError("somthing went wrong", 500, response)
+    }
+  }
 }
 
-module.exports = Payment;
+module.exports = Payment

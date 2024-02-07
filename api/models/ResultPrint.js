@@ -83,7 +83,6 @@ class ResultPrint {
       WHERE 
          ta.ready = 'true' and ta.ApprovalStatus = 1
       `
-
     const params = []
 
     // Add filters if provided
@@ -110,26 +109,29 @@ class ResultPrint {
     })
   }
 
-  get_extrainfo_test = async (id, request, response) => {
+  get_extrainfo_test = async (id, response) => {
     const model = `SELECT  DISTINCT tp.NAME AS name,
-      ta.testid,
-       ta.ready,
-        ta.printedOn,
-        ta.printcount,
-        ta.collection,
-        ta.processing,
-        ta.processing_date,
-        ta.collection_date,
-        ta.approvalstatus,
-        ta.id,
-        ta.ready_date
-       FROM test_ascension AS ta 
+                      ta.testid,
+                      ta.ready,
+                      ta.printedOn,
+                      ta.printcount,
+                      ta.collection,
+                      ta.processing,
+                      ta.processing_date,
+                      ta.collection_date,
+                      ta.approvalstatus,
+                      ta.id,
+                      ta.ready_date
+      FROM test_ascension AS ta 
       INNER JOIN test_panels AS tp ON ta.testid = tp.id
       WHERE billingid = ?`
-
     const result = await promisifyQuery(model, [parseInt(id)])
 
-    response.send(result)
+    if (response) {
+      response.send(result)
+    } else {
+      return result
+    }
   }
 
   updatePrintCount = async function (id, count) {
@@ -258,8 +260,6 @@ class ResultPrint {
                FROM ${testSetup} AS st
                   INNER JOIN ${testname} AS rt ON rt.parameter = st.PARAMETER
                WHERE rt.billingid = ?`
-
-        console.log(await promisifyQuery(resultQuery))
       }
     }
     //   connection.beginTransaction(async function (err) {
@@ -323,7 +323,7 @@ class ResultPrint {
       if (response) {
         customError("error occured", 500, response)
       } else {
-        return err
+        throw new Error(err)
       }
     }
   }
@@ -432,21 +432,14 @@ class ResultPrint {
       query += ` HAVING DATE(ta.ready_date) BETWEEN '${from}' AND '${to}'`
     }
 
-    if (to && from) {
-      query += ` ORDER BY b.billingid DESC LIMIT 100`
-    } else {
-      query += ` ORDER BY b.billingid DESC LIMIT 20`
-    }
-
+    query += ` ORDER BY b.billingid DESC LIMIT 20`
+    
+    
     connection.query(query, (err, result) => {
       if (err) {
-        response.send({ status: "error", statusCode: 401, message: "error occured" })
+        customError("error occured", 404, response);
       } else {
-        response.send({
-          status: "success",
-          statusCode: 200,
-          result,
-        })
+        response.send({status: "success",statusCode: 200,result})
       }
     })
   }
