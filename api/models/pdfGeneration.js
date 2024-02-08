@@ -13,19 +13,14 @@ const rendererOptions = function (opt) {
   switch (opt) {
     case "hema":
       return "./api/views/pdfs/result/hematological.html"
-      break
     case "fbc":
       return "./api/views/pdfs/result/chemistry.html"
-      break
     case "chemistry":
       return "./api/views/pdfs/result/chemistry.html"
-      break
     case "endocrinology":
       return "./api/views/pdfs/result/chemistry.html"
-      break
     case "syphilis":
       return "./api/views/pdfs/result/syphilis.html"
-      break
     default:
       return "./api/views/templates/receipt.html"
       break
@@ -259,15 +254,14 @@ class PDFGENERATION extends ResultPrint {
     try {
       const testInformation = await this.getChemistryTest()
       let sampling = await this.getSamplingInformation(this.billingid, this.testid)
-      const companyinfo = await getCompanyInfo()
+      const companyinfo = await getCompanyInfo();
       const testname = this.testname.includes("_") ? this.testname.split("_").join(" ") : this.testname
       let comments = await this.getComments(this.billingid, this.testid)
       comments = comments.length > 0 ? comments[0] : {}
 
       if (Object.keys(comments).includes("comments")) {
         let _comments = comments["comments"]
-
-        comments = removeHtmlTags(_comments)
+        comments = _comments;
       }
 
       return {
@@ -294,7 +288,7 @@ class PDFGENERATION extends ResultPrint {
 
     var document = {
       html: html,
-      path: path.join(__dirname, "../views/pdfs/receipt.pdf"),
+      path: path.join(__dirname, "../views/pdfs/result.pdf"),
       type: "",
     }
 
@@ -302,7 +296,7 @@ class PDFGENERATION extends ResultPrint {
       if (data) {
         document.data = data
         await pdf.create(document, options)
-        const filelocation = path.join(__dirname, "../views/pdfs/receipt.pdf")
+        const filelocation = path.join(__dirname, "../views/pdfs/result.pdf")
         if (response) {
           response.sendFile(filelocation)
         }

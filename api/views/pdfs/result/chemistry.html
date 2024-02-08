@@ -8,17 +8,18 @@
 </head>
 
 <body class="result-body">
-  <h2 style="margin-left: 20%;margin-right: 20%; border-bottom: 1px solid black; text-transform: uppercase;text-align: center;">Labhill Diagnostic And Imaging Center 
+  <h2 style="margin-left: 20%;margin-right: 20%; border-bottom: 1px solid black; text-transform: uppercase;text-align: center;">
+    {{this.companyinfo.name}}
   </h2>
  <div style="margin-bottom: 20px;"> 
   <div style="width: 50%;">
     <img height="150px" width="150px" src="http://localhost:5000/api/v1/settings/companyprofile/images"/>
   </div>
-  <div style="width: 30%; margin-left: 80%;margin-top: -180px;">
-      <p>Kalpohin lowcost 30A</p>
-      <p>Tiifu Residential area </p>
-      <p>Kalpohin lowcost 30A</p>
-      <p>Tiifu Residential area </p>
+  <div style="width: 30%; margin-left: 70%;margin-top: -180px;">
+      <p id="capiFirst">{{this.companyinfo.address}}</p>
+      <p id="capiFirst">{{this.companyinfo.email}}</p>
+      <p id="capiFirst">{{this.companyinfo.website}}</p>
+      <p id="capiFirst">0{{this.companyinfo.phonenumber}} || 0{{this.companyinfo.alternativenumber}}</p>
   </div>
  </div>
  <h3 style="text-align: center; text-transform: uppercase; background-color: black;color: white;">Personal Information</h3>
@@ -120,8 +121,12 @@
   </table>
   <div class="comments">
     <div class="comments-label">Comments</div>
-    <div>
-      {{this.comments}}
+    <div class="#comments">
+     {{{this.comments}}}
     </div>
   </div>
+  <hr style="border:2px solid black"/>
+    <div style="margin-left: 45%;">
+    END OF REPORT
+    </div>
 </body>

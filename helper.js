@@ -40,8 +40,9 @@ const removeHtmlTags = (string) => {
      }
      return result.toLowerCase()
    }
-   const st1 = removeTags(string, "<", ">")
-  return st1.split("&nbsp;").join("").split("&nbs").join("");
+  //  const st1 = removeTags(string, "<", ">")
+  // return st1.split("&nbsp;").join("").split("&nbs").join("");
+  return string;
 }
 
 function convertKeysToLowerCase(obj) {

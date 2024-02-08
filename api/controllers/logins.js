@@ -8,14 +8,12 @@ const User = require('../LobnosAuth/user');
 
 
 
-router.get('/api/v1/logins', async (request, response) => {
-   const queryLen = Object.keys(request.query).length
-   if (queryLen == 0) {
-      getAllLogins(request, response)
-   }
-   else {
-      getAUser(request, response)
-   }
+router.get("/api/v1/logins", async (request, response) => {
+  getAllLogins(request, response)
+})
+
+router.get("/api/v1/logins/user", async (request, response) => {
+  getAUser(request, response)
 })
 
 router.post('/api/v1/logins', async (request, response) => {

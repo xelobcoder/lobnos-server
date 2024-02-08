@@ -77,6 +77,10 @@ table {
   margin-bottom: 10px;
 }
 
+#capiFirst::first-letter {
+  text-transform: uppercase;
+}
+
 
 @page {
   counter-increment: page;
@@ -85,4 +89,15 @@ table {
     font-size: 12px;
     font-family: Arial, sans-serif;
   }
+}
+
+
+
+thead, tr,td,tbody,th {
+  border: 1px solid black !important;
+  padding: 10px !important;
+}
+
+#comments{
+margin: 0px !important;
 }
