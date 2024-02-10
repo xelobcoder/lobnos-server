@@ -67,8 +67,16 @@ router.get('/api/v1/application/tax', async function (request, response) {
   applicationsettings.getTax(request, response);
 })
 
-router.put('/api/v1/application/tax', function(request,response) {
-  applicationsettings.updateTaxStatus(request,response);
+router.put("/api/v1/application/tax", function (request, response) {
+  applicationsettings.updateTax(request, response)
+})
+
+router.put("/api/v1/application/tax/activation", async function (request, response) {
+  applicationsettings.changeTaxStatus(request, response)
+})
+
+router.delete("/api/v1/application/tax", async function (request, response) {
+  applicationsettings.deleteTax(request, response)
 })
 module.exports = router;
 
