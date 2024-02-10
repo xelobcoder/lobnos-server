@@ -100,4 +100,5 @@ thead, tr,td,tbody,th {
 
 #comments{
 margin: 0px !important;
+width: 100% !important;
 }

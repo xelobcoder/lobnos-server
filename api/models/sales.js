@@ -84,7 +84,7 @@ sales.generalSales = async function (request, response, target, branch) {
     if (branch != 'all') {
       query += `AND b.branchid = ${branch}`;
     }
-    query += ` GROUP BY WEEK(b.billedon)`
+    query += ` GROUP BY WEEK`
   }
 
 

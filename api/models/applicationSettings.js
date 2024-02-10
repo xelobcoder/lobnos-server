@@ -141,7 +141,8 @@ applicationSettings.getTax = async function (request, response) {
 
 applicationSettings.updateTaxStatus = async function (request, response) {
   const { id } = request.query;
-  
+  if (!id) return customError('tax id required');
+  // const query = `UPDATE Tax`
 }
 
 

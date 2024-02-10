@@ -1,6 +1,6 @@
 const pdf = require('pdf-creator-node');
 const fs = require('fs');
-const { customError, promisifyQuery, getFullBloodCountTrend, convertKeysToLowerCase, removeHtmlTags } = require("../../helper")
+const { customError, promisifyQuery, getFullBloodCountTrend, convertKeysToLowerCase } = require("../../helper")
 const path = require("path")
 const { testTable, setups, PDF_QUERIES } = require("../../helpers/testtables")
 const { testCategoryMapping } = require("../../api/models/ResultQueryMapping")
@@ -8,6 +8,7 @@ const ResultPrint = require("./ResultPrint")
 const { getCompanyInfo } = require("../settings/companydata")
 const logger = require("../../logger")
 const Registration = require("./registration")
+const TestSetup = require("./testSetup.model")
 
 const rendererOptions = function (opt) {
   switch (opt) {
@@ -254,21 +255,25 @@ class PDFGENERATION extends ResultPrint {
     try {
       const testInformation = await this.getChemistryTest()
       let sampling = await this.getSamplingInformation(this.billingid, this.testid)
-      const companyinfo = await getCompanyInfo();
+      const companyinfo = await getCompanyInfo()
       const testname = this.testname.includes("_") ? this.testname.split("_").join(" ") : this.testname
       let comments = await this.getComments(this.billingid, this.testid)
       comments = comments.length > 0 ? comments[0] : {}
 
       if (Object.keys(comments).includes("comments")) {
         let _comments = comments["comments"]
-        comments = _comments;
+        comments = _comments
       }
+
+      let literature = await new TestSetup().getSetupLiterature(this.testname)
+      literature = literature.length > 0 ? literature[0]["literature"] : ""
 
       return {
         testname,
         testInformation,
         sampling,
         comments,
+        literature,
         companyinfo: companyinfo.length > 0 ? companyinfo[0] : {},
       }
     } catch (err) {
@@ -297,9 +302,7 @@ class PDFGENERATION extends ResultPrint {
         document.data = data
         await pdf.create(document, options)
         const filelocation = path.join(__dirname, "../views/pdfs/result.pdf")
-        if (response) {
-          response.sendFile(filelocation)
-        }
+        if (response) response.sendFile(filelocation)
       }
     } catch (err) {
       customError(err?.message, 500, response)

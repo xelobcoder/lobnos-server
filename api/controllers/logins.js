@@ -1,12 +1,18 @@
 const { promisifyQuery } = require('../../helper');
-const { createNewAccount, getAllLogins, userLogin, deleteAccount, updateUserPermission,
-   getPermissions,
-   activateAUser, getAUser, updateUserBasicInfo } = require('../LobnosAuth/createAccount')
-const router = require('express').Router();
-const { customError } = require("../../helper");
-const User = require('../LobnosAuth/user');
-
-
+const {
+  createNewAccount,
+  getAllLogins,
+  userLogin,
+  deleteAccount,
+  updateUserPermission,
+  getPermissions,
+  activateAUser,
+  getAUser,
+  updateUserBasicInfo,
+} = require("../LobnosAuth/createAccount")
+const router = require("express").Router()
+const { customError } = require("../../helper")
+const User = require("../LobnosAuth/user")
 
 router.get("/api/v1/logins", async (request, response) => {
   getAllLogins(request, response)
@@ -16,43 +22,37 @@ router.get("/api/v1/logins/user", async (request, response) => {
   getAUser(request, response)
 })
 
-router.post('/api/v1/logins', async (request, response) => {
-   createNewAccount(request, response)
+router.post("/api/v1/logins", async (request, response) => {
+  createNewAccount(request, response)
 })
 
-router.delete('/api/v1/logins', async (request, response) => {
-   deleteAccount(request, response)
+router.delete("/api/v1/logins", async (request, response) => {
+  deleteAccount(request, response)
 })
 
-
-router.post('/api/v1/logins/update', async (request, response) => {
-   updateUserBasicInfo(request, response)
+router.post("/api/v1/logins/update", async (request, response) => {
+  updateUserBasicInfo(request, response)
 })
 
-router.post('/api/v1/authenticate', async (request, response) => {
-    const { email, password } = request.body;
-    if (!email || !password) { customError("Bad Request", 400, response); return; }
-    userLogin(request, response)
+router.post("/api/v1/authenticate", async (request, response) => {
+  const { email, password } = request.body
+  if (!email || !password) {
+    return customError("Bad Request", 400, response)
+  }
+  userLogin(request, response)
 })
 
-
-router.put('/api/v1/user/authentication/activate', async (request, response) => {
-    activateAUser(request, response);
+router.put("/api/v1/user/authentication/activate", async (request, response) => {
+  activateAUser(request, response)
 })
 
-
-
-router.get('/api/v1/user/permissions', async function (request, response) {
-   const { permissions } = request.query;
-   if (permissions) {
-      let result = await getPermissions(permissions, response);
-      response.send(result)
-   } else {
-      response.send({
-         message: 'employeeid permission id required',
-         statusCode: 401
-      })
-   }
+router.get("/api/v1/user/permissions", async function (request, response) {
+  const { permissions } = request.query
+  if (!permissions) {
+    return customError("employeeid permission id required", 404, response)
+  }
+  let result = await getPermissions(permissions, response)
+   response.send(result);
 })
 
 

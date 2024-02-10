@@ -78,7 +78,7 @@
       <span class="text-capitalize">{{this.sampling.ready_date}} {{this.sampling.ready_time}}</span>
     </div>
     <div class="p-wrapper">
-      <span class="bold text-capitalize">samplingCenter:</span>
+      <span class="bold text-capitalize">collection center:</span>
       <span class="text-capitalize">{{this.sampling.samplingCenter}}</span>
     </div>
     <div class="p-wrapper">
@@ -119,14 +119,14 @@
       </tr>
       {{/each }}
   </table>
-  <div class="comments">
+  <div class="">
+    <h4>Brief Literature Review</h4>
+    {{{this.literature}}}
+  </div>
+   <div class="comments">
     <div class="comments-label">Comments</div>
     <div class="#comments">
      {{{this.comments}}}
     </div>
   </div>
-  <hr style="border:2px solid black"/>
-    <div style="margin-left: 45%;">
-    END OF REPORT
-    </div>
 </body>
