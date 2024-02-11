@@ -324,16 +324,12 @@ class EmailService {
         this.sendBulkEmails(id, target, category);
       }
       else {
-        const getemail = await this.getComposedEmailDraft('published', 1, 'full', id);
+        const getemail = await this.getComposedEmailDraft("published", 1, "full", id)
+        if (getemail.length == 0) return false
+        const { body, subject, target } = getemail[0]
+        let parsedTarget
 
-        if (getemail.length == 0) return false;
-
-        const { body, subject,  target } = getemail[0];
-        
-        let parsedTarget;
-
-        if (target != '')  parsedTarget = JSON.parse(target);
-
+        if (target != "") parsedTarget = JSON.parse(target)
         if (parsedTarget && parsedTarget.length > 0) { 
           parsedTarget.forEach(async (item, index) => {
             const data = { subject, body, email: item?.email };
@@ -528,7 +524,7 @@ class EmailService {
       const getCredentials = await this.getTempClinicianCredentials(identifier);
       const { password } = getCredentials[0];
       // send initial credentials.
-      this.sendTemporaryCredentials({identifier:password, email});
+      this.sendTemporaryCredentials({ identifier: password, email });
       return isModeUpdated;
     } catch (err) {
       logger.error(err);

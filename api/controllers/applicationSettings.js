@@ -78,6 +78,16 @@ router.put("/api/v1/application/tax/activation", async function (request, respon
 router.delete("/api/v1/application/tax", async function (request, response) {
   applicationsettings.deleteTax(request, response)
 })
+
+
+router.get("/api/v1/applicationsetting/resultsettings", async function (request, response) {
+  applicationsettings.getResultsettings(request, response)
+})
+
+router.put("/api/v1/applicationsetting/resultsettings", async function (request, response) {
+  applicationsettings.updateResultSettings(request, response)
+})
+
 module.exports = router;
 
 

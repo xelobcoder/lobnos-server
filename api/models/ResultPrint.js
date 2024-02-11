@@ -3,7 +3,7 @@ const { Result, testTable } = require("./result");
 const { getAge } = require('../../api/test/setup/fbc');
 const { setups } = require('../../helpers/testtables');
 const logger = require('../../logger')
-const { promisifyQuery, customError, rowAffected } = require("../../helper")
+const { promisifyQuery, customError, rowAffected, paginationQuery, responseError } = require("../../helper")
 const ResultClass = new Result()
 const errMessage = ResultClass.errMessage
 const { MappingSetup, mappWithBilingid, testCategoryMapping } = require("./ResultQueryMapping")
@@ -378,24 +378,24 @@ class ResultPrint {
     }
   }
 
-  advancedTablesSearch(request, response) {
-    const { patientid, fullname, mobile, from, to } = request.query
-    // IF TO AND FROM DATE IS PRESENT
-    // SEARCH AS INTERVAL
-    // ELSE
-    // SEARCH USING ANY OF THE PARAMETERS AVAILABLE
-    //  IF PATIENTID IS AVAILABLE
-    // USE PATIENTID
-    // ELSE USE FULLNAME OR MOBILE NUMBER
-
-    let query = `
-        SELECT 
+  async advancedTablesSearch(request, response) {
+    try {
+      const { patientid, fullname, mobile, from, to, count = 10, page = 1 } = request.query
+      // IF TO AND FROM DATE IS PRESENT
+      // SEARCH AS INTERVAL
+      // ELSE
+      // SEARCH USING ANY OF THE PARAMETERS AVAILABLE
+      //  IF PATIENTID IS AVAILABLE
+      // USE PATIENTID
+      // ELSE USE FULLNAME OR MOBILE NUMBER
+      const values = []
+      let query = `
+      SELECT 
               ta.billingid AS billingid,
-          CASE
-            WHEN COUNT(ta.testid) = (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid) THEN 'Ready'
-            WHEN COUNT(ta.testid) < (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid) THEN 'Partial'
-            ELSE 'Unknown'
-          END AS status,
+          (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid AND ready = 'false' AND processing = 'true') AS processing,
+            (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid AND ready = 'true') AS completed,
+            (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid AND approvalStatus = 1) AS approved,
+            (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid AND collection = 'false') AS undrawnsamples,
             ta.ready,
             ta.ready_date,
             b.OUTSTANDING AS outstanding,
@@ -411,37 +411,49 @@ class ResultPrint {
             TEST_ASCENSION AS ta 
             INNER JOIN billing AS b ON b.BILLINGID = ta.billingid
             INNER JOIN new_patients AS np ON b.PATIENTID = np.PATIENTID
-          WHERE 
-            ta.ready = 'true' and ta.ApprovalStatus = 1 
-   `
-    //  if patient id is part of query id
-    if (patientid) {
-      query += `AND np.PATIENTID = ${patientid}`
-    }
-    // if fullname exist
-    if (fullname) {
-      query += ` AND np.FIRSTNAME LIKE '%${fullname}%' OR np.MIDDLENAME LIKE '%${fullname}%' OR np.LASTNAME LIKE '%${fullname}%'`
-    }
-
-    if (mobile) {
-      query += `AND np.MOBILE = ${mobile}`
-    }
-    query += ` GROUP BY b.billingid`
-
-    if (to && from) {
-      query += ` HAVING DATE(ta.ready_date) BETWEEN '${from}' AND '${to}'`
-    }
-
-    query += ` ORDER BY b.billingid DESC LIMIT 20`
-    
-    
-    connection.query(query, (err, result) => {
-      if (err) {
-        customError("error occured", 404, response);
-      } else {
-        response.send({status: "success",statusCode: 200,result})
+            WHERE ta.billingid IS NOT NULL
+     `
+      //  if patient id is part of query id
+      if (patientid) {
+        query += `AND np.PATIENTID = ${patientid}`
+        values.push(parseInt(patientid))
       }
-    })
+      // if fullname exist
+      if (fullname) {
+        query += ` AND CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) LIKE ?`
+        values.push(`%${fullname}%`)
+      }
+
+      if (mobile) {
+        query += `AND np.mobile_number = ?`
+        values.push(mobile)
+      }
+
+      if (from && to) {
+        query += ` AND DATE(b.billedon) BETWEEN '${from}' AND '${to}'`
+        values.push(`${from}`)
+        values.push(`${to}`)
+      }
+
+      if (from && !to) {
+        query += ` AND DATE(b.billedon) BETWEEN '${from}' AND CURRENT_DATE`
+        values.push(`${from}`)
+      }
+
+      if (!fullname && !from && !mobile) {
+        query += ` AND DATE(b.billedon) = CURRENT_DATE`
+      }
+
+      query += ` GROUP BY b.billingid`
+
+      query += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `
+
+      const result = await paginationQuery({ count, page }, query, values)
+      response.send({ status: "success", statusCode: 200, result })
+    } catch (err) {
+      logger.error(err)
+      responseError(response)
+    }
   }
 }
 
