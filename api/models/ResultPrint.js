@@ -411,8 +411,7 @@ class ResultPrint {
             TEST_ASCENSION AS ta 
             INNER JOIN billing AS b ON b.BILLINGID = ta.billingid
             INNER JOIN new_patients AS np ON b.PATIENTID = np.PATIENTID
-            WHERE ta.billingid IS NOT NULL
-     `
+            WHERE ta.billingid IS NOT NULL`
       //  if patient id is part of query id
       if (patientid) {
         query += `AND np.PATIENTID = ${patientid}`
@@ -430,25 +429,24 @@ class ResultPrint {
       }
 
       if (from && to) {
-        query += ` AND DATE(b.billedon) BETWEEN '${from}' AND '${to}'`
+        query += ` AND DATE(b.billedon) BETWEEN ? AND ?`
         values.push(`${from}`)
         values.push(`${to}`)
       }
 
       if (from && !to) {
-        query += ` AND DATE(b.billedon) BETWEEN '${from}' AND CURRENT_DATE`
+        query += ` AND DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`
         values.push(`${from}`)
       }
 
-      if (!fullname && !from && !mobile) {
+      if (!fullname && !from && !mobile && !patientid) {
         query += ` AND DATE(b.billedon) = CURRENT_DATE`
       }
 
-      query += ` GROUP BY b.billingid`
-
-      query += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `
+      query += ` GROUP BY b.billingid ORDER BY b.billingid DESC LIMIT ? OFFSET ?`
 
       const result = await paginationQuery({ count, page }, query, values)
+      
       response.send({ status: "success", statusCode: 200, result })
     } catch (err) {
       logger.error(err)

@@ -4,11 +4,11 @@ const Operations = require("../models/operations")
 
 const router = require("express").Router()
 
-router.get("/api/v1/operations/collection", async (req, res) => {
-  const collections = new Operations()
-  const result = await collections.getAllReadyTest()
-  res.send({ statusCode: 200, message: "success", result })
-})
+// router.get("/api/v1/operations/collection", async (req, res) => {
+//   const collections = new Operations()
+//   const result = await collections.getAllReadyTest()
+//   res.send({ statusCode: 200, message: "success", result })
+// })
 
 router.get("/api/v1/operations/test", async (request, response) => {
   const { billingid } = request.query

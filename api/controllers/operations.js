@@ -5,11 +5,7 @@ const router = require('express').Router();
 router.get('/api/v1/operations/collection', async (req, res) => {
   const collections = new Operations();
   const result = await collections.getAllReadyTest(req);
-  res.send({
-    statusCode: 200,
-    message: 'success',
-    result
-  });
+  res.send({ statusCode: 200, message: "success", result })
 });
 
 
