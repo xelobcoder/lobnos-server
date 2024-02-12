@@ -1,19 +1,16 @@
-const { promisifyQuery, customError, convertKeysToLowerCase } = require('../helper');
-const logger = require('../logger');
-const connection = require('./db');
-const EmailService = require('./EmailServices/email');
-const { database_queries } = require("./testResult");
-// YET TO BE CODED
-// AFTER CHANGE OF STATUS CLIENT WOULD BE NOTIFIED VIA EMAIL
-// OF SAMPLE STATUS CHANGE AND NECESSARY ACTION TO BE AND RECOMMEDATION TAKEN
+const { promisifyQuery, customError, convertKeysToLowerCase, paginationQuery, rowAffected } = require("../helper")
+const logger = require("../logger")
+const connection = require("./db")
+const EmailService = require("./EmailServices/email")
+const applicationSettings = require("./models/applicationSettings")
 
 class SampleHandler {
   constructor(request, response) {
-    this.request = request;
-    this.response = response;
+    this.request = request
+    this.response = response
   }
 
-  async getCollectedSamples() {
+  async getCollectedSamples(count = 10, page = 1) {
     const SQL_QUERY = `
           SELECT DISTINCT
           b.PATIENTID,
@@ -27,20 +24,22 @@ class SampleHandler {
           INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
       INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
           WHERE ss.approvalstatus = 0 AND ss.rejectionmessage IS NULL AND ta.collection = 'true'
-          GROUP BY b.BILLINGID ORDER BY b.BILLINGID DESC LIMIT 20`;
+          GROUP BY b.BILLINGID ORDER BY b.BILLINGID LIMIT ? OFFSET ?`
     try {
-      let result = await promisifyQuery(SQL_QUERY);
+      let result = await paginationQuery({ count, page }, SQL_QUERY)
       if (result.length > 0) {
-        result = result.map((item, index) => { return convertKeysToLowerCase(item) })
+        result = result.map((item, index) => {
+          return convertKeysToLowerCase(item)
+        })
       }
-      this.response.send({ statusCode: 200, status: 'success', message: 'success', result });
-    }
-    catch (err) {
-      logger.error(err);
-      customError('error fetching data', 500, this.response);
+
+      this.response.send({ statusCode: 200, status: "success", message: "success", result })
+    } catch (err) {
+      logger.error(err)
+      customError("error fetching data", 500, this.response)
     }
   }
-  getDates(date) {
+  async getDates(date) {
     let SQL_QUERY = `
     SELECT DISTINCT p.SAMPLE_STATUS,
       p.PATIENTID,
@@ -56,15 +55,15 @@ class SampleHandler {
       join billing as b ON p.PATIENTID = b.PATIENTID
       join new_patients as np ON p.PATIENTID = np.PATIENTID
      WHERE p.DATE= ${date} ORDER BY p.BILLINGID DESC LIMIT 100    
-    `;
+    `
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
-        logger.error(err);
+        logger.error(err)
       }
-      this.response.send(result);
-    });
+      this.response.send(result)
+    })
   }
-  getSelectedStutusAndDate(date, status) {
+  async getSelectedStutusAndDate(date, status) {
     if (date && status) {
       let SQL_QUERY = `
             SELECT DISTINCT p.SAMPLE_STATUS,
@@ -83,13 +82,10 @@ class SampleHandler {
           WHERE p.DATE = '${date}' AND p.SAMPLE_STATUS = '${status}'
           ORDER BY p.BILLINGID DESC
           LIMIT 50
-    `;
-      connection.query(SQL_QUERY, (err, result) => {
-        if (err) {
-          logger.error(err);
-        }
-        this.response.send(result);
-      });
+    `
+      const result = await promisifyQuery(SQL_QUERY);
+      if (this.response) return this.response({result,status:'success',statusCode: 200})
+      else return result;
     }
   }
   getRecords() {
@@ -108,109 +104,148 @@ class SampleHandler {
       INNER JOIN new_patients as np ON np.PATIENTID = pt.PATIENTID
       GROUP BY ss.billingid
     ORDER BY pt.DATE DESC LIMIT 30
-  `;
+  `
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
-        logger.error(err);
-      }
-      else {
+        logger.error(err)
+      } else {
         // check for pending  count in item of the result and only send those ABOVE 0
-        let filteredResult = result.filter(item => item.PENDINGCOUNT > 0);
-        this.response.send(filteredResult);
+        let filteredResult = result.filter((item) => item.PENDINGCOUNT > 0)
+        this.response.send(filteredResult)
       }
-    });
+    })
   }
-  updateRecords(request, response) {
-    const { testcollection } = request.body;
 
-    if (Array.isArray(testcollection) && testcollection.length > 0) {
+  async updateRecords(request, response) {
+    try {
+      const { testcollection } = request.body
 
-      const SQL_QUERY = `UPDATE samplestatus SET approvalstatus = ?,rejectionmessage = ?,samplevalidatedon = ?, validatedby =?
-       WHERE billingid = ? AND testid = ? AND ascensionid = ?`;
-      // start transaction 
-      connection.beginTransaction(async (err) => {
-        if (err) { logger.error(err); }
+      if (Array.isArray(testcollection) && testcollection.length > 0) {
+        const SQL_QUERY = `UPDATE samplestatus 
+              SET approvalstatus = ?,
+              rejectionmessage = ?,
+              samplevalidatedon = ?,
+              validatedby =?
+        WHERE billingid = ? AND testid = ? AND ascensionid = ?`
+        // start transaction
+        connection.beginTransaction(async (err) => {
+          if (err) {
+            logger.error(err)
+          }
+          testcollection.forEach(async (item, index) => {
+            const { billingid, testid, id, rejectionmessage, approvalstatus, validatedon, validatedby } = item
+            const message = approvalstatus == 1 ? null : rejectionmessage
+            const values = [approvalstatus, message, validatedon, validatedby, billingid, testid, id]
 
-        testcollection.forEach(async (item, index) => {
-          const { billingid, testid, id, rejectionmessage, approvalstatus, validatedon, validatedby } = item;
-
-          const message = approvalstatus == 1 ? null : rejectionmessage;
-
-          const values = [approvalstatus, message, validatedon, validatedby, billingid, testid, id];
-
-          try {
-            await promisifyQuery(SQL_QUERY, values);
+            await promisifyQuery(SQL_QUERY, values)
             // commit transaction
-            connection.commit();
+            connection.commit()
             if (testcollection.length - 1 === index) {
-              response.send({ statusCode: 200, status: 'success', message: 'record updated successfully ' });
+              response.send({ statusCode: 200, status: "success", message: "record updated successfully " })
             }
-            if (approvalstatus == 0) { await new EmailService().triggerSampleRejectionEmail(billingid, message) }
-          }
-          catch (err) {
-            logger.error(err);
-            console.log(err)
-            connection.rollback();
-            customError('error updating data', 500, response);
-          }
-        });
-      })
-    } else {
-      customError('invalid request', 400, response);
+            if (approvalstatus == 0 && applicationSettings.shouldSendRejectionEmail()) {
+              await new EmailService().triggerSampleRejectionEmail(billingid, message)
+            }
+          })
+        })
+      } else {
+        customError("invalid request", 400, response)
+      }
+    } catch (err) {
+      logger.error(err)
+      console.log(err)
+      connection.rollback()
+      customError("error updating data", 500, response)
     }
-
-
-    // let approvalStatus = action == 'reject' ? 0 : 1;
-
-    // let SQL_QUERY = `
-    // UPDATE samplestatus SET
-    //  approvalstatus = ${approvalStatus}
-    //  `
-
-    // if (action == 'reject') {
-    //   SQL_QUERY += `, message = '${message}'`
-    // }
-
-    // SQL_QUERY += ` WHERE billingid = ${billingid} AND testid = ${testid}`
-
-    // connection.query(SQL_QUERY, async (err, result) => {
-    //   if (err) {
-    //     logger.error(err);
-    //   }
-    //   else {
-    //     if (approvalStatus == 0) { await new EmailService().triggerSampleRejectionEmail(billingid, message) }
-    //     response.send({
-    //       statusCode: 200,
-    //       status: 'success',
-    //       message: 'record updated successfully '
-    //     })
-    //   }
-    // })
   }
 
   async getSampleRejectionStatus(testid, billingid) {
-    return new Promise((resolve, reject) => {
-      connection.query(
-        `SELECT * FROM samplestatus WHERE billingid = ?  AND approvalstatus = 0 AND testid = ?`,
-        [billingid, testid],
-        function (err, result) {
-          if (err) {
-            logger.error(err);
-            reject(err);
-          } else {
-            if (result.length == 1) {
-              const { message, date, billingid } = result[0];
-              resolve({ message, date, billingid });
-            } else {
-              resolve(null);
-            }
-          }
-        }
-      );
-    });
+    const query = `SELECT * FROM samplestatus WHERE billingid = ?  AND approvalstatus = 0 AND testid = ?`
+    const result = await promisifyQuery(query, [billingid, testid])
+    if (result.length === 0) return null
+    const { message, date } = result[0]
+    return { message, date, billingid }
+  }
+  async getRejectedSamplesList(request, response) {
+    const SQL_QUERY = `
+    SELECT 
+           b.billingid,
+            CONCAT(np.age," ",np.agetype) AS age,
+            np.MOBILE_NUMBER AS mobileNumber,
+            np.GENDER AS gender,
+            np.EMAIL AS email,
+            ss.rejectionmessage,
+            b.billedon AS date,
+            ss.approvalstatus,
+            ss.sampleMessage,
+            ss.disputedon,
+            ss.disputedby,
+            ss.disputereason,
+            tp.NAME,
+            ss.testid,
+            ss.samplevalidatedon,
+            ss.validatedby,
+            ta.collection_date,
+            CASE
+              WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, " ", np.LASTNAME)
+              ELSE CONCAT(np.FIRSTNAME," ", np.MIDDLENAME," ",np.LASTNAME)
+            END AS fullname
+          FROM new_patients AS np
+          INNER JOIN billing AS b ON b.patientid = np.PATIENTID
+          INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
+          INNER JOIN test_ascension AS ta ON ta.id = ss.ascensionid
+          INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+          WHERE ss.approvalstatus = 0 AND ta.collection = 'true'
+    `
+    try {
+      let result = await promisifyQuery(SQL_QUERY)
+      if (result.length > 0 && Array.isArray(result)) {
+        result = result.map((item, index) => {
+          return convertKeysToLowerCase(item)
+        })
+      }
+      response.send({ statusCode: 200, status: "success", message: "success", result })
+    } catch (err) {
+      logger.error(err)
+      customError("error fetching data", 500, response)
+    }
+  }
+
+  async rejectedSampleApproval(request, response) {
+    const { action, billingid, manager, message } = request.body
+    const query = `INSERT INTO manager_sample_descision (BILLINGID,ACTION,MESSAGE,MANAGER) VALUES (?,?,?,?)`
+    const result = await promisifyQuery(query, [billingid, action, message, manager])
+    if (response) response.send({ status: "success", message: "updated", statusCode: 200 })
+    else return result
+  }
+
+  async disputeSampleRejection(request, response) {
+    const { billingid, testid, disputereason, disputedby, disputedon } = request.body
+
+    const DISPUTE_QUERY = `UPDATE samplestatus SET disputereason = ?, disputedby = ?, disputedon = ?
+     WHERE billingid = ? AND testid = ?`
+
+    const values = [disputereason, disputedby, disputedon, billingid, testid]
+
+    try {
+      const result = await promisifyQuery(DISPUTE_QUERY, values);
+      if (rowAffected(result)) {
+        response.send({ status: "success", message: "sample dispute logged successfully", statusCode: 200 })
+      } else {
+        response.send({ status: "error", message: "error logging sample dispute", statusCode: 500 })
+      }
+    } catch (err) {
+      logger.error(err)
+      customError("error updating data", 500, response)
+    }
+  }
+
+  async getSampleManagerValidation(request, response, billingid) {
+    const query = "SELECT * FROM manager_sample_descision where BILLINGID = ?"
+    const result = await promisifyQuery(query, [billingid])
+    if (response) return response.send({ status: "success", statusCode: 200, result })
+    else return result
   }
 }
 
-
-
-module.exports = SampleHandler;
+module.exports = SampleHandler

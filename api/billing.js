@@ -1,11 +1,10 @@
 const connection = require('./db');
 const { checkpatient } = require('./register');
 const logger = require('../logger')
-const { customError, promisifyQuery } = require('../helper');
-const { getApplicationSettings } = require('./models/applicationSettings');
-const EmailService = require('./EmailServices/email');
-const applicationSettings = require('./models/applicationSettings');
-
+const { customError, promisifyQuery, rowAffected } = require("../helper")
+const { getApplicationSettings } = require("./models/applicationSettings")
+const EmailService = require("./EmailServices/email")
+const applicationSettings = require("./models/applicationSettings")
 
 /**
  * The `Billing` class is responsible for handling billing operations, such as inserting new billing records, updating billing history, checking if a billing is valid for day entry, and adding tests to the test ascension table.
@@ -91,10 +90,10 @@ class Billing {
     try {
       const settings = await getApplicationSettings()
       if (settings && settings.length > 0) {
-        return settings[0].completeFlow == 1 ? true : false
+        return settings[0]["completeFlow"] == 1 ? true : false
       }
     } catch (err) {
-      logger.error(err)
+      throw new Error(err)
     }
   }
 
@@ -104,37 +103,44 @@ class Billing {
       const values = [billingid, testid]
       return promisifyQuery(query, values)
     } catch (err) {
-      logger.error(err)
+      throw new Error(err)
     }
   }
 
   isValidForDayEntry = async function (patientid) {
-    const query = `SELECT COUNT(*) FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE`
+    const query = `SELECT COUNT(*) AS count FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE`
     try {
       const result = await promisifyQuery(query, patientid)
-      return result[0]["COUNT(*)"] > 0 ? false : true
+      return result[0]["count"] > 0 ? false : true
     } catch (err) {
       logger.error(err)
       throw new Error(err)
     }
   }
 
-  async AddtoTestAscenstion(billingid) {
+  async AddtoTestAscenstion(billingid, testidCollection) {
     try {
-      if (Array.isArray(this.test) && this.test.length == 0) return false
+      const testCollection = testidCollection ? testidCollection : this.test
+      if (Array.isArray(testCollection) && testCollection.length == 0) return false
       const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
       VALUES(?,?,?,CURRENT_DATE)`
       // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
-      const status = (await this.isCompleteFlow()) ? "false" : "true"
-      this.test.map(async (item, index) => {
-        await promisifyQuery(query, [item, billingid, status])
-        if (status === "false") await this.updateApprovalStatus(billingid, item)
+      const status = await this.isCompleteFlow() == 0 ? "false" : "true"
+      testCollection.map(async (item, index) => {
+        await promisifyQuery(query, [item, billingid, status == "false" ? "true" : "false"])
+        if (status == "false") await this.updateApprovalStatus(billingid, item)
       })
       return true
     } catch (err) {
       logger.error(err)
       throw new Error(err?.message || err)
     }
+  }
+
+  async deleteAscensionid(billingid, testid) {
+    const query = `DELETE FROM test_ascension WHERE testid = ? AND billingid = ?`
+    const result = await promisifyQuery(query, [parseInt(billingid), parseInt(testid)])
+    return rowAffected(result)
   }
 
   async insertionProcess(request, response, employeeid) {
@@ -146,20 +152,20 @@ class Billing {
       connection.beginTransaction(async (err) => {
         if (err) {
           logger.error(err)
-          throw new Error(err);
+          throw new Error(err)
         }
         const billingid = await this.insertNewBilling(employeeid)
         if (!billingid) {
           connection.rollback()
-          throw new Error("billing failed");
+          throw new Error("billing failed")
         }
         await this.AddtoTestAscenstion(billingid)
         await this.updateBillingHistory(billingid)
         connection.commit(async (err) => {
           if (err) {
             logger.error(err)
-            connection.rollback();
-            throw new Error(err);
+            connection.rollback()
+            throw new Error(err)
           }
         })
       })
@@ -167,14 +173,56 @@ class Billing {
     } catch (err) {
       logger.error(err)
       connection.rollback((err) => {
-          logger.error(err)
-        throw new Error(err);
+        logger.error(err)
+        throw new Error(err)
       })
     }
   }
+  async  clientPaymentStatus(patientid) {
+    try {
+      const query = `SELECT
+      SUM(PAID_AMOUNT) AS paidAmount,
+          SUM(PAYABLE) AS totalcostincurred,
+          CASE
+            WHEN SUM(PAID_AMOUNT) = SUM(PAYABLE) THEN 1
+            WHEN SUM(PAID_AMOUNT) > SUM(PAYABLE) THEN -1
+            WHEN SUM(PAID_AMOUNT) < SUM(PAYABLE) THEN 0
+          END AS status
+          FROM BILLING
+      WHERE PATIENTID = ?`
+      const result = await promisifyQuery(query, patientid);
+      let status = result[0]["status"]
+      if (status == null) {
+        const isExist = await checkpatient(patientid)
+        isExist ? (status = 1) : (status = null)
+        return status
+      } else {
+        return status
+      }
+    } catch (err) {
+      logger.error(err)
+    }
+  }
+
+ async getClientBillingInformation(request, response) {
+    //  get the billing id
+    const { billingid } = request.query
+    // check if billing id is not empty
+    if (billingid && billingid != "") {
+      // join the billing and performing test table and new patients table using the aptient id wherw billing id is equal to the billing id
+      let mysql = `SELECT * FROM billing as b  INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?`
+      try {
+        let result = await promisifyQuery(mysql, [billingid])
+        response.send({ message: "success", statusCode: 200, result })
+      } catch (err) {
+        customError(err?.message, 500, response)
+      }
+    } else {
+      // if billing id is isNotEmptyFields
+      customError("billing id is required", 400, response)
+    }
+  }
 }
-
-
 
 /**
  * 
@@ -193,42 +241,39 @@ const clientPaymentStatus = async function (patientid) {
     WHEN SUM(PAID_AMOUNT) < SUM(PAYABLE) THEN 0
   END AS status
   FROM BILLING
-  WHERE PATIENTID = ?`;
-    const result = await promisifyQuery(query, patientid);
-    let status = result[0]['status'];
+  WHERE PATIENTID = ?`
+    const result = await promisifyQuery(query, patientid)
+    let status = result[0]["status"]
     if (status == null) {
-      const isExist = await checkpatient(patientid);
-      isExist ? status = 1 : status = null;
-      return status;
+      const isExist = await checkpatient(patientid)
+      isExist ? (status = 1) : (status = null)
+      return status
     } else {
-      return status;
+      return status
     }
-
-  } catch (err) { logger.error(err) }
+  } catch (err) {
+    logger.error(err)
+  }
 }
-
-
 
 const getClientBillingInformation = async function (request, response) {
   //  get the billing id
-  const { billingid } = request.query;
+  const { billingid } = request.query
   // check if billing id is not empty
-  if (billingid && billingid != '') {
+  if (billingid && billingid != "") {
     // join the billing and performing test table and new patients table using the aptient id wherw billing id is equal to the billing id
-    let mysql = `SELECT * FROM billing as b  INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?`;
+    let mysql = `SELECT * FROM billing as b  INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?`
     try {
-      let result = await promisifyQuery(mysql, [billingid]);
-      response.send({ message: 'success', statusCode: 200, result });
+      let result = await promisifyQuery(mysql, [billingid])
+      response.send({ message: "success", statusCode: 200, result })
     } catch (err) {
-      customError(err?.message, 500, response);
+      customError(err?.message, 500, response)
     }
-  }
-  else { // if billing id is isNotEmptyFields
-    customError('billing id is required', 400, response)
+  } else {
+    // if billing id is isNotEmptyFields
+    customError("billing id is required", 400, response)
   }
 }
-
-
 
 const getBilledClients = async function (request, response) {
   const mysql = `
@@ -259,108 +304,98 @@ const getBilledClients = async function (request, response) {
     GROUP BY b.BILLINGID
     ORDER BY B.BILLINGID DESC
     LIMIT 20
-  `;
+  `
 
   try {
-    const result = await promisifyQuery(mysql);
-    response.send({ message: 'success', statusCode: 200, result });
+    const result = await promisifyQuery(mysql)
+    response.send({ message: "success", statusCode: 200, result })
   } catch (err) {
-    customError(err?.message, 500, response);
+    customError(err?.message, 500, response)
   }
 }
-
 
 const updateBilling = async function (request, response) {
   /**
    * Updates a billing record in the database and handles the addition and removal of related test records.
-   * 
+   *
    * @param {object} request - The request object containing the data needed for updating the billing record.
    * @param {object} response - The response object used to send the result of the update operation.
    * @returns {void}
    */
   try {
-    const { test, totalcost, billingid, outstanding, taxIncluded, taxValue, discount } = request.body;
-    
+    const { test, totalcost, billingid, outstanding, taxIncluded, taxValue, discount } = request.body
+
     if (!test || !totalcost || !billingid || !outstanding) {
-      response.send({
-        message: 'Invalid request body',
-        statusCode: 400,
-        status: 'error'
-      });
-      return;
+      return customError("invalid request body", 404, response)
     }
 
     // update the billing table first
-    const payable = taxValue + totalcost - discount;
-    const updateCurrentBill = `UPDATE billing 
-        SET testCost = ?, payable = ?,
-        outstanding = ?
-    WHERE billingid = ?`;
-
+    const payable = taxValue + totalcost - discount
+    const updateCurrentBill = `UPDATE billing  SET testCost = ?, payable = ?, outstanding = ?
+    WHERE billingid = ?`
 
     // FLOW
     // 1. update billing table
-    // 2. get all the test in the test_ascension table that has this paticular billingid 
+    // 2. get all the test in the test_ascension table that has this paticular billingid
     // 3. compare ids in the test arayy with that in the db
     // 4. remove all test from the db that arrent in the test array
     // 5. add all test in the test array that arent in the test_ascention table
     // 6. all should be done using transactions so that if one shoudl fail then the commit should be roolled
     connection.beginTransaction(async function (err) {
-      if (err) { logger.error(err); }
-      const updateBilling = await promisifyQuery(updateCurrentBill, [totalcost, payable, outstanding, billingid]);
-      const isUpdated = updateBilling?.affectedRows > 0 ? true : false;
+      if (err) {
+        logger.error(err)
+      }
+      const updateBilling = await promisifyQuery(updateCurrentBill, [totalcost, payable, outstanding, billingid])
+      const isUpdated = rowAffected(updateBilling)
 
       if (isUpdated) {
-        const getBillAscensions = await promisifyQuery(`SELECT * FROM test_ascension WHERE billingid = ?`, [billingid]);
-        const ascentionsDatabaseidx = getBillAscensions.map((item, index) => { return item.testid });
-        const userIdxCollections = test.map((item, index) => { return item.testid });
-
-        // we need to check to ensure only the test in idx collection are added and those that aren in idx collection but
+        const getBillAscensions = await promisifyQuery(`SELECT * FROM test_ascension WHERE billingid = ?`, [billingid])
+        const ascentionsDatabaseidx = getBillAscensions.map((item, index) => {
+          return item.testid
+        })
+        const userIdxCollections = test.map((item, index) => {
+          return item.testid
+        })
+        // we need to check to ensure only the test in idx collection are added and those that arent in idx collection but
         // are in the ascentionsDatabaseidx are removed
-
-        const toDelete = [];
-        const toAdd = [];
-        const toIgnore = [];
+        const toDelete = []
+        const toAdd = []
+        const toIgnore = []
         userIdxCollections.forEach(async (item, index) => {
           ascentionsDatabaseidx.includes(item) ? toIgnore.push(item) : toAdd.push(item)
         })
 
         ascentionsDatabaseidx.forEach(async (item, index) => {
-          userIdxCollections.includes(item) ?
-            toIgnore.includes(item) ? null : toIgnore.push(item)
-            : toDelete.push(item)
+          userIdxCollections.includes(item) ? (toIgnore.includes(item) ? null : toIgnore.push(item)) : toDelete.push(item)
         })
 
-        if (toAdd.length > 0) {
-          toAdd.forEach(async (item, index) => {
-            const addStatement = `INSERT INTO test_ascension(billingid,testid) VALUES (?,?)`;
-            await promisifyQuery(addStatement, [billingid, item]);
-          })
-        }
+        const billing = new Billing()
+
+        if (toAdd.length > 0) billing.AddtoTestAscenstion(billingid, toAdd)
 
         if (toDelete.length > 0) {
           toDelete.forEach(async (item, index) => {
-            const removeStatement = `DELETE FROM test_ascension WHERE testid = ? AND billingid = ?`;
-            await promisifyQuery(removeStatement, [item, billingid]);
+            return billing.deleteAscensionid(billingid, item)
           })
         }
 
         connection.commit((err) => {
           if (err) {
-            logger.error(err);
+            logger.error(err)
             connection.rollback((err) => {
-              if (err) { logger.error(err) }
+              if (err) {
+                logger.error(err)
+              }
             })
           } else {
-            response.send({ message: 'update successful', statusCode: 200, status: 'success' })
+            response.send({ message: "update successful", statusCode: 200, status: "success" })
           }
         })
       }
-    });
-
+    })
   } catch (err) {
     connection.rollback((err) => {
-      logger.error(err);
+      logger.error(err)
     })
   }
 }

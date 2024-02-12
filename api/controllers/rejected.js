@@ -1,18 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { rejectedSample, RejectedSampleApproval ,disputeRejection} = require('../models/rejected');
+const SampleHandler = require('../sample');
 
 router.get('/api/v1/rejected', function (request, response) {
- rejectedSample(request, response);
+    new SampleHandler().getRejectedSamplesList(request, response);
 })
 
 router.post('/api/v1/rejected', function (request, response) {
- RejectedSampleApproval(request,response)
+    new SampleHandler().rejectedSampleApproval(request, response);
 })
 
 
 router.put('/api/v1/sample/rejection/disputed', function (request, response) {
-    disputeRejection(request, response);
+    new SampleHandler().disputeSampleRejection(request, response);
 })
 
 

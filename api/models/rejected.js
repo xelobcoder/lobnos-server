@@ -63,7 +63,7 @@ const updateSamplerRecord = async function (request, response) { }
 const rejectedSample = async function (request, response) {
   const SQL_QUERY = `
   SELECT 
-  b.billingid,
+         b.billingid,
           CONCAT(np.age," ",np.agetype) AS age,
           np.MOBILE_NUMBER AS mobileNumber,
           np.GENDER AS gender,
@@ -89,7 +89,7 @@ const rejectedSample = async function (request, response) {
         INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
         INNER JOIN test_ascension AS ta ON ta.id = ss.ascensionid
         INNER JOIN test_panels AS tp ON tp.ID = ss.testid
-        WHERE ss.rejectionmessage IS NOT NULL AND ss.approvalstatus = 0 AND ta.collection = 'true' AND ss.disputereason IS NULL
+        WHERE ss.approvalstatus = 0 AND ta.collection = 'true'
   `
   try {
     let result = await promisifyQuery(SQL_QUERY);

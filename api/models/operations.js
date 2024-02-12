@@ -140,26 +140,14 @@ class Operations {
     if (!stage) {
       customError("stage of tests required", 401)
     } else {
-      const query = `
-       SELECT
-       COUNT(*) AS count,
-       d.department,
-       d.id AS departmentid
-       FROM test_ascension AS ta
-       INNER JOIN samplestatus AS ss ON ss.testid = ta.testid
-       INNER JOIN test_panels AS tp ON tp.id = ta.testid
-       INNER JOIN departments AS d on d.id = tp.category
-       WHERE ta.collection = 'true' AND ss.approvalstatus = 1
-      `
+     
       let queryString = `
-      SELECT COUNT(*) AS count,
-      d.department,
-      d.id AS departmentid from test_ascension AS ta
-      INNER JOIN test_panels AS tp
-      ON tp.id = ta.testid
-      INNER JOIN departments AS d ON d.id = tp.category
-      WHERE ta.collection = 'true'
-    `
+          SELECT COUNT(*) AS count, d.department,d.id AS departmentid from test_ascension AS ta
+          INNER JOIN test_panels AS tp ON tp.id = ta.testid
+          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+          INNER JOIN departments AS d ON d.id = tp.category
+          WHERE ta.collection = 'true'
+        `
 
       if (stage == "unentered") {
         queryString += ` AND ta.ready = 'false'`

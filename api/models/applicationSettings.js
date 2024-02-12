@@ -1,21 +1,44 @@
 const { customError, promisifyQuery, responseError, rowAffected } = require("../../helper")
 const logger = require("../../logger")
 const EmailService = require("../EmailServices/email")
+const database_queries = require("../database/queries")
 
 const applicationSettings = {}
+
 
 applicationSettings.getApplicationSettings = async function (request, response) {
   const query = `SELECT * FROM applicationsettings`
   try {
     let result = await promisifyQuery(query)
     if (!response) {
-      return promisifyQuery(query)
+      return promisifyQuery(query);
     } else {
       response.send({ message: "success", status: "success", statusCode: 200, result })
     }
   } catch (err) {
     logger.error(err)
   }
+}
+
+applicationSettings.getEmailPreference = async () => {
+  const data = await database_queries.getsingleid(1, "emailpreference", "id")
+  return data.length > 0 ? data[0] : {}
+}
+
+applicationSettings.shouldSendRejectionEmail = async () => {
+  const settings = await applicationSettings.getApplicationSettings()
+  let isServicesActivated = false
+  let isRejectedPrefered = false
+  if (settings.length > 0 && settings[0]["emailNotification"] == 1) {
+    isServicesActivated = true
+  }
+
+  const rejectionPreference = await applicationSettings.getEmailPreference()
+  if (rejectionPreference.length && rejectionPreference?.rejection == "Yes") {
+    isRejectedPrefered = true
+  }
+  if (isRejectedPrefered && isServicesActivated) return true
+  else return false
 }
 
 applicationSettings.updateApplicationSettings = async function (request, response) {
