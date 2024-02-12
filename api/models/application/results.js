@@ -1,5 +1,5 @@
 const ApplicationSettings = require("./settings")
-
+const { responseError } = require("../../../helper")
 class ResultSettings extends ApplicationSettings {
   constructor(id) {
     super(id)

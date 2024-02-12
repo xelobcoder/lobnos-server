@@ -1,4 +1,4 @@
-const { customError } = require("../../../helper")
+const { customError, promisifyQuery, responseError } = require("../../../helper")
 const logger = require("../../../logger")
 
 class ApplicationSettings {
@@ -17,11 +17,17 @@ class ApplicationSettings {
       }
     } catch (err) {
       logger.error(err)
+      responseError(response)
     }
   }
 
   async getEmailPreference() {
-    const data = await database_queries.getsingleid(1, "emailpreference", "id")
+    let data = await database_queries.getsingleid(1, "emailpreference", "id")
+    if (data.length > 0) {
+      delete data[0]["id"]
+      delete data[0]["updated_on"]
+      delete data[0]["created_on"]
+    }
     return data.length > 0 ? data[0] : {}
   }
 
@@ -41,7 +47,7 @@ class ApplicationSettings {
     else return false
   }
 
-  async updateApplicationSettings() {
+  async updateApplicationSettings(request,response) {
     const {
       bulkregistration,
       emailNotification,
@@ -104,7 +110,7 @@ class ApplicationSettings {
     }
   }
 
-  async updatePreference(request, response) {
+  async updateEmailPreference(request, response) {
     const { registration, rejection, result, approval, transactions, birthday, billing } = request.body
     // truncate the table
     const truncate = await promisifyQuery(`TRUNCATE TABLE emailpreference`)
@@ -126,7 +132,18 @@ class ApplicationSettings {
       customError(err?.message, 500, response)
     }
   }
-  async getGeneralEmailSettings(records) {
+  async getGeneralEmailSettings() {
+    try {
+      const query = `SELECT * FROM generalemailsettings`
+      return await promisifyQuery(query)
+    } catch (err) {
+      logger.error(err)
+      throw new Error(err)
+    }
+  }
+
+  async updateGeneralEmailSettings(records) {
+    console.log(records)
     if (typeof records != "object") return false
     // first truncate the table
     const truncate = `TRUNCATE TABLE generalemailsettings`
@@ -137,5 +154,4 @@ class ApplicationSettings {
   }
 }
 
-
-module.exports = ApplicationSettings;
+module.exports = ApplicationSettings
