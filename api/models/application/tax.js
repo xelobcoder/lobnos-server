@@ -1,3 +1,4 @@
+const { rowAffected } = require("../../../helper")
 const ApplicationSettings = require("./settings")
 
 class Tax extends ApplicationSettings {
@@ -7,30 +8,26 @@ class Tax extends ApplicationSettings {
 
   async addTax(request, response) {
     const { value, name } = request.body
-    if (value && name) {
-      try {
-        // check if tax name exist
-        const isExist = `SELECT * FROM tax WHERE name = ?`
-        const existCount = await promisifyQuery(isExist, name)
+    if (!name || !value) return customError("name and value required", 401, response)
+    try {
+      // check if tax name exist
+      const isExist = `SELECT * FROM tax WHERE name = ?`
+      const existCount = await promisifyQuery(isExist, name)
 
-        if (Array.isArray(existCount) && existCount.length > 0) {
-          response.send({ message: "tax with such name availble", status: "success", statusCode: 406 })
-        } else {
-          const query = `INSERT INTO tax (name,value) VALUES (?,?)`
-          let result = await promisifyQuery(query, [name, value])
-          const { affectedRows } = result
-          response.send({
-            message: affectedRows > 0 ? "tax added successfully" : "Error inserting new tax",
-            status: "success",
-            statusCode: 200,
-          })
-        }
-      } catch (err) {
-        logger.error(err)
-        customError(`error occured`, 500, response)
+      if (Array.isArray(existCount) && existCount.length > 0) {
+        response.send({ message: "tax with such name availble", status: "success", statusCode: 406 })
+      } else {
+        const query = `INSERT INTO tax (name,value) VALUES (?,?)`
+        let result = await promisifyQuery(query, [name, value])
+        response.send({
+          message: rowAffected(result) ? "tax added successfully" : "Error inserting new tax",
+          status: "success",
+          statusCode: 200,
+        })
       }
-    } else {
-      customError("name and value required", 401, response)
+    } catch (err) {
+      logger.error(err)
+      customError(`error occured`, 500, response)
     }
   }
 
@@ -91,8 +88,7 @@ class Tax extends ApplicationSettings {
       logger.error(err)
       responseError(response)
     }
-  }    
+  }
 }
 
-
-module.exports = Tax;
+module.exports = Tax
