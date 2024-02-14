@@ -25,3 +25,35 @@
 {"level":"error"}
 {"level":"error"}
 {"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO semenAnalysis\n        (collectionDate,collectionTime,liquefactionTime,abstinence,colour,quantity,consistency,ph,fructose,spermcount,\n        motility,motilityGrade,morphology,pusCells,epithelialCells,rbcs,impression,billingid,patientid)\n        VALUES ('2021-01-01','16:53','30 mins','3 days','Greyish white','3.5 ml','Viscous','7.2','Positive','60 million/ml','60%','Grade 3','Normal','absent','present','absent','Normal semen analysis','306','1704453099655')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO semenAnalysis\n        (collectionDate,collectionTime,liquefactionTime,abstinence,colour,quantity,consistency,ph,fructose,spermcount,\n        motility,motilityGrade,morphology,pusCells,epithelialCells,rbcs,impression,billingid,patientid)\n        VALUES ('2021-01-01','16:53','30 mins','3 days','Greyish white','3.5 ml','Viscous','7.2','Positive','60 million/ml','60%','Grade 3','Normal','absent','present','absent','Normal semen analysis','306','1704453099655')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"code":"ER_DUP_ENTRY","errno":1062,"index":0,"level":"error","sql":"INSERT INTO semenAnalysis\n        (collectionDate,collectionTime,liquefactionTime,abstinence,colour,quantity,consistency,ph,fructose,spermcount,\n        motility,motilityGrade,morphology,pusCells,epithelialCells,rbcs,impression,billingid,patientid)\n        VALUES ('2021-01-01','16:53','30 mins','3 days','Greyish white','3.5 ml','Viscous','7.2','Positive','60 million/ml','60%','Grade II(non-progressive motility)','Normal','absent','present','absent','Normal semen analysis','306','1704453099655')\n        ","sqlMessage":"Duplicate entry '0' for key 'PRIMARY'","sqlState":"23000"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}
+{"level":"error","message":"Test not recognized or scripted for!!"}

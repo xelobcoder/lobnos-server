@@ -38,9 +38,9 @@ router.get('/api/v1/phelobotomy/ascension', function (request, response) {
     getAscensionWithDetails(billingid,state, response)
   } else {
     response.send({
-      message: 'include billingid and state in the header as a query',
+      message: "include billingid and state in the header as a query",
       statusCode: 401,
-      status: 'error'
+      status: "error",
     })
   }
 })

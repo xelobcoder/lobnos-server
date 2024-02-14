@@ -10,4 +10,9 @@ module.exports = {
       cluster.fork()
     }
   },
+  logRequest: async function (request, response, next) {
+    next()
+    const origin = request.headers.origin
+    console.log(`${new Date()} referer: ${origin} ${request.method}  ${request.baseUrl} ${request.url.split("?")[0]}`)
+  },
 }

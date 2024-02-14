@@ -205,25 +205,21 @@ const sampleAssesment = async function (req, res) {
             INNER JOIN samplestatus AS ss ON ss.testid = t.testid
           WHERE t.billingid = ?
             AND t.collection = 'true'
-            AND ss.approvalstatus = 0
+            AND ss.approvalstatus IS NULL
             AND ss.rejectionmessage IS NULL
             AND t.collection_date IS NOT NULL
          GROUP BY t.testid
-`;
+`
 
     try {
-      let result = await promisifyQuery(statement, billingid);
+      let result = await promisifyQuery(statement, billingid)
       if (result.length > 0 && Array.isArray(result)) {
-        result = result.map((item, index) => {
-          return convertKeysToLowerCase(item);
-        })
+        result = result.map((item, index) => convertKeysToLowerCase(item))
       }
-      res.send({ message: 'success', statusCode: 200, result, status: 'success' });
-    }
-    catch (err) {
-      logger.error(err);
-      console.log(err)
-      customError('error fetching data', 500, res);
+      res.send({ message: "success", statusCode: 200, result, status: "success" })
+    } catch (err) {
+      logger.error(err)
+      customError("error fetching data", 500, res)
     }
   }
 }

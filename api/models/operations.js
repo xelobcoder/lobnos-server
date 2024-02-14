@@ -1,7 +1,7 @@
 // 1. Get the category of the request
 // 2. Get all unprocessed samples based on the category, limit by 50 samples at ago
 // 3. We want to monitor for a pactiular billing, when the test was started, when it was completed, and the result
-const { customError, promisifyQuery } = require("../../helper")
+const { customError, promisifyQuery, paginationQuery } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
 
@@ -81,39 +81,42 @@ class Operations {
     let queryString = `
         SELECT 
           CASE 
-            WHEN MIDDLENAME IS NULL THEN CONCAT(
-              np.FIRSTNAME,
+            WHEN np.middlename IS NULL THEN CONCAT(
+              np.middlename,
               ' ',
-              np.LASTNAME
-            )  ELSE CONCAT(  np.FIRSTNAME,
+              np.lastname
+            )  ELSE CONCAT(  np.firstname,
               ' ',
-              np.MIDDLENAME,
+              np.middlename,
               ' ',
-              np.LASTNAME) END AS FULLNAME,
-          np.PATIENTID,
-          b.BILLINGID,
-          tp.CATEGORY
+              np.lastname) END AS FULLNAME,
+          np.patientid,
+          b.billingid,
+          tp.category
         FROM new_patients as np
-          INNER JOIN billing as b ON np.PATIENTID = b.PATIENTID
-          INNER JOIN samplestatus AS ss ON ss.billingid = b.BILLINGID
+          INNER JOIN billing as b ON np.patientid = b.PATIENTID
           INNER JOIN test_ascension AS ta ON ta.billingid = b.BILLINGID
+          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
           INNER JOIN test_panels AS tp ON tp.ID = ss.testid
-          INNER JOIN departments AS d ON d.ID = tp.CATEGORY
+          INNER JOIN departments AS d ON d.ID = tp.category
         WHERE ss.approvalstatus = 1 AND DATE(b.billedon) = CURRENT_DATE
     `
     if (category != "all") {
-      console.log(category)
       queryString += ` AND tp.CATEGORY = ${category}`
     }
 
-    queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound' ORDER BY b.billingid ASC LIMIT 20`
+    queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound' 
+    GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT 20`
 
     return await promisifyQuery(queryString)
   }
 
   initiateStart = async (testid, billingid) => {
     // update test ascension table with the testid, datetime and the billing id
-    const queryString = `UPDATE test_ascension SET processing_date = NOW(),processing = 'true'  WHERE billingid = ${billingid} AND testid = ${testid}`
+    const queryString = `UPDATE test_ascension SET processing_date = NOW(),
+    processing = 'true'  WHERE billingid = ? AND testid = ?`
+
+    // return await promisifyQuery(queryString, [billingid, testid]);
 
     return new Promise((resolve, reject) => {
       connection.query(queryString, (err, result) => {
@@ -134,13 +137,53 @@ class Operations {
     })
   }
 
+  async getAllPendingCases(count, page, response) {
+    const query = `SELECT DISTINCT CASE 
+        WHEN middlename IS NULL THEN CONCAT(
+             np.firstname,' ',np.lastname)
+            ELSE
+             CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) END AS fullname,
+            CONCAT(np.age," ",np.agetype) AS age,
+            np.patientid,
+            b.billingid ,
+            tp.category,
+            d.department,
+            tp.name,
+            b.clinician,
+            ss.approvalstatus,
+            ta.ready,
+            ta.processing,
+            tp.id,
+            b.clientstatus,
+            b.organization,
+            CASE WHEN b.clinician <> 0 THEN
+             (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
+            END AS clinicianName
+        FROM new_patients as np
+          INNER JOIN billing as b ON np.patientid = b.patientid
+          INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+          INNER JOIN test_panels AS tp ON tp.id = ss.testid
+          INNER JOIN departments AS d ON d.id = tp.category 
+          WHERE ss.approvalstatus = 1 AND ta.collection = 'true'
+          ORDER BY b.billingid DESC
+        LIMIT ? OFFSET ?`
+
+    const result = await paginationQuery({ count, page }, query)
+
+    if (response) {
+      response.send({ status: "success", result, statusCode: 200 })
+    } else {
+      return result
+    }
+  }
+
   operationsOverview = async function (request, response) {
     const { stage } = request.query
 
     if (!stage) {
       customError("stage of tests required", 401)
     } else {
-     
       let queryString = `
           SELECT COUNT(*) AS count, d.department,d.id AS departmentid from test_ascension AS ta
           INNER JOIN test_panels AS tp ON tp.id = ta.testid

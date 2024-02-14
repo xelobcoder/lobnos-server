@@ -35,22 +35,10 @@ const wastagesRouter = require("./api/controllers/Inventory/wastages");
 const inventoryDepartmentRouter = require("./api/controllers/Inventory/departments")
 const logger = require("./logger")
 const cors = require("cors")
-
-// if (cluster.isMaster) {
-//   console.log(`Master ${process.pid} is running`);
-//   // Fork workers.
-//   for (let i = 1; i < os.cpus().length; i++) {
-//     cluster.fork();
-//   }
-// } else {
-//   console.log(`Worker ${process.pid} started`);
-//   app.listen(port, () => {
-//     console.log(`listening at http://localhost:${port}`);
-//   });
-// }
+const configuration = require("./helpers/configuration")
 
 app.listen(port, () => {
-  console.log(`listening at http://localhost:${port}`)
+  console.log(`listening at port ${port}`)
 })
 
 const { promisifyQuery, customError, responseError } = require("./helper")
@@ -73,7 +61,9 @@ app.use(express.urlencoded({ extended: true }))
 // })
 
 // api endpoints
-
+app.use((req, res, next) => {
+  configuration.logRequest(req, res, next);
+})
 app.use(Manager)
 app.use(organizationRouter)
 app.use(emailRouterController)
@@ -96,6 +86,7 @@ app.use(patientAnalytics)
 app.use(WarehouseRouter)
 app.use(wastagesRouter)
 app.use(inventoryDepartmentRouter)
+
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" })

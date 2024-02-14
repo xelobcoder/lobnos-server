@@ -85,6 +85,10 @@ router.get('/api/v1/operations/test/result', async function (request, response) 
   await new Operations().getAllTestPreview(request, response)
 })
 
+router.get("/api/v1/operation/pendingcases/all", async function (request, response) {
+  const { count = 10, page = 1 } = request.query;
+  await new Operations().getAllPendingCases(count, page, response);
+})
 
 router.get('/api/v1/operations/imaging/ultrasound', async function (request, response) {
   await new Operations().getUltrasoundWaitingList(request, response)

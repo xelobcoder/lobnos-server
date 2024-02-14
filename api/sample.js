@@ -23,7 +23,7 @@ class SampleHandler {
         FROM billing AS b INNER JOIN  new_patients as np ON np.PATIENTID = b.PATIENTID
           INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
       INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-          WHERE ss.approvalstatus = 0 AND ss.rejectionmessage IS NULL AND ta.collection = 'true'
+          WHERE ss.approvalstatus IS NULL AND ss.rejectionmessage IS NULL AND ta.collection = 'true'
           GROUP BY b.BILLINGID ORDER BY b.BILLINGID LIMIT ? OFFSET ?`
     try {
       let result = await paginationQuery({ count, page }, SQL_QUERY)

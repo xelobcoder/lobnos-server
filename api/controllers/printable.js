@@ -67,6 +67,8 @@ router.post("/api/v1/billing/client/clear/outstandingdebt", async function (requ
   const result = await payment.clearClientDebtBulk(patientid, amountpaid, paymentmode, employeeid)
   if (result === true) {
     response.send({ message: "updated successfully", status: "success", statusCode: "200" })
+  } else if (result == "No Exist") {
+    response.send({ message: "No debt available to clear", status: "error", statusCode: "500" })
   } else {
     response.send({ message: "updated failed", status: "failed", statusCode: "500" })
   }

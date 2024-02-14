@@ -1,4 +1,5 @@
-const { customError, promisifyQuery, paginationQuery } = require("../../helper")
+const { response } = require("express")
+const { customError, promisifyQuery, paginationQuery, rowAffected, responseError } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
 
@@ -54,12 +55,12 @@ class Payment {
       }
 
       modelQuery += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `
-     
+
       const result = await paginationQuery({ count, page }, modelQuery, values)
 
       return result
     } catch (err) {
-      logger.error(err);
+      logger.error(err)
       throw new Error(err)
     }
   }
@@ -120,39 +121,62 @@ class Payment {
     return promisifyQuery(model, [billingid, payment, amount, employeeid])
   }
 
-  clearClientDebtBulk = async (patientid, amount, pymode,employeeid) => {
-    if (!patientid) {
-      return `billingid is required`
-    } else {
-      let debts = await this.allClientDebtTransactions(patientid)
-      // updating single transaction one by one
-      let target = debts.length
-      let current = 0
-      let balance = amount
-      while (current < target && balance > 0) {
-        const { outstanding, paid, payable, discount, billingid } = debts[0]
-        if (balance >= outstanding) {
-          // update single
-          // subtract outstanding from balance
-          // compare balance with the next outstanding
-          // break loop if outstanding is greater than the balance
-          await this.updateSingleTransactionDebt(billingid, payable, 0)
-          await this.updateTransactionHx(billingid, pymode, outstanding,employeeid)
-          balance = balance - outstanding
-          current++
-        }
+  clearClientDebtBulk = async (patientid, amount, pymode, employeeid) => {
+    try {
+      if (!patientid) {
+        return `billingid is required`
+      } else {
+        let debts = await this.allClientDebtTransactions(patientid)
 
-        if (balance < outstanding && balance > 0) {
-          // new outstanding;
-          const paidAmout = parseInt(paid) + balance
-          const nwOutstanding = parseInt(payable) - (parseInt(discount) + parseInt(paid) + parseInt(balance))
-          await this.updateSingleTransactionDebt(billingid, paidAmout, nwOutstanding,employeeid)
-          await this.updateTransactionHx(billingid, pymode, balance,employeeid)
-          balance = 0
-          current++
+        if (debts.length === 0) return "No Exist"
+
+        const totalDebt = debts.reduce((a, b) => {
+          return a + b.outstanding
+        }, 0)
+
+        if (totalDebt === amount) {
+          const result = await Promise.all(
+            debts.map(async (item, index) => {
+              const { outstanding, paid, payable, discount, billingid } = item
+              const dd = rowAffected(await this.updateSingleTransactionDebt(billingid, payable, 0))
+              const tt = rowAffected(await this.updateTransactionHx(billingid, pymode, outstanding, employeeid))
+              return dd && tt
+            })
+          )
+          return result.some((a, b) => a == false) ? false : true;
+        } else {
+          // // updating single transaction one by one
+          let target = debts.length
+          let current = 0
+          let balance = amount
+          while (current <= target && balance > 0) {
+            const { outstanding, paid, payable, discount, billingid } = debts[current]
+            if (balance >= outstanding) {
+              // update single
+              // subtract outstanding from balance
+              // compare balance with the next outstanding
+              // break loop if outstanding is greater than the balance
+              await this.updateSingleTransactionDebt(billingid, payable, 0)
+              await this.updateTransactionHx(billingid, pymode, outstanding, employeeid)
+              balance = balance - outstanding
+              console.log(balance, "te")
+              current++
+            } else {
+              // new outstanding;
+              const paidAmout = parseInt(paid) + balance
+              const nwOutstanding = parseInt(payable) - (parseInt(discount) + parseInt(paid) + parseInt(balance))
+              await this.updateSingleTransactionDebt(billingid, paidAmout, nwOutstanding, employeeid)
+              await this.updateTransactionHx(billingid, pymode, balance, employeeid)
+              console.log(balance, "t")
+              balance = 0
+              current++
+            }
+          }
+          return balance === 0 ? true : false
         }
       }
-      return balance === 0 ? true : false
+    } catch (err) {
+      responseError(response)
     }
   }
   updatePayment = async (request, response) => {
