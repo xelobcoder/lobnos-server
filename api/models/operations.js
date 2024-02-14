@@ -314,23 +314,25 @@ class Operations {
             ' ',
             np.MIDDLENAME,
             ' ',
-            np.LASTNAME) END AS FULLNAME,
-    np.PATIENTID,
-    pt.BILLINGID,
-    pt.DATE,
-    tp.NAME,
-    tp.ID AS TESTID,
-    tp.CATEGORY,d.department
+            np.LASTNAME) END AS fullname,
+    np.patientid,
+    b.billingid,
+    b.billedon,
+    tp.name,
+    tp.ID AS testid,
+    tp.category,
+    d.department
   FROM new_patients as np
-    INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
-    INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
-    INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
-    INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+    INNER JOIN billing as b ON np.PATIENTID = b.patientid
+    INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+    INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+    INNER JOIN test_panels AS tp ON tp.ID = ta.testid
     INNER JOIN departments AS d ON d.ID = tp.CATEGORY
-  WHERE ta.ready = 'false' AND d.department = 'ultrasound'`
+  WHERE  d.department = 'ultrasound'`
     connection.query(queryString, (err, result) => {
       if (err) {
-        customError(err.message, 500)
+        console.log(err)
+        customError(err.message, 500,response)
       } else {
         response.send({
           statusCode: 200,
@@ -343,7 +345,8 @@ class Operations {
 
   async processedScanList(request, response) {
     const { from, to, search } = request.query
-    let query = `  SELECT DISTINCT
+    let query = `
+    SELECT DISTINCT
     CASE 
         WHEN MIDDLENAME IS NULL THEN CONCAT(
             np.FIRSTNAME,
@@ -353,26 +356,28 @@ class Operations {
             ' ',
             np.MIDDLENAME,
             ' ',
-            np.LASTNAME) END AS FULLNAME,
-    np.PATIENTID,
-    pt.BILLINGID,
-    pt.DATE,
+            np.LASTNAME) END AS fullname,
+    np.patientid,
+    b.billingid,
+    b.billedon,
+    tp.name,
+    tp.ID AS testid,
+    tp.category,
     ta.ready,
-    tp.NAME,
-    tp.ID AS TESTID,
-    tp.CATEGORY,d.department
+    d.department
   FROM new_patients as np
-    INNER JOIN performing_test as pt ON np.PATIENTID = pt.PATIENTID
-    INNER JOIN samplestatus AS ss ON ss.billingid = pt.BILLINGID
-    INNER JOIN test_ascension AS ta ON ta.billingid = pt.BILLINGID
-    INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+    INNER JOIN billing as b ON np.PATIENTID = b.patientid
+    INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+    INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+    INNER JOIN test_panels AS tp ON tp.ID = ta.testid
     INNER JOIN departments AS d ON d.ID = tp.CATEGORY
-  WHERE ta.ready = 'true' AND d.department = 'ultrasound'`
+  WHERE  d.department = 'ultrasound' AND ta.ready ='true'
+    `
 
     if (from && to) {
-      query += ` AND pt.DATE BETWEEN '${from}' AND '${to}'`
+      query += ` AND DATE(b.billedon) BETWEEN '${from}' AND '${to}'`
     } else if (from && !to) {
-      query += `  AND pt.DATE BETWEEN '${from}' AND CURRENT_DATE`
+      query += `  AND DATE(b.billedon) BETWEEN '${from}' AND CURRENT_DATE`
     } else {
       query = query
     }
@@ -383,7 +388,7 @@ class Operations {
       OR np.MOBILE_NUMBER ='%${search}')`
     }
     if (!from && !to) {
-      query += ` GROUP BY pt.BILLINGID ORDER BY pt.BILLINGID DESC LIMIT 15`
+      query += ` GROUP BY b.BILLINGID ORDER BY b.BILLINGID DESC LIMIT 30`
     }
 
     connection.query(query, (err, result) => {

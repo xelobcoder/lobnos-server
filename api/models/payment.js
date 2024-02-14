@@ -61,7 +61,7 @@ class Payment {
       }
 
       const result = await paginationQuery({ count, page }, modelQuery, values)
-      
+
       return result
     } catch (err) {
       logger.error(err)
@@ -187,53 +187,37 @@ class Payment {
     // get the current billing billinfo
     // update the record and update the database
     const { billingid, outstanding, pay, paymentMode } = request.body
-    const getQuery = `SELECT * FROM BILLING WHERE BILLINGID = ${billingid}`
-    connection.query(getQuery, function (err, result) {
-      if (err) {
-        logger.error(err)
-      }
-      if (result) {
-        if (result.length > 0) {
-          const previousPayment = result[0]["PAID_AMOUNT"]
-          const discount = result[0]["DISCOUNT"]
-          const oldstanding = result[0]["OUTSTANDING"]
-          if (oldstanding <= 0) {
-            response.send({ status: "success", statusCode: 200, message: "Client is in good standing" })
-          } else {
-            const newAmount = previousPayment + parseInt(pay)
-            const nOutstanding = result[0]["PAYABLE"] - newAmount - discount
-            const updateQuery = `UPDATE BILLING 
-							SET OUTSTANDING = ?,
-							PAID_AMOUNT = ?
-							WHERE BILLINGID = ?
-							`
-            const values = [nOutstanding, newAmount, billingid]
-            connection.query(updateQuery, values, function (err, result) {
-              if (err) {
-                logger.error(err)
-              } else {
-                // update paymentHx to have a transaction hx of the client in terms of that billingid
-                const { affectedRows } = result
-                if (affectedRows == 1) {
-                  const updateHxQuery = `INSERT INTO billingHx (BILLINGID,paymentmode,amount) VALUES (?,?,?)`
-                  connection.query(updateHxQuery, [billingid, paymentMode, pay], (err, result) => {
-                    if (err) {
-                      logger.error(err)
-                    } else {
-                      response.send({
-                        message: "Payment update successfully",
-                        status: "success",
-                        statusCode: 200,
-                      })
-                    }
-                  })
-                }
-              }
-            })
-          }
+    const result = await promisifyQuery(`SELECT * FROM BILLING WHERE billingid = ?`, [billingid])
+    if (result.length > 0) {
+      const previousPayment = result[0]["paid_amount"]
+      const discount = result[0]["discount"]
+      const oldstanding = result[0]["outstanding"]
+      if (oldstanding <= 0) {
+        response.send({ status: "success", statusCode: 200, message: "Client is in good standing" })
+      } else {
+        const newAmount = previousPayment + parseInt(pay)
+        const notoutstanding = result[0]["payable"] - newAmount - discount
+        const updateQuery = `UPDATE BILLING 
+          SET outstanding = ?,
+          paid_amount = ?
+          WHERE billingid = ?
+          `
+        const values = [notoutstanding, newAmount, billingid]
+
+        const updateInfo = await promisifyQuery(updateQuery, values)
+
+        if (rowAffected(updateInfo)) {
+          const inserted = await promisifyQuery(`INSERT INTO billingHx (BILLINGID,paymentmode,amount) VALUES (?,?,?)`, [
+            billingid,
+            paymentMode,
+            pay,
+          ])
+          rowAffected(inserted) && response.send({ message: "Payment update successfully", statusCode: 200, status: "success" })
         }
       }
-    })
+    } else {
+      customError("No such transaction found", 404, response)
+    }
   }
   paymentMode = async (request, response) => {
     try {
