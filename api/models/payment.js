@@ -54,10 +54,14 @@ class Payment {
         modelQuery = modelQuery
       }
 
-      modelQuery += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `
+      if (from || patientid) {
+        modelQuery += ` ORDER BY b.billingid ASC LIMIT ? OFFSET ? `
+      } else {
+        modelQuery += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `
+      }
 
       const result = await paginationQuery({ count, page }, modelQuery, values)
-
+      
       return result
     } catch (err) {
       logger.error(err)
@@ -137,13 +141,13 @@ class Payment {
         if (totalDebt === amount) {
           const result = await Promise.all(
             debts.map(async (item, index) => {
-              const { outstanding, paid, payable, discount, billingid } = item
+              const { outstanding, payable, billingid } = item
               const dd = rowAffected(await this.updateSingleTransactionDebt(billingid, payable, 0))
               const tt = rowAffected(await this.updateTransactionHx(billingid, pymode, outstanding, employeeid))
               return dd && tt
             })
           )
-          return result.some((a, b) => a == false) ? false : true;
+          return result.some((a, b) => a == false) ? false : true
         } else {
           // // updating single transaction one by one
           let target = debts.length

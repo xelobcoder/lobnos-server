@@ -145,10 +145,10 @@ class Billing {
 
   async insertionProcess(request, response, employeeid) {
     try {
-      // const valid = await this.isValidForDayEntry(this.patientid)
-      // if (!valid) {
-      //   return `client billed on same day. Kindly check the billing history to update billing`
-      // }
+      const valid = await this.isValidForDayEntry(this.patientid)
+      if (!valid) {
+        return `client billed on same day. Kindly check the billing history to update billing`
+      }
       connection.beginTransaction(async (err) => {
         if (err) {
           logger.error(err)
