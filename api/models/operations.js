@@ -1,7 +1,7 @@
 // 1. Get the category of the request
 // 2. Get all unprocessed samples based on the category, limit by 50 samples at ago
 // 3. We want to monitor for a pactiular billing, when the test was started, when it was completed, and the result
-const { customError, promisifyQuery, paginationQuery } = require("../../helper")
+const { customError, promisifyQuery, paginationQuery, responseError } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
 
@@ -332,7 +332,7 @@ class Operations {
     connection.query(queryString, (err, result) => {
       if (err) {
         console.log(err)
-        customError(err.message, 500,response)
+        customError(err.message, 500, response)
       } else {
         response.send({
           statusCode: 200,
@@ -344,65 +344,67 @@ class Operations {
   }
 
   async processedScanList(request, response) {
-    const { from, to, search } = request.query
-    let query = `
-    SELECT DISTINCT
-    CASE 
-        WHEN MIDDLENAME IS NULL THEN CONCAT(
-            np.FIRSTNAME,
-            ' ',
-            np.LASTNAME
-          )  ELSE CONCAT(  np.FIRSTNAME,
-            ' ',
-            np.MIDDLENAME,
-            ' ',
-            np.LASTNAME) END AS fullname,
-    np.patientid,
-    b.billingid,
-    b.billedon,
-    tp.name,
-    tp.ID AS testid,
-    tp.category,
-    ta.ready,
-    d.department
-  FROM new_patients as np
-    INNER JOIN billing as b ON np.PATIENTID = b.patientid
-    INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
-    INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-    INNER JOIN test_panels AS tp ON tp.ID = ta.testid
-    INNER JOIN departments AS d ON d.ID = tp.CATEGORY
-  WHERE  d.department = 'ultrasound' AND ta.ready ='true'
-    `
-
-    if (from && to) {
-      query += ` AND DATE(b.billedon) BETWEEN '${from}' AND '${to}'`
-    } else if (from && !to) {
-      query += `  AND DATE(b.billedon) BETWEEN '${from}' AND CURRENT_DATE`
-    } else {
-      query = query
-    }
-
-    if (search) {
-      query += ` AND (np.FIRSTNAME LIKE '%${search}' 
-      OR np.LASTNAME LIKE '%${search}' 
-      OR np.MOBILE_NUMBER ='%${search}')`
-    }
-    if (!from && !to) {
-      query += ` GROUP BY b.BILLINGID ORDER BY b.BILLINGID DESC LIMIT 30`
-    }
-
-    connection.query(query, (err, result) => {
-      if (err) {
-        logger.error(err)
-        customError(err.message, 500)
+    try {
+      const { count = 10, page = 1 } = request.query
+      const { from, to, search } = request.query
+      let query = `
+      SELECT DISTINCT
+      CASE 
+          WHEN MIDDLENAME IS NULL THEN CONCAT(
+              np.FIRSTNAME,
+              ' ',
+              np.LASTNAME
+            )  ELSE CONCAT(  np.FIRSTNAME,
+              ' ',
+              np.MIDDLENAME,
+              ' ',
+              np.LASTNAME) END AS fullname,
+      np.patientid,
+      b.billingid,
+      b.billedon,
+      tp.name,
+      tp.ID AS testid,
+      tp.category,
+      ta.ready,
+      d.department
+    FROM new_patients as np
+      INNER JOIN billing as b ON np.PATIENTID = b.patientid
+      INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+      INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+      INNER JOIN test_panels AS tp ON tp.ID = ta.testid
+      INNER JOIN departments AS d ON d.ID = tp.CATEGORY
+    WHERE  d.department = 'ultrasound' AND ta.ready ='true'
+      `
+      const values = []
+      if (from && to) {
+        query += ` AND DATE(b.billedon) BETWEEN ? AND ?`
+        values.push(`${from}`)
+        values.push(`${to}`)
+      } else if (from && !to) {
+        query += `  AND DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`
+        values.push(`${from}`)
       } else {
-        response.send({
-          statusCode: 200,
-          result,
-          status: "success",
-        })
+        query = query
       }
-    })
+
+      if (search) {
+        query += ` AND (CONCAT(np.firstname," ",np.middlename," ",np.lastname) LIKE ? 
+        OR np.MOBILE_NUMBER = ?)`
+        values.push(`%${search}%`);
+        values.push(search)
+      }
+      if (!from && !to) {
+        query += ` ORDER BY b.BILLINGID ASC  LIMIT ? OFFSET ?`
+      }
+      console.log(values)
+
+      const result = await paginationQuery({ count, page }, query, values)
+
+      response.send({ result, statusCode: 200, status: "success" })
+    } catch (err) {
+      console.log(err)
+      responseError(response)
+    }
   }
 }
 
