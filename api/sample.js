@@ -167,6 +167,7 @@ class SampleHandler {
     return { message, date, billingid }
   }
   async getRejectedSamplesList(request, response) {
+    const { count = 10, page = 1 } = request.query
     const SQL_QUERY = `
     SELECT 
            b.billingid,
@@ -184,7 +185,7 @@ class SampleHandler {
             tp.NAME,
             ss.testid,
             ss.samplevalidatedon,
-            ss.validatedby,
+            ro.username AS validatedBy,
             ta.collection_date,
             CASE
               WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, " ", np.LASTNAME)
@@ -195,10 +196,11 @@ class SampleHandler {
           INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
           INNER JOIN test_ascension AS ta ON ta.id = ss.ascensionid
           INNER JOIN test_panels AS tp ON tp.ID = ss.testid
-          WHERE ss.approvalstatus = 0 AND ta.collection = 'true'
+          INNER JOIN roles AS ro ON ro.employeeid = ss.validatedby
+          WHERE ss.approvalstatus = 0 AND ta.collection = 'true' LIMIT ? OFFSET ?
     `
     try {
-      let result = await promisifyQuery(SQL_QUERY)
+      let result = await paginationQuery({ count, page }, SQL_QUERY)
       if (result.length > 0 && Array.isArray(result)) {
         result = result.map((item, index) => {
           return convertKeysToLowerCase(item)

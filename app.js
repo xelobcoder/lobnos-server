@@ -162,8 +162,9 @@ app.put("/api/v1/billing", function (request, response) {
 // sample api endpoint
 
 app.get("/api/v1/sample", function (request, response) {
+  const { count, page } = request.query
   let sampleHandle = new SampleHandler(request, response)
-  sampleHandle.getCollectedSamples()
+  sampleHandle.getCollectedSamples(count, page)
 })
 
 app.put("/api/v1/sample", function (request, response) {

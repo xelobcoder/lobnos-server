@@ -2,33 +2,32 @@ const { response } = require("express");
 const connection = require("./db");
 const { rejectedSample } = require("./models/rejected");
 const logger = require("../logger");
-const { promisifyQuery, customError, convertKeysToLowerCase } = require("../helper");
-
+const { promisifyQuery, customError, convertKeysToLowerCase, paginationQuery } = require("../helper")
 
 let filteredTest_in_date = function (test, res) {
   // check if array
-  const isArray = Array.isArray(test) ? true : false;
+  const isArray = Array.isArray(test) ? true : false
   // check is empty or not
 
-  const isEmpty = test.length == 0 ? true : false;
+  const isEmpty = test.length == 0 ? true : false
 
   if (isArray && !isEmpty) {
-    let today = new Date();
+    let today = new Date()
 
     let filtereddate = test.filter(function (item) {
       // filter today from test array
-      let date = new Date(item.DATE);
-      return date.getDate() == today.getDate() && date.getMonth() == today.getMonth() && date.getFullYear() == today.getFullYear();
+      let date = new Date(item.DATE)
+      return date.getDate() == today.getDate() && date.getMonth() == today.getMonth() && date.getFullYear() == today.getFullYear()
     })
 
-    res.send(filtereddate);
-  }
-  else {
-    res.send(test);
+    res.send(filtereddate)
+  } else {
+    res.send(test)
   }
 }
 
 const getPhelobotomy = async (req, res) => {
+  const { count = 10, page = 1 } = req.query
   let myquery = `
         SELECT
           CASE
@@ -47,17 +46,15 @@ const getPhelobotomy = async (req, res) => {
       INNER JOIN test_ascension AS ts ON b.billingid = ts.billingid
       WHERE ts.collection = 'false'
       GROUP BY b.billingid
-      ORDER BY b.billingid DESC
-      LIMIT 20
-  `;
+      ORDER BY b.billingid ASC LIMIT ? OFFSET ?;
+  `
   try {
-    let result = await promisifyQuery(myquery);
-    res.send({ message: 'success', statusCode: 200, result, status: 'success' });
+    let result = await paginationQuery({ count, page }, myquery)
+    res.send({ message: "success", statusCode: 200, result, status: "success" })
   } catch (err) {
-    customError(`error fetching data`, 500, res);
-    logger.error(err);
+    customError(`error fetching data`, 500, res)
+    logger.error(err)
   }
-
 }
 
 const get_client_query = function (req, res) {

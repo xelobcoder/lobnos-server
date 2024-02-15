@@ -329,7 +329,7 @@ class Operations {
     INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
     INNER JOIN test_panels AS tp ON tp.ID = ta.testid
     INNER JOIN departments AS d ON d.ID = tp.CATEGORY
-  WHERE  d.department = 'ultrasound' LIMIT ? OFFSET ?`
+  WHERE  d.department = 'ultrasound' AND ta.ready = 'false' LIMIT ? OFFSET ?`
 
     const result = await paginationQuery({ count, page }, queryString)
 
