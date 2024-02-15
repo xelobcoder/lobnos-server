@@ -303,6 +303,7 @@ class Operations {
   }
 
   async getUltrasoundWaitingList(request, response) {
+    const { count = 10, page = 1 } = request.query
     const queryString = ` 
     SELECT DISTINCT
     CASE 
@@ -328,19 +329,11 @@ class Operations {
     INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
     INNER JOIN test_panels AS tp ON tp.ID = ta.testid
     INNER JOIN departments AS d ON d.ID = tp.CATEGORY
-  WHERE  d.department = 'ultrasound'`
-    connection.query(queryString, (err, result) => {
-      if (err) {
-        console.log(err)
-        customError(err.message, 500, response)
-      } else {
-        response.send({
-          statusCode: 200,
-          result,
-          status: "success",
-        })
-      }
-    })
+  WHERE  d.department = 'ultrasound' LIMIT ? OFFSET ?`
+
+    const result = await paginationQuery({ count, page }, queryString)
+
+    response.send({ statusCode: 200, result, status: "success" })
   }
 
   async processedScanList(request, response) {

@@ -22,6 +22,8 @@ const rendererOptions = function (opt) {
       return "./api/views/pdfs/result/chemistry.html"
     case "syphilis":
       return "./api/views/pdfs/result/syphilis.html"
+    case "scan":
+      return "./api/views/pdfs/result/scan.html"
     default:
       return "./api/views/templates/receipt.html"
       break
@@ -208,6 +210,13 @@ class PDFGENERATION extends ResultPrint {
     return resultdata
   }
 
+  async getScanReport() {
+    if (!testCategoryMapping[this.testname]) throw new Error("scan not recognized")
+    const data = await promisifyQuery(`SELECT * FROM scanreport AS sc
+  INNER JOIN roles AS r ON r.employeeid = sc.sonographer WHERE sc.billingid = ? AND sc.testid = ?`, [this.billingid, this.testid])
+    return data
+  }
+
   async getChemistryTest() {
     if (await this.checkApproval(this.billingid, this.testid)) {
       const resulttable = this.isValidTest()
@@ -253,28 +262,43 @@ class PDFGENERATION extends ResultPrint {
 
   async generatePDFdata() {
     try {
-      const testInformation = await this.getChemistryTest()
+      let companyinfo = await getCompanyInfo()
+      companyinfo = companyinfo.length > 0 ? companyinfo[0] : {}
       let sampling = await this.getSamplingInformation(this.billingid, this.testid)
-      const companyinfo = await getCompanyInfo()
       const testname = this.testname.includes("_") ? this.testname.split("_").join(" ") : this.testname
-      let comments = await this.getComments(this.billingid, this.testid)
-      comments = comments.length > 0 ? comments[0] : {}
 
-      if (Object.keys(comments).includes("comments")) {
-        let _comments = comments["comments"]
-        comments = _comments
-      }
+      if (testCategoryMapping[this.testname] === "scan") {
+        const testInformation = await this.getScanReport()
+        const content = testInformation.length > 0 ? testInformation[0]["content"] : ""
+        const sonographer = testInformation.length > 0 ? testInformation[0]["username"] : ""
+        return {
+          companyinfo,
+          testname,
+          testInformation,
+          sampling,
+          content,
+          sonographer,
+        }
+      } else {
+        let testInformation = await this.getChemistryTest()
+        let comments = await this.getComments(this.billingid, this.testid)
+        comments = comments.length > 0 ? comments[0] : {}
 
-      let literature = await new TestSetup().getSetupLiterature(this.testname)
-      literature = literature.length > 0 ? literature[0]["literature"] : ""
+        if (Object.keys(comments).includes("comments")) {
+          let _comments = comments["comments"]
+          comments = _comments
+        }
 
-      return {
-        testname,
-        testInformation,
-        sampling,
-        comments,
-        literature,
-        companyinfo: companyinfo.length > 0 ? companyinfo[0] : {},
+        let literature = await new TestSetup().getSetupLiterature(this.testname)
+        literature = literature.length > 0 ? literature[0]["literature"] : ""
+        return {
+          testname,
+          testInformation,
+          sampling,
+          comments,
+          literature,
+          companyinfo,
+        }
       }
     } catch (err) {
       logger.error(err)

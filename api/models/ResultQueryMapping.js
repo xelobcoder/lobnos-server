@@ -73,6 +73,9 @@ const testCategoryMapping = {
   stool_analysis: "hema",
   urinalysis: "hema",
   scan: "scan",
+  abdominal_ultrasound_scan: "scan",
+  obstetrics_scan: "scan",
+  pelvic_scan: "scan",
 }
 
 module.exports = { MappingSetup, mappWithBilingid, testCategoryMapping }
