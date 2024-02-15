@@ -8,13 +8,14 @@ postSection, get_client_query, getAscensionWithDetails } = require('../pheloboto
 router.route('/api/v1/phelobotomy')
   .get(function (req, res) {
     const Keys = Object.keys(req.query).length == 0;
-    if (Keys) {
-      getPhelobotomy(req, res);
-    } else {
-      if (!Keys && req.query.billingid) {
-        get_client_query(req, res)
-      }
-    }
+    getPhelobotomy(req, res);
+    // if (Keys) {
+    //   getPhelobotomy(req, res);
+    // } else {
+    //   if (!Keys && req.query.billingid) {
+    //     get_client_query(req, res)
+    //   }
+    // }
   })
   .post(function (req, res) {
     postSection(req, res);

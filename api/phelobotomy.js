@@ -27,7 +27,7 @@ let filteredTest_in_date = function (test, res) {
 }
 
 const getPhelobotomy = async (req, res) => {
-  const { count = 10, page = 1 } = req.query
+  const { count, page } = req.query
   let myquery = `
         SELECT
           CASE
@@ -52,6 +52,7 @@ const getPhelobotomy = async (req, res) => {
     let result = await paginationQuery({ count, page }, myquery)
     res.send({ message: "success", statusCode: 200, result, status: "success" })
   } catch (err) {
+    console.log(err)
     customError(`error fetching data`, 500, res)
     logger.error(err)
   }
