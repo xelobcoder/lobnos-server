@@ -196,8 +196,9 @@ class SampleHandler {
           INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
           INNER JOIN test_ascension AS ta ON ta.id = ss.ascensionid
           INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+          INNER JOIN departments AS d ON d.id = tp.category
           INNER JOIN roles AS ro ON ro.employeeid = ss.validatedby
-          WHERE ss.approvalstatus = 0 AND ta.collection = 'true' LIMIT ? OFFSET ?
+          WHERE ss.approvalstatus = 0 AND ta.collection = 'true' AND d.department <> 'ultrasound' LIMIT ? OFFSET ?
     `
     try {
       let result = await paginationQuery({ count, page }, SQL_QUERY)

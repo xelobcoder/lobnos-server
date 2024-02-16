@@ -137,44 +137,73 @@ class Operations {
     })
   }
 
-  async getAllPendingCases(count, page, response) {
-    const query = `SELECT DISTINCT CASE 
-        WHEN middlename IS NULL THEN CONCAT(
-             np.firstname,' ',np.lastname)
-            ELSE
-             CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) END AS fullname,
-            CONCAT(np.age," ",np.agetype) AS age,
-            np.patientid,
-            b.billingid ,
-            tp.category,
-            d.department,
-            tp.name,
-            b.clinician,
-            ss.approvalstatus,
-            ta.ready,
-            ta.processing,
-            tp.id,
-            b.clientstatus,
-            b.organization,
-            CASE WHEN b.clinician <> 0 THEN
-             (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
-            END AS clinicianName
-        FROM new_patients as np
-          INNER JOIN billing as b ON np.patientid = b.patientid
-          INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
-          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-          INNER JOIN test_panels AS tp ON tp.id = ss.testid
-          INNER JOIN departments AS d ON d.id = tp.category 
-          WHERE ss.approvalstatus = 1 AND ta.collection = 'true'
-          ORDER BY b.billingid DESC
-        LIMIT ? OFFSET ?`
+  async getAllPendingCases(count, page, department, status, testid, response) {
+    try {
+      let query = `SELECT DISTINCT CASE 
+      WHEN middlename IS NULL THEN CONCAT(
+           np.firstname,' ',np.lastname)
+          ELSE
+           CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) END AS fullname,
+          CONCAT(np.age," ",np.agetype) AS age,
+          np.patientid,
+          b.billingid ,
+          tp.category,
+          d.department,
+          tp.name,
+          b.clinician,
+          ss.approvalstatus,
+          ta.ready,
+          ta.processing,
+          tp.id,
+          b.clientstatus,
+          b.organization,
+          CASE WHEN b.clinician <> 0 THEN
+           (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
+          END AS clinicianName
+      FROM new_patients as np
+        INNER JOIN billing as b ON np.patientid = b.patientid
+        INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+        INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+        INNER JOIN test_panels AS tp ON tp.id = ss.testid
+        INNER JOIN departments AS d ON d.id = tp.category 
+        WHERE ss.approvalstatus = 1 AND ta.collection = 'true' AND d.department <> 'ultrasound'
+      `
+      const values = []
+      if (department) {
+        if (department == "all") {
+          query = query
+        } else {
+          query += ` AND d.id = ?`
+          values.push(department)
+        }
+      }
 
-    const result = await paginationQuery({ count, page }, query)
+      if (status === "completed") {
+        query += ` AND ta.ready='true'`
+      } else if (status === "pending") {
+        query += ` AND ta.ready='false'`
+      } else {
+        query = query
+      }
 
-    if (response) {
-      response.send({ status: "success", result, statusCode: 200 })
-    } else {
-      return result
+      if (testid && !isNaN(testid)) {
+        query += ` AND ta.testid = ?`
+        values.push(testid)
+      }
+
+      query += ` ORDER BY b.billingid DESC
+    LIMIT ? OFFSET ?`
+      
+
+      const result = await paginationQuery({ count, page }, query, values)
+
+      if (response) {
+        response.send({ status: "success", result, statusCode: 200 })
+      } else {
+        return result
+      }
+    } catch (err) {
+      console.log(err)
     }
   }
 
@@ -383,7 +412,7 @@ class Operations {
       if (search) {
         query += ` AND (CONCAT(np.firstname," ",np.middlename," ",np.lastname) LIKE ? 
         OR np.MOBILE_NUMBER = ?)`
-        values.push(`%${search}%`);
+        values.push(`%${search}%`)
         values.push(search)
       }
       if (!from && !to) {

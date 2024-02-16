@@ -1,13 +1,10 @@
 const router = require('express').Router();
-const connection = require('../db')
-const queries = require('../database/queries');
 const { getPhelobotomy, updatePhelobotomy, sampleAssesment,
 postSection, get_client_query, getAscensionWithDetails } = require('../phelobotomy')
 
 
 router.route('/api/v1/phelobotomy')
   .get(function (req, res) {
-    const Keys = Object.keys(req.query).length == 0;
     getPhelobotomy(req, res);
     // if (Keys) {
     //   getPhelobotomy(req, res);
