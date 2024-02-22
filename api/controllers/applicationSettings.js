@@ -1,11 +1,12 @@
 const router = require('express').Router()
-const { customError, rowAffected } = require("../../helper")
+const { customError, rowAffected, responseError } = require("../../helper")
 const ApplicationSettings = require("../models/application/settings")
 const Tax = require("../models/application/tax")
-const ResultSettings = require("../models/application/results");
+const ResultSettings = require("../models/application/results")
+const logger = require('../../logger')
 const appsettings = new ApplicationSettings()
 const tax = new Tax()
-const result = new ResultSettings();
+const result = new ResultSettings()
 
 router.get("/api/v1/applicationsettings", function (request, response) {
   appsettings.getApplicationSettings(request, response)
@@ -56,6 +57,30 @@ router.put("/api/v1/applicationssettings/email/emailsettings", async function (r
 
 router.post("/api/v1/applicationssettings/emailpreference", function (request, response) {
   appsettings.updateEmailPreference(request, response)
+})
+
+router.post("/api/v1/applicationsettings/registration/fields", async function (request, response) {
+  try {
+    const result = await appsettings.updateRegistrationFields(request, response)
+    if (result === true) {
+      response.send({ message: "fields updated successfully", statusCode: 200, status: "success" })
+    } else {
+      response.send({ message: "fields update failed", statusCode: "error", status: "error" })
+    }
+  } catch (err) {
+    logger.error(err);
+    responseError(response)
+  }
+})
+
+router.get("/api/v1/applicationsettings/registration/fields", async function (request, response) {
+  try {
+    const result = await appsettings.getRegistrationSettings()
+    response.send({ result, status: "success" })
+  } catch (err) {
+    logger.error(err)
+    responseError(response)
+  }
 })
 
 router.post("/api/v1/application/tax", function (request, response) {

@@ -9,101 +9,140 @@ router.get("/api/v1/register", (request, response) => {
 });
 
 router.post("/api/v1/register", async (request, response) => {
-  const register = new Registration();
-  const emailSevice = new EmailService();
-  const outcome = await register.addNewPatient(request, response);
+  const register = new Registration()
+  const emailSevice = new EmailService()
+  const outcome = await register.addNewPatient(request, response)
   if (outcome != undefined && outcome?.count > 0) {
-    const { count, id } = outcome;
-   let isSent= await  emailSevice.fireClientAuthentication(id);
-    response.send({ statusCode: 200, status: "success", message: "Patient registered successfully" });
+    const { id } = outcome
+    let isSent = await emailSevice.fireClientAuthentication(id)
+    response.send({ statusCode: 200, status: "success", message: "Patient registered successfully" })
     console.log(isSent)
   }
-});
+})
 
-router.put('/api/v1/register/personalinformation', async (request, response) => {
-  const { patientid } = request.query;
+router.put("/api/v1/register/personalinformation", async (request, response) => {
+  const { patientid } = request.query
   if (!patientid) {
     customError(`patientid not included in the request`, 400, response)
   } else {
-    await new Registration(patientid).UpdatePersonalInformation(request, response);
+    await new Registration(patientid).UpdatePersonalInformation(request, response)
   }
 })
 
-router.put('/api/v1/register/addressinginformation', async (request, response) => {
-  const { patientid } = request.query;
-  if (!patientid || patientid == 'undefined') {
+router.put("/api/v1/register/emmergencycontactinformation", async (request, response) => {
+  const { patientid } = request.query
+  if (!patientid) {
     customError(`patientid not included in the request`, 400, response)
   } else {
-    const records = request.body;
-    const info = await new Registration(patientid).addressingInformation(patientid, records);
-    if (info == 1) {
+    const result = await new Registration(patientid).emmergencyInformation(patientid, request.body)
+    console.log(result)
+    if (result === true) {
       response.send({
-        message: 'record updated successfully',
+        message: "record updated successfully",
         statusCode: 200,
-        status: 'success'
+        status: "success",
       })
     } else {
       response.send({
-        message: 'No record updated',
+        message: "No record updated",
         statusCode: 200,
-        status: 'success'
+        status: "error",
       })
     }
   }
 })
 
-router.get('/api/v1/register/personalinformation', async (request, response) => {
-  const { patientid } = request.query;
-  if (!patientid || patientid == 'undefined') {
+router.put("/api/v1/register/addressinginformation", async (request, response) => {
+  const { patientid } = request.query
+  if (!patientid || patientid == "undefined") {
     customError(`patientid not included in the request`, 400, response)
   } else {
-    const data = await database_queries.getsingleid(parseInt(patientid), 'new_patients', 'PATIENTID');
+    const records = request.body
+    const info = await new Registration(patientid).addressingInformation(patientid, records)
+    if (info === true) {
+      response.send({
+        message: "record updated successfully",
+        statusCode: 200,
+        status: "success",
+      })
+    } else {
+      response.send({
+        message: "No record updated",
+        statusCode: 200,
+        status: "success",
+      })
+    }
+  }
+})
+
+router.get("/api/v1/register/personalinformation", async (request, response) => {
+  const { patientid } = request.query
+  if (!patientid || patientid == "undefined") {
+    customError(`patientid not included in the request`, 400, response)
+  } else {
+    const data = await database_queries.getsingleid(parseInt(patientid), "new_patients", "PATIENTID")
     if (data.length > 0) {
       const dataOne = convertKeysToLowerCase(data[0])
-      dataOne.maritalstatus = dataOne.marital_status;
-      dataOne.mobile = parseInt(dataOne.mobile_number);
-      dataOne.patientOrganization = dataOne.organization;
-      const date = new Date(dataOne.dob);
-      delete dataOne.marital_status;
-      delete dataOne.mobile_number;
-      delete dataOne.organization;
-      dataOne.years = date.getFullYear();
-      dataOne.months = date.getMonth() + 1;
-      dataOne.days = date.getDate();
-      response.send({ statusCode: 200, status: 'success', result: dataOne })
+      dataOne.maritalstatus = dataOne.marital_status
+      dataOne.mobile = parseInt(dataOne.mobile_number)
+      dataOne.patientOrganization = dataOne.organization
+      const date = new Date(dataOne.dob)
+      delete dataOne.marital_status
+      delete dataOne.mobile_number
+      delete dataOne.organization
+      dataOne.years = date.getFullYear()
+      dataOne.months = date.getMonth() + 1
+      dataOne.days = date.getDate()
+      dataOne.ageType = dataOne["agetype"]
+      delete dataOne.agetype
+      response.send({ statusCode: 200, status: "success", result: dataOne })
     } else {
-      response.send({ statusCode: 200, status: 'success', result: [] })
+      response.send({ statusCode: 200, status: "success", result: [] })
     }
   }
 })
 
-router.get('/api/v1/register/checkmobile', async (request, response) => { 
-  const { mobileno } = request.query;
+router.get("/api/v1/register/checkmobile", async (request, response) => {
+  const { mobileno } = request.query
   if (!mobileno) {
     customError(`mobileno not included in the request`, 400, response)
   } else {
-    const data = await database_queries.getsingleid(mobileno, 'new_patients', 'mobile_number');
+    const data = await database_queries.getsingleid(mobileno, "new_patients", "mobile_number")
     if (data.length > 0) {
-      response.send({ statusCode: 200, status: 'success', exist: true })
+      response.send({ statusCode: 200, status: "success", exist: true })
     } else {
-      response.send({ statusCode: 200, status: 'success', exist: false })
+      response.send({ statusCode: 200, status: "success", exist: false })
     }
   }
 })
 
-router.get('/api/v1/register/addressingformation', async (request, response) => {
-  const { patientid } = request.query;
+router.get("/api/v1/register/addressingformation", async (request, response) => {
+  const { patientid } = request.query
   if (!patientid) {
     customError(`patientid not included in the request`, 400, response)
   } else {
-    const data = await database_queries.getsingleid(patientid, 'patientsaddress', 'patientid');
+    const data = await database_queries.getsingleid(patientid, "patientsaddress", "patientid")
     if (data.length > 0) {
-      response.send({ statusCode: 200, status: 'success', result: data[0] })
+      response.send({ statusCode: 200, status: "success", result: data[0] })
     } else {
-      response.send({ statusCode: 200, status: 'success', result: [] })
+      response.send({ statusCode: 200, status: "success", result: [] })
     }
   }
 })
+router.get("/api/v1/register/emmergencycontactinformation", async (request, response) => {
+  const { patientid } = request.query
+  if (!patientid) {
+    customError(`patientid not included in the request`, 400, response)
+  } else {
+    const data = await database_queries.getsingleid(patientid, "patientemmergencycontactinformation", "patientid")
+    if (data.length > 0) {
+      response.send({ statusCode: 200, status: "success", result: data[0] })
+    } else {
+      response.send({ statusCode: 200, status: "success", result: [] })
+    }
+  }
+})
+
 router.get('/api/v1/register/registration/settings', async (request, response) => {
   const settings = await (new Registration().isBulkRegistration());
   response.send({

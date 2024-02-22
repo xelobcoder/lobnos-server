@@ -203,6 +203,7 @@ class Operations {
         return result
       }
     } catch (err) {
+      logger.error(err)
       console.log(err)
     }
   }

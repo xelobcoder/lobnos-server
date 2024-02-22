@@ -1,39 +1,34 @@
-const express = require("express");
-const os = require("node:os");
-const cluster = require("node:cluster");
-const app = express();
-const emailRouterController = require("./api/controllers/email.controller");
-const port = 5000;
-const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing");
-const branchesHandler = require("./api/branches");
-const resultChecker = require("./api/controllers/results");
-const Manager = require('./api/controllers/manager');
-const operationsRouter = require("./api/controllers/operations");
-// const { getOrganizations } = require("./api/models/organization");
-const registrationRouter = require('./api/controllers/registration');
-const rejectedRouter = require("./api/controllers/rejected");
-const stocksRouter = require("./api/controllers/Inventory/stocks");
-const activation = require("./api/activation");
-const { getCategory, putCategory, deleteCategory, postCategory } = require("./api/testpanel/categories");
-const clinicianRouter = require("./api/controllers/clinicians");
-const testpanel = require("./api/testpanel/list");
-const { get } = require("./api/center");
-const SampleHandler = require("./api/sample");
-const ChemistryRoutes = require("./api/controllers/chemistrysetup");
-const phelobotomyRouter = require("./api/controllers/phelobotomy");
-const supplyRouter = require("./api/controllers/supply");
-const settingsRouter = require("./api/controllers/settings");
-const User = require("./api/LobnosAuth/user");
-const LoginsRouter = require("./api/controllers/logins");
-const resultprintRouter = require('./api/controllers/printable')
-const organizationRouter = require('./api/controllers/organization');
-const applicationsettingsRouter = require('./api/controllers/applicationSettings');
-const generalSalesRouter = require('./api/controllers/sales');
-const patientAnalytics = require('./api/controllers/patients.controller');
-const WarehouseRouter = require("./api/controllers/Inventory/warehouse");
-const wastagesRouter = require("./api/controllers/Inventory/wastages");
+const express = require("express")
+const app = express()
+const emailRouterController = require("./api/controllers/email.controller")
+const port = 5000
+const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing")
+const branchesHandler = require("./api/branches")
+const resultChecker = require("./api/controllers/results")
+const Manager = require("./api/controllers/manager")
+const operationsRouter = require("./api/controllers/operations")
+const registrationRouter = require("./api/controllers/registration")
+const rejectedRouter = require("./api/controllers/rejected")
+const stocksRouter = require("./api/controllers/Inventory/stocks")
+const activation = require("./api/activation")
+const clinicianRouter = require("./api/controllers/clinicians")
+const { get } = require("./api/center")
+const SampleHandler = require("./api/sample")
+const ChemistryRoutes = require("./api/controllers/chemistrysetup")
+const phelobotomyRouter = require("./api/controllers/phelobotomy")
+const supplyRouter = require("./api/controllers/supply")
+const settingsRouter = require("./api/controllers/settings")
+const User = require("./api/LobnosAuth/user")
+const LoginsRouter = require("./api/controllers/logins")
+const resultprintRouter = require("./api/controllers/printable")
+const organizationRouter = require("./api/controllers/organization")
+const applicationsettingsRouter = require("./api/controllers/applicationSettings")
+const generalSalesRouter = require("./api/controllers/sales")
+const patientAnalytics = require("./api/controllers/patients.controller")
+const WarehouseRouter = require("./api/controllers/Inventory/warehouse")
+const wastagesRouter = require("./api/controllers/Inventory/wastages")
 const inventoryDepartmentRouter = require("./api/controllers/Inventory/departments")
-const logger = require("./logger")
+const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter")
 const cors = require("cors")
 const configuration = require("./helpers/configuration")
 
@@ -41,7 +36,7 @@ app.listen(port, () => {
   console.log(`listening at port ${port}`)
 })
 
-const { promisifyQuery, customError, responseError } = require("./helper")
+const { customError, responseError } = require("./helper")
 const Inventoryanalytics = require("./api/models/Inventory/inventoryAnalytics")
 app.use(cors({ origin: "*", credentials: false }))
 app.use(express.static("public"))
@@ -62,8 +57,9 @@ app.use(express.urlencoded({ extended: true }))
 
 // api endpoints
 app.use((req, res, next) => {
-  configuration.logRequest(req, res, next);
+  configuration.logRequest(req, res, next)
 })
+app.use(testPanelRouter)
 app.use(Manager)
 app.use(organizationRouter)
 app.use(emailRouterController)
@@ -86,7 +82,6 @@ app.use(patientAnalytics)
 app.use(WarehouseRouter)
 app.use(wastagesRouter)
 app.use(inventoryDepartmentRouter)
-
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" })
@@ -135,7 +130,7 @@ app.post("/api/v1/billing", async (req, res) => {
       cost
     )
 
-    const result = await billing.insertionProcess(req, res, employeeid);
+    const result = await billing.insertionProcess(req, res, employeeid)
 
     if (result === true) {
       res.status(200).json({ message: "billing successfully", billingid: result, statusCode: 200, status: "success" })
@@ -185,68 +180,9 @@ app.get("/api/v1/activation/bulk", (req, res) => {
   activation.activateDeactivate(req, res)
 })
 
-app.get("/api/v1/testpanel/categories", (req, res) => {
-  getCategory(req, res)
-})
-
-app.post("/api/v1/testpanel/categories", (req, res) => {
-  postCategory(req, res)
-})
-
 app.get("/api/v1/center", (req, res) => {
   get(req, res)
 })
-
-app.get("/api/v1/testpanel/list", (req, res) => {
-  testpanel.getPanels(req, res)
-})
-app.get("/api/v1/testpanel/list/bulk", (req, res) => {
-  testpanel.getpanelsbulk(req, res)
-})
-
-app.post("/api/v1/testpanel/bulkupdate", (request, response) => {
-  testpanel.bulkTestUpdate(request, response)
-})
-
-app.get("/api/v1/testpanel/list/update", async function (req, res) {
-  const { billingid } = req.query
-  if (billingid) {
-    try {
-      const insertion = `SELECT * FROM test_panels AS tp  INNER JOIN
-     test_ascension AS ta ON  ta.testid = tp.ID WHERE ta.billingid = ?`
-      const result = await promisifyQuery(insertion, billingid)
-      res.send({ message: "success", statusCode: 200, result })
-    } catch (err) {
-      logger.error(err)
-      console.log(err)
-    }
-  } else {
-    res.send({
-      statusCode: 401,
-      status: "billing id required",
-      message: "include billing in the request header as a query",
-    })
-  }
-})
-
-app.post("/api/v1/testpanel/list", (req, res) => {
-  testpanel.postPanel(req, res)
-})
-
-app.put("/api/v1/testpanel/list", function (request, response) {
-  testpanel.putSingleTestPanel(request, response)
-})
-
-app.delete("/api/v1/testpanel/list", (req, res) => {
-  testpanel.deletePanel(req, res)
-})
-
-// setInterval(() => {
-//   // if (new Date() > new Date('2024-01-13T17:40:00')) {
-//   //   console.log('time passed');
-//   // }
-//   // return
-// }, 500);
 
 const targetHour = 18
 
@@ -254,17 +190,11 @@ const upDateInventoryAnalyticSummary = async () => {
   try {
     const currentHour = new Date().getHours()
     if (currentHour === targetHour) {
-      await new Inventoryanalytics().updateInvenAnalSummary();
+      await new Inventoryanalytics().updateInvenAnalSummary()
     }
   } catch (err) {
     console.log(err)
   }
 }
 
-upDateInventoryAnalyticSummary()
-
-
-
-
-
-
+// upDateInventoryAnalyticSummary()

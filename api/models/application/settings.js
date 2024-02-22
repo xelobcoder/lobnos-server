@@ -1,4 +1,4 @@
-const { customError, promisifyQuery, responseError } = require("../../../helper")
+const { customError, promisifyQuery, responseError, rowAffected } = require("../../../helper")
 const logger = require("../../../logger")
 
 class ApplicationSettings {
@@ -47,7 +47,7 @@ class ApplicationSettings {
     else return false
   }
 
-  async updateApplicationSettings(request,response) {
+  async updateApplicationSettings(request, response) {
     const {
       bulkregistration,
       emailNotification,
@@ -130,6 +130,38 @@ class ApplicationSettings {
     } catch (err) {
       logger.error(err)
       customError(err?.message, 500, response)
+    }
+  }
+
+  async getRegistrationSettings() {
+    return await promisifyQuery(`SELECT * FROM registrationsettings LIMIT 1`)
+  }
+
+  async updateRegisFields(id, data, employeeid) {
+    const query = `UPDATE registrationsettings SET fields = ?, updatedby = ?, updatedon = NOW() WHERE id = ?`
+
+    return rowAffected(await promisifyQuery(query, [data, employeeid, id]))
+  }
+
+  async insertRegistrationSettings(fields, employeeid) {
+    const query = `INSERT INTO registrationsettings (fields,updatedby) VALUES (?,?)`
+
+    return rowAffected(await promisifyQuery(query, [JSON.stringify(fields),employeeid]))
+  }
+
+  async updateRegistrationFields(request, response) {
+    const { fields, employeeid } = request.body
+
+    if (!fields || !employeeid) {
+      return customError("fields or employeeid not provided", 404, response)
+    }
+
+    const previous = await this.getRegistrationSettings()
+    if (previous.length > 0) {
+      const fieldid = previous[0]["id"]
+      return this.updateRegisFields(fieldid, JSON.stringify(fields), employeeid)
+    } else {
+      return this.insertRegistrationSettings(fields, employeeid)
     }
   }
   async getGeneralEmailSettings() {
