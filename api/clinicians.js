@@ -242,8 +242,8 @@ const getClinicianResult = async function (clinicianid, startdate, enddate) {
       obj.billingdate = current_filtered[0]?.billedon
       let ready_count = current_filtered.filter((item) => item.ready === "true").length
       obj.ready_count = ready_count
-      obj.totaltest = current_filtered.length
-
+      obj.totaltest = current_filtered.length;
+      obj.patientid = current_filtered[0].patientid;
       transformed.push(obj)
     }
 

@@ -33,7 +33,7 @@ router.get("/api/v1/gettestpanel/edit", async function (request, response) {
 router.put("/api/v1/test/updateprocedureManual", async function (request, response) {
     const { proceduremanual, employeeid, testid, title } = request.body
   if (!proceduremanual || !employeeid || !testid) {
-    return customError("emplyeeid , testid and  proceduremanual are required", 404, response)
+    return customError("emplyeeid , testid and proceduremanual are required", 404, response)
   }
   const isUpdated = await testpanel.updateProcedureManual(proceduremanual, parseInt(testid), parseInt(employeeid), title)
   response.send({ status: isUpdated === true ? "success" : "failed" })

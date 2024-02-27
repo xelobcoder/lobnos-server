@@ -1,49 +1,59 @@
-const logger = require('../../logger.js');
-const connection = require('../db.js');
+const { promisifyQuery, responseError } = require("../../helper.js")
+const logger = require("../../logger.js")
+const connection = require("../db.js")
 
-const sales = {};
+const sales = {}
 
+sales.generalSales = async function (request, response, target, branch, clinicianid = null) {
+  try {
+    const { patientid } = request.query
+    // get all sales sum grouped by target i.e sum by year, month or day
+    let query = ""
 
-
-sales.generalSales = async function (request, response, target, branch) {
-  const { patientid } = request.query;
-  // get all sales sum grouped by target i.e sum by year, month or day
-  let query = '';
-
-  if (target == 'yearly') {
-    query = `SELECT 
+    if (target == "yearly") {
+      query = `SELECT 
     SUM(PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
     YEAR(b.billedon) AS 'Year'
-    FROM billing AS b`;
+    FROM billing AS b`
 
-    if (patientid) {
-      query += ` WHERE b.PATIENTID = ${patientid}`
-    }
-    if (branch != 'all') {
-      query += ` WHERE b.branchid = ${branch}`;
-    }
-    query += ` GROUP BY YEAR(b.billedon)`;
-  } else if (target == 'monthly') {
-    query = `SELECT
+      if (patientid) {
+        query += ` WHERE b.PATIENTID = ${patientid}`
+      }
+      if (branch != "all") {
+        query += ` WHERE b.branchid = ${branch}`
+      }
+
+      if (!patientid && branch == 'all') {
+        query += ` WHERE b.clinician= ${parseInt(clinicianid)}`
+      } else {
+        query +=  ` AND b.clinician= ${parseInt(clinicianid)}`
+      }
+
+      query += ` GROUP BY YEAR(b.billedon)`
+    } else if (target == "monthly") {
+      query = `SELECT
     SUM(PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
     MONTHNAME(b.billedon) AS 'Month'
     FROM billing AS b
     WHERE YEAR(b.billedon) = YEAR(CURDATE())
-`;
-    if (patientid) {
-      query += ` AND b.PATIENTID = ${patientid}`
-    }
+`
+      if (patientid) {
+        query += ` AND b.PATIENTID = ${patientid}`
+      }
 
-    if (branch != 'all') {
-      query += ` AND b.branchid = ${branch}`;
-    }
+      if (branch != "all") {
+        query += ` AND b.branchid = ${branch}`
+      }
 
-    query += ` GROUP BY MONTH(b.billedon) `
+      if (clinicianid) {
+        query += ` AND b.clinician= ${parseInt(clinicianid)}`
+      }
 
-  } else if (target == 'daily') {
-    query = `
+      query += ` GROUP BY MONTH(b.billedon) `
+    } else if (target == "daily") {
+      query = `
     SELECT
     SUM(b.PAYABLE) AS salesAmount,
     COUNT(b.BILLINGID) AS totalCases,
@@ -53,19 +63,22 @@ sales.generalSales = async function (request, response, target, branch) {
         DAY(b.billedon) AS 'Day'
     FROM billing AS b
     WHERE YEAR(b.billedon) = YEAR(CURDATE()) AND MONTH(b.billedon) = MONTH(CURDATE())
-`;
-    if (patientid) {
-      query += ` AND b.PATIENTID = ${patientid}`;
-    }
+`
+      if (patientid) {
+        query += ` AND b.PATIENTID = ${patientid}`
+      }
 
-    if (branch != 'all') {
-      query += `AND b.branchid = ${branch}`;
-    }
+      if (branch != "all") {
+        query += `AND b.branchid = ${branch}`
+      }
+      if (clinicianid) {
+        query += ` AND b.clinician= ${parseInt(clinicianid)}`
+      }
 
-    query += ` GROUP BY DAY(b.billedon)`
-  } else {
-    // weekly
-    query = `
+      query += ` GROUP BY DAY(b.billedon)`
+    } else {
+      // weekly
+      query = `
        SELECT
         SUM(PAYABLE) AS salesAmount,
         CASE
@@ -78,39 +91,44 @@ sales.generalSales = async function (request, response, target, branch) {
       FROM billing AS b
       WHERE YEAR(b.billedon) = YEAR(CURDATE())
       AND MONTH(b.billedon) = MONTH(CURDATE())`
-    if (patientid) {
-      query += ` AND b.PATIENTID = ${patientid}`
-    }
-    if (branch != 'all') {
-      query += `AND b.branchid = ${branch}`;
-    }
-    query += ` GROUP BY WEEK`
-  }
+      if (patientid) {
+        query += ` AND b.PATIENTID = ${patientid}`
+      }
+      if (branch != "all") {
+        query += `AND b.branchid = ${branch}`
+      }
 
+      if (clinicianid) {
+        query += ` AND b.clinician= ${parseInt(clinicianid)}`
+      }
 
-  connection.query(query, function (err, result) {
-    if (err) {
-      logger.error(err)
-      console.log(err)
-      // response.send({
-      //   message: err.message,
-      //   statusCode: 500,
-      //   status: 'error'
-      // })
-    } else {
-      response.send({
-        statusCode: 200,
-        status: 'success',
-        result
+      query += ` GROUP BY WEEK`
+    }
+
+    const result = await promisifyQuery(query)
+    if (clinicianid && result.length > 0) {
+      const details = await promisifyQuery(`SELECT * FROM clinicianpaymentinfo WHERE ID = ?`, [parseInt(clinicianid)])
+
+      const commission = details.length > 0 ? details[0]["commission"] : 0
+
+      if (commission == null || commission == 0) {
+        return response.send({ status: "warning", message: "commission not set" })
+      }
+
+      const commissionRate = commission / 100
+
+      const report = result.map((item, index) => {
+        const { salesAmount } = item
+        return { ...item, salesAmount: salesAmount * commissionRate, rate: commissionRate }
       })
-    }
-  })
-
+      response.send({ statusCode: 200, status: "success", result: report })
+    } else response.send({ statusCode: 200, status: "success", result })
+  } catch (err) {
+    console.log(err)
+    responseError(response)
+  }
 }
 
+// sales.ClientSummary =
 
-// sales.ClientSummary = 
-
-
-
-module.exports = sales;
+module.exports = sales
