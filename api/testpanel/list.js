@@ -244,6 +244,12 @@ const testpanel = {
     }
   },
 
+  hasTest: async function (testname) {
+    if (!testname) throw new Error("testname required")
+    const result = await promisifyQuery(`SELECT COUNT(*)AS count FROM test_panels WHERE name = ? `, [testname])
+    return result[0]["count"] == 0 ? false : true
+  },
+
   updateProcedureManual: async function (manual, testid, employeeid, title) {
     if (!manual || typeof manual !== "string" || !testid || typeof testid !== "number" || !employeeid) {
       throw new Error("employeeid, manual and testid of string and number type respectively are required")
@@ -299,6 +305,7 @@ const testpanel = {
         showtrend,
         tatCount,
         employeeid,
+        testid,
         testcost,
       } = request.body
 
@@ -312,10 +319,10 @@ const testpanel = {
         description,
         qty_required,
         shorttext,
-        id,
+        testid,
       ])
-
-      if (rowAffected(updateMainPanel)) {
+      const outcome = rowAffected(updateMainPanel)
+      if (outcome) {
         const updatePanel = `
         UPDATE testdetails SET 
                 tat  = ?,
@@ -344,7 +351,7 @@ const testpanel = {
           showtrend,
           testprice,
           testcost,
-          id,
+          testid,
         ]
 
         const updateTestDetails = await promisifyQuery(updatePanel, values)
@@ -376,6 +383,17 @@ const testpanel = {
     WHERE tp.id = ?`
     return await promisifyQuery(query, [testid])
   },
+
+  createCustomTest: async function (testname, iscustom = 1) {
+    if (!testname) throw new Error("testname required")
+    if (this.hasTest(testname) === true) {
+      return "EXIST"
+    }
+    const query = `INSERT INTO test_panels (name,iscustom) VALUES(?,?)`
+    return rowAffected(await promisifyQuery(query, [testname, iscustom]))
+  },
 }
+
+
 
 module.exports = testpanel

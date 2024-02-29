@@ -20,6 +20,25 @@ router.get("/api/v1/testpanel/list/bulk", (req, res) => {
   testpanel.getpanelsbulk(req, res)
 })
 
+router.post("/api/v1/testpanel/list/createcustom", async function (request, response) {
+  try {
+    const { stage } = request.query
+    if (!stage) return customError("stage not included in request query", 404, response)
+
+    if (stage == 1) {
+      const { name } = request.body
+      if (!name) return customError("testname required", 404, response)
+      const isSuccess = await testpanel.createCustomTest(name)
+      if (isSuccess === "EXIST") {
+        return customError("test with same name is available", 404, response)
+      }
+      response.send({ status: isSuccess ? "success" : "failed" })
+    }
+  } catch (err) {
+    console.log(err)
+    responseError(response)
+  }
+})
 router.get("/api/v1/gettestpanel/edit", async function (request, response) {
   try {
     const { id } = request.query
@@ -31,7 +50,7 @@ router.get("/api/v1/gettestpanel/edit", async function (request, response) {
   }
 })
 router.put("/api/v1/test/updateprocedureManual", async function (request, response) {
-    const { proceduremanual, employeeid, testid, title } = request.body
+  const { proceduremanual, employeeid, testid, title } = request.body
   if (!proceduremanual || !employeeid || !testid) {
     return customError("emplyeeid , testid and proceduremanual are required", 404, response)
   }
@@ -88,4 +107,9 @@ router.delete("/api/v1/testpanel/list", (req, res) => {
   testpanel.deletePanel(req, res)
 })
 
+router.get("/api/v1/testpanel/list/customtestrule", async function (request, response) {
+  const { testid } = request.query
+  if (!testid) return customError("testid is required", 404, response)
+  const rule = await new Creator().getTestCreationRule()
+})
 module.exports = router
