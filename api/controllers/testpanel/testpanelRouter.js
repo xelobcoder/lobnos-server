@@ -1,4 +1,5 @@
 const { promisifyQuery, rowAffected, customError, responseError } = require("../../../helper")
+const Creator = require("../../models/creator")
 const { getCategory, postCategory } = require("../../testpanel/categories")
 const testpanel = require("../../testpanel/list")
 
@@ -108,8 +109,26 @@ router.delete("/api/v1/testpanel/list", (req, res) => {
 })
 
 router.get("/api/v1/testpanel/list/customtestrule", async function (request, response) {
-  const { testid } = request.query
-  if (!testid) return customError("testid is required", 404, response)
-  const rule = await new Creator().getTestCreationRule()
+  try {
+    const { testid } = request.query
+    if (!testid) return customError("testid is required", 404, response)
+    const rule = await new Creator(testid).getTestCreationRule()
+    response.send(rule)
+  } catch (err) {
+    responseError(response)
+  }
+})
+
+router.put("/api/v1/testpanel/list/customtestrule", async function (request, response) {
+  try {
+    const { testid, data } = request.body
+    if (!testid || !data) return customError("testid  && data is required", 404, response)
+    if (data.length === 0) return customError("wrong format provided", 404, response)
+    const stringdata = JSON.stringify(data)
+    const updateRule = await new Creator(testid).updateTestCreationRule(stringdata)
+    response.send({ status: updateRule ? true : false })
+  } catch (err) {
+    responseError(response)
+  }
 })
 module.exports = router
