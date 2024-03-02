@@ -1,6 +1,7 @@
 const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
+const CustomTest = require("../models/resultentry/customTestEntry")
 const { allFieldsHasValues } = require("./categories")
 const testpanel = {
   listquery: `SELECT 
@@ -83,35 +84,20 @@ const testpanel = {
       }
     }
   },
-  deletePanel: async function (request, response) {
-    if (this.hasquery(request)) {
-      const { id } = request.query
-      connection.query(testpanel.listqueryid("DELETE", id), function (err, result) {
-        if (err) {
-          response.send({ status: "error", message: err })
-        } else {
-          const { affectedRows } = result
-          if (affectedRows > 0) {
-            response.send({
-              message: "Panel deleted successfully",
-              status: "success",
-              statusCode: 200,
-            })
-          } else {
-            response.send({
-              message: "Panel not found",
-              status: "warning",
-              statusCode: 404,
-            })
-          }
-        }
-      })
-    } else {
-      response.send({
-        message: "Id is required",
-        status: "warning",
-        statusCode: 400,
-      })
+  deletePanel: async function (testid) {
+    if (!testid || isNaN(testid)) throw new Error("testid not provided")
+    const iscustomQuery = `SELECT iscustom,name FROM test_panels WHERE id = ?`
+    const result = await promisifyQuery(iscustomQuery, [parseInt(testid)])
+    if (result.length === 0) return false
+    let isCustom = result[0]["iscustom"]
+    if (isCustom === 0) return false
+    const isdeleted = rowAffected(await promisifyQuery(`DELETE FROM test_panels WHERE id = ? AND iscustom = 1`, [parseInt(testid)]))
+    if (isdeleted) {
+      // drop the created table of tehe custom test;
+      const testname = result[0]["name"].toString().replaceAll(" ", "_")
+      const dropTableQ = `DROP TABLE result${testname}`
+      await promisifyQuery(dropTableQ)
+      return true
     }
   },
   postPanel: async function (request, response) {
@@ -384,13 +370,28 @@ const testpanel = {
     return await promisifyQuery(query, [testid])
   },
 
+  generateTableName: function (testname) {
+    if (!testname) return false
+    return testname.toString().replaceAll(" ", "_")
+  },
+
   createCustomTest: async function (testname, iscustom = 1) {
     if (!testname) throw new Error("testname required")
     if (this.hasTest(testname) === true) {
       return "EXIST"
     }
     const query = `INSERT INTO test_panels (name,iscustom) VALUES(?,?)`
-    return rowAffected(await promisifyQuery(query, [testname, iscustom]))
+
+    const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]))
+
+    if (istestcreated) {
+      const createTestTableQuery = `CREATE TABLE result${this.generateTableName(
+        testname
+      )} (id INT(255) PRIMARY KEY AUTO_INCREMENT, billingid INT(50), patientid BIGINT(50),value VARCHAR(60),created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,updatedon DATETIME(6) DEFAULT  NULL  )`
+
+      await promisifyQuery(createTestTableQuery, [testname])
+      return istestcreated
+    }
   },
 }
 

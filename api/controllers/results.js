@@ -30,7 +30,6 @@ router.get("/api/v1/test/result/check", async function (req, res) {
 })
 
 router.post("/api/v1/test/result/enter", async function (req, res) {
-  console.log(req.body)
   try {
     const { billingid, testname } = req.body
     const resultInstance = new Result(billingid, testname)

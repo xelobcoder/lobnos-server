@@ -104,8 +104,15 @@ router.put("/api/v1/testpanel/list", function (request, response) {
   testpanel.putSingleTestPanel(request, response)
 })
 
-router.delete("/api/v1/testpanel/list", (req, res) => {
-  testpanel.deletePanel(req, res)
+router.delete("/api/v1/testpanel/list", async (request, response) => {
+  try {
+    const { testid } = request.query
+    if (!testid) return customError("testid is required", 404, res)
+    const result = await testpanel.deletePanel(testid)
+    response.send({ status: result === true ? "success" : "failed" })
+  } catch (err) {
+    responseError(response)
+  }
 })
 
 router.get("/api/v1/testpanel/list/customtestrule", async function (request, response) {
