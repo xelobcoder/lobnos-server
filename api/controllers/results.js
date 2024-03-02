@@ -1,11 +1,12 @@
 const router = require('express').Router();
-const { customError } = require('../../helper');
-const logger = require('../../logger');
-const Patient = require('../models/patientAnalytics');
-const { Result } = require('../models/result')
+const { customError, rowAffected, promisifyQuery } = require("../../helper")
+const logger = require("../../logger")
+const Patient = require("../models/patientAnalytics")
+const { Result } = require("../models/result")
+const testpanel = require("../testpanel/list")
 // this api endpoint takes two query params , the billing id and the testid
-//  and checks if result have been entered 
-// get test result get the result 
+//  and checks if result have been entered
+// get test result get the result
 router.get("/api/v1/test/result/check", async function (req, res) {
   try {
     const { billingid, testname, testid } = req.query
@@ -13,7 +14,7 @@ router.get("/api/v1/test/result/check", async function (req, res) {
       res.status(400).send({ message: "Invalid data", statusCode: 400 })
     } else {
       const resultChecker = new Result(billingid, testname)
-      const result = await resultChecker.isResultEntered(testid);
+      const result = await resultChecker.isResultEntered(testid)
       const records = result.result
       res.send({
         statusCode: 200,
@@ -135,27 +136,59 @@ router.post("/api/v1/test/result/enter", async function (req, res) {
   }
 })
 
-
 router.get(`/api/v1/result/patientrend/single`, async function (request, response) {
   const { billingid, patientid, testid, test, instances } = request.query
   try {
-    const result = await new Patient(patientid).getPatientTestTrend(parseInt(patientid), testid, test, instances);
-    response.send({statusCode: 200, status:'success', result});
+    const result = await new Patient(patientid).getPatientTestTrend(parseInt(patientid), testid, test, instances)
+    response.send({ statusCode: 200, status: "success", result })
   } catch (err) {
-    logger.error(err);
-    customError('error occured', 500, response);
+    logger.error(err)
+    customError("error occured", 500, response)
   }
 })
 
-router.get('/api/v1/result/reference/betahcg', async function (request, response) { 
+router.get("/api/v1/result/reference/betahcg", async function (request, response) {
   try {
-    const result = await new Result().getBetaHcgReference();
-    response.send({statusCode: 200, status:'success', result});
+    const result = await new Result().getBetaHcgReference()
+    response.send({ statusCode: 200, status: "success", result })
   } catch (err) {
-    logger.error(err);
-    customError('error occured', 500, response);
+    logger.error(err)
+    customError("error occured", 500, response)
   }
 })
+
+router.post("/api/v1/result/entry/customtest", async function (request, response) {
+  const { billingid, patientid, testid, fields, test,employeeid } = request.body
+  if (!billingid || !patientid || !testid || !fields || !test) {
+    return customError("billingid, patientid, testid,test and fields are required", 404, response)
+  }
+
+  if (fields.length == 0) {
+    return customError("Field length must not be 0", 404, response)
+  }
+
+  if (typeof billingid != "number" || typeof patientid != "number") {
+    return customError(`patientid and billingid must be type number`, 404, response)
+  }
+
+  const tablename = "result" + testpanel.generateTableName(test)
+
+  const insertAll = await Promise.all(
+    fields.map(async (item, index) => {
+      const values = [item.field, billingid, patientid, item.value, employeeid]
+      const query = `INSERT INTO ${tablename} (field,billingid,patientid,value,employeeid) VALUES(?,?,?,?,?)`
+      return rowAffected(await promisifyQuery(query, values))
+    })
+  )
+
+  const isAllInserted = insertAll.some((a, i) => a == false)
+
+  if (isAllInserted === false) {
+    return response.send({ message: "result saved successfully", status: "success", statusCode: 200 })
+  }
+})
+
+
 
 
 module.exports = router;

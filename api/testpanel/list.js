@@ -1,7 +1,6 @@
 const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
-const CustomTest = require("../models/resultentry/customTestEntry")
 const { allFieldsHasValues } = require("./categories")
 const testpanel = {
   listquery: `SELECT 
@@ -93,7 +92,6 @@ const testpanel = {
     if (isCustom === 0) return false
     const isdeleted = rowAffected(await promisifyQuery(`DELETE FROM test_panels WHERE id = ? AND iscustom = 1`, [parseInt(testid)]))
     if (isdeleted) {
-      // drop the created table of tehe custom test;
       const testname = result[0]["name"].toString().replaceAll(" ", "_")
       const dropTableQ = `DROP TABLE result${testname}`
       await promisifyQuery(dropTableQ)
@@ -387,7 +385,7 @@ const testpanel = {
     if (istestcreated) {
       const createTestTableQuery = `CREATE TABLE result${this.generateTableName(
         testname
-      )} (id INT(255) PRIMARY KEY AUTO_INCREMENT, billingid INT(50), patientid BIGINT(50),value VARCHAR(60),created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,updatedon DATETIME(6) DEFAULT  NULL  )`
+      )} (id INT(255) PRIMARY KEY AUTO_INCREMENT,field VARCHAR(100), billingid INT(50), patientid BIGINT(50),value VARCHAR(60),created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,updatedon DATETIME(6) DEFAULT  NULL,employeeid INT(10))`
 
       await promisifyQuery(createTestTableQuery, [testname])
       return istestcreated

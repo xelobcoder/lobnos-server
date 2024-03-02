@@ -118,8 +118,19 @@ router.delete("/api/v1/testpanel/list", async (request, response) => {
 router.get("/api/v1/testpanel/list/customtestrule", async function (request, response) {
   try {
     const { testid } = request.query
-    if (!testid) return customError("testid is required", 404, response)
-    const rule = await new Creator(testid).getTestCreationRule()
+    if (!testid) return customError("testid,testname,patientid and billingid are required", 404, response)
+    const rule = await new Creator(testid).getTestCreationRule();
+    response.send(rule)
+  } catch (err) {
+    responseError(response)
+  }
+})
+router.get("/api/v1/testpanel/list/customtestrule/previous", async function (request, response) {
+  try {
+    const { testid, testname, billingid, patientid, state = false } = request.query
+    if (!testid || !testname || !billingid || !patientid)
+      return customError("testid,testname,patientid and billingid are required", 404, response)
+    const rule = await new Creator(testid). getCustomPreviousRecords(testname, billingid, patientid)
     response.send(rule)
   } catch (err) {
     responseError(response)
