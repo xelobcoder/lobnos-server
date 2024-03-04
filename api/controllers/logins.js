@@ -62,7 +62,8 @@ router.put('/api/v1/user/permissions', function (request, response) {
 
 router.post("/api/v1/login/clinicians", async (request, response) => {
     try {
-        const { email, password } = request.body;
+      const { email, password } = request.body;
+  
         if (!email || !password) { customError("email and password required", 404, response); return; };
 
         const query = `SELECT * FROM clinicianscredentials WHERE email = ?`;

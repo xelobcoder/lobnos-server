@@ -8,12 +8,17 @@ const database_queries = require('../database/queries');
 
 const router = require('express').Router();
 
-router.get('/api/v1/clinicians', async (req, res) => {
-  const { id } = req.query;
-  if (id) { getSingleClinician(req, res);  return};
-  getClinicians(req, res);
-});
-
+router.get("/api/v1/clinicians", async (req, res) => {
+  getClinicians(req, res)
+})
+router.get("/api/v1/clinicians/getclinician", async (req, res) => {
+  const { id } = req.query
+  if (!id) {
+    return customError("clinicianid required", 404, res)
+  } else {
+    getSingleClinician(req, res)
+  }
+})
 router.put('/api/v1/clinicians', async (req, res) => {
   putCliniciansbasic(req, res);
 });

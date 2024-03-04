@@ -1,13 +1,21 @@
 const connection = require("./db")
 const logger = require("../logger")
-const { convertKeysToLowerCase, promisifyQuery, customError } = require("../helper")
+const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected, paginationQuery } = require("../helper")
 
 // get all clinicians
 const getClinicians = async (req, res) => {
   try {
-    let result = await promisifyQuery("SELECT * FROM clinicianbasicinfo")
-    result = result.length > 0 ? result.map((item) => convertKeysToLowerCase(item)) : result
-    res.send({ statusCode: 200, status: "success", result })
+    const { count, page } = req.query
+
+    if (count > 0 && page >= 0) {
+      let result = await paginationQuery({ page, count }, "SELECT * FROM clinicianbasicinfo LIMIT ? OFFSET ?")
+      result = result.length > 0 ? result.map((item) => convertKeysToLowerCase(item)) : result
+      res.send({ statusCode: 200, status: "success", result })
+    } else {
+      let result = await promisifyQuery("SELECT * FROM clinicianbasicinfo")
+      result = result.length > 0 ? result.map((item) => convertKeysToLowerCase(item)) : result
+      res.send({ statusCode: 200, status: "success", result })
+    }
   } catch (err) {
     logger.error(err)
   }
@@ -24,8 +32,8 @@ const putCliniciansbasic = async (req, res) => {
   }
 
   // check if id exist
-  if (isClinicianExist(id)) {
-    customError("Clinician already exist", 200, res)
+  if (!isClinicianExist(id)) {
+    customError("Clinician not found", 200, res)
     return
   }
 
@@ -38,17 +46,18 @@ const putCliniciansbasic = async (req, res) => {
   // is id available, if yes continue or send response with message of no id
   const isUpdated = await promisifyQuery(query, values)
 
-  isUpdated.affectedRows === 1
-    ? res.send({
-        statusCode: 200,
-        message: "Clinician updated successfully",
-        status: "success",
-      })
-    : res.send({
-        statusCode: 401,
-        message: "Clinician not updated",
-      })
-  return
+  if (rowAffected(isUpdated)) {
+    res.send({
+      statusCode: 200,
+      message: "Clinician updated successfully",
+      status: "success",
+    })
+  } else {
+    res.send({
+      statusCode: 401,
+      message: "Clinician not updated",
+    })
+  }
 }
 
 // delete clinician

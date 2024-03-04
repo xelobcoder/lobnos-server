@@ -399,3 +399,17 @@
 {"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
 {"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
 {"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_EMPTY_QUERY","errno":1065,"index":0,"level":"error","sqlMessage":"Query was empty","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM clinicianbasicinfo OFFSET 10 LIMIT 20","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '10 LIMIT 20' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM clinicianbasicinfo OFFSET 10 LIMIT -10","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '10 LIMIT -10' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM clinicianbasicinfo OFFSET 10 LIMIT -10","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '10 LIMIT -10' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM clinicianbasicinfo OFFSET 10 LIMIT 0","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '10 LIMIT 0' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM clinicianbasicinfo OFFSET 10 LIMIT 0","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '10 LIMIT 0' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM clinicianbasicinfo OFFSET 10 LIMIT 0","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '10 LIMIT 0' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM clinicianbasicinfo OFFSET 10 LIMIT 0","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '10 LIMIT 0' at line 1","sqlState":"42000"}
