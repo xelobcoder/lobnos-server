@@ -22,11 +22,11 @@ class Creator {
     const previousRecords = await promisifyQuery(`SELECT * FROM ${tablename} WHERE billingid = ? AND patientid = ?`, [billingid, patientid])
     let result = await this.getTestCreationRule()
 
-    if (previousRecords.length == 0) return result;
+    if (previousRecords.length == 0) return result
     result = result.map((item, index) => {
       const { name } = item
       const matched = previousRecords.find((u, inx) => {
-        return u.field == name;
+        return u.field == name
       })
       if (matched) {
         return { ...item, value: matched?.value }
@@ -35,6 +35,15 @@ class Creator {
       }
     })
     return result
+  }
+
+  async getCustomCommentsRecords(billingid, testid) {
+    if (!billingid || !testid) {
+      throw new Error('testid and billingid required');
+    }
+    let comments = await promisifyQuery(`SELECT comments FROM result_comments WHERE billingid = ? AND testid = ?`, [billingid, testid]);
+    comments = comments.length > 0 ? comments[0]["comments"] : "";
+    return comments;
   }
 
   async updateTestCreationRule(data) {

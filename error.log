@@ -393,3 +393,9 @@
 {"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
 {"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
 {"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}

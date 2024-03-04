@@ -130,8 +130,19 @@ router.get("/api/v1/testpanel/list/customtestrule/previous", async function (req
     const { testid, testname, billingid, patientid, state = false } = request.query
     if (!testid || !testname || !billingid || !patientid)
       return customError("testid,testname,patientid and billingid are required", 404, response)
-    const rule = await new Creator(testid). getCustomPreviousRecords(testname, billingid, patientid)
+    const rule = await new Creator(testid).getCustomPreviousRecords(testname, billingid, patientid)
     response.send(rule)
+  } catch (err) {
+    responseError(response)
+  }
+})
+
+router.get("/api/v1/testpanel/list/customtestrule/previous/comments", async function (request, response) {
+  try {
+    const { billingid, testid } = request.query
+    if (!billingid || !testid) return customError("testid,testname,patientid and billingid are required", 404, response)
+    const comments = await new Creator().getCustomCommentsRecords(billingid, testid)
+    response.send({comments})
   } catch (err) {
     responseError(response)
   }
