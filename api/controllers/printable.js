@@ -60,17 +60,21 @@ router.get("/api/v1/billing/client/bulk/outstanding", async function (request, r
 })
 
 router.post("/api/v1/billing/client/clear/outstandingdebt", async function (request, response) {
-  const { patientid, paymentmode, amountpaid, employeeid } = request.body
-  if (!patientid || !paymentmode || !amountpaid || !employeeid) {
-    return customError("include amountpaid, paymentmode,employeeid and patientid in request body", 404, response)
-  }
-  const result = await payment.clearClientDebtBulk(patientid, amountpaid, paymentmode, employeeid)
-  if (result === true) {
-    response.send({ message: "updated successfully", status: "success", statusCode: "200" })
-  } else if (result == "No Exist") {
-    response.send({ message: "No debt available to clear", status: "error", statusCode: "500" })
-  } else {
-    response.send({ message: "updated failed", status: "failed", statusCode: "500" })
+  try {
+    const { patientid, paymentmode, amountpaid, employeeid } = request.body
+    if (!patientid || !paymentmode || !amountpaid || !employeeid) {
+      return customError("include amountpaid, paymentmode,employeeid and patientid in request body", 404, response)
+    }
+    const result = await payment.clearClientDebtBulk(patientid, amountpaid, paymentmode, employeeid)
+    if (result === true) {
+      response.send({ message: "updated successfully", status: "success", statusCode: "200" })
+    } else if (result == "No Exist") {
+      response.send({ message: "No debt available to clear", status: "error", statusCode: "500" })
+    } else {
+      response.send({ message: "updated failed", status: "failed", statusCode: "500" })
+    }
+  } catch (err) {
+    responseError(response)
   }
 })
 router.get("/api/v1/paymentmodes", function (request, response) {

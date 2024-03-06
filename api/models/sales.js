@@ -24,10 +24,8 @@ sales.generalSales = async function (request, response, target, branch, clinicia
         query += ` WHERE b.branchid = ${branch}`
       }
 
-      if (!patientid && branch == 'all') {
+      if (!patientid && branch == 'all' && clinicianid) {
         query += ` WHERE b.clinician= ${parseInt(clinicianid)}`
-      } else {
-        query +=  ` AND b.clinician= ${parseInt(clinicianid)}`
       }
 
       query += ` GROUP BY YEAR(b.billedon)`
@@ -53,17 +51,16 @@ sales.generalSales = async function (request, response, target, branch, clinicia
 
       query += ` GROUP BY MONTH(b.billedon) `
     } else if (target == "daily") {
-      query = `
-    SELECT
-    SUM(b.PAYABLE) AS salesAmount,
-    COUNT(b.BILLINGID) AS totalCases,
-    SUM(b.DISCOUNT) AS discount,
-    SUM(PAID_AMOUNT) AS totalAmountReceived,
-    b.billedon AS date,
-        DAY(b.billedon) AS 'Day'
-    FROM billing AS b
-    WHERE YEAR(b.billedon) = YEAR(CURDATE()) AND MONTH(b.billedon) = MONTH(CURDATE())
-`
+      query = ` SELECT
+          SUM(b.PAYABLE) AS salesAmount,
+          COUNT(b.BILLINGID) AS totalCases,
+          SUM(b.DISCOUNT) AS discount,
+          SUM(PAID_AMOUNT) AS totalAmountReceived,
+          b.billedon AS date,
+              DAY(b.billedon) AS 'Day'
+          FROM billing AS b
+       WHERE YEAR(b.billedon) = YEAR(CURDATE()) AND MONTH(b.billedon) = MONTH(CURDATE())`
+
       if (patientid) {
         query += ` AND b.PATIENTID = ${patientid}`
       }
@@ -74,7 +71,6 @@ sales.generalSales = async function (request, response, target, branch, clinicia
       if (clinicianid) {
         query += ` AND b.clinician= ${parseInt(clinicianid)}`
       }
-
       query += ` GROUP BY DAY(b.billedon)`
     } else {
       // weekly

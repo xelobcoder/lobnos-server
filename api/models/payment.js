@@ -149,38 +149,35 @@ class Payment {
           )
           return result.some((a, b) => a == false) ? false : true
         } else {
-          // // updating single transaction one by one
-          let target = debts.length
-          let current = 0
           let balance = amount
-          while (current <= target && balance > 0) {
-            const { outstanding, paid, payable, discount, billingid } = debts[current]
-            if (balance >= outstanding) {
-              // update single
-              // subtract outstanding from balance
-              // compare balance with the next outstanding
-              // break loop if outstanding is greater than the balance
+          let current = 0
+          let target = debts.length
+
+          const updateDebtStatus = async (item,balance) => {
+            if (balance <= 0) return 0
+            const { outstanding, paid, payable, discount, billingid } = item
+            if (outstanding > balance) {
+              const paidAmout = parseFloat(paid) + balance
+              const nwOutstanding = parseFloat(payable) - (parseFloat(discount) + parseFloat(paid) + parseFloat(balance))
+              await this.updateSingleTransactionDebt(billingid, paidAmout, nwOutstanding)
+              await this.updateTransactionHx(billingid, pymode, balance, employeeid)
+              return balance = 0
+            } else {
               await this.updateSingleTransactionDebt(billingid, payable, 0)
               await this.updateTransactionHx(billingid, pymode, outstanding, employeeid)
-              balance = balance - outstanding
-              console.log(balance, "te")
-              current++
-            } else {
-              // new outstanding;
-              const paidAmout = parseInt(paid) + balance
-              const nwOutstanding = parseInt(payable) - (parseInt(discount) + parseInt(paid) + parseInt(balance))
-              await this.updateSingleTransactionDebt(billingid, paidAmout, nwOutstanding, employeeid)
-              await this.updateTransactionHx(billingid, pymode, balance, employeeid)
-              console.log(balance, "t")
-              balance = 0
-              current++
+              return balance = balance - outstanding
             }
           }
-          return balance === 0 ? true : false
+          while (current <= target) {
+            const remaining = await updateDebtStatus(debts[current],balance);
+            balance = remaining
+            current++;
+          }
+          return true
         }
       }
     } catch (err) {
-      responseError(response)
+      throw new Error(err);
     }
   }
   updatePayment = async (request, response) => {

@@ -11,6 +11,9 @@ const result = new ResultSettings()
 router.get("/api/v1/applicationsettings", function (request, response) {
   appsettings.getApplicationSettings(request, response)
 })
+router.get("/api/v1/applicationsettings/billing", function (request, response) {
+  appsettings.getApplicationSettingsBilling(request, response)
+})
 
 router.post("/api/v1/applicationsettings", function (request, response) {
   appsettings.updateApplicationSettings(request, response)

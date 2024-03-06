@@ -21,6 +21,28 @@ class ApplicationSettings {
     }
   }
 
+  async getApplicationSettingsBilling(request, response) {
+    try {
+      const settings = await this.getApplicationSettings()
+      if (settings.length === 0) response.send({})
+      const { includeTax, PaidBillsBeforeTransaction } = settings[0]
+      if (includeTax === 0) {
+        return response.send({ includeTax, taxValue: 0, PaidBillsBeforeTransaction })
+      }
+      const getTax = await promisifyQuery(`SELECT * FROM tax WHERE apply = 'Yes'`)
+      if (getTax.length == 0) {
+        return response.send({ includeTax, taxValue: 0, PaidBillsBeforeTransaction })
+      } else {
+        const taxValue = getTax.reduce((a, b, index) => {
+          return a + b.value
+        }, 0)
+        return response.send({ includeTax, taxValue, PaidBillsBeforeTransaction })
+      }
+    } catch (err) {
+      responseError(response)
+    }
+  }
+
   async getEmailPreference() {
     let data = await database_queries.getsingleid(1, "emailpreference", "id")
     if (data.length > 0) {
@@ -58,8 +80,9 @@ class ApplicationSettings {
       PaidBillsBeforeTransaction,
       completeFlow,
       approvalbeforeprinting,
+      includeTax,
     } = request.body
-    const query = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,completeFlow,approvalbeforeprinting,emailNotification) VALUES (?,?,?,?,?,?,?,?,?)`
+    const query = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,completeFlow,approvalbeforeprinting,emailNotification,includeTax) VALUES (?,?,?,?,?,?,?,?,?,?)`
     const TruncateTable = `TRUNCATE TABLE applicationsettings`
     const values = [
       bulkregistration,
@@ -71,6 +94,7 @@ class ApplicationSettings {
       completeFlow,
       approvalbeforeprinting,
       emailNotification,
+      includeTax,
     ]
     try {
       const result = await promisifyQuery(TruncateTable)
@@ -146,7 +170,7 @@ class ApplicationSettings {
   async insertRegistrationSettings(fields, employeeid) {
     const query = `INSERT INTO registrationsettings (fields,updatedby) VALUES (?,?)`
 
-    return rowAffected(await promisifyQuery(query, [JSON.stringify(fields),employeeid]))
+    return rowAffected(await promisifyQuery(query, [JSON.stringify(fields), employeeid]))
   }
 
   async updateRegistrationFields(request, response) {
