@@ -40,11 +40,11 @@ class Patient extends Registration {
     const isArgGiven = arguments.length > 0
       && typeof arguments[0] == 'number' ? patientid : this.patientid;
     if (await this.checkPatientIdExist()) {
-      let query = `SELECT DATE(DATE)  AS TransactionsDate,BILLINGID AS TransactionId FROM performing_test
-      WHERE PATIENTID = ? ORDER BY DATE DESC `;
+      let query = `SELECT DATE(billedon)  AS TransactionsDate,BILLINGID AS TransactionId FROM billing
+      WHERE PATIENTID = ? ORDER BY billedon DESC `
       let values = [isArgGiven]
       if (from && to) {
-        query += `AND DATE BETWEEN '${from}' AND '${to}`
+        query += `AND DATE BETWEEN ? AND  ? `
         values = [...values, from, to]
       }
       // return a promise
@@ -157,7 +157,6 @@ class Patient extends Registration {
           const trendDataSet = await promisifyQuery(PatientQueries.chemistryTrend(resultTable, billingList, setupTable));
 
           const parameters = await this.getParameters(trendDataSet);
-
           // we want to transform the retrieve data to a more ussable format so it can be display on the client side according to the date||billingid
           // and then sorted by date from the earliest to the latest
           const transformed = await this.transformDataset(listArray, trendDataSet);

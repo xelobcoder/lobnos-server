@@ -13,36 +13,34 @@ function responseError(response) {
 
 
 const removeHtmlTags = (string) => {
-   const removeTags = (string, starter, ended) => {
-     const _stringArray = string.trim().split("")
-     let start = 0
-     let end = 0
+  const removeTags = (string, starter, ended) => {
+    const _stringArray = string.trim().split("")
+    let start = 0
+    let end = 0
 
-     for (let i = 0; i < _stringArray.length; i++) {
-       if (_stringArray[i] === starter) {
-         start = i
-       }
+    for (let i = 0; i < _stringArray.length; i++) {
+      if (_stringArray[i] === starter) {
+        start = i
+      }
 
-       if (_stringArray[i] === ended) {
-         end = i
-         break
-       }
-     }
+      if (_stringArray[i] === ended) {
+        end = i
+        break
+      }
+    }
 
-     const umatched = _stringArray.map((item, index) => {
-       if (!(index >= start && index <= end)) return item
-     })
+    const umatched = _stringArray.map((item, index) => {
+      if (!(index >= start && index <= end)) return item
+    })
 
-     const result = umatched.join("")
+    const result = umatched.join("")
 
-     if (umatched.includes(starter) || umatched.includes(ended)) {
-       return removeHtmlTags(result)
-     }
-     return result.toLowerCase()
-   }
-  //  const st1 = removeTags(string, "<", ">")
-  // return st1.split("&nbsp;").join("").split("&nbs").join("");
-  return string;
+    if (umatched.includes(starter) || umatched.includes(ended)) {
+      return removeHtmlTags(result)
+    }
+    return result.toLowerCase()
+  }
+  return string
 }
 
 function convertKeysToLowerCase(obj) {
@@ -59,9 +57,8 @@ function convertKeysToLowerCase(obj) {
   return result
 }
 
-
 function NotFound(response) {
-  response.send({ message: 'Data not found', status: 'error' });
+  response.send({ message: "Data not found", status: "error" })
 }
 
 async function promisifyQuery(query, values = []) {
@@ -74,7 +71,6 @@ async function promisifyQuery(query, values = []) {
 
       connection.query(query, values, (queryError, result) => {
         connection.release()
-
         if (queryError) {
           reject(queryError)
         } else {
