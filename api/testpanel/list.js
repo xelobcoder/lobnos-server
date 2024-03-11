@@ -287,6 +287,8 @@ const testpanel = {
         pre_Tat,
         post_Tat,
         showtrend,
+        hasChildrenLimit,
+        hasGenderVariation,
         tatCount,
         employeeid,
         testid,
@@ -320,6 +322,8 @@ const testpanel = {
                 isoutsourced = ?,
                 showtrend = ?,
                 testprice = ?,
+                hasChildrenLimit =?,
+                hasGenderVariation= ?,
                 testcost = ?
         WHERE testid = ?`
 
@@ -334,6 +338,8 @@ const testpanel = {
           isoutsourced,
           showtrend,
           testprice,
+          hasChildrenLimit,
+          hasGenderVariation,
           testcost,
           testid,
         ]

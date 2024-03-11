@@ -5,7 +5,6 @@ const { testCategoryMapping } = require("../models/ResultQueryMapping")
 const EmailService = require("../EmailServices/email")
 const { getBillingInvoiceData } = require("../models/invoice")
 const Payment = require("../models/payment")
-const result = new ResultPrint()
 const logger = require("../../logger")
 const PDFGENERATION = require("../models/pdfGeneration")
 const payment = new Payment()
@@ -90,91 +89,84 @@ router.post("/api/v1/billing/payment/update", function (request, response) {
 })
 
 router.get("/api/v1/result/preview", function (request, response) {
-  const { test } = request.query
-  const category = testCategoryMapping[test]
-
+  new ResultPrint().previewReport(request, response)
+  // const { test } = request.query
+  // const category = testCategoryMapping[test]
   try {
-    if (!test || !category) {
-      customError(`test or category not found`, 404, response)
-    } else {
-      if (category == "chemistry") {
-        result.resultPreviewChemistry(request, response, category)
-      } else if (category == "hema") {
-        result.resultPreviewHematological(request, response, category)
-      } else {
-        customError("Category not found", 400, response)
-      }
-    }
+    // if (!test || !category) {
+    //   return customError(`test or category not found`, 404, response)
+    // } else {
+    //   if (category == "chemistry") {
+    //     result.resultPreviewChemistry(request, response, category)
+    //   } else if (category == "hema") {
+    //     result.resultPreviewHematological(request, response, category)
+    //   } else {
+    //     customError("Category not found", 400, response)
+    //   }
+    // }
   } catch (err) {
     logger.error(err)
   }
 })
 
-
-router.get('/api/v1/result/preview/comments', function (request, response) {
-   const { billingid, testid } = request.query;
-   if (billingid) {
-      new ResultPrint().getComments(billingid, testid, response);
-   } else {
-      response.send({ status: 'error', statusCode: 401, message: 'Include Billingid ' })
-   }
+router.get("/api/v1/result/preview/comments", function (request, response) {
+  const { billingid, testid } = request.query
+  if (billingid) {
+    new ResultPrint().getComments(billingid, testid, response)
+  } else {
+    response.send({ status: "error", statusCode: 401, message: "Include Billingid " })
+  }
 })
 
-
-// this check if test for a client  is approved  for printing 
-router.post('/api/v1/test/result/preview/approved/check', function (request, response) {
-   const { billingid, testid } = request.body;
-   if (billingid && testid) {
-      new ResultPrint().checkApproval(billingid, testid, response);
-   } else {
-      response.status(401).json({ status: 'error', message: 'include testid and billing in request body' })
-   }
+// this check if test for a client  is approved  for printing
+router.post("/api/v1/test/result/preview/approved/check", function (request, response) {
+  const { billingid, testid } = request.body
+  if (billingid && testid) {
+    new ResultPrint().checkApproval(billingid, testid, response)
+  } else {
+    response.status(401).json({ status: "error", message: "include testid and billing in request body" })
+  }
 })
 
-
-
-router.post('/api/v1/result/approve', function (request, response) {
-   result.makeDecisionOnResult(request, response);
+router.post("/api/v1/result/approve", function (request, response) {
+  new ResultPrint().makeDecisionOnResult(request, response)
 })
 
-
-router.get('/api/v1/billing/invoice', function (request, response) {
-   const { billingid } = request.query;
-   getBillingInvoiceData(billingid,response);
+router.get("/api/v1/billing/invoice", function (request, response) {
+  const { billingid } = request.query
+  getBillingInvoiceData(billingid, response)
 })
 
-
-router.get('/api/v1/billing/email/receipt', async function (request, response) {
-   const { billingid } = request.query;
-   if (billingid) {
-      await new EmailService().forwardBillingReceipt(billingid);
-   } else {
-      customError(`billing id required`, 404, response);
-   }
+router.get("/api/v1/billing/email/receipt", async function (request, response) {
+  const { billingid } = request.query
+  if (billingid) {
+    await new EmailService().forwardBillingReceipt(billingid)
+  } else {
+    customError(`billing id required`, 404, response)
+  }
 })
 
-
-router.get('/billing/result/pdf', async function (request, response) {
-   const { billingid, testname, testid } = request.query;
-   if (billingid, testname, testid) {
-      try {
-         const pdfgenerate = new PDFGENERATION(billingid, testid, testname);
-         const result = await pdfgenerate.generatePDFdata();
-         pdfgenerate.generatePDFResult(result, response)
-      } catch (error) {
-         console.log(error);
-         customError('error fetching data', 500, response);
-      }
-   } else { customError('include billingid, testname and testid', 404, response)}
+router.get("/billing/result/pdf", async function (request, response) {
+  const { billingid, testname, testid } = request.query
+  if ((billingid, testname, testid)) {
+    try {
+      const pdfgenerate = new PDFGENERATION(billingid, testid, testname)
+      const result = await pdfgenerate.generatePDFdata()
+      pdfgenerate.generatePDFResult(result, response)
+    } catch (error) {
+      customError("error fetching data", 500, response)
+    }
+  } else {
+    customError("include billingid, testname and testid", 404, response)
+  }
 })
 
-
-
-router.get('/billing/receipt', async function (request, response) {
-   const { billingid } = request.query;
-   if (!billingid) { customError('billingid not provided', 404, response) } else {
-      
-   }
+router.get("/billing/receipt", async function (request, response) {
+  const { billingid } = request.query
+  if (!billingid) {
+    customError("billingid not provided", 404, response)
+  } else {
+  }
 })
 
 module.exports = router;

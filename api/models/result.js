@@ -5,9 +5,9 @@ const beginTransaction = util
   .bind(connection);
 const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
-const { customError, promisifyQuery, getFullBloodCountTrend } = require("../../helper");
-const logger = require("../../logger");
-const { testTable, PDF_QUERIES, setups, getScanReports, PatientQueries } = require("../../helpers/testtables")
+const { customError, promisifyQuery, getFullBloodCountTrend, rowAffected } = require("../../helper")
+const logger = require("../../logger")
+const { testTable, PDF_QUERIES, setups } = require("../../helpers/testtables")
 const { testCategoryMapping } = require("./ResultQueryMapping")
 const { category_determiner } = require("../test/setup/fbc")
 const Registration = require("./registration")
@@ -115,7 +115,6 @@ class Result {
         }
         return { result, entered }
       } catch (err) {
-        console.log(err)
         logger.error(err)
         return err
       }
@@ -244,24 +243,31 @@ class Result {
     }
   }
 
+  async updateComments(billingid, testid, comments) {
+    if (!billingid || !testid || !comments) {
+      throw new Error("billingid,testid,comments required")
+    }
+    const pushCommentsQuery = `UPDATE result_comments SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`
+    return rowAffected(await promisifyQuery(pushCommentsQuery, [comments, billingid, testid]))
+  }
+
   async stoolAnalysis(records, response) {
     try {
       if (this.isTestValid()) {
         const { data, testid, billingid, patientid, comments, employeeid } = records
         const result = JSON.stringify(data)
         if (await this.ShouldCreateRecord()) {
-          const query = `INSERT INTO stoolanalysisResult(billingid,patientid,results,comments,employeeid) VALUES (?,?,?,?,?)`
-
-          const values = [billingid, patientid, result, comments, employeeid]
-
-          await this.useTransactionForResult(query, values, testid, response)
+          const query = `INSERT INTO stoolanalysisResult(billingid,patientid,results,employeeid) VALUES (?,?,?,?)`
+          const values = [billingid, patientid, result, employeeid]
+          await this.useTransactionForResult(query, values, testid, response, comments)
         } else {
-          const updateQuery = `UPDATE stoolanalysisResult SET results = ?, comments = ? WHERE billingid = ?`
+          const updateQuery = `UPDATE stoolanalysisResult SET results = ? WHERE billingid = ?`
           const values = [result, comments, billingid]
-
-          const updateResult = await promisifyQuery(updateQuery, values)
-
-          this.pushResponse(updateResult, response)
+          const updateResult = rowAffected(await promisifyQuery(updateQuery, values))
+          const updateComments = rowAffected(await this.updateComments(billingid, testid, comments))
+          if (updateComments && updateResult) {
+            return response.send({ message: "record updated successfully", statusCode: 200, status: "success" })
+          }
         }
       } else {
         customError("test not found", 404, response)
@@ -375,7 +381,7 @@ class Result {
             BILLINGID,
             PATIENTID,REMARKS
             )
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
         await this.useTransactionForResult(
           insertionQuery,
@@ -394,16 +400,26 @@ class Result {
             glucose,
             billingid,
             patientid,
-            remarks,
           ],
           testid,
-          response
+          response,
+          remarks
         )
       } else {
         // update the result using the billing id
-        const updateQuery = ` UPDATE ${testTable[testname]} SET APPEARANCE = ?, KETONES = ?, BILIRUBIN = ?, NITRITE = ?,
-         SPECIFIC_GRAVITY = ?, PH = ?, UROBILINOGEN = ?, BLOOD = ?, COLOR = ?, LEUKOCYTES = ?, MICROALBUMIN = ?, 
-         GLUCOSE = ?, REMARKS = ? WHERE billingid = ?
+        const updateQuery = ` UPDATE ${testTable[testname]} 
+            SET APPEARANCE = ?,
+            KETONES = ?,
+              BILIRUBIN = ?, 
+              NITRITE = ?,
+            SPECIFIC_GRAVITY = ?,
+              PH = ?,
+              UROBILINOGEN = ?,
+              BLOOD = ?, COLOR = ?, 
+              LEUKOCYTES = ?, 
+              MICROALBUMIN = ?, 
+            GLUCOSE = ?,
+              WHERE billingid = ?
             `
 
         connection.query(
@@ -421,7 +437,6 @@ class Result {
             leukocytes,
             microalbumin,
             glucose,
-            remarks,
             billingid,
           ],
           (err, result) => {
@@ -514,7 +529,8 @@ class Result {
           malariaQuery,
           [parasitenumber, species, comments, billingid, patientid, employeeid],
           testid,
-          response
+          response,
+          comments
         )
       } else {
         // update the result
@@ -578,9 +594,10 @@ class Result {
             `
         const values = [TYPHIO, TYPHIH, PARATYPHIAH, PARATYPHIBH, this.billingid, patientid, COMMENTS]
 
-        await this.useTransactionForResult(insertionQuery, values, testid, response)
+        await this.useTransactionForResult(insertionQuery, values, testid, response, comments)
       } else {
-        const updateQuery = `UPDATE ${testTable[testname]} 
+        const updateQuery = `
+        UPDATE ${testTable[testname]} 
 SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDATED_ON = NOW() WHERE BILLINGID = ?`
 
         const values = [TYPHIO, TYPHIH, PARATYPHIAH, PARATYPHIBH, COMMENTS, this.billingid]
@@ -610,7 +627,7 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
 
         const values = [HBsAg, HBsAb, HBeAg, HBeAb, HBcAb, comments, billingid, patientid, employeeid]
 
-        await this.useTransactionForResult(insertionQuery, values, testid, response)
+        await this.useTransactionForResult(insertionQuery, values, testid, response, comments)
       } else {
         const updateQuery = `UPDATE ${testTable[testname]}
          SET HBsAg  = ?,
@@ -647,7 +664,7 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
      (VALUE,UNIT,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?,?)
     `
         const insertionValues = [value, unit, comments, billingid, patientid]
-        await this.useTransactionForResult(insertionQuery, insertionValues, testid, response)
+        await this.useTransactionForResult(insertionQuery, insertionValues, testid, response, comments)
       } else {
         const updateQuery = `UPDATE ${testTable[testname]}
          SET VALUE = ?,
@@ -681,7 +698,7 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
 
       const values = [reaction, billingid, patientid, comments]
 
-      await this.useTransactionForResult(insertion, values, testid, response)
+      await this.useTransactionForResult(insertion, values, testid, response, comments)
     } else {
       // update the result
       const updateQuery = `UPDATE ${testTable[testname]}
@@ -711,7 +728,7 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         (VALUE,COMMENTS,BILLINGID,PATIENTID) VALUES (?,?,?,?)`
 
         const params = [value, comments, billingid, patientid]
-        await this.useTransactionForResult(insertion, params, testid, response)
+        await this.useTransactionForResult(insertion, params, testid, response, comments)
       } else {
         const updateQuery = `UPDATE ${testTable[testname]}
           SET VALUE  = ?,
@@ -788,7 +805,6 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
       pusCells,
       epithelialCells,
       rbcs,
-      impression,
       billingid,
       testid,
       testname,
@@ -800,8 +816,8 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         //  create the record
         const insertionQuery = `INSERT INTO ${testTable[testname]}
         (collectionDate,collectionTime,liquefactionTime,abstinence,colour,quantity,consistency,ph,fructose,spermcount,
-        motility,motilityGrade,morphology,pusCells,epithelialCells,rbcs,impression,billingid,patientid)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        motility,motilityGrade,morphology,pusCells,epithelialCells,rbcs,billingid,patientid)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,)
         `
 
         const values = [
@@ -821,12 +837,11 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
           pusCells,
           epithelialCells,
           rbcs,
-          impression,
           billingid,
           patientid,
         ]
 
-        await this.useTransactionForResult(insertionQuery, values, testid, response)
+        await this.useTransactionForResult(insertionQuery, values, testid, response, impression)
       } else {
         // update the record
         const updateQuery = `UPDATE ${testTable[testname]}
@@ -846,7 +861,6 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
         pusCells = ?,
         epithelialCells = ?,
         rbcs = ?,
-        impression = ?,
         updated_on = NOW()
         WHERE billingid = ? AND patientid = ?
         `
@@ -868,11 +882,12 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
           pusCells,
           epithelialCells,
           rbcs,
-          impression,
           billingid,
           patientid,
         ]
 
+        const pushCommentsQuery = `UPDATE result_comments SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`
+        const updateComments = await promisifyQuery(pushCommentsQuery, [billingid, testid])
         connection.query(updateQuery, values, (err, result) => {
           if (err) {
             this.errMessage(err, response)

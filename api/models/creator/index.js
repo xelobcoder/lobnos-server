@@ -18,22 +18,53 @@ class Creator {
   }
 
   async getCustomPreviousRecords(testname, billingid, patientid) {
-    const tablename = "result" + testpanel.generateTableName(testname)
+    const tablename = "result" + testpanel.generateTableName(testname);
     const previousRecords = await promisifyQuery(`SELECT * FROM ${tablename} WHERE billingid = ? AND patientid = ?`, [billingid, patientid])
-    let result = await this.getTestCreationRule()
+    let result = await this.getTestCreationRule();
 
-    if (previousRecords.length == 0) return result
-    result = result.map((item, index) => {
-      const { name } = item
-      const matched = previousRecords.find((u, inx) => {
-        return u.field == name
+    const hasGenderVariation = result.length == 0 ? false :
+      result.filter((item) => item.hasGenderVariation == true).length > 0;
+
+    let clientGender = '';
+
+    if (hasGenderVariation) {
+      const packet = await promisifyQuery(`SELECT gender,age,agetype FROM new_patients WHERE patientid = ?`, patientid);
+      if (packet.length > 0)  clientGender = packet[0]['gender'];
+    }
+
+
+    if (previousRecords.length == 0) return result;
+
+      result = result.map((item, index) => {
+        const { name } = item
+        const matched = previousRecords.find((u, inx) => {
+          return u.field == name
+        })
+        if (matched) {
+          return { ...item, value: matched?.value }
+        } else {
+          return item
+        }
       })
-      if (matched) {
-        return { ...item, value: matched?.value }
-      } else {
-        return item
-      }
-    })
+    
+    if (hasGenderVariation && clientGender ) {
+      result = result.map((item, index) => {
+        const obj = {};
+        for (const [key, value] of Object.entries(item)) {
+          obj[key] = value;
+          if (clientGender == 'male') {
+            obj['upperlimit'] = item[clientGender].upperlimit
+            obj['lowerlimit'] = item[clientGender].lowerlimit
+          } else {
+            obj['upperlimit'] = item[clientGender].upperlimit
+            obj['lowerlimit'] = item[clientGender].lowerlimit     
+          }
+        }
+        delete obj.female;
+        delete obj.male;
+        return obj;
+      })
+    }
     return result
   }
 
@@ -48,8 +79,9 @@ class Creator {
 
   async updateTestCreationRule(data) {
     if (!this.testid || !data) throw new Error("testid and data  is required")
+    const stringdata = JSON.stringify(data)
     const query = `UPDATE customtestcreation SET creationrule = ? WHERE testid = ?`
-    const isUpdated = await promisifyQuery(query, [data, this.testid])
+    const isUpdated = await promisifyQuery(query, [stringdata, this.testid])
     return rowAffected(isUpdated)
   }
 }

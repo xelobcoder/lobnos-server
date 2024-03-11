@@ -44,21 +44,21 @@ class Manager {
         SELECT ta.testid,
               ta.billingid,
               bb.clientstatus AS urgency,
-              tt.NAME,
+              tt.name,
               ta.declineMessage,
               ta.approvedby,
               ta.approvalstatus,
               ta.actionPlan,
-        CASE WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME," ", np.LASTNAME) 
-            WHEN np.MIDDLENAME IS NOT NULL THEN CONCAT(np.FIRSTNAME, " ", np.MIDDLENAME, " ", np.LASTNAME) 
+        CASE WHEN np.middlename IS NULL THEN CONCAT(np.firstname," ", np.lastname) 
+            WHEN np.middlename IS NOT NULL THEN CONCAT(np.firstname, " ", np.middlename, " ", np.lastname) 
             END AS fullname
         FROM test_ascension AS ta
-            INNER JOIN billing as bb ON bb.BILLINGID = ta.billingid
-            INNER JOIN new_patients AS np ON np.PATIENTID = bb.PATIENTID
+            INNER JOIN billing as bb ON bb.billingid = ta.billingid
+            INNER JOIN new_patients AS np ON np.patientid = bb.patientid
             INNER JOIN test_panels AS tt ON tt.ID = ta.testid
         WHERE ta.ready = 'true'
         AND ta.ApprovalStatus = 0 and declineMessage is null
-    `;
+    `
 
     try {
       let result = await promisifyQuery(query);

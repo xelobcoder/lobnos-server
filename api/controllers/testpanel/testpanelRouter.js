@@ -120,14 +120,14 @@ router.get("/api/v1/testpanel/list/customtestrule", async function (request, res
     const { testid } = request.query
     if (!testid) return customError("testid,testname,patientid and billingid are required", 404, response)
     const rule = await new Creator(testid).getTestCreationRule();
-    response.send(rule)
+    response.send(rule);
   } catch (err) {
     responseError(response)
   }
 })
 router.get("/api/v1/testpanel/list/customtestrule/previous", async function (request, response) {
   try {
-    const { testid, testname, billingid, patientid, state = false } = request.query
+    const { testid, testname, billingid, patientid } = request.query
     if (!testid || !testname || !billingid || !patientid)
       return customError("testid,testname,patientid and billingid are required", 404, response)
     const rule = await new Creator(testid).getCustomPreviousRecords(testname, billingid, patientid)
@@ -153,8 +153,7 @@ router.put("/api/v1/testpanel/list/customtestrule", async function (request, res
     const { testid, data } = request.body
     if (!testid || !data) return customError("testid  && data is required", 404, response)
     if (data.length === 0) return customError("wrong format provided", 404, response)
-    const stringdata = JSON.stringify(data)
-    const updateRule = await new Creator(testid).updateTestCreationRule(stringdata)
+    const updateRule = await new Creator(testid).updateTestCreationRule(data)
     response.send({ status: updateRule ? true : false })
   } catch (err) {
     responseError(response)

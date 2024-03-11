@@ -74,6 +74,7 @@ const testCategoryMapping = {
   urinalysis: "hema",
   scan: "scan",
   abdominal_ultrasound_scan: "scan",
+  abdominal_pelvic_scan:'scan',
   obstetrics_scan: "scan",
   pelvic_scan: "scan",
 }

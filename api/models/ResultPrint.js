@@ -1,12 +1,15 @@
 const connection = require("../db");
 const { Result, testTable } = require("./result");
 const { getAge } = require('../../api/test/setup/fbc');
-const { setups } = require('../../helpers/testtables');
-const logger = require('../../logger')
-const { promisifyQuery, customError, rowAffected, paginationQuery, responseError } = require("../../helper")
+const { setups, PDF_QUERIES } = require("../../helpers/testtables")
+const logger = require("../../logger")
+const { promisifyQuery, customError, rowAffected, paginationQuery, responseError, convertKeysToLowerCase } = require("../../helper")
 const ResultClass = new Result()
 const errMessage = ResultClass.errMessage
 const { MappingSetup, mappWithBilingid, testCategoryMapping } = require("./ResultQueryMapping")
+const CustomTest = require("./resultentry/customTestEntry");
+const Creator = require("./creator");
+const Registration = require("./registration");
 
 const emptySummry = [
   { title: "registered clients", value: 0 },
@@ -56,7 +59,7 @@ class ResultPrint {
   constructor(billingid) {
     this.billingid = billingid
   }
-  get_printables = (request, response) => {
+  get_printables(request, response) {
     const { querydate, content } = request.query
     let modelQuery = `
       SELECT 
@@ -109,7 +112,7 @@ class ResultPrint {
     })
   }
 
-  get_extrainfo_test = async (id, response) => {
+  async get_extrainfo_test(id, response) {
     const model = `SELECT  DISTINCT tp.NAME AS name,
                       ta.testid,
                       ta.ready,
@@ -134,7 +137,7 @@ class ResultPrint {
     }
   }
 
-  updatePrintCount = async function (id, count) {
+  async updatePrintCount(id, count) {
     if (!id || !count) {
       throw new Error("test ascension id and count required")
     }
@@ -143,7 +146,7 @@ class ResultPrint {
     return rowAffected(await promisifyQuery(query, [count, id]))
   }
 
-  run_query = async (query, date) => {
+  async run_query(query, date) {
     try {
       return new Promise((reject, resolve) => {
         connection.query(query, date, (err, result) => {
@@ -158,7 +161,7 @@ class ResultPrint {
     }
   }
 
-  get_summary_ready_page = async (request, response) => {
+  async get_summary_ready_page(request, response) {
     const { querydate, content } = request.query
 
     const query = `SELECT 
@@ -216,7 +219,7 @@ class ResultPrint {
     }
   }
 
-  getSamplingInformation = async (billing, testid) => {
+  async getSamplingInformation(billing, testid) {
     try {
       let sampling = await promisifyQuery(samplingQuery, [billing, testid])
       if (sampling.length == 0) return {}
@@ -235,7 +238,7 @@ class ResultPrint {
     }
   }
 
-  resultPreviewChemistry = async function (request, response, category) {
+  async resultPreviewChemistry(request, response, category) {
     const { billingid, testid, test } = request.query
     let responseResult = { sampling: [], result: [] }
     const testname = testTable[test]
@@ -262,55 +265,60 @@ class ResultPrint {
                WHERE rt.billingid = ?`
       }
     }
-    //   connection.beginTransaction(async function (err) {
-    //     if (err) { logger.error(err); }
-    //     try {
-    //       let sampling = await new ResultPrint().getSamplingInformation(billingid, testid);
-    //       let resultQueryResult = await promisifyQuery(resultQuery, billingid);
-    //       responseResult.sampling = sampling;
-    //       responseResult.result = resultQueryResult;
-    //       responseResult.category = category
-    //       response.send(responseResult);
-    //     }
-    //     catch (err) {
-    //       logger.error(err);
-    //       connection.rollback();
-    //     }
-    //   })
-    // } else {
-    //   console.log(err);
-    //   response.send({
-    //     statusCode: 401,
-    //     status: "error",
-    //   });
-    // }
+    connection.beginTransaction(async function (err) {
+      if (err) {
+        logger.error(err)
+      }
+      try {
+        let sampling = await new ResultPrint().getSamplingInformation(billingid, testid)
+        let resultQueryResult = await promisifyQuery(resultQuery, billingid)
+        responseResult.sampling = sampling
+        responseResult.result = resultQueryResult
+        responseResult.category = category
+        response.send(responseResult)
+      } catch (err) {
+        logger.error(err)
+        connection.rollback()
+      }
+    })
   }
 
-  resultPreviewHematological = async function (request, response) {
+  async resultPreviewHematological(request, response) {
     const { billingid, testid, test } = request.query
 
     if (!billingid || !testid || !test) {
-      customError("billingid, testid && test required", 404, response)
+      return customError("billingid, testid && test required", 404, response)
     }
 
     let responseResult = {}
     const category = testCategoryMapping[test]
-    const dbTable = MappingSetup[test]
-    const query = dbTable + ` WHERE billingid = ?`
+    const query = PDF_QUERIES.hematologicalQ(testTable[test])
     try {
-      const result = await promisifyQuery(query, [billingid])
+      let result = await promisifyQuery(query, [parseInt(billingid)]);
+      if (result.length > 0) {
+        result = result.map((item, index) => {
+          const itemLowercase = convertKeysToLowerCase(item)
+          const optional = ["patientid", "updated_on", "employeeid", "billingid", "keyid", "created_on", "id", "time"];
+          for (const [key, value] of Object.entries(itemLowercase)) {
+            if (optional.includes(key)) {
+              delete itemLowercase[key]
+            }
+          }
+          return itemLowercase
+        })
+      }
       responseResult.result = result.length > 0 ? result[0] : {}
       let sampling = await this.getSamplingInformation(billingid, testid)
       responseResult.sampling = sampling
       responseResult.testcategory = category
       response.send(responseResult)
     } catch (err) {
-      logger.error(err)
       console.log(err)
+      responseError(response)
     }
   }
 
-  getComments = async function (billingid, testid, response) {
+  async getComments(billingid, testid, response) {
     try {
       const result = await promisifyQuery(`SELECT * FROM result_comments WHERE BILLINGID = ? AND TESTID = ? `, [billingid, testid])
       if (response) {
@@ -330,7 +338,7 @@ class ResultPrint {
 
   // this function would update the  test ascension table using the client blling id as to whether the result is approved or declined
   // decison query in the request is used here
-  makeDecisionOnResult = async function (request, response) {
+  async makeDecisionOnResult(request, response) {
     const { billingid, testid, declineMessage, approvalstatus, actionPlan, approvedby } = request.body
     // update query to change approval status
     let updateQuery = `UPDATE test_ascension 
@@ -349,7 +357,7 @@ class ResultPrint {
     }
   }
 
-  checkApproval = async function (billingid, testid, response) {
+  async checkApproval(billingid, testid, response) {
     const q = `SELECT approvalstatus FROM test_ascension WHERE billingid = ? AND testid = ?`
     try {
       const result = await promisifyQuery(q, [billingid, testid])
@@ -377,7 +385,6 @@ class ResultPrint {
       }
     }
   }
-
   async advancedTablesSearch(request, response) {
     try {
       const { patientid, fullname, mobile, from, to, count = 10, page = 1 } = request.query
@@ -446,11 +453,39 @@ class ResultPrint {
       query += ` GROUP BY b.billingid ORDER BY b.billingid DESC LIMIT ? OFFSET ?`
 
       const result = await paginationQuery({ count, page }, query, values)
-      
+
       response.send({ status: "success", statusCode: 200, result })
     } catch (err) {
       logger.error(err)
       responseError(response)
+    }
+  }
+
+  async previewReport(request, response) {
+    const { test, testid, billingid } = request.query
+
+    if (!test) return customError("test missing", 404, response)
+    const isCustom = await new CustomTest().isCustomTest(test);
+    
+    if (isCustom === false) {
+      const category = testCategoryMapping[test]
+      switch (category) {
+        case "hema":
+          this.resultPreviewHematological(request, response)
+          break
+        case "chemistry":
+          this.resultPreviewChemistry(request, response)
+          break
+        case "scan":
+          console.log("scan")
+          break
+        default:
+          return customError("test is not recognized", 404, response)
+      }
+    } else {
+      const patientid = new Registration().getPatientInfoUsingBillingId(parseInt(billingid));
+      const result = await new Creator(testid).getCustomPreviousRecords(test, billingid,patientid)
+      console.log(patientid, result);
     }
   }
 }
