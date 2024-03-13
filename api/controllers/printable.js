@@ -89,21 +89,8 @@ router.post("/api/v1/billing/payment/update", function (request, response) {
 })
 
 router.get("/api/v1/result/preview", function (request, response) {
-  new ResultPrint().previewReport(request, response)
-  // const { test } = request.query
-  // const category = testCategoryMapping[test]
   try {
-    // if (!test || !category) {
-    //   return customError(`test or category not found`, 404, response)
-    // } else {
-    //   if (category == "chemistry") {
-    //     result.resultPreviewChemistry(request, response, category)
-    //   } else if (category == "hema") {
-    //     result.resultPreviewHematological(request, response, category)
-    //   } else {
-    //     customError("Category not found", 400, response)
-    //   }
-    // }
+    new ResultPrint().previewReport(request, response)
   } catch (err) {
     logger.error(err)
   }
@@ -151,8 +138,7 @@ router.get("/billing/result/pdf", async function (request, response) {
   if ((billingid, testname, testid)) {
     try {
       const pdfgenerate = new PDFGENERATION(billingid, testid, testname)
-      const result = await pdfgenerate.generatePDFdata()
-      pdfgenerate.generatePDFResult(result, response)
+      pdfgenerate.generatePDFResult(response);
     } catch (error) {
       customError("error fetching data", 500, response)
     }

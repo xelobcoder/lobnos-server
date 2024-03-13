@@ -49,6 +49,7 @@ class Manager {
               ta.approvedby,
               ta.approvalstatus,
               ta.actionPlan,
+              bb.patientid,
         CASE WHEN np.middlename IS NULL THEN CONCAT(np.firstname," ", np.lastname) 
             WHEN np.middlename IS NOT NULL THEN CONCAT(np.firstname, " ", np.middlename, " ", np.lastname) 
             END AS fullname

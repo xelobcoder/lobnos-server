@@ -1,4 +1,6 @@
 const router = require('express').Router();
+const { customError } = require('../../helper');
+const ResultPrint = require('../models/ResultPrint');
 const { getPhelobotomy, updatePhelobotomy, sampleAssesment,
 postSection, get_client_query, getAscensionWithDetails } = require('../phelobotomy')
 
@@ -41,6 +43,14 @@ router.get('/api/v1/phelobotomy/ascension', function (request, response) {
       status: "error",
     })
   }
+})
+
+
+router.get('/api/v1/phelobotomy/ascension/getsamplinginfo', async function (request, response) {
+  const { billingid, testid } = request.query;
+  if (!billingid || !testid) return customError('billingid and  testid are required', 404, response);
+  const result = await new ResultPrint().getSamplingInformation(billingid, testid);
+  response.send(result);
 })
 
 

@@ -462,30 +462,16 @@ class ResultPrint {
   }
 
   async previewReport(request, response) {
-    const { test, testid, billingid } = request.query
-
-    if (!test) return customError("test missing", 404, response)
-    const isCustom = await new CustomTest().isCustomTest(test);
-    
-    if (isCustom === false) {
-      const category = testCategoryMapping[test]
-      switch (category) {
-        case "hema":
-          this.resultPreviewHematological(request, response)
-          break
-        case "chemistry":
-          this.resultPreviewChemistry(request, response)
-          break
-        case "scan":
-          console.log("scan")
-          break
-        default:
-          return customError("test is not recognized", 404, response)
-      }
-    } else {
-      const patientid = new Registration().getPatientInfoUsingBillingId(parseInt(billingid));
-      const result = await new Creator(testid).getCustomPreviousRecords(test, billingid,patientid)
-      console.log(patientid, result);
+    try {
+      const { test, testid, billingid } = request.query;
+      if (!test) return customError("test missing", 404, response);
+      let patientid = await new Registration().getPatientInfoUsingBillingId(parseInt(billingid))
+      if (patientid.length == 0) return customError("patient not found", 404, response)
+      patientid = patientid[0]["patientid"]
+      const result = await new Creator(testid).getCustomPreviousRecords(test, billingid, patientid)
+      response.send({ statusCode: 200, status: "success", result })
+    } catch (err) {
+      responseError(response);
     }
   }
 }

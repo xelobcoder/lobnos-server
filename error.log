@@ -573,3 +573,21 @@
 {"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_function_liver WHERE patientid =  2024220122 LIMIT 5","sqlMessage":"Table 'limsdb.result_function_liver' doesn't exist","sqlState":"42S02"}
 {"level":"error"}
 {"level":"error"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_function_full_blood_count WHERE patientid =  2024220122 LIMIT 5","sqlMessage":"Table 'limsdb.result_function_full_blood_count' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_function_full_blood_count WHERE patientid =  2024220122 LIMIT 5","sqlMessage":"Table 'limsdb.result_function_full_blood_count' doesn't exist","sqlState":"42S02"}
+{"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT t.parameter,s.upper,s.lower,t.unit,CAST(t.created_on AS DATE) AS date,CAST(t.created_on AS time) AS time,\n    t.value,t.patientid FROM result_function_renal AS t INNER JOIN setup_renal_function_test AS s ON s.parameter = t.parameter WHERE t.billingid = 393","sqlMessage":"Table 'limsdb.result_function_renal' doesn't exist","sqlState":"42S02"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
