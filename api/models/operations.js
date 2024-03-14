@@ -9,30 +9,21 @@ class Operations {
   constructor(billingid) {
     this.billingid = billingid
     this.validBillingid = async function () {
-      return new Promise((resolve, reject) => {
-        connection.query(`SELECT * FROM billing WHERE billingid = ${this.billingid}`, (err, result) => {
-          err ? reject(err) : result.length === 0 ? resolve(false) : resolve(true)
-        })
-      })
-    }
+       const result = await promisifyQuery(`SELECT * FROM billing WHERE billingid = ?`, [this.billingid]);
+       return result.length === 0
+    } 
   }
 
   async readyforTest() {
     // we want return test where the result is PHELOBOTOMY_STATUS is done and SAMPLE_STATUS = accepted
     const validID = await this.validBillingid()
-
     if (!validID) {
       return "Invalid billingid"
     }
     if (validID) {
-      const queryString = `SELECT * FROM samplestatus WHERE billingid = ${this.billingid} AND approvalstatus= 1`
-
-      return new Promise((resolve, reject) => {
-        // execute query
-        connection.query(queryString, (err, result) => {
-          err ? reject(err) : result.length === 0 ? resolve(false) : resolve(true)
-        })
-      })
+      const queryString = `SELECT * FROM samplestatus WHERE billingid = ? AND approvalstatus= 1`;
+      const result = await promisifyQuery(queryString, [this.billingid]);
+      return result.length === 0 ? false :  true;
     }
   }
 
@@ -115,14 +106,7 @@ class Operations {
     // update test ascension table with the testid, datetime and the billing id
     const queryString = `UPDATE test_ascension SET processing_date = NOW(),
     processing = 'true'  WHERE billingid = ? AND testid = ?`
-
-    // return await promisifyQuery(queryString, [billingid, testid]);
-
-    return new Promise((resolve, reject) => {
-      connection.query(queryString, (err, result) => {
-        err ? reject(err) : result.affectedRows === 0 ? resolve({ affectedRows: 0 }) : resolve({ affectedRows: 1 })
-      })
-    })
+    return await promisifyQuery(queryString, [billingid, testid]);
   }
 
   initiateReady = async (testid, billingid) => {
@@ -218,6 +202,7 @@ class Operations {
           SELECT COUNT(*) AS count, d.department,d.id AS departmentid from test_ascension AS ta
           INNER JOIN test_panels AS tp ON tp.id = ta.testid
           INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+          INNER JOIN billing AS b ON b.billingid = ta.billingid
           INNER JOIN departments AS d ON d.id = tp.category
           WHERE ta.collection = 'true'
         `
@@ -230,9 +215,9 @@ class Operations {
         queryString += ` AND ta.ready = 'true'`
       }
 
-      queryString += ` AND d.department <> 'ultrasound'`
+      queryString += ` AND d.department <> 'ultrasound' AND DATE(b.billedon) = CURRENT_DATE`
 
-      queryString += ` GROUP BY d.department`
+      queryString += ` GROUP BY d.department,d.id,ta.id`
 
       const result = await promisifyQuery(queryString)
 

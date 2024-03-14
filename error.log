@@ -591,3 +591,8 @@
 {"level":"error"}
 {"level":"error"}
 {"level":"error"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT * FROM setup_full_blood_count_test_male","sqlMessage":"Table 'limsdb.setup_full_blood_count_test_male' doesn't exist","sqlState":"42S02"}
+{"level":"error"}

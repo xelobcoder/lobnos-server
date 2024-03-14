@@ -1,6 +1,7 @@
 const router = require("express").Router()
 const { customError, rowAffected, promisifyQuery } = require("../../helper")
 const logger = require("../../logger")
+const Operations = require("../models/operations")
 const Patient = require("../models/patientAnalytics")
 const { Result } = require("../models/result")
 const testpanel = require("../testpanel/list")
@@ -56,6 +57,7 @@ router.post("/api/v1/result/entry/customtest", async function (request, response
         if (await shouldCreateRecord(billingid, patientid, tablename, item.field)) {
           const values = [item.field, billingid, patientid, item.value, employeeid]
           const query = `INSERT INTO ${tablename} (field,billingid,patientid,value,employeeid) VALUES(?,?,?,?,?)`
+          await new Operations().initiateStart(testid, billingid);
           await promisifyQuery(ascensionQuery, [billingid, testid])
           return rowAffected(await promisifyQuery(query, values))
         } else {

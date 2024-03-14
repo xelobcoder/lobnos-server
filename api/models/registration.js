@@ -320,11 +320,11 @@ class Registration {
         occupation,
         patientOrganization,
         years,
-      } = request.body
+      } = request.body.data
 
       const query = `UPDATE new_patients 
-                   SET FIRSTNAME=?, LASTNAME=?, MIDDLENAME=?, EMAIL=?, AGE=?, AGETYPE=?, DOB=?, MARITAL_STATUS=?, MOBILE_NUMBER=?, OCCUPATION=?, GENDER=?, ORGANIZATION=?
-                   WHERE PATIENTID=?`
+                   SET firstname = ?, lastname = ?, middlename = ?, email = ?,age = ?, agetype = ?, dob = ?, marital_status = ?, mobile_number = ?, occupation = ?, gender = ?, organization = ?
+                   WHERE patientid = ?`
 
       // query values
       const values = [
@@ -343,18 +343,12 @@ class Registration {
         this.patientid,
       ]
 
-      // execute query
-      connection.query(query, values, function (err, result) {
-        if (err) {
-          logger(err)
-        } else {
-          response.send({
-            message: "record updated successfully",
-            statusCode: 200,
-            status: "success",
-          })
-        }
-      })
+      const result = await promisifyQuery(query, values)
+      if (rowAffected(result)) {
+        response.send({ statusCode: 200, message: "record updated sucessfully", status: "success" })
+      } else {
+        response.send({ statusCode: 404, message: "record update failed", status: "error" })
+      }
     } else {
       customError(`patient id not found`, 404, response)
     }
