@@ -16,8 +16,8 @@ class Supplys {
     return result.insertId != null;
   }
 
-  async deleteSupplier(id) {
-    if (!id) return false;
+  async deleteSupplier(supplierid) {
+    if (!supplierid) throw new Error('supplierid is required');
     const isdelted = await database_queries.del([supplierid], 'supplier', 'supplierid');
     return isdelted.affectedRows > 0;
   }

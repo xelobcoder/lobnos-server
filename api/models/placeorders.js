@@ -75,6 +75,7 @@ const placeOrder = async function (request, response) {
         response.send({
           statusCode: 200,
           status: "success",
+          clear: Exit.length,
           message: `${successCount} items successfully requested.${errorCount}  error occured. ${responseString}`,
         });
       }

@@ -65,24 +65,32 @@ class Inventoryanalytics {
   }
 
   async getIncompOrdersCount(count) {
-    const query = `SELECT ${count === true ? "COUNT(*) AS count" : "*"} FROM orders WHERE received  = 'FALSE'`
-    const result = await promisifyQuery(query)
-    if (count === true) {
-      return result.length > 0 ? result[0]["count"] : null
+    try {
+      const query = `SELECT ${count === true ? "COUNT(*) AS count" : "*"} FROM orders WHERE received  = 'FALSE'`
+      const result = await promisifyQuery(query)
+      if (count === true) {
+        return result.length > 0 ? result[0]["count"] : null
+      }
+      return result
+    } catch (err) {
+      throw new Error(err)
     }
-    return result
   }
 
   async completeOrdersCount(count, t = { page: 1, count: 10 }) {
-    let query = `SELECT  ${count === true ? "COUNT(*) AS count" : "*"} FROM orders WHERE received = 'TRUE'`
-    if (count === true) {
-      const result = await promisifyQuery(query)
-      return result.length > 0 ? result[0]["count"] : 0
+    try {
+      let query = `SELECT  ${count === true ? "COUNT(*) AS count" : "*"} FROM orders WHERE received = 'TRUE'`
+      if (count === true) {
+        const result = await promisifyQuery(query)
+        return result.length > 0 ? result[0]["count"] : 0
+      }
+      query += ` LIMIT ? OFFSET ?`
+      const result = await paginationQuery(t, query)
+      return result
+    } catch (err) {
+      logger.error(err)
+      throw new Error(err)
     }
-    query += ` LIMIT ? OFFSET ?`
-
-    const result = await paginationQuery(t, query)
-    return result
   }
 
   async updateInvenAnalSummary() {
@@ -179,10 +187,8 @@ class Inventoryanalytics {
 
     return await this.quartersReducer(data)
   }
-
-
 }
 
 module.exports = Inventoryanalytics
 
-new Inventoryanalytics().getDepartmentWastageByQuartersSummary(8)
+// new Inventoryanalytics().getDepartmentWastageByQuartersSummary(8)

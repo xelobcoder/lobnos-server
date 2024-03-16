@@ -238,7 +238,6 @@ class Registration {
       ]
       // execute query
       const result = await promisifyQuery(query, values)
-
       return { count: result.affectedRows }
     } catch (err) {
       console.log(err)

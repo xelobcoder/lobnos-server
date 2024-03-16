@@ -30,6 +30,16 @@ router.get("/api/v1/suppliers", async function (request, response) {
     logger.err(err)
   }
 })
+router.get("/api/v1/suppliers/getsupplier", async function (request, response) {
+  try {
+    const { supplierid } = request.query
+    if (!supplierid) return customError(`supplier id not included in request`, 404, response)
+    const result = await new Supply().getSupplier(supplierid)
+    response.send({ result, statusCode: 200, status: "success" })
+  } catch (err) {
+    responseError(response)
+  }
+})
 
 router.post("/api/v1/suppliers", async function (request, response) {
   try {
@@ -42,11 +52,14 @@ router.post("/api/v1/suppliers", async function (request, response) {
 
 router.delete("/api/v1/suppliers", async function (request, response) {
   try {
-    const { id } = request.query
-    const isdeleted = await new Supply().deleteSupplier(id)
+    const { supplierid, employeeid } = request.query
+    if (!supplierid) {
+      return customError("supplierid must be provided", 404, response)
+    }
+    const isdeleted = await new Supply().deleteSupplier(supplierid)
     response.send({ statusCode: 200, status: "success", message: isdeleted ? "deleted successfully" : "deleting supplier failed" })
   } catch (err) {
-    logger.error(err)
+    console.log(err)
     customError("something went wrong", 500, response)
   }
 })

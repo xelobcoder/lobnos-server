@@ -78,7 +78,7 @@ class EmailService {
       this.user = email;
       this.password = apppassword;
       this.provider = provider;
-      this.company = 'Kairos Diagnostics Center';
+      this.company =  'LabName'
 
       if (!this.validateCredentials(this.user, this.password, this.provider, this.company)) return 'invalid credentials';
 
