@@ -10,6 +10,8 @@ const operationsRouter = require("./api/controllers/operations")
 const registrationRouter = require("./api/controllers/registration")
 const rejectedRouter = require("./api/controllers/rejected")
 const Authentication = require('./api/EmailServices/Authentication')
+const ApplicationEvents = require("./api/EmailServices/Events");
+const EmailQueries = require('./api/EmailServices/EmailQueries');
 const stocksRouter = require("./api/controllers/Inventory/stocks")
 const activation = require("./api/activation")
 const clinicianRouter = require("./api/controllers/clinicians")
@@ -199,3 +201,8 @@ const upDateInventoryAnalyticSummary = async () => {
 }
 
 // upDateInventoryAnalyticSummary()
+
+app.get("/email/templates", async function (request, response) {
+  var path = require('node:path')
+  response.render(path.join(__dirname,'./api/views/templates/sampleRejection.ejs'),{data:{labname:'Vitalscan laboratory',header:'sample rejection notice'}})
+})

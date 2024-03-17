@@ -1,7 +1,7 @@
 const { promisifyQuery, customError, convertKeysToLowerCase, paginationQuery, rowAffected } = require("../helper")
 const logger = require("../logger")
 const connection = require("./db")
-const EmailService = require("./EmailServices/email")
+const EmailService = require("./EmailServices/EmailCore")
 const applicationSettings = require("./models/applicationSettings")
 
 class SampleHandler {

@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const { customError } = require('../../helper');
-const EmailService = require('../EmailServices/email');
+const EmailService = require("../EmailServices/EmailCore")
 const path = require("node:path");
 
 router.get("/api/v1/email/summary", async function (request, response) {

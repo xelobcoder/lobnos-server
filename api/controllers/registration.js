@@ -2,7 +2,7 @@ const router = require('express').Router();
 const { customError, convertKeysToLowerCase } = require('../../helper');
 const database_queries = require('../database/queries');
 const Registration = require('../models/registration');
-const EmailService = require('../EmailServices/email');
+const EmailService = require("../EmailServices/EmailCore")
 
 router.get("/api/v1/register", (request, response) => {
 

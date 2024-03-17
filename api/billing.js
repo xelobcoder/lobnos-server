@@ -3,7 +3,7 @@ const { checkpatient } = require('./register');
 const logger = require('../logger')
 const { customError, promisifyQuery, rowAffected } = require("../helper")
 const { getApplicationSettings } = require("./models/applicationSettings")
-const EmailService = require("./EmailServices/email")
+const EmailService = require("./EmailServices/EmailCore")
 const applicationSettings = require("./models/applicationSettings")
 
 /**

@@ -1,7 +1,7 @@
 const { customError, promisifyQuery, rowAffected } = require("../../helper")
 const connection = require("../db")
 const logger = require("../../logger")
-const EmailService = require("../EmailServices/email")
+const EmailService = require("../EmailServices/EmailCore")
 const database_queries = require("../database/queries")
 
 /**

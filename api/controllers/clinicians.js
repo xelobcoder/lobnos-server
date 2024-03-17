@@ -1,7 +1,7 @@
 const { getClinicians, putCliniciansbasic, deleteClinicians, getSingleClinician, postClinicianBasicInfo, getTopPerformingClinicians, getClinicianResult, getBillingTestBasedByClinician} = require('../../api/clinicians');
 const { customError } = require('../../helper');
 const logger = require('../../logger');
-const EmailService = require('../EmailServices/email');
+const EmailService = require("../EmailServices/EmailCore")
 const {Billing }= require("../../api/billing");
 const Registration = require('../models/registration');
 const database_queries = require('../database/queries');
