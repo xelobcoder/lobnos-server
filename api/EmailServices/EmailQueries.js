@@ -1,4 +1,4 @@
-const { promisifyQuery } = require("../../helper")
+const { promisifyQuery, rowAffected } = require("../../helper")
 
 class EmailQueries {
   constructor(billingid) {
@@ -7,10 +7,9 @@ class EmailQueries {
 
   async isEmailServiceActivated() {
     const appset = await promisifyQuery(`SELECT emailNotification FROM applicationsettings`)
-    if (appset.length > 0) {
-      const emailActivation = appset[0]["emailNotification"]
-      return emailActivation == "0" ? false : true
-    }
+    if (appset.length == 0) return false
+    const emailActivation = appset[0]["emailNotification"]
+    return emailActivation == "0" ? false : true
   }
 
   async getEmailPreference() {
@@ -33,8 +32,8 @@ class EmailQueries {
 
   async getTempClinicianCredentials(id) {
     try {
-      const credentials = await promisifyQuery(`SELECT * FROM clinicianscredentials WHERE clinicianid = ?`, [id])
-      return credentials
+      if (!id) return null
+      return await promisifyQuery(`SELECT * FROM clinicianscredentials WHERE clinicianid = ?`, [id])
     } catch (err) {
       logger.error(err)
     }
@@ -319,25 +318,19 @@ class EmailQueries {
   async updateAuthMode(target, identifier) {
     if (!identifier || !target) return "required params not provided"
     try {
-      let query
-
+      let query = ""
       if (target === "patient") {
         query = `UPDATE patients_settings SET authenticationMode = 'email', emailAuthenticated = 'true' WHERE patientid = ?`
       }
-
       if (target === "clinician") {
-        query = `UPDATE clinicianscredentials SET authenticationMode = 'email', isAuthenticated = 1,authenticatedon = NOW() WHERE clinicianid = ? `
+        query = `UPDATE clinicianscredentials SET authenticationMode = 'email', isAuthenticated = 1,authenticatedon = NOW() WHERE clinicianid = ?`
       }
-      const isUpdated = await promisifyQuery(query, [identifier])
-
-      return isUpdated.affectedRows == 1 ? true : false
+      if (!query) return false
+      return rowAffected(await promisifyQuery(query, [identifier]))
     } catch (err) {
       throw new Error(err)
     }
   }
 }
 
-
-
-
-module.export = EmailQueries;
+module.exports = EmailQueries

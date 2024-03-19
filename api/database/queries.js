@@ -1,99 +1,92 @@
-const logger = require('../../logger');
-const connection = require('../db');
-const { testResults } = require('../testResult');
+const { promisifyQuery } = require("../../helper")
+const logger = require("../../logger")
+const connection = require("../db")
+const { testResults } = require("../testResult")
 
 // create an object
 
 const database_queries = {
   setup_newParameter: (table, parameter, upper, lower, unit) => {
-    let SQL_QUERY = `INSERT INTO ${table} (PARAMETER,UPPER,LOWER,UNIT) VALUES ('${parameter}',${upper},${lower},'${unit}')`;
+    let SQL_QUERY = `INSERT INTO ${table} (PARAMETER,UPPER,LOWER,UNIT) VALUES ('${parameter}',${upper},${lower},'${unit}')`
 
-    connection.query(
-      SQL_QUERY, function (err, result) {
-        if (err) { logger.error(err) };
-        console.log('1 record inserted');
+    connection.query(SQL_QUERY, function (err, result) {
+      if (err) {
+        logger.error(err)
       }
-    )
+      console.log("1 record inserted")
+    })
   },
   setup_deleteParameter: (table, id) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {
       // delete the parameter from the database
-      connection.query(`DELETE FROM ${table} WHERE ID = ${id}`,
-        (err, result) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(result);
-          }
+      connection.query(`DELETE FROM ${table} WHERE ID = ${id}`, (err, result) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(result)
         }
-      );
+      })
     })
   },
   setup_updateParameter: (table, id, parameter, lower_limit, upper_limit, comment) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {
       // update the parameter in the database
-      connection.query(`UPDATE ${table} SET parameter = '${parameter}', lower_limit = ${lower_limit}, upper_limit = ${upper_limit}, comment = '${comment}' WHERE ID = ${id}`,
+      connection.query(
+        `UPDATE ${table} SET parameter = '${parameter}', lower_limit = ${lower_limit}, upper_limit = ${upper_limit}, comment = '${comment}' WHERE ID = ${id}`,
         (err, result) => {
           if (err) {
-            reject(err);
+            reject(err)
           } else {
-            resolve(result);
+            resolve(result)
           }
         }
-      );
+      )
     })
   },
   setup_checkParameterExist: (table, parameter) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {
       // check if the parameter exist in the database
-      connection.query(`SELECT * FROM ${table} WHERE parameter = '${parameter}'`,
-        (err, result) => {
-          if (err) {
-            reject(err);
+      connection.query(`SELECT * FROM ${table} WHERE parameter = '${parameter}'`, (err, result) => {
+        if (err) {
+          reject(err)
+        } else {
+          // return true if result length is greater than 0
+          if (result.length > 0) {
+            resolve(true)
           } else {
-            // return true if result length is greater than 0
-            if (result.length > 0) {
-              resolve(true);
-            }
-            else {
-              resolve(false);
-            }
+            resolve(false)
           }
         }
-      );
+      })
     })
   },
   setup_getParameters: (table) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {
       // get all the parameters from the database
-      connection.query(`SELECT * FROM ${table}`,
-        (err, result) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(result);
-          }
+      connection.query(`SELECT * FROM ${table}`, (err, result) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(result)
         }
-      );
+      })
     })
   },
   setup_getonlyParameters: (table) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {
       // get all the parameters from the database
-      connection.query(`SELECT parameter FROM ${table}`,
-        (err, result) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(result);
-          }
+      connection.query(`SELECT parameter FROM ${table}`, (err, result) => {
+        if (err) {
+          reject(err)
+        } else {
+          resolve(result)
         }
-      );
+      })
     })
   },
   createLiverfunctionTest_Table: () => {
@@ -104,9 +97,9 @@ const database_queries = {
    albumin FLOAT, totalprotein FLOAT, ast FLOAT, alp FLOAT, alt FLOAT, bun FLOAT, creatinine FLOAT)`
     connection.query(query, (err, result) => {
       if (err) {
-        console.log(err);
+        console.log(err)
       } else {
-        console.log(result);
+        console.log(result)
       }
     })
   },
@@ -118,13 +111,15 @@ const database_queries = {
    patientid INT, date DATE, time TIME, comment VARCHAR(255))`
     connection.query(query, (err, result) => {
       if (err) {
-        { logger.error(err) };
+        {
+          logger.error(err)
+        }
       } else {
-        return result;
+        return result
       }
     })
   },
-  checkduplicate: (type = 'billingid', table, id, columnName, date = testResults.getTodayDateAndTime().date) => {
+  checkduplicate: (type = "billingid", table, id, columnName, date = testResults.getTodayDateAndTime().date) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {
       // check if the parameter exist in the database
@@ -132,10 +127,9 @@ const database_queries = {
 
       connection.query(SQL_QUERY, function (err, result) {
         console.log(result)
-        const duplicates = result.length > 0 ? true : false;
-        err ? reject(err) : duplicates ? resolve(true) : resolve(false);
+        const duplicates = result.length > 0 ? true : false
+        err ? reject(err) : duplicates ? resolve(true) : resolve(false)
       })
-
     })
   },
   del: function (id, table, idresulver) {
@@ -143,73 +137,74 @@ const database_queries = {
       //  query
       const SQL_QUERY = `DELETE FROM ${table} WHERE ${idresulver} = ${id}`
       connection.query(SQL_QUERY, function (err, result) {
-        err ? reject(err) : resolve(result);
+        err ? reject(err) : resolve(result)
       })
     })
   },
   deleteMany: function (deleteArray, table) {
     // function for single delete
-    let deleted = 0;
-    let target = deleteArray.length;
+    let deleted = 0
+    let target = deleteArray.length
     // loop through the array
     while (deleted < target) {
-      this.del(deleteArray[deleted], table);
-      deleted++;
+      this.del(deleteArray[deleted], table)
+      deleted++
       if (deleted === target) {
-        break;
+        break
       }
     }
   },
   getall: function (table, limit) {
-    let SQL_QUERY = `SELECT * FROM ${table} ORDER BY ID DESC LIMIT ${limit}`;
+    let SQL_QUERY = `SELECT * FROM ${table} ORDER BY ID DESC LIMIT ${limit}`
     return new Promise((resolve, reject) => {
       connection.query(SQL_QUERY, function (err, result) {
         if (err) {
           reject(err)
-        }
-        else {
+        } else {
           resolve(result)
         }
       })
     })
   },
   addBranch: function (request, response) {
-    const { name, email, contact, managerid, address } = request.body;
+    const { name, email, contact, managerid, address } = request.body
 
-    let SQL_QUERY = `INSERT INTO branch (name,address,email,contact,managerid) VALUES (?,?,?,?,?)`;
+    let SQL_QUERY = `INSERT INTO branch (name,address,email,contact,managerid) VALUES (?,?,?,?,?)`
     connection.query(SQL_QUERY, [name, address, email, contact, managerid], (err, result) => {
-      if (err) { logger.error(err) };
+      if (err) {
+        logger.error(err)
+      }
       if (result) {
         response.send({
-          status: 'success',
-          message: 'new branch added'
+          status: "success",
+          message: "new branch added",
         })
       }
     })
   },
   getBranch: async function (request, response) {
-    let SQL_QUERY = `SELECT * FROM BRANCH  ORDER BY BRANCHID ASC LIMIT 20`;
+    let SQL_QUERY = `SELECT * FROM BRANCH  ORDER BY BRANCHID ASC LIMIT 20`
     if (request.query.branchid) {
-      SQL_QUERY = `SELECT * FROM BRANCH WHERE BRANCHID  = ?`;
+      SQL_QUERY = `SELECT * FROM BRANCH WHERE BRANCHID  = ?`
     }
     connection.query(SQL_QUERY, [request.query.branchid], (error, result) => {
       if (error) {
         response.send({
-          status: 'error',
-          message: 'error occured',
-          statusCode: 500
-        });
+          status: "error",
+          message: "error occured",
+          statusCode: 500,
+        })
       } else {
         response.send({
-          status: 'success',
+          status: "success",
           result,
-          statusCode: 200
+          statusCode: 200,
         })
       }
     })
   },
   editBranch: function (request, response) {
-    const { branchid, name, date, address, email, contact, managerid } = request.body;
+    const { branchid, name, date, address, email, contact, managerid } = request.body
 
     let SQL_QUERY = `UPDATE BRANCH 
           SET NAME = ?,
@@ -224,86 +219,84 @@ const database_queries = {
         response.send({
           message: err.sqlMessage,
           statusCode: 500,
-          status: 'error'
+          status: "error",
         })
       }
       if (result) {
         response.send({
           message: `${name} updated successfully`,
           status: 200,
-          status: 'success'
+          status: "success",
         })
       }
     })
   },
   deleteBranch: function (branchid, request, response) {
-    let SQL_QUERY = `DELETE FROM BRANCH WHERE BRANCHID = '${branchid}'`;
+    let SQL_QUERY = `DELETE FROM BRANCH WHERE BRANCHID = '${branchid}'`
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         response.send({
           message: err.sqlMessage,
           status: 500,
-          status: 'error'
+          status: "error",
         })
       }
       if (result) {
         response.send({
           message: `branch deleted`,
-          status: 'success'
+          status: "success",
         })
       }
     })
   },
   getAllRoles: function (request, response) {
-    let SQL_QUERY = 'SELECT * FROM ROLES';
+    let SQL_QUERY = "SELECT * FROM ROLES"
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         response.send({
-          status: 'error',
+          status: "error",
           message: err.sqlMessage,
-          statusCode: 500
+          statusCode: 500,
         })
       }
       if (result) {
-        response.send(
-          {
-            result,
-            status: 'success',
-            statusCode: 200
-          }
-        )
+        response.send({
+          result,
+          status: "success",
+          statusCode: 200,
+        })
       }
     })
   },
   getSingleRole: function (request, response, id) {
-    let SQL_QUERY = `SELECT * FROM ROLES WHERE ROLEID = '${id}'`;
+    let SQL_QUERY = `SELECT * FROM ROLES WHERE ROLEID = '${id}'`
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) { logger.error(err) };
+      if (err) {
+        logger.error(err)
+      }
       if (result) {
-        response.send(
-          {
-            data: result,
-            status: 'success'
-          }
-        )
+        response.send({
+          data: result,
+          status: "success",
+        })
       }
     })
   },
   newRole: function (fullname, username, password, role, request, response) {
-    let values = [fullname, username, role, password];
+    let values = [fullname, username, role, password]
     console.log(arguments[3])
-    let SQL_QUERY = 'INSERT INTO ROLES (FULLNAME,USERNAME,ROLE,PASSWORD) VALUES(?,?,?,?)'
+    let SQL_QUERY = "INSERT INTO ROLES (FULLNAME,USERNAME,ROLE,PASSWORD) VALUES(?,?,?,?)"
     connection.query(SQL_QUERY, values, (err, result) => {
-      if (err) { logger.error(err) };
+      if (err) {
+        logger.error(err)
+      }
       if (result) {
-        response.send(
-          { message: `${fullname} added as a ${role}`, status: 'success' }
-        )
+        response.send({ message: `${fullname} added as a ${role}`, status: "success" })
       }
     })
   },
   updateRole: function (request, response) {
-    const { fullname, username, role, password, roleid } = JSON.parse(request.body);
+    const { fullname, username, role, password, roleid } = JSON.parse(request.body)
 
     let SQL_QUERY = `UPDATE ROLES SET FULLNAME = '${fullname}', 
    USERNAME = '${username}',
@@ -313,90 +306,86 @@ const database_queries = {
   `
 
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) { logger.error(err) };
+      if (err) {
+        logger.error(err)
+      }
       if (result) {
         response.send({
-          message: 'information updated successfully',
-          status: 200
+          message: "information updated successfully",
+          status: 200,
         })
       }
     })
   },
   deletewithID: function (id, request, response) {
-    let SQL_QUERY = `DELETE FROM ROLES WHERE ROLEID = '${id}'`;
+    let SQL_QUERY = `DELETE FROM ROLES WHERE ROLEID = '${id}'`
     connection.query(SQL_QUERY, (err, result) => {
-      if (err) { logger.error(err) };
+      if (err) {
+        logger.error(err)
+      }
       response.send({
-        message: 'information deleted succesfully',
-        status: 200
+        message: "information deleted succesfully",
+        status: 200,
       })
     })
   },
-  // dropping a table 
+  // dropping a table
   deleteAllrows: function (tablename) {
-    let SQL_QUERY = `TRUNCATE TABLE  ${tablename}`;
-    // return a promise 
+    let SQL_QUERY = `TRUNCATE TABLE  ${tablename}`
+    // return a promise
     return new Promise(function (resolve, reject) {
       connection.query(SQL_QUERY, (err, result) => {
-        if (err) { reject(err) }
+        if (err) {
+          reject(err)
+        }
         if (result) {
           result.fieldCount == 0 ? resolve(true) : resolve(false)
         }
       })
     })
   },
-  getsingleid: function (id, table, idresulver) {
-    return new Promise((resolve, reject) => {
-      let SQL_QUERY = `SELECT * FROM ${table} WHERE ${idresulver} = ${id}`
-      connection.query(SQL_QUERY, (err, result) => {
-        err ? reject(err) : resolve(result)
-      })
-    })
+  getsingleid: async function (id, table, idresulver) {
+    return await promisifyQuery(`SELECT * FROM ${table} WHERE ${idresulver} = ?`, [id])
   },
   activateDeactivate: function (request, response) {
-    const { id, status } = request.body;
+    const { id, status } = request.body
 
     if (!id || !status) {
       response.send({
         statusCode: 401,
-        status: 'error',
-        message: 'include the branchid and status'
+        status: "error",
+        message: "include the branchid and status",
       })
     }
 
-    const activation = status == 'activate' ? 1 : 0
+    const activation = status == "activate" ? 1 : 0
 
-    const queryString = `UPDATE BRANCH SET ACTIVATION = ? WHERE BRANCHID = ? `;
+    const queryString = `UPDATE BRANCH SET ACTIVATION = ? WHERE BRANCHID = ? `
 
     connection.query(queryString, [activation, id], (err, result) => {
       if (err) {
         response.send({
           statusCode: 500,
-          message: err.message
+          message: err.message,
         })
       }
       if (result) {
         if (result.affectedRows == 1) {
           response.send({
             statusCode: 200,
-            message: `${activation == 1 ? 'activation successfull' : 'deactivation successful'}`,
-            status: 'success'
+            message: `${activation == 1 ? "activation successfull" : "deactivation successful"}`,
+            status: "success",
           })
         } else {
           response.send({
             statusCode: 200,
-            message: 'No row affected',
-            status: 'success'
+            message: "No row affected",
+            status: "success",
           })
         }
       }
     })
-
-  }
+  },
 }
-
-
-
-
 
 module.exports = database_queries

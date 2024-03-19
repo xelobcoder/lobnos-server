@@ -5,3 +5,8 @@ class EmailScheduler extends EmailService {
     super(employeeid)
   }
 }
+
+
+
+
+module.exports = EmailScheduler;

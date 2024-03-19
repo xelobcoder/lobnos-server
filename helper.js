@@ -62,13 +62,15 @@ function NotFound(response) {
 }
 
 async function promisifyQuery(query, values = []) {
+  if (!query || typeof query != 'string') {
+    throw new Error('query must be added and a string type'); 
+  }
   return new Promise((resolve, reject) => {
     connectionpool.getConnection((getConnectionError, connection) => {
       if (getConnectionError) {
         reject(getConnectionError)
         return
       }
-
       connection.query(query, values, (queryError, result) => {
         connection.release()
         if (queryError) {
