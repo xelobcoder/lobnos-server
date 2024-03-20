@@ -11,7 +11,7 @@ class Inventoryanalytics {
   }
 
   async getCustomizationData() {
-    return await promisifyQuery(`SELECT * FROM inventoryCustomization`)
+    return await promisifyQuery(`SELECT * FROM inventorycustomization`)
   }
 
   parseJsonData(data) {

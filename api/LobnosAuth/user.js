@@ -75,7 +75,7 @@ class User {
   }
 
   applicationAccessToken = async function () {
-    return jwt.sign({ clientid: 74747 }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "5m" })
+    return jwt.sign({ clientid: 74747 }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1y" })
   }
 
   createAccessTokenCredentials = async (accesskey, email) => {

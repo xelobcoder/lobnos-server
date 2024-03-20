@@ -80,7 +80,7 @@ class ResultPrint {
         WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) 
         END AS fullname
       FROM 
-         TEST_ASCENSION AS ta 
+         test_ascension AS ta 
          INNER JOIN billing AS b ON b.BILLINGID = ta.billingid
          INNER JOIN new_patients AS np ON b.PATIENTID = np.PATIENTID
       WHERE 
@@ -388,13 +388,6 @@ class ResultPrint {
   async advancedTablesSearch(request, response) {
     try {
       const { patientid, fullname, mobile, from, to, count = 10, page = 1 } = request.query
-      // IF TO AND FROM DATE IS PRESENT
-      // SEARCH AS INTERVAL
-      // ELSE
-      // SEARCH USING ANY OF THE PARAMETERS AVAILABLE
-      //  IF PATIENTID IS AVAILABLE
-      // USE PATIENTID
-      // ELSE USE FULLNAME OR MOBILE NUMBER
       const values = []
       let query = `
       SELECT 
@@ -415,7 +408,7 @@ class ResultPrint {
             WHEN np.MIDDLENAME IS NOT NULL THEN  CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) 
             END AS fullname
           FROM 
-            TEST_ASCENSION AS ta 
+            test_ascension AS ta 
             INNER JOIN billing AS b ON b.BILLINGID = ta.billingid
             INNER JOIN new_patients AS np ON b.PATIENTID = np.PATIENTID
             WHERE ta.billingid IS NOT NULL`
