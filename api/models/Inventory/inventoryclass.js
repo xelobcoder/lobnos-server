@@ -172,25 +172,17 @@ class Inventory {
 
   async addStockBrand(records) {
     const { brand, stockid } = records
-
     if (!brand || !stockid) throw new Error("brand name and stockid required")
-
-    const ADDSTOCKBRAND = `INSERT INTO stocksbrands (brand,stockid) VALUES (?,?)`
-
-    return rowAffected(await promisifyQuery(ADDSTOCKBRAND, [brand, stockid]))
+    return rowAffected(await promisifyQuery(`INSERT INTO stocksbrands (brand,stockid) VALUES (?,?)`, [brand, stockid]))
   }
 
   async updateAStockBrand(records) {
     const { brand, stockid, brandid } = records
-
     if (!brand || !stockid || !brandid) {
       throw new Error("brand,brandid and stockid are all required")
     }
-
     const UPDATESTOCKBRANDQUERY = `UPDATE stocksbrands SET brand = ? WHERE stockid = ? AND brandid = ?`
-
     const isUpdated = await promisifyQuery(UPDATESTOCKBRANDQUERY, [brand, stockid, brandid])
-
     return rowAffected(isUpdated)
   }
 
@@ -205,12 +197,10 @@ class Inventory {
     }
     SQLQUERY += ` ORDER BY gs.name LIMIT ? OFFSET ?`
     let data = await paginationQuery(query, SQLQUERY, values)
-
     if (data.length === 0) return data
     data.map((item, index) => {
       return { ...item, quantityrequired: 0 }
     })
-
     return data
   }
 
@@ -250,7 +240,6 @@ class Inventory {
           throw new Error("data must be greater than 0")
         }
       }
-
       if (!tax || !Object.keys(tax).includes("amount") || !Object.keys(tax).includes("method")) {
         if (response) {
           return customError("Tax is an object with properties amount and method", 500, response)
@@ -258,7 +247,6 @@ class Inventory {
           throw new Error("Tax is an object with properties amount and method")
         }
       }
-
       const { orderTransactionid } = records[0]
       const requiredDataSource = records.map((item, index) => {
         const {
@@ -293,7 +281,6 @@ class Inventory {
           stockid,
         ]
       })
-
       let successCount = 0
       let errorCount = 0
       let current = 0
@@ -304,7 +291,6 @@ class Inventory {
         rowAffected(updateRecord) ? successCount++ : errorCount++
         current++
       }
-
       if (successCount === records.length) {
         const summary = {
           orderTransactionid,
@@ -312,18 +298,17 @@ class Inventory {
           method: tax?.method,
           amount: parseFloat(tax?.amount),
         }
-
         const updateSummary = await this.updateOrderReceivedTransactionSummary(summary)
         ordersSummaryUpdated = rowAffected(updateSummary)
       }
-
-      return !response ? ordersSummaryUpdated : response.send({ message: "order updated successfully", statusCode: 200, status: "success" })
+      return !response ?
+        ordersSummaryUpdated :
+        response.send({ message: "order updated successfully", statusCode: 200, status: "success" })
     } catch (err) {
       logger.error(err)
       throw new Error(err)
     }
   }
-
   async getDebitHxSingle(productordersid) {
     const DEBITHX = `SELECT * FROM  generalstoredebithx WHERE productordersid = ?`
     const queryValues = [productordersid]
@@ -379,9 +364,7 @@ class Inventory {
 
   async purchasetoConsumeInsight(data) {
     const { stockid, records } = data
-
-    if (!stockid || !records) throw new Error("stockid and records are required")
-
+    if (!stockid || !records) throw new Error("stockid and records are required");
     const ORDERHX = `SELECT 
                   date as orderdate,
                   productordersid,
@@ -391,11 +374,8 @@ class Inventory {
                   stockid,
     DATEDIFF(date,receiveddate) as pt_to_grn FROM orders WHERE stockid = ? 
     AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`
-
-    const getStockOrdersHx = await promisifyQuery(ORDERHX, [stockid, records])
-
+    const getStockOrdersHx = await promisifyQuery(ORDERHX, [stockid, records]);
     let result = []
-
     if (getStockOrdersHx.length > 0) {
       result = await Promise.all(
         getStockOrdersHx.map(async (transaction, i) => {
@@ -412,18 +392,14 @@ class Inventory {
   }
 
   async updateGeneralStocksQty(qty, stockid, operation = "minus") {
-    if (!qty || !stockid) return new Error("qty and stockid are all required")
-
+    if (!qty || !stockid) return new Error("qty and stockid are all required");
     if (qty < 0) return new Error("qty must be greater than 0")
-
     const stockinfo = await this.getAstock(stockid)
     if (stockinfo.length === 0) return "Not Found"
     const quantity = parseInt(stockinfo[0]["quantity"])
-
     const newQty = operation === "add" ? quantity + qty : quantity - qty
-
     const update = await promisifyQuery(`UPDATE generalstocks SET quantity = ? WHERE stockid = ?`, [newQty, stockid])
-    return rowAffected(update)
+    return rowAffected(update);
   }
 
   async updateMainSupplyGeneral(stockid, brandid, qty, operation) {
@@ -432,16 +408,14 @@ class Inventory {
     }
     const info = await this.getMainSupplyStock(stockid, brandid)
     if (info.length === 0) return null
-    const infoqty = parseInt(info[0]["quantity"])
-
+    const infoqty = parseInt(info[0]["quantity"]);
     const newQty = operation === "add" ? infoqty + qty : infoqty - qty
     const update = await promisifyQuery(
       `UPDATE mainstoresupply SET quantity = ? WHERE stockid = ?
     AND brandid = ?`,
       [newQty, stockid, brandid]
-    )
-
-    return rowAffected(update)
+    );
+    return rowAffected(update);
   }
 }
 

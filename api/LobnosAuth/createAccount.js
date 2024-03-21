@@ -39,28 +39,28 @@ const createNewAccount = async (req, res) => {
  * @param {Object} res - The response object used to send the login response.
  * @returns {void}
  */
-const userLogin = async (req, res) => {
+const userLogin = async (req, response) => {
   const { name, password, email } = req.body
   //  check if user and password exist in db
   const user = new User(name, password)
   const userExist = await user.checkLogins(email, password)
-
   if (!userExist) {
-    customError("Invalid Login credentials", 400, res)
-    return
+    return customError("Invalid Login credentials", 400, res)
   }
-
-  let userinformation = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email)
-  // decode userinformation
-  let decoded = jwt.decode(userinformation)
-
-  res.send({
-    status: "success",
-    statusCode: 200,
-    message: "Login successful",
-    user: convertKeysToLowerCase(decoded),
-    token: userinformation,
-  })
+  let userinformation = await user.getUserData(email)
+  if (userinformation) {
+    const user_needed_data = await user.processUserData(userinformation);
+    const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email, user_needed_data, "1h")
+    response.send({
+      status: "success",
+      statusCode: 200,
+      message: "Login successful",
+      user: user_needed_data,
+      token,
+    })
+  } else {
+    return customError(`user not found`, 404, response)
+  }
 }
 
 /**

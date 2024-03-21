@@ -78,10 +78,17 @@ router.post("/api/v1/applicationsettings/registration/fields", async function (r
 
 router.get("/api/v1/applicationsettings/registration/fields", async function (request, response) {
   try {
-    const result = await appsettings.getRegistrationSettings()
-    response.send({ result, status: "success" })
+    let result = await appsettings.getRegistrationSettings()
+    if (result.length > 0) {
+      result = result[0]["fields"]
+      if (result != "{}") {
+        return response.send(result)
+      }
+      response.send(result)
+    } else {
+      return response.send({})
+    }
   } catch (err) {
-    logger.error(err)
     responseError(response)
   }
 })

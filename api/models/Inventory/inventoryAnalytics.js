@@ -115,18 +115,14 @@ class Inventoryanalytics {
   }
 
   async quartersReducer(result) {
-    if (!result) return null
-
+    if (!result || !Array.isArray(result)) return null
     const reducer = (data) => {
       return data.reduce((sum, current) => sum + current?.debitAmount, 0)
     }
-
     const totalWastage = reducer(result)
-
     const firstQ = reducer(result.filter((a, b) => a.quarter === 1))
     const secondQ = reducer(result.filter((a, b) => a.quarter === 2))
     const thirdQ = reducer(result.filter((a, b) => a.quarter === 3))
-
     return {
       firstQ,
       secondQ,
@@ -155,11 +151,8 @@ class Inventoryanalytics {
             dhx.departmentid
      FROM generalstoredebithx AS dhx INNER JOIN  orders AS o
      ON o.productordersid = dhx.productordersid WHERE dhx.wastage = 1`
-
     let result = await promisifyQuery(query)
-
     if (result.length === 0) return result
-
     return this.quartersReducer(result)
   }
 
@@ -184,7 +177,6 @@ class Inventoryanalytics {
           dchx.wastage = 1   AND department = ? AND o.stockid = dchx.stockid AND dchx.batchnumber = o.batchnumber AND dchx.brand = o.brand GROUP BY dchx.batchnumber,dchx.brand, dchx.stockid
 `
     const data = await promisifyQuery(departmentWastageQuarters, [departmentid])
-
     return await this.quartersReducer(data)
   }
 }

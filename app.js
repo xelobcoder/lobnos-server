@@ -61,6 +61,7 @@ app.use(async(req, res, next) => {
 app.use((req, res, next) => {
   configuration.logRequest(req, res, next)
 })
+
 app.use(testPanelRouter)
 app.use(Manager)
 app.use(organizationRouter)
@@ -131,9 +132,7 @@ app.post("/api/v1/billing", async (req, res) => {
       outstanding,
       cost
     )
-
     const result = await billing.insertionProcess(req, res, employeeid)
-
     if (result === true) {
       res.status(200).json({ message: "billing successfully", billingid: result, statusCode: 200, status: "success" })
     } else {

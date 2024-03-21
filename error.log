@@ -166,3 +166,14 @@
 {"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n      SELECT id,\n      patientid,\n      CASE \n        WHEN MIDDLENAME IS NULL THEN CONCAT(FIRSTNAME, ' ', LASTNAME)\n        ELSE CONCAT(FIRSTNAME, ' ', MIDDLENAME, ' ', LASTNAME)\n      END AS fullname,\n      date, \n      activation\n      FROM new_patients ORDER BY ID DESC LIMIT 10\n        ","sqlMessage":"Unknown column 'activation' in 'field list'","sqlState":"42S22"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n      SELECT id,\n      patientid,\n      CASE \n        WHEN MIDDLENAME IS NULL THEN CONCAT(FIRSTNAME, ' ', LASTNAME)\n        ELSE CONCAT(FIRSTNAME, ' ', MIDDLENAME, ' ', LASTNAME)\n      END AS fullname,\n      date, \n      activation\n      FROM new_patients ORDER BY ID DESC LIMIT 10\n        ","sqlMessage":"Unknown column 'activation' in 'field list'","sqlState":"42S22"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 11","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 11","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 8","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE id = 8","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}

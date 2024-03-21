@@ -49,6 +49,18 @@ class User {
       return false
     }
   }
+  processUserData = async (data) => {
+    let user = convertKeysToLowerCase(data)
+    const { permissions, email, activation, username, role, employeeid } = user
+    if (activation != 1) {
+      return customError(`client not activated to access site`, 401, response)
+    }
+    if (permissions == "{}") {
+      return customError(`client permissions not set`, 401, response)
+    }
+    user = { permissions, role, activation, email, employeeid, username }
+    return user
+  }
 
   createUser = async () => {
     try {
@@ -78,10 +90,9 @@ class User {
     return jwt.sign({ clientid: 74747 }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1y" })
   }
 
-  createAccessTokenCredentials = async (accesskey, email) => {
+  createAccessTokenCredentials = async (accesskey, email, data, expiresIn) => {
     try {
-      const result = await this.getUserData(email)
-      const accessToken = jwt.sign({ ...result }, accesskey, { expiresIn: "1y" })
+      const accessToken = jwt.sign({ ...data }, accesskey, { expiresIn })
       return accessToken
     } catch (err) {
       logger.error(err)
@@ -91,9 +102,7 @@ class User {
 
   validateRequestToken = async (req, res, next, accessSecret) => {
     try {
-      // CHECK FOR ACCESS TOKEN IN AUTHORIZATION HEADER OF REQUEST bearer token
       const accessToken = req.headers.authorization && req.headers.authorization.split(" ")[1]
-
       if (!accessToken) {
         return customError("Unauthorized to acesss service.", 401, res)
       }
@@ -114,9 +123,18 @@ class User {
         return
       }
       const tokenvalid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
-      tokenvalid && response.send({ statusCode: 200, status: "success", user: convertKeysToLowerCase(tokenvalid) })
+      if (!tokenvalid) {
+        return customError("token provided is invalid", 401, response)
+      }
+      const allValid = ["username", "activation", "email", "employeeid", "permissions", "role"].some(
+        (item, index) => tokenvalid.hasOwnProperty(item) == false
+      )
+      if (allValid) {
+        return customError("invalid token data received", 401, response)
+      }
+      response.send({ statusCode: 200, status: "success", user: tokenvalid })
     } catch (err) {
-      customError(err?.message || "Expired token", 404, response)
+      customError("Expired token", 404, response)
     }
   }
 

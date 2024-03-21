@@ -66,23 +66,23 @@ const deleteClinicians = async (req, res) => {
   try {
     const { id } = req.body
     if (!id) {
-      customError("id required", 404, res)
-      return
+      return customError("id required", 404, res)
     }
-    let query = `DELETE FROM clinician WHERE ID = ?`
-    // execute query
-    const result = await promisifyQuery(query, [id])
-    result?.affectedRows === 1
-      ? res.send({
-          statusCode: 200,
-          status: "success",
-          message: "Deleted successfully",
-        })
-      : res.send({
-          statusCode: 500,
-          status: "error",
-          message: "something occured. Wrong ID provided",
-        })
+    let query = `DELETE FROM clinicianbasicinfo WHERE id = ?`
+    const result = rowAffected(await promisifyQuery(query, [parseInt(id)]))
+    if (result == true) {
+      res.send({
+        statusCode: 200,
+        status: "success",
+        message: "Deleted successfully",
+      })
+    } else {
+      res.send({
+        statusCode: 500,
+        status: "error",
+        message: "something occured. Wrong ID provided",
+      })
+    }
   } catch (err) {
     logger.error(err)
     customError("Something wrong occured deleting clinician record", 500, res)
