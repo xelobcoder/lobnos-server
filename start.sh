@@ -2,7 +2,4 @@
 echo 'starting lobnos server daemon process'
 
 
-ls -alx 
-
-
 
