@@ -1,4 +1,4 @@
-const { promisifyQuery, customError, paginationQuery, responseError } = require("../../helper")
+const { promisifyQuery, customError, paginationQuery, responseError, rowAffected } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
 
@@ -205,14 +205,26 @@ o.updateOrganizationContact = async function (request, response) {
 o.updateOrganizationPayment = async function (request, response) {
   const { bankname, momoname, branch, module, commission, organizationid, id, account, accountname, momo } = request.body
 
-  const query = `UPDATE organizationaccountinformation SET branch = ?, commission = ?, account = ?, 
-  bankname = ?,module = ?,momoname = ?,accountname =? ,momo =? WHERE organizationid = ? AND id = ?`
+  const query = `UPDATE organizationaccountinformation 
+  SET
+  branch = ?,
+  commission = ?,
+  account = ?,
+  bankname = ?,
+  module = ?,
+  momoname = ?,
+  accountname = ?,
+  momo = ? 
+  WHERE organizationid = ?`
 
-  const values = [branch, commission, account, bankname, module, momoname, accountname, momo, organizationid, id]
+  const values = [branch, commission, account, bankname, module, momoname, accountname, momo, parseInt(organizationid)]
   try {
-    let result = await promisifyQuery(query, values)
-    const { affectedRows } = result
-    response.send({ statusCode: 200, status: "success", message: affectedRows == 1 ? "update successful" : "update failed" })
+    let result = rowAffected(await promisifyQuery(query, values));
+    if (result) {
+      response.send({ statusCode: 200, status: "success", message: "update successful" })
+    } else {
+      response.send({ message: "update failed", status: "failed" })
+    }
   } catch (err) {
     logger.error(err)
   }
