@@ -1,7 +1,7 @@
 const express = require("express")
 const app = express()
 const emailRouterController = require("./api/controllers/email.controller")
-const port = process.env.PORT || 5000
+const port = process.env.NODE_ENV == "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT
 const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing")
 const branchesHandler = require("./api/branches")
 const resultChecker = require("./api/controllers/results")
