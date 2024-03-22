@@ -234,6 +234,12 @@ const testpanel = {
     return result[0]["count"] == 0 ? false : true
   },
 
+  hasTrend: async function (testid) {
+    if (!testid) throw new Error('testid required');
+    const result = await promisifyQuery(`SELECT showtrend FROM testdetails WHERE testid = ? `, [testid])
+    return result[0]["showtrend"] == 0 ? false : true
+  },
+
   updateProcedureManual: async function (manual, testid, employeeid, title) {
     if (!manual || typeof manual !== "string" || !testid || typeof testid !== "number" || !employeeid) {
       throw new Error("employeeid, manual and testid of string and number type respectively are required")

@@ -1,189 +1,48 @@
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{"code":"EAUTH","command":"AUTH PLAIN","response":"535-5.7.8 Username and Password not accepted. For more information, go to\n535 5.7.8  https://support.google.com/mail/?p=BadCredentials fi5-20020a056402550500b00568b0dd377csm1895405edb.93 - gsmtp","responseCode":535},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"err":{},"type":"email"}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 7","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM result_esr WHERE patientid =  2024220121 LIMIT 5","sqlMessage":"Table 'limsdb.result_esr' doesn't exist","sqlState":"42S02"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT * FROM resultesr ORDER BY id DESC LIMIT '5'","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ''5'' at line 1","sqlState":"42000"}
 {"level":"error"}
 {"level":"error"}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n      SELECT id,\n      patientid,\n      CASE \n        WHEN MIDDLENAME IS NULL THEN CONCAT(FIRSTNAME, ' ', LASTNAME)\n        ELSE CONCAT(FIRSTNAME, ' ', MIDDLENAME, ' ', LASTNAME)\n      END AS fullname,\n      date, \n      activation\n      FROM new_patients ORDER BY ID DESC LIMIT 10\n        ","sqlMessage":"Unknown column 'activation' in 'field list'","sqlState":"42S22"}
-{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":" \n      SELECT id,\n      patientid,\n      CASE \n        WHEN MIDDLENAME IS NULL THEN CONCAT(FIRSTNAME, ' ', LASTNAME)\n        ELSE CONCAT(FIRSTNAME, ' ', MIDDLENAME, ' ', LASTNAME)\n      END AS fullname,\n      date, \n      activation\n      FROM new_patients ORDER BY ID DESC LIMIT 10\n        ","sqlMessage":"Unknown column 'activation' in 'field list'","sqlState":"42S22"}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 11","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
-{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 11","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
-{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 8","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
-{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE id = 8","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
-{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT UNIQUE billingid FROM resultrenal_function_test WHERE patientid = 2024220121","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'UNIQUE billingid FROM resultrenal_function_test WHERE patientid = 2024220121' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT UNIQUE billingid FROM resultrenal_function_test WHERE patientid = 2024220121","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'UNIQUE billingid FROM resultrenal_function_test WHERE patientid = 2024220121' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM resultrenal_function_test WHERE patientid = 2024220121 LIMIT BY 5","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'BY 5' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM resultrenal_function_test WHERE patientid = 2024220121 LIMIT BY 5","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'BY 5' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM resultrenal_function_test WHERE patientid = 2024220121 LIMIT BY 5","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'BY 5' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT DISTINCT billingid FROM resultrenal_function_test WHERE patientid = 2024220121 LIMIT BY 5","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'BY 5' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN (5) ORDER BY id DESC LIMIT ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 1","sqlState":"42000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

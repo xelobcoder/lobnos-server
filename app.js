@@ -1,7 +1,8 @@
 const express = require("express")
 const app = express()
 const emailRouterController = require("./api/controllers/email.controller")
-const port = process.env.NODE_ENV == "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT
+const port = process.env.NODE_ENV == "development" ? process.env.DEVELOPMENT_PORT :
+  process.env.PRODUCTION_PORT;
 const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing")
 const branchesHandler = require("./api/branches")
 const resultChecker = require("./api/controllers/results")
@@ -31,14 +32,14 @@ const inventoryDepartmentRouter = require("./api/controllers/Inventory/departmen
 const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter")
 const cors = require("cors")
 const configuration = require("./helpers/configuration")
+const { customError, responseError, promisifyQuery } = require("./helper")
 
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`listening at port ${port}`)
-})
+});
 
-const { customError, responseError } = require("./helper")
+
 const Inventoryanalytics = require("./api/models/Inventory/inventoryAnalytics")
-const EmailService = require("./api/EmailServices/EmailCore")
 app.use(cors({ origin: "*", credentials: false }))
 app.use(express.static("public"))
 
@@ -54,12 +55,12 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 // ensuring an acess token is present
-// app.use(async(req, res, next) => {
+// app.use(async (req, res, next) => {
 //   if (req.url == '/api/v1/register') {
 //     next();
 //   } else {
 //     // console.log(new User().applicationAccessToken())
-//    await new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+//     await new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
 //   }
 // })
 
@@ -211,3 +212,8 @@ app.get("/email/templates", async function (request, response) {
   response.render(path.join(__dirname,'./api/views/templates/sampleRejection.ejs'),{data:{labname:'Vitalscan laboratory',header:'sample rejection notice'}})
 })
 
+
+app.get('/api/v1/cachedata/getSavedrecords', async function (request, response) {
+  const result = await promisifyQuery(`SELECT * FROM customtestcreation`);
+  response.send(result);
+}) 

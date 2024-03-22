@@ -1,15 +1,12 @@
 {
-  "workbench.editor.pinnedTabSizing": "normal",
+  "workbench.editor.pinnedTabSizing":"normal",
   "editor.tabSize": 3,
   "editor.fontFamily": "Menlo,Monaco,'Courier',monospace",
   "editor.tabCompletion": "on",
   "editor.wordWrap": "on",
   "editor.wordWrapColumn": 140,
   "editor.formatOnSave": true,
-  "editor.fontSize": 16,
+  "editor.fontSize": 15,
   "editor.bracketPairColorization.enabled": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  }
+  "editor.defaultFormatter": "esbenp.prettier-vscode"
 }

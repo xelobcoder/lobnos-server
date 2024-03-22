@@ -7,6 +7,7 @@ const User = require('../LobnosAuth/user');
 const Registration = require('../models/registration');
 const PDFGENERATION = require("./pdfGeneration");
 const { PatientQueries } = require("../../helpers/testtables");
+const testpanel = require("../testpanel/list");
 
 /**
  * Represents a Patient, a subclass of the Registration class.
@@ -142,40 +143,47 @@ class Patient extends Registration {
   }
 
   getPatientTestTrend = async function (patientid, testid, testname, instances) {
-    const qualifiers = new PDFGENERATION(null, testid, testname);
-    const resultTable = qualifiers.isValidTest();
-    const setupTable = qualifiers.isSetupAvailabble()
-    if (resultTable) {
-      const category = qualifiers.isCategoryAvailable();
-      // billing id's of the client in format returned by sql query
-      const billingidx = await promisifyQuery(PatientQueries.getBillings(resultTable), [patientid, parseInt(instances)]);
-      // convert to Array of billingid's and then to string
-      const billingList = billingidx.length > 0 ? billingidx.map((item, index) => { return item?.billingid }).join(',') : null;
-      const listArray = billingList.split(',');
-      if (category === 'chemistry') {
-        if (billingList) {
-          const trendDataSet = await promisifyQuery(PatientQueries.chemistryTrend(resultTable, billingList, setupTable));
-
-          const parameters = await this.getParameters(trendDataSet);
-          // we want to transform the retrieve data to a more ussable format so it can be display on the client side according to the date||billingid
-          // and then sorted by date from the earliest to the latest
-          const transformed = await this.transformDataset(listArray, trendDataSet);
-
-          return { trend: transformed, category, parameters, supported: true }
-        } else {
-          return { trend: [], parameters: [], category, supported: true }
-        }
-      }
-      if (category === 'fbc') {
-       return this.getPatientFullBloodCountTrend(listArray);
-      }
-
-      if (category === 'hema') {
-        return 'Not supported'
-      }
-    } else {
-      throw new Error('Test not recognized or scripted for!!')
+    if (!patientid) {
+      throw new Error('patientid required');
     }
+    if (!testid) {
+      throw new Error('testid required');
+    }
+    if (!testname) {
+      throw new Error('testname required');
+    }
+    if (!instances) {
+      throw new Error('instances required');
+    }
+    const hasTrendActivated = await testpanel.hasTrend(testid);
+    if (!hasTrendActivated) return `test trend not setup/activated for this test in test creation`;
+
+    const tableName = 'result' + testpanel.generateTableName(testname);
+    if (!tableName) throw new Error('tableName not found');
+    let instancesSearch = '';
+
+    if (instances) {
+      instancesSearch = await promisifyQuery(`SELECT DISTINCT billingid FROM ${tableName} WHERE patientid = ? LIMIT ?`, [parseInt(patientid), parseInt(instances)]);
+      if (instancesSearch.length != 0) {
+        instancesSearch = instancesSearch.map((a, index) => a.billingid).join(",");
+      }
+    }
+    const query = `SELECT field, value,billingid,created_on AS date FROM ${tableName}  WHERE billingid IN (${instancesSearch}) ORDER BY id DESC`;
+    
+    let result = await promisifyQuery(query);
+
+    if (result.length != 0) {
+      let fields = [];
+      result.map((item, index) => { !fields.includes(item.field) && fields.push(item.field) });
+      if (fields.length != 0) {
+        const categorized = fields.map((a, index) => {
+          const resultInstances = result.filter((item, index) => { return item.field == a }).sort((a, b) => a.billingid - b.billingid);
+          return { field: a, data: resultInstances };
+        });
+        return categorized;
+      }
+    }
+    return result;
   }
 }
 
