@@ -44,18 +44,24 @@ app.use(express.static("public"))
 
 // manage with cors
 // manage with body-parser
+// app.use(function(req, res, next) {
+//   res.header("Access-Control-Allow-Origin", "https://vitalscan.primelabsys.com");
+//   res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE");
+//   res.header("Access-Control-Allow-Headers", "Content-Type");
+//   next();
+// });
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 // ensuring an acess token is present
-app.use(async(req, res, next) => {
-  if (req.url == '/api/v1/register') {
-    next();
-  } else {
-    // console.log(new User().applicationAccessToken())
-   await new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
-  }
-})
+// app.use(async(req, res, next) => {
+//   if (req.url == '/api/v1/register') {
+//     next();
+//   } else {
+//     // console.log(new User().applicationAccessToken())
+//    await new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
+//   }
+// })
 
 // api endpoints
 app.use((req, res, next) => {

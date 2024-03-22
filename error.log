@@ -180,3 +180,10 @@
 {"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
 {"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
 {"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user ''@'localhost' (using password: NO)","sqlState":"28000"}

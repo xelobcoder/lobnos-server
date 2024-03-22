@@ -1,4 +1,6 @@
 const mysql = require('mysql');
+const dotenv = require('dotenv');
+dotenv.config();
 
 
 const username = process.env.NODE_ENV == 'development' ?
