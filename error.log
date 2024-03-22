@@ -177,3 +177,6 @@
 {"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 11","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
 {"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE ID = 8","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
 {"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"DELETE FROM clinician WHERE id = 8","sqlMessage":"Table 'limsdb.clinician' doesn't exist","sqlState":"42S02"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}
+{"code":"ER_ACCESS_DENIED_ERROR","errno":1045,"fatal":true,"level":"error","sqlMessage":"Access denied for user 'vitalscan'@'localhost' (using password: YES)","sqlState":"28000"}

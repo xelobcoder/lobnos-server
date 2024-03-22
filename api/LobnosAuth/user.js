@@ -7,7 +7,6 @@ const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../h
 
 
 
-
 class User {
   constructor(name, password, role, email) {
     this.name = name
@@ -53,10 +52,10 @@ class User {
     let user = convertKeysToLowerCase(data)
     const { permissions, email, activation, username, role, employeeid } = user
     if (activation != 1) {
-      return customError(`client not activated to access site`, 401, response)
+      return false
     }
     if (permissions == "{}") {
-      return customError(`client permissions not set`, 401, response)
+      return false
     }
     user = { permissions, role, activation, email, employeeid, username }
     return user

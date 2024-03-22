@@ -45,11 +45,14 @@ const userLogin = async (req, response) => {
   const user = new User(name, password)
   const userExist = await user.checkLogins(email, password)
   if (!userExist) {
-    return customError("Invalid Login credentials", 400, res)
+    return customError("Invalid Login credentials", 400, response)
   }
   let userinformation = await user.getUserData(email)
   if (userinformation) {
-    const user_needed_data = await user.processUserData(userinformation);
+    const user_needed_data = await user.processUserData(userinformation)
+    if (user_needed_data === false) {
+      return customError("account not activated by admin or the necessary permissions not set by admin", 404, response)
+    }
     const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email, user_needed_data, "1h")
     response.send({
       status: "success",

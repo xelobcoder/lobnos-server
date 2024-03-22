@@ -1,11 +1,25 @@
 const mysql = require('mysql');
 
-const connectionData = {
- host: 'localhost',
- user: 'root',
- password: '',
-  database: 'limsdb',
-}
+
+const username = process.env.NODE_ENV == 'development' ?
+    process.env.DEVELOPMENT_DB_USERNAME : process.env.PRODUCTION_DB_USERNAME;
+
+const password = process.env.NODE_ENV == 'development' ?
+    process.env.DEVELOPMENT_DB_PASSWORD : process.env.PRODUCTION_DB_PASSWORD;
+
+const host = process.env.NODE_ENV == 'development' ?
+    process.env.DEVELOPMENT_DB_HOST : process.env.PRODUCTION_DB_HOSTNAME;
+
+const database = process.env.NODE_ENV == 'development' ?
+    process.env.DEVELOPMENT_DATABASE : process.env.PRODUCTION_DATABASE;
+
+    const connectionData = {
+      host: host,
+      user: username,
+      password: password,
+      database,
+  }
+  
 
 
 const connectionpool = mysql.createPool(connectionData);
