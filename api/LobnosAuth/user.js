@@ -2,6 +2,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const logger = require("../../logger");
 const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../helper");
+const configuration = require("../../helpers/configuration");
 
 
 
@@ -15,8 +16,9 @@ class User {
     this.email = email
   }
 
-  checkUserExist() {
-    return promisifyQuery(`SELECT * FROM roles WHERE email`, this.email)
+  async checkUserExist() {
+    let result = await promisifyQuery(`SELECT * FROM roles WHERE email = ?`, [this.email]);
+    return result.length == 0 ? false : true;
   }
 
   hashPassword = async () => {
@@ -50,14 +52,19 @@ class User {
   }
   processUserData = async (data) => {
     let user = convertKeysToLowerCase(data)
-    const { permissions, email, activation, username, role, employeeid } = user
+    const { permissions, email, activation, username, role, employeeid, branch } = user
     if (activation != 1) {
-      return false
+      return `Access Denied!!. User not activated to have access`;
     }
     if (permissions == "{}") {
-      return false
+      return `Access Denied!!. Permissions not set`;
     }
-    user = { permissions, role, activation, email, employeeid, username }
+    if (configuration.configurations.strictBranchCheck) {
+      if (branch <= 0 || branch == undefined) {
+        return 'Acess Denied!!.User not assigned to a branch';
+      }
+    }
+    user = { permissions, role, activation, email, employeeid, username, branchid: branch }
     return user
   }
 

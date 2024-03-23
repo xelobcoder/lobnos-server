@@ -15,4 +15,10 @@ module.exports = {
     const origin = request.headers.origin
     console.log(`${new Date()} referer: ${origin} ${request.method}  ${request.baseUrl} ${request.url.split("?")[0]}`)
   },
+  configurations: {
+    hasInventorySubscribed: 0,
+    strictBranchCheck: 1,
+    multipleBranchesEnabled: 1,
+    hasPurchaseManagement: 1,
+  }
 }

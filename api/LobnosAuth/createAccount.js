@@ -1,30 +1,23 @@
 const connection = require("../db");
 const User = require("../LobnosAuth/user");
-const jwt = require("jsonwebtoken");
-const { customError, convertKeysToLowerCase, promisifyQuery, paginationQuery, responseError } = require("../../helper")
+const { customError, promisifyQuery, paginationQuery, responseError, rowAffected } = require("../../helper")
 const logger = require("../../logger")
-const { del } = require("../database/queries")
 
 const createNewAccount = async (req, res) => {
-  const { name, password, role, email } = req.body
-  if ((name == "" || password == "" || role == "", email == "")) {
-    customError(400, "Bad Request Request", res)
-    return
-  }
-  // instanitate user class
-  const user = new User(name, password, role, email)
-  const isUser = await user.checkUserExist()
-  if (Array.isArray(isUser) && isUser.length === 0) {
-    try {
-      const hashedPassword = await user.hashPassword()
-      const insert = await user.insertionOne(name, hashedPassword)
-      if (insert) res.send({ status: "success", message: "user created successfully" })
-    } catch (err) {
-      res.send({ status: "error", message: err })
-      logger.error(err)
+  try {
+    const { name, password, role, email } = req.body
+    if ((name == "" || password == "" || role == "", email == "")) {
+      return customError(400, "missing required params", res)
     }
-  } else {
-    res.send({ status: "error", message: "user already exist" })
+    const user = new User(name, password, role, email)
+    const isUser = await user.checkUserExist()
+    if (isUser) return customError(`user already exist`, 404, res)
+    const hashedPassword = await user.hashPassword()
+    const insert = await user.insertionOne(name, hashedPassword)
+    if (insert) res.send({ status: "success", message: "user created successfully" })
+  } catch (err) {
+    res.send({ status: "error", message: err })
+    logger.error(err)
   }
 }
 
@@ -47,11 +40,11 @@ const userLogin = async (req, response) => {
   if (!userExist) {
     return customError("Invalid Login credentials", 400, response)
   }
-  let userinformation = await user.getUserData(email)
+  let userinformation = await user.getUserData(email);
   if (userinformation) {
     const user_needed_data = await user.processUserData(userinformation)
-    if (user_needed_data === false) {
-      return customError("account not activated by admin or the necessary permissions not set by admin", 404, response)
+    if (typeof user_needed_data == 'string') {
+      return customError(user_needed_data, 404, response)
     }
     const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email, user_needed_data, "1h")
     response.send({
@@ -79,30 +72,32 @@ const getAllLogins = async (req, res) => {
   try {
     let query = `
     SELECT
-     employeeid,
-     username,
-     role,
-     email,
-     emailAuthenticated,
-     activation
-    FROM roles
+     rl.employeeid,
+     rl.username,
+     rl.role,
+     rl.email,
+     rl.branch,
+     b.name AS branchname,
+     rl.emailAuthenticated,
+     rl.activation
+    FROM roles AS rl INNER JOIN branch AS b ON rl.branch = b.branchid
     `;
     const vals = [];
 
     const conditions = [];
 
     if (name) {
-      conditions.push("username LIKE ?");
+      conditions.push("rl.username LIKE ?");
       vals.push(`%${name}%`);
     }
 
     if (email) {
-      conditions.push("email LIKE ?");
+      conditions.push("rl.email LIKE ?");
       vals.push(`%${email}%`);
     }
 
     if (role) {
-      conditions.push("role = ?");
+      conditions.push("rl.role = ?");
       vals.push(role);
     }
 
@@ -110,11 +105,11 @@ const getAllLogins = async (req, res) => {
       query += ` WHERE ${conditions.join(" AND ")}`;
     }
 
-    query += ` ORDER BY employeeid DESC LIMIT ? OFFSET ?`;
+    query += ` ORDER BY rl.employeeid DESC LIMIT ? OFFSET ?`;
     const result = await paginationQuery(req.query, query, vals);
     res.send({ status: "success", result, statusCode: 200 })
   } catch (err) {
-    customError("somethin wrong occured", 301, res)
+    customError("something wrong occured", 301, res)
     logger.error(err)
   }
 }
@@ -184,38 +179,34 @@ const getAUser = async (req, res) => {
  * @returns {Promise<void>} - A promise that resolves when the update operation is complete.
  */
 const updateUserBasicInfo = async (req, res) => {
-  const { employeeid, name, email, password, role } = req.body
+  const { employeeid, name, email, password, role, branch } = req.body
 
   if (!employeeid) {
-    res.status(401).send({
+    return res.status(401).send({
       statusCode: 401,
       message: "employeeid not included",
       status: "error",
     })
-    return
   }
 
   try {
     const hashedPassword = await new User(name, password, role, email).hashPassword()
-    const mtquery = `UPDATE ROLES 
-            SET USERNAME = ?,EMAIL = ? ,
-            PASSWORD = ? , ROLE = ? 
+    const mtquery = `UPDATE roles 
+            SET username = ?,email = ? ,
+            password = ? , role = ?,
+            branch = ?
             WHERE EMPLOYEEID = ?`
 
-    connection.query(mtquery, [name, email, hashedPassword, role, employeeid], function (err, result) {
-      if (err) {
-        logger.error(err)
-      } else {
-        const message = result.affectedRows > 0 ? "record updated successfully" : "record not updated"
-        res.status(200).send({
-          statusCode: 200,
-          message: message,
-          status: "success",
-        })
-      }
+    const result = await promisifyQuery(mtquery,
+      [name, email, hashedPassword, role, parseInt(branch), employeeid])
+    const status = rowAffected(result);
+    res.send({
+      statusCode: 200,
+      message: status ? 'record updated successfully' : 'updating record failed',
+      status: status ? "success" : "failed",
     })
   } catch (error) {
-    console.log(error)
+    responseError(res);
     logger.error(error)
   }
 }
