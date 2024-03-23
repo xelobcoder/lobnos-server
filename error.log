@@ -46,3 +46,10 @@
 {"level":"error"}
 {"level":"error"}
 {"level":"error"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n        SELECT id,patientid,\n        CASE \n          WHEN middlename IS NULL THEN CONCAT(firstname, ' ', lastname)\n          ELSE CONCAT(firstname, ' ', middlename, ' ', lastname)\n        END AS fullname,\n        mobile_number AS contact,\n        date, \n        activation_status\n        FROM new_patients\n     WHERE firstname LIKE '%Tiifu hamza' OR middlename LIKE '%Tiifu hamza' OR lastname LIKE '%Tiifu hamza' AND mobile_number = t AND CURRENT_DATE ORDER BY id DESC\n        LIMIT 10","sqlMessage":"Unknown column 't' in 'where clause'","sqlState":"42S22"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n    SELECT\n     employeeid,\n     username,\n     role,\n     email,\n     emailAuthenticated,\n     activation\n    FROM roles\n     WHERE role = 10 ORDER BY employeeid DESC LIMIT 0 OFFSET ?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?' at line 9","sqlState":"42000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

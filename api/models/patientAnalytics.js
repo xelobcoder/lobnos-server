@@ -156,6 +156,7 @@ class Patient extends Registration {
       throw new Error('instances required');
     }
     const hasTrendActivated = await testpanel.hasTrend(testid);
+    
     if (!hasTrendActivated) return `test trend not setup/activated for this test in test creation`;
 
     const tableName = 'result' + testpanel.generateTableName(testname);
@@ -169,12 +170,12 @@ class Patient extends Registration {
       }
     }
     const query = `SELECT field, value,billingid,created_on AS date FROM ${tableName}  WHERE billingid IN (${instancesSearch}) ORDER BY id DESC`;
-    
+
     let result = await promisifyQuery(query);
 
     if (result.length != 0) {
       let fields = [];
-      result.map((item, index) => { !fields.includes(item.field) && fields.push(item.field) });
+      result.map((item, index) => { !fields.includes(item.field) && fields.push(item.field)});
       if (fields.length != 0) {
         const categorized = fields.map((a, index) => {
           const resultInstances = result.filter((item, index) => { return item.field == a }).sort((a, b) => a.billingid - b.billingid);

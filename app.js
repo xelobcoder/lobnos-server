@@ -1,4 +1,5 @@
-const express = require("express")
+const express = require("express");
+const redis = require('redis');
 const app = express()
 const emailRouterController = require("./api/controllers/email.controller")
 const port = process.env.NODE_ENV == "development" ? process.env.DEVELOPMENT_PORT :
@@ -54,6 +55,8 @@ app.use(express.static("public"))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
+
+
 // ensuring an acess token is present
 // app.use(async (req, res, next) => {
 //   if (req.url == '/api/v1/register') {
@@ -68,6 +71,20 @@ app.use(express.urlencoded({ extended: true }))
 app.use((req, res, next) => {
   configuration.logRequest(req, res, next)
 })
+
+const client = redis.createClient(process.env.REDIS_PORT);
+client.on("error", function (err) {
+  console.log(err);
+})
+
+async function tiifuHamza() {
+  await client.connect();
+  client.set('tiifu', 'tiifu hamza');
+  const data = await client.get('tiifu');
+  console.log(data)
+}
+
+tiifuHamza()
 
 app.use(testPanelRouter)
 app.use(Manager)

@@ -75,8 +75,9 @@ const userLogin = async (req, response) => {
  */
 
 const getAllLogins = async (req, res) => {
+  const { name, email, contact, role } = req.query;
   try {
-    const query = `
+    let query = `
     SELECT
      employeeid,
      username,
@@ -84,9 +85,33 @@ const getAllLogins = async (req, res) => {
      email,
      emailAuthenticated,
      activation
-    FROM roles ORDER BY EMPLOYEEID DESC LIMIT ? OFFSET ?
-    `
-    const result = await paginationQuery(req.query, query)
+    FROM roles
+    `;
+    const vals = [];
+
+    const conditions = [];
+
+    if (name) {
+      conditions.push("username LIKE ?");
+      vals.push(`%${name}%`);
+    }
+
+    if (email) {
+      conditions.push("email LIKE ?");
+      vals.push(`%${email}%`);
+    }
+
+    if (role) {
+      conditions.push("role = ?");
+      vals.push(role);
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ${conditions.join(" AND ")}`;
+    }
+
+    query += ` ORDER BY employeeid DESC LIMIT ? OFFSET ?`;
+    const result = await paginationQuery(req.query, query, vals);
     res.send({ status: "success", result, statusCode: 200 })
   } catch (err) {
     customError("somethin wrong occured", 301, res)
