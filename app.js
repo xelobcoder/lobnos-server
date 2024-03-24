@@ -1,5 +1,4 @@
 const express = require("express");
-const redis = require('redis');
 const app = express()
 const emailRouterController = require("./api/controllers/email.controller")
 const port = process.env.NODE_ENV == "development" ? process.env.DEVELOPMENT_PORT :
@@ -40,8 +39,9 @@ app.listen(port, async () => {
 });
 
 
-const Inventoryanalytics = require("./api/models/Inventory/inventoryAnalytics")
-app.use(cors({ origin: "*", credentials: false }))
+const Inventoryanalytics = require("./api/models/Inventory/inventoryAnalytics");
+const redisMiddleware = require("./api/middleware/redis/redisMiddleware");
+app.use(cors({ origin: "*", credentials: true, preflightContinue: false }))
 app.use(express.static("public"))
 
 // manage with cors
@@ -52,10 +52,9 @@ app.use(express.static("public"))
 //   res.header("Access-Control-Allow-Headers", "Content-Type");
 //   next();
 // });
+
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-
-
 
 // ensuring an acess token is present
 // app.use(async (req, res, next) => {
@@ -68,24 +67,8 @@ app.use(express.urlencoded({ extended: true }))
 // })
 
 // api endpoints
-app.use((req, res, next) => {
-  configuration.logRequest(req, res, next)
-})
-
-const client = redis.createClient(process.env.REDIS_PORT);
-client.on("error", function (err) {
-  console.log(err);
-})
-
-async function tiifuHamza() {
-  await client.connect();
-  client.set('tiifu', 'tiifu hamza');
-  const data = await client.get('tiifu');
-  console.log(data)
-}
-
-tiifuHamza()
-
+app.use((req, res, next) => { configuration.logRequest(req, res, next) });
+app.use(redisMiddleware);
 app.use(testPanelRouter)
 app.use(Manager)
 app.use(organizationRouter)

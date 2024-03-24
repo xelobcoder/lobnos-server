@@ -5,11 +5,11 @@ const logger = require("../../logger")
 
 const createNewAccount = async (req, res) => {
   try {
-    const { name, password, role, email } = req.body
-    if ((name == "" || password == "" || role == "", email == "")) {
+    const { name, password, role, email, branch } = req.body
+    if ((name == "" || password == "" || role == "", email == "" || !branch)) {
       return customError(400, "missing required params", res)
     }
-    const user = new User(name, password, role, email)
+    const user = new User(name, password, role, email,branch)
     const isUser = await user.checkUserExist()
     if (isUser) return customError(`user already exist`, 404, res)
     const hashedPassword = await user.hashPassword()
@@ -47,7 +47,7 @@ const userLogin = async (req, response) => {
       return customError(user_needed_data, 404, response)
     }
     const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email, user_needed_data, "1h")
-    response.send({
+   return  response.send({
       status: "success",
       statusCode: 200,
       message: "Login successful",
@@ -187,6 +187,10 @@ const updateUserBasicInfo = async (req, res) => {
       message: "employeeid not included",
       status: "error",
     })
+  }
+
+  if (branch) {
+    return customError('User not assigned to a branch', 404, res);
   }
 
   try {

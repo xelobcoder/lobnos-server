@@ -1,24 +1,21 @@
-const bcrypt = require("bcrypt");
-const jwt = require("jsonwebtoken");
-const logger = require("../../logger");
-const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../helper");
-const configuration = require("../../helpers/configuration");
-
-
-
-
+const bcrypt = require("bcrypt")
+const jwt = require("jsonwebtoken")
+const logger = require("../../logger")
+const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../helper")
+const configuration = require("../../helpers/configuration")
 
 class User {
-  constructor(name, password, role, email) {
+  constructor(name, password, role, email, branch) {
     this.name = name
     this.password = password
     this.role = role
     this.email = email
+    this.branch = branch
   }
 
   async checkUserExist() {
-    let result = await promisifyQuery(`SELECT * FROM roles WHERE email = ?`, [this.email]);
-    return result.length == 0 ? false : true;
+    let result = await promisifyQuery(`SELECT * FROM roles WHERE email = ?`, [this.email])
+    return result.length == 0 ? false : true
   }
 
   hashPassword = async () => {
@@ -31,10 +28,17 @@ class User {
     return await bcrypt.compare(password, hashpassword)
   }
   insertionOne = async (name, password) => {
+    if (!this.branch) {
+      throw new Error("User must be assigned a branch")
+    }
+    let parsedBranch = parseInt(this.branch);
+    if (typeof parsedBranch != "number") {
+      throw new TypeError("branch must be an integer")
+    }
     return promisifyQuery(
-      `INSERT INTO roles (USERNAME,PASSWORD,ROLE,EMAIL) 
-      VALUES (?,?,?,?)`,
-      [name, password, this.role, this.email]
+      `INSERT INTO roles (username,password,role,email,branch) 
+         VALUES (?,?,?,?,?)`,
+      [name, password, this.role, this.email, this.branch]
     )
   }
 
@@ -54,18 +58,17 @@ class User {
     let user = convertKeysToLowerCase(data)
     const { permissions, email, activation, username, role, employeeid, branch } = user
     if (activation != 1) {
-      return `Access Denied!!. User not activated to have access`;
+      return `Access Denied!!. User not activated to have access`
     }
     if (permissions == "{}") {
-      return `Access Denied!!. Permissions not set`;
+      return `Access Denied!!. Permissions not set`
     }
     if (configuration.configurations.strictBranchCheck) {
       if (branch <= 0 || branch == undefined) {
-        return 'Acess Denied!!.User not assigned to a branch';
+        return "Acess Denied!!.User not assigned to a branch"
       }
     }
-    user = { permissions, role, activation, email, employeeid, username, branchid: branch }
-    return user
+    return user = { permissions, role, activation, email, employeeid, username, branchid: branch }
   }
 
   createUser = async () => {
@@ -114,7 +117,7 @@ class User {
       }
       const isValidated = await this.verifyToken(accessToken)
       if (isValidated) {
-        next()
+        next();
       }
     } catch (err) {
       return customError("Application licenced expired, please contact admin for renewal", 401, res)
@@ -125,8 +128,7 @@ class User {
     try {
       const { token } = request.query
       if (!token) {
-        customError("token not provided", 404, response)
-        return
+        return customError("token not provided", 404, response)
       }
       const tokenvalid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
       if (!tokenvalid) {
@@ -169,5 +171,4 @@ class User {
   }
 }
 
-
-module.exports = User;
+module.exports = User

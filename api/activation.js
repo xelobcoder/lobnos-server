@@ -1,4 +1,4 @@
-const { promisifyQuery } = require("../helper")
+const { promisifyQuery, rowAffected } = require("../helper")
 const logger = require("../logger")
 const connection = require("./db")
 
@@ -111,11 +111,11 @@ const activation = {
       return response.send({ message: "action required", status: "error", statusCode: 401 })
     }
 
-    let queryString = `UPDATE new_patients SET ACTIVATION_STATUS = ?`
+    let queryString = `UPDATE new_patients SET activation_status = ?`
     if (patientid) {
       queryString += ` WHERE patientid = ?`
     }
-    const result = await promisifyQuery(queryString, [action, patientid])
+    const result = rowAffected(await promisifyQuery(queryString, [action, patientid]));
     response.send({
       message: "success",
       action: action === "TRUE" ? "BILLING" : "ACTIVATION PAGE",

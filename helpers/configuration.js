@@ -20,5 +20,5 @@ module.exports = {
     strictBranchCheck: 1,
     multipleBranchesEnabled: 1,
     hasPurchaseManagement: 1,
-  }
+  },
 }

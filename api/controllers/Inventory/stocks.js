@@ -7,7 +7,7 @@ const WastageInventory = require("../../models/Inventory/wastageClass")
 const wastage = new WastageInventory()
 const inventory = new Inventory()
 const urgentActions = require('../../models/Inventory/urgentActions');
-
+const redisClient = require('../../models/redisclient');
 
  
 
@@ -43,17 +43,15 @@ router.post("/api/v1/stock/category", async function (request, response) {
 
 router.put("/api/v1/stock/category", async function (request, response) {
   try {
-    const updateStkCat = await inventory.updateStockCategory(request.body)
+    const updateStkCat = await inventory.updateStockCategory(request.body);
     if (updateStkCat === true) {
-      response.send({ message: "updated successfully", statusCode: 200, status: "success" })
-    }
-
-    if (updateStkCat === 1) {
-      customError("stock category not found", 404, response)
-    }
-
-    if (updateStkCat === false) {
-      response.send({ message: "updated failed" })
+      return response.send({ message: "updated successfully", statusCode: 200, status: "success" })
+    } else if (updateStkCat === 1) {
+      return customError("stock category not found", 404, response)
+    } else if (updateStkCat === false) {
+      return response.send({ message: "updated failed" })
+    } else {
+      return;
     }
   } catch (err) {
     customError("somthing went wrong", 404, response)
@@ -62,10 +60,15 @@ router.put("/api/v1/stock/category", async function (request, response) {
 })
 router.get("/api/v1/stock/category", async function (request, response) {
   try {
-    const data = await inventory.getStockCategory()
+    await redisClient.connect();
+    data = await inventory.getStockCategory();
     response.send({ result: data, status: "success", statusCode: 200 })
+    await redisClient.set('STOCKS_CATEGORY', JSON.stringify(data), {
+      EX: 60 * 60
+    });
+    await redisClient.disconnect();
   } catch (err) {
-    logger.error(err)
+    logger.error(err);
     customError("something went wrong", 500, response)
   }
 })
@@ -239,8 +242,7 @@ router.post('/api/v1/stock/brands', async function (request, response) {
 })
 
 
-router.post('/api/v1/inventory/analytics/purchasetoconsume', async function(request,response){
-  console.log(request.body);
+router.post('/api/v1/inventory/analytics/purchasetoconsume', async function (request, response) {
   const result = await inventory.purchasetoConsumeInsight(request.body);
   response.send(result);
 })

@@ -64,3 +64,49 @@
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n    SELECT\n     rl.employeeid,\n     rl.username,\n     rl.role,\n     rl.email,\n     rl.branch,\n     b.name AS branchname,\n     rl.emailAuthenticated,\n     rl.activation\n    FROM roles AS rl INNER JOIN branch AS b ON rl.branch = b.branchid;\n     ORDER BY rl.employeeid DESC LIMIT 10 OFFSET 0","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ORDER BY rl.employeeid DESC LIMIT 10 OFFSET 0' at line 11","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n    SELECT\n     rl.employeeid,\n     rl.username,\n     rl.role,\n     rl.email,\n     rl.branch,\n     b.name AS branchname,\n     rl.emailAuthenticated,\n     rl.activation\n    FROM roles AS rl INNER JOIN branch AS b ON rl.branch = b.branchid;\n     ORDER BY rl.employeeid DESC LIMIT 10 OFFSET 0","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ORDER BY rl.employeeid DESC LIMIT 10 OFFSET 0' at line 11","sqlState":"42000"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n    SELECT\n     rl.employeeid,\n     rl.username,\n     rl.role,\n     rl.email,\n     rl.branch,\n     b.name AS branchname,\n     rl.emailAuthenticated,\n     rl.activation\n    FROM roles AS rl INNER JOIN branch AS b ON rl.branch = b.branchid;\n     ORDER BY rl.employeeid DESC LIMIT 10 OFFSET 0","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'ORDER BY rl.employeeid DESC LIMIT 10 OFFSET 0' at line 11","sqlState":"42000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)\n    VALUES(2024220120,'','','90',90,'4',0,'10',NULL,false,0,'urgent',100,3)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)\n    VALUES(2024220122,'','','4988',4988,'4',0,'100',NULL,false,0,'routine',5088,3)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)\n    VALUES(2024220122,'','','4988',4988,'4',0,'100',NULL,false,0,'routine',5088,3)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)\n    VALUES(2024220122,'','','4988',4988,'4',0,'100',NULL,false,0,'routine',5088,3)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"code":"ERR_HTTP_HEADERS_SENT","level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
