@@ -189,7 +189,7 @@ const updateUserBasicInfo = async (req, res) => {
     })
   }
 
-  if (branch) {
+  if (!branch) {
     return customError('User not assigned to a branch', 404, res);
   }
 
