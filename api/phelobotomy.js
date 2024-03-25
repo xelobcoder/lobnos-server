@@ -1,30 +1,29 @@
-const { response } = require("express");
+
 const connection = require("./db");
-const { rejectedSample } = require("./models/rejected");
 const logger = require("../logger");
-const { promisifyQuery, customError, convertKeysToLowerCase, paginationQuery } = require("../helper")
+const { promisifyQuery, customError, convertKeysToLowerCase, paginationQuery, rowAffected } = require("../helper")
 
-let filteredTest_in_date = function (test, res) {
-  // check if array
-  const isArray = Array.isArray(test) ? true : false
-  // check is empty or not
+// let filteredTest_in_date = function (test, res) {
+//   // check if array
+//   const isArray = Array.isArray(test) ? true : false
+//   // check is empty or not
 
-  const isEmpty = test.length == 0 ? true : false
+//   const isEmpty = test.length == 0 ? true : false
 
-  if (isArray && !isEmpty) {
-    let today = new Date()
+//   if (isArray && !isEmpty) {
+//     let today = new Date()
 
-    let filtereddate = test.filter(function (item) {
-      // filter today from test array
-      let date = new Date(item.DATE)
-      return date.getDate() == today.getDate() && date.getMonth() == today.getMonth() && date.getFullYear() == today.getFullYear()
-    })
+//     let filtereddate = test.filter(function (item) {
+//       // filter today from test array
+//       let date = new Date(item.DATE)
+//       return date.getDate() == today.getDate() && date.getMonth() == today.getMonth() && date.getFullYear() == today.getFullYear()
+//     })
 
-    res.send(filtereddate)
-  } else {
-    res.send(test)
-  }
-}
+//     res.send(filtereddate)
+//   } else {
+//     res.send(test)
+//   }
+// }
 
 const getPhelobotomy = async (req, res) => {
   const { count, page } = req.query
@@ -109,64 +108,73 @@ const updatePhelobotomy = async (id, content, status, alltaken, completedTime, r
 
 const postSection = async function (request, response) {
   const { testinfo, employeeid } = request.body;
+  if (!employeeid) {
+    return customError(`employeeid or phelobotomist id not included`, 404, response);
+  }
 
-  if (Array.isArray(testinfo) && testinfo.length > 0 && employeeid) {
-    try {
-      connection.beginTransaction(async function (err) {
-        if (err) { logger.error(err) };
-        testinfo.forEach(async function (item, index) {
+  if (!Array.isArray(testinfo)) {
+    return customError('testinfo must be an array', 404, response);
+  }
 
-          const { samplemessage, testid, collection, collection_date, billingid } = item;
+  const collected_sample = testinfo.filter((item, index) => item.collection == "true");
 
-          const updateTestAscensionQuery = `UPDATE test_ascension SET collection = ?,
-         collection_date = ? WHERE billingid = ? AND testid = ?`;
+  if (collected_sample.length == 0) {
+    return customError('samples not collected', 404, response);
+  }
 
-          const ascensionValues = [collection, collection_date, billingid, testid];
+  try {
+    connection.beginTransaction(async function (err) {
+      if (err) {
+        logger.error(err)
+        throw new Error(err?.message);
+      };
+      collected_sample.forEach(async function (item, index) {
+        const { samplemessage, testid, collection, collection_date, billingid } = item;
+        const updateTestAscensionQuery = `UPDATE 
+        test_ascension SET collection = ?,
+         collection_date = ?
+         WHERE billingid = ?
+         AND testid = ?`;
+        const ascensionValues = [collection, collection_date, billingid, testid];
+        const updatedAscension = rowAffected(await promisifyQuery(updateTestAscensionQuery, ascensionValues));
+        if (updatedAscension) {
+          const updateSampleStatusQuery = `UPDATE 
+              samplestatus
+              SET samplemessage = ?,
+              phelobotomist = ?
+              WHERE testid = ?
+          AND billingid = ?`;
 
-          const updatedAscension = await promisifyQuery(updateTestAscensionQuery, ascensionValues);
-
-
-          if (updatedAscension.affectedRows > 0) {
-
-            const updateSampleStatusQuery = `UPDATE samplestatus SET samplemessage = ?,  phelobotomist = ? WHERE testid = ? AND billingid = ?`;
-
-            const sampleStatusValues = [samplemessage,employeeid, testid, billingid];
-
-            await promisifyQuery(updateSampleStatusQuery, sampleStatusValues);
-
-            if (index === testinfo.length - 1) {
-              connection.commit(function (err) {
-                if (err) {
-                  connection.rollback(function () { { logger.error(err) }; });
-                }
-                response.send({ message: 'updated successfully', statusCode: 200, status: 'success', })
-              });
-            }
+          const sampleStatusValues = [samplemessage, employeeid, testid, billingid];
+          await promisifyQuery(updateSampleStatusQuery, sampleStatusValues);
+          if (index === collected_sample.length - 1) {
+            connection.commit(function (err) {
+              if (err) {
+                connection.rollback(function () { { logger.error(err) }; });
+              }
+              response.send({ message: 'updated successfully', statusCode: 200, status: 'success', })
+            });
           }
-        });
+        }
       });
-
-    }
-    catch (err) {
-      logger.error(err);
-      //  rollback
-      connection.rollback();
-    }
-  } else {
-    logger.error('employeeid not included or testinfo is not an array')
-    customError('invalid request', 400, response);
+    });
+  }
+  catch (err) {
+    logger.error(err);
+    connection.rollback();
+    response.send(response);
   }
 }
 
 const getAscensionWithDetails = async function (billingid, state, response) {
-  let statement = `SELECT DISTINCT * FROM test_ascension AS t 
-  INNER JOIN test_panels AS p ON t.testid = p.ID
-  INNER JOIN samplestatus AS s ON s.ascensionid = t.id
+  let statement = `SELECT 
+  DISTINCT * FROM test_ascension AS t 
+    INNER JOIN test_panels AS p ON t.testid = p.ID
+    INNER JOIN samplestatus AS s ON s.ascensionid = t.id
   WHERE t.billingid = ?
 `;
   
-  if (state == 'false') { statement  += ` AND t.collection = 'false'` }
-
+  if (state == 'false') { statement += ` AND t.collection = 'false'` }
   try {
     const result = await promisifyQuery(statement, billingid);
 

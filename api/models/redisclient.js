@@ -25,7 +25,6 @@ client.on("end", () => {
      console.log('redis client disconnected')
 });
 
-
 client.on("SIGINT", () => {
      console.log('------------------------------------------------------------------');
      client.quit()

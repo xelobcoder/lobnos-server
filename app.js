@@ -67,8 +67,8 @@ app.use(express.urlencoded({ extended: true }))
 // })
 
 // api endpoints
-app.use((req, res, next) => { configuration.logRequest(req, res, next) });
-app.use(redisMiddleware);
+// app.use((req, res, next) => { configuration.logRequest(req, res, next) });
+// app.use(redisMiddleware);
 app.use(testPanelRouter)
 app.use(Manager)
 app.use(organizationRouter)

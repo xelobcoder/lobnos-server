@@ -23,13 +23,6 @@ router.route('/api/v1/phelobotomy')
     const { clientid, content, status, alltaken, completedTime } = req.body;
     updatePhelobotomy(clientid, content, status, alltaken, completedTime, req, res);
   })
-  .delete((req, res) => {
-    res.status(405).send({
-      statusCode: 405,
-      message: `Method ${req.method} Not Allowed`
-    });
-  })
-
 
 
 router.get('/api/v1/phelobotomy/ascension', function (request, response) {

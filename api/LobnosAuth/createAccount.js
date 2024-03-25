@@ -1,7 +1,8 @@
 const connection = require("../db");
 const User = require("../LobnosAuth/user");
 const { customError, promisifyQuery, paginationQuery, responseError, rowAffected } = require("../../helper")
-const logger = require("../../logger")
+const logger = require("../../logger");
+const client = require("../models/redisclient");
 
 const createNewAccount = async (req, res) => {
   try {
@@ -46,14 +47,13 @@ const userLogin = async (req, response) => {
     if (typeof user_needed_data == 'string') {
       return customError(user_needed_data, 404, response)
     }
-    const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email, user_needed_data, "1h")
-   return  response.send({
-      status: "success",
-      statusCode: 200,
-      message: "Login successful",
-      user: user_needed_data,
-      token,
+    const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email, user_needed_data, "1h");
+    response.send({
+      status: "success", statusCode: 200, message: "Login successful", user: user_needed_data, token,
     })
+    // await client.connect();
+    // await client.set('SESSION_TOKEN', JSON.stringify({ user: user_needed_data, token }), { EX: 60 });
+    // await client.disconnect();
   } else {
     return customError(`user not found`, 404, response)
   }

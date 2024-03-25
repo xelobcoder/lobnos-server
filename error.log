@@ -122,3 +122,23 @@
 {"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)\n    VALUES(2024220122,'','','5000',5000,'4',0,'88',NULL,false,0,'moderate',5088,3)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
 {"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)\n    VALUES(2024220122,'','','5000',5000,'4',0,'88',NULL,false,0,'moderate',5088,3)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
 {"code":"ER_BAD_NULL_ERROR","errno":1048,"index":0,"level":"error","sql":"INSERT INTO billing(patientid,clinician,organization,paid_amount,payable,type,outstanding,discount,branchid,taxIncluded,taxValue,clientstatus,testcost,employeeid)\n    VALUES(2024220122,'','','90',90,'4',0,'10',NULL,false,0,'moderate',100,3)","sqlMessage":"Column 'branchid' cannot be null","sqlState":"23000"}
+{"level":"error"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error"}
