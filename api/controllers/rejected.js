@@ -1,20 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const SampleHandler = require('../sample');
-
+const { responseError } = require('../../helper');
+const logger = require('../../logger');
+const handleSample = new SampleHandler()
 router.get('/api/v1/rejected', function (request, response) {
-    new SampleHandler().getRejectedSamplesList(request, response);
+    handleSample.getRejectedSamplesList(request, response);
 })
 
 router.post('/api/v1/rejected', function (request, response) {
-    new SampleHandler().rejectedSampleApproval(request, response);
+    handleSample.rejectedSampleApproval(request, response);
 })
 
 
 router.put('/api/v1/sample/rejection/disputed', function (request, response) {
-    new SampleHandler().disputeSampleRejection(request, response);
+    handleSample.disputeSampleRejection(request, response);
 })
 
+
+router.get('/api/v1/sample/disputed/log/single', function (request, response) {
+    try {
+        handleSample.getSampleDisputeLog(request, response);
+    } catch (err) {
+        logger.error(err);
+        responseError(response)
+    }
+})
 
 
 

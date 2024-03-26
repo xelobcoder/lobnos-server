@@ -31,7 +31,7 @@ class User {
     if (!this.branch) {
       throw new Error("User must be assigned a branch")
     }
-    let parsedBranch = parseInt(this.branch);
+    let parsedBranch = parseInt(this.branch)
     if (typeof parsedBranch != "number") {
       throw new TypeError("branch must be an integer")
     }
@@ -68,7 +68,7 @@ class User {
         return "Acess Denied!!.User not assigned to a branch"
       }
     }
-    return user = { permissions, role, activation, email, employeeid, username, branchid: branch }
+    return (user = { permissions, role, activation, email, employeeid, username, branchid: branch })
   }
 
   createUser = async () => {
@@ -117,7 +117,7 @@ class User {
       }
       const isValidated = await this.verifyToken(accessToken)
       if (isValidated) {
-        next();
+        next()
       }
     } catch (err) {
       return customError("Application licenced expired, please contact admin for renewal", 401, res)
@@ -131,16 +131,32 @@ class User {
         return customError("token not provided", 404, response)
       }
       const tokenvalid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
+
       if (!tokenvalid) {
         return customError("token provided is invalid", 401, response)
       }
-      const allValid = ["username", "activation", "email", "employeeid", "permissions", "role"].some(
-        (item, index) => tokenvalid.hasOwnProperty(item) == false
-      )
-      if (allValid) {
-        return customError("invalid token data received", 401, response)
+
+      const { role, employeeid } = tokenvalid
+
+      if (!role) {
+        return customError("token is invalid", 404, response)
       }
-      response.send({ statusCode: 200, status: "success", user: tokenvalid })
+
+      switch (role) {
+        case "clinician" || "patient":
+          response.send({ statusCode: 200, status: "success", user: tokenvalid })
+          break
+        default:
+          const allValid = ["username", "activation", "email", "employeeid", "permissions", "role"]
+            .some(
+              (item, index) => tokenvalid.hasOwnProperty(item) == false
+            )
+          if (allValid) {
+            return customError("invalid token data received",
+              401, response)
+          }
+          response.send({ statusCode: 200, status: "success", user: tokenvalid })
+      }
     } catch (err) {
       customError("Expired token", 404, response)
     }

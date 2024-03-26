@@ -151,9 +151,11 @@ class Registration {
 
   updateProcessedOrder = async function (orderid) {
     try {
-      if (!orderid) throw new Error("orderid required")
+      if (!orderid) {
+        throw new Error("orderid required")
+      }
       const result = await promisifyQuery(`UPDATE billingtemporarytable SET processed = 1 WHERE orderid = ?`, [orderid])
-      return result.affectedRows === 1 ? true : false
+      return rowAffected(result);
     } catch (err) {
       throw new Error(err)
     }

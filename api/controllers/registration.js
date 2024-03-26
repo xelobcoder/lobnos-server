@@ -4,9 +4,6 @@ const database_queries = require('../database/queries');
 const Registration = require('../models/registration');
 const EmailService = require("../EmailServices/EmailCore")
 
-router.get("/api/v1/register", (request, response) => {
-
-});
 
 router.post("/api/v1/register", async (request, response) => {
   const register = new Registration()
@@ -77,8 +74,8 @@ router.put("/api/v1/register/addressinginformation", async (request, response) =
 
 router.get("/api/v1/register/personalinformation", async (request, response) => {
   const { patientid } = request.query
-  if (!patientid || patientid == "undefined") {
-    customError(`patientid not included in the request`, 400, response)
+  if (!patientid || patientid == "undefined" || patientid == 'null') {
+    return customError(`patientid not included in the request`, 400, response)
   } else {
     const data = await database_queries.getsingleid(parseInt(patientid), "new_patients", "PATIENTID")
     if (data.length > 0) {
@@ -105,7 +102,7 @@ router.get("/api/v1/register/personalinformation", async (request, response) => 
 router.get("/api/v1/register/checkmobile", async (request, response) => {
   const { mobileno } = request.query
   if (!mobileno) {
-    customError(`mobileno not included in the request`, 400, response)
+    return customError(`mobileno not included in the request`, 400, response)
   } else {
     const data = await database_queries.getsingleid(mobileno, "new_patients", "mobile_number")
     if (data.length > 0) {

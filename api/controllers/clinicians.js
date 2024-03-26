@@ -126,15 +126,19 @@ router.get('/api/v1/orders/temporary/processing', async function (request, respo
 router.post("/api/v1/orders/processed", async function (request, response) {
   try
   {
-    const { patientid, clinician, organization, orderid, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost } = request.body;
+    const { patientid, clinician, organization, orderid, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost, employeeid } = request.body;
+
+    if (!employeeid || !clinician) {
+      return customError('Bill can initiation failed, include employeeid and clincianid', 404, response);
+    }
 
     const billing = new Billing(patientid, clinician, organization, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter,
       outstanding, cost);
     
-    const outcome = await billing.insertionProcess(request, response);
+    const outcome = await billing.insertionProcess(request, response, employeeid, false);
 
     if (typeof outcome === "string") {
-      customError(outcome, 404, response);
+      return customError(outcome, 404, response);
     }
     if (typeof outcome === "boolean") {
       // we update the temporary orders

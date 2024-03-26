@@ -180,6 +180,7 @@ class SampleHandler {
             ss.approvalstatus,
             ss.sampleMessage,
             ss.disputedon,
+            ss.ascensionid,
             ss.disputedby,
             ss.disputereason,
             tp.NAME,
@@ -223,16 +224,23 @@ class SampleHandler {
   }
 
   async disputeSampleRejection(request, response) {
-    const { billingid, testid, disputereason, disputedby, disputedon } = request.body
-
-    const DISPUTE_QUERY = `UPDATE samplestatus SET disputereason = ?, disputedby = ?, disputedon = ?
-     WHERE billingid = ? AND testid = ?`
-
-    const values = [disputereason, disputedby, disputedon, billingid, testid]
+    const { ascensionid, disputereason, disputedby, disputedon } = request.body
+    if (!ascensionid || !disputedby || !disputereason) {
+      return customError('ascensionid, disputereason, disputedby, disputedon missing', 404, response);
+    }
+    // we update sample status because we want to always retrieved last dispute without having to view log tabel
+    const updateSample = async function () {
+      promisifyQuery(`UPDATE samplestatus SET disputereason = ?, disputedby = ?, disputedon = ?
+     WHERE ascensionid = ?`, [disputereason, disputedby, disputedon, ascensionid])
+    }
+    const DISPUTE_QUERY = `INSERT INTO rejectedsampledisputelog (ascensionid, disputereason, disputedby, disputedon)
+    VALUES (?, ?, ?, ?)`;
+    const values = [ascensionid, disputereason, disputedby, disputedon];
 
     try {
       const result = await promisifyQuery(DISPUTE_QUERY, values);
       if (rowAffected(result)) {
+        updateSample();
         response.send({ status: "success", message: "sample dispute logged successfully", statusCode: 200 })
       } else {
         response.send({ status: "error", message: "error logging sample dispute", statusCode: 500 })
@@ -248,6 +256,26 @@ class SampleHandler {
     const result = await promisifyQuery(query, [billingid])
     if (response) return response.send({ status: "success", statusCode: 200, result })
     else return result
+  }
+
+
+  async getSampleDisputeLog(request, response) {
+    const { ascensionid, branch } = request.query;
+    if (!ascensionid) {
+      return customError(`provide ascensionid`, 404, response);
+    }
+    let result = await promisifyQuery(`
+          SELECT * FROM rejectedsampledisputelog AS lg INNER JOIN roles AS rl ON rl.employeeid = lg.disputedby
+            WHERE ascensionid = ? ORDER BY lg.id`,
+      [parseInt(ascensionid)]);
+    if (result.length > 0) {
+      result = result.map((item, index) => {
+        const { disputedby, disputedon, disputereason, username } = item;
+        return { disputedby, disputedon, disputereason, branch, username };
+      })
+      response.send(result);
+    }
+    response.send(result);
   }
 }
 

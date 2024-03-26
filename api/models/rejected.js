@@ -89,7 +89,7 @@ const rejectedSample = async function (request, response) {
         INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
         INNER JOIN test_ascension AS ta ON ta.id = ss.ascensionid
         INNER JOIN test_panels AS tp ON tp.ID = ss.testid
-        WHERE ss.approvalstatus = 0 AND ta.collection = 'true'
+        WHERE ss.approvalstatus = 0 AND ta.collection = 'true' AND ss.resolution IS NULL
   `
   try {
     let result = await promisifyQuery(SQL_QUERY);

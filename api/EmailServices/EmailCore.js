@@ -201,23 +201,17 @@ class EmailService {
         // use the billing id to retrieve the patientid
         try {
             const billdata = await database_queries.getsingleid(parseInt(billingid), "billing", "BILLINGID")
-
             if (billdata.length <= 0) return false
 
             const { patientid } = billdata[0]
             // use the patient id to get the email
             const person = await database_queries.getsingleid(parseInt(patientid), "new_patients", "PATIENTID")
-
             if (person.length === 0 || person[0]?.email === null) return false
-
             const { email } = person[0]
 
             const pathname = path.join(__dirname, "../views", "templates" + "/sampleRejection.ejs")
-
-            const data = { message, header: "SAMPLE REJECTION NOTIFICATION", labname: "Kairos Diagnostics Center" }
-
+            const data = { message, header: "SAMPLE REJECTION NOTIFICATION", labname: process.env.PROD_PLS_EMAIL_COMPANY }
             const html = await ejs.renderFile(pathname, { data })
-
             const mailOptions = this.mailOptions(email, "SAMPLE REJECTION NOTIFICATION", html)
 
             const status = await this.transportEmail(mailOptions)

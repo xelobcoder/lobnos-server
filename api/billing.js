@@ -143,10 +143,16 @@ class Billing {
     return rowAffected(result)
   }
 
-  async insertionProcess(request, response, employeeid) {
+  async insertionProcess(request, response, employeeid, strict = true) {
+  /* strict entering is enforced at the center, but incase an order is made by a clinician
+  allow the order to go through or when strict daily enformcement is deactivated at the facillity level*/
     try {
-      const valid = await this.isValidForDayEntry(this.patientid)
-      if (!valid) {
+      let canInitiateNewBill = true;
+      if (strict) {
+        canInitiateNewBill = await this.isValidForDayEntry(this.patientid)
+      }
+
+      if (!canInitiateNewBill) {
         return `client billed on same day. Kindly check the billing history to update billing`
       }
       connection.beginTransaction(async (err) => {

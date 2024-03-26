@@ -72,7 +72,7 @@ router.post("/api/v1/login/clinicians", async (request, response) => {
 
         if (getUserDetails.length === 0) { customError("Invalid credentials seen", 404, response); return }
 
-        const { ispasswordUpdated,clinicianid} = getUserDetails[0];
+         const { ispasswordUpdated, clinicianid } = getUserDetails[0];
 
         const data = { role: 'clinician',email, employeeid:clinicianid }
 
