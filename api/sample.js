@@ -241,13 +241,13 @@ class SampleHandler {
       const result = await promisifyQuery(DISPUTE_QUERY, values);
       if (rowAffected(result)) {
         updateSample();
-        response.send({ status: "success", message: "sample dispute logged successfully", statusCode: 200 })
+        return response.send({ status: "success", message: "sample dispute logged successfully", statusCode: 200 })
       } else {
-        response.send({ status: "error", message: "error logging sample dispute", statusCode: 500 })
+       return  response.send({ status: "error", message: "error logging sample dispute", statusCode: 500 })
       }
     } catch (err) {
       logger.error(err)
-      customError("error updating data", 500, response)
+      return customError("error updating data", 500, response)
     }
   }
 
@@ -273,7 +273,7 @@ class SampleHandler {
         const { disputedby, disputedon, disputereason, username } = item;
         return { disputedby, disputedon, disputereason, branch, username };
       })
-      response.send(result);
+      return response.send(result);
     }
     response.send(result);
   }

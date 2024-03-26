@@ -18,11 +18,11 @@ router.put('/api/v1/sample/rejection/disputed', function (request, response) {
 })
 
 
-router.get('/api/v1/sample/disputed/log/single', function (request, response) {
+router.get('/api/v1/sample/disputed/log/single', async function (request, response) {
     try {
-        handleSample.getSampleDisputeLog(request, response);
+        await handleSample.getSampleDisputeLog(request, response);
     } catch (err) {
-        logger.error(err);
+        logger.error(err)
         responseError(response)
     }
 })
