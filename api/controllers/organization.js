@@ -104,10 +104,11 @@ router.get('/api/v1/organization/performance/top', function (request, response) 
 })
 
 router.get("/api/v1/organization/detail/report/monthly", async function (request, response) {
-  const { organizationid } = request.query;
-  if (!organizationid) { customError('id required', 404, response); return; };
-
-    try {
+  try {
+    const { organizationid } = request.query;
+    if (!organizationid) {
+      return customError('id required', 404, response)
+    };
         const report = await new Organization(organizationid).generateSalesReport();
         response.send({status: 'success',statusCode: 200, result: report})
     } catch (err) {

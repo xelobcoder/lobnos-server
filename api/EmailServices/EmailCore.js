@@ -138,11 +138,13 @@ class EmailService {
 
     async sendAuthenticateEmail(token, email, subject = "EMAIL VERIFICATION") {
         try {
-            if (!token || !email) {
-                throw new Error(`token || email not provided`)
-            }
+            if (!token)
+                throw new Error('token not provided');
+            if (!email)
+                throw new Error('email not provided');
             // render html using ejs templating egine
-            const html = await ejs.renderFile(path.join(__dirname, "../views", "templates" + "/verifyemail.ejs"), { token })
+            const pathLoc = path.join(__dirname, "../views", "templates" + "/verifyemail.ejs")
+            const html = await ejs.renderFile(pathLoc, { token });
             // forward the email
             return this.transportEmail(this.mailOptions(email, subject, html))
         } catch (err) {
@@ -177,10 +179,12 @@ class EmailService {
      */
     async getTempPatientCredentials(patientid, response) {
         try {
-            if (!patientid || typeof patientid !== "number") throw new Error("Patientid must be type Number")
+            if (!patientid || typeof patientid !== "number")
+                throw new Error("Patientid must be type Number")
             const query = `SELECT * FROM patients_credentials where PATIENTID = ?`
             const outcome = await promisifyQuery(query, patientid)
-            if ((outcome && outcome.length == 0) || outcome[0]["updated"] == "true") return false
+            if ((outcome && outcome.length == 0) || outcome[0]["updated"] == "true")
+                return false
             const { username, password } = outcome[0]
             return response ? response.send({ result: outcome[0] }) : { username, password }
         } catch (err) {
@@ -253,7 +257,6 @@ class EmailService {
                 this.fireClientAuthentication(patientid, email)
             }
         }
-        return
     }
     /**
      * Inserts email log data into the emaillog table in the database.

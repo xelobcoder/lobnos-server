@@ -47,8 +47,9 @@ const userLogin = async (req, response) => {
     if (typeof user_needed_data == 'string') {
       return customError(user_needed_data, 404, response)
     }
-    const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET, email, user_needed_data, "1h");
-    response.send({
+    const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,
+      email, user_needed_data, "1h");
+    return response.send({
       status: "success", statusCode: 200, message: "Login successful", user: user_needed_data, token,
     })
     // await client.connect();
@@ -72,14 +73,14 @@ const getAllLogins = async (req, res) => {
   try {
     let query = `
     SELECT
-     rl.employeeid,
-     rl.username,
-     rl.role,
-     rl.email,
-     rl.branch,
-     b.name AS branchname,
-     rl.emailAuthenticated,
-     rl.activation
+          rl.employeeid,
+          rl.username,
+          rl.role,
+          rl.email,
+          rl.branch,
+          b.name AS branchname,
+          rl.emailAuthenticated,
+          rl.activation
     FROM roles AS rl INNER JOIN branch AS b ON rl.branch = b.branchid
     `;
     const vals = [];
@@ -107,7 +108,7 @@ const getAllLogins = async (req, res) => {
 
     query += ` ORDER BY rl.employeeid DESC LIMIT ? OFFSET ?`;
     const result = await paginationQuery(req.query, query, vals);
-    res.send({ status: "success", result, statusCode: 200 })
+    return res.send({ status: "success", result, statusCode: 200 })
   } catch (err) {
     customError("something wrong occured", 301, res)
     logger.error(err)
@@ -130,22 +131,22 @@ const deleteAccount = async (req, res) => {
     })
   } else {
     // delete account
-    const queryString = `DELETE FROM roles WHERE EMPLOYEEID = '${id}'`
+    const queryString = `DELETE FROM roles WHERE EMPLOYEEID = ?`
     // execute query
-    connection.query(queryString, (err, result) => {
-      if (err) {
-        res.status(400).send({
-          statusCode: 301,
-          message: "error occured",
-        })
-      } else {
-        res.status(200).send({
-          statusCode: 200,
-          status: "success",
-          message: result.affectedRows + " row(s) deleted",
-        })
-      }
-    })
+    let result = await promisifyQuery(queryString, [parseInt(id)]);
+    if (rowAffected(result)) {
+      res.status(200).send({
+        statusCode: 200,
+        status: "success",
+        message: "employee record deleted successfully",
+      })
+    } else {
+      res.status(200).send({
+        statusCode: 200,
+        status: "success",
+        message: "",
+      })
+    }
   }
 }
 

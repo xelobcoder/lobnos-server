@@ -129,7 +129,6 @@ class ResultPrint {
       INNER JOIN test_panels AS tp ON ta.testid = tp.id
       WHERE billingid = ?`
     const result = await promisifyQuery(model, [parseInt(id)])
-
     if (response) {
       response.send(result)
     } else {

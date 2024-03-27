@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const { customError, responseError } = require("../../helper")
 const ResultPrint = require("../models/ResultPrint")
-const { testCategoryMapping } = require("../models/ResultQueryMapping")
 const EmailService = require("../EmailServices/EmailCore")
 const { getBillingInvoiceData } = require("../models/invoice")
 const Payment = require("../models/payment")
@@ -19,7 +18,8 @@ router.get("/api/v1/ready/crm/summary/advanced", function (request, response) {
 
 router.get("/api/v1/result/ready/:id", async (req, res) => {
   const billingid = parseInt(req.params.id.slice(1))
-  new ResultPrint().get_extrainfo_test(billingid, res)
+  if (!billingid) return customError('billingid not provided', 404, response);
+  await new ResultPrint().get_extrainfo_test(billingid, res)
 })
 
 router.post("/api/v1/result/ready/updateprint/count", async function (request, response) {
@@ -29,7 +29,6 @@ router.post("/api/v1/result/ready/updateprint/count", async function (request, r
     const result = await new ResultPrint().updatePrintCount(id, count)
     response.send({ status: result === true ? "success" : "failed" })
   } catch (err) {
-    console.log(err)
     logger.error(err)
     responseError(response)
   }

@@ -2,17 +2,6 @@ const router = require('express').Router();
 const Supply = require("../models/supply/supplyclass.js");
 const Requisition = require("../models/Inventory/requisitionClass")
 
-const {
-  newdepartmentRequisition,
-  getDepartmentsRequisitions,
-  specificDepartmentRequisition,
-  deleteDeptStocks,
-  // getDepartmentStockLot,
-  patchRequisition,
-  updateRequisitionAfterReceivedDept,
-  // generalStoreLotNo,
-  consumeDepartmentStock,
-} = require("../models/departmentRequisition.js")
 
 const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require("../models/placeorders.js")
 const { getCategory } = require("../testpanel/categories.js")
@@ -23,13 +12,31 @@ const Departments = require("../models/Departments/DepartmentClass.js")
 
 router.get("/api/v1/suppliers", async function (request, response) {
   try {
-    const result = await new Supply().getSuppliers(request.query)
+    const { supplierid } = request.query;
+    let result = [];
+    if (supplierid) {
+      result = await new Supply().getSupplier(parseInt(supplierid));
+    } else {
+      result = await new Supply().getSuppliers(request.query)
+    }
     response.send({ result, statusCode: 200, status: "success" })
   } catch (err) {
     customError("something went wrong", 500, response)
     logger.err(err)
   }
 })
+
+
+router.get('/api/v1/supplier/status/unforfilled', async function (request, response) {
+  const { supplierid, status } = request.query;
+  if (!supplierid) {
+    return customError('supplierid not provided', 404, response);
+  } 
+  const result = await new Supply().getSupplierPendingOrders(supplierid, status);
+  response.send(result);
+})
+
+
 router.get("/api/v1/suppliers/getsupplier", async function (request, response) {
   try {
     const { supplierid } = request.query

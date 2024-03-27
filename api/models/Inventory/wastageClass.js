@@ -4,7 +4,7 @@ const Inventory = require("./inventoryclass")
 
 class WastageInventory extends Inventory {
   constructor(stockid) {
-    super()
+    super();
     this.stockid = stockid
   }
 
@@ -15,14 +15,13 @@ class WastageInventory extends Inventory {
       brand,
     ])
 
-    const qtyReceived = data.length > 0 ? data[0]["qty"] : 0
-
+    const qtyReceived = data.length > 0 ? data[0]["qty"] : 0;
     // const debitHx = await this.getDebitHxSingle(productordersid)
     // if (debitHx.length === 0) return qtyReceived
 
     // const totalDebited = debitHx.reduce((p, c, i) => p + c?.debitqty, 0)
     // return parseInt(qtyReceived) - parseInt(totalDebited)
-    return qtyReceived
+    return qtyReceived;
   }
 
   async getOrderWastageData(stockid, brandid, batchnumber) {
@@ -33,7 +32,8 @@ class WastageInventory extends Inventory {
   }
 
   async calcalulateWastageTotal(stockid, brandid, batchnumber) {
-    if (!stockid || !batchnumber || !brandid) return new Error("batchnumber , stockid && brandid are required")
+    if (!stockid || !batchnumber || !brandid)
+      throw new Error("batchnumber , stockid && brandid are required")
     let data = await this.getOrderWastageData(stockid, brandid, batchnumber)
     if (data.length === 0) return 0
     data = data.reduce((acc, cur) => acc + cur?.debitqty, 0)
@@ -147,6 +147,9 @@ class WastageInventory extends Inventory {
   async getDeptMonthlySummaryWastages(quarters, departmentid) {
     if (!departmentid || !quarters) {
       throw new Error("derpartmentid and quarters required and quarters must be less than 3 and more than 0")
+    }
+    if (quarters <= 0 || quarters > 3) {
+      throw new Error('range must be with 1-3');
     }
     let query = `SELECT 
                       CASE

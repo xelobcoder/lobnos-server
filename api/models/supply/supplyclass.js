@@ -42,6 +42,20 @@ class Supplys {
     return await database_queries.getsingleid([supplierid], 'supplier', 'SUPPLIERID');
   }
 
+  async getSupplierPendingOrders(id, status = 'data') {
+    let supplierid = this.supplierid;
+    if (!supplierid) {
+      supplierid = id;
+    }
+    if (!supplierid) throw new Error('supplierid not provided');
+
+    let query = `SELECT * FROM orders WHERE receiveddate IS NULL AND supplierid = ?`;
+
+    let result = await promisifyQuery(query, [parseInt(supplierid)]);
+    if (status == 'count') return { count: result.length };
+    return result;
+  }
+
   async postCommodity(records) {
     const { name, category } = records;
     if (!name || !category) throw new Error("name and category required");

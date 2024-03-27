@@ -30,8 +30,7 @@ const WarehouseRouter = require("./api/controllers/Inventory/warehouse")
 const wastagesRouter = require("./api/controllers/Inventory/wastages")
 const inventoryDepartmentRouter = require("./api/controllers/Inventory/departments")
 const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter")
-const cors = require("cors")
-const configuration = require("./helpers/configuration")
+const cors = require("cors");
 const { customError, responseError, promisifyQuery } = require("./helper")
 
 app.listen(port, async () => {
@@ -55,19 +54,24 @@ app.use(express.static("public"))
 
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
-
+app.use(function (request, response, next) {
+  if (request.session) {
+    request
+      .sessionOptions({ name: 'tiifu hamza' ,age: 23});
+  }
+  response.set('sessionid', 'tiifu hamza');
+  next();
+})
 // ensuring an acess token is present
 // app.use(async (req, res, next) => {
 //   if (req.url == '/api/v1/register') {
 //     next();
 //   } else {
-//     // console.log(new User().applicationAccessToken())
 //     await new User().validateRequestToken(req, res, next, process.env.ACCESS_TOKEN_SECRET)
 //   }
 // })
 
-// api endpoints
-// app.use((req, res, next) => { configuration.logRequest(req, res, next) });
+
 // app.use(redisMiddleware);
 app.use(testPanelRouter)
 app.use(Manager)

@@ -188,7 +188,8 @@ class Inventory {
 
   async filterstock(filteringValue, query) {
     let SQLQUERY = FILTERSTOCKQUERY
-    if (!filteringValue) return []
+    if (!filteringValue)
+      return []
     let values = [filteringValue, filteringValue]
     const { warehouseid } = query
     if (warehouseid && warehouseid != "all") {
@@ -197,8 +198,9 @@ class Inventory {
     }
     SQLQUERY += ` ORDER BY gs.name LIMIT ? OFFSET ?`
     let data = await paginationQuery(query, SQLQUERY, values)
-    if (data.length === 0) return data
-    data.map((item, index) => {
+    if (data.length === 0)
+      return data
+    data = data.map((item, index) => {
       return { ...item, quantityrequired: 0 }
     })
     return data
@@ -364,7 +366,8 @@ class Inventory {
 
   async purchasetoConsumeInsight(data) {
     const { stockid, records } = data
-    if (!stockid || !records) throw new Error("stockid and records are required");
+    if (!stockid || !records)
+      throw new Error("stockid and records are required");
     const ORDERHX = `SELECT 
                   date as orderdate,
                   productordersid,
