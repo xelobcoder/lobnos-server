@@ -199,7 +199,6 @@ class ApplicationSettings {
   }
 
   async updateGeneralEmailSettings(records) {
-    console.log(records)
     if (typeof records != "object") return false
     // first truncate the table
     const truncate = `TRUNCATE TABLE generalemailsettings`

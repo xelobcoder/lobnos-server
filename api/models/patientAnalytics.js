@@ -6,7 +6,6 @@ const database_queries = require('../database/queries')
 const User = require('../LobnosAuth/user');
 const Registration = require('../models/registration');
 const PDFGENERATION = require("./pdfGeneration");
-const { PatientQueries } = require("../../helpers/testtables");
 const testpanel = require("../testpanel/list");
 
 /**
@@ -125,7 +124,8 @@ class Patient extends Registration {
   async getParameters(data) {
     let parameters = [];
     data.map((item, index) => {
-      if (!parameters.includes(item?.parameter)) { parameters.push(item?.parameter) }
+      if (!parameters.includes(item?.parameter))
+      { parameters.push(item?.parameter) }
     })
     return parameters;
   }

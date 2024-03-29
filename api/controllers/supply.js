@@ -50,9 +50,9 @@ router.get("/api/v1/suppliers/getsupplier", async function (request, response) {
 
 router.post("/api/v1/suppliers", async function (request, response) {
   try {
-    const result = await new Supply().addSupplier(request.body)
-    response.send({ message: result ? "supplier added successfully" : "supplier addition failed", statusCode: 200, status: "success" })
+     await new Supply().addSupplier(request.body,response)
   } catch (err) {
+    console.log(err)
     customError("something went wrong", 500, response)
   }
 })

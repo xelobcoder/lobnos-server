@@ -29,7 +29,9 @@ router.get("/api/v1/email/custom/search", async function (request, response) {
 
 router.post("/api/v1/email/composed/draft", async function (request, response) {
   const { subject, draft, employeeid } = request.body;
-  if (!subject || !draft || !employeeid) { customError("Subject,Draft and employeeid are required",404,response); return;}
+  if (!subject || !draft || !employeeid) {
+    customError("Subject,Draft and employeeid are required", 404, response);
+  }
   const result = await new EmailService().saveComposedEmailDraft(subject, draft, employeeid);
   response.send({
     message: result == 1 ? "Draft saved successfully" : "Error saving draft",
@@ -51,7 +53,9 @@ router.get("/api/v1/email/composed/draft", async function (request, response) {
 
 router.put("/api/v1/email/composed/draft", async function (request, response) {
   const { id, subject, draft, employeeid } = request.body;
-  if (!id || !subject || !draft || !employeeid) { customError("Id,Subject,Draft and employeeid are required",404,response); return;}
+  if (!id || !subject || !draft || !employeeid) {
+    return customError("Id,Subject,Draft and employeeid are required", 404, response); 
+  }
   const result = await new EmailService().updateEmailComposed(id, subject, draft, employeeid);
   response.send({
     message: result == 1 ? "Draft updated successfully" : "Error updating draft",

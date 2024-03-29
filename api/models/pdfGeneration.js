@@ -1,8 +1,7 @@
 const pdf = require('pdf-creator-node');
 const fs = require('fs');
-const { customError, promisifyQuery, getFullBloodCountTrend, convertKeysToLowerCase } = require("../../helper")
+const { customError} = require("../../helper")
 const path = require("path")
-const { testTable, setups, PDF_QUERIES } = require("../../helpers/testtables")
 const { testCategoryMapping } = require("../../api/models/ResultQueryMapping")
 const ResultPrint = require("./ResultPrint")
 const { getCompanyInfo } = require("../settings/companydata")

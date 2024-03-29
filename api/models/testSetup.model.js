@@ -1,5 +1,4 @@
 const  { promisifyQuery, customError } =require('../../helper')
-const  { setups } =  require("../../helpers/testtables")
 const  logger =  require("../../logger");
 class TestSetup {
   constructor(testname) {

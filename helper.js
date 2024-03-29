@@ -1,5 +1,4 @@
 const connectionpool = require('./api/dbpool');
-const { PatientQueries } = require('./helpers/testtables');
 const logger = require('./logger');
 function customError(message, statusCode, response) {
   if (!response) {

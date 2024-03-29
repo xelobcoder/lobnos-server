@@ -1,12 +1,9 @@
 const connection = require("../db");
 const { Result, testTable } = require("./result");
-const { getAge } = require('../../api/test/setup/fbc');
-const { setups, PDF_QUERIES } = require("../../helpers/testtables")
 const logger = require("../../logger")
 const { promisifyQuery, customError, rowAffected, paginationQuery, responseError, convertKeysToLowerCase } = require("../../helper")
 const ResultClass = new Result()
 const errMessage = ResultClass.errMessage
-const { MappingSetup, mappWithBilingid, testCategoryMapping } = require("./ResultQueryMapping")
 const CustomTest = require("./resultentry/customTestEntry");
 const Creator = require("./creator");
 const Registration = require("./registration");
@@ -286,7 +283,9 @@ class ResultPrint {
     const { billingid, testid, test } = request.query
 
     if (!billingid || !testid || !test) {
-      return customError("billingid, testid && test required", 404, response)
+      return customError("billingid, testid && test required",
+                                404,
+                                response);
     }
 
     let responseResult = {}
@@ -312,7 +311,6 @@ class ResultPrint {
       responseResult.testcategory = category
       response.send(responseResult)
     } catch (err) {
-      console.log(err)
       responseError(response)
     }
   }

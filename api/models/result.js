@@ -7,7 +7,6 @@ const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
 const { customError, promisifyQuery, getFullBloodCountTrend, rowAffected } = require("../../helper")
 const logger = require("../../logger")
-const { testTable, PDF_QUERIES, setups } = require("../../helpers/testtables")
 const { testCategoryMapping } = require("./ResultQueryMapping")
 const { category_determiner } = require("../test/setup/fbc")
 const Registration = require("./registration")
@@ -1005,4 +1004,4 @@ SET TYPHIO = ? ,TYPHIH = ? ,PARATYPHIAH = ? ,PARATYPHIBH = ?,COMMENTS = ? , UPDA
   }
 }
 
-module.exports = { Result, beginTransaction, query, testTable };
+module.exports = { Result, beginTransaction, query};
