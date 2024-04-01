@@ -1,5 +1,6 @@
 const { promisifyQuery, rowAffected, customError, responseError } = require("../../../helper")
 const Creator = require("../../models/creator")
+const TestSetup = require("../../models/testSetup.model")
 const { getCategory, postCategory } = require("../../testpanel/categories")
 const testpanel = require("../../testpanel/list")
 
@@ -71,6 +72,49 @@ router.get("/api/v1/test/getProcedureManual", async function (request, response)
     responseError(err)
   }
 })
+router.get("/api/v1/test/getLiteraturereview", async function (request, response) {
+  try {
+    const { testid } = request.query
+    if (!testid) {
+      return customError("testid is required", 404, response)
+    }
+    const result = await new TestSetup().getSetupLiterature(testid);
+    if (result.length > 0) {
+      response.send(result[0])
+    } else {
+      response.send({})
+    }
+  } catch (err) {
+    responseError(response)
+  }
+})
+
+router.put("/api/v1/test/getLiteraturereview", async function (request, response) {
+  try {
+    const { testid, literature } = request.body;
+    if (!testid) return customError("testid is required", 404, response);
+    const update = rowAffected(await new TestSetup().updateSetupLiterature(literature, testid));
+    response.send({ status: update ? 'success' : "failed" });
+  } catch (err) {
+    responseError(response)
+  }
+})
+
+
+router.get('/api/v1/test/isLiteraturereview/getLiterature', async function (request, response) {
+  try {
+    const { testid } = request.query;
+    if (!testid)
+      return customError("testid is required", 404, response);
+    const result = await new TestSetup().getResultLiterature(testid);
+    response.send(result);
+  } catch (err) {
+    responseError(response);
+  }
+})
+
+
+
 
 router.post("/api/v1/testpanel/bulkupdate", (request, response) => {
   testpanel.bulkTestUpdate(request, response)

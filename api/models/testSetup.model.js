@@ -10,12 +10,29 @@ class TestSetup {
     return (this.testname in setups) ? true : false;
   }
 
-  async getSetupLiterature(testname) {
-    return await promisifyQuery(`SELECT * FROM setupliteraturereview WHERE testname = ?`,[this.testname || testname])
+  async getSetupLiterature(testid) {
+    return await promisifyQuery(`SELECT * FROM setupliteraturereview WHERE testid = ?`, [testid])
   }
 
-  async updateSetupLiterature(literature,testname) {
-    return await promisifyQuery(`UPDATE setupliteraturereview SET literature = ? WHERE testname = ?`, [literature, this.testname || testname])
+  async updateSetupLiterature(literature, testid) {
+    return await promisifyQuery(`UPDATE setupliteraturereview SET literature = ? WHERE testid= ?`, [literature, testid])
+  }
+
+  async canUseLiterature(testid) {
+    const data = await promisifyQuery(`SELECT useLiterature from testdetails WHERE testid = ?`, [testid]);
+    if (data.length == 0) return false;
+    const { useLiterature } = data[0];
+    return useLiterature == 1 ? true : false;
+  }
+
+  async getResultLiterature(testid) {
+    if (await this.canUseLiterature(testid)) {
+      const dataset = await this.getSetupLiterature(testid);
+      if (dataset.length > 0) {
+        return { can: true, literature: dataset[0]['literature'] }
+      }
+    }
+    return { can: false }
   }
 
   async createSetupLiterature(literature, testname) { 

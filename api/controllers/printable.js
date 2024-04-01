@@ -104,6 +104,15 @@ router.get("/api/v1/result/preview/comments", function (request, response) {
   }
 })
 
+router.get('/api/v1/result/preview/entry/scientist', async function (request, response) {
+  const { testid, billingid } = request.query;
+  if (!billingid || !testid) {
+    return customError('billingid or testid not included in the query', 404, response);
+  }
+  const result = await new ResultPrint().getResultEntryScientist(billingid, testid);
+  response.send(result);
+})
+
 // this check if test for a client  is approved  for printing
 router.post("/api/v1/test/result/preview/approved/check", function (request, response) {
   const { billingid, testid } = request.body

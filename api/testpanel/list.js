@@ -299,6 +299,7 @@ const testpanel = {
         employeeid,
         testid,
         testcost,
+        useLiterature
       } = request.body
 
       const updateMainPanel = await promisifyQuery(query, [
@@ -330,7 +331,8 @@ const testpanel = {
                 testprice = ?,
                 hasChildrenLimit =?,
                 hasGenderVariation= ?,
-                testcost = ?
+                testcost = ?,
+                useLiterature = ?
         WHERE testid = ?`
 
         const values = [
@@ -347,6 +349,7 @@ const testpanel = {
           hasChildrenLimit,
           hasGenderVariation,
           testcost,
+          useLiterature,
           testid,
         ]
 

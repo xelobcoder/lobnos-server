@@ -99,8 +99,5 @@ router.post("/api/v1/result/entry/customtest", async function (request, response
 })
 
 
-router.get('/api/v1/trends/getTrends', async function (request, response) {
-    
-})
 
 module.exports = router

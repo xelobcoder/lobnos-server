@@ -15,15 +15,17 @@
   <div style="width: 50%;">
     <img height="150px" width="150px" src="http://localhost:5000/api/v1/settings/companyprofile/images"/>
   </div>
-  <div style="width: 30%; margin-left: 70%;margin-top: -180px;">
-      <p id="capiFirst">{{this.companyinfo.address}}</p>
-      <p id="capiFirst">{{this.companyinfo.email}}</p>
-      <p id="capiFirst">{{this.companyinfo.website}}</p>
-      <p id="capiFirst">0{{this.companyinfo.phonenumber}} || 0{{this.companyinfo.alternativenumber}}</p>
+  <div style="width: 50%; margin-left: 50%;margin-top: -140px;">
+      <p id="capiFirst" >Address: {{this.companyinfo.address}}.<br/>
+        Phone Number:0{{this.companyinfo.phonenumber}} || 0{{this.companyinfo.alternativenumber}}<br/>
+        Email: {{this.companyinfo.email}}<br/>
+        Website:  {{this.companyinfo.website}}
+      </p>
+      <p id="capiFirst"></p>
   </div>
  </div>
  <h3 style="text-align: center; text-transform: uppercase; background-color: black;color: white;">Personal Information</h3>
-  <div class="grid-2">
+  <div class="grid-2" id="info">
     <div class="p-wrapper">
       <span class="bold text-capitalize">fullname:</span>
       <span class="text-capitalize">{{this.sampling.clientname}}</span>
@@ -60,7 +62,7 @@
     </div>
   </div>
   <h3 style="text-transform: uppercase;text-align: center; border-bottom: 2px solid black;" >Sampling Information</h3>
-  <div class="grid-2">
+  <div class="grid-2" id="info">
     <div class="p-wrapper">
       <span class="bold text-capitalize">ascensionid:</span>
       <span class="text-capitalize">{{this.sampling.ascensionid}}</span>
@@ -119,10 +121,10 @@
       </tr>
       {{/each }}
   </table>
-  <div class="">
+  <!-- <div class="">
     <h4>Brief Literature Review</h4>
     {{{this.literature}}}
-  </div>
+  </div> -->
    <div class="comments">
     <div class="comments-label">Comments</div>
     <div class="#comments">

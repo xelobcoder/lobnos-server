@@ -7,6 +7,8 @@ const errMessage = ResultClass.errMessage
 const CustomTest = require("./resultentry/customTestEntry");
 const Creator = require("./creator");
 const Registration = require("./registration");
+const testpanel = require("../testpanel/list");
+const { response } = require("express");
 
 const emptySummry = [
   { title: "registered clients", value: 0 },
@@ -157,6 +159,43 @@ class ResultPrint {
     }
   }
 
+  async getResultEntryScientist(billingid, testid) {
+    if (!billingid || !testid) {
+      throw new Error('billingid and testid are required');
+    }
+    let testname = null
+    testname = await promisifyQuery(`SELECT * FROM test_panels WHERE id = ?`, [testid]);
+    if (testname.length > 0) {
+      testname = testname[0]['name'];
+    }
+    if (!testname) {
+      return customError('wrong testid provided', 404, response);
+    }
+    const tablename = "result" + testpanel.generateTableName(testname);
+    const getEmployeeid = await promisifyQuery(`SELECT employeeid FROM ${tablename} WHERE billingid = ?`, [billingid]);
+    let employeeid = null;
+    if (getEmployeeid.length > 0) {
+      employeeid = getEmployeeid[0]['employeeid'];
+    }
+
+    let username = null;
+    username = await promisifyQuery(`SELECT username FROM roles WHERE employeeid = ?`, [employeeid]);
+    if (username.length > 0) {
+      username = username[0]['username'];
+    }
+
+    let approvedBy = null;
+    approvedBy = await promisifyQuery(`SELECT ApprovedBy FROM test_ascension WHERE billingid = ? AND testid = ?`, [billingid, testid]);
+
+    if (approvedBy.length > 0) {
+      approvedBy = approvedBy[0]['ApprovedBy'];
+      approvedBy = await promisifyQuery(`SELECT username FROM roles WHERE employeeid = ?`, [approvedBy]);
+      if (approvedBy.length > 0) {
+        approvedBy = approvedBy[0]['username'];
+      }
+    }
+    return { resultentry: username, validatedBy: approvedBy };
+  }
   async get_summary_ready_page(request, response) {
     const { querydate, content } = request.query
 
