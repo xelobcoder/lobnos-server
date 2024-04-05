@@ -1,6 +1,1 @@
 {"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
-{"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
-{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN () ORDER BY id DESC","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ') ORDER BY id DESC' at line 1","sqlState":"42000"}
-{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"SELECT field, value,billingid,created_on AS date FROM resultrenal_function_test  WHERE billingid IN () ORDER BY id DESC","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near ') ORDER BY id DESC' at line 1","sqlState":"42000"}
-{"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
-{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}

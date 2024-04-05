@@ -67,6 +67,7 @@ class Manager {
         result = result.sort((a, b) => a.urgency - b.urgency);
         response.send(result);
       }
+      response.send(result);
     } catch (err) {
       logger.error(err.message);
       customError(err?.message, 500, response);

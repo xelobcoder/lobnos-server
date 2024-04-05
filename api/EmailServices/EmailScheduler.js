@@ -1,9 +1,18 @@
 const EmailService = require("./EmailCore")
 
 class EmailScheduler extends EmailService {
-  constructor(employeeid) {
-    super(employeeid)
+  constructor(employeeid, datetime) {
+    super(employeeid);
+    this.scheduleTime = datetime;
   }
+
+  set scheduleDatetime(datetime) {
+    if (!datetime)
+      throw new Error('datetime not provided');
+    this.scheduleTime = new Date(datetime);
+  }
+
+  
 }
 
 

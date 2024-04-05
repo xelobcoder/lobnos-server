@@ -8,10 +8,7 @@
     "dev": "nodemon app.js",
     "start": "node app.js"
   },
-  "keywords": [
-    "high performance laboratory information system",
-    "lims"
-  ],
+  "keywords": ["high performance laboratory information system","lims"],
   "author": "Tiifu Hamza",
   "license": "ISC",
   "dependencies": {

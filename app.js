@@ -59,7 +59,7 @@ app.use(function (request, response, next) {
     request
       .sessionOptions({ name: 'tiifu hamza' ,age: 23});
   }
-  response.set('sessionid', 'tiifu hamza');
+  response.set('sessionid', '734njfwfyuweuef78r237834r87');
   next();
 })
 // ensuring an acess token is present

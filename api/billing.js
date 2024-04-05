@@ -1,6 +1,6 @@
-const connection = require('./db');
-const { checkpatient } = require('./register');
-const logger = require('../logger')
+const connection = require("./db")
+const { checkpatient } = require("./register")
+const logger = require("../logger")
 const { customError, promisifyQuery, rowAffected } = require("../helper")
 const { getApplicationSettings } = require("./models/applicationSettings")
 const EmailService = require("./EmailServices/EmailCore")
@@ -56,8 +56,8 @@ class Billing {
 
     const values = [
       this.patientid,
-      this.clinician,
-      this.organization,
+      this.clinician || 0,
+      this.organization || 0,
       this.paid,
       this.payable,
       this.paymentmode,
@@ -125,7 +125,7 @@ class Billing {
       const query = `INSERT INTO test_ascension (testid,billingid,collection,collection_date)
       VALUES(?,?,?,CURRENT_DATE)`
       // if settings is a complete flow, then we need to make sure the collection is false,else true for collection and approval status
-      const status = await this.isCompleteFlow() == 0 ? "false" : "true"
+      const status = (await this.isCompleteFlow()) == 0 ? "false" : "true"
       testCollection.map(async (item, index) => {
         await promisifyQuery(query, [item, billingid, status == "false" ? "true" : "false"])
         if (status == "false") await this.updateApprovalStatus(billingid, item)
@@ -144,10 +144,10 @@ class Billing {
   }
 
   async insertionProcess(request, response, employeeid, strict = true) {
-  /* strict entering is enforced at the center, but incase an order is made by a clinician
+    /* strict entering is enforced at the center, but incase an order is made by a clinician
   allow the order to go through or when strict daily enformcement is deactivated at the facillity level*/
     try {
-      let canInitiateNewBill = true;
+      let canInitiateNewBill = true
       if (strict) {
         canInitiateNewBill = await this.isValidForDayEntry(this.patientid)
       }
@@ -184,7 +184,7 @@ class Billing {
       })
     }
   }
-  async  clientPaymentStatus(patientid) {
+  async clientPaymentStatus(patientid) {
     try {
       const query = `SELECT
       SUM(PAID_AMOUNT) AS paidAmount,
@@ -196,7 +196,7 @@ class Billing {
           END AS status
           FROM BILLING
       WHERE PATIENTID = ?`
-      const result = await promisifyQuery(query, patientid);
+      const result = await promisifyQuery(query, patientid)
       let status = result[0]["status"]
       if (status == null) {
         const isExist = await checkpatient(patientid)
@@ -210,7 +210,7 @@ class Billing {
     }
   }
 
- async getClientBillingInformation(request, response) {
+  async getClientBillingInformation(request, response) {
     //  get the billing id
     const { billingid } = request.query
     // check if billing id is not empty
@@ -283,7 +283,7 @@ const getClientBillingInformation = async function (request, response) {
 
 const getBilledClients = async function (request, response) {
   const mysql = `
-      SELECT b.BILLINGID AS BILLINGID,
+      SELECT b.billingid AS billingid,
           CASE
             WHEN np.MIDDLENAME IS NULL THEN CONCAT(np.FIRSTNAME, ' ', np.LASTNAME)
             ELSE CONCAT(
@@ -293,22 +293,22 @@ const getBilledClients = async function (request, response) {
               ' ',
               np.LASTNAME
             )
-          END AS FULLNAME,
-          b.PAID_AMOUNT AS PAID,
-          b.PAYABLE,
-          b.PATIENTID,
-          b.TYPE,
-          b.OUTSTANDING,
+          END AS fullname,
+          b.paid_amount AS paid,
+          b.payable,
+          b.patientid,
+          b.type,
+          b.outstanding,
           pm.PaymentMode,
-          b.DISCOUNT,
-          DATE(b.billedon) AS DATE
+          b.discount,
+          DATE(b.billedon) AS date
         FROM billing AS b
-          INNER JOIN new_patients AS np ON np.PATIENTID = b.PATIENTID
-          INNER JOIN billinghx AS bhx ON bhx.Billingid = b.BILLINGID
+          INNER JOIN new_patients AS np ON np.patientid = b.patientid
+          INNER JOIN billinghx AS bhx ON bhx.billingid = b.billingid
           INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
           WHERE DATE(b.billedon) = CURRENT_DATE
-    GROUP BY b.BILLINGID
-    ORDER BY B.BILLINGID DESC
+    GROUP BY b.billingid
+    ORDER BY B.billingid DESC
     LIMIT 20
   `
 
@@ -406,12 +406,9 @@ const updateBilling = async function (request, response) {
   }
 }
 
-
-
-
 module.exports = {
   Billing,
   updateBilling,
   getClientBillingInformation,
-  getBilledClients
+  getBilledClients,
 }

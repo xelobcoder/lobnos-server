@@ -85,6 +85,7 @@ router.get("/api/v1/test/getLiteraturereview", async function (request, response
       response.send({})
     }
   } catch (err) {
+    console.log(err)
     responseError(response)
   }
 })
@@ -195,8 +196,10 @@ router.get("/api/v1/testpanel/list/customtestrule/previous/comments", async func
 router.put("/api/v1/testpanel/list/customtestrule", async function (request, response) {
   try {
     const { testid, data } = request.body
-    if (!testid || !data) return customError("testid  && data is required", 404, response)
-    if (data.length === 0) return customError("wrong format provided", 404, response)
+    if (!testid || !data)
+      return customError("testid  && data is required", 404, response)
+    if (data.length === 0)
+      return customError("wrong format provided", 404, response)
     const updateRule = await new Creator(testid).updateTestCreationRule(data)
     response.send({ status: updateRule ? true : false })
   } catch (err) {
@@ -204,3 +207,5 @@ router.put("/api/v1/testpanel/list/customtestrule", async function (request, res
   }
 })
 module.exports = router
+
+

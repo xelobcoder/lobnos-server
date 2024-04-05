@@ -241,13 +241,14 @@ class EmailService {
         if (clientPreference.length > 0 && clientPreference[0][target]) {
             return target === "No" ? false : true
         }
-        return
     }
 
     async clientMailing(patientid, email, callback) {
-        if ((await this.isEmailServiceActivated()) && (await this.selectedPreferenceActivated("registration"))) {
-            const ptmethod = await runPromise(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid])
-            if (ptmethod.length > 0 && ptmethod[0]["method"] === "email") {
+        const isMailServiceActivated = await this.isEmailServiceActivated();
+        const pref = await this.selectedPreferenceActivated('registration');
+        if (isMailServiceActivated && pref) {
+            const patientRecords = await runPromise(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid])
+            if (patientRecords.length > 0 && patientRecords[0]["method"] === "email") {
                 // default is sending message after new client is registered;
                 // however if a call back is prrovided, it is treated as first class and fired
                 if (callback && typeof callback === "function") {
