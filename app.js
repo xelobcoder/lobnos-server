@@ -29,7 +29,8 @@ const patientAnalytics = require("./api/controllers/patients.controller")
 const WarehouseRouter = require("./api/controllers/Inventory/warehouse")
 const wastagesRouter = require("./api/controllers/Inventory/wastages")
 const inventoryDepartmentRouter = require("./api/controllers/Inventory/departments")
-const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter")
+const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter");
+const expenseRouter = require("./api/controllers/expense.controller");
 const cors = require("cors");
 const { customError, responseError, promisifyQuery } = require("./helper")
 
@@ -74,6 +75,7 @@ app.use(function (request, response, next) {
 
 // app.use(redisMiddleware);
 app.use(testPanelRouter)
+app.use(expenseRouter)
 app.use(Manager)
 app.use(organizationRouter)
 app.use(emailRouterController)

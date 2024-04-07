@@ -8,7 +8,10 @@
     "dev": "nodemon app.js",
     "start": "node app.js"
   },
-  "keywords": ["high performance laboratory information system","lims"],
+  "keywords": [
+    "high performance laboratory information system",
+    "lims"
+  ],
   "author": "Tiifu Hamza",
   "license": "ISC",
   "dependencies": {
@@ -24,9 +27,7 @@
     "nodemailer": "^6.9.5",
     "nodemailer-smtp-transport": "^2.4.2",
     "pdf-creator-node": "^2.3.5",
-    "puppeteer": "^22.6.1",
     "redis": "^4.6.13",
-    "uuidv4": "^6.2.13",
     "winston": "^3.10.0"
   }
 }
