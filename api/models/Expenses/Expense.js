@@ -1,7 +1,7 @@
-const { response, query } = require("express");
 const { customError, promisifyQuery, rowAffected, responseError, paginationQuery } = require("../../../helper");
 const logger = require("../../../logger");
 const User = require("../../LobnosAuth/user");
+const { readdir } = require("node:fs/promises");
 
 class Expenses {
       constructor(employeeid, branchid) {
@@ -83,6 +83,20 @@ class Expenses {
             }
             query += ` LIMIT ? OFFSET ?`;
             return await paginationQuery(pageQuery, query, values);
+      }
+
+      async getSingleExpense(expenseid) {
+            let result = await promisifyQuery(`SELECT * FROM expensesrecord WHERE id = ?`, [parseInt(expenseid)])
+            if (result.length > 0) {
+                  let images = [];
+                  images = await readdir('api/uploads/receipts')
+                  if (images.length > 0) {
+                        images = images.filter((item, index) => item.split("-")[0] == expenseid);
+                  }
+                  result[0]['images'] = images;
+                  return result
+            }
+            return result;
       }
 }
 
