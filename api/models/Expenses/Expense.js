@@ -1,7 +1,7 @@
 const { customError, promisifyQuery, rowAffected, responseError, paginationQuery } = require("../../../helper");
 const logger = require("../../../logger");
 const User = require("../../LobnosAuth/user");
-const { readdir } = require("node:fs/promises");
+const { readdir, unlink } = require("node:fs/promises");
 
 class Expenses {
       constructor(employeeid, branchid) {
@@ -85,18 +85,45 @@ class Expenses {
             return await paginationQuery(pageQuery, query, values);
       }
 
-      async getSingleExpense(expenseid) {
-            let result = await promisifyQuery(`SELECT * FROM expensesrecord WHERE id = ?`, [parseInt(expenseid)])
-            if (result.length > 0) {
-                  let images = [];
-                  images = await readdir('api/uploads/receipts')
+
+      async getExpenseImageList(expenseid) {
+            try {
+                  let images = await readdir('api/uploads/receipts')
                   if (images.length > 0) {
                         images = images.filter((item, index) => item.split("-")[0] == expenseid);
                   }
+                  return images;
+            } catch (err) {
+                  throw err?.message || err;
+            }
+      }
+
+      async getSingleExpense(expenseid) {
+            let result = await promisifyQuery(`SELECT * FROM expensesrecord WHERE id = ?`, [parseInt(expenseid)])
+            if (result.length > 0) {
+                  let images = await this.getExpenseImageList(expenseid);
                   result[0]['images'] = images;
                   return result
             }
             return result;
+      }
+
+      async deleteReceiptsList(data) {
+            if (!data) {
+                  throw new Error('data not provided');
+            }
+            if (data && !Array.isArray(data)) {
+                  throw new TypeError('Array required');
+            }
+            if (data.length == 0) return;
+            const status =await Promise.all( data.map(async (item, index) => {
+                  try {
+                        await unlink(`api/uploads/receipts/${item}`)
+                  } catch (err) {
+                        return false;
+                  }
+            }))
+            return status.some((a, i) => a == false) ? false : true;
       }
 }
 

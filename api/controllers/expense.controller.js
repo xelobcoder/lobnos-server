@@ -56,13 +56,33 @@ router.post('/api/v1/expenses/receipt/upload', upload.array("images", 10), async
 })
 
 router.get('/api/v1/expenses/receipt/upload/images', async function (request, response) {
-      const { imageid } = request.query;
+      try {
+            const { imageid } = request.query;
       if (!imageid) {
             return customError(`image not provided`, 404, response);
       }
       response.sendFile(path.join(__dirname, `../uploads/receipts/${imageid}`))
+      } catch (err) {
+            responseError(response);
+      }
 })
 
+router.get('/api/v1/expenses/receipt/uploaded/images/list', async function (request, response) {
+      const { expenseid } = request.query;
+      if (!expenseid) {
+            return customError(`expenseid not provided`, 404, response);
+      }
+      let result = await new Expenses().getExpenseImageList(expenseid);
+      response.send(result);
+})
 
-
+router.delete('/api/v1/expenses/receipt/uploaded/images', async function (request, response) {
+      const { data } = request.body;
+      if (data && Array.isArray(data) && data.length > 0) {
+            const status = await new Expenses().deleteReceiptsList(data)
+            response.send({ status: status ? "success" : 'failed' })
+      } else {
+            return customError('image List not provided', 404, response);
+      }
+})
 module.exports = router;
