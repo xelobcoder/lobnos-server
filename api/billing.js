@@ -331,7 +331,8 @@ const updateBilling = async function (request, response) {
   try {
     const { test, totalcost, billingid, outstanding, taxIncluded, taxValue, discount } = request.body
 
-    if (!test || !totalcost || !billingid || !outstanding) {
+    if (!test || !totalcost || !billingid || outstanding == null || outstanding < 0) {
+      console.log(test,totalcost,billingid,outstanding)
       return customError("invalid request body", 404, response)
     }
 

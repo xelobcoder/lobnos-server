@@ -68,7 +68,14 @@ class User {
         return "Acess Denied!!.User not assigned to a branch"
       }
     }
-    return (user = { permissions, role, activation, email, employeeid, username, branchid: branch })
+    let branchname = null;
+    if (branch) {
+      branchname = await promisifyQuery(`SELECT name from branch WHERE branchid = ?`, [parseInt(branch)]);
+      if (branchname.length > 0) {
+        branchname = branchname[0]['name'];
+      }
+    }
+    return (user = { permissions, role, activation, email, employeeid, username, branchid: branch, branch: branchname })
   }
 
   createUser = async () => {
@@ -132,11 +139,13 @@ class User {
       }
       const tokenvalid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET)
 
+
       if (!tokenvalid) {
         return customError("token provided is invalid", 401, response)
       }
 
       const { role, employeeid } = tokenvalid
+
 
       if (!role) {
         return customError("token is invalid", 404, response)
@@ -155,7 +164,12 @@ class User {
             return customError("invalid token data received",
               401, response)
           }
-          response.send({ statusCode: 200, status: "success", user: tokenvalid })
+          let branch = await promisifyQuery(`SELECT name from branch WHERE branchid = ?`, [parseInt(tokenvalid?.branchid)]);
+
+          if (branch.length > 0) {
+            branch = branch[0]['name'];
+          }
+          response.send({ statusCode: 200, status: "success", user: { ...tokenvalid, branch } })
       }
     } catch (err) {
       customError("Expired token", 404, response)
