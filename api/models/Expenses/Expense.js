@@ -125,7 +125,60 @@ class Expenses {
             }))
             return status.some((a, i) => a == false) ? false : true;
       }
+
+
+      async calculateDailyExpense(requireddate) {
+            const query = `SELECT SUM(amount) AS expense FROM expensesrecord WHERE DATE(date) = ? AND approved = 1`;
+            let result = await promisifyQuery(query, [requireddate ? requireddate : `CURRENT_DATE`]);
+            if (result.length > 0) {
+                  result = result[0]['expense'];
+            }
+            return result;
+      }
+
+      async calCurrentMonthExpense(month) {
+            if (month && typeof month != 'number') {
+                  throw TypeError('argument must empty if current month required or a integer of the month interested provided');
+            }
+            let query = `SELECT SUM(amount) AS expense FROM expensesrecord WHERE`;
+            if (month) {
+                  query += ` MONTH(date) = ? AND approved = 1`
+            } else {
+                  query += ` MONTH(date) = MONTH(CURRENT_DATE) AND approved = 1`
+            }
+            let result = await promisifyQuery(query, [month]);
+            if (result.length > 0) {
+                  result = result[0]['expense'];
+            }
+            return result;
+      }
+
+      async calculateYearlyExpense(year) {
+            let query = `SELECT SUM(amount) AS expense FROM expensesrecord WHERE`;
+            if (year) {
+                  query += ` YEAR(date) = ? AND approved = 1`
+            } else {
+                  query += ` YEAR(date) = YEAR(CURRENT_DATE) AND approved = 1`
+            }
+            let result = await promisifyQuery(query, [year]);
+            if (result.length > 0) {
+                  result = result[0]['expense'];
+            }
+            return result;
+      }
+      async getMonthlySummary() {
+            let report = {};
+            let current = 0;
+            while (current <= 12) {
+                  const result = await this.calCurrentMonthExpense(current);
+                  report[current] = result;
+                  current++;
+            }
+            return report;
+      }
 }
+
+
 
 
 
