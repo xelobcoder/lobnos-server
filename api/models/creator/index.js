@@ -17,15 +17,24 @@ class Creator {
       return []
     }
   }
-
+  async getPreviousRecords(testname, billingid, patientid) {
+    const tablename = "result" + testpanel.generateTableName(testname)
+    const previousRecords = await promisifyQuery(`SELECT * FROM ${tablename} WHERE billingid = ? AND patientid = ?`, [
+      billingid,
+      patientid,
+    ])
+    return previousRecords;
+  }
   async getCustomPreviousRecords(testname, billingid, patientid) {
     try {
-      const tablename = "result" + testpanel.generateTableName(testname)
-      const previousRecords = await promisifyQuery(`SELECT * FROM ${tablename} WHERE billingid = ? AND patientid = ?`, [
-        billingid,
-        patientid,
-      ])
-      let result = await this.getTestCreationRule()
+      const previousRecords = await this.getPreviousRecords(testname, billingid, patientid);
+      if (previousRecords.length > 0) {
+        if (previousRecords.some((item, index) => item.field == "ultrasound")) {
+          return previousRecords[0]
+        }
+      }
+   
+      let result = await this.getTestCreationRule();
 
       const hasGenderVariation = result.length == 0 ? false : result.filter((item) => item.hasGenderVariation == true).length > 0
 
@@ -74,7 +83,6 @@ class Creator {
       }
       return result
     } catch (err) {
-      console.log(err)
       responseError(response)
     }
   }

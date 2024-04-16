@@ -15,7 +15,7 @@ class TestSetup {
   }
 
   async updateSetupLiterature(literature, testid) {
-    return await promisifyQuery(`UPDATE setupliteraturereview SET literature = ? WHERE testid= ?`, [literature, testid])
+    return await promisifyQuery(`UPDATE setupliteraturereview SET literature = ? WHERE testid = ?`, [literature, parseInt(testid)])
   }
 
   async canUseLiterature(testid) {

@@ -1,4 +1,5 @@
 const { promisifyQuery, rowAffected, customError, responseError } = require("../../../helper")
+const logger = require("../../../logger")
 const Creator = require("../../models/creator")
 const TestSetup = require("../../models/testSetup.model")
 const { getCategory, postCategory } = require("../../testpanel/categories")
@@ -85,7 +86,6 @@ router.get("/api/v1/test/getLiteraturereview", async function (request, response
       response.send({})
     }
   } catch (err) {
-    console.log(err)
     responseError(response)
   }
 })
@@ -97,6 +97,7 @@ router.put("/api/v1/test/getLiteraturereview", async function (request, response
     const update = rowAffected(await new TestSetup().updateSetupLiterature(literature, testid));
     response.send({ status: update ? 'success' : "failed" });
   } catch (err) {
+    logger.error(err);
     responseError(response)
   }
 })

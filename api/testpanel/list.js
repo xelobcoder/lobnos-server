@@ -259,104 +259,122 @@ const testpanel = {
   },
 
   putSingleTestPanel: async function (request, response) {
-    const { id } = request.body
+    try {
+      const { id } = request.body
 
-    if (!id) return customError(`query id required`, 404, response)
-    else {
-      const query = `UPDATE test_panels SET
-          name = ?,
-          price = ?,
-          sample_container = ?,
-          sample= ?,
-          category = ?,
-          unit =?,
-          description = ?,
-          qty_required = ?,
-          shorttext = ?
-          WHERE id = ?`
+      if (!id) return customError(`query id required`, 404, response)
+      else {
+        const query = `UPDATE test_panels SET
+            name = ?,
+            price = ?,
+            sample_container = ?,
+            sample= ?,
+            category = ?,
+            unit =?,
+            description = ?,
+            qty_required = ?,
+            shorttext = ?
+            WHERE id = ?`
 
-      const {
-        name,
-        category,
-        testprice,
-        id,
-        sample_container,
-        unit,
-        sample,
-        shorttext,
-        isoutsourced,
-        description,
-        qty_required,
-        hasManual,
-        procedureCode,
-        tat,
-        pre_Tat,
-        post_Tat,
-        showtrend,
-        hasChildrenLimit,
-        hasGenderVariation,
-        tatCount,
-        employeeid,
-        testid,
-        testcost,
-        useLiterature
-      } = request.body
-
-      const updateMainPanel = await promisifyQuery(query, [
-        name,
-        testprice,
-        sample_container,
-        sample,
-        category,
-        unit,
-        description,
-        qty_required,
-        shorttext,
-        testid,
-      ])
-      const outcome = rowAffected(updateMainPanel)
-      if (outcome) {
-        const updatePanel = `
-        UPDATE testdetails SET 
-                tat  = ?,
-                pre_Tat = ?,
-                post_Tat = ?,
-                hasManual = ?,
-                procedureCode = ? ,
-                tatCount = ?,
-                updatedby = ?,
-                updatedon = NOW(),
-                isoutsourced = ?,
-                showtrend = ?,
-                testprice = ?,
-                hasChildrenLimit =?,
-                hasGenderVariation= ?,
-                testcost = ?,
-                useLiterature = ?
-        WHERE testid = ?`
-
-        const values = [
+        const {
+          name,
+          category,
+          testprice,
+          id,
+          sample_container,
+          unit,
+          sample,
+          shorttext,
+          isoutsourced,
+          description,
+          qty_required,
+          hasManual,
+          procedureCode,
           tat,
           pre_Tat,
           post_Tat,
-          hasManual,
-          procedureCode,
-          tatCount,
-          employeeid,
-          isoutsourced,
           showtrend,
-          testprice,
           hasChildrenLimit,
           hasGenderVariation,
-          testcost,
-          useLiterature,
+          tatCount,
+          employeeid,
           testid,
-        ]
+          testcost,
+          useLiterature
+        } = request.body
 
-        const updateTestDetails = await promisifyQuery(updatePanel, values)
+        const updateMainPanel = await promisifyQuery(query, [
+          name,
+          testprice,
+          sample_container,
+          sample,
+          category,
+          unit,
+          description,
+          qty_required,
+          shorttext,
+          testid,
+        ])
+        const outcome = rowAffected(updateMainPanel)
+        if (outcome) {
+          const updatePanel = `
+          UPDATE testdetails SET 
+                  tat  = ?,
+                  pre_Tat = ?,
+                  post_Tat = ?,
+                  hasManual = ?,
+                  procedureCode = ? ,
+                  tatCount = ?,
+                  updatedby = ?,
+                  updatedon = NOW(),
+                  isoutsourced = ?,
+                  showtrend = ?,
+                  testprice = ?,
+                  hasChildrenLimit =?,
+                  hasGenderVariation= ?,
+                  testcost = ?,
+                  useLiterature = ?
+          WHERE testid = ?`
 
-        response.send({ status: rowAffected(updateTestDetails) ? "success" : "failed" })
+          const values = [
+            tat,
+            pre_Tat,
+            post_Tat,
+            hasManual,
+            procedureCode,
+            tatCount,
+            employeeid,
+            isoutsourced,
+            showtrend,
+            testprice,
+            hasChildrenLimit,
+            hasGenderVariation,
+            testcost,
+            useLiterature,
+            testid,
+          ]
+
+          const updateTestDetails = await promisifyQuery(updatePanel, values);
+
+          const isCategoryScan = await promisifyQuery(`SELECT tp.category,tp.name,dp.department from test_panels AS tp INNER JOIN departments AS dp ON dp.id = tp.category WHERE dp.department = 'ultrasound' AND tp.category = ${category}`);
+
+          if (isCategoryScan.length > 0) {
+            const tablename = "result" + testpanel.generateTableName(isCategoryScan[0]['name']);
+            const tableFeatures = await promisifyQuery(`SHOW COLUMNS FROM ${tablename}`);
+            for (let i = 0; i < tableFeatures.length; i++) {
+              if (tableFeatures[i]['Field'] == 'value') {
+                if (tableFeatures[i]['Type'] != 'longtext') {
+                  await promisifyQuery(`ALTER TABLE ${tablename} CHANGE value value LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL;`)
+                }
+              }
+            }
+          }
+
+          response.send({ status: rowAffected(updateTestDetails) ? "success" : "failed" })
+        }
       }
+    } catch (err) {
+      response.send(err);
     }
   },
 

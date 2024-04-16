@@ -18,7 +18,7 @@ router.get(`/api/v1/result/patientrend/single`, async function (request, respons
 })
 
 router.post("/api/v1/result/entry/customtest", async function (request, response) {
-  const { billingid, patientid, testid, fields, test, employeeid, comments } = request.body
+  const { billingid, patientid, testid, fields, test, employeeid, comments,isScan } = request.body
 
   if (!billingid || !patientid || !testid || !fields || !test) {
     return customError("billingid, patientid, testid,test and fields are required", 404, response)
@@ -32,7 +32,7 @@ router.post("/api/v1/result/entry/customtest", async function (request, response
     return customError(`patientid and billingid must be type number`, 404, response)
   }
 
-  const tablename = "result" + testpanel.generateTableName(test)
+  const tablename = "result" + testpanel.generateTableName(test);
 
   const shouldCreateRecord = async function (billingid, patientid, testtable, field) {
     const records = await promisifyQuery(`SELECT * FROM ${testtable} WHERE billingid = ? AND field = ? AND patientid = ?`, [

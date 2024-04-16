@@ -97,7 +97,7 @@ const database_queries = {
    albumin FLOAT, totalprotein FLOAT, ast FLOAT, alp FLOAT, alt FLOAT, bun FLOAT, creatinine FLOAT)`
     connection.query(query, (err, result) => {
       if (err) {
-        console.log(err)
+        console.log(err)  
       } else {
         console.log(result)
       }
