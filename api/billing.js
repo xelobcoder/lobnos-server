@@ -228,6 +228,30 @@ class Billing {
       customError("billing id is required", 400, response)
     }
   }
+
+
+  async getDayBilledClientsCount(branchid,day, month, year, ) {
+    let current_date = new Date();
+    let current_month = current_date.getMonth() + 1;
+    let current_day = current_date.getDate()
+    let current_year = current_date.getFullYear();
+    let date = '';
+    if (year && month && day) {
+      date = `${year}-${month}-${year}`;
+    } else {
+      date = `${current_year}-${current_month}-${current_day}`;
+    }
+    let query = `SELECT COUNT(*) AS count FROM billing WHERE DATE(billedon) ='${date}'`;
+
+    if (branchid && !isNaN(branchid)) {
+      query += ` AND branchid = ${parseInt(branchid)}`;
+    }
+    const count = await promisifyQuery(query);
+    if (count.length > 0) {
+      return count[0]['count'];
+    }
+    return 0;
+  }
 }
 
 /**
@@ -413,3 +437,7 @@ module.exports = {
   getClientBillingInformation,
   getBilledClients,
 }
+
+new Billing()
+  .getDayBilledClientsCount()
+

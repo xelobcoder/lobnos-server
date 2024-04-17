@@ -187,14 +187,32 @@ class Registration {
 
   isClientSame = async (clientdata) => {
     try {
-      const { mobile, mobileownership, email } = clientdata
-      if (mobile.length == 0 && email.length == 0) return false
-      const getData = await promisifyQuery(`SELECT * FROM new_patients WHERE mobile_number = ?  AND contactpointer = ? OR email = ?`, [
-        mobile,
-        mobileownership,
-        email,
-      ])
-      return getData.length > 0 ? true : false
+      const { mobile, mobileownership, email } = clientdata;
+      if (mobile && mobile.toString().length > 0) {
+        const result = await promisifyQuery(`SELECT mobile_number AS mobile FROM new_patients WHERE mobile_number = ?`, [parseInt(mobile)]);
+        if (result.length > 0) {
+          if (mobileownership == 'relative') {
+            return false
+          } else {
+            return true
+          }
+        } else {
+          return false;
+        }
+      }
+
+      if (email && email.toString().length > 0 && email.includes("@")) {
+        const result = promisifyQuery(`SELECT email FROM new_patients WHERE email = ?`, [email]);
+        if (result.length > 0) {
+          if (mobileownership == 'relative') {
+            return false
+          } else {
+            return true
+          }
+        } else {
+          return false;
+        }
+      }
     } catch (err) {
       logger.error(err)
     }
@@ -279,7 +297,7 @@ class Registration {
     // we will push the data into the new patient table in the database
     // if successuly registered, a mail is sent to the client to authenticate email, if only is email is present
     try {
-      const isAlreadyRegistered = await this.isClientSame(data)
+      const isAlreadyRegistered = await this.isClientSame(data);
       // // if false we insert into the database table
       if (isAlreadyRegistered) {
         response.send({
@@ -374,6 +392,38 @@ class Registration {
       return false
     }
   }
+
+  async getRegisteredClientsCount() {
+    let count = await promisifyQuery(`SELECT COUNT(*) AS count FROM new_patients`);
+    if (count.length > 0) return count[0]['count'];
+    return 0;
+  }
+
+  async getTodayRegistedClientCount() {
+    let count = await promisifyQuery(`SELECT COUNT(*) AS count FROM new_patients WHERE DATE(date) = CURRENT_DATE`);
+    if (count.length > 0) return count[0]['count'];
+    return 0;
+  }
+
+  async getRegisteredClientsPerMonth() {
+    try {
+      let range = 12;
+      let current = 0;
+      let months = {};
+      while (current <= range) {
+        let getMonthCount = await promisifyQuery(`SELECT COUNT(*) AS count  FROM new_patients WHERE MONTH(date) = ?`, [current]);
+        months[current] = getMonthCount[0];
+        current++;
+      }
+      return months;
+    } catch (err) {
+      logger.error(err);
+      return 0;
+    }
+  }
 }
+
+
+new Registration().getRegisteredClientsPerMonth()
 
 module.exports = Registration

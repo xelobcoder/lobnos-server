@@ -4,9 +4,8 @@ const connection = require("../db.js")
 
 const sales = {}
 
-sales.generalSales = async function (request, response, target, branch, clinicianid = null) {
+sales.generalSales = async function (target, branch, clinicianid = null, patientid, response) {
   try {
-    const { patientid } = request.query
     // get all sales sum grouped by target i.e sum by year, month or day
     let query = ""
 
@@ -101,14 +100,17 @@ sales.generalSales = async function (request, response, target, branch, clinicia
       query += ` GROUP BY WEEK`
     }
 
-    const result = await promisifyQuery(query)
+    const result = await promisifyQuery(query);
     if (clinicianid && result.length > 0) {
       const details = await promisifyQuery(`SELECT * FROM clinicianpaymentinfo WHERE ID = ?`, [parseInt(clinicianid)])
 
       const commission = details.length > 0 ? details[0]["commission"] : 0
 
       if (commission == null || commission == 0) {
-        return response.send({ status: "warning", message: "commission not set" })
+        if (response) {
+          return response.send({ status: "warning", message: "commission not set" })
+        }
+        return 'commission not set';
       }
 
       const commissionRate = commission / 100
@@ -117,14 +119,38 @@ sales.generalSales = async function (request, response, target, branch, clinicia
         const { salesAmount } = item
         return { ...item, salesAmount: salesAmount * commissionRate, rate: commissionRate }
       })
-      response.send({ statusCode: 200, status: "success", result: report })
-    } else response.send({ statusCode: 200, status: "success", result })
+      if (response) {
+        return response.send({ statusCode: 200, status: "success", result: report })
+      }
+      return report;
+    } else {
+      if (response) {
+        return response.send({ statusCode: 200, status: "success", result })
+      }
+      return result;
+    }
   } catch (err) {
-    console.log(err)
     responseError(response)
   }
 }
 
+sales.getDailySalesSummary = async function (branchid, current_date) {
+  let query = `SELECT
+      SUM(b.PAYABLE) AS salesAmount,
+      COUNT(b.BILLINGID) AS totalCases,
+      SUM(b.DISCOUNT) AS discount,
+      SUM(PAID_AMOUNT) AS totalAmountReceived,
+      b.billedon AS date,
+          DAY(b.billedon) AS 'Day'
+      FROM billing AS b
+    WHERE DATE(billedon) = '${current_date}'`;
+
+  if (branchid) {
+    query += ` AND branchid = ?`;
+  }
+  const result = await promisifyQuery(query, [branchid]);
+  return result[0];
+}
 // sales.ClientSummary =
 
 module.exports = sales

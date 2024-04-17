@@ -128,7 +128,10 @@ class Expenses {
 
 
       async calculateDailyExpense(requireddate) {
-            const query = `SELECT SUM(amount) AS expense FROM expensesrecord WHERE DATE(date) = ? AND approved = 1`;
+            let query = `SELECT SUM(amount) AS expense FROM expensesrecord WHERE DATE(date) = ? AND approved = 1`;
+            if (this.branchid) {
+                  query += ` AND branchid = ${this.branchid}`;
+            }
             let result = await promisifyQuery(query, [requireddate ? requireddate : `CURRENT_DATE`]);
             if (result.length > 0) {
                   result = result[0]['expense'];

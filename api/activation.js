@@ -57,9 +57,9 @@ const activation = {
         activationQuery = activationQuery
       }
 
-      if (mobile) {
+      if (mobile && !isNaN(mobile)) {
         if (!patientid && !fullname && mobile) {
-          activationQuery += ` WHERE mobile_number =${mobile}`
+          activationQuery += ` WHERE mobile_number = ${mobile}`
         } else {
           activationQuery += ` AND mobile_number = ${mobile}`
         }
@@ -96,9 +96,9 @@ const activation = {
       connection.query(activationQuery, (err, result) => {
         if (err) {
           logger.error(err)
+          response.send([])
         }
         if (result) {
-          console.log(result)
           response.send(result)
         }
       })
