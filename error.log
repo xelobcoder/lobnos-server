@@ -80,3 +80,56 @@
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n        SELECT id,patientid,\n        CASE \n          WHEN middlename IS NULL THEN CONCAT(firstname, ' ', lastname)\n          ELSE CONCAT(firstname, ' ', middlename, ' ', lastname)\n        END AS fullname,\n        mobile_number AS contact,\n        date, \n        activation_status\n        FROM new_patients\n     WHERE mobile_number = tiifu AND CURRENT_DATE ORDER BY id DESC\n        LIMIT 10","sqlMessage":"Unknown column 'tiifu' in 'where clause'","sqlState":"42S22"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"\n        SELECT id,patientid,\n        CASE \n          WHEN middlename IS NULL THEN CONCAT(firstname, ' ', lastname)\n          ELSE CONCAT(firstname, ' ', middlename, ' ', lastname)\n        END AS fullname,\n        mobile_number AS contact,\n        date, \n        activation_status\n        FROM new_patients\n     WHERE mobile_number = tiifu AND CURRENT_DATE ORDER BY id DESC\n        LIMIT 10","sqlMessage":"Unknown column 'tiifu' in 'where clause'","sqlState":"42S22"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n        SELECT id,patientid,\n        CASE \n          WHEN middlename IS NULL THEN CONCAT(firstname, ' ', lastname)\n          ELSE CONCAT(firstname, ' ', middlename, ' ', lastname)\n        END AS fullname,\n        mobile_number AS contact,\n        date, \n        activation_status\n        FROM new_patients\n     AND CURRENT_DATE ORDER BY id DESC\n        LIMIT 10","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'AND CURRENT_DATE ORDER BY id DESC\n        LIMIT 10' at line 10","sqlState":"42000"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"\n        SELECT id,patientid,\n        CASE \n          WHEN middlename IS NULL THEN CONCAT(firstname, ' ', lastname)\n          ELSE CONCAT(firstname, ' ', middlename, ' ', lastname)\n        END AS fullname,\n        mobile_number AS contact,\n        date, \n        activation_status\n        FROM new_patients\n     AND CURRENT_DATE ORDER BY id DESC\n        LIMIT 10","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near 'AND CURRENT_DATE ORDER BY id DESC\n        LIMIT 10' at line 10","sqlState":"42000"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"\n          SELECT * FROM rejectedsampledisputelog AS lg INNER JOIN roles AS rl ON rl.employeeid = lg.disputedby\n            WHERE ascensionid = 400 ORDER BY lg.id","sqlMessage":"Table 'limsdb.rejectedsampledisputelog' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"\n          SELECT * FROM rejectedsampledisputelog AS lg INNER JOIN roles AS rl ON rl.employeeid = lg.disputedby\n            WHERE ascensionid = 400 ORDER BY lg.id","sqlMessage":"Table 'limsdb.rejectedsampledisputelog' doesn't exist","sqlState":"42S02"}
+{"code":"ER_NO_SUCH_TABLE","errno":1146,"index":0,"level":"error","sql":"INSERT INTO rejectedsampledisputelog (ascensionid, disputereason, disputedby, disputedon)\n    VALUES ('400', 'JJKSDFJKAWDJH', 3, '2024-04-17T14:14:08.936Z')","sqlMessage":"Table 'limsdb.rejectedsampledisputelog' doesn't exist","sqlState":"42S02"}
+{"level":"error"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}

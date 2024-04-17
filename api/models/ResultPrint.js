@@ -122,10 +122,12 @@ class ResultPrint {
                       ta.processing_date,
                       ta.collection_date,
                       ta.approvalstatus,
+                      dp.department,
                       ta.id,
                       ta.ready_date
       FROM test_ascension AS ta 
       INNER JOIN test_panels AS tp ON ta.testid = tp.id
+      INNER JOIN departments AS dp ON dp.id = tp.category
       WHERE billingid = ?`
     const result = await promisifyQuery(model, [parseInt(id)])
     if (response) {

@@ -50,6 +50,7 @@ class Manager {
               ta.approvalstatus,
               ta.actionPlan,
               bb.patientid,
+              dp.department,
         CASE WHEN np.middlename IS NULL THEN CONCAT(np.firstname," ", np.lastname) 
             WHEN np.middlename IS NOT NULL THEN CONCAT(np.firstname, " ", np.middlename, " ", np.lastname) 
             END AS fullname
@@ -57,6 +58,7 @@ class Manager {
             INNER JOIN billing as bb ON bb.billingid = ta.billingid
             INNER JOIN new_patients AS np ON np.patientid = bb.patientid
             INNER JOIN test_panels AS tt ON tt.ID = ta.testid
+            INNER JOIN departments AS dp ON dp.id = tt.category
         WHERE ta.ready = 'true'
         AND ta.ApprovalStatus = 0 and declineMessage is null
     `
