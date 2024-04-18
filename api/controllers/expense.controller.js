@@ -20,11 +20,11 @@ router.post("/api/v1/expenses", async function (request, response) {
 })
 
 router.get('/api/v1/expenses/records', async function (request, response) {
-      const { employeeid, branchid, count, page, status } = request.query;
+      const { employeeid, branchid, count, page, status, from, to } = request.query;
       if (!employeeid) {
             return customError('employeeid required', 404, response);
       }
-      const records = await new Expenses().getExpensesRecord(employeeid, branchid, status, { page, count });
+      const records = await new Expenses().getExpensesRecord(employeeid, branchid, status, { page, count }, from, to);
       response.send(records);
 })
 
@@ -84,5 +84,13 @@ router.delete('/api/v1/expenses/receipt/uploaded/images', async function (reques
       } else {
             return customError('image List not provided', 404, response);
       }
+})
+
+
+
+router.post("/api/v1/expense/pending/decision", async function (request, response) {
+      const { expenseid, employeeid, status, information } = request.body;
+      const result = await new Expenses().updateExpenseDecision(status, expenseid, information, employeeid);
+      response.send({ status: result === true ? 'success' : 'failed' });
 })
 module.exports = router;

@@ -45,46 +45,57 @@ class Expenses {
       }
 
 
-      async getExpensesRecord(employeeid, branchid, status, pageQuery = { count: 10, page: 1 }) {
+      async getExpensesRecord(employeeid, branchid, status, pageQuery = { count: 10, page: 1 }, from, to, state) {
             const record = await new User().userExistWithId(employeeid);
+
             let role = undefined;
             let query = `SELECT 
-                  er.name,
-                  er.description,
-                  er.merchant,
-                  r.username,
-                  er.approved,
-                  er.date,
-                  er.createdon,
-                  er.id,
-                  er.employeeid,
-                  er.amount
-             FROM expensesrecord AS er INNER JOIN roles AS r ON r.employeeid = er.employeeid`;
+                er.name,
+                er.description,
+                er.merchant,
+                r.username,
+                er.approved,
+                er.date,
+                er.createdon,
+                er.id,
+                er.employeeid,
+                er.amount
+            FROM expensesrecord AS er INNER JOIN roles AS r ON r.employeeid = er.employeeid`;
             let values = [];
             if (record.length > 0) {
                   role = record[0]['role'];
             }
             if (!['admin', 'manager'].includes(role)) {
-                  query += ` WHERE er.employeeid = ? AND er.branchid =?`;
-                  values = [employeeid, branchid]
+                  query += ` WHERE er.employeeid = ? AND er.branchid = ?`;
+                  values = [employeeid, branchid];
             } else {
                   query += ` WHERE er.employeeid = ?`;
-                  values = [employeeid]
+                  values = [employeeid];
             }
 
             if (status && status == "approved") {
                   query += ` AND er.approved = 1`;
-            } else if (status && status == 'unapproved') {
+            } else if (status && status == 'rejected') {
                   query += ` AND er.approved = 2`;
-            } else if (status && status == "request") {
+            } else if (status && status == "pending") {
                   query += ` AND er.approved = 0`;
             } else {
                   query = query;
             }
+
+            if (from && to) {
+                  query += ` AND er.date BETWEEN ? AND ?`;
+                  values.push(from, to);
+            }
+
+            if (state) {
+                  query += ` AND er.state = ?`;
+                  values.push(state);
+            }
+
             query += ` LIMIT ? OFFSET ?`;
             return await paginationQuery(pageQuery, query, values);
       }
-
 
       async getExpenseImageList(expenseid) {
             try {
@@ -178,6 +189,34 @@ class Expenses {
                   current++;
             }
             return report;
+      }
+
+      async updateExpenseDecision(status, expenseid, information, employeeid) {
+            if (!expenseid || !status || !employeeid) {
+                  throw new Error('status,employeeid and expenseid must be provided');
+            }
+            let statusNumber = null;
+            let values = [];
+            if (status == "pending") {
+                  statusNumber = 0;
+            } else if (status == "rejected") {
+                  statusNumber = 2
+            } else if (status == "approved") {
+                  statusNumber = 1
+            } else {
+                  statusNumber = undefined;
+            }
+            let query = `UPDATE expensesrecord SET approved = ? , approvedon = NOW(), approvedby = ?`;
+            values.push(statusNumber);
+            values.push(employeeid);
+
+            if (statusNumber == 2) {
+                  query += `,rejectionMessage = ?`
+                  values.push(information);
+            }
+            query += ` WHERE id = ?`;
+            values.push(expenseid);
+            return rowAffected(await promisifyQuery(query, values));
       }
 }
 
