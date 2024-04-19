@@ -505,6 +505,21 @@ class ResultPrint {
       responseError(response);
     }
   }
+
+
+  async getTransactionApprovedTest(billingid) {
+    if (!billingid) {
+      throw new Error('billingid is required');
+    }
+   
+    const query = `SELECT 
+          tp.name,
+          ta.testid
+    FROM test_ascension AS ta INNER JOIN test_panels AS tp ON tp.id = ta.testid
+    WHERE ta.billingid = ? AND ta.approvalStatus = 1`;
+    const result = await promisifyQuery(query, [parseInt(billingid)]);
+    return result
+  }
 }
 
 module.exports = ResultPrint;

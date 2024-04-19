@@ -155,6 +155,17 @@ router.get("/billing/result/pdf", async function (request, response) {
   }
 })
 
+
+router.get("/api/v1/result/printout/approved/test", async function (request, response) {
+  try {
+    const { billingid } = request.query;
+    const result = await new ResultPrint().getTransactionApprovedTest(billingid);
+    response.send(result);
+  } catch (err) {
+    responseError(response);
+  }
+}) 
+
 router.get("/billing/receipt", async function (request, response) {
   const { billingid } = request.query
   if (!billingid) {
