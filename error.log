@@ -143,3 +143,10 @@
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
+{"code":"ETIMEDOUT","errorno":"ETIMEDOUT","fatal":true,"level":"error","syscall":"connect"}
+{"code":"PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR","fatal":false,"level":"error"}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error","message":{"code":"ECONNREFUSED","fatal":true}}
+{"level":"error"}

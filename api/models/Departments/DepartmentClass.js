@@ -61,13 +61,13 @@ class Departments {
 
       return promisifyQuery(mysql_query, [parseInt(id)])
     } catch (err) {
-      console.log(err)
+      logger.error(err)
       throw new Error(err)
     }
   }
 
   async StoreServeDeptReq(departmentid, stockid) {
-    if (!departmentid || !stockid) return new Error("Departmentid and stockid Required")
+    if (!departmentid || !stockid) throw new Error("Departmentid and stockid Required")
 
     const inventory = new Inventory()
 
@@ -150,8 +150,8 @@ class Departments {
       if (updated) {
         const results = await Promise.all(
           filterData.map(async (item, index) => {
-            const { productordersid, stockid, brandid, batchnumber, served, type = "debit" } = item
-            console.log(item)
+            const { productordersid, stockid, brandid, batchnumber, served, type = "debit" } = item;
+            
             const outcome = await this.addProductEscrow(
               productordersid,
               stockid,
@@ -191,7 +191,11 @@ class Departments {
   }
 
   async updateDeptReqtAfterSupplied(store_supplied, requisitionid) {
-    if (store_supplied < 0 || typeof store_supplied == "string" || !requisitionid)
+    if (typeof store_supplied == "string") {
+      throw TypeError("store_supplied must be a number")
+    }
+
+    if (store_supplied < 0 || !requisitionid)
       throw new Error("int store_supplied and requisitionid  required")
 
     const mysql_query = `UPDATE departmentrequisition SET

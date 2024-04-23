@@ -14,7 +14,6 @@ await wastageInventory.updateOrdersWastage(productordersid, state);
 // The orders for the specified product will be updated with the given state
 
 const isDebitHxExist = await wastageInventory.isWastageDebitHxExist(productordersid);
-console.log(isDebitHxExist); // Output: true if wastage debit history exists, false otherwise
 
 const records = {
   productordersid: 123,

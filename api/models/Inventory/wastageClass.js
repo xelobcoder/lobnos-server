@@ -1,5 +1,5 @@
 const { promisifyQuery, rowAffected, paginationQuery } = require("../../../helper")
-const Departments = require("../Departments/DepartmentClass")
+const Departments = require("../Departments/DepartmentClass");
 const Inventory = require("./inventoryclass")
 
 class WastageInventory extends Inventory {

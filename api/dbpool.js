@@ -35,7 +35,7 @@ connectionpool.getConnection((err, connection) => {
    console.error('Database has too many connections.');
   }
   if (err.code === 'ECONNREFUSED') {
-   console.error('Database connection was refused.');
+    console.error('Database connection was refused.');
    }
    
    if (err.code === 'ER_DUP_ENTRY') {
@@ -43,7 +43,9 @@ connectionpool.getConnection((err, connection) => {
    }
  }
 
-  if (connection) connection.release();
+  if (connection) {
+    connection.release()
+  };
 });
 
 

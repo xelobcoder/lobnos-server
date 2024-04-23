@@ -183,7 +183,7 @@ class SampleHandler {
             ss.ascensionid,
             ss.disputedby,
             ss.disputereason,
-            tp.NAME,
+            tp.name,
             ss.testid,
             ss.samplevalidatedon,
             ro.username AS validatedBy,
@@ -193,10 +193,10 @@ class SampleHandler {
               ELSE CONCAT(np.FIRSTNAME," ", np.MIDDLENAME," ",np.LASTNAME)
             END AS fullname
           FROM new_patients AS np
-          INNER JOIN billing AS b ON b.patientid = np.PATIENTID
+          INNER JOIN billing AS b ON b.patientid = np.patientid
           INNER JOIN samplestatus AS ss ON ss.billingid = b.billingid
           INNER JOIN test_ascension AS ta ON ta.id = ss.ascensionid
-          INNER JOIN test_panels AS tp ON tp.ID = ss.testid
+          INNER JOIN test_panels AS tp ON tp.id = ss.testid
           INNER JOIN departments AS d ON d.id = tp.category
           INNER JOIN roles AS ro ON ro.employeeid = ss.validatedby
           WHERE ss.approvalstatus = 0 AND ta.collection = 'true' AND d.department <> 'ultrasound' LIMIT ? OFFSET ?
