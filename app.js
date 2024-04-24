@@ -32,6 +32,8 @@ const inventoryDepartmentRouter = require("./api/controllers/Inventory/departmen
 const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter");
 const expenseRouter = require("./api/controllers/expense.controller");
 const cors = require("cors");
+const Security = require("./api/models/security/Security");
+const SecurityRouter = require("./api/controllers/security.controllers");
 const { customError, responseError, promisifyQuery } = require("./helper")
 
 app.listen(port, async () => {
@@ -60,7 +62,6 @@ app.use(function (request, response, next) {
     request
       .sessionOptions({ name: 'tiifu hamza' ,age: 23});
   }
-  response.set('sessionid', '734njfwfyuweuef78r237834r87');
   next();
 })
 // ensuring an acess token is present
@@ -98,6 +99,7 @@ app.use(patientAnalytics)
 app.use(WarehouseRouter)
 app.use(wastagesRouter)
 app.use(inventoryDepartmentRouter)
+app.use(SecurityRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ message: "success" })

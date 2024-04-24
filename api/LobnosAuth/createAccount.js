@@ -3,6 +3,7 @@ const User = require("../LobnosAuth/user");
 const { customError, promisifyQuery, paginationQuery, responseError, rowAffected } = require("../../helper")
 const logger = require("../../logger");
 const client = require("../models/redisclient");
+const Security = require("../models/security/Security");
 
 const createNewAccount = async (req, res) => {
   try {
@@ -34,29 +35,45 @@ const createNewAccount = async (req, res) => {
  * @returns {void}
  */
 const userLogin = async (req, response) => {
-  const { name, password, email } = req.body
-  //  check if user and password exist in db
-  const user = new User(name, password)
-  const userExist = await user.checkLogins(email, password)
-  if (!userExist) {
-    return customError("Invalid Login credentials", 400, response)
-  }
-  let userinformation = await user.getUserData(email);
-  if (userinformation) {
-    const user_needed_data = await user.processUserData(userinformation)
-    if (typeof user_needed_data == 'string') {
-      return customError(user_needed_data, 404, response)
+  try {
+    const { name, password, email, browserInformation } = req.body
+    //  check if user and password exist in db
+    const user = new User(name, password)
+    const userExist = await user.checkLogins(email, password)
+    if (!userExist) {
+      return customError("Invalid Login credentials", 400, response)
     }
-    const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,
-      email, user_needed_data, "1h");
-    return response.send({
-      status: "success", statusCode: 200, message: "Login successful", user: user_needed_data, token,
-    })
-    // await client.connect();
-    // await client.set('SESSION_TOKEN', JSON.stringify({ user: user_needed_data, token }), { EX: 60 });
-    // await client.disconnect();
-  } else {
-    return customError(`user not found`, 404, response)
+    let userinformation = await user.getUserData(email);
+    const employeeid = userinformation['employeeid'];
+
+    const security = new Security(employeeid);
+
+    const isLoggedMultipleDevices = await security.getCanInitiateLogin();
+
+    if (!isLoggedMultipleDevices) {
+      return response.send({ status: 'multipleLogins' })
+    }
+    if (userinformation) {
+      const user_needed_data = await user.processUserData(userinformation)
+      if (typeof user_needed_data == 'string') {
+        return customError(user_needed_data, 404, response)
+      }
+      const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,
+        email, user_needed_data, "1h");
+      response.send({
+        status: "success", statusCode: 200,
+        message: "Login successful",
+        user: user_needed_data, token,
+      })
+      await security.insertLoginHistory(browserInformation)
+      // await client.connect();
+      // await client.set('SESSION_TOKEN', JSON.stringify({ user: user_needed_data, token }), { EX: 60 });
+      // await client.disconnect();
+    } else {
+      return customError(`user not found`, 404, response)
+    }
+  } catch (err) {
+    console.log(err)
   }
 }
 
