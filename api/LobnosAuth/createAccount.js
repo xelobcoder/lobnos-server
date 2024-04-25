@@ -39,7 +39,8 @@ const userLogin = async (req, response) => {
     const { name, password, email, browserInformation } = req.body
     //  check if user and password exist in db
     const user = new User(name, password)
-    const userExist = await user.checkLogins(email, password)
+    const userExist = await user.checkLogins(email, password);
+
     if (!userExist) {
       return customError("Invalid Login credentials", 400, response)
     }
@@ -49,7 +50,6 @@ const userLogin = async (req, response) => {
     const security = new Security(employeeid);
 
     const isLoggedMultipleDevices = await security.getCanInitiateLogin();
-
     if (!isLoggedMultipleDevices) {
       return response.send({ status: 'multipleLogins' })
     }
@@ -60,11 +60,11 @@ const userLogin = async (req, response) => {
       }
       const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,
         email, user_needed_data, "1h");
-      response.send({
-        status: "success", statusCode: 200,
-        message: "Login successful",
-        user: user_needed_data, token,
-      })
+          response.send({
+            status: "success", statusCode: 200,
+            message: "Login successful",
+            user: user_needed_data, token,
+          })
       await security.insertLoginHistory(browserInformation)
       // await client.connect();
       // await client.set('SESSION_TOKEN', JSON.stringify({ user: user_needed_data, token }), { EX: 60 });
@@ -276,18 +276,20 @@ const getPermissions = async (permissions, response) => {
 }
 
 const updateUserPermission = async function (request, response) {
-  const { id } = request.query;
-  const permissions = request.body;
-
-  const queryString = `UPDATE roles SET PERMISSIONS = ? WHERE EMPLOYEEID = ?`;
-
-  connection.query(queryString, [JSON.stringify(permissions), parseInt(id)], function (err, result) {
-    if (err) {
-      customError(err.message, 500, response)
-    } else {
+  try {
+    const { id } = request.query;
+    const permissions = request.body;
+    const queryString = `UPDATE roles SET PERMISSIONS = ? WHERE EMPLOYEEID = ?`;
+    let update = await promisifyQuery(queryString, [JSON.stringify(permissions), parseInt(id)])
+    if (rowAffected(update)) {
       sendResponse(response, 'updated successfully', 'success')
+    } else {
+      response.send({ statusCode: 404, status: "error", message: 'error updating records' })
     }
-  })
+  } catch (err) {
+    logger.error(err);
+    responseError(response);
+  }
 }
 
 

@@ -69,7 +69,7 @@ class Security {
                                         })
                               }
                     }
-                    return null;
+                    return [];
           }
 
           async getCanInitiateLogin() {
