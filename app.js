@@ -32,12 +32,14 @@ const inventoryDepartmentRouter = require("./api/controllers/Inventory/departmen
 const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter");
 const expenseRouter = require("./api/controllers/expense.controller");
 const cors = require("cors");
-const Security = require("./api/models/security/Security");
+const Security = require("./api/models/security/SecurityClass");
 const SecurityRouter = require("./api/controllers/security.controllers");
 const { customError, responseError, promisifyQuery } = require("./helper")
 
-app.listen(port, async () => {
-  console.log(`listening at port ${port}`)
+app.listen(port, async (err) => {
+  const security = new Security();
+  const isLicensed = await security.environmentSecurity(__dirname);
+  if (!isLicensed) process.exit();
 });
 
 

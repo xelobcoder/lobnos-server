@@ -3,7 +3,7 @@ const User = require("../LobnosAuth/user");
 const { customError, promisifyQuery, paginationQuery, responseError, rowAffected } = require("../../helper")
 const logger = require("../../logger");
 const client = require("../models/redisclient");
-const Security = require("../models/security/Security");
+const Security = require("../models/security/SecurityClass");
 
 const createNewAccount = async (req, res) => {
   try {
@@ -60,12 +60,13 @@ const userLogin = async (req, response) => {
       }
       const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,
         email, user_needed_data, "1h");
+      const sessionExpiryTime = await security.insertLoginHistory(browserInformation);
           response.send({
             status: "success", statusCode: 200,
             message: "Login successful",
             user: user_needed_data, token,
+            sessionExpiryTime
           })
-      await security.insertLoginHistory(browserInformation)
       // await client.connect();
       // await client.set('SESSION_TOKEN', JSON.stringify({ user: user_needed_data, token }), { EX: 60 });
       // await client.disconnect();

@@ -143,15 +143,19 @@ router.get("/api/v1/billing/email/receipt", async function (request, response) {
 
 router.get("/billing/result/pdf", async function (request, response) {
   const { billingid, testname, testid } = request.query
-  if ((billingid, testname, testid)) {
-    try {
-      const pdfgenerate = new PDFGENERATION(billingid, testid, testname)
-      pdfgenerate.generatePDFResult(response);
-    } catch (error) {
-      customError("error fetching data", 500, response)
+  try {
+    if (billingid && testname && testid) {
+      try {
+        const pdfgenerate = new PDFGENERATION(billingid, testid, testname)
+        await  pdfgenerate.generatePDFResult(response);
+      } catch (error) {
+        customError("error fetching data", 500, response)
+      }
+    } else {
+      customError("include billingid, testname and testid", 404, response)
     }
-  } else {
-    customError("include billingid, testname and testid", 404, response)
+  } catch (err) {
+    console.log(err)
   }
 })
 

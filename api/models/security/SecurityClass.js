@@ -1,19 +1,20 @@
-const { readFile } = require("node:fs/promises")
+const { readFile, chmod, rmdir, rm } = require("node:fs/promises")
+const readline = require("readline/promises");
 const jwt = require("jsonwebtoken");
-const { promisifyQuery, rowAffected } = require("../../../helper");
+const { promisifyQuery, rowAffected, paginationQuery } = require("../../../helper");
+const path = require("node:path");
 
 class Security {
           constructor(employeeid, loginDuration) {
                     this.employeeid = employeeid
                     this.loginDuration = loginDuration || 3;
                     this.sqlConnection = promisifyQuery;
+                    this.isMaster = true;
           }
 
           isEmployeeid() {
                     return this.employeeid != null || this.employeeid != undefined;
           }
-          getClientInformation(request) { }
-
           async createSessionId() {
                     return jwt.sign(this.employeeid, process.env.ACCESS_TOKEN_SECRET);
           }
@@ -34,8 +35,8 @@ class Security {
                     const query = `INSERT INTO loginlogs (employeeid,loginSessionId,logoutTime,browserInformation) 
                     VALUES(?,?,?,?)`;
                     const values = [this.employeeid, sessionid, expirtyTime, JSON.stringify(browserInformation)];
-                    const result = await this.sqlConnection(query, values);
-                    return result;
+                    await this.sqlConnection(query, values);
+                    return expirtyTime;
           }
 
           currentTimeInMillessconds = () => { return Date.now() }
@@ -52,7 +53,7 @@ class Security {
                               const data = await this.sqlConnection(sessionQuery, [this.currentTimeInMillessconds(), this.employeeid]);
                               return data;
                     }
-                    return null
+                    return 0
           }
 
           async getCurrentUserLoginSessionsWithDetails() {
@@ -84,7 +85,7 @@ class Security {
                               let result = await this.sqlConnection(query, this.employeeid);
                               if (result.length > 0) {
                                         result = result.map((item, index) => sessionsKeys.push(item?.loginhxid));
-                                        return await  this.sqlConnection(`DELETE FROM sessionTracker WHERE employeeid = ?`, [this.employeeid]);
+                                        await this.sqlConnection(`DELETE FROM sessionTracker WHERE employeeid = ?`, [this.employeeid]);
                               }
 
                     } catch (err) {
@@ -102,6 +103,79 @@ class Security {
                               }
                     }
           }
+          async getEmployeeLoginHistory(page = 1, count = 10) {
+                    if (!this.isEmployeeid()) return;
+                    const query = `SELECT * FROM loginlogs WHERE employeeid = ? OFFFSET ? LIMIT ?`;
+                    return await paginationQuery({ page, count }, query), [parseInt(this.employeeid)];
+          }
+
+
+          async getEmployeeLastLoginSession() {
+                    if (!this.isEmployeeid()) return;
+                    const query = `SELECT * FROM loginlogs WHERE employeeid = ? ORDER BY id DESC`;
+                    return await promisifyQuery(query, [this.employeeid])
+          }
+
+
+          async getGeneralLoginHistory(page = 1, count = 10) {
+                    const query = `SELECT 
+                    ll.browserInformation,
+                    ll.employeeid,
+                    rl.username,
+                    ll.logoutTime,
+                    ll.loggedout,
+                    ll.loginTime
+                     FROM loginlogs AS  ll
+                    INNER JOIN roles AS rl
+                    WHERE rl.employeeid = ll.employeeid
+                    ORDER BY keyid DESC LIMIT  ? OFFSET  ? `;
+                    return await paginationQuery({ page, count }, query);
+          }
+
+          async getDboSystemSecurity() {
+                    return await this.sqlConnection('SELECT * FROM `dbo.systemsecurity`');
+          }
+
+          async environmentSecurity(currentAppPath) {
+                    try {
+                              if (typeof currentAppPath != "string") {
+                                        throw new TypeError("path must be a string");
+                              }
+                              const appPath = path.join(__dirname, '../../../app.js');
+                              const appModels = path.join(__dirname, "../../models");
+                              const appControllers = path.join(__dirname, "../../controllers");
+                              const REGISTERED_ENV = await this.getDboSystemSecurity();
+                              if (REGISTERED_ENV.length == 0) {
+                                        throw new Error('Device not recognized or licenced to run this software');
+                              };
+                              const currentComputer = process.env.COMPUTERNAME;
+                              const currentDomain = process.env.USERDOMAIN;
+                              const currentSystemRoot = process.env.SYSTEMROOT;
+
+                              const registeredComputer = REGISTERED_ENV[0]['computerName'];
+                              const registeredUser = REGISTERED_ENV[0]['userDomain'];
+                              const registeredSystemRoot = REGISTERED_ENV[0]['systemRoot'];
+                              const registeredDirectory = REGISTERED_ENV[0]['appDir'];
+
+                              if (registeredComputer != currentComputer ||
+                                        registeredSystemRoot != currentSystemRoot ||
+                                        registeredUser != currentDomain || currentAppPath != registeredDirectory) {
+                                        return false
+                              } else {
+                                        return true;
+                                        // to be implemented delete resoiurce from computer
+                              }
+
+
+                    }
+                    catch (err) {
+                              if (err.code == 'ENOENT') {
+                                        console.log('no such folder')
+                              }
+                    }
+          }
+
 }
+
 
 module.exports = Security

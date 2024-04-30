@@ -17,7 +17,3 @@ class SalesReportPdf {
   }
 }
 
-
-const t2 = new SalesReportPdf(45).generateSalesReport({id: 1, role:"admin", employeeid: 45});
-
-console.log(t2)

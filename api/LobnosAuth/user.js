@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken")
 const logger = require("../../logger")
 const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../helper")
 const configuration = require("../../helpers/configuration")
+const Security = require("../models/security/SecurityClass")
 
 class User {
   constructor(name, password, role, email, branch) {
@@ -144,8 +145,12 @@ class User {
         return customError("token provided is invalid", 401, response)
       }
 
-      const { role, employeeid } = tokenvalid
+      const { role, employeeid } = tokenvalid;
 
+      const isUserLoggedIn = await new Security(employeeid).getCanInitiateLogin();
+      if (isUserLoggedIn) {
+        return response.send({ loggedIn: false, message: 'user is not loggedIn' });
+      }
 
       if (!role) {
         return customError("token is invalid", 404, response)

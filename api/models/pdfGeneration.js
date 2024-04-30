@@ -54,6 +54,7 @@ class PDFGENERATION extends ResultPrint {
       return { haslimits, data }
     } catch (err) {
       logger.error(err)
+      console.log(err)
       return "error generating pdf data"
     }
   }
