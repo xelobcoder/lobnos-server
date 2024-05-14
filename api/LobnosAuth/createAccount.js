@@ -59,7 +59,7 @@ const userLogin = async (req, response) => {
         return customError(user_needed_data, 404, response)
       }
       const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,
-        email, user_needed_data, "1h");
+        email, user_needed_data, security.loginDuration+"h");
       const sessionExpiryTime = await security.insertLoginHistory(browserInformation);
           response.send({
             status: "success", statusCode: 200,

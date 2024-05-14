@@ -218,6 +218,41 @@ class Expenses {
             values.push(expenseid);
             return rowAffected(await promisifyQuery(query, values));
       }
+
+      async getAllExpenseCategory() {
+            return await promisifyQuery("SELECT * FROM `dbo.expensecategory`");
+      }
+
+      async isExpenseExist(category) {
+            if (!category) throw new TypeError('category not needed');
+            const query = "SELECT * FROM `dbo.expensecategory` WHERE category = ?";
+            const row = await promisifyQuery(query, [category]);
+            return row.length > 0 ? true : false;
+      }
+
+
+      async createExpenseCategory(category, employeeid) {
+            if (!category) throw new ReferenceError('category not provided');
+            if (typeof category != 'string') throw new TypeError('category must be type string');
+            if (isNaN(employeeid)) {
+                  throw new TypeError(employeeid + "must be type number");
+            }
+            if (await this.isExpenseExist(category)) {
+                  return `category exist`;
+            }
+
+            const query = "INSERT INTO `dbo.expensecategory` (category,employeeid) VALUES (?,?)";
+            const isInserted = await promisifyQuery(query, [category,employeeid]);
+            return rowAffected(isInserted);
+      }
+
+      async updateExpenseCategory(editid, category) {
+            if (!editid || !category) {
+                  throw new Error('category and editid not provided');
+            }
+            const query = "UPDATE `dbo.expensecategory` SET category = ? WHERE id = ?";
+            return rowAffected(await promisifyQuery(query,[category,editid]))
+      }
 }
 
 

@@ -1,5 +1,5 @@
 const router = require("express").Router();
-const { customError, responseError } = require("../../helper");
+const { customError, responseError, promisifyQuery } = require("../../helper");
 const Expenses = require('../models/Expenses/Expense');
 const multer = require("multer");
 const path = require("node:path");
@@ -89,8 +89,62 @@ router.delete('/api/v1/expenses/receipt/uploaded/images', async function (reques
 
 
 router.post("/api/v1/expense/pending/decision", async function (request, response) {
-      const { expenseid, employeeid, status, information } = request.body;
-      const result = await new Expenses().updateExpenseDecision(status, expenseid, information, employeeid);
-      response.send({ status: result === true ? 'success' : 'failed' });
+      try {
+            const { expenseid, employeeid, status, information } = request.body;
+            const result = await new Expenses().updateExpenseDecision(status, expenseid, information, employeeid);
+            response.send({ status: result === true ? 'success' : 'failed' });
+      } catch (err) {
+            responseError(response)
+      }
+})
+
+
+router.post("/api/v1/expense/new/category", async function (request, response) {
+      try {
+            const { category, employeeid } = request.body;
+            if (!employeeid || !category) {
+                  return customError('employeeid and expense category required', 404, response);
+            }
+            const expenseCreation = await new Expenses().createExpenseCategory(category, employeeid);
+            if (typeof expenseCreation == "boolean") {
+                  return expenseCreation == true
+                        ?
+                        response.send({ message: 'category created successfully', statusCode: 200, status: 'success' })
+                        :
+                        response.send({ message: 'category creation failed', statusCode: 200, status: 'failed' })
+            }
+
+            if (typeof expenseCreation == "string" && expenseCreation == "category exist".trim()) {
+                  response.send({ message: 'category already exist', statusCode: 200, status: "success" })
+            }
+      } catch (err) {
+            console.log(err)
+            responseError(response)
+      }
+})
+
+router.put("/api/v1/expense/new/category", async function (request, response) {
+      try {
+            const { category, employeeid, editid } = request.body;
+            if (!employeeid || !category || !editid) {
+                  return customError('employeeid, expense category and category id required', 404, response);
+            }
+            const updateExpenseCategory = await new Expenses().updateExpenseCategory(editid, category);
+            return response.send({ status: updateExpenseCategory });
+
+      } catch (err) {
+            responseError(response)
+      }
+})
+
+
+router.get("/api/v1/expense/get/category", async function (request, response) {
+      try {
+            const expensecategories = await new Expenses().getAllExpenseCategory();
+            response.send(expensecategories);
+      }
+      catch (err) {
+            responseError(response)
+      }
 })
 module.exports = router;

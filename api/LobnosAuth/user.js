@@ -48,8 +48,8 @@ class User {
       const queryString = `SELECT * FROM roles WHERE EMAIL = ?`
       const result = await promisifyQuery(queryString, email)
       if (result.length === 0) return false
-      const data = result[0]
-      return data
+      const data = result[0];
+      return data;
     } catch (err) {
       logger.error(err)
       return false
@@ -161,23 +161,16 @@ class User {
           response.send({ statusCode: 200, status: "success", user: tokenvalid })
           break
         default:
-          const allValid = ["username", "activation", "email", "employeeid", "permissions", "role"]
-            .some(
-              (item, index) => tokenvalid.hasOwnProperty(item) == false
-            )
-          if (allValid) {
-            return customError("invalid token data received",
-              401, response)
-          }
+          const allValid = ["username", "activation", "email", "employeeid", "permissions", "role"].some((item, index) => tokenvalid.hasOwnProperty(item) == false)
+          if (allValid) { return customError("invalid token data received", 401, response) }
           let branch = await promisifyQuery(`SELECT name from branch WHERE branchid = ?`, [parseInt(tokenvalid?.branchid)]);
-
           if (branch.length > 0) {
             branch = branch[0]['name'];
           }
           response.send({ statusCode: 200, status: "success", user: { ...tokenvalid, branch } })
       }
     } catch (err) {
-      customError("Expired token", 404, response)
+      return customError("Expired token", 404, response)
     }
   }
 

@@ -1,8 +1,8 @@
 const { promisifyQuery, paginationQuery } = require("../../../helper")
 const logger = require("../../../logger")
-const Departments = require("../Departments/DepartmentClass")
-const Inventory = require("./inventoryclass")
-const WastageInventory = require("./wastageClass")
+const Departments = require("../Departments/DepartmentClass");
+const Inventory = require("./inventoryclass");
+const WastageInventory = require("./wastageClass");
 
 class Inventoryanalytics {
   constructor(stockid, departmentid) {
@@ -182,5 +182,3 @@ class Inventoryanalytics {
 }
 
 module.exports = Inventoryanalytics
-
-// new Inventoryanalytics().getDepartmentWastageByQuartersSummary(8)

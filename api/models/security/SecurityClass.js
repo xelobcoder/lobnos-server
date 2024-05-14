@@ -163,7 +163,9 @@ class Security {
                                         return false
                               } else {
                                         return true;
-                                        // to be implemented delete resoiurce from computer
+                                        // to be implemented delete resoiurce from computer if the software is runned on unauthorized device. This is for the security of the software. 
+                                        // appPath, appModels and appControllers are deleted.
+                                        
                               }
 
 
