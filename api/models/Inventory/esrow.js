@@ -16,10 +16,8 @@ class Escrow {
     const query = `INSERT INTO 
           generalstoredebithx(stockid,batchnumber,brandid,productordersid,debitqty,departmentid)
           VALUES(?,?,?,?,?,?)`;
-    const values = [stockid, batchnumber, brandid, productordersid, debitqty,departmentid];
-
+    const values = [stockid, batchnumber, brandid, productordersid, debitqty, departmentid];
     const result = await promisifyQuery(query, values);
-
     return rowAffected(result);
   }
 

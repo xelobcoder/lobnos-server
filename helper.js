@@ -31,7 +31,7 @@ const removeHtmlTags = (string) => {
     const umatched = _stringArray.map((item, index) => {
       if (!(index >= start && index <= end)) return item
     })
-
+    
     const result = umatched.join("")
 
     if (umatched.includes(starter) || umatched.includes(ended)) {
@@ -64,11 +64,11 @@ async function promisifyQuery(query, values = []) {
   if (!query || typeof query != 'string') {
     throw new Error('query must be added and a string type'); 
   }
-  return new Promise((resolve, reject) => {
-    connectionpool.getConnection((getConnectionError, connection) => {
-      if (getConnectionError) {
-        reject(getConnectionError)
-        return
+  let data =[]
+ return  new Promise((resolve, reject) => {
+    connectionpool.getConnection((connectionError, connection) => {
+      if (connectionError) {
+        reject(connectionError)
       }
       connection.query(query, values, (queryError, result) => {
         connection.release()
@@ -80,6 +80,7 @@ async function promisifyQuery(query, values = []) {
       })
     })
   })
+  
 }
 
 async function retryableTransaction(fn, maxRetries = 3, delayBetweenRetries = 1000) {

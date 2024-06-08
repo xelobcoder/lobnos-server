@@ -29,12 +29,12 @@ class Inventoryanalytics {
   async getNearExpiry(count) {
     const data = await this.customization()
     const nearExpiry = parseInt(data?.expirydays) + 1 || 22
-    const query = `SELECT DISTINCT ${
-      count
+    const query = `SELECT DISTINCT ${count
         ? "COUNT(*) AS count"
         : "productordersid, name,receiveddate,expirydate,quantityReceived,expiredDisposed,batchnumber,brand,stockid"
-    } FROM  orders AS o WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < ?  AND 
-    DATE(CURRENT_DATE ) < DATE(o.expirydate)`
+      } FROM  orders AS o WHERE o.status = 'received' AND DATEDIFF(o.expirydate, CURRENT_DATE()) < ?  AND 
+    DATE(CURRENT_DATE ) < DATE(o.expirydate)`;
+
     const rowsCount = await promisifyQuery(query, nearExpiry)
     if (count) {
       return rowsCount.length > 0 ? rowsCount[0]["count"] : 0

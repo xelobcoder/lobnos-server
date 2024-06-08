@@ -19,7 +19,7 @@ class Registration {
 
   isBulkRegistration = async function () {
     try {
-      const query = `SELECT  bulkregistration FROM applicationsettings`
+      const query = `SELECT bulkregistration FROM applicationsettings`
       const result = await promisifyQuery(query)
       if (result.length === 0) return false
       const { bulkregistration } = result[0]
@@ -133,7 +133,6 @@ class Registration {
       if (cliniciandata.length > 0) {
         _this.clinicianname = cliniciandata[0]["name"]
       }
-
       delete _this.data
       return _this
     } catch (err) {
@@ -163,7 +162,7 @@ class Registration {
 
   checkPatientIdExist = async (patientid) => {
     try {
-      let useKey
+      let useKey;
       useKey = patientid ? patientid : this.patientid
       let result = await promisifyQuery(`SELECT * FROM new_patients WHERE PATIENTID = ?`, useKey)
       return result.length > 0 ? true : false
@@ -188,8 +187,7 @@ class Registration {
   isClientSame = async (clientdata) => {
     try {
       const { mobile, mobileownership, email } = clientdata;
-      if (mobile && mobile.toString().length > 0) {
-        const result = await promisifyQuery(`SELECT mobile_number AS mobile FROM new_patients WHERE mobile_number = ?`, [parseInt(mobile)]);
+      const verifyOwnerShip = (result) => {
         if (result.length > 0) {
           if (mobileownership == 'relative') {
             return false
@@ -200,18 +198,14 @@ class Registration {
           return false;
         }
       }
+      if (mobile && mobile.toString().length > 0) {
+        const result = await promisifyQuery(`SELECT mobile_number AS mobile FROM new_patients WHERE mobile_number = ?`, [parseInt(mobile)]);
+        return verifyOwnerShip(result);
+      }
 
       if (email && email.toString().length > 0 && email.includes("@")) {
         const result = promisifyQuery(`SELECT email FROM new_patients WHERE email = ?`, [email]);
-        if (result.length > 0) {
-          if (mobileownership == 'relative') {
-            return false
-          } else {
-            return true
-          }
-        } else {
-          return false;
-        }
+        return verifyOwnerShip(result);
       }
     } catch (err) {
       logger.error(err)
@@ -219,7 +213,6 @@ class Registration {
   }
 
   personalInformation = async (records) => {
-    const patientid = this.generatePatientId()
     try {
       const {
         firstname,
@@ -236,7 +229,7 @@ class Registration {
         occupation,
         patientOrganization,
         years,
-        mobileownership,
+        mobileownership = "self",
       } = records
       const query = `INSERT INTO new_patients (FIRSTNAME,LASTNAME,MIDDLENAME,EMAIL,AGE,AGETYPE,DOB,MARITAL_STATUS,MOBILE_NUMBER,OCCUPATION,GENDER,ORGANIZATION,contactpointer)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
@@ -254,13 +247,12 @@ class Registration {
         occupation,
         gender,
         patientOrganization,
-        mobileownership || "self",
+        mobileownership,
       ]
       // execute query
       const result = await promisifyQuery(query, values)
       return { count: result.affectedRows }
     } catch (err) {
-      console.log(err)
       logger.error(err)
     }
   }
@@ -374,9 +366,11 @@ class Registration {
   }
 
   async getPatientInfoUsingBillingId(billingid) {
-    const query = `SELECT * FROM new_patients AS np INNER JOIN billing AS b ON b.patientid = np.patientid WHERE b.billingid = ?`
-    const result = await promisifyQuery(query, [billingid])
-    return result
+    if (!isNaN(billingid)) {
+      const query = `SELECT * FROM new_patients AS np INNER JOIN billing AS b ON b.patientid = np.patientid  WHERE b.billingid = ?`
+      const result = await promisifyQuery(query, [parseInt(billingid)])
+      return result
+    }
   }
 
   async filterPatientUsingClient(input) {

@@ -1,6 +1,10 @@
-const { promisifyQuery, rowAffected } = require("../helper")
+const { promisifyQuery, rowAffected, paginationQuery } = require("../helper")
 const logger = require("../logger")
 const connection = require("./db")
+
+
+
+
 
 const activation = {
   /**
@@ -22,15 +26,8 @@ const activation = {
       activation_status
       FROM new_patients ORDER BY ID DESC LIMIT 10
         `
-
-      connection.query(activationQuery, (err, result) => {
-        if (err) {
-          logger.error(err)
-        }
-        if (result) {
-          response.send(result)
-        }
-      })
+      const result = await promisifyQuery(activationQuery);
+      response.send(result);
     } else {
       const { fullname, patientid, mobile, to, from } = request.query
 
@@ -116,7 +113,8 @@ const activation = {
       queryString += ` WHERE patientid = ?`
     }
     const result = rowAffected(await promisifyQuery(queryString, [action, patientid]));
-    response.send({
+
+    return response.send({
       message: "success",
       action: action === "TRUE" ? "BILLING" : "ACTIVATION PAGE",
     })

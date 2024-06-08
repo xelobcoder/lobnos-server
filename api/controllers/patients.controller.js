@@ -1,4 +1,4 @@
-const { customError } = require('../../helper');
+const { customError, responseError } = require('../../helper');
 const logger = require('../../logger');
 const parent = require('express').Router();
 const Patient = require('../models/patientAnalytics');
@@ -41,8 +41,17 @@ parent.post('/api/v1/patients/updatecredentials', async function (request, respo
 })
 
 parent.put('/api/v1/patients/notifications', async function (request, response) {
-  console.log(request.body)
   await new Patient().updateNotificationSettings(request, response);
+})
+
+parent.get("/api/v1/patients/filter", async function (request, response) {
+  try {
+    const { filter } = request.query;
+    const filteredClients = await new Patient().filterPatientUsingClient(filter);
+    response.send(filteredClients);
+  } catch (err) {
+    responseError(response);
+  }
 })
 
 

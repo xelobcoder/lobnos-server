@@ -62,7 +62,6 @@ class Manager {
         WHERE ta.ready = 'true'
         AND ta.ApprovalStatus = 0 and declineMessage is null
     `
-
     try {
       let result = await promisifyQuery(query);
       if (result.length > 0) {

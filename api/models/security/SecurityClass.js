@@ -1,5 +1,5 @@
+"use strict"
 const { readFile, chmod, rmdir, rm } = require("node:fs/promises")
-const readline = require("readline/promises");
 const jwt = require("jsonwebtoken");
 const { promisifyQuery, rowAffected, paginationQuery } = require("../../../helper");
 const path = require("node:path");
@@ -93,11 +93,12 @@ class Security {
                     } finally {
                               if (sessionsKeys.length > 0) {
                                         sessionsKeys.map(async (item, index) => {
-                                                  const query = `UPDATE loginlogs SET loggedout = 1 WHERE keyid = ?`;
-                                                  const updated = await this.sqlConnection(query, [item])
+                                                  const query = `UPDATE loginlogs SET loggedout = 1,actualLogout = ? WHERE keyid = ?`;
+                                                  const updated = await this.sqlConnection(query, [Date.now(),item])
                                                   return rowAffected(updated)
                                         })
-                                        let status = (await Promise.all(sessionsKeys)).some((a, i) => a == false);
+                                        let status = (await Promise.all(sessionsKeys))
+                                                  .some((a, i) => a == false);
 
                                         return status ? false : true;
                               }
@@ -117,19 +118,26 @@ class Security {
           }
 
 
-          async getGeneralLoginHistory(page = 1, count = 10) {
-                    const query = `SELECT 
+          async getGeneralLoginHistory(page = 1, count = 10, employeeid = null) {
+                    let queryValues = [];
+                    let query = `SELECT 
                     ll.browserInformation,
                     ll.employeeid,
                     rl.username,
                     ll.logoutTime,
+                    ll.actualLogout,
                     ll.loggedout,
                     ll.loginTime
-                     FROM loginlogs AS  ll
+                    FROM loginlogs AS  ll
                     INNER JOIN roles AS rl
-                    WHERE rl.employeeid = ll.employeeid
-                    ORDER BY keyid DESC LIMIT  ? OFFSET  ? `;
-                    return await paginationQuery({ page, count }, query);
+                    ON rl.employeeid = ll.employeeid`;
+
+                    if (employeeid && !isNaN(employeeid)) {
+                              query += ` WHERE rl.employeeid = ?`;
+                              queryValues.push(employeeid);
+                    }
+                    query += ` ORDER BY keyid DESC LIMIT  ? OFFSET  ? `;
+                    return await paginationQuery({ page, count }, query, queryValues);
           }
 
           async getDboSystemSecurity() {

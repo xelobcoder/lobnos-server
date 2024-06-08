@@ -1,0 +1,19 @@
+Security
+
+  - A signout of a user by the administrator or the manager
+  - Analytics of Security
+   - consisting of 
+   ** current login count
+   ** total hours spent by a user on the software
+   ** monitoring user accross the software page by page
+   ** 
+
+
+
+
+
+   EXPENSES
+
+   - Pending Exepenses approval count
+   - Filtering expenses by user Filtering
+   

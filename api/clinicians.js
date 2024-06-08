@@ -6,7 +6,6 @@ const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected, pagina
 const getClinicians = async (req, res) => {
   try {
     const { count, page } = req.query
-
     if (count > 0 && page >= 0) {
       let result = await paginationQuery({ page, count }, "SELECT * FROM clinicianbasicinfo LIMIT ? OFFSET ?")
       result = result.length > 0 ? result.map((item) => convertKeysToLowerCase(item)) : result
@@ -179,10 +178,8 @@ const getTopPerformingClinicians = async function (request, response) {
             INNER JOIN BILLING AS b ON b.CLINICIAN = c.ID
          GROUP BY c.ID,
             c.NAME ORDER BY TotalSales DESC
-      `
-
+      `;
     query_string += ` LIMIT ${count}`
-
     // Execute the SQL query
     connection.query(query_string, function (err, result) {
       if (err) {

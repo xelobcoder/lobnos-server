@@ -23,18 +23,20 @@ const User = require("./api/LobnosAuth/user")
 const LoginsRouter = require("./api/controllers/logins")
 const resultprintRouter = require("./api/controllers/printable")
 const organizationRouter = require("./api/controllers/organization")
-const applicationsettingsRouter = require("./api/controllers/applicationSettings")
+const applicationsettingsRouter = require("./api/controllers/applicationsettings/applicationSettings")
 const generalSalesRouter = require("./api/controllers/sales")
 const patientAnalytics = require("./api/controllers/patients.controller")
 const WarehouseRouter = require("./api/controllers/Inventory/warehouse")
 const wastagesRouter = require("./api/controllers/Inventory/wastages")
 const inventoryDepartmentRouter = require("./api/controllers/Inventory/departments")
+const HumanResourceModel = require("./api/models/HumanResources/HRMClass")
 const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter");
-const expenseRouter = require("./api/controllers/expense.controller");
+const expenseRouter = require("./api/controllers/expenses/expense.controller");
 const cors = require("cors");
 const Security = require("./api/models/security/SecurityClass");
-const SecurityRouter = require("./api/controllers/security.controllers");
-const { customError, responseError, promisifyQuery } = require("./helper")
+const SecurityRouter = require("./api/controllers/security/security.controllers");
+const Appointmentouter = require("./api/controllers/appointment");
+const { customError, responseError, promisifyQuery, paginationQuery } = require("./helper")
 
 app.listen(port, async (err) => {
   const security = new Security();
@@ -61,8 +63,7 @@ app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 app.use(function (request, response, next) {
   if (request.session) {
-    request
-      .sessionOptions({ name: 'tiifu hamza' ,age: 23});
+    request.sessionOptions({ name: 'tiifu hamza', age: 23 });
   }
   next();
 })
@@ -81,6 +82,7 @@ app.use(testPanelRouter)
 app.use(expenseRouter)
 app.use(Manager)
 app.use(organizationRouter)
+app.use(Appointmentouter);
 app.use(emailRouterController)
 app.use(LoginsRouter)
 app.use(ChemistryRoutes)
@@ -202,7 +204,24 @@ app.get("/api/v1/activation", (req, res) => {
     activation.getPartialData(req, res)
   }
 })
+app.get("/api/v1/activation/registered", async (req, res) => {
+  const { count, page } = req.query;
+  const query = ` SELECT id,
+        patientid,
+        CASE 
+          WHEN middlename IS NULL THEN CONCAT(firstname, ' ', lastname)
+          ELSE CONCAT(firstname, ' ', middlename, ' ', lastname)
+        END AS fullname,
+        date,
+        mobile_number AS contact,
+        activation_status
+        FROM new_patients
+        WHERE date = CURRENT_DATE ORDER BY ID DESC  LIMIT ? OFFSET ?`;
 
+  const result = await paginationQuery({ count, page }, query);
+  res.send(result);
+
+})
 app.get("/api/v1/activation/bulk", (req, res) => {
   activation.activateDeactivate(req, res)
 })

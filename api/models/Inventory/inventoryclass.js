@@ -1,4 +1,3 @@
-const { query } = require("express")
 const { rowAffected, paginationQuery, promisifyQuery, customError } = require("../../../helper")
 const logger = require("../../../logger")
 const database_queries = require("../../database/queries")

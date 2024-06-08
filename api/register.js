@@ -1,28 +1,30 @@
 const logger = require('../logger')
 const connection = require('./db')
+const { promisifyQuery, paginationQuery } = require("./../helper")
 const SUCCESSMESSAGE = 'SUCCESS'
 const ERRORMESSAGE = 'FAILED'
-const ADD_PATIENT_QUERY = `INSERT INTO NEW_PATIENTS (
-    FIRSTNAME,
-    LASTNAME,
-    MIDDLENAME,
-    AREA,
-    REGION,
-    ADDRESS,
-    EMAIL,
-    PATIENTID,
-    AGE,
-    AGETYPE,
-    MARITAL_STATUS,
-    RELATIONSHIP,
-    EMMERGENCY_CONTACT_NAME,
-    EMMERGENCY_CONTACT,
-    GENDER,
-    DOB,
-    MOBILE_NUMBER,
-    OCCUPATION,
-    PATIENTORGANIZATION
-) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+const ADD_PATIENT_QUERY = `INSERT INTO new_patients (
+    firstname,
+    lastname,
+    middlename,
+    area,
+    region,
+    address,
+    email,
+    patientid,
+    age,
+    agetype,
+    marital_status,
+    relationship,
+    emmergency_contact_name,
+    emmergency_contact,
+    gender,
+    dob,
+    mobile_number,
+    occupation,
+    patientorganization
+) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+
 
 // Step: 1 - check if patient is already registered as a patient
 // Step: 2 - if not registered, add patient to database
@@ -133,6 +135,58 @@ var addpatient = function (request, response) {
       logger.error(err)
     })
 }
+
+const newgetpatient = async function (request, response) {
+  const {
+    patientid,
+    fullname,
+    phonenumber,
+    filter,
+    count, page,
+    from = new Date(),
+    to = new Date(),
+  } = request.query;
+
+  let sql = 'SELECT * FROM new_patients';
+  const conditions = [];
+  const values = [];
+
+  if (patientid) {
+    conditions.push('patientid = ?');
+    values.push(patientid);
+  }
+  if (fullname) {
+    conditions.push('CONCAT(firstname, " ", middlename, " ", lastname) LIKE ?');
+    values.push(`%${fullname}%`);
+  }
+  if (phonenumber) {
+    conditions.push('mobile_number = ?');
+    values.push(phonenumber);
+  }
+  if (filter) {
+    conditions.push('(CONCAT(firstname, " ", middlename, " ", lastname) LIKE ? OR patientid LIKE ?)');
+    values.push(`%${filter}%`, `%${filter}%`);
+    if (request.query.hasOwnProperty('from') && request.query.hasOwnProperty('to')) {
+      conditions.push('date BETWEEN ? AND ?');
+      values.push(date_from, date_to);
+    }
+  }
+
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  } else {
+    sql += ' LIMIT ? OFFSET ?';
+    values.push(count, page);
+  }
+
+  try {
+    const result = await paginationQuery({ page, count }, sql, values);
+    response.send(result);
+  } catch (err) {
+    logger.error(err);
+    response.status(500).send('Internal Server Error');
+  }
+};
 
 const getpatient = function (request, response) {
   const queryLength = Object.keys(request.query).length;
@@ -277,10 +331,26 @@ const putpatient = async function (request, response) {
   const patientExist = await checkpatient(request.body?.patientid)
   if (patientExist) {
     // update query beloe
+    const mysqlQuery = `UPDATE new_patients SET 
+                  firstname = ?, 
+                  lastname = ?, 
+                  middlename = ?, 
+                  area = ?, 
+                  region = ?, 
+                  address = ?, 
+                  email = ?, 
+                  age = ?, 
+                  agetype = ?, 
+                  marital_status = ?, 
+                  relationship = ?, 
+                  emmergency_contact_name = ?, 
+                  emmergency_contact = ?, 
+                  gender = ?, 
+                  mobile_number = ?, 
+                  occupation = ?, 
+                  patientorganization = ? 
+                  WHERE patientid = ?`;
 
-    const mysqlQuery = `UPDATE new_patients SET FIRSTNAME = ?, LASTNAME = ?, MIDDLENAME = ?, AREA = ?, REGION = ?, ADDRESS = ?, EMAIL = ?, AGE = ?, AGETYPE = ?, MARITAL_STATUS = ?, RELATIONSHIP = ?,
-     EMMERGENCY_CONTACT_NAME = ?, EMMERGENCY_CONTACT = ?, 
-    GENDER = ?, MOBILE_NUMBER = ?, OCCUPATION = ?, PATIENTORGANIZATION = ? WHERE PATIENTID = ?`;
 
 
     // execute the query

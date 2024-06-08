@@ -12,7 +12,9 @@ class EmailScheduler extends EmailService {
     this.scheduleTime = new Date(datetime);
   }
 
-  
+  get scheduleDatetime() {
+    return this.scheduleTime;
+  }
 }
 
 

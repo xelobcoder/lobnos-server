@@ -183,8 +183,9 @@ class EmailService {
                 throw new Error("Patientid must be type Number")
             const query = `SELECT * FROM patients_credentials where PATIENTID = ?`
             const outcome = await promisifyQuery(query, patientid)
-            if ((outcome && outcome.length == 0) || outcome[0]["updated"] == "true")
+            if ((outcome && outcome.length == 0) || outcome[0]["updated"] == "true") {
                 return false
+            }
             const { username, password } = outcome[0]
             return response ? response.send({ result: outcome[0] }) : { username, password }
         } catch (err) {

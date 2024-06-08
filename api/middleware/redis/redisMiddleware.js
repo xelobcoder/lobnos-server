@@ -4,6 +4,7 @@ const useRedisCollection = require("./functionCollections");
 
 module.exports = function (request, response, next) {
      if (!client) {
+          console.log('redis client inactive')
           // incase we dont have a valid redis client, we just want to move to the next stage without having any issue
           return next();
      }
@@ -42,6 +43,7 @@ module.exports = function (request, response, next) {
           }
           return url == a.endpoint;
      })
+     
      if (found) {
           if (found.callback && typeof found.callback == "function") {
                return found.callback(request, response, next)

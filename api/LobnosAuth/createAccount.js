@@ -58,10 +58,13 @@ const userLogin = async (req, response) => {
       if (typeof user_needed_data == 'string') {
         return customError(user_needed_data, 404, response)
       }
-      const token = await user.createAccessTokenCredentials(process.env.ACCESS_TOKEN_SECRET,
-        email, user_needed_data, security.loginDuration+"h");
+      const token = await user.createAccessTokenCredentials(
+        process.env.ACCESS_TOKEN_SECRET,
+        email, user_needed_data,
+        security.loginDuration + "h");
+
       const sessionExpiryTime = await security.insertLoginHistory(browserInformation);
-          response.send({
+      return response.send({
             status: "success", statusCode: 200,
             message: "Login successful",
             user: user_needed_data, token,

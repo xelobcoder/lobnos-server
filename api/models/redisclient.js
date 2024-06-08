@@ -13,7 +13,9 @@ client.on("connect", () => {
 
 client.on("error", (err) => {
      console.log('------------------------------------------------------------------');
-     console.log(err.message)
+     if (err.code == "ECONNREFUSED") {
+          client.quit()
+     }
 });
 client.on("ready", () => {
      console.log('------------------------------------------------------------------');

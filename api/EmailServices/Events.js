@@ -12,7 +12,9 @@ class ApplicationEvents extends EmailService {
   }
 
   hasEvent(key, checker) {
-    if (typeof this.events != "object") throw new TypeError("object type required")
+    if (typeof this.events != "object") {
+      throw new TypeError("object type required")
+    }
     if (!this.events[key]) return false
     if (this.events[key] && typeof checker == "number") {
       return this.events[key] == "0" ? false : true

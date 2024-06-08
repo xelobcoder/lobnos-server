@@ -1,7 +1,7 @@
 const router = require("express").Router()
-const { responseError, customError } = require("../../helper")
-const User = require("../LobnosAuth/user")
-const Security = require("../models/security/SecurityClass");
+const { responseError, customError } = require("../../../helper")
+const User = require("../../LobnosAuth/user")
+const Security = require("../../models/security/SecurityClass");
 
 
 router.get("/api/v1/security/getloggedsessions", async function (request, response) {
@@ -61,10 +61,10 @@ router.get("/api/v1/security/users/logged/count", async function (request, respo
 
 router.get("/api/v1/security/users/getlogin/history", async function (request, response) {
           try {
-                    const { page, count } = request.query;
+                    const { page, count, employeeid } = request.query;
                     const security = new Security();
                     if (!isNaN(page) && !isNaN(count)) {
-                              const history = await security.getGeneralLoginHistory(page, count);
+                              const history = await security.getGeneralLoginHistory(page, count, employeeid || null);
                               response.send(history)
                     } else {
                               return customError("bad request", 400, response);      

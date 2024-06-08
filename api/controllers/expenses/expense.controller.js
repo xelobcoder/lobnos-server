@@ -1,6 +1,6 @@
 const router = require("express").Router();
-const { customError, responseError, promisifyQuery } = require("../../helper");
-const Expenses = require('../models/Expenses/Expense');
+const { customError, responseError, promisifyQuery } = require("../../../helper");
+const Expenses = require('../../models/Expenses/Expense');
 const multer = require("multer");
 const path = require("node:path");
 
