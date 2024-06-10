@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../../helper");
+const appointmentTypes_1 = require("./appointmentTypes");
 class Appointment {
     constructor(employeeid) {
         this.connection = helper_1.promisifyQuery;
@@ -81,5 +82,51 @@ class Appointment {
         }
         return [];
     }
+    getCurrentDateString(datestring) {
+        const date = new Date(datestring);
+        return `${date.getFullYear()}` + "-" + `${date.getMonth() + 1}` + "-" + `${date.getDate()}`.padStart(2, "0");
+    }
+    convertTimeMinutes(time) {
+        if (time.includes(":")) {
+            const [hour, minutes] = time.split(":");
+            const parsedhour = parseInt(hour);
+            const parsedminutes = parseInt(minutes);
+            return parsedhour * 60 + parsedminutes;
+        }
+    }
+    popAppointment(range, startpoint, array) {
+        var target = startpoint + range - 1;
+        return array.filter((item, index) => !(index >= startpoint && index <= target));
+    }
+    async getPractionerAvailableTime(employeeid, appointment_date) {
+        var currentDate = this.getCurrentDateString(appointment_date);
+        var dataset = await this.connection(`SELECT duration, appointment_time FROM appointments WHERE appointment_date = ? AND practioner = ?`, [currentDate, employeeid]);
+        if (dataset.length == 0)
+            return appointmentTypes_1.slots;
+        let availSlots = [...appointmentTypes_1.slots];
+        for (let i = 0; i < dataset.length; i++) {
+            const { duration, appointment_time } = dataset[i];
+            const aIndex = availSlots.findIndex((u, i) => u.trim() == appointment_time.trim());
+            switch (parseInt(duration)) {
+                case 30:
+                    availSlots = this.popAppointment(1, aIndex, availSlots);
+                    break;
+                case 60:
+                    availSlots = this.popAppointment(2, aIndex, availSlots);
+                    break;
+                case 90:
+                    availSlots = this.popAppointment(3, aIndex, availSlots);
+                    break;
+                case 120:
+                    availSlots = this.popAppointment(4, aIndex, availSlots);
+                    break;
+                default:
+                    availSlots;
+            }
+        }
+        console.log(availSlots, dataset);
+        return availSlots;
+    }
 }
+new Appointment(12).getPractionerAvailableTime(44, "2024-6-10");
 exports.default = Appointment;

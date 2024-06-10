@@ -8,7 +8,7 @@
   "editor.fontWeight": "normal",
   "editor.formatOnSave": true,
   "editor.fontSize": 16,
-  "editor.lineHeight": 20,
+  "editor.lineHeight": 23,
   "editor.bracketPairColorization.enabled": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.codeLensFontSize": 14,
