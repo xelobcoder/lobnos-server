@@ -11,7 +11,7 @@ applicationSettings.getApplicationSettings = async function (request, response) 
   try {
     let result = await promisifyQuery(query)
     if (!response) {
-      return promisifyQuery(query);
+      return result;
     } else {
       response.send({ message: "success", status: "success", statusCode: 200, result })
     }

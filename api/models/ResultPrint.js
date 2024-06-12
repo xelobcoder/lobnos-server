@@ -1,10 +1,6 @@
 const connection = require("../db");
-const { Result, testTable } = require("./result");
 const logger = require("../../logger")
 const { promisifyQuery, customError, rowAffected, paginationQuery, responseError, convertKeysToLowerCase } = require("../../helper")
-const ResultClass = new Result()
-const errMessage = ResultClass.errMessage
-const CustomTest = require("./resultentry/customTestEntry");
 const Creator = require("./creator");
 const Registration = require("./registration");
 const testpanel = require("../testpanel/list");
@@ -104,7 +100,7 @@ class ResultPrint {
 
     connection.query(modelQuery, params, (err, result) => {
       if (err) {
-        errMessage.call(this, err, response)
+        responseError(response)
       } else {
         response.send(result)
       }

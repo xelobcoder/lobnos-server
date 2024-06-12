@@ -1,5 +1,5 @@
 import { promisifyQuery, rowAffected } from "../../../helper";
-import { TAppointment, slots } from "./appointmentTypes";
+import { type TAppointment, type Tpagination, months, slots } from "./appointmentTypes";
 
 class Appointment {
   employeeid: number;
@@ -14,21 +14,20 @@ class Appointment {
     if (refined_date.includes("T")) {
       refined_date = refined_date.split("T")[0];
     }
-    const _mysql_query = `SELECT * FROM appointments WHERE appointment_date = ? AND appointment_time = ?`;
+    const _mysql_query = "SELECT * FROM appointments WHERE appointment_date = ? AND appointment_time = ?";
     const rows = await this.connection(_mysql_query, [refined_date, time]);
-    return Array.isArray(rows) && rows.length > 0 ? false : true;
+    return !(Array.isArray(rows) && rows.length > 0);
   }
   public async createAppointment(data: TAppointment) {
     const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } =
       data;
-    if (!patientid) {
-      throw new Error("patientid missing");
-    }
+    if (!patientid) throw new Error("patientid missing");
 
     if (!(await this.isAppointmentTimeAvailable(appointment_date, appointment_time))) {
       return false;
     }
-    const createQuery = `INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)`;
+    const createQuery =
+      "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
 
     const result = await this.connection(createQuery, [
       patientid,
@@ -42,7 +41,6 @@ class Appointment {
       practioner,
       location,
     ]);
-
     return this._affectedRows(result);
   }
 
@@ -65,35 +63,18 @@ class Appointment {
   }
 
   public async loadMonthAppointments(month: number | string) {
-    var searchMonth = month;
-    if (typeof month == "string") {
-      const months = {
-        january: 1,
-        february: 2,
-        march: 3,
-        april: 4,
-        may: 5,
-        june: 6,
-        july: 7,
-        august: 8,
-        september: 9,
-        october: 10,
-        november: 11,
-        december: 12,
-      };
+    let searchMonth = month;
+    if (typeof month === "string") {
       searchMonth = months[month];
     }
 
-    if (searchMonth != undefined) {
-      const q = `SELECT * FROM appointments WHERE MONTH(appointment_date) = ?`;
-      return await this.connection(q, [month]);
-    }
+    if (searchMonth !== undefined) return this.connection("SELECT * FROM appointments WHERE MONTH(appointment_date) = ?", [month]);
     return [];
   }
 
   private getCurrentDateString(datestring: Date | string): string {
     const date = new Date(datestring);
-    return `${date.getFullYear()}` + "-" + `${date.getMonth() + 1}` + "-" + `${date.getDate()}`.padStart(2, "0");
+    return `${date.getFullYear()}-${date.getMonth() + 1}-${`${date.getDate()}`.padStart(2, "0")}`;
   }
 
   private convertTimeMinutes(time: string) {
@@ -106,21 +87,20 @@ class Appointment {
   }
 
   private popAppointment(range: number, startpoint: number, array: string[]) {
-    var target = startpoint + range - 1;
-    return array.filter((item, index) => !(index >= startpoint && index <= target));
+    return array.filter((item, index) => !(index >= startpoint && index <= startpoint + range - 1));
   }
 
   public async getPractionerAvailableTime(employeeid: number, appointment_date: Date | string) {
-    var currentDate = this.getCurrentDateString(appointment_date);
-    var dataset = await this.connection(
-      `SELECT duration, appointment_time FROM appointments WHERE appointment_date = ? AND practioner = ?`,
+    const currentDate = this.getCurrentDateString(appointment_date);
+    const dataset = await this.connection(
+      "SELECT duration, appointment_time FROM appointments WHERE appointment_date = ? AND practioner = ?",
       [currentDate, employeeid]
     );
-    if (dataset.length == 0) return slots;
+    if (dataset.length === 0) return slots;
     let availSlots: string[] = [...slots];
     for (let i = 0; i < dataset.length; i++) {
       const { duration, appointment_time } = dataset[i];
-      const aIndex = availSlots.findIndex((u, i) => u.trim() == appointment_time.trim());
+      const aIndex = availSlots.findIndex((u, i) => u.trim() === appointment_time.trim());
       switch (parseInt(duration)) {
         case 30:
           availSlots = this.popAppointment(1, aIndex, availSlots);
@@ -140,8 +120,21 @@ class Appointment {
     }
     return availSlots;
   }
+
+  public async getDaySchedules(type: string, employeeid: number, pquery: Tpagination) {
+    let query = "SELECT * FROM appointments WHERE appointment_date = CURRENT_DATE";
+    const values: number[] = [];
+    if (employeeid && !isNaN(employeeid) && type !== "general") {
+      query += " AND practioner = ? LIMIT ? OFFSET ? ";
+      typeof employeeid === "string" ? values.push(parseInt(employeeid)) : values.push(employeeid);
+    }
+    values.push(pquery.count);
+    values.push(pquery.page);
+    return await this.connection(query, values);
+  }
+
+  public getAppointmentCount() {}
 }
 
-new Appointment(12).getPractionerAvailableTime(44, "2024-6-10");
-
+// new Appointment(12).getDaySchedules("general", 44, { count: 10, page: 1 });
 export default Appointment;

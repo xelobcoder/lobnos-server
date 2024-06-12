@@ -7,9 +7,9 @@ const query = util.promisify(connection.query).bind(connection);
 const operations = require('../models/operations');
 const { customError, promisifyQuery, getFullBloodCountTrend, rowAffected } = require("../../helper")
 const logger = require("../../logger")
-const { testCategoryMapping } = require("./ResultQueryMapping")
-const { category_determiner } = require("../test/setup/fbc")
-const Registration = require("./registration")
+const { testCategoryMapping } = require("../models/ResultQueryMapping")
+// const { category_determiner } = require("../test/setup/fbc")
+const Registration = require("../models/registration")
 
 class Result {
   constructor(billingid, testname) {

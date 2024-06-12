@@ -1,4 +1,4 @@
-const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected } = require("../../helper")
+const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected, hasSpecialCharacters } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
 const { allFieldsHasValues } = require("./categories")
@@ -182,23 +182,29 @@ const testpanel = {
     })
   },
   deleteSampleType: async function (request, response) {
-    const { id } = request.query
-
-    if (id) {
-      connection.query(`DELETE FROM sampletype WHERE id = ?`, [id], function (err, result) {
-        if (err) {
-          response.send({
-            message: err.message,
-            statusCode: 500,
-            status: "error",
-          })
-        } else {
-          response.send({
-            message: "deleted successfully",
-            statusCode: 200,
-            status: "success",
-          })
-        }
+    try {
+      const { id } = request.query
+      if (!id || !isNaN(id)) return customError("Valid id not provided", 404, response);
+      const deleteQuery = "DELETE FROM sampletype WHERE id = ?";
+      const result = await promisifyQuery(deleteQuery, [parseInt(id)]);
+      return rowAffected(result)
+        ?
+        response.send({
+          message: "deleted successfully",
+          statusCode: 200,
+          status: "success",
+        })
+        :
+        response.send({
+          message: "deletion failed",
+          statusCode: 200,
+          status: "error",
+        })
+    } catch (err) {
+      response.send({
+        message: err.message,
+        statusCode: 500,
+        status: "error",
       })
     }
   },
@@ -230,7 +236,7 @@ const testpanel = {
 
   hasTest: async function (testname) {
     if (!testname) throw new Error("testname required")
-    const result = await promisifyQuery(`SELECT COUNT(*)AS count FROM test_panels WHERE name = ? `, [testname])
+    const result = await promisifyQuery(`SELECT COUNT(*)AS count FROM test_panels WHERE name = ? `, [testname.trim()])
     return result[0]["count"] == 0 ? false : true
   },
 
@@ -402,8 +408,14 @@ const testpanel = {
   },
 
   generateTableName: function (testname) {
+    var testArray = testname.split("");
+    const len = testArray.length;
     if (!testname) return false
-    return testname.toString().replaceAll(" ", "_")
+    if (typeof testname != 'string') throw new TypeError("string required");
+    for (let i = 0; i < len; i++) {
+      if (hasSpecialCharacters(testname[i])) testArray[i] = ""
+    }
+    return testArray.join("");
   },
 
   createCustomTest: async function (testname, iscustom = 1) {
@@ -416,9 +428,19 @@ const testpanel = {
     const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]))
 
     if (istestcreated) {
-      const createTestTableQuery = `CREATE TABLE result${this.generateTableName(
-        testname
-      )} (id INT(255) PRIMARY KEY AUTO_INCREMENT,field VARCHAR(100), billingid INT(50), patientid BIGINT(50),value VARCHAR(60),created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,updatedon DATETIME(6) DEFAULT  NULL,employeeid INT(10))`
+      const generatedTableName = `result${this.generateTableName(testname)}`.trim();
+      const createTestTableQuery = `
+            CREATE TABLE \`${generatedTableName}\` (
+              id INT PRIMARY KEY AUTO_INCREMENT,
+              field VARCHAR(100),
+              billingid INT,
+              patientid BIGINT,
+              value VARCHAR(60),
+              created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
+              updatedon DATETIME(6) DEFAULT NULL,
+              employeeid INT,
+              entrymode VARCHAR(20)  DEFAULT manual
+             )`;
 
       await promisifyQuery(createTestTableQuery, [testname])
       return istestcreated

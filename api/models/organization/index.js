@@ -121,7 +121,7 @@ class Organization {
       const sales = { monthly, today, weekly, yearly, daily }
       return sales
     } catch (err) {
-      logger.error(err)
+      logger.error(err);
       throw new Error(err)
     }
   }

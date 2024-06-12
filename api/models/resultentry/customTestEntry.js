@@ -1,9 +1,9 @@
 const { promisifyQuery } = require("../../../helper")
-const { Result } = require("../result")
-
-class CustomTest extends Result {
+const applicationSettings = require("../application/settings")
+class CustomTest {
   constructor(billingid, testname) {
-    super(billingid, testname)
+    this.billingid = billingid;
+    this.testname = testname;
   }
 
   async getAllCustomTestList() {
@@ -17,6 +17,14 @@ class CustomTest extends Result {
     const result = await promisifyQuery(query, [testname])
     if (result.length === 0) return null;
     return result[0]['iscustom'] == 1
+  }
+  async isApprovalSetTrue() {
+    const result = await applicationSettings.getApplicationSettings();
+    if (result.length > 0) {
+      const approval_status = result[0]["approvalbeforeprinting"]
+      return !approval_status == 0 
+    }
+    return null;
   }
 }
 

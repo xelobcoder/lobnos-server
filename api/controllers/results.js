@@ -3,7 +3,6 @@ const { customError, rowAffected, promisifyQuery } = require("../../helper")
 const logger = require("../../logger")
 const Operations = require("../models/operations")
 const Patient = require("../models/patientAnalytics")
-const { Result } = require("../models/result")
 const testpanel = require("../testpanel/list")
 
 router.get(`/api/v1/result/patientrend/single`, async function (request, response) {

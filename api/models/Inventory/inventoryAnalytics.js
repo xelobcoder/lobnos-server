@@ -26,7 +26,7 @@ class Inventoryanalytics {
     return this.parseJsonData(settings)
   }
 
-  async getNearExpiry(count) {
+  async getNearExpiry(count = true) {
     const data = await this.customization()
     const nearExpiry = parseInt(data?.expirydays) + 1 || 22
     const query = `SELECT DISTINCT ${count
@@ -42,7 +42,7 @@ class Inventoryanalytics {
     return rowsCount
   }
 
-  async getBelowAlert(count) {
+  async getBelowAlert(count = true) {
     const query = `SELECT ${count ? "COUNT(*) AS count" : "*"} FROM generalStocks where quantity < alertlevel`
     const data = await promisifyQuery(query)
     if (count) {
@@ -51,7 +51,7 @@ class Inventoryanalytics {
     return data
   }
 
-  async getExpiredCount(count) {
+  async getExpiredCount(count = true) {
     const query = `SELECT ${count ? "COUNT(*) AS count" : "*"} FROM orders WHERE RECEIVED = 'TRUE'
     AND status = 'received' AND DATE(expirydate) < CURRENT_DATE`
     const data = await promisifyQuery(query)
@@ -97,9 +97,9 @@ class Inventoryanalytics {
     const updateQ = `UPDATE inventoryanalyticssummary SET settings = ? WHERE id  = 1`
     const insertQ = `INSERT INTO inventoryanalyticssummary (settings) VALUES (?)`
     try {
-      const n = await this.getNearExpiry(true)
-      const e = await this.getExpiredCount(true)
-      const b = await this.getBelowAlert(true)
+      const n = await this.getNearExpiry()
+      const e = await this.getExpiredCount()
+      const b = await this.getBelowAlert()
       const getSettings = await promisifyQuery(`SELECT * FROM inventoryanalyticssummary`)
       const data = JSON.stringify({ nearExpiryCount: n, belowAlertLevel: b, expiredCount: e })
       const isAvail = getSettings.length > 0
@@ -116,9 +116,7 @@ class Inventoryanalytics {
 
   async quartersReducer(result) {
     if (!result || !Array.isArray(result)) return null
-    const reducer = (data) => {
-      return data.reduce((sum, current) => sum + current?.debitAmount, 0)
-    }
+    const reducer = (data) => data.reduce((sum, current) => sum + current?.debitAmount, 0);
     const totalWastage = reducer(result)
     const firstQ = reducer(result.filter((a, b) => a.quarter === 1))
     const secondQ = reducer(result.filter((a, b) => a.quarter === 2))

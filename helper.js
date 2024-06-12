@@ -134,7 +134,25 @@ const getFullBloodCountTrend = async (patientid) => {
 
 const rowAffected = (result) => {
   return result.affectedRows > 0 ? true : false;
- }
+}
+
+const hasSpecialCharacters = (param) => {
+  const specialCharacters = [
+    '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', ']', '{', '}', ';', ':', '"', "'", '\\', '|', ',', '.', '<', '>', '/', '?', '`', '~'
+  ];
+  var hascharacter= false;
+  for (const character of specialCharacters) {
+    if (param.includes(character)) {
+      hascharacter = true;
+      break;
+    }
+  }
+  return hascharacter;
+}
+
+
+
+
 
 module.exports = {
   customError,
@@ -143,6 +161,7 @@ module.exports = {
   responseError,
   promisifyQuery,
   NotFound,
+  hasSpecialCharacters,
   removeHtmlTags,
   paginationQuery,
   rowAffected,

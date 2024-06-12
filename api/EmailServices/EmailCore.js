@@ -297,4 +297,16 @@ class EmailService {
      */
 }
 
+
+const CONSTANT = async function () {
+    const e = new EmailService();
+    const html = await ejs.renderFile(path.join(__dirname, '../EmailTemplates/appointmentsheduleNotice.ejs'))
+    const options = e.mailOptions('asananyaaba45@gmail.com', 'APPOINTMENT REMINDER', html);
+    e.transportEmail(options)
+        .then((data) => console.log(data))
+        .catch((err) => console.log(err))
+}
+
+
+// CONSTANT()
 module.exports = EmailService

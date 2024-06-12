@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.slots = void 0;
+exports.months = exports.slots = void 0;
 exports.slots = [
     "08:00",
     "08:30",
@@ -28,3 +28,17 @@ exports.slots = [
     "19:30",
     "20:00"
 ];
+exports.months = {
+    january: 1,
+    february: 2,
+    march: 3,
+    april: 4,
+    may: 5,
+    june: 6,
+    july: 7,
+    august: 8,
+    september: 9,
+    october: 10,
+    november: 11,
+    december: 12,
+};

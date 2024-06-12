@@ -179,7 +179,6 @@ class Operations {
     LIMIT ? OFFSET ?`;
 
       const result = await paginationQuery({ count, page }, query, values);
-
       if (response) {
         response.send({ status: "success", result, statusCode: 200 });
       } else {
