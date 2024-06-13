@@ -1,7 +1,6 @@
-const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected, hasSpecialCharacters } = require("../../helper")
-const logger = require("../../logger")
-const connection = require("../db")
-const { allFieldsHasValues } = require("./categories")
+const { convertKeysToLowerCase, promisifyQuery, customError, rowAffected, hasSpecialCharacters } = require("../../helper");
+const logger = require("../../logger");
+const { allFieldsHasValues } = require("./categories");
 const testpanel = {
   listquery: `SELECT 
       tp.name,
@@ -18,257 +17,204 @@ const testpanel = {
       INNER JOIN departments AS d ON d.id = tp.category
       INNER JOIN sampletype AS s ON s.id = tp.sample`,
   listqueryid: function (action, id) {
-    return `${action} FROM test_panels WHERE ID = ${id}`
+    return `${action} FROM test_panels WHERE ID = ${id}`;
   },
   hasquery: function (request) {
-    return Object.keys(request.query).length > 0 ? true : false
+    return Object.keys(request.query).length > 0 ? true : false;
   },
   updatequery: function (id, price, category) {
-    return `UPDATE test_panels SET price = ${price}, category = ${category} WHERE id = ${id}`
+    return `UPDATE test_panels SET price = ${price}, category = ${category} WHERE id = ${id}`;
   },
   postquery: function (name, price, category) {
-    return `INSERT INTO test_panels (NAME,CATEGORY,PRICE) VALUES ('${name}','${category}','${price}')`
+    return `INSERT INTO test_panels (NAME,CATEGORY,PRICE) VALUES ('${name}','${category}','${price}')`;
   },
-  panelExist: function (name) {
-    return new Promise((resolve, reject) => {
-      let query = `SELECT NAME FROM test_panels WHERE NAME = '${name}'`
-      connection.query(query, (err, result) => {
-        if (err) {
-          reject(err)
-        }
-        if (result) {
-          if (result.length > 0) {
-            resolve(true)
-          } else {
-            resolve(false)
-          }
-        }
-      })
-    })
+  panelExist: async function (name) {
+    const query = "SELECT name FROM test_panels WHERE name = ?";
+    return (await promisifyQuery(query, [name])).length > 0;
   },
   getPanels: async function (request, response) {
     try {
       if (this.hasquery(request)) {
-        const { id } = request.query
-        const result = await promisifyQuery(this.listqueryid("SELECT *", id))
-        response.send({ statusCode: 200, status: "success", message: "success", data: result })
+        const { id } = request.query;
+        const result = await promisifyQuery(this.listqueryid("SELECT *", id));
+        response.send({ statusCode: 200, status: "success", message: "success", data: result });
       } else {
-        const result = await promisifyQuery(this.listquery)
-        response.send({ statusCode: 200, status: "success", message: "success", data: result })
+        const result = await promisifyQuery(this.listquery);
+        response.send({ statusCode: 200, status: "success", message: "success", data: result });
       }
     } catch (err) {
-      logger.error(err)
+      logger.error(err);
     }
   },
   updatePanel: function (request, response) {
-    const { id, price, category } = request.query
-    // check if all fields are present
-    if (id && price && category) {
-      // check if all fields have values
-      if (allFieldsHasValues(request.body)) {
-        connection.query(testpanel.updatequery(id, price, category), (err, result) => {
-          if (err) {
-            logger.error(err)
-          }
-          if (result) {
-            response.send({
-              message: "Panel updated successfully",
-            })
-          }
-        })
-      } else {
-        response.send({
-          message: "All fields must have values",
-        })
-      }
+    const { id, price, category } = request.query;
+    if (!id || !price || !category) return customError("Required request query missing", 404, response);
+    const has_field_values = allFieldsHasValues(request.body);
+    if (has_field_values) {
+      const _rows = this.updatequery(id, price, category);
+      return affectedRows(_rows) ? response.send({ message: "panel updated successfully" }) : response.send({ message: "update failed" });
     }
+    return response.send({
+      message: "All fields must have values",
+    });
   },
   deletePanel: async function (testid) {
-    if (!testid || isNaN(testid)) throw new Error("testid not provided")
-    const iscustomQuery = `SELECT iscustom,name FROM test_panels WHERE id = ?`
-    const result = await promisifyQuery(iscustomQuery, [parseInt(testid)])
-    if (result.length === 0) return false
-    let isCustom = result[0]["iscustom"]
-    if (isCustom === 0) return false
-    const isdeleted = rowAffected(await promisifyQuery(`DELETE FROM test_panels WHERE id = ? AND iscustom = 1`, [parseInt(testid)]))
+    if (!testid || isNaN(testid)) throw new Error("testid not provided");
+    const iscustomQuery = `SELECT iscustom,name FROM test_panels WHERE id = ?`;
+    const result = await promisifyQuery(iscustomQuery, [parseInt(testid)]);
+    if (result.length === 0) return false;
+    let isCustom = result[0]["iscustom"];
+    if (isCustom === 0) return false;
+    const isdeleted = rowAffected(await promisifyQuery(`DELETE FROM test_panels WHERE id = ? AND iscustom = 1`, [parseInt(testid)]));
     if (isdeleted) {
-      const testname = result[0]["name"].toString().replaceAll(" ", "_")
-      const dropTableQ = `DROP TABLE result${testname}`
-      await promisifyQuery(dropTableQ)
-      return true
+      const testname = result[0]["name"].toString().replaceAll(" ", "_");
+      const dropTableQ = `DROP TABLE result${testname}`;
+      await promisifyQuery(dropTableQ);
+      return true;
     }
   },
   postPanel: async function (request, response) {
-    // check if all fields are present
     const isFieldsOkay =
       Object.values(request.body).filter((value) => value == "" || value == null || value == undefined || value == 0).length > 0
         ? false
-        : true
+        : true;
 
     if (isFieldsOkay) {
-      request.body.samplevolume = parseInt(request.body.samplevolume)
-      const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body
-      // check if panel already exist
-      let panelExist = await this.panelExist(test)
+      request.body.samplevolume = parseInt(request.body.samplevolume);
+      const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body;
+      let panelExist = await this.panelExist(test);
       if (panelExist) {
-        response.send({
+        return response.send({
           statusCode: 200,
           status: "success",
           message: "Panel already exist",
-        })
+        });
       } else {
-        //we create a query and execute so as to insert panel into database
-        const query = `INSERT INTO test_panels (NAME,PRICE,CATEGORY,UNIT,QTY_REQUIRED,SAMPLE_CONTAINER,DESCRIPTION,SAMPLE) VALUES ('${test}','${price}','${category}','${unit}','${samplevolume}','${samplecontainer}','${description}','${sample}')`
+        const query = `insert into test_panels (name, price, category, unit, qty_required, sample_container, description, sample) values (?, ?, ?, ?, ?, ?, ?, ?)`;
 
-        // execute query
+        const values = [test, price, category, unit, samplevolume, samplecontainer, description, sample];
 
-        connection.query(query, (err, result) => {
-          if (err) {
-            response.send({
-              statusCode: 500,
-              status: "error",
-              message: "Internal server error",
-            })
-          }
-          if (result) {
-            response.send({
-              statusCode: 201,
-              status: "success",
-              message: "Panel created successfully",
-            })
-          }
+        const outcome = rowAffected(await promisifyQuery(query, values));
+        return outcome ? response.send({
+          statusCode: 201,
+          status: "success",
+          message: "Panel created successfully",
         })
+          :
+          response.send({
+            statusCode: 200,
+            status: "error",
+            message: "Panel creation failed",
+          });
       }
     }
   },
 
   addSampleType: async function (request, response) {
-    const query = `INSERT INTO sampletype (name) VALUE (?)`
-    const { name } = request.body
-    connection.query(query, [name], (err, result) => {
-      if (err) {
-        response.send({
-          message: "error adding sample type",
-          statusCode: 500,
-          status: "error",
-        })
-      }
-      if (result) {
-        response.send({
-          message: "added successfully",
-          statusCode: 201,
-          status: "success",
-        })
-      }
-    })
+    const query = "insert into sampletype (name) value (?)";
+    const { name } = request.body;
+    const result = rowAffected(await promisifyQuery(query, [name]));
+    return result ? response.send({
+      message: "added successfully",
+      statusCode: 201,
+      status: "success",
+    }) :
+      response.send({
+        message: "error adding sample type",
+        statusCode: 500,
+        status: "error",
+      });
   },
 
   getSampleType: async function (response) {
-    connection.query(`SELECT * FROM sampletype`, function (err, result) {
-      if (err) {
-        response.send({
-          message: err.message,
-          statusCode: 500,
-          status: "error",
-        })
-      }
-      if (result) {
-        response.send({
-          result,
-          statusCode: 200,
-          status: "success",
-        })
-      }
-    })
+    return await promisifyQuery("SELECT * FROM sampletype")
   },
   deleteSampleType: async function (request, response) {
     try {
-      const { id } = request.query
+      const { id } = request.query;
       if (!id || !isNaN(id)) return customError("Valid id not provided", 404, response);
       const deleteQuery = "DELETE FROM sampletype WHERE id = ?";
       const result = await promisifyQuery(deleteQuery, [parseInt(id)]);
       return rowAffected(result)
-        ?
-        response.send({
+        ? response.send({
           message: "deleted successfully",
           statusCode: 200,
           status: "success",
         })
-        :
-        response.send({
+        : response.send({
           message: "deletion failed",
           statusCode: 200,
           status: "error",
-        })
+        });
     } catch (err) {
       response.send({
         message: err.message,
         statusCode: 500,
         status: "error",
-      })
+      });
     }
   },
   bulkTestUpdate: async function (request, response) {
-    const { panel } = request.body
+    const { panel } = request.body;
     if (!panel) {
-      response.send({ message: "panel required", statusCode: "400", status: "error" })
+      response.send({ message: "panel required", statusCode: "400", status: "error" });
     } else {
       if (Array.isArray(panel) && panel.length > 0) {
         try {
           panel.forEach(async (item, index) => {
-            const { id, name, price, sample, category, qty_required } = item
+            const { id, name, price, sample, category, qty_required } = item;
             const queryString = `UPDATE test_panels SET 
-             name = ?,price = ?,sample = ?,category = ?,qty_required = ? WHERE id  = ?`
-            const result = await promisifyQuery(queryString, [name, price, sample, category, qty_required, id])
+             name = ?,price = ?,sample = ?,category = ?,qty_required = ? WHERE id  = ?`;
+            const result = await promisifyQuery(queryString, [name, price, sample, category, qty_required, id]);
             if (result.affectedRows > 0) {
               if (index === panel.length - 1) {
-                response.send({ message: "update successful", statusCode: "201", status: "success" })
+                response.send({ message: "update successful", statusCode: "201", status: "success" });
               }
             }
-          })
+          });
         } catch (err) {
-          logger.error(err)
-          response.send({ message: err.message, statusCode: "500", status: "error" })
+          logger.error(err);
+          response.send({ message: err.message, statusCode: "500", status: "error" });
         }
       }
     }
   },
 
   hasTest: async function (testname) {
-    if (!testname) throw new Error("testname required")
-    const result = await promisifyQuery(`SELECT COUNT(*)AS count FROM test_panels WHERE name = ? `, [testname.trim()])
-    return result[0]["count"] == 0 ? false : true
+    if (!testname) throw new Error("testname required");
+    const result = await promisifyQuery(`SELECT COUNT(*)AS count FROM test_panels WHERE name = ? `, [testname.trim()]);
+    return result[0]["count"] == 0 ? false : true;
   },
 
   hasTrend: async function (testid) {
-    if (!testid) throw new Error('testid required');
-    const result = await promisifyQuery(`SELECT showtrend FROM testdetails WHERE testid = ? `, [testid])
-    return result[0]["showtrend"] == 0 ? false : true
+    if (!testid) throw new Error("testid required");
+    const result = await promisifyQuery(`SELECT showtrend FROM testdetails WHERE testid = ? `, [testid]);
+    return result[0]["showtrend"] == 0 ? false : true;
   },
 
   updateProcedureManual: async function (manual, testid, employeeid, title) {
     if (!manual || typeof manual !== "string" || !testid || typeof testid !== "number" || !employeeid) {
-      throw new Error("employeeid, manual and testid of string and number type respectively are required")
+      throw new Error("employeeid, manual and testid of string and number type respectively are required");
     }
     const query = `UPDATE proceduremanual SET 
        proceduremanual = ?,
        title = ?,
        updatedon = NOW(),
-       createdby  = ? WHERE testid = ?`
-    return rowAffected(await promisifyQuery(query, [manual, title, employeeid, testid]))
+       createdby  = ? WHERE testid = ?`;
+    return rowAffected(await promisifyQuery(query, [manual, title, employeeid, testid]));
   },
 
   getProcedureManuel: async function (testid) {
-    if (!testid) return false
-    const query = `SELECT * FROM proceduremanual WHERE testid = ?`
-    return await promisifyQuery(query, [parseInt(testid)])
+    if (!testid) return false;
+    const query = `SELECT * FROM proceduremanual WHERE testid = ?`;
+    return await promisifyQuery(query, [parseInt(testid)]);
   },
 
   putSingleTestPanel: async function (request, response) {
     try {
-      const { id } = request.body
+      const { id } = request.body;
 
-      if (!id) return customError(`query id required`, 404, response)
+      if (!id) return customError(`query id required`, 404, response);
       else {
         const query = `UPDATE test_panels SET
             name = ?,
@@ -280,7 +226,7 @@ const testpanel = {
             description = ?,
             qty_required = ?,
             shorttext = ?
-            WHERE id = ?`
+            WHERE id = ?`;
 
         const {
           name,
@@ -306,8 +252,8 @@ const testpanel = {
           employeeid,
           testid,
           testcost,
-          useLiterature
-        } = request.body
+          useLiterature,
+        } = request.body;
 
         const updateMainPanel = await promisifyQuery(query, [
           name,
@@ -320,8 +266,8 @@ const testpanel = {
           qty_required,
           shorttext,
           testid,
-        ])
-        const outcome = rowAffected(updateMainPanel)
+        ]);
+        const outcome = rowAffected(updateMainPanel);
         if (outcome) {
           const updatePanel = `
           UPDATE testdetails SET 
@@ -340,7 +286,7 @@ const testpanel = {
                   hasGenderVariation= ?,
                   testcost = ?,
                   useLiterature = ?
-          WHERE testid = ?`
+          WHERE testid = ?`;
 
           const values = [
             tat,
@@ -358,25 +304,27 @@ const testpanel = {
             testcost,
             useLiterature,
             testid,
-          ]
+          ];
 
           const updateTestDetails = await promisifyQuery(updatePanel, values);
 
-          const isCategoryScan = await promisifyQuery(`SELECT tp.category,tp.name,dp.department from test_panels AS tp INNER JOIN departments AS dp ON dp.id = tp.category WHERE dp.department = 'ultrasound' AND tp.category = ${category}`);
+          const isCategoryScan = await promisifyQuery(
+            `SELECT tp.category,tp.name,dp.department from test_panels AS tp INNER JOIN departments AS dp ON dp.id = tp.category WHERE dp.department = 'ultrasound' AND tp.category = ${category}`
+          );
 
           if (isCategoryScan.length > 0) {
-            const tablename = "result" + testpanel.generateTableName(isCategoryScan[0]['name']);
+            const tablename = "result" + testpanel.generateTableName(isCategoryScan[0]["name"]);
             const tableFeatures = await promisifyQuery(`SHOW COLUMNS FROM ${tablename}`);
             for (let i = 0; i < tableFeatures.length; i++) {
-              if (tableFeatures[i]['Field'] == 'value') {
-                if (tableFeatures[i]['Type'] != 'longtext') {
-                  await promisifyQuery(`ALTER TABLE ${tablename} CHANGE value value LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL;`)
-                }
+              if (tableFeatures[i]["Field"] == "value" && tableFeatures[i]["Type"] != "longtext") {
+                await promisifyQuery(
+                  `ALTER TABLE ${tablename} CHANGE value value LONGTEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci NULL DEFAULT NULL;`
+                );
               }
             }
           }
 
-          response.send({ status: rowAffected(updateTestDetails) ? "success" : "failed" })
+          response.send({ status: rowAffected(updateTestDetails) ? "success" : "failed" });
         }
       }
     } catch (err) {
@@ -385,47 +333,47 @@ const testpanel = {
   },
 
   getpanelsbulk: async function (request, response) {
-    const query = `SELECT * FROM test_panels`
+    const query = `SELECT * FROM test_panels`;
 
     try {
-      let result = await promisifyQuery(query)
+      let result = await promisifyQuery(query);
       if (result.length > 0) {
         result = result.map((item, index) => {
-          return convertKeysToLowerCase({ ...item, sampleid: null })
-        })
+          return convertKeysToLowerCase({ ...item, sampleid: null });
+        });
       }
-      response.send({ message: "success", statusCode: 200, status: "success", data: result })
+      response.send({ message: "success", statusCode: 200, status: "success", data: result });
     } catch (err) {
-      logger.error(err)
-      response.send({ message: err.message, statusCode: 500, status: "error" })
+      logger.error(err);
+      response.send({ message: err.message, statusCode: 500, status: "error" });
     }
   },
 
   getPanelEditSingle: async function (testid) {
     const query = `SELECT * FROM test_panels AS tp INNER JOIN testdetails AS td ON td.testid = tp.id
-    WHERE tp.id = ?`
-    return await promisifyQuery(query, [testid])
+    WHERE tp.id = ?`;
+    return await promisifyQuery(query, [testid]);
   },
 
   generateTableName: function (testname) {
-    var testArray = testname.split("");
-    const len = testArray.length;
-    if (!testname) return false
-    if (typeof testname != 'string') throw new TypeError("string required");
+    if (!testname) return false;
+    if (typeof testname != "string") throw new TypeError("string required");
+    testname = testname.split("");
+    const len = testname.length;
     for (let i = 0; i < len; i++) {
-      if (hasSpecialCharacters(testname[i])) testArray[i] = ""
+      if (hasSpecialCharacters(testname[i], "(") || testname[i] == " ") testname[i] = "";
     }
-    return testArray.join("");
+    return testname.join("");
   },
 
   createCustomTest: async function (testname, iscustom = 1) {
-    if (!testname) throw new Error("testname required")
+    if (!testname) throw new Error("testname required");
     if (this.hasTest(testname) === true) {
-      return "EXIST"
+      return "EXIST";
     }
-    const query = `INSERT INTO test_panels (name,iscustom) VALUES(?,?)`
+    const query = `INSERT INTO test_panels (name,iscustom) VALUES(?,?)`;
 
-    const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]))
+    const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]));
 
     if (istestcreated) {
       const generatedTableName = `result${this.generateTableName(testname)}`.trim();
@@ -439,15 +387,15 @@ const testpanel = {
               created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
               updatedon DATETIME(6) DEFAULT NULL,
               employeeid INT,
-              entrymode VARCHAR(20)  DEFAULT manual
+              entrymode VARCHAR(20)  DEFAULT 'manual'
              )`;
 
-      await promisifyQuery(createTestTableQuery, [testname])
-      return istestcreated
+      await promisifyQuery(createTestTableQuery, [testname]);
+      return istestcreated;
     }
   },
-}
+};
 
+console.log(testpanel.generateTableName("%%tifu***********hamzais (())her)))********%G"));
 
-
-module.exports = testpanel
+module.exports = testpanel;

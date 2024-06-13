@@ -1,86 +1,84 @@
-const connectionpool = require('./api/dbpool');
-const logger = require('./logger');
+const connectionpool = require("./api/dbpool");
+const logger = require("./logger");
 function customError(message, statusCode, response) {
   if (!response) {
     throw new TypeError("Http response object required");
   }
-  response.send({ message: message || "something wrong occured", statusCode: statusCode || 500, status: 'error' });
+  response.send({ message: message || "something wrong occured", statusCode: statusCode || 500, status: "error" });
 }
 function responseError(response) {
-  response.send({ message: "something wrong occured", statusCode:  500, status: 'error' });
+  response.send({ message: "something wrong occured", statusCode: 500, status: "error" });
 }
-
 
 const removeHtmlTags = (string) => {
   const removeTags = (string, starter, ended) => {
-    const _stringArray = string.trim().split("")
-    let start = 0
-    let end = 0
+    const _stringArray = string.trim().split("");
+    let start = 0;
+    let end = 0;
 
     for (let i = 0; i < _stringArray.length; i++) {
       if (_stringArray[i] === starter) {
-        start = i
+        start = i;
       }
 
       if (_stringArray[i] === ended) {
-        end = i
-        break
+        end = i;
+        break;
       }
     }
 
     const umatched = _stringArray.map((item, index) => {
-      if (!(index >= start && index <= end)) return item
-    })
-    
-    const result = umatched.join("")
+      if (!(index >= start && index <= end)) return item;
+    });
+
+    const result = umatched.join("");
 
     if (umatched.includes(starter) || umatched.includes(ended)) {
-      return removeHtmlTags(result)
+      return removeHtmlTags(result);
     }
-    return result.toLowerCase()
-  }
-  return string
-}
+    return result.toLowerCase();
+  };
+  return string;
+};
 
 function convertKeysToLowerCase(obj) {
   if (typeof obj !== "object" || Array.isArray(obj)) {
-    throw new Error("Input must be an object")
+    throw new Error("Input must be an object");
   }
-  const result = {}
+  const result = {};
 
   for (const key in obj) {
     if (obj.hasOwnProperty(key)) {
-      result[key.toLowerCase()] = obj[key]
+      result[key.toLowerCase()] = obj[key];
     }
   }
-  return result
+  return result;
 }
 
 function NotFound(response) {
-  response.send({ message: "Data not found", status: "error" })
+  response.send({ message: "Data not found", status: "error" });
 }
 
 async function promisifyQuery(query, values = []) {
-  if (!query || typeof query != 'string') {
-    throw new Error('query must be added and a string type'); 
+  if (!query || typeof query != "string") {
+    throw new Error("query must be added and a string type");
   }
-  let data =[]
- return  new Promise((resolve, reject) => {
+  let data = [];
+  return new Promise((resolve, reject) => {
     connectionpool.getConnection((connectionError, connection) => {
       if (connectionError) {
-        reject(connectionError)
+        reject(connectionError);
       }
       connection.query(query, values, (queryError, result) => {
-        connection.release()
+        connection.release();
         if (queryError) {
-          reject(queryError)
+          reject(queryError);
         } else {
-          resolve(result)
+          resolve(result);
         }
-      })
-    })
-  })
-  
+      });
+    });
+  });
 }
 
 async function retryableTransaction(fn, maxRetries = 3, delayBetweenRetries = 1000) {
@@ -90,10 +88,10 @@ async function retryableTransaction(fn, maxRetries = 3, delayBetweenRetries = 10
     try {
       await fn();
     } catch (error) {
-      if (error.code === 'ER_LOCK_WAIT_TIMEOUT' && retries < maxRetries) {
+      if (error.code === "ER_LOCK_WAIT_TIMEOUT" && retries < maxRetries) {
         retries++;
         console.warn(`Lock wait timeout, retrying (${retries}/${maxRetries})...`);
-        await new Promise(resolve => setTimeout(resolve, delayBetweenRetries));
+        await new Promise((resolve) => setTimeout(resolve, delayBetweenRetries));
         return attempt();
       } else {
         throw error;
@@ -104,12 +102,11 @@ async function retryableTransaction(fn, maxRetries = 3, delayBetweenRetries = 10
   await attempt();
 }
 
-
 async function paginationQuery(pageQuery, query, values) {
-  let useQuery = {count: pageQuery?.count || 10, page:  pageQuery?.page || 1}
+  let useQuery = { count: pageQuery?.count || 10, page: pageQuery?.page || 1 };
   const { count, page } = useQuery;
   const pageSize = parseInt(count);
-  const currentPage = (parseInt(page)) - 1;
+  const currentPage = parseInt(page) - 1;
   const offset = currentPage * pageSize;
   let newValues = [pageSize, offset];
   if (values && values.length > 0) newValues = [...values, ...newValues];
@@ -119,40 +116,71 @@ async function paginationQuery(pageQuery, query, values) {
 const getFullBloodCountTrend = async (patientid) => {
   const getClientGenderPacket = await promisifyQuery(`SELECT gender,age,agetype FROM new_patients WHERE patientid = ?`, patientid);
 
-  const gender = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['gender'] : null;
- 
-  const age = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['age'] : null;
-  const agetype = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]['agetype'] : null;
+  const gender = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]["gender"] : null;
+
+  const age = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]["age"] : null;
+  const agetype = getClientGenderPacket.length > 0 ? getClientGenderPacket[0]["agetype"] : null;
 
   let trendDataSet = await promisifyQuery(PatientQueries.getFbcTrend(gender, age, agetype), [patientid]);
 
-  trendDataSet = trendDataSet.length > 0 ? trendDataSet.map((item) => { return convertKeysToLowerCase(item); }) : [];
+  trendDataSet =
+    trendDataSet.length > 0
+      ? trendDataSet.map((item) => {
+          return convertKeysToLowerCase(item);
+        })
+      : [];
 
   return trendDataSet;
-}
-
+};
 
 const rowAffected = (result) => {
   return result.affectedRows > 0 ? true : false;
-}
+};
 
-const hasSpecialCharacters = (param) => {
+const hasSpecialCharacters = (param, exclude) => {
+  if (exclude && !(typeof exclude === "string" || Array.isArray(exclude))) throw new TypeError("exclude should be an array or a string");
+  if (typeof exclude === "string") exclude = exclude.split("");
+  var hascharacter = false;
   const specialCharacters = [
-    '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '-', '_', '=', '+', '[', ']', '{', '}', ';', ':', '"', "'", '\\', '|', ',', '.', '<', '>', '/', '?', '`', '~'
+    "!",
+    "@",
+    "#",
+    "$",
+    "%",
+    "^",
+    "&",
+    "*",
+    "(",
+    ")",
+    "-",
+    "_",
+    "=",
+    "+",
+    "[",
+    "]",
+    "{",
+    "}",
+    ";",
+    ":",
+    '"',
+    "'",
+    "\\",
+    "|",
+    ",",
+    ".",
+    "<",
+    ">",
+    "/",
+    "?",
+    "`",
+    "~",
   ];
-  var hascharacter= false;
-  for (const character of specialCharacters) {
-    if (param.includes(character)) {
-      hascharacter = true;
-      break;
-    }
+
+  for (const char of param) {
+    specialCharacters.includes(char) ? (hascharacter = exclude && exclude.includes(char) ? false : true) : hascharacter;
   }
   return hascharacter;
-}
-
-
-
-
+};
 
 module.exports = {
   customError,
@@ -165,5 +193,5 @@ module.exports = {
   removeHtmlTags,
   paginationQuery,
   rowAffected,
-  retryableTransaction
-}
+  retryableTransaction,
+};

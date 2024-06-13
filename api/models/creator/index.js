@@ -1,4 +1,3 @@
-const { response } = require("express");
 const { promisifyQuery, rowAffected, responseError } = require("../../../helper");
 const testpanel = require("../../testpanel/list");
 
@@ -23,6 +22,7 @@ class Creator {
       billingid,
       patientid,
     ]);
+    console.log(previousRecords)
     return previousRecords;
   }
 
@@ -82,9 +82,10 @@ class Creator {
           return obj;
         });
       }
+      
       return result;
     } catch (err) {
-      responseError(response);
+      throw err;
     }
   }
 

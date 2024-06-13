@@ -176,9 +176,10 @@ router.get("/api/v1/testpanel/list/customtestrule/previous", async function (req
     const { testid, testname, billingid, patientid } = request.query
     if (!testid || !testname || !billingid || !patientid)
       return customError("testid,testname,patientid and billingid are required", 404, response)
-    const rule = await new Creator(testid).getCustomPreviousRecords(testname, billingid, patientid)
+    const rule = await new Creator(testid).getCustomPreviousRecords(testname, billingid, patientid);
     response.send(rule)
   } catch (err) {
+    console.log(err)
     responseError(response)
   }
 })
