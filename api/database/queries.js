@@ -6,63 +6,6 @@ const { testResults } = require("../testResult")
 // create an object
 
 const database_queries = {
-  setup_newParameter: (table, parameter, upper, lower, unit) => {
-    let SQL_QUERY = `INSERT INTO ${table} (PARAMETER,UPPER,LOWER,UNIT) VALUES ('${parameter}',${upper},${lower},'${unit}')`
-
-    connection.query(SQL_QUERY, function (err, result) {
-      if (err) {
-        logger.error(err)
-      }
-      console.log("1 record inserted")
-    })
-  },
-  setup_deleteParameter: (table, id) => {
-    // return a promise after operation
-    return new Promise((resolve, reject) => {
-      // delete the parameter from the database
-      connection.query(`DELETE FROM ${table} WHERE ID = ${id}`, (err, result) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(result)
-        }
-      })
-    })
-  },
-  setup_updateParameter: (table, id, parameter, lower_limit, upper_limit, comment) => {
-    // return a promise after operation
-    return new Promise((resolve, reject) => {
-      // update the parameter in the database
-      connection.query(
-        `UPDATE ${table} SET parameter = '${parameter}', lower_limit = ${lower_limit}, upper_limit = ${upper_limit}, comment = '${comment}' WHERE ID = ${id}`,
-        (err, result) => {
-          if (err) {
-            reject(err)
-          } else {
-            resolve(result)
-          }
-        }
-      )
-    })
-  },
-  setup_checkParameterExist: (table, parameter) => {
-    // return a promise after operation
-    return new Promise((resolve, reject) => {
-      // check if the parameter exist in the database
-      connection.query(`SELECT * FROM ${table} WHERE parameter = '${parameter}'`, (err, result) => {
-        if (err) {
-          reject(err)
-        } else {
-          // return true if result length is greater than 0
-          if (result.length > 0) {
-            resolve(true)
-          } else {
-            resolve(false)
-          }
-        }
-      })
-    })
-  },
   setup_getParameters: (table) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {

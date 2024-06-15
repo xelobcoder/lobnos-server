@@ -17,6 +17,11 @@ class Registration {
     this.patientid = patientid
   }
 
+  async getPatientBasicData() {
+    if (typeof this.patientid != "number") throw new TypeError("Type number required");
+    return await promisifyQuery(`SELECT * FROM new_patients WHERE patientid = ?`, [this.patientid]);
+  }
+
   isBulkRegistration = async function () {
     try {
       const query = `SELECT bulkregistration FROM applicationsettings`
@@ -231,9 +236,8 @@ class Registration {
         years,
         mobileownership = "self",
       } = records
-      const query = `INSERT INTO new_patients (FIRSTNAME,LASTNAME,MIDDLENAME,EMAIL,AGE,AGETYPE,DOB,MARITAL_STATUS,MOBILE_NUMBER,OCCUPATION,GENDER,ORGANIZATION,contactpointer)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`
-      // query values
+      const query = `INSERT INTO new_patients (firstname, lastname, middlename, email, age, agetype, dob, marital_status, mobile_number, occupation, gender, organization, contactpointer)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`;
       const values = [
         firstname,
         lastname,

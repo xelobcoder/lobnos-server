@@ -121,5 +121,5 @@ class Appointment {
     }
     getAppointmentCount() { }
 }
-// new Appointment(12).getDaySchedules("general", 44, { count: 10, page: 1 });
+
 exports.default = Appointment;

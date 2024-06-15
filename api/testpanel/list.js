@@ -127,7 +127,8 @@ const testpanel = {
   },
 
   getSampleType: async function (response) {
-    return await promisifyQuery("SELECT * FROM sampletype")
+    const samples = await promisifyQuery("SELECT * FROM sampletype");
+    response.send({ result: samples });
   },
   deleteSampleType: async function (request, response) {
     try {
@@ -361,7 +362,10 @@ const testpanel = {
     testname = testname.split("");
     const len = testname.length;
     for (let i = 0; i < len; i++) {
-      if (hasSpecialCharacters(testname[i], "(") || testname[i] == " ") testname[i] = "";
+      if (hasSpecialCharacters(testname[i], ["(", ")"])) {
+        testname[i] = ""
+      }
+      if (testname[i] == " ") testname[i] = "_"
     }
     return testname.join("");
   },
@@ -396,6 +400,5 @@ const testpanel = {
   },
 };
 
-console.log(testpanel.generateTableName("%%tifu***********hamzais (())her)))********%G"));
 
 module.exports = testpanel;

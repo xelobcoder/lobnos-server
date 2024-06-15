@@ -38,7 +38,6 @@ router.post("/api/v1/testpanel/list/createcustom", async function (request, resp
       response.send({ status: isSuccess ? "success" : "failed" })
     }
   } catch (err) {
-    console.log(err)
     responseError(response)
   }
 })
@@ -173,10 +172,9 @@ router.get("/api/v1/testpanel/list/customtestrule", async function (request, res
 })
 router.get("/api/v1/testpanel/list/customtestrule/previous", async function (request, response) {
   try {
-    const { testid, testname, billingid, patientid } = request.query
-    if (!testid || !testname || !billingid || !patientid)
-      return customError("testid,testname,patientid and billingid are required", 404, response)
-    const rule = await new Creator(testid).getCustomPreviousRecords(testname, billingid, patientid);
+    const { csvid, ptid, testid, target = '70,50' } = request.query;
+    if (!csvid || !ptid) return customError("required params are missing", 400, response)
+    const rule = await new Creator(testid).getCustomPreviousRecords(csvid, ptid, target, testid);
     response.send(rule)
   } catch (err) {
     console.log(err)
@@ -184,11 +182,21 @@ router.get("/api/v1/testpanel/list/customtestrule/previous", async function (req
   }
 })
 
+router.get("/api/v1/result/entry/record/collection", async function (request, response) {
+  try {
+    const { csvid, ptid, target = "70,50" } = request.query;
+    if (!csvid || !ptid) return customError("right query params missing", 400, response);
+    const outgoing_data = await new Creator().getResultEntryTest(csvid, ptid, target);
+    response.send(outgoing_data)
+  } catch (err) {
+    responseError(response);
+  }
+})
 router.get("/api/v1/testpanel/list/customtestrule/previous/comments", async function (request, response) {
   try {
-    const { billingid, testid } = request.query
-    if (!billingid || !testid) return customError("testid,testname,patientid and billingid are required", 404, response)
-    const comments = await new Creator().getCustomCommentsRecords(billingid, testid)
+    const { csvid, testid, ptid, target = '70,50' } = request.query
+    if (!csvid || !testid) return customError("testid,testname,patientid and billingid are required", 404, response)
+    const comments = await new Creator().getCustomCommentsRecords(csvid,ptid,target, testid)
     response.send({comments})
   } catch (err) {
     responseError(response)

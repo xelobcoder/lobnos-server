@@ -170,7 +170,7 @@ class ResultPrint {
       return customError('wrong testid provided', 404, response);
     }
     const tablename = "result" + testpanel.generateTableName(testname);
-    const getEmployeeid = await promisifyQuery(`SELECT employeeid FROM ${tablename} WHERE billingid = ?`, [billingid]);
+    const getEmployeeid = await promisifyQuery(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
     let employeeid = null;
     if (getEmployeeid.length > 0) {
       employeeid = getEmployeeid[0]['employeeid'];

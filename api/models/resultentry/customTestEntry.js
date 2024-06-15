@@ -1,5 +1,5 @@
-const { promisifyQuery } = require("../../../helper")
-const applicationSettings = require("../application/settings")
+const { promisifyQuery } = require("../../../helper");
+const ApplicationSettings = require("../application/settings");
 class CustomTest {
   constructor(billingid, testname) {
     this.billingid = billingid;
@@ -19,7 +19,7 @@ class CustomTest {
     return result[0]['iscustom'] == 1
   }
   async isApprovalSetTrue() {
-    const result = await applicationSettings.getApplicationSettings();
+    const result = await new ApplicationSettings().getApplicationSettings();
     if (result.length > 0) {
       const approval_status = result[0]["approvalbeforeprinting"]
       return !approval_status == 0 

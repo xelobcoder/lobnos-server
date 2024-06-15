@@ -1,7 +1,7 @@
 {
   "workbench.editor.pinnedTabSizing": "shrink",
   "editor.tabSize": 5,
-  "editor.fontFamily": "'Cascadia Code'",
+  "editor.fontFamily": "'Cascadia Code','Fira Code','Monospace'",
   "editor.tabCompletion": "on",
   "editor.wordWrap": "on",
   "editor.wordWrapColumn": 300,
@@ -12,6 +12,18 @@
   "editor.autoClosingBrackets": "always",
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "editor.bracketPairColorization.enabled": true,
-  "editor.lineHeight": 17,
-  "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "editor.lineHeight": 21,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "restoreTerminals.terminals": [
+    {
+      "splitTerminals": [
+        {
+          "name": "run lobnos-server",
+          "commands": [
+            "npm run dev"
+          ]
+        }
+      ]
+    }
+  ]
 }
