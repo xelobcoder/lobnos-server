@@ -1,5 +1,5 @@
 const router = require("express").Router()
-const { customError, rowAffected, promisifyQuery } = require("../../helper")
+const { customError, rowAffected, promisifyQuery, responseError } = require("../../helper")
 const logger = require("../../logger")
 const Creator = require("../models/creator")
 const Operations = require("../models/operations")
@@ -18,7 +18,7 @@ router.get(`/api/v1/result/patientrend/single`, async function (request, respons
 })
 
 router.post("/api/v1/result/entry/customtest", function (request, response) {
-  new Creator().resultEntry(request, response)
+  try { new Creator().resultEntry(request, response) } catch (err) { responseError(response) }
 })
 
 

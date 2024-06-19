@@ -123,11 +123,8 @@ class Operations {
 
   async getAllPendingCases(count, page, department, status, testid, response) {
     try {
-      let query = `SELECT DISTINCT CASE 
-      WHEN middlename IS NULL THEN CONCAT(
-           np.firstname,' ',np.lastname)
-          ELSE
-           CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) END AS fullname,
+      let query = `SELECT 
+          CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
           CONCAT(np.age," ",np.agetype) AS age,
           np.patientid,
           b.billingid ,

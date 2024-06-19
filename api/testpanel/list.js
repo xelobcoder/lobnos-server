@@ -229,45 +229,12 @@ const testpanel = {
             shorttext = ?
             WHERE id = ?`;
 
-        const {
-          name,
-          category,
-          testprice,
-          id,
-          sample_container,
-          unit,
-          sample,
-          shorttext,
-          isoutsourced,
-          description,
-          qty_required,
-          hasManual,
-          procedureCode,
-          tat,
-          pre_Tat,
-          post_Tat,
-          showtrend,
-          hasChildrenLimit,
-          hasGenderVariation,
-          tatCount,
-          employeeid,
-          testid,
-          testcost,
-          useLiterature,
+        const { name, category, testprice, id, sample_container, unit, sample, shorttext, isoutsourced, description, qty_required, hasManual, procedureCode, tat, pre_Tat, post_Tat, showtrend, hasChildrenLimit, hasGenderVariation, tatCount, employeeid, testid, testcost, useLiterature,
         } = request.body;
 
-        const updateMainPanel = await promisifyQuery(query, [
-          name,
-          testprice,
-          sample_container,
-          sample,
-          category,
-          unit,
-          description,
-          qty_required,
-          shorttext,
-          testid,
+        const updateMainPanel = await promisifyQuery(query, [name, testprice, sample_container, sample, category, unit, description, qty_required, shorttext, testid,
         ]);
+
         const outcome = rowAffected(updateMainPanel);
         if (outcome) {
           const updatePanel = `
@@ -371,31 +338,40 @@ const testpanel = {
   },
 
   createCustomTest: async function (testname, iscustom = 1) {
-    if (!testname) throw new Error("testname required");
-    if (this.hasTest(testname) === true) {
-      return "EXIST";
-    }
-    const query = `INSERT INTO test_panels (name,iscustom) VALUES(?,?)`;
+    let hasTestBeenCreated = false;
+    try {
+      if (!testname) throw new Error("testname required");
+      if (this.hasTest(testname) === true) {
+        return "EXIST";
+      }
+      const query = `INSERT INTO test_panels (name,iscustom) VALUES(?,?)`;
+      const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]));
 
-    const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]));
-
-    if (istestcreated) {
-      const generatedTableName = `result${this.generateTableName(testname)}`.trim();
-      const createTestTableQuery = `
+      if (istestcreated) {
+        hasTestBeenCreated = true;
+        const generatedTableName = `result${this.generateTableName(testname)}`.trim();
+        const createTestTableQuery = `
             CREATE TABLE \`${generatedTableName}\` (
-              id INT PRIMARY KEY AUTO_INCREMENT,
-              field VARCHAR(100),
-              billingid INT,
-              patientid BIGINT,
-              value VARCHAR(60),
-              created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
-              updatedon DATETIME(6) DEFAULT NULL,
-              employeeid INT,
-              entrymode VARCHAR(20)  DEFAULT 'manual'
+                id INT PRIMARY KEY AUTO_INCREMENT,
+                field VARCHAR(100),
+                billingid INT,
+                patientid BIGINT,
+                value VARCHAR(60),
+                created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
+                updatedon DATETIME(6) DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                employeeid INT,
+                entrymode ,VARCHAR(20) DEFAULT 'manual',
+                INDEX idx_billingid_patientid(billingid, patientid),
+                FOREIGN KEY (patientid) REFEREENCES new_patients(patientid) ON DELETE CASCADE
              )`;
-
-      await promisifyQuery(createTestTableQuery, [testname]);
-      return istestcreated;
+        await promisifyQuery(createTestTableQuery, [testname]);
+        return istestcreated;
+      }
+    } catch (err) {
+      if (hasTestBeenCreated) {
+        await promisifyQuery(`DELETE FROM test_panels WHERE name = ?`, [testname]);
+        throw new Error("test creation failed");
+      }
     }
   },
 };

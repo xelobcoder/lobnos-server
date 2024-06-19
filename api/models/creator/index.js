@@ -18,6 +18,7 @@ class Creator {
     }
     return [];
   }
+  
   async getTestResultRecord(testname, billingid, patientid) {
     const tablename = `result${testpanel.generateTableName(testname)}`;
     const previousRecords = await promisifyQuery(`SELECT * FROM  \`${tablename}\` WHERE billingid = ? AND patientid = ?`, [
@@ -173,8 +174,10 @@ class Creator {
       return records.length === 0
     }
 
-    let ascensionQuery = `UPDATE test_ascension SET ready = 'true', ready_date = NOW()`
+    let ascensionQuery = `UPDATE test_ascension SET ready = 'true', ready_date = NOW()`;
+
     const isApprovalTrue = await new CustomTest().isApprovalSetTrue();
+
     if (isApprovalTrue === false) {
       ascensionQuery += `,ApprovalStatus = 1`
     }

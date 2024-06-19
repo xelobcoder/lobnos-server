@@ -1,6 +1,7 @@
 const { createConnection } = require('mysql');
 const dotenv = require('dotenv');
 const logger = require('../logger');
+const { promisifyQuery } = require('../helper');
 dotenv.config();
 
 const username = process.env.NODE_ENV == 'development' ?
@@ -45,4 +46,7 @@ connection.connect(err => {
 })
 
 
+
+
 module.exports = connection;
+
