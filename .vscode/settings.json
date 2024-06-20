@@ -1,18 +1,18 @@
 {
   "workbench.editor.pinnedTabSizing": "shrink",
-  "editor.tabSize": 5,
-  "editor.fontFamily": "'Cascadia Code','Fira Code','Monospace'",
+  "editor.tabSize": 10,
+  "editor.fontFamily": "'Fira Code','Consolas Code','monospace'",
   "editor.tabCompletion": "on",
   "editor.wordWrap": "on",
   "editor.wordWrapColumn": 300,
-  "editor.fontWeight": "300",
+  "editor.fontWeight": "normal",
   "editor.formatOnSave": true,
   "editor.fontLigatures": true,
-  "editor.fontSize": 17,
+  "editor.fontSize": 18,
   "editor.autoClosingBrackets": "always",
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "editor.bracketPairColorization.enabled": true,
-  "editor.lineHeight": 21,
+  "editor.lineHeight": 17,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "restoreTerminals.terminals": [
     {

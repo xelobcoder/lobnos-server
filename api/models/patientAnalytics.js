@@ -5,16 +5,9 @@ const connectionpool = require("../dbpool");
 const database_queries = require('../database/queries')
 const User = require('../LobnosAuth/user');
 const Registration = require('../models/registration');
-const PDFGENERATION = require("./pdfGeneration");
 const testpanel = require("../testpanel/list");
 
-/**
- * Represents a Patient, a subclass of the Registration class.
- * Contains methods for retrieving transactions by date, updating patient credentials, updating notification settings, and checking if a test is valid for analysis.
- *
- * @class
- * @extends Registration
- */
+
 class Patient extends Registration {
   constructor(patientid) {
     super(patientid);
@@ -29,22 +22,15 @@ class Patient extends Registration {
     })
   }
 
-  /**
-   * 
-   * @param {patientid} patientid number represent patient id
-   * @param {to} to  string date represent date to
-   * @param {from} from string  represent date from
-   * @returns {Promise} Promise returns a promise 
-   */
+
   getTransactionsByDate = async function (patientid, to, from) {
-    const isArgGiven = arguments.length > 0
-      && typeof arguments[0] == 'number' ? patientid : this.patientid;
+    const isArgGiven = arguments.length > 0 && typeof arguments[0] == 'number' ? patientid : this.patientid;
     if (await this.checkPatientIdExist()) {
       let query = `SELECT DATE(billedon)  AS TransactionsDate,BILLINGID AS TransactionId FROM billing
       WHERE PATIENTID = ? ORDER BY billedon DESC `
       let values = [isArgGiven]
       if (from && to) {
-        query += `AND DATE BETWEEN ? AND  ? `
+        query += `AND DATE BETWEEN ? AND ?`
         values = [...values, from, to]
       }
       // return a promise
@@ -99,8 +85,7 @@ class Patient extends Registration {
 
   updateNotificationSettings = async function (request, response) {
     const { mode, method, notify, patientid } = request.body;
-    // mode represent mode of delivery the result, notify - should client be notified when result is ready and method represent mehtod of 
-    // send the Notification message
+
     if (mode && method && notify && patientid) {
       const updateQuery = `UPDATE patients_settings SET mode = ?, method = ? , notify = ? WHERE patientid = ?`;
       const updated = await this.runqueryPromise(updateQuery, [mode, method, notify, parseInt(patientid)]);
@@ -128,6 +113,55 @@ class Patient extends Registration {
       { parameters.push(item?.parameter) }
     })
     return parameters;
+  }
+
+
+  async billingPartionPrunner(startdate, enddate) {
+    if (!startdate || !startdate) throw new Error("required startdate and enddate not provided");
+    let partitonQuery = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
+    let partitions = await promisifyQuery(partitonQuery);
+    if (partitions.length == 0) return [];
+
+    const startYear = new Date(startdate).getFullYear();
+    const endYear = new Date(enddate).getFullYear();
+    const stMonth = new Date(startdate).getMonth();
+    const edMonth = new Date(enddate).getMonth();
+
+    partitions = partitions.map((a, index) => a.PARTITION_NAME);
+
+    partitions.filter((_part, index) => {
+      const [_, year, month] = _part.split("_");
+      return year == startYear || year == endYear || (endYear == year && stMonth == month) || (startYear == year && edMonth == month);
+    })
+    return partitions.length > 0 ? partitions.join(",") : [];
+  }
+
+
+  async getPatientBillingRecords(details) {
+    const { patientid, count = 10, page = 1, startdate, enddate } = details
+    if (!patientid || isNaN(patientid)) throw new Error("patientid required");
+
+    let query, values = [];
+
+    if (startdate && enddate) {
+      const startYear = new Date(startdate).getFullYear();
+      const endYear = new Date(enddate).getFullYear();
+      const stMonth = new Date(startdate).getMonth();
+      const edMonth = new Date(enddate).getMonth();
+      let partitions = await this.billingPartionPrunner(startdate, enddate);
+      query = `SELECT * FROM billing PARTITION(${partitions}) WHERE patientid = ? AND year BETWEEN ? AND ? LIMIT ? OFFSET ?`;
+      values = [patientid, startYear, endYear, count, (page - 1) * count];
+    } else if (startdate) {
+      const startYear = new Date(startdate).getFullYear();
+      query = `SELECT * FROM billing WHERE patientid = ? AND year >= ? LIMIT ? OFFSET ?`;
+      values = [patientid, startYear, count, (page - 1) * count];
+    } else {
+      query = `SELECT * FROM billing WHERE patientid = ? LIMIT ? OFFSET ?`;
+      values = [patientid, count, (page - 1) * count];
+    }
+    const result = await promisifyQuery(query, values);
+// console.log(result)
+    return result;
   }
 
 
@@ -189,5 +223,7 @@ class Patient extends Registration {
 }
 
 
+new Patient().getPatientBillingRecords({ patientid: 20244245, startdate: "2024-06-11", enddate: "2024-06-30" })
 
 module.exports = Patient;
+

@@ -1,0 +1,185 @@
+import { AscensionParameter, billErrors, IBillNewClient, TBillingData } from "./billingclientTypes";
+import { promisifyQuery, rowAffected } from "./../../../helper.js";
+
+import {
+  AddtoTestAscenstionQuery,
+  deleteAscensionidQuery,
+  deleteBillTransactionQuery,
+  deleteNewBillPaymentHx,
+  insertBillQuery,
+  patientBilledTodayQuery,
+  updatebillHistoryQuery,
+} from "./queries";
+
+export class Billing implements IBillNewClient {
+  readonly patientid: number;
+  constructor(patientid: number) {
+    this.patientid = patientid;
+  }
+  public wrapperTryCatch<T>(cb: () => T, errcb: (_err: any) => void = null): T | null {
+    try {
+      return cb();
+    } catch (err) {
+      if (errcb && typeof errcb == "function") {
+        errcb(err);
+      } else {
+        console.error("Error uncaught in and unhandled", err);
+      }
+    }
+  }
+
+  public insertNewBilling() {}
+  async billClient(data: TBillingData): Promise<number | boolean> {
+    try {
+      const {
+        patientid,
+        clinician = 0,
+        organization = 0,
+        paid,
+        payable,
+        outstanding,
+        discount,
+        samplingCenter,
+        paymentmode,
+        taxIncluded,
+        taxValue,
+        status,
+        testcost,
+        employeeid,
+        type,
+      } = data;
+
+      const values: (string | number | boolean)[] = [
+        patientid,
+        clinician,
+        organization,
+        paid,
+        payable,
+        type,
+        outstanding,
+        discount,
+        samplingCenter,
+        taxIncluded,
+        taxValue,
+        status,
+        testcost,
+        employeeid,
+      ];
+
+      const { affectedRows, insertId } = await promisifyQuery(insertBillQuery, values);
+      if (affectedRows == 0) return false;
+      return insertId;
+    } catch (err) {
+      console.error(err);
+      throw new Error(billErrors.error);
+    }
+  }
+
+  public async isCompleteFlow() {
+    const settings = await promisifyQuery(`SELECT * FROM applicationsettings`);
+    if (settings.length == 0) return false;
+    return settings[0]["completeFlow"] == 1 ? true : false;
+  }
+
+  public async updateBillingHistory(paymentmode: number, billingid: number, amount: number) {
+    const values: number[] = [paymentmode, amount, billingid];
+    return await promisifyQuery(updatebillHistoryQuery, values);
+  }
+
+  public updateApprovalStatus = async function (billingid: number, testid: number) {
+    try {
+      const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
+      const values = [billingid, testid];
+      return promisifyQuery(query, values);
+    } catch (err) {
+      throw new Error(err);
+    }
+  };
+
+  public async deleteAscensionid(billingid: number, testid: number) {
+    const result = await promisifyQuery(deleteAscensionidQuery, [billingid, testid]);
+    return rowAffected(result);
+  }
+
+  public async haveBeenBilledToday(patientid: number): Promise<boolean> {
+    const result = await promisifyQuery(patientBilledTodayQuery, patientid);
+    return result[0]["count"] > 0 ? false : true;
+  }
+
+  private async deleteAddedWithError(inserted: number[], billingid: number) {
+    let counter: number = 0;
+    while (inserted.length > 0 && counter <= inserted.length) {
+      const isDeleted = rowAffected(await this.deleteAscensionid(billingid, inserted[counter]));
+      if (isDeleted) {
+        inserted = inserted.filter((a) => a != inserted[counter]);
+      }
+      counter++;
+    }
+  }
+  public async AddtoTestAscenstion(data: AscensionParameter) {
+    const { billingid, testidCollection } = data;
+    let insertionCount = 0;
+    const inserted: number[] = [];
+    try {
+      if (testidCollection.length == 0) throw new Error("Bad Parameters, testCollection not added");
+      const collected = (await this.isCompleteFlow()) ? "false" : "true";
+      for (let i = 0; i < testidCollection.length; i++) {
+        const testid = testidCollection[i];
+        const isInserted = await promisifyQuery(AddtoTestAscenstionQuery, [testid, billingid, collected]);
+        if (rowAffected(isInserted)) {
+          insertionCount++;
+          inserted.push(testid);
+        }
+        if (!collected) {
+          await this.updateApprovalStatus(billingid, testid);
+        }
+      }
+      return insertionCount === testidCollection.length;
+    } catch (err) {
+      console.log(err);
+      await this.deleteAddedWithError(inserted, billingid);
+      throw new Error(err?.message || err);
+    }
+  }
+
+  public async deleteBillTransaction(billingid: number) {
+    return await promisifyQuery(deleteBillTransactionQuery, [billingid]);
+  }
+
+  async cleanUpRecordedPaymentHx(billingid: number): Promise<void> {
+    await promisifyQuery(deleteNewBillPaymentHx, billingid);
+  }
+
+  public async insertionProcess(billingData: TBillingData, strict: boolean = true) {
+    // strict can be replaced with database value for strict checking to be done
+    let isHistoryAdded = false;
+    let isAscAdded = false;
+    let billingid = undefined;
+    try {
+      let canInitiateNewBill = false;
+      if (strict) {
+        canInitiateNewBill = await this.haveBeenBilledToday(this.patientid);
+      }
+
+      if (!canInitiateNewBill) {
+        return billErrors.already;
+      }
+      billingid = await this.billClient(billingData);
+
+      if (typeof billingid == "boolean" || !billingid) return billErrors.failed;
+
+      isAscAdded = await this.AddtoTestAscenstion({ billingid, testidCollection: billingData.test });
+      isHistoryAdded = rowAffected(await this.updateBillingHistory(billingData.paymentmode, billingid, billingData.paid));
+      if (isAscAdded && isHistoryAdded && billingid) {
+        return true;
+      }
+      await this.deleteBillTransaction(billingid);
+      return billErrors.failed;
+    } catch (err) {
+      if (billingid) {
+        await this.deleteBillTransaction(billingid);
+      }
+      return billErrors.error;
+    }
+  }
+}

@@ -1,0 +1,60 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deleteBillTransactionQuery = exports.getBillAscesnsion = exports.updateCurrentBill = exports.billedClientsQuery = exports.billCountDateQ = exports.clientBillInformationQuery = exports.clientPaymentStatusQuery = exports.deleteAscensionidQuery = exports.AddtoTestAscenstionQuery = exports.patientBilledTodayQuery = exports.updateApprovalStatusQuery = exports.insertBillQuery = exports.deleteNewBillPaymentHx = exports.updatebillHistoryQuery = void 0;
+exports.updatebillHistoryQuery = "UPDATE billinghx SET paymentMode = ?, Amount = ? WHERE billingid = ?";
+exports.deleteNewBillPaymentHx = "DELETE FROM billinghx WHERE billingid = ?";
+exports.insertBillQuery = `INSERT INTO billing
+               (patientid,
+               clinician,
+               organization,
+               paid_amount,
+               payable,
+               type,
+               outstanding,
+               discount,
+               branchid,
+               taxIncluded,
+               taxValue,
+               clientstatus,
+               testcost,
+               employeeid)
+          VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+exports.updateApprovalStatusQuery = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
+exports.patientBilledTodayQuery = "SELECT COUNT(*) AS count FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE";
+exports.AddtoTestAscenstionQuery = "INSERT INTO test_ascension (testid,billingid,collection,collection_date) VALUES(?,?,?,CURRENT_DATE)";
+exports.deleteAscensionidQuery = "DELETE FROM test_ascension WHERE testid = ? AND billingid = ?";
+exports.clientPaymentStatusQuery = `SELECT
+      SUM(PAID_AMOUNT) AS paidAmount,
+          SUM(PAYABLE) AS totalcostincurred,
+          CASE
+            WHEN SUM(PAID_AMOUNT) = SUM(PAYABLE) THEN 1
+            WHEN SUM(PAID_AMOUNT) > SUM(PAYABLE) THEN -1
+            WHEN SUM(PAID_AMOUNT) < SUM(PAYABLE) THEN 0
+          END AS status
+          FROM BILLING
+      WHERE PATIENTID = ?`;
+exports.clientBillInformationQuery = "SELECT * FROM billing as b  INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?";
+exports.billCountDateQ = "SELECT COUNT(*) AS count FROM billing WHERE DATE(billedon) = ?";
+exports.billedClientsQuery = `
+     SELECT b.billingid AS billingid,
+          CONCAT( np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
+          b.paid_amount AS paid,
+          b.payable,
+          b.patientid,
+          b.type,
+          b.outstanding,
+          pm.PaymentMode,
+          b.discount,
+          DATE(b.billedon) AS date
+        FROM billing AS b
+          INNER JOIN new_patients AS np ON np.patientid = b.patientid
+          INNER JOIN billinghx AS bhx ON bhx.billingid = b.billingid
+          INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
+          WHERE DATE(b.billedon) = CURRENT_DATE
+    GROUP BY b.billingid
+    ORDER BY B.billingid DESC
+    LIMIT 20`;
+exports.updateCurrentBill = `UPDATE billing  SET testCost = ?, payable = ?, outstanding = ?
+    WHERE billingid = ?`;
+exports.getBillAscesnsion = `SELECT * FROM test_ascension WHERE billingid = ?`;
+exports.deleteBillTransactionQuery = `DELETE FROM billing WHERE billingid = ?`;

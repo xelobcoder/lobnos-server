@@ -1,0 +1,43 @@
+const enum clientStatus {
+  urgent = "urgent",
+  moderate = "moderate",
+  routine = "routine",
+  normal = "normal",
+}
+
+export type TBillingData = {
+  patientid: number;
+  clinician: number;
+  organization: number;
+  test: number[];
+  payable: number;
+  testcost: number;
+  paid: number;
+  type: string;
+  taxIncluded: boolean;
+  taxValue: number;
+  status: clientStatus;
+  discount: number;
+  branchid: number,
+  paymentmode: number;
+  samplingCenter: number;
+  outstanding: number;
+  cost: number;
+  employeeid: number;
+};
+
+export enum billErrors {
+  already = "client billed on same day. Kindly check the billing history to update billing",
+  failed = "billing client failed",
+  error = "error occured in processing  transaction",
+}
+export interface IBillNewClient {
+  readonly patientid: number;
+  updateBillingHistory(paymentmode: number, billingid: number, amount: number): any;
+  billClient(data: TBillingData): any;
+}
+
+export type AscensionParameter = {
+  billingid: number;
+  testidCollection: number[];
+};

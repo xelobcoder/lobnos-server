@@ -29,6 +29,7 @@ const WarehouseRouter = require("./api/controllers/Inventory/warehouse")
 const wastagesRouter = require("./api/controllers/Inventory/wastages")
 const inventoryDepartmentRouter = require("./api/controllers/Inventory/departments")
 const HumanResourceModel = require("./api/models/HumanResources/HRMClass")
+const BillingRouter = require("./api/controllers/billing/index");
 const testPanelRouter = require("./api/controllers/testpanel/testpanelRouter");
 const expenseRouter = require("./api/controllers/expenses/expense.controller");
 const cors = require("cors");
@@ -77,6 +78,7 @@ app.use(function (request, response, next) {
 
 
 // app.use(redisMiddleware);
+app.use(BillingRouter);
 app.use(testPanelRouter)
 app.use(expenseRouter)
 app.use(Manager)
@@ -111,54 +113,56 @@ app.get("/api/v1/authenticate/employee/token", async function (request, response
   new User().validateEmployeeToken(request, response)
 })
 
-app.post("/api/v1/billing", async (req, res) => {
-  try {
-    const {
-      patientid,
-      clinician,
-      organization,
-      test,
-      payable,
-      testcost,
-      paid,
-      taxIncluded,
-      taxValue,
-      status,
-      discount,
-      paymentmode,
-      samplingCenter,
-      outstanding,
-      cost,
-      employeeid,
-    } = req.body
+// app.post("/api/v1/billing", async (req, res) => {
+//   try {
+//     const {
+//       patientid,
+//       clinician,
+//       organization,
+//       test,
+//       payable,
+//       testcost,
+//       paid,
+//       taxIncluded,
+//       taxValue,
+//       status,
+//       discount,
+//       paymentmode,
+//       samplingCenter,
+//       outstanding,
+//       cost,
+//       employeeid,
+//     } = req.body
 
-    const billing = new Billing(
-      patientid,
-      clinician,
-      organization,
-      test,
-      payable,
-      testcost,
-      paid,
-      taxIncluded,
-      taxValue,
-      status,
-      discount,
-      paymentmode,
-      samplingCenter,
-      outstanding,
-      cost
-    )
-    const result = await billing.insertionProcess(req, res, employeeid)
-    if (result === true) {
-      res.status(200).json({ message: "billing successfully", billingid: result, statusCode: 200, status: "success" })
-    } else {
-      customError(result, 404, res)
-    }
-  } catch (err) {
-    responseError(res)
-  }
-})
+//     const billing = new Billing(
+//       patientid,
+//       clinician,
+//       organization,
+//       test,
+//       payable,
+//       testcost,
+//       paid,
+//       taxIncluded,
+//       taxValue,
+//       status,
+//       discount,
+//       paymentmode,
+//       samplingCenter,
+//       outstanding,
+//       cost
+//     )
+
+//     const result = await billing.insertionProcess(req, res, employeeid)
+//     if (result === true) {
+//       res.status(200).json({ message: "billing successfully", billingid: result, statusCode: 200, status: "success" })
+//     } else {
+//       customError(result, 404, res)
+//     }
+//   } catch (err) {
+//     console.log(err)
+//     responseError(res)
+//   }
+// })
 
 app.get('/api/v1/billing/caninitialbill', async function (request, response) {
   const { patientid } = request.query;
