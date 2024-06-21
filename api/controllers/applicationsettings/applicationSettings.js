@@ -123,17 +123,3 @@ router.put("/api/v1/applicationsetting/resultsettings", async function (request,
 })
 
 module.exports = router;
-
-
-// router.get("/api/test/email", async function (request, response) {
-//   // const variables = await applicationsettings.getGeneralEmaiSettings();
-//   // const { provider, apppassword, email } = variables[0];
-//   // const x = new EmailService(email, apppassword, provider, 'Kairos Diagnostic');
-
-//   // x.forwardBillingReceipt(219)
-
-//   const x = await testInformation(219);
-//   const y = await clientInformation(219);
-//   response.render(path.join(__dirname,"../views","templates","billing.ejs"),{data: {testdata:x , personalInfo:y[0]}})  
-//   // response.send({x,y});
-// })

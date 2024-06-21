@@ -1,0 +1,172 @@
+import {
+  q_active_tax,
+  q_application_setting,
+  q_get_email_pref,
+  q_update_general_app_set,
+  q_TruncateTable,
+  q_update_sms_settings,
+  q_get_sms_settings,
+  q_truncateEmailPreference,
+  q_update_email_preference,
+} from "./queries";
+import { AppError, ApplicationSettingsData, AppSetting, EmailPreference } from "./Type";
+
+const { customError, promisifyQuery, responseError, rowAffected } = require("../../../helper");
+const logger = require("../../../logger");
+
+class ApplicationSettings {
+  public async getAllAppSettings(): Promise<ApplicationSettingsData[]> {
+    return promisifyQuery(q_application_setting);
+  }
+
+  public async getAppBillSettings(): Promise<AppSetting | boolean> {
+    const settings: ApplicationSettingsData[] = await this.getAllAppSettings();
+    if (settings.length === 0) return false;
+    const { includeTax, PaidBillsBeforeTransaction } = settings[0];
+    if (includeTax === 0) {
+      return { includeTax, taxValue: 0, PaidBillsBeforeTransaction };
+    }
+    const getTax = await promisifyQuery(q_active_tax);
+    if (getTax.length == 0) {
+      return { includeTax, taxValue: 0, PaidBillsBeforeTransaction };
+    } else {
+      const taxValue = getTax.reduce((a, b) => {
+        a + b.value;
+      }, 0);
+      return {
+        includeTax,
+        taxValue,
+        PaidBillsBeforeTransaction,
+      };
+    }
+  }
+
+  public async getEmailPreference(): Promise<EmailPreference | []> {
+    let data: EmailPreference[] | [] = await promisifyQuery(q_get_email_pref);
+    return data.length > 0 ? data[0] : [];
+  }
+
+  async shouldSendRejectionEmail(): Promise<boolean> {
+    const settings: ApplicationSettingsData[] = await this.getAllAppSettings();
+    let isServicesActivated = false;
+    let isRejectedPrefered = false;
+    if (settings.length > 0 && settings[0]["emailNotification"] == 1) {
+      isServicesActivated = true;
+    }
+
+    const rejectionPreference: EmailPreference | [] = await this.getEmailPreference();
+    if (!Array.isArray(rejectionPreference) && rejectionPreference?.rejection == "Yes") {
+      isRejectedPrefered = true;
+    }
+
+    if (isRejectedPrefered && isServicesActivated) {
+      return true;
+    }
+    return false;
+  }
+
+  public async updateApplicationSettings(request, response) {
+    const {
+      bulkregistration,
+      emailNotification,
+      fontsize,
+      textcolor,
+      DeactivateBilling24hrs,
+      BackgroundColor,
+      PaidBillsBeforeTransaction,
+      completeFlow,
+      approvalbeforeprinting,
+      includeTax,
+    } = request.body;
+
+    const values = [
+      bulkregistration,
+      fontsize,
+      textcolor,
+      BackgroundColor,
+      DeactivateBilling24hrs,
+      PaidBillsBeforeTransaction,
+      completeFlow,
+      approvalbeforeprinting,
+      emailNotification,
+      includeTax,
+    ];
+    const result = rowAffected(await promisifyQuery(q_TruncateTable));
+    if (!result) return false;
+    const isUpdated: boolean = rowAffected(await promisifyQuery(q_update_general_app_set, values));
+    return isUpdated;
+  }
+
+  async updateSmsSettings(data: string): Promise<boolean> {
+    return rowAffected(await promisifyQuery(q_update_sms_settings, [data]));
+  }
+
+  async getSmsSettings(): Promise<boolean | string> {
+    const result = await promisifyQuery(q_get_sms_settings);
+    if (result.length == 0) return null;
+    const { smsSettings } = result[0];
+    return JSON.parse(smsSettings);
+  }
+
+  async updateEmailPreference(data: EmailPreference): Promise<string> {
+    const { registration, rejection, result, approval, transactions, birthday, billing } = data;
+    const truncate = rowAffected(await promisifyQuery(q_truncateEmailPreference));
+    if (!truncate) return AppError.failed;
+    const values: string[] = [registration, result, rejection, approval, transactions, birthday, billing];
+    const outcome = rowAffected(await promisifyQuery(q_update_email_preference, values));
+    return outcome ? AppError.success : AppError.failed;
+  }
+
+  async getRegistrationSettings() {
+    return await promisifyQuery(`SELECT * FROM registrationsettings LIMIT 1`);
+  }
+
+  async updateRegisFields(id, data, employeeid) {
+    const query = `UPDATE registrationsettings SET fields = ?, updatedby = ?, updatedon = NOW() WHERE id = ?`;
+
+    return rowAffected(await promisifyQuery(query, [data, employeeid, id]));
+  }
+
+  async insertRegistrationSettings(fields, employeeid) {
+    const query = `INSERT INTO registrationsettings (fields,updatedby) VALUES (?,?)`;
+
+    return rowAffected(await promisifyQuery(query, [JSON.stringify(fields), employeeid]));
+  }
+
+  async updateRegistrationFields(request, response) {
+    const { fields, employeeid } = request.body;
+
+    if (!fields || !employeeid) {
+      return customError("Bad request fields or employeeid not provided", 400, response);
+    }
+
+    const previous = await this.getRegistrationSettings();
+    if (previous.length > 0) {
+      const fieldid = previous[0]["id"];
+      return this.updateRegisFields(fieldid, JSON.stringify(fields), employeeid);
+    } else {
+      return this.insertRegistrationSettings(fields, employeeid);
+    }
+  }
+  async getGeneralEmailSettings() {
+    try {
+      const query = `SELECT * FROM generalemailsettings`;
+      return await promisifyQuery(query);
+    } catch (err) {
+      logger.error(err);
+      throw new Error(err);
+    }
+  }
+
+  async updateGeneralEmailSettings(records) {
+    if (typeof records != "object") return false;
+    // first truncate the table
+    const truncate = `TRUNCATE TABLE generalemailsettings`;
+    let isTruncated = await promisifyQuery(truncate);
+    if (isTruncated) {
+      return new EmailService().insertEmailSettings(records);
+    }
+  }
+}
+
+module.exports = ApplicationSettings;

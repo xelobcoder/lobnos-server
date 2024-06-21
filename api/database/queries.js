@@ -6,62 +6,7 @@ const { testResults } = require("../testResult")
 // create an object
 
 const database_queries = {
-  setup_getParameters: (table) => {
-    // return a promise after operation
-    return new Promise((resolve, reject) => {
-      // get all the parameters from the database
-      connection.query(`SELECT * FROM ${table}`, (err, result) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(result)
-        }
-      })
-    })
-  },
-  setup_getonlyParameters: (table) => {
-    // return a promise after operation
-    return new Promise((resolve, reject) => {
-      // get all the parameters from the database
-      connection.query(`SELECT parameter FROM ${table}`, (err, result) => {
-        if (err) {
-          reject(err)
-        } else {
-          resolve(result)
-        }
-      })
-    })
-  },
-  createLiverfunctionTest_Table: () => {
-    // create table if not exist in the database
-    // parameters:id,billigid,patientid,date,time,comment,albumin,total protein,ast,alp,alt,bun,creatinine
-    let query = `CREATE TABLE IF NOT EXISTS Liverfunctiontest 
-  (id INT AUTO_INCREMENT PRIMARY KEY, billingid INT, patientid INT, date DATE, time TIME, comment VARCHAR(255),
-   albumin FLOAT, totalprotein FLOAT, ast FLOAT, alp FLOAT, alt FLOAT, bun FLOAT, creatinine FLOAT)`
-    connection.query(query, (err, result) => {
-      if (err) {
-        console.log(err)  
-      } else {
-        console.log(result)
-      }
-    })
-  },
-  createRenalfunctionTest_Table: () => {
-    // create table if not exist in the database
-    // parameters:id,billigid,patientid,date,time,comment,albumin,total protein,ast,alp,alt,bun,creatinine
-    let query = `CREATE TABLE IF NOT EXISTS Renalfunctiontest 
-  (id INT AUTO_INCREMENT PRIMARY KEY, billingid INT, 
-   patientid INT, date DATE, time TIME, comment VARCHAR(255))`
-    connection.query(query, (err, result) => {
-      if (err) {
-        {
-          logger.error(err)
-        }
-      } else {
-        return result
-      }
-    })
-  },
+ 
   checkduplicate: (type = "billingid", table, id, columnName, date = testResults.getTodayDateAndTime().date) => {
     // return a promise after operation
     return new Promise((resolve, reject) => {

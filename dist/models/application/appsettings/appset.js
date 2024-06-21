@@ -1,0 +1,138 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const queries_1 = require("./queries");
+const { customError, promisifyQuery, responseError, rowAffected } = require("../../../helper");
+const logger = require("../../../logger");
+class ApplicationSettings {
+    async getAllAppSettings() {
+        return promisifyQuery(queries_1.q_application_setting);
+    }
+    async getAppBillSettings() {
+        const settings = await this.getAllAppSettings();
+        if (settings.length === 0)
+            return false;
+        const { includeTax, PaidBillsBeforeTransaction } = settings[0];
+        if (includeTax === 0) {
+            return { includeTax, taxValue: 0, PaidBillsBeforeTransaction };
+        }
+        const getTax = await promisifyQuery(queries_1.q_active_tax);
+        if (getTax.length == 0) {
+            return { includeTax, taxValue: 0, PaidBillsBeforeTransaction };
+        }
+        else {
+            const taxValue = getTax.reduce((a, b) => {
+                a + b.value;
+            }, 0);
+            return {
+                includeTax,
+                taxValue,
+                PaidBillsBeforeTransaction,
+            };
+        }
+    }
+    async getEmailPreference() {
+        let data = await promisifyQuery(queries_1.q_get_email_pref);
+        return data.length > 0 ? data[0] : [];
+    }
+    async shouldSendRejectionEmail() {
+        const settings = await this.getAllAppSettings();
+        let isServicesActivated = false;
+        let isRejectedPrefered = false;
+        if (settings.length > 0 && settings[0]["emailNotification"] == 1) {
+            isServicesActivated = true;
+        }
+        const rejectionPreference = await this.getEmailPreference();
+        if (!Array.isArray(rejectionPreference) && (rejectionPreference === null || rejectionPreference === void 0 ? void 0 : rejectionPreference.rejection) == "Yes") {
+            isRejectedPrefered = true;
+        }
+        if (isRejectedPrefered && isServicesActivated) {
+            return true;
+        }
+        return false;
+    }
+    async updateApplicationSettings(request, response) {
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, } = request.body;
+        const values = [
+            bulkregistration,
+            fontsize,
+            textcolor,
+            BackgroundColor,
+            DeactivateBilling24hrs,
+            PaidBillsBeforeTransaction,
+            completeFlow,
+            approvalbeforeprinting,
+            emailNotification,
+            includeTax,
+        ];
+        const result = rowAffected(await promisifyQuery(queries_1.q_TruncateTable));
+        if (!result)
+            return false;
+        const isUpdated = rowAffected(await promisifyQuery(queries_1.q_update_general_app_set, values));
+        return isUpdated;
+    }
+    async updateSmsSettings(data) {
+        return rowAffected(await promisifyQuery(queries_1.q_update_sms_settings, [data]));
+    }
+    async getSmsSettings() {
+        const result = await promisifyQuery(queries_1.q_get_sms_settings);
+        if (result.length == 0)
+            return null;
+        const { smsSettings } = result[0];
+        return JSON.parse(smsSettings);
+    }
+    async updateEmailPreference(data) {
+        const { registration, rejection, result, approval, transactions, birthday, billing } = data;
+        const truncate = rowAffected(await promisifyQuery(queries_1.q_truncateEmailPreference));
+        if (!truncate)
+            return "operation failed" /* AppError.failed */;
+        const values = [registration, result, rejection, approval, transactions, birthday, billing];
+        const outcome = rowAffected(await promisifyQuery(queries_1.q_update_email_preference, values));
+        return outcome ? "success" /* AppError.success */ : "operation failed" /* AppError.failed */;
+    }
+    async getRegistrationSettings() {
+        return await promisifyQuery(`SELECT * FROM registrationsettings LIMIT 1`);
+    }
+    async updateRegisFields(id, data, employeeid) {
+        const query = `UPDATE registrationsettings SET fields = ?, updatedby = ?, updatedon = NOW() WHERE id = ?`;
+        return rowAffected(await promisifyQuery(query, [data, employeeid, id]));
+    }
+    async insertRegistrationSettings(fields, employeeid) {
+        const query = `INSERT INTO registrationsettings (fields,updatedby) VALUES (?,?)`;
+        return rowAffected(await promisifyQuery(query, [JSON.stringify(fields), employeeid]));
+    }
+    async updateRegistrationFields(request, response) {
+        const { fields, employeeid } = request.body;
+        if (!fields || !employeeid) {
+            return customError("Bad request fields or employeeid not provided", 400, response);
+        }
+        const previous = await this.getRegistrationSettings();
+        if (previous.length > 0) {
+            const fieldid = previous[0]["id"];
+            return this.updateRegisFields(fieldid, JSON.stringify(fields), employeeid);
+        }
+        else {
+            return this.insertRegistrationSettings(fields, employeeid);
+        }
+    }
+    async getGeneralEmailSettings() {
+        try {
+            const query = `SELECT * FROM generalemailsettings`;
+            return await promisifyQuery(query);
+        }
+        catch (err) {
+            logger.error(err);
+            throw new Error(err);
+        }
+    }
+    async updateGeneralEmailSettings(records) {
+        if (typeof records != "object")
+            return false;
+        // first truncate the table
+        const truncate = `TRUNCATE TABLE generalemailsettings`;
+        let isTruncated = await promisifyQuery(truncate);
+        if (isTruncated) {
+            return new EmailService().insertEmailSettings(records);
+        }
+    }
+}
+module.exports = ApplicationSettings;

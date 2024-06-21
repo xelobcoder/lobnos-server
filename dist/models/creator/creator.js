@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../../helper");
 const list_1 = __importDefault(require("../../testpanel/list"));
+const queries_1 = require("./queries");
 class Creator {
     constructor(testid) {
         this.testid = testid;
@@ -12,7 +13,7 @@ class Creator {
     async getTestCreationRule() {
         if (!this.testid)
             throw new Error("testid is required");
-        const rule = await (0, helper_1.promisifyQuery)("SELECT creationrule FROM customtestcreation WHERE testid = ?", [this.testid]);
+        const rule = await (0, helper_1.promisifyQuery)(queries_1.testCreationRule, [this.testid]);
         if (rule.length > 0 && rule[0].creationrule !== "{}") {
             const result = JSON.parse(rule[0].creationrule);
             return result;
@@ -37,7 +38,7 @@ class Creator {
             const hasGenderVariation = result.length > 0 && result.some((item) => item.hasGenderVariation === true);
             let clientGender = "";
             if (hasGenderVariation) {
-                const packet = await (0, helper_1.promisifyQuery)("SELECT gender,age,agetype FROM new_patients WHERE patientid = ?", [patientid]);
+                const packet = await (0, helper_1.promisifyQuery)(queries_1.getGenderQuery, [patientid]);
                 if (packet.length > 0)
                     clientGender = packet[0]["gender"];
             }
@@ -70,15 +71,14 @@ class Creator {
         if (!billingid || !testid) {
             throw new Error("testid and billingid required");
         }
-        let comments = await (0, helper_1.promisifyQuery)("SELECT comments FROM result_comments WHERE billingid = ? AND testid = ?", [billingid, testid]);
+        let comments = await (0, helper_1.promisifyQuery)(queries_1._comments_query, [billingid, testid]);
         return comments.length > 0 ? comments[0]["comments"] : "";
     }
     async updateTestCreationRule(data) {
         if (!this.testid || !data)
             throw new Error("testid and data is required");
         const stringdata = JSON.stringify(data);
-        const query = "UPDATE customtestcreation SET creationrule = ? WHERE testid = ?";
-        const isUpdated = await (0, helper_1.promisifyQuery)(query, [stringdata, this.testid]);
+        const isUpdated = await (0, helper_1.promisifyQuery)(queries_1.update_creation_query, [stringdata, this.testid]);
         return (0, helper_1.rowAffected)(isUpdated);
     }
 }
