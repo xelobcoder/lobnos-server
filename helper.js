@@ -1,5 +1,4 @@
 const connectionpool = require("./api/dbpool");
-const logger = require("./logger");
 function customError(message, statusCode, response) {
   if (!response) {
     throw new TypeError("Http response object required");
@@ -59,11 +58,11 @@ function NotFound(response) {
   response.send({ message: "Data not found", status: "error" });
 }
 
-async function promisifyQuery(query, values = []) {
+
+function promisifyQuery(query, values = []) {
   if (!query || typeof query != "string") {
     throw new Error("query must be added and a string type");
   }
-  let data = [];
   return new Promise((resolve, reject) => {
     connectionpool.getConnection((connectionError, connection) => {
       if (connectionError) {

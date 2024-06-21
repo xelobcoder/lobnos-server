@@ -8,7 +8,7 @@ const trycatch_1 = require("../../models/generics/trycatch");
 async function handleNewBilling(request, response) {
     async function validate() {
         const { patientid } = request.body;
-        const bill = await new billing_1.Billing(patientid).insertionProcess(request.body, false);
+        let bill = new billing_1.Billing(patientid).insertionProcess(request.body, false);
         if (typeof bill == "string" && bill == billingclientTypes_1.billErrors.already) {
             return response.send({ message: bill, statusCode: 200, status: "success" });
         }

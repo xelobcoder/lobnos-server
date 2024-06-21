@@ -164,6 +164,13 @@ app.get("/api/v1/authenticate/employee/token", async function (request, response
 //   }
 // })
 
+
+const syn = require("./dist/models/application/synchronization/synchronization")
+
+
+console.log(syn)
+
+
 app.get('/api/v1/billing/caninitialbill', async function (request, response) {
   const { patientid } = request.query;
   if (!patientid) {

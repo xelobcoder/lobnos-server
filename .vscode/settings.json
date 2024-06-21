@@ -1,7 +1,7 @@
 {
   "workbench.editor.pinnedTabSizing": "shrink",
   "editor.tabSize": 10,
-  "editor.fontFamily": "'Fira Code','Consolas Code','monospace'",
+  "editor.fontFamily": "'Fira','Consolas Code'",
   "editor.tabCompletion": "on",
   "editor.wordWrap": "on",
   "editor.wordWrapColumn": 300,
@@ -19,9 +19,7 @@
       "splitTerminals": [
         {
           "name": "run lobnos-server",
-          "commands": [
-            "npm run dev"
-          ]
+          "commands": ["npm run dev"]
         }
       ]
     }

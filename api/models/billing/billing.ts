@@ -156,10 +156,10 @@ export class Billing implements IBillNewClient {
     let isAscAdded = false;
     let billingid = undefined;
     try {
-      let canInitiateNewBill = false;
-      if (strict) {
-        canInitiateNewBill = await this.haveBeenBilledToday(this.patientid);
-      }
+      let canInitiateNewBill = true;
+      // if (strict) {
+      //   canInitiateNewBill = await this.haveBeenBilledToday(this.patientid);
+      // }
 
       if (!canInitiateNewBill) {
         return billErrors.already;

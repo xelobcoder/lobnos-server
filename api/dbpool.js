@@ -1,10 +1,10 @@
 const mysql = require('mysql');
 const dotenv = require('dotenv');
+const connection = require('./db');
 dotenv.config();
 
-
 const username = process.env.NODE_ENV == 'development' ?
-    process.env.DEVELOPMENT_DB_USERNAME : process.env.PRODUCTION_DB_USERNAME;
+  process.env.DEVELOPMENT_DB_USERNAME : process.env.PRODUCTION_DB_USERNAME;
 
 const password = process.env.NODE_ENV == 'development' ?
     process.env.DEVELOPMENT_DB_PASSWORD : process.env.PRODUCTION_DB_PASSWORD;
@@ -15,39 +15,47 @@ const host = process.env.NODE_ENV == 'development' ?
 const database = process.env.NODE_ENV == 'development' ?
     process.env.DEVELOPMENT_DATABASE : process.env.PRODUCTION_DATABASE;
 
-    const connectionData = {
+const connectionData = {
       host: host,
       user: username,
       password: password,
-      database,
+  database,
+  connectionLimt: 1000
   }
   
 
 
 const connectionpool = mysql.createPool(connectionData);
 
+
+
+function handleConnection(errcode, err) {
+  switch (errcode) {
+    case 'PROTOCOL_CONNECTION_LOST':
+      console.error('Database connection was closed.');
+      break;
+    case 'ER_CON_COUNT_ERROR':
+      console.error("Database has too many connections");
+      break;
+    case 'ECONNREFUSED':
+      console.error('Database connection was refused.');
+      break;
+    case 'ER_DUP_ENTRY':
+      console.error('Duplicates values violation occured');
+      break;
+    default:
+      console.log(err)
+      throw err;
+  }
+}
+
 connectionpool.getConnection((err, connection) => {
- if (err) {
-  if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-   console.error('Database connection was closed.');
+  if (err) {
+    console.log(err)
+    handleConnection(err.errcode, err);
   }
-  if (err.code === 'ER_CON_COUNT_ERROR') {
-   console.error('Database has too many connections.');
-  }
-  if (err.code === 'ECONNREFUSED') {
-    console.error('Database connection was refused.');
-   }
-   
-   if (err.code === 'ER_DUP_ENTRY') {
-     console.log('Duplicates values violation occured');
-   }
- }
-
-  if (connection) {
-    connection.release()
-  };
+  connection.release();
 });
-
 
 
 
