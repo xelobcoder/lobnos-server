@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.q_update_email_preference = exports.q_truncateEmailPreference = exports.q_get_sms_settings = exports.q_update_sms_settings = exports.q_TruncateTable = exports.q_update_general_app_set = exports.q_get_email_pref = exports.q_active_tax = exports.q_application_setting = void 0;
+exports.q_truncateGeneralSettings = exports.q_general_email_settings = exports.q_insert_reg_settings = exports.q_update_reg_fields = exports.q_registration_settings = exports.q_update_email_preference = exports.q_truncateEmailPreference = exports.q_get_sms_settings = exports.q_update_sms_settings = exports.q_TruncateTable = exports.q_update_general_app_set = exports.q_get_email_pref = exports.q_active_tax = exports.q_application_setting = void 0;
 exports.q_application_setting = `SELECT * FROM applicationsettings`;
 exports.q_active_tax = `SELECT * FROM tax WHERE apply = 'Yes'`;
 exports.q_get_email_pref = "SELECT * FROM emailpreference ORDER BY id DESC LIMIT 1";
@@ -10,3 +10,8 @@ exports.q_update_sms_settings = "UPDATE applicationsettings SET smsSettings = ?"
 exports.q_get_sms_settings = "SELECT smsSettings FROM applicationsettings";
 exports.q_truncateEmailPreference = "TRUNCATE TABLE emailpreference";
 exports.q_update_email_preference = "INSERT INTO emailpreference (registration,result,rejection,approval,transactions,birthday,billing) VALUES (?,?,?,?,?,?,?)";
+exports.q_registration_settings = "SELECT * FROM registrationsettings LIMIT 1";
+exports.q_update_reg_fields = "UPDATE registrationsettings SET fields = ?, updatedby = ?, updatedon = NOW() WHERE id = ?";
+exports.q_insert_reg_settings = "INSERT INTO registrationsettings (fields,updatedby) VALUES (?,?)";
+exports.q_general_email_settings = "SELECT * FROM generalemailsettings";
+exports.q_truncateGeneralSettings = "TRUNCATE TABLE generalemailsettings";

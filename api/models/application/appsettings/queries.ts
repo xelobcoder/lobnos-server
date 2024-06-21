@@ -16,3 +16,14 @@ export const q_truncateEmailPreference: string = "TRUNCATE TABLE emailpreference
 
 export const q_update_email_preference: string =
   "INSERT INTO emailpreference (registration,result,rejection,approval,transactions,birthday,billing) VALUES (?,?,?,?,?,?,?)";
+
+
+export const q_registration_settings: string = "SELECT * FROM registrationsettings LIMIT 1";
+
+export const q_update_reg_fields: string = "UPDATE registrationsettings SET fields = ?, updatedby = ?, updatedon = NOW() WHERE id = ?";
+
+export const q_insert_reg_settings: string = "INSERT INTO registrationsettings (fields,updatedby) VALUES (?,?)";
+
+export const q_general_email_settings: string = "SELECT * FROM generalemailsettings";
+
+export const q_truncateGeneralSettings: string = "TRUNCATE TABLE generalemailsettings";

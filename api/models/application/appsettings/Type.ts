@@ -32,3 +32,10 @@ export const  enum AppError {
   failed = "operation failed",
   success = "success",
 }
+
+
+
+export type IupdateRegisFields = {
+  fields: string;
+  employeeid: number;
+};

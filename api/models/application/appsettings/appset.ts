@@ -8,11 +8,17 @@ import {
   q_get_sms_settings,
   q_truncateEmailPreference,
   q_update_email_preference,
+  q_registration_settings,
+  q_update_reg_fields,
+  q_insert_reg_settings,
+  q_general_email_settings,
+  q_truncateGeneralSettings,
 } from "./queries";
-import { AppError, ApplicationSettingsData, AppSetting, EmailPreference } from "./Type";
 
-const { customError, promisifyQuery, responseError, rowAffected } = require("../../../helper");
-const logger = require("../../../logger");
+import { AppError, ApplicationSettingsData, AppSetting, EmailPreference, IupdateRegisFields } from "./Type";
+
+const { promisifyQuery, rowAffected } = require("../../../helper");
+// const {EmailService} = require("../../")
 
 class ApplicationSettings {
   public async getAllAppSettings(): Promise<ApplicationSettingsData[]> {
@@ -118,26 +124,22 @@ class ApplicationSettings {
   }
 
   async getRegistrationSettings() {
-    return await promisifyQuery(`SELECT * FROM registrationsettings LIMIT 1`);
+    return await promisifyQuery(q_registration_settings);
   }
 
-  async updateRegisFields(id, data, employeeid) {
-    const query = `UPDATE registrationsettings SET fields = ?, updatedby = ?, updatedon = NOW() WHERE id = ?`;
-
-    return rowAffected(await promisifyQuery(query, [data, employeeid, id]));
+  async updateRegisFields(id: number, data: string, employeeid: number): Promise<boolean> {
+    return rowAffected(await promisifyQuery(q_update_reg_fields, [data, employeeid, id]));
   }
 
-  async insertRegistrationSettings(fields, employeeid) {
-    const query = `INSERT INTO registrationsettings (fields,updatedby) VALUES (?,?)`;
-
-    return rowAffected(await promisifyQuery(query, [JSON.stringify(fields), employeeid]));
+  async insertRegistrationSettings(fields: string, employeeid: number) {
+    return rowAffected(await promisifyQuery(q_insert_reg_settings, [JSON.stringify(fields), employeeid]));
   }
 
-  async updateRegistrationFields(request, response) {
-    const { fields, employeeid } = request.body;
+  async updateRegistrationFields(data: IupdateRegisFields) {
+    const { fields, employeeid } = data;
 
     if (!fields || !employeeid) {
-      return customError("Bad request fields or employeeid not provided", 400, response);
+      throw new ReferenceError("fields or employeeid not provided");
     }
 
     const previous = await this.getRegistrationSettings();
@@ -149,22 +151,15 @@ class ApplicationSettings {
     }
   }
   async getGeneralEmailSettings() {
-    try {
-      const query = `SELECT * FROM generalemailsettings`;
-      return await promisifyQuery(query);
-    } catch (err) {
-      logger.error(err);
-      throw new Error(err);
-    }
+    return await promisifyQuery(q_general_email_settings);
   }
 
   async updateGeneralEmailSettings(records) {
     if (typeof records != "object") return false;
     // first truncate the table
-    const truncate = `TRUNCATE TABLE generalemailsettings`;
-    let isTruncated = await promisifyQuery(truncate);
+    let isTruncated = await promisifyQuery(q_truncateGeneralSettings);
     if (isTruncated) {
-      return new EmailService().insertEmailSettings(records);
+//       return new EmailService().insertEmailSettings(records);
     }
   }
 }
