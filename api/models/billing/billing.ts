@@ -1,22 +1,35 @@
-import { AscensionParameter, billErrors, IBillNewClient, TBillingData } from "./billingclientTypes";
+import { AscensionParameter, billErrors, IBillNewClient, Pagination, TBillingData } from "./billingclientTypes";
 import { promisifyQuery, rowAffected } from "./../../../helper.js";
 
 import {
   AddtoTestAscenstionQuery,
+  currentDateBilledClients,
   deleteAscensionidQuery,
   deleteBillTransactionQuery,
   deleteNewBillPaymentHx,
   insertBillQuery,
   patientBilledTodayQuery,
+  q_addNewPartition,
+  q_getAllpartiton,
   updatebillHistoryQuery,
 } from "./queries";
+import { dropTablePartition } from "./partitioning";
 
 export class Billing implements IBillNewClient {
   readonly patientid: number;
   constructor(patientid: number) {
     this.patientid = patientid;
   }
-  public wrapperTryCatch<T>(cb: () => T, errcb: (_err: any) => void = null): T | null {
+
+  public async getBranchDayBilledClients(branchid: number, { count = 10, page = 1 }: Pagination): Promise<[]> {
+    const currentDate = new Date();
+    let currentYear = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const day = currentDate.getDate();
+    const result: [] = await promisifyQuery(currentDateBilledClients, [currentYear, month, day, branchid]);
+    return result;
+  }
+  public wrapperTryCatch<T>(cb: () => T, errcb: (_err: any) => void): T | null {
     try {
       return cb();
     } catch (err) {
@@ -28,7 +41,113 @@ export class Billing implements IBillNewClient {
     }
   }
 
-  public insertNewBilling() {}
+  private static async initPartitionBilling(prefix: string, year: number) {
+    var query: string = `ALTER TABLE billing  PARTITION BY RANGE COLUMNS (year,month) 
+    (`;
+    let range: number = 1;
+    while (range <= 12) {
+      const month = `${range}`.padStart(2, "0");
+      if (range == 12) {
+        query += `PARTITION ${prefix}_${year}_${month} VALUES LESS THAN (${year + 1}, ${1})`;
+      } else {
+        query += `PARTITION ${prefix}_${year}_${month} VALUES LESS THAN (${year}, ${range + 1}),`;
+      }
+      range++;
+    }
+    query += ` )`;
+    const result = await promisifyQuery(query);
+    return result.affectedRows;
+  }
+
+  private static async getBillingTablePartions() {
+    const packets = await promisifyQuery(q_getAllpartiton);
+    return packets[0]["PARTITION_NAME"] != null ? packets : [];
+  }
+
+  private static async partitionstoYearList(data: []) {
+    const packets = data || (await this.getBillingTablePartions());
+    return packets.length === 0 ? [] : packets.map((item: any, index: number) => item.PARTITION_NAME.split("_")[1]);
+  }
+
+  private static async partitionsStrings(packets: []) {
+    if (Array.isArray(packets) && packets.length > 0) {
+      return packets.map((item: any, index: number) => item.PARTITION_NAME);
+    }
+    return [];
+  }
+  private static async billingPartitionPrunner(startdate: string, enddate: string) {
+    if (!startdate || !startdate) throw new Error("required startdate and enddate not provided");
+    let partitions = await this.getBillingTablePartions();
+    if (partitions.length == 0) return [];
+
+    const startYear = new Date(startdate).getFullYear();
+    const endYear = new Date(enddate).getFullYear();
+    const stMonth = new Date(startdate).getMonth();
+    const edMonth = new Date(enddate).getMonth();
+
+    partitions = partitions.map((a, index: number) => a.PARTITION_NAME);
+
+    partitions.filter((_part, index) => {
+      const [_, year, month] = _part.split("_");
+      return year == startYear || year == endYear || (endYear == year && stMonth == month) || (startYear == year && edMonth == month);
+    });
+    return partitions.length > 0 ? partitions.join(",") : [];
+  }
+
+  private static async executeAddPartitionBilling(_partition_name: string, year: number, month: number) {
+    return await promisifyQuery(q_addNewPartition, [_partition_name, year, month]);
+  }
+
+  async dropPartition(partitionName: string) {
+    return await promisifyQuery(`ALTER TABLE billing DROP PARTITION \`${partitionName}\``);
+  }
+
+  public async AddYearPartition(year: number): Promise<boolean | undefined> {
+    let currentYear: number = year || new Date().getFullYear();
+    const partitions = await Billing.getBillingTablePartions();
+    const _currentPartitions: [] = await Billing.partitionstoYearList(partitions);
+
+    if (_currentPartitions.length === 0) {
+      return await Billing.initPartitionBilling("billing", currentYear);
+    }
+
+    let missingPartition: number[] = [];
+
+    async function loop_create_partition(start: number, end: number, availablePartitions: number[]) {
+      let range = start;
+      while (range <= end && range > 0) {
+        const _range = `${range}`.padStart(2, "0");
+        const partitionName = `billing_${currentYear}_${_range}`;
+        if (range != 12) {
+          await Billing.executeAddPartitionBilling(partitionName, currentYear, range + 1);
+        } else {
+          await Billing.executeAddPartitionBilling(partitionName, currentYear + 1, 1);
+        }
+        console.log(`${partitionName} successfully added `);
+        range++;
+      }
+    }
+
+    if (!_currentPartitions.includes(currentYear as never)) {
+      const availablePartitions: string[] = await Billing.partitionsStrings(partitions);
+      let incremental: number = 1;
+      while (incremental <= 12) {
+        const month = `${incremental}`.padStart(2, "0");
+        const name = `billing_${currentYear}_${month}`;
+        if (!availablePartitions.includes(name)) {
+          missingPartition.push(incremental);
+        }
+        incremental++;
+      }
+    }
+
+    if (missingPartition.length > 0) {
+      const end = missingPartition[missingPartition.length - 1];
+      loop_create_partition(missingPartition[0], end, missingPartition);
+    }
+    return true;
+  }
+  public async insertNewBilling() {}
   async billClient(data: TBillingData): Promise<number | boolean> {
     try {
       const {
@@ -40,7 +159,6 @@ export class Billing implements IBillNewClient {
         outstanding,
         discount,
         samplingCenter,
-        paymentmode,
         taxIncluded,
         taxValue,
         status,
@@ -70,7 +188,6 @@ export class Billing implements IBillNewClient {
       if (affectedRows == 0) return false;
       return insertId;
     } catch (err) {
-      console.error(err);
       throw new Error(billErrors.error);
     }
   }
@@ -116,7 +233,7 @@ export class Billing implements IBillNewClient {
       counter++;
     }
   }
-  public async AddtoTestAscenstion(data: AscensionParameter) {
+  public async AddtoTestAscenstion(data: AscensionParameter): Promise<boolean> {
     const { billingid, testidCollection } = data;
     let insertionCount = 0;
     const inserted: number[] = [];
@@ -125,18 +242,16 @@ export class Billing implements IBillNewClient {
       const collected = (await this.isCompleteFlow()) ? "false" : "true";
       for (let i = 0; i < testidCollection.length; i++) {
         const testid = testidCollection[i];
-        const isInserted = await promisifyQuery(AddtoTestAscenstionQuery, [testid, billingid, collected]);
-        if (rowAffected(isInserted)) {
-          insertionCount++;
-          inserted.push(testid);
-        }
+        const isInserted: boolean = await promisifyQuery(AddtoTestAscenstionQuery, [testid, billingid, collected]);
+        if (!isInserted) throw new Error(billErrors.failed);
+        insertionCount++;
+        inserted.push(testid);
         if (!collected) {
           await this.updateApprovalStatus(billingid, testid);
         }
       }
       return insertionCount === testidCollection.length;
     } catch (err) {
-      console.log(err);
       await this.deleteAddedWithError(inserted, billingid);
       throw new Error(err?.message || err);
     }
@@ -150,16 +265,16 @@ export class Billing implements IBillNewClient {
     await promisifyQuery(deleteNewBillPaymentHx, billingid);
   }
 
-  public async insertionProcess(billingData: TBillingData, strict: boolean = true) {
+  public async insertionProcess(billingData: TBillingData, strict: boolean = true): Promise<boolean | string> {
     // strict can be replaced with database value for strict checking to be done
     let isHistoryAdded = false;
     let isAscAdded = false;
     let billingid = undefined;
     try {
       let canInitiateNewBill = true;
-      // if (strict) {
-      //   canInitiateNewBill = await this.haveBeenBilledToday(this.patientid);
-      // }
+      if (strict) {
+        canInitiateNewBill = await this.haveBeenBilledToday(this.patientid);
+      }
 
       if (!canInitiateNewBill) {
         return billErrors.already;
@@ -183,3 +298,7 @@ export class Billing implements IBillNewClient {
     }
   }
 }
+
+// dropTablePartition("billing")
+
+new Billing(5).AddYearPartition(2024);

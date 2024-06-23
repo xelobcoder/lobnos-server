@@ -1276,3 +1276,4 @@
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"code":"EDNS","command":"CONN","errno":-3008,"hostname":"smtp.gmail.com","level":"error","syscall":"getaddrinfo"}

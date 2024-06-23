@@ -317,7 +317,7 @@ const getClientBillingInformation = async function (request, response) {
 
 const getBilledClients = async function (request, response) {
   const mysql = `
-      SELECT b.billingid AS billingid,
+      SELECT b.billingid,
           CONCAT( np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
           b.paid_amount AS paid,
           b.payable,

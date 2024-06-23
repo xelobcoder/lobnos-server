@@ -22,3 +22,33 @@ export async function handleNewBilling(request: Request, response: Response) {
   }
   wrapperTryCatch(validate);
 }
+
+
+
+
+export async function canInitiateBill(request: Request, response: Response) {
+  let { patientid } = request.query;
+  if (!patientid) {
+    return customError(`Bad Request. patientid required`, 404, response);
+  }
+  let ptid: number;
+  if (typeof patientid === "string") {
+    ptid = parseInt(patientid);
+  }
+
+  if (isNaN(ptid)) {
+    customError("Bad Request.patientid must a number", 400, response);
+  }
+  const canBill = await new Billing(ptid).haveBeenBilledToday(ptid);
+  response.send({ canInitiateBill: canBill });
+}
+
+
+
+export async function getBilledClients(request: Request, response: Response) {
+  
+}
+
+// app.get("/api/v1/billedclients", (req, res) => {
+//   getBilledClients(req, res)
+// })

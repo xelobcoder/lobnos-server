@@ -116,7 +116,7 @@ class Patient extends Registration {
   }
 
 
-  async billingPartionPrunner(startdate, enddate) {
+  async billingPartitionPrunner(startdate, enddate) {
     if (!startdate || !startdate) throw new Error("required startdate and enddate not provided");
     let partitonQuery = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
     let partitions = await promisifyQuery(partitonQuery);
@@ -148,7 +148,7 @@ class Patient extends Registration {
       const endYear = new Date(enddate).getFullYear();
       const stMonth = new Date(startdate).getMonth();
       const edMonth = new Date(enddate).getMonth();
-      let partitions = await this.billingPartionPrunner(startdate, enddate);
+      let partitions = await this.billingPartitionPrunner(startdate, enddate);
       query = `SELECT * FROM billing PARTITION(${partitions}) WHERE patientid = ? AND year BETWEEN ? AND ? LIMIT ? OFFSET ?`;
       values = [patientid, startYear, endYear, count, (page - 1) * count];
     } else if (startdate) {
@@ -223,7 +223,6 @@ class Patient extends Registration {
 }
 
 
-new Patient().getPatientBillingRecords({ patientid: 20244245, startdate: "2024-06-11", enddate: "2024-06-30" })
 
 module.exports = Patient;
 

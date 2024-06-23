@@ -71,6 +71,7 @@ function promisifyQuery(query, values = []) {
       connection.query(query, values, (queryError, result) => {
         connection.release();
         if (queryError) {
+          console.log(queryError)
           reject(queryError);
         } else {
           resolve(result);

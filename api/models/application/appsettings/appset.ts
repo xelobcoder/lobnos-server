@@ -71,7 +71,7 @@ class ApplicationSettings {
     return false;
   }
 
-  public async updateApplicationSettings(request, response) {
+  public async updateApplicationSettings(data: ApplicationSettingsData): Promise<boolean> {
     const {
       bulkregistration,
       emailNotification,
@@ -83,7 +83,7 @@ class ApplicationSettings {
       completeFlow,
       approvalbeforeprinting,
       includeTax,
-    } = request.body;
+    } = data;
 
     const values = [
       bulkregistration,
@@ -131,11 +131,11 @@ class ApplicationSettings {
     return rowAffected(await promisifyQuery(q_update_reg_fields, [data, employeeid, id]));
   }
 
-  async insertRegistrationSettings(fields: string, employeeid: number) {
+  async insertRegistrationSettings(fields: string, employeeid: number): Promise<boolean> {
     return rowAffected(await promisifyQuery(q_insert_reg_settings, [JSON.stringify(fields), employeeid]));
   }
 
-  async updateRegistrationFields(data: IupdateRegisFields) {
+  async updateRegistrationFields(data: IupdateRegisFields): Promise<boolean> {
     const { fields, employeeid } = data;
 
     if (!fields || !employeeid) {
@@ -145,9 +145,9 @@ class ApplicationSettings {
     const previous = await this.getRegistrationSettings();
     if (previous.length > 0) {
       const fieldid = previous[0]["id"];
-      return this.updateRegisFields(fieldid, JSON.stringify(fields), employeeid);
+      return await this.updateRegisFields(fieldid, JSON.stringify(fields), employeeid);
     } else {
-      return this.insertRegistrationSettings(fields, employeeid);
+      return await this.insertRegistrationSettings(fields, employeeid);
     }
   }
   async getGeneralEmailSettings() {
@@ -159,7 +159,7 @@ class ApplicationSettings {
     // first truncate the table
     let isTruncated = await promisifyQuery(q_truncateGeneralSettings);
     if (isTruncated) {
-//       return new EmailService().insertEmailSettings(records);
+      //       return new EmailService().insertEmailSettings(records);
     }
   }
 }

@@ -17,3 +17,15 @@ Security
    - Pending Exepenses approval count
    - Filtering expenses by user Filtering
    
+
+
+
+   REDUNDANT 
+
+   - scan for redundant patient records;
+   - should be able to merge and replace all ids with the current id
+   - 
+
+
+
+   PHELOBOTOMY ANALYTICS

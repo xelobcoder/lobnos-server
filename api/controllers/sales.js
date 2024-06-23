@@ -7,7 +7,7 @@ const router = require('express').Router();
 
 router.get('/api/v1/sales/summary/general', function (request, response) {
   const { target, branch, clinicianid,patientid } = request.query
-  if (!target || ["yearly", "monthly", "daily", "weekly"].includes(target) === false || !branch) {
+  if (!target || !["yearly", "monthly", "daily", "weekly"].includes(target)  || !branch) {
     response.send({
       statusCode: 400,
       status: "error",

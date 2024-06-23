@@ -45,25 +45,37 @@ export let clientBillInformationQuery: string =
 
 export let billCountDateQ: string = "SELECT COUNT(*) AS count FROM billing WHERE DATE(billedon) = ?";
 
-export const billedClientsQuery: string = `
-     SELECT b.billingid AS billingid,
+export let currentDateBilledClients: string = `
+     SELECT b.billingid,
           CONCAT( np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
           b.paid_amount AS paid,
           b.payable,
           b.patientid,
           b.type,
           b.outstanding,
-          pm.PaymentMode,
           b.discount,
           DATE(b.billedon) AS date
         FROM billing AS b
           INNER JOIN new_patients AS np ON np.patientid = b.patientid
-          INNER JOIN billinghx AS bhx ON bhx.billingid = b.billingid
-          INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
-          WHERE DATE(b.billedon) = CURRENT_DATE
-    GROUP BY b.billingid
-    ORDER BY B.billingid DESC
-    LIMIT 20`;
+          WHERE year  = ? AND month = ? AND day = ? AND branchid =  ?
+    ORDER BY b.billingid DESC
+    LIMIT ? OFFSET ?`;
+
+export let q_currentDateBilledClientsAllBranches: string = `
+     SELECT b.billingid,
+          CONCAT( np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
+          b.paid_amount AS paid,
+          b.payable,
+          b.patientid,
+          b.type,
+          b.outstanding,
+          b.discount,
+          DATE(b.billedon) AS date
+        FROM billing AS b
+          INNER JOIN new_patients AS np ON np.patientid = b.patientid
+          WHERE year  = ? AND month = ? AND day = ? 
+    ORDER BY b.billingid DESC
+    LIMIT ? OFFSET ?`;
 
 export const updateCurrentBill: string = `UPDATE billing  SET testCost = ?, payable = ?, outstanding = ?
     WHERE billingid = ?`;
@@ -71,3 +83,9 @@ export const updateCurrentBill: string = `UPDATE billing  SET testCost = ?, paya
 export const getBillAscesnsion: string = `SELECT * FROM test_ascension WHERE billingid = ?`;
 
 export const deleteBillTransactionQuery: string = `DELETE FROM billing WHERE billingid = ?`;
+
+export const q_getAllpartiton: string = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
+
+export const q_addNewPartition: string = "ALTER TABLE billing ADD PARTITION(PARTITION `?`  VALUES LESS THAN (?,?))";
+
+export const q_dropTablePartition: string = `ALTER TABLE billing REMOVE PARTITIONING`;

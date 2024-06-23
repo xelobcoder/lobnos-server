@@ -50,8 +50,8 @@ class ApplicationSettings {
         }
         return false;
     }
-    async updateApplicationSettings(request, response) {
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, } = request.body;
+    async updateApplicationSettings(data) {
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, } = data;
         const values = [
             bulkregistration,
             fontsize,
@@ -106,10 +106,10 @@ class ApplicationSettings {
         const previous = await this.getRegistrationSettings();
         if (previous.length > 0) {
             const fieldid = previous[0]["id"];
-            return this.updateRegisFields(fieldid, JSON.stringify(fields), employeeid);
+            return await this.updateRegisFields(fieldid, JSON.stringify(fields), employeeid);
         }
         else {
-            return this.insertRegistrationSettings(fields, employeeid);
+            return await this.insertRegistrationSettings(fields, employeeid);
         }
     }
     async getGeneralEmailSettings() {

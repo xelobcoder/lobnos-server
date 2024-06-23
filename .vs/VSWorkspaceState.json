@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\api",
+    "\\api\\controllers",
+    "\\api\\controllers\\applicationsettings",
+    "\\api\\models",
+    "\\api\\models\\application\\appsettings",
+    "\\api\\models\\appointments",
+    "\\dist\\models",
+    "\\dist\\models\\application",
+    "\\dist\\models\\application\\appsettings"
+  ],
+  "SelectedNode": "\\api\\controllers\\applicationsettings\\applicationSettings.js",
+  "PreviewInSolutionExplorer": false
+}

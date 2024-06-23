@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteBillTransactionQuery = exports.getBillAscesnsion = exports.updateCurrentBill = exports.billedClientsQuery = exports.billCountDateQ = exports.clientBillInformationQuery = exports.clientPaymentStatusQuery = exports.deleteAscensionidQuery = exports.AddtoTestAscenstionQuery = exports.patientBilledTodayQuery = exports.updateApprovalStatusQuery = exports.insertBillQuery = exports.deleteNewBillPaymentHx = exports.updatebillHistoryQuery = void 0;
+exports.q_dropTablePartition = exports.q_addNewPartition = exports.q_getAllpartiton = exports.deleteBillTransactionQuery = exports.getBillAscesnsion = exports.updateCurrentBill = exports.q_currentDateBilledClientsAllBranches = exports.currentDateBilledClients = exports.billCountDateQ = exports.clientBillInformationQuery = exports.clientPaymentStatusQuery = exports.deleteAscensionidQuery = exports.AddtoTestAscenstionQuery = exports.patientBilledTodayQuery = exports.updateApprovalStatusQuery = exports.insertBillQuery = exports.deleteNewBillPaymentHx = exports.updatebillHistoryQuery = void 0;
 exports.updatebillHistoryQuery = "UPDATE billinghx SET paymentMode = ?, Amount = ? WHERE billingid = ?";
 exports.deleteNewBillPaymentHx = "DELETE FROM billinghx WHERE billingid = ?";
 exports.insertBillQuery = `INSERT INTO billing
@@ -35,26 +35,40 @@ exports.clientPaymentStatusQuery = `SELECT
       WHERE PATIENTID = ?`;
 exports.clientBillInformationQuery = "SELECT * FROM billing as b  INNER JOIN new_patients as n ON b.PATIENTID = n.PATIENTID WHERE b.BILLINGID = ?";
 exports.billCountDateQ = "SELECT COUNT(*) AS count FROM billing WHERE DATE(billedon) = ?";
-exports.billedClientsQuery = `
-     SELECT b.billingid AS billingid,
+exports.currentDateBilledClients = `
+     SELECT b.billingid,
           CONCAT( np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
           b.paid_amount AS paid,
           b.payable,
           b.patientid,
           b.type,
           b.outstanding,
-          pm.PaymentMode,
           b.discount,
           DATE(b.billedon) AS date
         FROM billing AS b
           INNER JOIN new_patients AS np ON np.patientid = b.patientid
-          INNER JOIN billinghx AS bhx ON bhx.billingid = b.billingid
-          INNER JOIN paymentmodes AS pm ON pm.KeyID = bhx.PaymentMode
-          WHERE DATE(b.billedon) = CURRENT_DATE
-    GROUP BY b.billingid
-    ORDER BY B.billingid DESC
-    LIMIT 20`;
+          WHERE year  = ? AND month = ? AND day = ? AND branchid =  ?
+    ORDER BY b.billingid DESC
+    LIMIT ? OFFSET ?`;
+exports.q_currentDateBilledClientsAllBranches = `
+     SELECT b.billingid,
+          CONCAT( np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
+          b.paid_amount AS paid,
+          b.payable,
+          b.patientid,
+          b.type,
+          b.outstanding,
+          b.discount,
+          DATE(b.billedon) AS date
+        FROM billing AS b
+          INNER JOIN new_patients AS np ON np.patientid = b.patientid
+          WHERE year  = ? AND month = ? AND day = ? 
+    ORDER BY b.billingid DESC
+    LIMIT ? OFFSET ?`;
 exports.updateCurrentBill = `UPDATE billing  SET testCost = ?, payable = ?, outstanding = ?
     WHERE billingid = ?`;
 exports.getBillAscesnsion = `SELECT * FROM test_ascension WHERE billingid = ?`;
 exports.deleteBillTransactionQuery = `DELETE FROM billing WHERE billingid = ?`;
+exports.q_getAllpartiton = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
+exports.q_addNewPartition = "ALTER TABLE billing ADD PARTITION(PARTITION `?`  VALUES LESS THAN (?,?))";
+exports.q_dropTablePartition = `ALTER TABLE billing REMOVE PARTITIONING`;

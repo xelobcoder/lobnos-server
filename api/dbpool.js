@@ -1,6 +1,5 @@
 const mysql = require('mysql');
 const dotenv = require('dotenv');
-const connection = require('./db');
 dotenv.config();
 
 const username = process.env.NODE_ENV == 'development' ?
@@ -20,7 +19,7 @@ const connectionData = {
       user: username,
       password: password,
   database,
-  connectionLimt: 1000
+  connectionLimit: 1000
   }
   
 

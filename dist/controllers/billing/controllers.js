@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleNewBilling = void 0;
+exports.getBilledClients = exports.canInitiateBill = exports.handleNewBilling = void 0;
 const helper_1 = require("../../../helper");
 const billing_1 = require("../../models/billing/billing");
 const billingclientTypes_1 = require("../../models/billing/billingclientTypes");
@@ -26,3 +26,25 @@ async function handleNewBilling(request, response) {
     (0, trycatch_1.wrapperTryCatch)(validate);
 }
 exports.handleNewBilling = handleNewBilling;
+async function canInitiateBill(request, response) {
+    let { patientid } = request.query;
+    if (!patientid) {
+        return (0, helper_1.customError)(`Bad Request. patientid required`, 404, response);
+    }
+    let ptid;
+    if (typeof patientid === "string") {
+        ptid = parseInt(patientid);
+    }
+    if (isNaN(ptid)) {
+        (0, helper_1.customError)("Bad Request.patientid must a number", 400, response);
+    }
+    const canBill = await new billing_1.Billing(ptid).haveBeenBilledToday(ptid);
+    response.send({ canInitiateBill: canBill });
+}
+exports.canInitiateBill = canInitiateBill;
+async function getBilledClients(request, response) {
+}
+exports.getBilledClients = getBilledClients;
+// app.get("/api/v1/billedclients", (req, res) => {
+//   getBilledClients(req, res)
+// })
