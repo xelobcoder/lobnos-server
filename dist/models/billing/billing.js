@@ -95,20 +95,34 @@ class Billing {
     async dropPartition(partitionName) {
         return await (0, helper_js_1.promisifyQuery)(`ALTER TABLE billing DROP PARTITION \`${partitionName}\``);
     }
+    /**
+     * Adds partitions for the given year to the billing table.
+     *
+     * @param {number} year - The year for which to add partitions. If not provided, defaults to the current year.
+     * @returns {Promise<boolean>} - Returns true if the operation is successful, otherwise throws an error.
+     */
     static async AddYearPartition(year) {
         let currentYear = year || new Date().getFullYear();
+        // Retrieve current partitions from the billing table.
         const partitions = await Billing.getBillingTablePartions();
         const _currentPartitions = await Billing.partitionstoYearList(partitions);
+        // Initialize partition if no current partitions are found.
         if (_currentPartitions.length === 0) {
             await Billing.initPartitionBilling("billing", currentYear);
             return true;
         }
         let missingPartition = [];
+        /**
+         * Adds a partition for the given range.
+         *
+         * @param {number} range - The range (month) for the partition.
+         * @returns {Promise<boolean>} - Returns true if the partition is added successfully, false otherwise.
+         */
         const pushPartition = async (range) => {
             try {
                 const _range = `${range}`.padStart(2, "0");
                 const partitionName = `billing_${currentYear}_${_range}`;
-                if (range != 12) {
+                if (range !== 12) {
                     await Billing.executeAddPartitionBilling(partitionName, currentYear, range + 1);
                 }
                 else {
@@ -117,9 +131,15 @@ class Billing {
                 return true;
             }
             catch (err) {
+                console.log(err);
                 return false;
             }
         };
+        /**
+         * Creates partitions for the missing ranges.
+         *
+         * @param {number[]} availablePartitions - Array of ranges (months) for which partitions are missing.
+         */
         const loop_create_partition = async (availablePartitions) => {
             for (let i = 0; i < availablePartitions.length; i++) {
                 const outcome = await pushPartition(availablePartitions[i]);
@@ -127,6 +147,7 @@ class Billing {
             }
         };
         let presence = [];
+        // Check if the current year is already partitioned.
         if (!_currentPartitions.includes(currentYear)) {
             const availablePartitions = await Billing.partitionsStrings(partitions);
             let incremental = 1;
@@ -144,6 +165,7 @@ class Billing {
         }
         let highestPartitioned;
         let partitionsToDrop = [];
+        // Determine the highest partitioned month and identify partitions to drop.
         if (presence.length > 0) {
             presence = presence.sort((a, b) => a - b);
             for (let i = 0; i < presence.length; i++) {
@@ -161,6 +183,7 @@ class Billing {
         if (highestPartitioned !== undefined) {
             partitionsToDrop = presence.filter((item) => item > highestPartitioned);
         }
+        // Drop the identified partitions.
         for (const item of partitionsToDrop) {
             try {
                 const _item = `${item}`.padStart(2, "0");
@@ -171,6 +194,7 @@ class Billing {
                 console.log(`Error dropping partition ${item}:`, err);
             }
         }
+        // Create missing partitions.
         if (missingPartition.length > 0) {
             await loop_create_partition(missingPartition);
         }

@@ -20,6 +20,10 @@
         {
           "name": "run lobnos-server",
           "commands": ["npm run dev"]
+        },
+        {
+          "name": "run typescript watcher",
+          "commands": ["npx tsc --w"]
         }
       ]
     }
