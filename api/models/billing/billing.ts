@@ -103,10 +103,10 @@ export class Billing implements IBillNewClient {
     return await promisifyQuery(`ALTER TABLE billing DROP PARTITION \`${partitionName}\``);
   }
 
-  public async AddYearPartition(year: number): Promise<boolean | undefined> {
+  private static async AddYearPartition(year: number): Promise<boolean> {
     let currentYear: number = year || new Date().getFullYear();
     const partitions = await Billing.getBillingTablePartions();
-    const _currentPartitions: [] = await Billing.partitionstoYearList(partitions);
+    const _currentPartitions: number[] = await Billing.partitionstoYearList(partitions);
 
     if (_currentPartitions.length === 0) {
       await Billing.initPartitionBilling("billing", currentYear);
@@ -115,7 +115,7 @@ export class Billing implements IBillNewClient {
 
     let missingPartition: number[] = [];
 
-    const pushPartition = async function (range: number) {
+    const pushPartition = async (range: number) => {
       try {
         const _range = `${range}`.padStart(2, "0");
         const partitionName = `billing_${currentYear}_${_range}`;
@@ -126,20 +126,20 @@ export class Billing implements IBillNewClient {
         }
         return true;
       } catch (err) {
-        console.log(err);
+        return false;
       }
     };
 
-    async function loop_create_partition(availablePartitions: number[]) {
+    const loop_create_partition = async (availablePartitions: number[]) => {
       for (let i = 0; i < availablePartitions.length; i++) {
         const outcome = await pushPartition(availablePartitions[i]);
         console.warn(outcome);
       }
-    }
+    };
 
     let presence: number[] = [];
 
-    if (!_currentPartitions.includes(currentYear as never)) {
+    if (!_currentPartitions.includes(currentYear)) {
       const availablePartitions: string[] = await Billing.partitionsStrings(partitions);
       let incremental: number = 1;
       while (incremental <= 12) {
@@ -154,43 +154,44 @@ export class Billing implements IBillNewClient {
       }
     }
 
-    let highestPartitioned: number;
+    let highestPartitioned: number | undefined;
     let partitionsToDrop: number[] = [];
     if (presence.length > 0) {
       presence = presence.sort((a, b) => a - b);
       for (let i = 0; i < presence.length; i++) {
         const c = presence[i];
         const next = presence[i + 1];
-        const diff = next - c;
-        if (diff > 1) {
-          highestPartitioned = c;
-          break;
+        if (next !== undefined) {
+          const diff = next - c;
+          if (diff > 1) {
+            highestPartitioned = c;
+            break;
+          }
         }
       }
     }
 
-    // if (highestPartitioned  !== undefined)
-    partitionsToDrop = presence.filter((item, index) => item !== highestPartitioned && item > highestPartitioned);
-
-    let partitionDropped = true;
+    if (highestPartitioned !== undefined) {
+      partitionsToDrop = presence.filter((item) => item > highestPartitioned);
+    }
 
     for (const item of partitionsToDrop) {
       try {
         const _item = `${item}`.padStart(2, "0");
         let partitionName = `billing_${currentYear}_${_item}`;
         await dropTableSpecificPartition("billing", partitionName);
-        partitionDropped = true;
       } catch (err) {
-        partitionDropped = false;
+        console.log(`Error dropping partition ${item}:`, err);
       }
     }
 
     if (missingPartition.length > 0) {
-      loop_create_partition(missingPartition);
+      await loop_create_partition(missingPartition);
     }
 
     return true;
   }
+
   public async insertNewBilling() {}
   async billClient(data: TBillingData): Promise<number | boolean> {
     try {
@@ -343,6 +344,3 @@ export class Billing implements IBillNewClient {
   }
 }
 
-// dropTablePartition("billing")
-
-new Billing(5).AddYearPartition(2024);

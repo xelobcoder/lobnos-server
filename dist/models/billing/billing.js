@@ -95,7 +95,7 @@ class Billing {
     async dropPartition(partitionName) {
         return await (0, helper_js_1.promisifyQuery)(`ALTER TABLE billing DROP PARTITION \`${partitionName}\``);
     }
-    async AddYearPartition(year) {
+    static async AddYearPartition(year) {
         let currentYear = year || new Date().getFullYear();
         const partitions = await Billing.getBillingTablePartions();
         const _currentPartitions = await Billing.partitionstoYearList(partitions);
@@ -104,7 +104,7 @@ class Billing {
             return true;
         }
         let missingPartition = [];
-        const pushPartition = async function (range) {
+        const pushPartition = async (range) => {
             try {
                 const _range = `${range}`.padStart(2, "0");
                 const partitionName = `billing_${currentYear}_${_range}`;
@@ -117,15 +117,15 @@ class Billing {
                 return true;
             }
             catch (err) {
-                console.log(err);
+                return false;
             }
         };
-        async function loop_create_partition(availablePartitions) {
+        const loop_create_partition = async (availablePartitions) => {
             for (let i = 0; i < availablePartitions.length; i++) {
                 const outcome = await pushPartition(availablePartitions[i]);
                 console.warn(outcome);
             }
-        }
+        };
         let presence = [];
         if (!_currentPartitions.includes(currentYear)) {
             const availablePartitions = await Billing.partitionsStrings(partitions);
@@ -149,29 +149,30 @@ class Billing {
             for (let i = 0; i < presence.length; i++) {
                 const c = presence[i];
                 const next = presence[i + 1];
-                const diff = next - c;
-                if (diff > 1) {
-                    highestPartitioned = c;
-                    break;
+                if (next !== undefined) {
+                    const diff = next - c;
+                    if (diff > 1) {
+                        highestPartitioned = c;
+                        break;
+                    }
                 }
             }
         }
-        // if (highestPartitioned  !== undefined)
-        partitionsToDrop = presence.filter((item, index) => item !== highestPartitioned && item > highestPartitioned);
-        let partitionDropped = true;
+        if (highestPartitioned !== undefined) {
+            partitionsToDrop = presence.filter((item) => item > highestPartitioned);
+        }
         for (const item of partitionsToDrop) {
             try {
                 const _item = `${item}`.padStart(2, "0");
                 let partitionName = `billing_${currentYear}_${_item}`;
                 await (0, partitioning_1.dropTableSpecificPartition)("billing", partitionName);
-                partitionDropped = true;
             }
             catch (err) {
-                partitionDropped = false;
+                console.log(`Error dropping partition ${item}:`, err);
             }
         }
         if (missingPartition.length > 0) {
-            loop_create_partition(missingPartition);
+            await loop_create_partition(missingPartition);
         }
         return true;
     }
@@ -297,5 +298,3 @@ class Billing {
     }
 }
 exports.Billing = Billing;
-// dropTablePartition("billing")
-new Billing(5).AddYearPartition(2024);
