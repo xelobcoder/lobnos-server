@@ -86,6 +86,12 @@ export const deleteBillTransactionQuery: string = `DELETE FROM billing WHERE bil
 
 export const q_getAllpartiton: string = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
 
-export const q_addNewPartition: string = "ALTER TABLE billing ADD PARTITION(PARTITION `?`  VALUES LESS THAN (?,?))";
+export const q_addNewPartition = (partitionName: string, year: number, month: number): string => `
+    ALTER TABLE billing 
+    ADD PARTITION (PARTITION ${partitionName} VALUES LESS THAN (${year}, ${month}));
+`;
 
-export const q_dropTablePartition: string = `ALTER TABLE billing REMOVE PARTITIONING`;
+
+export const q_dropTableAllPartition: string = `ALTER TABLE billing REMOVE PARTITIONING`;
+
+export  const q_dropSpecificTablePartition: string = `ALTER TABLE ?? DROP PARTITION ??`;

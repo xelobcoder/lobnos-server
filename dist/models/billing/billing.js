@@ -4,6 +4,7 @@ exports.Billing = void 0;
 const billingclientTypes_1 = require("./billingclientTypes");
 const helper_js_1 = require("./../../../helper.js");
 const queries_1 = require("./queries");
+const partitioning_1 = require("./partitioning");
 class Billing {
     constructor(patientid) {
         this.updateApprovalStatus = async function (billingid, testid) {
@@ -89,7 +90,7 @@ class Billing {
         return partitions.length > 0 ? partitions.join(",") : [];
     }
     static async executeAddPartitionBilling(_partition_name, year, month) {
-        return await (0, helper_js_1.promisifyQuery)(queries_1.q_addNewPartition, [_partition_name, year, month]);
+        return await (0, helper_js_1.promisifyQuery)((0, queries_1.q_addNewPartition)(_partition_name, year, month));
     }
     async dropPartition(partitionName) {
         return await (0, helper_js_1.promisifyQuery)(`ALTER TABLE billing DROP PARTITION \`${partitionName}\``);
@@ -99,12 +100,12 @@ class Billing {
         const partitions = await Billing.getBillingTablePartions();
         const _currentPartitions = await Billing.partitionstoYearList(partitions);
         if (_currentPartitions.length === 0) {
-            return await Billing.initPartitionBilling("billing", currentYear);
+            await Billing.initPartitionBilling("billing", currentYear);
+            return true;
         }
         let missingPartition = [];
-        async function loop_create_partition(start, end, availablePartitions) {
-            let range = start;
-            while (range <= end && range > 0) {
+        const pushPartition = async function (range) {
+            try {
                 const _range = `${range}`.padStart(2, "0");
                 const partitionName = `billing_${currentYear}_${_range}`;
                 if (range != 12) {
@@ -113,10 +114,19 @@ class Billing {
                 else {
                     await Billing.executeAddPartitionBilling(partitionName, currentYear + 1, 1);
                 }
-                console.log(`${partitionName} successfully added `);
-                range++;
+                return true;
+            }
+            catch (err) {
+                console.log(err);
+            }
+        };
+        async function loop_create_partition(availablePartitions) {
+            for (let i = 0; i < availablePartitions.length; i++) {
+                const outcome = await pushPartition(availablePartitions[i]);
+                console.warn(outcome);
             }
         }
+        let presence = [];
         if (!_currentPartitions.includes(currentYear)) {
             const availablePartitions = await Billing.partitionsStrings(partitions);
             let incremental = 1;
@@ -126,12 +136,42 @@ class Billing {
                 if (!availablePartitions.includes(name)) {
                     missingPartition.push(incremental);
                 }
+                else {
+                    presence.push(incremental);
+                }
                 incremental++;
             }
         }
+        let highestPartitioned;
+        let partitionsToDrop = [];
+        if (presence.length > 0) {
+            presence = presence.sort((a, b) => a - b);
+            for (let i = 0; i < presence.length; i++) {
+                const c = presence[i];
+                const next = presence[i + 1];
+                const diff = next - c;
+                if (diff > 1) {
+                    highestPartitioned = c;
+                    break;
+                }
+            }
+        }
+        // if (highestPartitioned  !== undefined)
+        partitionsToDrop = presence.filter((item, index) => item !== highestPartitioned && item > highestPartitioned);
+        let partitionDropped = true;
+        for (const item of partitionsToDrop) {
+            try {
+                const _item = `${item}`.padStart(2, "0");
+                let partitionName = `billing_${currentYear}_${_item}`;
+                await (0, partitioning_1.dropTableSpecificPartition)("billing", partitionName);
+                partitionDropped = true;
+            }
+            catch (err) {
+                partitionDropped = false;
+            }
+        }
         if (missingPartition.length > 0) {
-            const end = missingPartition[missingPartition.length - 1];
-            loop_create_partition(missingPartition[0], end, missingPartition);
+            loop_create_partition(missingPartition);
         }
         return true;
     }

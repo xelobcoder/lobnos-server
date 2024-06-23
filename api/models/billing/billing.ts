@@ -13,7 +13,7 @@ import {
   q_getAllpartiton,
   updatebillHistoryQuery,
 } from "./queries";
-import { dropTablePartition } from "./partitioning";
+import { dropTablePartition, dropTableSpecificPartition } from "./partitioning";
 
 export class Billing implements IBillNewClient {
   readonly patientid: number;
@@ -75,6 +75,7 @@ export class Billing implements IBillNewClient {
     }
     return [];
   }
+
   private static async billingPartitionPrunner(startdate: string, enddate: string) {
     if (!startdate || !startdate) throw new Error("required startdate and enddate not provided");
     let partitions = await this.getBillingTablePartions();
@@ -95,7 +96,7 @@ export class Billing implements IBillNewClient {
   }
 
   private static async executeAddPartitionBilling(_partition_name: string, year: number, month: number) {
-    return await promisifyQuery(q_addNewPartition, [_partition_name, year, month]);
+    return await promisifyQuery(q_addNewPartition(_partition_name, year, month));
   }
 
   async dropPartition(partitionName: string) {
@@ -108,14 +109,14 @@ export class Billing implements IBillNewClient {
     const _currentPartitions: [] = await Billing.partitionstoYearList(partitions);
 
     if (_currentPartitions.length === 0) {
-      return await Billing.initPartitionBilling("billing", currentYear);
+      await Billing.initPartitionBilling("billing", currentYear);
+      return true;
     }
 
     let missingPartition: number[] = [];
 
-    async function loop_create_partition(start: number, end: number, availablePartitions: number[]) {
-      let range = start;
-      while (range <= end && range > 0) {
+    const pushPartition = async function (range: number) {
+      try {
         const _range = `${range}`.padStart(2, "0");
         const partitionName = `billing_${currentYear}_${_range}`;
         if (range != 12) {
@@ -123,10 +124,20 @@ export class Billing implements IBillNewClient {
         } else {
           await Billing.executeAddPartitionBilling(partitionName, currentYear + 1, 1);
         }
-        console.log(`${partitionName} successfully added `);
-        range++;
+        return true;
+      } catch (err) {
+        console.log(err);
+      }
+    };
+
+    async function loop_create_partition(availablePartitions: number[]) {
+      for (let i = 0; i < availablePartitions.length; i++) {
+        const outcome = await pushPartition(availablePartitions[i]);
+        console.warn(outcome);
       }
     }
+
+    let presence: number[] = [];
 
     if (!_currentPartitions.includes(currentYear as never)) {
       const availablePartitions: string[] = await Billing.partitionsStrings(partitions);
@@ -136,15 +147,48 @@ export class Billing implements IBillNewClient {
         const name = `billing_${currentYear}_${month}`;
         if (!availablePartitions.includes(name)) {
           missingPartition.push(incremental);
+        } else {
+          presence.push(incremental);
         }
         incremental++;
       }
     }
 
-    if (missingPartition.length > 0) {
-      const end = missingPartition[missingPartition.length - 1];
-      loop_create_partition(missingPartition[0], end, missingPartition);
+    let highestPartitioned: number;
+    let partitionsToDrop: number[] = [];
+    if (presence.length > 0) {
+      presence = presence.sort((a, b) => a - b);
+      for (let i = 0; i < presence.length; i++) {
+        const c = presence[i];
+        const next = presence[i + 1];
+        const diff = next - c;
+        if (diff > 1) {
+          highestPartitioned = c;
+          break;
+        }
+      }
     }
+
+    // if (highestPartitioned  !== undefined)
+    partitionsToDrop = presence.filter((item, index) => item !== highestPartitioned && item > highestPartitioned);
+
+    let partitionDropped = true;
+
+    for (const item of partitionsToDrop) {
+      try {
+        const _item = `${item}`.padStart(2, "0");
+        let partitionName = `billing_${currentYear}_${_item}`;
+        await dropTableSpecificPartition("billing", partitionName);
+        partitionDropped = true;
+      } catch (err) {
+        partitionDropped = false;
+      }
+    }
+
+    if (missingPartition.length > 0) {
+      loop_create_partition(missingPartition);
+    }
+
     return true;
   }
   public async insertNewBilling() {}
