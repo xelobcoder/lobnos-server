@@ -138,7 +138,7 @@ class Billing {
         /**
          * Creates partitions for the missing ranges.
          *
-         * @param {number[]} availablePartitions - Array of ranges (months) for which partitions are missing.
+         * @param {number[]} availablePartitions - Array of ranges (months) for which partitions to be added.
          */
         const loop_create_partition = async (availablePartitions) => {
             for (let i = 0; i < availablePartitions.length; i++) {
@@ -147,7 +147,6 @@ class Billing {
             }
         };
         let presence = [];
-        // Check if the current year is already partitioned.
         if (!_currentPartitions.includes(currentYear)) {
             const availablePartitions = await Billing.partitionsStrings(partitions);
             let incremental = 1;

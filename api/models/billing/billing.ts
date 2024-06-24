@@ -13,7 +13,7 @@ import {
   q_getAllpartiton,
   updatebillHistoryQuery,
 } from "./queries";
-import { dropTablePartition, dropTableSpecificPartition } from "./partitioning";
+import { dropTableSpecificPartition } from "./partitioning";
 
 export class Billing implements IBillNewClient {
   readonly patientid: number;
@@ -149,7 +149,7 @@ export class Billing implements IBillNewClient {
     /**
      * Creates partitions for the missing ranges.
      *
-     * @param {number[]} availablePartitions - Array of ranges (months) for which partitions are missing.
+     * @param {number[]} availablePartitions - Array of ranges (months) for which partitions to be added.
      */
     const loop_create_partition = async (availablePartitions: number[]) => {
       for (let i = 0; i < availablePartitions.length; i++) {
@@ -160,7 +160,7 @@ export class Billing implements IBillNewClient {
 
     let presence: number[] = [];
 
-    // Check if the current year is already partitioned.
+   
     if (!_currentPartitions.includes(currentYear)) {
       const availablePartitions: string[] = await Billing.partitionsStrings(partitions);
       let incremental: number = 1;
