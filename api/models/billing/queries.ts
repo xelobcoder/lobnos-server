@@ -2,7 +2,7 @@ export let updatebillHistoryQuery: string = "UPDATE billinghx SET paymentMode = 
 
 export const deleteNewBillPaymentHx: string = "DELETE FROM billinghx WHERE billingid = ?";
 
-export let insertBillQuery: string = `INSERT INTO billing
+export let insertBillQuery: string = `INSERT INTO billing 
                (patientid,
                clinician,
                organization,
@@ -94,4 +94,8 @@ export const q_addNewPartition = (partitionName: string, year: number, month: nu
 
 export const q_dropTableAllPartition: string = `ALTER TABLE billing REMOVE PARTITIONING`;
 
-export  const q_dropSpecificTablePartition: string = `ALTER TABLE ?? DROP PARTITION ??`;
+export const q_dropSpecificTablePartition: string = `ALTER TABLE ?? DROP PARTITION ??`;
+
+
+
+export const q_reorganization_query: string = `ALTER TABLE billing REORGANIZE PARTITION ?? INTO (`

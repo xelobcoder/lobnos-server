@@ -109,7 +109,7 @@ export class Billing implements IBillNewClient {
    * @param {number} year - The year for which to add partitions. If not provided, defaults to the current year.
    * @returns {Promise<boolean>} - Returns true if the operation is successful, otherwise throws an error.
    */
-  private static async AddYearPartition(year: number): Promise<boolean> {
+  async AddYearPartition(year: number): Promise<boolean> {
     let currentYear: number = year || new Date().getFullYear();
 
     // Retrieve current partitions from the billing table.
@@ -369,3 +369,7 @@ export class Billing implements IBillNewClient {
     }
   }
 }
+
+
+
+// new Billing(4).AddYearPartition(2024);

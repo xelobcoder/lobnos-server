@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.q_dropSpecificTablePartition = exports.q_dropTableAllPartition = exports.q_addNewPartition = exports.q_getAllpartiton = exports.deleteBillTransactionQuery = exports.getBillAscesnsion = exports.updateCurrentBill = exports.q_currentDateBilledClientsAllBranches = exports.currentDateBilledClients = exports.billCountDateQ = exports.clientBillInformationQuery = exports.clientPaymentStatusQuery = exports.deleteAscensionidQuery = exports.AddtoTestAscenstionQuery = exports.patientBilledTodayQuery = exports.updateApprovalStatusQuery = exports.insertBillQuery = exports.deleteNewBillPaymentHx = exports.updatebillHistoryQuery = void 0;
+exports.q_reorganization_query = exports.q_dropSpecificTablePartition = exports.q_dropTableAllPartition = exports.q_addNewPartition = exports.q_getAllpartiton = exports.deleteBillTransactionQuery = exports.getBillAscesnsion = exports.updateCurrentBill = exports.q_currentDateBilledClientsAllBranches = exports.currentDateBilledClients = exports.billCountDateQ = exports.clientBillInformationQuery = exports.clientPaymentStatusQuery = exports.deleteAscensionidQuery = exports.AddtoTestAscenstionQuery = exports.patientBilledTodayQuery = exports.updateApprovalStatusQuery = exports.insertBillQuery = exports.deleteNewBillPaymentHx = exports.updatebillHistoryQuery = void 0;
 exports.updatebillHistoryQuery = "UPDATE billinghx SET paymentMode = ?, Amount = ? WHERE billingid = ?";
 exports.deleteNewBillPaymentHx = "DELETE FROM billinghx WHERE billingid = ?";
-exports.insertBillQuery = `INSERT INTO billing
+exports.insertBillQuery = `INSERT INTO billing 
                (patientid,
                clinician,
                organization,
@@ -77,3 +77,4 @@ const q_addNewPartition = (partitionName, year, month) => `
 exports.q_addNewPartition = q_addNewPartition;
 exports.q_dropTableAllPartition = `ALTER TABLE billing REMOVE PARTITIONING`;
 exports.q_dropSpecificTablePartition = `ALTER TABLE ?? DROP PARTITION ??`;
+exports.q_reorganization_query = `ALTER TABLE billing REORGANIZE PARTITION ?? INTO (`;
