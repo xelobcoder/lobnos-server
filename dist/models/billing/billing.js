@@ -111,7 +111,6 @@ class Billing {
             await Billing.initPartitionBilling("billing", currentYear);
             return true;
         }
-        let missingPartition = [];
         /**
          * Adds a partition for the given range.
          *
@@ -146,56 +145,59 @@ class Billing {
                 console.warn(outcome);
             }
         };
-        let presence = [];
+        if (_currentPartitions.includes(currentYear) === false) {
+            loop_create_partition([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+        }
+        const parsePartitionString = (partition, index) => {
+            return parseInt(partition.split("_")[index]);
+        };
         if (!_currentPartitions.includes(currentYear)) {
+            let current = 0;
+            let uniqueYears = [];
             const availablePartitions = await Billing.partitionsStrings(partitions);
-            let incremental = 1;
-            while (incremental <= 12) {
-                const month = `${incremental}`.padStart(2, "0");
-                const name = `billing_${currentYear}_${month}`;
-                if (!availablePartitions.includes(name)) {
-                    missingPartition.push(incremental);
+            // get all uniques years
+            while (current < availablePartitions.length) {
+                const year = parsePartitionString(availablePartitions[current], 1);
+                if (!uniqueYears.includes(year)) {
+                    uniqueYears.push(year);
+                }
+                current++;
+            }
+            for (const year of uniqueYears) {
+                const _yearPartitions = availablePartitions.filter((item, index) => parsePartitionString(item, 1) === year);
+                let breakingpoint = [];
+                let _incremental = 0;
+                let parsedMonths = _yearPartitions.map((item, index) => parsePartitionString(item, 2));
+                while (_incremental < parsedMonths.length) {
+                    let hasMissedGaps = false;
+                    const now = parsedMonths[_incremental];
+                    const next = parsedMonths[_incremental + 1];
+                    if (next !== undefined) {
+                        hasMissedGaps = next - now > 1;
+                        if (hasMissedGaps) {
+                            breakingpoint.push({ min: now, max: next });
+                        }
+                    }
+                    _incremental++;
+                }
+                if (breakingpoint.length == 0) {
+                    let start = parsedMonths[parsedMonths.length - 1] + 1;
+                    let missingPartition = [];
+                    while (start <= 12) {
+                        missingPartition.push(start);
+                        start++;
+                    }
+                    loop_create_partition(missingPartition);
                 }
                 else {
-                    presence.push(incremental);
-                }
-                incremental++;
-            }
-        }
-        let highestPartitioned;
-        let partitionsToDrop = [];
-        // Determine the highest partitioned month and identify partitions to drop.
-        if (presence.length > 0) {
-            presence = presence.sort((a, b) => a - b);
-            for (let i = 0; i < presence.length; i++) {
-                const c = presence[i];
-                const next = presence[i + 1];
-                if (next !== undefined) {
-                    const diff = next - c;
-                    if (diff > 1) {
-                        highestPartitioned = c;
-                        break;
+                    let init = 0;
+                    while (init < breakingpoint.length) {
+                        const { min, max } = breakingpoint[init];
+                        await (0, partitioning_1.reOrganizePartitionBilling)(max, min, year);
+                        init++;
                     }
                 }
             }
-        }
-        if (highestPartitioned !== undefined) {
-            partitionsToDrop = presence.filter((item) => item > highestPartitioned);
-        }
-        // Drop the identified partitions.
-        for (const item of partitionsToDrop) {
-            try {
-                const _item = `${item}`.padStart(2, "0");
-                let partitionName = `billing_${currentYear}_${_item}`;
-                await (0, partitioning_1.dropTableSpecificPartition)("billing", partitionName);
-            }
-            catch (err) {
-                console.log(`Error dropping partition ${item}:`, err);
-            }
-        }
-        // Create missing partitions.
-        if (missingPartition.length > 0) {
-            await loop_create_partition(missingPartition);
         }
         return true;
     }
@@ -321,4 +323,3 @@ class Billing {
     }
 }
 exports.Billing = Billing;
-// new Billing(4).AddYearPartition(2024);

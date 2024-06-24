@@ -63,3 +63,10 @@ export type AddingTablePartion = {
   prefix: string;
   suffix: string;
 };
+
+
+
+export type BreakingPoint = {
+  min: number;
+  max: number;
+};
