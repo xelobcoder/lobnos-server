@@ -7,7 +7,7 @@ import { wrapperTryCatch } from "../../models/generics/trycatch";
 export async function handleNewBilling(request: Request, response: Response) {
   async function validate() {
     const { patientid } = request.body;
-    let bill = new Billing(patientid).insertionProcess(request.body, false);
+    let bill = await new Billing(patientid).insertionProcess(request.body, true);
     if (typeof bill == "string" && bill == billErrors.already) {
       return response.send({ message: bill, statusCode: 200, status: "success" });
     } else if (typeof bill == "boolean" && bill) {
@@ -20,7 +20,7 @@ export async function handleNewBilling(request: Request, response: Response) {
       return customError(billErrors.error, 400, response);
     }
   }
-  wrapperTryCatch(validate);
+  wrapperTryCatch(validate,(err) => console.log(err));
 }
 
 

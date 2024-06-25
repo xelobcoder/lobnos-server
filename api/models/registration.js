@@ -1,8 +1,7 @@
 const { customError, promisifyQuery, rowAffected } = require("../../helper")
-const connection = require("../db")
 const logger = require("../../logger")
-const EmailService = require("../EmailServices/EmailCore")
-const database_queries = require("../database/queries")
+const database_queries = require("../database/queries");
+const { changeActivationStatus } = require("../../dist/models/activation/activate");
 
 /**
  * The `Registration` class is responsible for handling the registration of new patients in a healthcare system.
@@ -255,7 +254,7 @@ class Registration {
       ]
       // execute query
       const result = await promisifyQuery(query, values)
-      return { count: result.affectedRows }
+      return { count: result.affectedRows, insertid: result.insertId }
     } catch (err) {
       logger.error(err)
     }
@@ -287,6 +286,14 @@ class Registration {
     }
   }
 
+  async getPatientID(insertId) {
+    if (typeof insertId != "number") {
+      throw new TypeError("number required as insertedId")
+    }
+    const packet = await promisifyQuery(`SELECT patientid FROM new_patients where id = ?`, [insertId]);
+    return packet.length > 0 ? packet[0]['patientid'] : null;
+  }
+
   addNewPatient = async (request, response) => {
     const { data } = request.body
     // destructure information from the personal information provided
@@ -306,9 +313,19 @@ class Registration {
         })
         return
       }
+      const { insertid } = await this.personalInformation(data);
 
-      return await this.personalInformation(data)
+      if (!insertid) {
+        throw new Error("Failure to retrieve patientid");
+      }
+      const patientid = await this.getPatientID(parseInt(insertid));
+      // activating patient for services 
+      changeActivationStatus({ patientid, action: "TRUE", isbulk: false });
+
+      return patientid;
+
     } catch (error) {
+      console.log(error)
       response.send({
         status: "error",
         message: "An error occured while trying to add new patient",

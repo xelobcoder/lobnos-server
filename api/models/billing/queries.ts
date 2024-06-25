@@ -2,7 +2,7 @@ export let updatebillHistoryQuery: string = "UPDATE billinghx SET paymentMode = 
 
 export const deleteNewBillPaymentHx: string = "DELETE FROM billinghx WHERE billingid = ?";
 
-export let insertBillQuery: string = `INSERT INTO billing 
+export let insertBillQuery: string = `INSERT INTO billing
                (patientid,
                clinician,
                organization,

@@ -102,10 +102,10 @@ const activation = {
     }
   },
 
-  activateDeactivate: async function (request, response) {
-    const { patientid, action } = request.query
+  activateDeactivate: async function (data, response) {
+    const { patientid, action } = data;
     if (!action) {
-      return response.send({ message: "action required", status: "error", statusCode: 401 })
+      throw error ({ message: "action required", status: "error", statusCode: 401 })
     }
 
     let queryString = `UPDATE new_patients SET activation_status = ?`

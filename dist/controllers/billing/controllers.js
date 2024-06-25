@@ -8,7 +8,7 @@ const trycatch_1 = require("../../models/generics/trycatch");
 async function handleNewBilling(request, response) {
     async function validate() {
         const { patientid } = request.body;
-        let bill = new billing_1.Billing(patientid).insertionProcess(request.body, false);
+        let bill = await new billing_1.Billing(patientid).insertionProcess(request.body, true);
         if (typeof bill == "string" && bill == billingclientTypes_1.billErrors.already) {
             return response.send({ message: bill, statusCode: 200, status: "success" });
         }
@@ -23,7 +23,7 @@ async function handleNewBilling(request, response) {
             return (0, helper_1.customError)(billingclientTypes_1.billErrors.error, 400, response);
         }
     }
-    (0, trycatch_1.wrapperTryCatch)(validate);
+    (0, trycatch_1.wrapperTryCatch)(validate, (err) => console.log(err));
 }
 exports.handleNewBilling = handleNewBilling;
 async function canInitiateBill(request, response) {

@@ -9,11 +9,13 @@ router.post("/api/v1/register", async (request, response) => {
   const register = new Registration()
   const emailSevice = new EmailService()
   const outcome = await register.addNewPatient(request, response)
-  if (outcome != undefined && outcome?.count > 0) {
-    const { id } = outcome
-    let isSent = await emailSevice.fireClientAuthentication(id)
-    response.send({ statusCode: 200, status: "success", message: "Patient registered successfully" })
-    console.log(isSent)
+  if (typeof outcome == "number") {
+    response.send({
+      statusCode: 200, status: "success",
+      message: "Patient registered successfully",
+      patientid: outcome
+    });
+    await emailSevice.fireClientAuthentication(outcome)
   }
 })
 

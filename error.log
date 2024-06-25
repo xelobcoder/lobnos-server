@@ -1277,3 +1277,4 @@
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"code":"EDNS","command":"CONN","errno":-3008,"hostname":"smtp.gmail.com","level":"error","syscall":"getaddrinfo"}
+{"code":"ER_BAD_FIELD_ERROR","errno":1054,"index":0,"level":"error","sql":"SELECT mobile_number AS mobile FROM new_patients WHERE mobile_number = NaN","sqlMessage":"Unknown column 'NaN' in 'where clause'","sqlState":"42S22"}

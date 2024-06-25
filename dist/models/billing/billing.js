@@ -205,6 +205,10 @@ class Billing {
     async billClient(data) {
         try {
             const { patientid, clinician = 0, organization = 0, paid, payable, outstanding, discount, samplingCenter, taxIncluded, taxValue, status, testcost, employeeid, type, } = data;
+            const date = new Date();
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const partitionName = `billing_${year}_${month}`;
             const values = [
                 patientid,
                 clinician,
@@ -227,6 +231,7 @@ class Billing {
             return insertId;
         }
         catch (err) {
+            console.error(err);
             throw new Error(billingclientTypes_1.billErrors.error);
         }
     }
@@ -246,7 +251,7 @@ class Billing {
     }
     async haveBeenBilledToday(patientid) {
         const result = await (0, helper_js_1.promisifyQuery)(queries_1.patientBilledTodayQuery, patientid);
-        return result[0]["count"] > 0 ? false : true;
+        return !(result[0]["count"] > 0);
     }
     async deleteAddedWithError(inserted, billingid) {
         let counter = 0;

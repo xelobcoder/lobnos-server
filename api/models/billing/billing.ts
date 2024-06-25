@@ -13,7 +13,9 @@ import {
   q_getAllpartiton,
   updatebillHistoryQuery,
 } from "./queries";
-import { dropTableSpecificPartition, reOrganizePartitionBilling } from "./partitioning";
+
+
+import { reOrganizePartitionBilling } from "./partitioning";
 
 export class Billing implements IBillNewClient {
   readonly patientid: number;
@@ -243,6 +245,11 @@ export class Billing implements IBillNewClient {
         type,
       } = data;
 
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const partitionName = `billing_${year}_${month}`;
+
       const values: (string | number | boolean)[] = [
         patientid,
         clinician,
@@ -264,6 +271,7 @@ export class Billing implements IBillNewClient {
       if (affectedRows == 0) return false;
       return insertId;
     } catch (err) {
+      console.error(err);
       throw new Error(billErrors.error);
     }
   }
@@ -296,7 +304,7 @@ export class Billing implements IBillNewClient {
 
   public async haveBeenBilledToday(patientid: number): Promise<boolean> {
     const result = await promisifyQuery(patientBilledTodayQuery, patientid);
-    return result[0]["count"] > 0 ? false : true;
+    return !(result[0]["count"] > 0);
   }
 
   private async deleteAddedWithError(inserted: number[], billingid: number) {
