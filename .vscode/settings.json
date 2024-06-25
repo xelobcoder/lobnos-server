@@ -12,7 +12,7 @@
   "editor.autoClosingBrackets": "always",
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "editor.bracketPairColorization.enabled": true,
-  "editor.lineHeight": 19,
+  "editor.lineHeight": 17,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "restoreTerminals.terminals": [
     {

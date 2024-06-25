@@ -1,6 +1,3 @@
-// 1. Get the category of the request
-// 2. Get all unprocessed samples based on the category, limit by 50 samples at ago
-// 3. We want to monitor for a pactiular billing, when the test was started, when it was completed, and the result
 const { customError, promisifyQuery, paginationQuery, responseError } = require("../../helper");
 const logger = require("../../logger");
 const connection = require("../db");
@@ -15,12 +12,11 @@ class Operations {
   }
 
   async readyforTest() {
-    // we want return test where the result is PHELOBOTOMY_STATUS is done and SAMPLE_STATUS = accepted
-    const validID = await this.validBillingid();
-    if (!validID) {
+    const validId = await this.validBillingid();
+    if (!validId) {
       return "Invalid billingid";
     }
-    if (validID) {
+    if (validId) {
       const queryString = `SELECT * FROM samplestatus WHERE billingid = ? AND approvalstatus= 1`;
       const result = await promisifyQuery(queryString, [this.billingid]);
       return result.length === 0 ? false : true;
@@ -35,16 +31,16 @@ class Operations {
     if (certified) {
       // we want to return  all test for the billingid from the test_ascention table to join testpanel table where testid = testid
       let queryString = `SELECT ta.testid,
-                tp.NAME,
+                tp.name,
                 ta.billingid,
-                tp.CATEGORY,
+                tp.category,
                 ta.processing,
                 ta.processing_date,
                 ta.ready,
                 ta.ready_date
               FROM test_ascension as ta
-                INNER JOIN test_panels as tp ON ta.testid = tp.ID
-                INNER JOIN departments AS d ON d.id = tp.CATEGORY
+                INNER JOIN test_panels as tp ON ta.testid = tp.id
+                INNER JOIN departments AS d ON d.id = tp.category
               WHERE ta.billingid = ${this.billingid}`;
 
       if (departmentid != "undefined") {
@@ -141,13 +137,14 @@ class Operations {
           CASE WHEN b.clinician <> 0 THEN
            (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
           END AS clinicianName
-      FROM new_patients as np
-        INNER JOIN billing as b ON np.patientid = b.patientid
+      FROM new_patients AS np
+        INNER JOIN billing AS b ON np.patientid = b.patientid
         INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
         INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
         INNER JOIN test_panels AS tp ON tp.id = ss.testid
         INNER JOIN departments AS d ON d.id = tp.category 
-        WHERE ss.approvalstatus = 1 AND ta.collection = 'true' AND d.department <> 'ultrasound'
+        WHERE ss.approvalstatus = 1 AND ta.collection = 'true'
+        AND d.department <> 'ultrasound'
       `;
       const values = [];
       if (department) {
@@ -221,19 +218,13 @@ class Operations {
   };
   getAllEnterResult = async function (request, response) {
     const { from, to, patientid, billingid, sortingwise, count, page } = request.query;
-    let queryString = `SELECT 
-          CASE 
-              WHEN MIDDLENAME IS NULL THEN CONCAT(
-                  np.FIRSTNAME,
-                  ' ',
-                  np.LASTNAME
-                )  ELSE CONCAT(  np.FIRSTNAME,
+    let queryString = `SELECT  CONCAT(  np.FIRSTNAME,
                   ' ',
                   np.MIDDLENAME,
                   ' ',
-                  np.LASTNAME) END AS fullname,
+                  np.LASTNAME) AS fullname,
                 np.PATIENTID AS patientid,
-               np.gender,
+                np.gender,
                 b.BILLINGID AS billingid,
                 b.billedon AS billing_date,
                 tp.CATEGORY AS category
