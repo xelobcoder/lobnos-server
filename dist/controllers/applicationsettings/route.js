@@ -1,12 +1,8 @@
 "use strict";
-// src/appRoutes.ts
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
+const express = require('express');
 const handler_1 = require("./handler");
-const router = express_1.default.Router();
+const router = express.Router();
 router.get("/api/v1/applicationsettings", handler_1.getApplicationSettings);
 router.get("/api/v1/applicationsettings/billing", handler_1.getApplicationSettingsBilling);
 router.post("/api/v1/applicationsettings", handler_1.updateApplicationSettings);

@@ -51,24 +51,30 @@ class ApplicationSettings {
         return false;
     }
     async updateApplicationSettings(data) {
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, } = data;
-        const values = [
-            bulkregistration,
-            fontsize,
-            textcolor,
-            BackgroundColor,
-            DeactivateBilling24hrs,
-            PaidBillsBeforeTransaction,
-            completeFlow,
-            approvalbeforeprinting,
-            emailNotification,
-            includeTax,
-        ];
-        const result = rowAffected(await promisifyQuery(queries_1.q_TruncateTable));
-        if (!result)
-            return false;
-        const isUpdated = rowAffected(await promisifyQuery(queries_1.q_update_general_app_set, values));
-        return isUpdated;
+        try {
+            const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, } = data;
+            const values = [
+                bulkregistration,
+                fontsize,
+                textcolor,
+                BackgroundColor,
+                DeactivateBilling24hrs,
+                PaidBillsBeforeTransaction,
+                completeFlow,
+                approvalbeforeprinting,
+                emailNotification,
+                includeTax,
+            ];
+            const result = await promisifyQuery(queries_1.q_TruncateTable);
+            if (!result)
+                return false;
+            const isUpdated = rowAffected(await promisifyQuery(queries_1.q_update_general_app_set, values));
+            return isUpdated;
+        }
+        catch (err) {
+            console.log(err);
+            throw err;
+        }
     }
     async updateSmsSettings(data) {
         return rowAffected(await promisifyQuery(queries_1.q_update_sms_settings, [data]));

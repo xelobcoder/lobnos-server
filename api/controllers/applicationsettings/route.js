@@ -1,7 +1,5 @@
-// src/appRoutes.ts
-
-import express from "express";
-import {
+const express = require('express');
+const  {
   getApplicationSettings,
   getApplicationSettingsBilling,
   updateApplicationSettings,
@@ -20,7 +18,7 @@ import {
   deleteTax,
   getResultSettings,
   updateResultSettings,
-} from "./handler";
+}  = require("../../../dist/controllers/applicationsettings/handler");
 
 const router = express.Router();
 
@@ -43,4 +41,4 @@ router.delete("/api/v1/application/tax", deleteTax);
 router.get("/api/v1/applicationsetting/resultsettings", getResultSettings);
 router.put("/api/v1/applicationsetting/resultsettings", updateResultSettings);
 
-export default router;
+module.exports = router;

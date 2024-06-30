@@ -1,4 +1,4 @@
-import { Request, response, Response } from "express";
+import { Request, Response } from "express";
 import { customError, rowAffected, responseError } from "../../../helper";
 import ApplicationSettings from "./../../models/application/appsettings/appset";
 import Tax from "../../models/application/Tax";
@@ -9,10 +9,10 @@ const appsettings = new ApplicationSettings();
 const tax = new Tax(null);
 const result = new ResultSettings(null);
 
-export const getApplicationSettings = async (req: Request, res: Response) => {
+export const getApplicationSettings = async (req: Request, response: Response) => {
   try {
-    const settings = await appsettings.getAllAppSettings();
-    response.send(settings);
+    const result = await appsettings.getAllAppSettings();
+    response.send({ statusCode: 200, status: "success", result });
   } catch (err) {
     responseError(response);
   }
@@ -31,8 +31,9 @@ export const updateApplicationSettings = async (request: Request, response: Resp
   try {
     const data = request.body;
     const is_updated = await appsettings.updateApplicationSettings(data);
-    response.send(is_updated);
+     is_updated && response.send({ message: "Applications settings updated successfully", statusCode: 200, status: "success" });
   } catch (err) {
+    console.log(err);
     responseError(response);
   }
 };

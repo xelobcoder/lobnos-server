@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
-const express_1 = require("express");
 const helper_1 = require("../../../helper");
 const appset_1 = __importDefault(require("./../../models/application/appsettings/appset"));
 const Tax_1 = __importDefault(require("../../models/application/Tax"));
@@ -13,13 +12,13 @@ const logger_1 = __importDefault(require("../../../logger"));
 const appsettings = new appset_1.default();
 const tax = new Tax_1.default(null);
 const result = new resultSettings_1.default(null);
-const getApplicationSettings = async (req, res) => {
+const getApplicationSettings = async (req, response) => {
     try {
-        const settings = await appsettings.getAllAppSettings();
-        express_1.response.send(settings);
+        const result = await appsettings.getAllAppSettings();
+        response.send({ statusCode: 200, status: "success", result });
     }
     catch (err) {
-        (0, helper_1.responseError)(express_1.response);
+        (0, helper_1.responseError)(response);
     }
 };
 exports.getApplicationSettings = getApplicationSettings;
@@ -37,9 +36,10 @@ const updateApplicationSettings = async (request, response) => {
     try {
         const data = request.body;
         const is_updated = await appsettings.updateApplicationSettings(data);
-        response.send(is_updated);
+        is_updated && response.send({ message: "Applications settings updated successfully", statusCode: 200, status: "success" });
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(response);
     }
 };

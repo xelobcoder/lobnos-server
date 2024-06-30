@@ -72,35 +72,40 @@ export default class ApplicationSettings {
   }
 
   public async updateApplicationSettings(data: ApplicationSettingsData): Promise<boolean> {
-    const {
-      bulkregistration,
-      emailNotification,
-      fontsize,
-      textcolor,
-      DeactivateBilling24hrs,
-      BackgroundColor,
-      PaidBillsBeforeTransaction,
-      completeFlow,
-      approvalbeforeprinting,
-      includeTax,
-    } = data;
+    try {
+      const {
+        bulkregistration,
+        emailNotification,
+        fontsize,
+        textcolor,
+        DeactivateBilling24hrs,
+        BackgroundColor,
+        PaidBillsBeforeTransaction,
+        completeFlow,
+        approvalbeforeprinting,
+        includeTax,
+      } = data;
 
-    const values = [
-      bulkregistration,
-      fontsize,
-      textcolor,
-      BackgroundColor,
-      DeactivateBilling24hrs,
-      PaidBillsBeforeTransaction,
-      completeFlow,
-      approvalbeforeprinting,
-      emailNotification,
-      includeTax,
-    ];
-    const result = rowAffected(await promisifyQuery(q_TruncateTable));
-    if (!result) return false;
-    const isUpdated: boolean = rowAffected(await promisifyQuery(q_update_general_app_set, values));
-    return isUpdated;
+      const values = [
+        bulkregistration,
+        fontsize,
+        textcolor,
+        BackgroundColor,
+        DeactivateBilling24hrs,
+        PaidBillsBeforeTransaction,
+        completeFlow,
+        approvalbeforeprinting,
+        emailNotification,
+        includeTax,
+      ];
+      const result = await promisifyQuery(q_TruncateTable)
+      if (!result) return false;
+      const isUpdated: boolean = rowAffected(await promisifyQuery(q_update_general_app_set, values));
+      return isUpdated;
+    } catch (err) {
+      console.log(err)
+      throw err;
+    }
   }
 
   async updateSmsSettings(data: string): Promise<boolean> {
