@@ -5,11 +5,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../../helper");
 const logger_1 = __importDefault(require("../../../logger"));
-const settings_1 = __importDefault(require("./settings"));
+const appset_1 = __importDefault(require("./appsettings/appset"));
 const TQueries_1 = require("./TQueries");
-class Tax extends settings_1.default {
+class Tax extends appset_1.default {
     constructor(id) {
-        super(id);
+        super();
     }
     async addTax(request, response) {
         const { value, name } = request.body;

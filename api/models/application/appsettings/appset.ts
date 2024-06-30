@@ -17,10 +17,10 @@ import {
 
 import { AppError, ApplicationSettingsData, AppSetting, EmailPreference, IupdateRegisFields } from "./Type";
 
-const { promisifyQuery, rowAffected } = require("../../../helper");
+const { promisifyQuery, rowAffected } = require("../../../../helper");
 // const {EmailService} = require("../../")
 
-class ApplicationSettings {
+export default class ApplicationSettings {
   public async getAllAppSettings(): Promise<ApplicationSettingsData[]> {
     return promisifyQuery(q_application_setting);
   }
@@ -164,4 +164,3 @@ class ApplicationSettings {
   }
 }
 
-module.exports = ApplicationSettings;

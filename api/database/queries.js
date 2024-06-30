@@ -1,7 +1,7 @@
 const { promisifyQuery } = require("../../helper")
 const logger = require("../../logger")
 const connection = require("../db")
-const { testResults } = require("../testResult")
+// const { testResults } = require("../testResult")
 
 // create an object
 

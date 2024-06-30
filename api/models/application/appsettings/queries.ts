@@ -27,3 +27,9 @@ export const q_insert_reg_settings: string = "INSERT INTO registrationsettings (
 export const q_general_email_settings: string = "SELECT * FROM generalemailsettings";
 
 export const q_truncateGeneralSettings: string = "TRUNCATE TABLE generalemailsettings";
+
+export const GET_RESULT_SETTINGS = `SELECT resultsettings FROM resultsettings`;
+
+export const INSERT_RESULT_SETTINGS = `INSERT INTO resultsettings (resultsettings) VALUES (?)`;
+
+export const UPDATE_RESULT_SETTINGS = `UPDATE resultsettings SET resultsettings = ? WHERE id = 1`;

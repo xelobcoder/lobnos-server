@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
-const { promisifyQuery, rowAffected } = require("../../../helper");
+const { promisifyQuery, rowAffected } = require("../../../../helper");
 // const {EmailService} = require("../../")
 class ApplicationSettings {
     async getAllAppSettings() {
@@ -125,4 +125,4 @@ class ApplicationSettings {
         }
     }
 }
-module.exports = ApplicationSettings;
+exports.default = ApplicationSettings;

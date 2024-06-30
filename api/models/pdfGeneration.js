@@ -2,7 +2,6 @@ const pdf = require('pdf-creator-node');
 const fs = require('fs');
 const { customError} = require("../../helper")
 const path = require("path")
-const { testCategoryMapping } = require("../../api/models/ResultQueryMapping")
 const ResultPrint = require("./ResultPrint")
 const { getCompanyInfo } = require("../settings/companydata")
 const logger = require("../../logger")

@@ -1,13 +1,13 @@
 import { Request, Response } from "express";
 import { customError, promisifyQuery, rowAffected } from "../../../helper";
 import logger from "../../../logger";
-import ApplicationSettings from "./settings";
+import ApplicationSettings from "./appsettings/appset";
 import { checkTaxNameExistQuery, addTaxQuery, getAllTaxesQuery, updateTaxQuery, changeTaxStatusQuery, deleteTaxQuery } from "./TQueries";
 import { ITax } from "./Ttax";
 
-class Tax extends ApplicationSettings implements ITax {
+export default class Tax extends ApplicationSettings implements ITax {
   constructor(id: number) {
-    super(id);
+    super();
   }
 
   async addTax(request: Request, response: Response): Promise<void> {
@@ -97,4 +97,3 @@ class Tax extends ApplicationSettings implements ITax {
   }
 }
 
-export default Tax;

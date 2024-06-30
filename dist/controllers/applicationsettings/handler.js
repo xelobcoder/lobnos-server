@@ -1,36 +1,68 @@
 "use strict";
-// src/appHandlers.ts
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
+const express_1 = require("express");
 const helper_1 = require("../../../helper");
-const settings_1 = __importDefault(require("../../models/application/settings"));
-const tax_1 = __importDefault(require("../../models/application/tax"));
-const results_1 = __importDefault(require("../../models/application/results"));
+const appset_1 = __importDefault(require("./../../models/application/appsettings/appset"));
+const Tax_1 = __importDefault(require("../../models/application/Tax"));
+const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const logger_1 = __importDefault(require("../../../logger"));
-const appsettings = new settings_1.default();
-const tax = new tax_1.default();
-const result = new results_1.default();
-const getApplicationSettings = (req, res) => {
-    appsettings.getApplicationSettings(req, res);
+const appsettings = new appset_1.default();
+const tax = new Tax_1.default(null);
+const result = new resultSettings_1.default(null);
+const getApplicationSettings = async (req, res) => {
+    try {
+        const settings = await appsettings.getAllAppSettings();
+        express_1.response.send(settings);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(express_1.response);
+    }
 };
 exports.getApplicationSettings = getApplicationSettings;
-const getApplicationSettingsBilling = (req, res) => {
-    appsettings.getApplicationSettingsBilling(req, res);
+const getApplicationSettingsBilling = async (req, res) => {
+    try {
+        const data = await appsettings.getAppBillSettings();
+        res.send(data);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.getApplicationSettingsBilling = getApplicationSettingsBilling;
-const updateApplicationSettings = (req, res) => {
-    appsettings.updateApplicationSettings(req, res);
+const updateApplicationSettings = async (request, response) => {
+    try {
+        const data = request.body;
+        const is_updated = await appsettings.updateApplicationSettings(data);
+        response.send(is_updated);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
 };
 exports.updateApplicationSettings = updateApplicationSettings;
-const updateSmsSettings = (req, res) => {
-    appsettings.updateSmsSettings(req, res);
+const updateSmsSettings = async (req, res) => {
+    try {
+        const data = req.body;
+        const is_updated = await appsettings.updateSmsSettings(data);
+        res.send({ status: is_updated });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.updateSmsSettings = updateSmsSettings;
-const getSmsSettings = (req, res) => {
-    appsettings.getSmsSettings(req, res);
+const getSmsSettings = async (request, response) => {
+    try {
+        const sms_settings = await appsettings.getSmsSettings();
+        response.send(sms_settings);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
 };
 exports.getSmsSettings = getSmsSettings;
 const getEmailPreference = async (req, res) => {
@@ -43,19 +75,19 @@ const getEmailPreference = async (req, res) => {
     }
 };
 exports.getEmailPreference = getEmailPreference;
-const getGeneralEmailSettings = async (req, res) => {
+const getGeneralEmailSettings = async (req, response) => {
     try {
         const result = await appsettings.getGeneralEmailSettings();
-        res.send({ message: "success", status: "success", statusCode: 200, result });
+        response.send({ message: "success", status: "success", statusCode: 200, result });
     }
     catch (err) {
-        (0, helper_1.customError)("something went wrong", 500, res);
+        (0, helper_1.customError)("something went wrong", 500, response);
     }
 };
 exports.getGeneralEmailSettings = getGeneralEmailSettings;
-const updateGeneralEmailSettings = async (req, res) => {
+const updateGeneralEmailSettings = async (request, res) => {
     try {
-        const result = await appsettings.updateGeneralEmailSettings(req.body);
+        const result = await appsettings.updateGeneralEmailSettings(request.body);
         res.send({
             message: (0, helper_1.rowAffected)(result) ? "updated successfully" : "No updates effected",
             status: "success",
@@ -67,23 +99,30 @@ const updateGeneralEmailSettings = async (req, res) => {
     }
 };
 exports.updateGeneralEmailSettings = updateGeneralEmailSettings;
-const updateEmailPreference = (req, res) => {
-    appsettings.updateEmailPreference(req, res);
+const updateEmailPreference = (request, response) => {
+    try {
+        const data = request.body;
+        const updated = appsettings.updateEmailPreference(data);
+        response.send(updated);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
 };
 exports.updateEmailPreference = updateEmailPreference;
-const updateRegistrationFields = async (req, res) => {
+const updateRegistrationFields = async (request, response) => {
     try {
-        const result = await appsettings.updateRegistrationFields(req, res);
+        const result = await appsettings.updateRegistrationFields(request.body);
         if (result === true) {
-            res.send({ message: "fields updated successfully", statusCode: 200, status: "success" });
+            response.send({ message: "fields updated successfully", statusCode: 200, status: "success" });
         }
         else {
-            res.send({ message: "fields update failed", statusCode: "error", status: "error" });
+            response.send({ message: "fields update failed", statusCode: "error", status: "error" });
         }
     }
     catch (err) {
         logger_1.default.error(err);
-        (0, helper_1.responseError)(res);
+        (0, helper_1.responseError)(response);
     }
 };
 exports.updateRegistrationFields = updateRegistrationFields;
