@@ -16,9 +16,8 @@ import {
   DELETESTOCKCATEGORY,
 } from "./queries";
 
-import { promisifyQuery, rowAffected, paginationQuery, customError } from "../../../helper";
-import { logger } from "../../../logger";
-import { del } from "../../database/queries";
+import { promisifyQuery, rowAffected, paginationQuery, customError } from "../../../../helper";
+
 
 class Inventory {
   private stockid: number;
@@ -107,7 +106,7 @@ class Inventory {
 
   public async deleteStockCategory(stockid: number): Promise<any> {
     if (!stockid) throw new Error("stockid required");
-    const isdeleted = await del(stockid, "stockcategory", "id");
+    const isdeleted = await promisifyQuery(DELETESTOCKCATEGORY,[stockid]);
     return rowAffected(isdeleted);
   }
 

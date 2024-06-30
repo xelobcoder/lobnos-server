@@ -28,8 +28,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateOrderReceivedTransactionSummary = exports.addToStockTransactions = exports.updateOrders = exports.updateStock = exports.deleteAspecificOrder = exports.getOrders = exports.placeOrder = exports.Orders = void 0;
 const helper_1 = require("../../../helper");
-const logger_1 = __importDefault(require("../../../logger"));
-const inventoryClass_1 = __importDefault(require("../../models/Inventory/inventoryClass"));
+const logger_1 = __importDefault(require("./../../../logger"));
+const inventoryClass_1 = __importDefault(require("../../models/Inventory/inventoryClass/inventoryClass"));
 const queries = __importStar(require("./queries"));
 class Orders extends inventoryClass_1.default {
     constructor(stockid, orderid) {

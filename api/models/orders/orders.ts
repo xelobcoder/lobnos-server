@@ -1,12 +1,12 @@
 import { promisifyQuery, customError, rowAffected, paginationQuery } from "../../../helper";
-import logger from "../../../logger";
-import Inventory from "../../models/Inventory/inventoryClass";
+import logger from "./../../../logger";
+import Inventory from "../../models/Inventory/inventoryClass/inventoryClass";
 import * as queries from "./queries";
 
 export class Orders extends Inventory {
-  orderid: string;
+  orderid: number;
 
-  constructor(stockid: string, orderid: string) {
+  constructor(stockid: number, orderid: number) {
     super(stockid);
     this.orderid = orderid;
   }

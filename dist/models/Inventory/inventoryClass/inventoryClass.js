@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
-const helper_1 = require("../../../helper");
-const queries_2 = require("../../database/queries");
+const helper_1 = require("../../../../helper");
 class Inventory {
     constructor(stockid) {
         this.stockid = stockid;
@@ -86,7 +85,7 @@ class Inventory {
     async deleteStockCategory(stockid) {
         if (!stockid)
             throw new Error("stockid required");
-        const isdeleted = await (0, queries_2.del)(stockid, "stockcategory", "id");
+        const isdeleted = await (0, helper_1.promisifyQuery)(queries_1.DELETESTOCKCATEGORY, [stockid]);
         return (0, helper_1.rowAffected)(isdeleted);
     }
     async getGeneralUnExpiredStocks(requestQuery) {
