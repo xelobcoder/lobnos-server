@@ -43,6 +43,7 @@ export interface IBillNewClient {
   updateBillingHistory(paymentmode: number, billingid: number, amount: number): any;
   billClient(data: TBillingData): any;
   getBranchDayBilledClients(branchid: number, pagination: Pagination): Promise<[]>;
+  getTransactionBillData(billingid: number): Promise<[]>;
 }
 
 export interface ISales {

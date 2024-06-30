@@ -19,6 +19,9 @@ class Billing {
         };
         this.patientid = patientid;
     }
+    async getTransactionBillData(billingid) {
+        return await (0, helper_js_1.promisifyQuery)(`SELECT * FROM billing WHERE billingid  =? `, [billingid]);
+    }
     async getBranchDayBilledClients(branchid, { count = 10, page = 1 }) {
         const currentDate = new Date();
         let currentYear = currentDate.getFullYear();

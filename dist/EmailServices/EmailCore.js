@@ -6,12 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const nodemailer_1 = require("nodemailer");
 const ejs_1 = __importDefault(require("ejs"));
 const path_1 = __importDefault(require("path"));
-const helper_1 = require("../../helper");
-const registration_1 = __importDefault(require("../models/registration"));
+const helper_1 = require("./../../helper");
+const registration_1 = __importDefault(require("../models/registration/registration"));
 const user_1 = __importDefault(require("../LobnosAuth/user"));
 const EmailQueries_1 = __importDefault(require("./EmailQueries"));
 const logger_1 = __importDefault(require("../../logger"));
-const queries_1 = __importDefault(require("../database/queries"));
+const clinicianClass_1 = __importDefault(require("../models/clincians/clinicianClass"));
+const billing_1 = require("../models/billing/billing");
 class EmailService {
     constructor(employeeid) {
         /**
@@ -23,7 +24,7 @@ class EmailService {
         this.generateToken = async (data, duration = "30m") => {
             if (!data)
                 return "";
-            return await new user_1.default().tokenizeData(data, duration);
+            return await new user_1.default(null).tokenizeData(data, duration);
         };
         this.employeeid = employeeid;
         this.user = process.env.PROD_PLS_EMAIL_USER || "";
@@ -83,7 +84,7 @@ class EmailService {
                     isValidId = await new registration_1.default().checkPatientIdExist(identifier);
                     break;
                 case "clinician":
-                    const data = await queries_1.default.getsingleid(identifier, `clinicianbasicinfo`, `id`);
+                    const data = await clinicianClass_1.default.getClinicianBasicInfo(identifier);
                     isValidId = data.length > 0 && email === data[0]["email"];
                     break;
                 default:
@@ -94,7 +95,7 @@ class EmailService {
             const isAuthenticated = await this.isEmailAuthenticated(identifier, target);
             if (isAuthenticated)
                 return "Already Authenticated";
-            const emailQ = new EmailQueries_1.default();
+            const emailQ = new EmailQueries_1.default(null);
             const isModeUpdated = await emailQ.updateAuthMode(target, identifier);
             if (!isModeUpdated)
                 return isModeUpdated;
@@ -178,12 +179,13 @@ class EmailService {
     async triggerSampleRejectionEmail(billingid, message) {
         var _a;
         try {
-            const billdata = await queries_1.default.getsingleid(billingid, "billing", "BILLINGID");
+            // new Billing().get
+            const billdata = await new billing_1.Billing().getTransactionBillData(billingid);
             if (billdata.length === 0)
                 return false;
             const { patientid } = billdata[0];
-            const person = await queries_1.default.getsingleid(patientid, "new_patients", "PATIENTID");
-            if (person.length === 0 || ((_a = person[0]) === null || _a === void 0 ? void 0 : _a.email) === null)
+            const person = await new registration_1.default().getPatientBasicData(patientid);
+            if (person.length === 0 || (person.length > 0 && !((_a = person[0]) === null || _a === void 0 ? void 0 : _a.email)))
                 return false;
             const { email } = person[0];
             const pathname = path_1.default.join(__dirname, "../views", "templates", "sampleRejection.ejs");
@@ -222,11 +224,11 @@ class EmailService {
             if (!billingid)
                 throw new Error("Billing ID not provided");
             // Fetch billing and patient details
-            const billData = await queries_1.default.getsingleid(parseInt(billingid), "billing", "BILLINGID");
+            const billData = await new billing_1.Billing(null).getTransactionBillData(parseInt(billingid));
             if (billData.length === 0)
                 return false;
             const { patientid } = billData[0];
-            const patientData = await queries_1.default.getsingleid(parseInt(patientid), "new_patients", "PATIENTID");
+            const patientData = await new registration_1.default().getPatientBasicData(patientid);
             if (patientData.length === 0 || !((_a = patientData[0]) === null || _a === void 0 ? void 0 : _a.email))
                 return "email not provided";
             const { email } = patientData[0];
@@ -343,7 +345,7 @@ class EmailService {
         const isMailServiceActivated = await this.isEmailServiceActivated();
         const pref = await this.selectedPreferenceActivated("registration");
         if (isMailServiceActivated && pref) {
-            const patientRecords = await runPromise(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid]);
+            const patientRecords = await (0, helper_1.promisifyQuery)(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid]);
             if (patientRecords.length > 0 && patientRecords[0]["method"] === "email") {
                 if (callback && typeof callback === "function") {
                     callback();
@@ -355,7 +357,7 @@ class EmailService {
     }
 }
 const CONSTANT = async () => {
-    const e = new EmailService();
+    const e = new EmailService(null);
     const html = await ejs_1.default.renderFile(path_1.default.join(__dirname, "../EmailTemplates/appointmentsheduleNotice.ejs"));
     const options = e.mailOptions("asananyaaba45@gmail.com", "APPOINTMENT REMINDER", html);
     try {

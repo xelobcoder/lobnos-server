@@ -1,12 +1,13 @@
 import { createTransport } from "nodemailer";
 import ejs from "ejs";
 import path from "path";
-import { promisifyQuery } from "../../helper";
-import Registration from "../models/registration";
+import { promisifyQuery } from "./../../helper";
+import Registration from "../models/registration/registration";
 import User from "../LobnosAuth/user";
 import EmailQueries from "./EmailQueries";
 import logger from "../../logger";
-import database_queries from "../database/queries";
+import clinicianClass from "../models/clincians/clinicianClass";
+import { Billing } from "../models/billing/billing";
 
 class EmailService {
   private user: string;
@@ -27,7 +28,7 @@ class EmailService {
     return !!(user && password && provider && company);
   }
 
-  private mailOptions(targetEmail: string, subject: string, html: string): any {
+  public mailOptions(targetEmail: string, subject: string, html: string): any {
     return { from: this.company, to: targetEmail, subject, html };
   }
 
@@ -85,7 +86,7 @@ class EmailService {
           isValidId = await new Registration().checkPatientIdExist(identifier);
           break;
         case "clinician":
-          const data = await database_queries.getsingleid(identifier, `clinicianbasicinfo`, `id`);
+          const data = await clinicianClass.getClinicianBasicInfo(identifier);
           isValidId = data.length > 0 && email === data[0]["email"];
           break;
         default:
@@ -97,7 +98,7 @@ class EmailService {
       const isAuthenticated = await this.isEmailAuthenticated(identifier, target);
       if (isAuthenticated) return "Already Authenticated";
 
-      const emailQ = new EmailQueries();
+      const emailQ = new EmailQueries(null);
       const isModeUpdated = await emailQ.updateAuthMode(target, identifier);
       if (!isModeUpdated) return isModeUpdated;
 
@@ -136,7 +137,7 @@ class EmailService {
    */
   public generateToken = async (data: any, duration: string = "30m"): Promise<string> => {
     if (!data) return "";
-    return await new User().tokenizeData(data, duration);
+    return await new User(null).tokenizeData(data, duration);
   };
 
   /**
@@ -194,14 +195,13 @@ class EmailService {
    */
   public async triggerSampleRejectionEmail(billingid: number, message: string): Promise<boolean> {
     try {
-      const billdata = await database_queries.getsingleid(billingid, "billing", "BILLINGID");
+      // new Billing().get
+      const billdata = await new Billing().getTransactionBillData(billingid);
       if (billdata.length === 0) return false;
 
       const { patientid } = billdata[0];
-      const person = await database_queries.getsingleid(patientid, "new_patients", "PATIENTID");
-
-      if (person.length === 0 || person[0]?.email === null) return false;
-
+      const person = await new Registration().getPatientBasicData(patientid);
+      if (person.length === 0 || (person.length > 0 && !person[0]?.email)) return false;
       const { email } = person[0];
       const pathname = path.join(__dirname, "../views", "templates", "sampleRejection.ejs");
       const data = { message, header: "SAMPLE REJECTION NOTIFICATION", labname: process.env.PROD_PLS_EMAIL_COMPANY };
@@ -242,11 +242,10 @@ class EmailService {
       if (!billingid) throw new Error("Billing ID not provided");
 
       // Fetch billing and patient details
-      const billData = await database_queries.getsingleid(parseInt(billingid), "billing", "BILLINGID");
+      const billData = await new Billing(null).getTransactionBillData(parseInt(billingid));
       if (billData.length === 0) return false;
-
       const { patientid } = billData[0];
-      const patientData = await database_queries.getsingleid(parseInt(patientid), "new_patients", "PATIENTID");
+      const patientData: [] = await new Registration().getPatientBasicData(patientid);
       if (patientData.length === 0 || !patientData[0]?.email) return "email not provided";
 
       const { email } = patientData[0];
@@ -367,7 +366,7 @@ class EmailService {
     const pref = await this.selectedPreferenceActivated("registration");
 
     if (isMailServiceActivated && pref) {
-      const patientRecords = await runPromise(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid]);
+      const patientRecords = await promisifyQuery(`SELECT * FROM patients_settings WHERE patientid = ?`, [patientid]);
 
       if (patientRecords.length > 0 && patientRecords[0]["method"] === "email") {
         if (callback && typeof callback === "function") {
@@ -382,7 +381,7 @@ class EmailService {
 }
 
 const CONSTANT = async (): Promise<void> => {
-  const e = new EmailService();
+  const e = new EmailService(null);
   const html = await ejs.renderFile(path.join(__dirname, "../EmailTemplates/appointmentsheduleNotice.ejs"));
   const options = e.mailOptions("asananyaaba45@gmail.com", "APPOINTMENT REMINDER", html);
 

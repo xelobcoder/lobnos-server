@@ -26,18 +26,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.deleteAspecificOrder = exports.getOrders = exports.placeOrder = void 0;
-const helper_1 = require("../../helper");
-const logger_1 = __importDefault(require("../../logger"));
-const db_1 = __importDefault(require("../db"));
-const inventoryclass_1 = __importDefault(require("./Inventory/inventoryclass"));
+exports.updateOrderReceivedTransactionSummary = exports.addToStockTransactions = exports.updateOrders = exports.updateStock = exports.deleteAspecificOrder = exports.getOrders = exports.placeOrder = exports.Orders = void 0;
+const helper_1 = require("../../../helper");
+const logger_1 = __importDefault(require("../../../logger"));
+const inventoryClass_1 = __importDefault(require("../../models/Inventory/inventoryClass"));
 const queries = __importStar(require("./queries"));
-class Orders extends inventoryclass_1.default {
+class Orders extends inventoryClass_1.default {
     constructor(stockid, orderid) {
         super(stockid);
         this.orderid = orderid;
     }
 }
+exports.Orders = Orders;
 const placeOrder = async function (request, response) {
     let successCount = 0;
     let errorCount = 0;
@@ -91,8 +91,8 @@ const placeOrder = async function (request, response) {
     }
 };
 exports.placeOrder = placeOrder;
-const getOrders = async function (request, response) {
-    const { orderTransactionid, includebrands } = request.query;
+const getOrders = async function (data) {
+    const { orderTransactionid, includebrands, page, count } = data;
     const queryValues = [];
     let query = queries.q_getOrders;
     if (orderTransactionid) {
@@ -102,7 +102,7 @@ const getOrders = async function (request, response) {
     query += ` ORDER BY productordersid DESC LIMIT ? OFFSET ?`;
     try {
         let result = {};
-        result.products = await (0, helper_1.paginationQuery)(request.query, query, queryValues);
+        result.products = await (0, helper_1.paginationQuery)({ count, page }, query, queryValues);
         if (includebrands) {
             const getbrands = result.products.map((item, index) => item.stockid);
             if (getbrands.length > 0) {
@@ -113,73 +113,57 @@ const getOrders = async function (request, response) {
                 result.stockBrands = [];
             }
         }
-        response.send({ result, status: "success", statusCode: 200 });
+        return result;
     }
     catch (err) {
-        (0, helper_1.customError)(err, 500, response);
+        throw new Error(err);
     }
 };
 exports.getOrders = getOrders;
-const deleteAspecificOrder = function (orderid, response) {
+const deleteAspecificOrder = async function (orderid, response) {
     const query = queries.q_deleteOrder;
-    db_1.default.query(query, [orderid], function (err, result) {
-        if (err) {
-            console.log(err);
-            response.send({
-                status: "error",
-                err,
-            });
-        }
-        if (result) {
-            response.send({
-                status: "success",
-                message: "Order deleted successfully",
-                statusCode: 200,
-            });
-        }
-    });
+    return await (0, helper_1.rowAffected)((0, helper_1.promisifyQuery)(query, [orderid]));
+    // connection.query(query, [orderid], function (err: any, result: any) {
+    //   if (err) {
+    //     console.log(err);
+    //     response.send({
+    //       status: "error",
+    //       err,
+    //     });
+    //   }
+    //   if (result) {
+    //     response.send({
+    //       status: "success",
+    //       message: "Order deleted successfully",
+    //       statusCode: 200,
+    //     });
+    //   }
+    // });
 };
 exports.deleteAspecificOrder = deleteAspecificOrder;
 const updateStock = async function (stockid, planned, request, response) {
-    return new Promise((resolve, reject) => {
-        const query = queries.q_updateStock;
-        db_1.default.query(query, [stockid], function (err, result) {
-            if (err) {
-                reject(err);
-            }
-            if (result) {
-                const { stockid, quantity } = result[0];
-                const updatedQuantity = parseInt(quantity) + parseInt(planned);
-                const updateQuery = queries.q_updateGeneralStocks;
-                db_1.default.query(updateQuery, [updatedQuantity, stockid], function (err, result) {
-                    if (err) {
-                        reject(err);
-                    }
-                    if (result) {
-                        resolve(result);
-                    }
-                });
-            }
-        });
-    });
+    const query = queries.q_updateStock;
+    const result = await (0, helper_1.promisifyQuery)(query, [stockid]);
+    if (exports.updateStock) {
+        const { stockid, quantity } = result[0];
+        const updatedQuantity = parseInt(quantity) + planned;
+        const is_updated = await (0, helper_1.promisifyQuery)(queries.q_updateGeneralStocks, [updatedQuantity, stockid]);
+        return (0, helper_1.rowAffected)(is_updated);
+    }
 };
+exports.updateStock = updateStock;
 const updateOrders = function (data) {
     const query = queries.q_updateOrders;
     return (0, helper_1.promisifyQuery)(query, data);
 };
+exports.updateOrders = updateOrders;
 const addToStockTransactions = async function (data) {
     if (Array.isArray(data) && data.length > 0) {
-        const query = queries.q_addToStockTransactions;
-        db_1.default.query(query, data, function (err, result) {
-            if (err) {
-                logger_1.default.error(err);
-            }
-            if (result) {
-                console.log("Stock transaction added successfully");
-            }
-        });
+        await (0, helper_1.promisifyQuery)(queries);
+        console.log("Stock transaction added successfully");
     }
 };
+exports.addToStockTransactions = addToStockTransactions;
 const updateOrderReceivedTransactionSummary = async function (summary) {
     const { orderTransactionid, method, amount, total } = summary;
     if (parseFloat(amount) < 0 || parseFloat(total) < 0 || !orderTransactionid)
@@ -188,3 +172,4 @@ const updateOrderReceivedTransactionSummary = async function (summary) {
     const values = [method, total, amount, orderTransactionid];
     (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(query, values));
 };
+exports.updateOrderReceivedTransactionSummary = updateOrderReceivedTransactionSummary;

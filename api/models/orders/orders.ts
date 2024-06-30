@@ -1,10 +1,9 @@
-import { promisifyQuery, customError, rowAffected, paginationQuery } from "../../helper";
-import logger from "../../logger";
-import connection from "../db";
-import Inventory from "./Inventory/inventoryclass";
-import * as queries from "./queries"; 
+import { promisifyQuery, customError, rowAffected, paginationQuery } from "../../../helper";
+import logger from "../../../logger";
+import Inventory from "../../models/Inventory/inventoryClass";
+import * as queries from "./queries";
 
-class Orders extends Inventory {
+export class Orders extends Inventory {
   orderid: string;
 
   constructor(stockid: string, orderid: string) {
@@ -13,7 +12,7 @@ class Orders extends Inventory {
   }
 }
 
-const placeOrder = async function (request: any, response: any) {
+export const placeOrder = async function (request: any, response: any) {
   let successCount = 0;
   let errorCount = 0;
   let Exit: any[] = [];
@@ -66,8 +65,15 @@ const placeOrder = async function (request: any, response: any) {
   }
 };
 
-const getOrders = async function (request: any, response: any) {
-  const { orderTransactionid, includebrands } = request.query;
+
+type RequestQuery = {
+  page: number,
+  count: number,
+  orderTransactionid: number,
+  includebrands: boolean
+}
+export const getOrders = async function (data: RequestQuery) {
+  const { orderTransactionid, includebrands, page, count } = data;
   const queryValues: any[] = [];
   let query = queries.q_getOrders;
 
@@ -79,7 +85,7 @@ const getOrders = async function (request: any, response: any) {
 
   try {
     let result: any = {};
-    result.products = await paginationQuery(request.query, query, queryValues);
+    result.products = await paginationQuery({ count, page }, query, queryValues);
 
     if (includebrands) {
       const getbrands = result.products.map((item: any, index: number) => item.stockid);
@@ -91,81 +97,60 @@ const getOrders = async function (request: any, response: any) {
         result.stockBrands = [];
       }
     }
-    response.send({ result, status: "success", statusCode: 200 });
+    return result;
   } catch (err) {
-    customError(err, 500, response);
+    throw new Error(err);
   }
 };
 
-const deleteAspecificOrder = function (orderid: number, response: any) {
+export const deleteAspecificOrder = async function (orderid: number, response: any) {
   const query = queries.q_deleteOrder;
-  connection.query(query, [orderid], function (err: any, result: any) {
-    if (err) {
-      console.log(err);
-      response.send({
-        status: "error",
-        err,
-      });
-    }
-    if (result) {
-      response.send({
-        status: "success",
-        message: "Order deleted successfully",
-        statusCode: 200,
-      });
-    }
-  });
+  return await rowAffected(promisifyQuery(query, [orderid]));
+  // connection.query(query, [orderid], function (err: any, result: any) {
+  //   if (err) {
+  //     console.log(err);
+  //     response.send({
+  //       status: "error",
+  //       err,
+  //     });
+  //   }
+  //   if (result) {
+  //     response.send({
+  //       status: "success",
+  //       message: "Order deleted successfully",
+  //       statusCode: 200,
+  //     });
+  //   }
+  // });
 };
 
-const updateStock = async function (stockid: string, planned: number, request: any, response: any) {
-  return new Promise((resolve, reject) => {
-    const query = queries.q_updateStock;
-    connection.query(query, [stockid], function (err: any, result: any) {
-      if (err) {
-        reject(err);
-      }
-      if (result) {
-        const { stockid, quantity } = result[0];
-        const updatedQuantity = parseInt(quantity) + parseInt(planned);
-        const updateQuery = queries.q_updateGeneralStocks;
-        connection.query(updateQuery, [updatedQuantity, stockid], function (err: any, result: any) {
-          if (err) {
-            reject(err);
-          }
-          if (result) {
-            resolve(result);
-          }
-        });
-      }
-    });
-  });
+export const updateStock = async function (stockid: number, planned: number, request: any, response: any): Promise<boolean> {
+  const query = queries.q_updateStock;
+  const result = await promisifyQuery(query, [stockid]);
+  if (updateStock) {
+    const { stockid, quantity } = result[0];
+    const updatedQuantity = parseInt(quantity) + planned;
+    const is_updated = await promisifyQuery(queries.q_updateGeneralStocks, [updatedQuantity, stockid]);
+    return rowAffected(is_updated);
+  }
 };
 
-const updateOrders = function (data: any) {
+export const updateOrders = function (data: any) {
   const query = queries.q_updateOrders;
   return promisifyQuery(query, data);
 };
 
-const addToStockTransactions = async function (data: any[]) {
+export const addToStockTransactions = async function (data: any[]) {
   if (Array.isArray(data) && data.length > 0) {
-    const query = queries.q_addToStockTransactions;
-    connection.query(query, data, function (err: any, result: any) {
-      if (err) {
-        logger.error(err);
-      }
-      if (result) {
-        console.log("Stock transaction added successfully");
-      }
-    });
+    await promisifyQuery(queries);
+    console.log("Stock transaction added successfully");
   }
 };
 
-const updateOrderReceivedTransactionSummary = async function (summary: any) {
+export const updateOrderReceivedTransactionSummary = async function (summary: any) {
   const { orderTransactionid, method, amount, total } = summary;
   if (parseFloat(amount) < 0 || parseFloat(total) < 0 || !orderTransactionid) return false;
   const query = queries.q_updateOrderReceivedTransactionSummary;
   const values = [method, total, amount, orderTransactionid];
   rowAffected(await promisifyQuery(query, values));
 };
-
-export { placeOrder, getOrders, deleteAspecificOrder };

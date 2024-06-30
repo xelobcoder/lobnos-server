@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const Supply = require("../models/supply/supplyclass.js");
-const Requisition = require("../models/Inventory/requisitionClass")
+const Requisition = require("../models/Inventory/requisitionClass.js")
 
 
 const { placeOrder, getOrders, deleteAspecificOrder, purchaseOrdersToStock } = require("../models/placeorders.js")

@@ -1,25 +1,30 @@
 import { Request, Response } from "express";
-import connection from "./db";
 import logger from "../../../logger";
 import { convertKeysToLowerCase, promisifyQuery, customError, rowAffected, paginationQuery } from "../../../helper";
-import SQLQueries from "./queries"; // Import SQLQueries from the separate file
+import SQLQueries from "./queries";
 
 class ClinicianController {
   public async getClinicians(req: Request, res: Response): Promise<void> {
     try {
-      const { count: number, page: number } = req.query;
-      if (count > 0 && page >= 0) {
-        let result = await paginationQuery({ page: number, count: number }, SQLQueries.getCliniciansWithPagination);
-        result = result.length > 0 ? result.map((item: number) => convertKeysToLowerCase(item)) : result;
+      const { count, page } = req.query;
+
+      if (parseInt(count as string, 10) > 0 && parseInt(page as string, 10) >= 0) {
+        let result = await paginationQuery({ page, count }, SQLQueries.getCliniciansWithPagination);
+        result = result.length > 0 ? result.map((item: any) => convertKeysToLowerCase(item)) : result;
         res.send({ statusCode: 200, status: "success", result });
       } else {
         let result = await promisifyQuery(SQLQueries.getAllClinicians);
-        result = result.length > 0 ? result.map((item) => convertKeysToLowerCase(item)) : result;
+        result = result.length > 0 ? result.map((item: any) => convertKeysToLowerCase(item)) : result;
         res.send({ statusCode: 200, status: "success", result });
       }
     } catch (err) {
       logger.error(err);
+      res.status(500).send({ statusCode: 500, status: "error", message: "Internal server error" });
     }
+  }
+
+  public async getClinicianBasicInfo(clinicianid: string) {
+    return await promisifyQuery(SQLQueries.getClinicianBasicInfo, [clinicianid]);
   }
 
   public async putCliniciansBasic(req: Request, res: Response): Promise<void> {
@@ -122,25 +127,22 @@ class ClinicianController {
     }
   }
 
-  public getSingleClinician(req: Request, res: Response): void {
-    const { id } = req.query;
-    const query = SQLQueries.getSingleClinicianById;
-    connection.query(query, [id], (err, result) => {
-      if (err) {
-        logger.error(err);
-        res.send({
-          statusCode: 500,
-          status: "error",
-          message: "Error fetching clinician data",
-        });
-      } else {
-        res.send({
-          statusCode: 200,
-          result,
-          status: "success",
-        });
-      }
-    });
+  public async getSingleClinician(req: Request, res: Response) {
+    try {
+      const { id } = req.query;
+      const result = await promisifyQuery(SQLQueries.getSingleClinicianById, [id]);
+      return res.send({
+        statusCode: 200,
+        result,
+        status: "success",
+      });
+    } catch (err) {
+      res.send({
+        statusCode: 500,
+        status: "error",
+        message: "Error fetching clinician data",
+      });
+    }
   }
 
   public async getTopPerformingClinicians(req: Request, res: Response): Promise<void> {

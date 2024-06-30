@@ -1,6 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Registration = void 0;
 const queries_1 = require("./queries");
 const helper_1 = require("../../../helper");
 class Registration {
@@ -111,4 +110,4 @@ class Registration {
         throw new Error("Method not implemented.");
     }
 }
-exports.Registration = Registration;
+exports.default = Registration;

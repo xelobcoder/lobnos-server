@@ -3,16 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const db_1 = __importDefault(require("./db"));
 const logger_1 = __importDefault(require("../../../logger"));
 const helper_1 = require("../../../helper");
-const queries_1 = __importDefault(require("./queries")); // Import SQLQueries from the separate file
+const queries_1 = __importDefault(require("./queries"));
 class ClinicianController {
     async getClinicians(req, res) {
         try {
-            const { count: number, page: number } = req.query;
-            if (count > 0 && page >= 0) {
-                let result = await (0, helper_1.paginationQuery)({ page: number, count: number }, queries_1.default.getCliniciansWithPagination);
+            const { count, page } = req.query;
+            if (parseInt(count, 10) > 0 && parseInt(page, 10) >= 0) {
+                let result = await (0, helper_1.paginationQuery)({ page, count }, queries_1.default.getCliniciansWithPagination);
                 result = result.length > 0 ? result.map((item) => (0, helper_1.convertKeysToLowerCase)(item)) : result;
                 res.send({ statusCode: 200, status: "success", result });
             }
@@ -24,7 +23,11 @@ class ClinicianController {
         }
         catch (err) {
             logger_1.default.error(err);
+            res.status(500).send({ statusCode: 500, status: "error", message: "Internal server error" });
         }
+    }
+    async getClinicianBasicInfo(clinicianid) {
+        return await (0, helper_1.promisifyQuery)(queries_1.default.getClinicianBasicInfo, [clinicianid]);
     }
     async putCliniciansBasic(req, res) {
         const { name, phone, email, location, address, occupation, id } = req.body;
@@ -119,26 +122,23 @@ class ClinicianController {
             return "Error adding new clinician";
         }
     }
-    getSingleClinician(req, res) {
-        const { id } = req.query;
-        const query = queries_1.default.getSingleClinicianById;
-        db_1.default.query(query, [id], (err, result) => {
-            if (err) {
-                logger_1.default.error(err);
-                res.send({
-                    statusCode: 500,
-                    status: "error",
-                    message: "Error fetching clinician data",
-                });
-            }
-            else {
-                res.send({
-                    statusCode: 200,
-                    result,
-                    status: "success",
-                });
-            }
-        });
+    async getSingleClinician(req, res) {
+        try {
+            const { id } = req.query;
+            const result = await (0, helper_1.promisifyQuery)(queries_1.default.getSingleClinicianById, [id]);
+            return res.send({
+                statusCode: 200,
+                result,
+                status: "success",
+            });
+        }
+        catch (err) {
+            res.send({
+                statusCode: 500,
+                status: "error",
+                message: "Error fetching clinician data",
+            });
+        }
     }
     async getTopPerformingClinicians(req, res) {
         const { count } = req.query;

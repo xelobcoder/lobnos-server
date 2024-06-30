@@ -22,6 +22,9 @@ export class Billing implements IBillNewClient {
   constructor(patientid: number) {
     this.patientid = patientid;
   }
+  public async getTransactionBillData(billingid: number): Promise<[]> {
+    return await promisifyQuery(`SELECT * FROM billing WHERE billingid  =? `, [billingid]);
+  }
 
   public async getBranchDayBilledClients(branchid: number, { count = 10, page = 1 }: Pagination): Promise<[]> {
     const currentDate = new Date();

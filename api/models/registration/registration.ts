@@ -3,7 +3,7 @@ import { addressInformation, clientdata, IRegistration, NewRegistration, Patient
 
 import { customError, promisifyQuery, rowAffected } from "../../../helper";
 
-export class Registration implements IRegistration {
+export default class Registration implements IRegistration {
   patientid: number;
   isClientSame(clientdata: clientdata): boolean {
     throw new Error("Method not implemented.");

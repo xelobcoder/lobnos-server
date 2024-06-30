@@ -33,7 +33,7 @@ class EmailQueries {
     }
   }
 
-  protected async getTempClinicianCredentials(id: number): Promise<any> {
+  public async getTempClinicianCredentials(id: number): Promise<any> {
     try {
       if (!id) return null;
       return await promisifyQuery(queries.SELECT_TEMP_CLINICIAN_CREDENTIALS, [id]);

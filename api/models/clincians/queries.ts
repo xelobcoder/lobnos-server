@@ -1,6 +1,9 @@
 const SQLQueries = {
   getAllClinicians: "SELECT * FROM clinicianbasicinfo",
 
+
+  getClinicianBasicInfo: `SELECT * FROM clinicianBasicInfo WHERE id = ?`,
+
   getCliniciansWithPagination: "SELECT * FROM clinicianbasicinfo LIMIT ? OFFSET ?",
 
   updateClinicianBasicInfo: `UPDATE clinicianbasicinfo SET NAME = ?, PHONE = ?, EMAIL = ?, LOCATION = ?,
