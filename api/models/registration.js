@@ -439,6 +439,5 @@ class Registration {
 }
 
 
-new Registration().getRegisteredClientsPerMonth()
 
 module.exports = Registration

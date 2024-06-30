@@ -189,12 +189,14 @@ class Creator {
         fields.map(async (item, index) => {
           if (await shouldCreateRecord(billingid, patientid, tablename, item.field)) {
             const values = [item.field, billingid, patientid, item.value, employeeid]
+
             const query = `INSERT INTO ${tablename} (field,billingid,patientid,value,employeeid) VALUES(?,?,?,?,?)`;
             await new Operations().initiateStart(testid, billingid);
             await promisifyQuery(ascensionQuery, [billingid, testid])
             return rowAffected(await promisifyQuery(query, values))
           } else {
             const updateRecords = `UPDATE ${tablename} SET value = ?,updatedon =Now(),employeeid = ? WHERE patientid = ? AND billingid = ? AND field = ?`
+
             const result = await promisifyQuery(updateRecords, [item.value, employeeid, patientid, billingid, item.field])
             return rowAffected(result)
           }

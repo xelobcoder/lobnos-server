@@ -35,7 +35,8 @@ const expenseRouter = require("./api/controllers/expenses/expense.controller");
 const cors = require("cors");
 const Security = require("./api/models/security/SecurityClass");
 const SecurityRouter = require("./api/controllers/security/security.controllers");
-const Appointmentouter = require("./api/controllers/appointment");
+const Appointmentouter = require("./api/controllers/appointments/appointment");
+const customerRouter = require("./api/controllers/customers/route");
 const { customError, responseError, promisifyQuery, paginationQuery } = require("./helper")
 
 app.listen(port, async (err) => {
@@ -98,6 +99,7 @@ app.use(generalSalesRouter)
 app.use(branchesHandler)
 app.use(registrationRouter)
 app.use(applicationsettingsRouter)
+app.use(customerRouter);
 app.use(stocksRouter)
 app.use(patientAnalytics)
 app.use(WarehouseRouter)
@@ -172,18 +174,18 @@ app.get("/api/v1/center", (req, res) => {
   get(req, res)
 })
 
-const targetHour = 18
+// const targetHour = 18
 
-const upDateInventoryAnalyticSummary = async () => {
-  try {
-    const currentHour = new Date().getHours()
-    if (currentHour === targetHour) {
-      await new Inventoryanalytics().updateInvenAnalSummary()
-    }
-  } catch (err) {
-    console.log(err)
-  }
-}
+// const upDateInventoryAnalyticSummary = async () => {
+//   try {
+//     const currentHour = new Date().getHours()
+//     if (currentHour === targetHour) {
+//       await new Inventoryanalytics().updateInvenAnalSummary()
+//     }
+//   } catch (err) {
+//     console.log(err)
+//   }
+// }
 
 // upDateInventoryAnalyticSummary()
 

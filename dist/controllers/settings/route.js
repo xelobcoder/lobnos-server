@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const handlers_1 = require("handlers");
+const router = (0, express_1.Router)();
+router.get("/api/v1/departments", handlers_1.handleGetDepartments);
+router.post("/api/v1/departments", handlers_1.handleAddNewDepartment);
+router.delete("/api/v1/departments", handlers_1.handleDeleteDepartment);
+router.put("/api/v1/departments", handlers_1.handleUpdateDepartment);
+// router.get('/api/v1/departments/:id', handleGetSpecificDepartment);
+exports.default = router;

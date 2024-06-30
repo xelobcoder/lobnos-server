@@ -95,17 +95,17 @@ const testpanel = {
         const values = [test, price, category, unit, samplevolume, samplecontainer, description, sample];
 
         const outcome = rowAffected(await promisifyQuery(query, values));
-        return outcome ? response.send({
-          statusCode: 201,
-          status: "success",
-          message: "Panel created successfully",
-        })
-          :
-          response.send({
-            statusCode: 200,
-            status: "error",
-            message: "Panel creation failed",
-          });
+        return outcome
+          ? response.send({
+              statusCode: 201,
+              status: "success",
+              message: "Panel created successfully",
+            })
+          : response.send({
+              statusCode: 200,
+              status: "error",
+              message: "Panel creation failed",
+            });
       }
     }
   },
@@ -114,16 +114,17 @@ const testpanel = {
     const query = "insert into sampletype (name) value (?)";
     const { name } = request.body;
     const result = rowAffected(await promisifyQuery(query, [name]));
-    return result ? response.send({
-      message: "added successfully",
-      statusCode: 201,
-      status: "success",
-    }) :
-      response.send({
-        message: "error adding sample type",
-        statusCode: 500,
-        status: "error",
-      });
+    return result
+      ? response.send({
+          message: "added successfully",
+          statusCode: 201,
+          status: "success",
+        })
+      : response.send({
+          message: "error adding sample type",
+          statusCode: 500,
+          status: "error",
+        });
   },
 
   getSampleType: async function (response) {
@@ -138,15 +139,15 @@ const testpanel = {
       const result = await promisifyQuery(deleteQuery, [parseInt(id)]);
       return rowAffected(result)
         ? response.send({
-          message: "deleted successfully",
-          statusCode: 200,
-          status: "success",
-        })
+            message: "deleted successfully",
+            statusCode: 200,
+            status: "success",
+          })
         : response.send({
-          message: "deletion failed",
-          statusCode: 200,
-          status: "error",
-        });
+            message: "deletion failed",
+            statusCode: 200,
+            status: "error",
+          });
     } catch (err) {
       response.send({
         message: err.message,
@@ -229,10 +230,44 @@ const testpanel = {
             shorttext = ?
             WHERE id = ?`;
 
-        const { name, category, testprice, id, sample_container, unit, sample, shorttext, isoutsourced, description, qty_required, hasManual, procedureCode, tat, pre_Tat, post_Tat, showtrend, hasChildrenLimit, hasGenderVariation, tatCount, employeeid, testid, testcost, useLiterature,
+        const {
+          name,
+          category,
+          testprice,
+          id,
+          sample_container,
+          unit,
+          sample,
+          shorttext,
+          isoutsourced,
+          description,
+          qty_required,
+          hasManual,
+          procedureCode,
+          tat,
+          pre_Tat,
+          post_Tat,
+          showtrend,
+          hasChildrenLimit,
+          hasGenderVariation,
+          tatCount,
+          employeeid,
+          testid,
+          testcost,
+          useLiterature,
         } = request.body;
 
-        const updateMainPanel = await promisifyQuery(query, [name, testprice, sample_container, sample, category, unit, description, qty_required, shorttext, testid,
+        const updateMainPanel = await promisifyQuery(query, [
+          name,
+          testprice,
+          sample_container,
+          sample,
+          category,
+          unit,
+          description,
+          qty_required,
+          shorttext,
+          testid,
         ]);
 
         const outcome = rowAffected(updateMainPanel);
@@ -330,42 +365,114 @@ const testpanel = {
     const len = testname.length;
     for (let i = 0; i < len; i++) {
       if (hasSpecialCharacters(testname[i], ["(", ")"])) {
-        testname[i] = ""
+        testname[i] = "";
       }
-      if (testname[i] == " ") testname[i] = "_"
+      if (testname[i] == " ") testname[i] = "_";
     }
     return testname.join("");
   },
 
+  generateAuditLogName: function (testname) {
+    const tablename = this.generateTableName(testname);
+    return `result${tablename}AuditLog`.trim();
+  },
   createCustomTest: async function (testname, iscustom = 1) {
     let hasTestBeenCreated = false;
     try {
-      if (!testname) throw new Error("testname required");
-      if (this.hasTest(testname) === true) {
+      if (!testname) {
+        throw new Error("testname required");
+      }
+      if (await this.hasTest(testname)) {
         return "EXIST";
       }
+
       const query = `INSERT INTO test_panels (name,iscustom) VALUES(?,?)`;
       const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]));
-
       if (istestcreated) {
         hasTestBeenCreated = true;
         const generatedTableName = `result${this.generateTableName(testname)}`.trim();
+        const auditLogTableName = `result${generatedTableName}AuditLog`.trim();
+
         const createTestTableQuery = `
-            CREATE TABLE \`${generatedTableName}\` (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                field VARCHAR(100),
-                billingid INT,
-                patientid BIGINT,
-                value VARCHAR(60),
-                created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
-                updatedon DATETIME(6) DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                employeeid INT,
-                entrymode ,VARCHAR(20) DEFAULT 'manual',
-                INDEX idx_billingid_patientid(billingid, patientid),
-                FOREIGN KEY (patientid) REFEREENCES new_patients(patientid) ON DELETE CASCADE
-             )`;
-        await promisifyQuery(createTestTableQuery, [testname]);
-        return istestcreated;
+        CREATE TABLE \`${generatedTableName}\` (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            field VARCHAR(100),
+            billingid INT,
+            patientid BIGINT,
+            value VARCHAR(60),
+            created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP,
+            updatedon DATETIME(6) DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            employeeid INT,
+            entrymode VARCHAR(20) DEFAULT 'manual',
+            INDEX idx_billingid_patientid (billingid, patientid)
+        )`;
+
+        const createAuditLogTableQuery = `
+        CREATE TABLE \`${auditLogTableName}\` (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            field VARCHAR(100),
+            billingid INT,
+            patientid BIGINT,
+            previousValue VARCHAR(60),
+            employeeid INT,
+            fieldid INT,
+            entrymode VARCHAR(20) DEFAULT 'manual',
+            created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP
+        )`;
+
+        const createUpdateTriggerQuery = `
+        CREATE TRIGGER \`trg_audit_log_update_${generatedTableName}\`
+        AFTER UPDATE ON \`${generatedTableName}\`
+        FOR EACH ROW
+        BEGIN
+            INSERT INTO \`${auditLogTableName}\` (
+                previousValue,
+                billingid,
+                patientid,
+                field,
+                fieldid,
+                employeeid,
+                entrymode
+            ) VALUES (
+                OLD.value,
+                OLD.billingid,
+                OLD.patientid,
+                OLD.field,
+                OLD.id,
+                OLD.employeeid,
+                OLD.entrymode
+            );
+        END`;
+
+        const createDeleteTriggerQuery = `
+        CREATE TRIGGER \`trg_audit_log_delete_${generatedTableName}\`
+        AFTER DELETE ON \`${generatedTableName}\`
+        FOR EACH ROW
+        BEGIN
+           INSERT INTO \`${auditLogTableName}\` (
+                previousValue,
+                billingid,
+                patientid,
+                field,
+                fieldid,
+                employeeid,
+                entrymode
+            ) VALUES (
+                OLD.value,
+                OLD.billingid,
+                OLD.patientid,
+                OLD.field,
+                OLD.id,
+                OLD.employeeid,
+                OLD.entrymode
+            );
+        END`;
+
+        await promisifyQuery(createTestTableQuery);
+        await promisifyQuery(createAuditLogTableQuery);
+        await promisifyQuery(createUpdateTriggerQuery);
+        await promisifyQuery(createDeleteTriggerQuery);
+        return true;
       }
     } catch (err) {
       if (hasTestBeenCreated) {
@@ -375,6 +482,5 @@ const testpanel = {
     }
   },
 };
-
 
 module.exports = testpanel;

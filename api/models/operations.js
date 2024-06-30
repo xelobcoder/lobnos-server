@@ -117,7 +117,7 @@ class Operations {
     });
   };
 
-  async getAllPendingCases(count, page, department, status, testid, response) {
+  async getAllPendingCases(count, page, department, status, testid, response, fullname) {
     try {
       let query = `SELECT 
           CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
@@ -133,7 +133,9 @@ class Operations {
           ta.processing,
           tp.id,
           b.clientstatus,
-          b.organization,
+          CASE WHEN b.organization <> 0 THEN
+          (SELECT name FROM organization WHERE id = b.organization)
+          END AS organization,
           CASE WHEN b.clinician <> 0 THEN
            (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
           END AS clinicianName

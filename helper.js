@@ -1,12 +1,15 @@
 const connectionpool = require("./api/dbpool");
+const logger = require("./logger");
+
 function customError(message, statusCode, response) {
   if (!response) {
     throw new TypeError("Http response object required");
   }
   response.send({ message: message || "something wrong occured", statusCode: statusCode || 500, status: "error" });
 }
-function responseError(response) {
+function responseError(response, err = null) {
   response.send({ message: "something wrong occured", statusCode: 500, status: "error" });
+  if (err) logger.log(err);
 }
 
 const removeHtmlTags = (string) => {
@@ -58,7 +61,6 @@ function NotFound(response) {
   response.send({ message: "Data not found", status: "error" });
 }
 
-
 function promisifyQuery(query, values = []) {
   if (!query || typeof query != "string") {
     throw new Error("query must be added and a string type");
@@ -71,7 +73,7 @@ function promisifyQuery(query, values = []) {
       connection.query(query, values, (queryError, result) => {
         connection.release();
         if (queryError) {
-          console.log(queryError)
+          console.log(queryError);
           reject(queryError);
         } else {
           resolve(result);

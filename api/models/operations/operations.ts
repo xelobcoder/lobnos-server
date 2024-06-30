@@ -1,7 +1,15 @@
-import { q_approved_samples, q_billing_test_collection, q_checkbillingid, q_qualifiedToProcessByDepartment } from "./queries";
-import { OperationsFailures } from "./types";
+import {
+  q_approved_samples,
+  q_billing_test_collection,
+  q_checkbillingid,
+  q_get_all_result_entry,
+  q_log_result_entry,
+  q_qualifiedToProcessByDepartment,
+  q_startProcessingTest,
+} from "./queries";
+import { OperationsFailures, OperationsFilterResultEntry, resultQuery } from "./types";
 
-const { customError, promisifyQuery, paginationQuery, responseError } = require("../../helper");
+const { customError, promisifyQuery, paginationQuery, responseError, rowAffected } = require("../../helper");
 const logger = require("../../logger");
 const connection = require("../db");
 
@@ -62,55 +70,25 @@ class Operations {
     return await promisifyQuery(queryString, values);
   }
 
-  initiateStart = async (testid, billingid) => {
-    // update test ascension table with the testid, datetime and the billing id
-    const queryString = `UPDATE test_ascension SET processing_date = NOW(),
-    processing = 'true'  WHERE billingid = ? AND testid = ?`;
-    return await promisifyQuery(queryString, [billingid, testid]);
+  initiateTestProcessing = async (testid: number, billingid: number) => {
+    return await promisifyQuery(q_startProcessingTest, [billingid, testid]);
   };
 
-  initiateReady = async (testid, billingid) => {
+  logResultEntry = async (testid: number, billingid: number) => {
     // update test ascension table with the testid, datetime and the billing id and ready = true and ready_date = NOW()
-
-    const queryString = `UPDATE test_ascension SET ready_date = NOW(),ready = 'true'  WHERE billingid = ${billingid} AND testid = ${testid}`;
-
-    return new Promise((resolve, reject) => {
-      connection.query(queryString, (err, result) => {
-        err ? reject(err) : result.affectedRows === 0 ? resolve({ affectedRows: 0 }) : resolve({ affectedRows: 1 });
-      });
-    });
+    const isResultEntryLogged = await promisifyQuery(q_log_result_entry, [billingid, testid]);
+    return rowAffected(isResultEntryLogged);
   };
 
-  async getAllPendingCases(count, page, department, status, testid, response) {
+  async getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<[]> {
+    const { fullname, count, page, department, testid, status, from, to } = requestQuery;
     try {
-      let query = `SELECT 
-          CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
-          CONCAT(np.age," ",np.agetype) AS age,
-          np.patientid,
-          b.billingid ,
-          tp.category,
-          d.department,
-          tp.name,
-          b.clinician,
-          ss.approvalstatus,
-          ta.ready,
-          ta.processing,
-          tp.id,
-          b.clientstatus,
-          b.organization,
-          CASE WHEN b.clinician <> 0 THEN
-           (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
-          END AS clinicianName
-      FROM new_patients AS np
-        INNER JOIN billing AS b ON np.patientid = b.patientid
-        INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
-        INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-        INNER JOIN test_panels AS tp ON tp.id = ss.testid
-        INNER JOIN departments AS d ON d.id = tp.category 
-        WHERE ss.approvalstatus = 1 AND ta.collection = 'true'
-        AND d.department <> 'ultrasound'
-      `;
+      let query: string = q_get_all_result_entry;
       const values = [];
+      if (fullname) {
+        query += ` CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) LIKE ??`;
+        values.push(`${fullname}%`);
+      }
       if (department) {
         if (department == "all") {
           query = query;
@@ -133,55 +111,28 @@ class Operations {
         values.push(testid);
       }
 
+      if (from && !to) {
+        query += ` AND DATE(b.billedon) BETWEEN ?? AND CURRENT_DATE`;
+        values.push(from);
+      } else if (from && to) {
+        query += ` AND DATE(b.billedon) BETWEEN ?? AND  ??`;
+        values.push(from);
+        values.push(to);
+      } else {
+        query = query;
+      }
+
       query += ` ORDER BY b.billingid DESC
     LIMIT ? OFFSET ?`;
 
-      const result = await paginationQuery({ count, page }, query, values);
-      if (response) {
-        response.send({ status: "success", result, statusCode: 200 });
-      } else {
-        return result;
-      }
+      return await paginationQuery({ count, page }, query, values);
     } catch (err) {
-      logger.error(err);
-      console.log(err);
+      throw err;
     }
   }
 
-  operationsOverview = async function (request, response) {
-    const { stage } = request.query;
-
-    if (!stage) {
-      customError("stage of tests required", 401);
-    } else {
-      let queryString = `
-          SELECT COUNT(*) AS count, d.department,d.id AS departmentid from test_ascension AS ta
-          INNER JOIN test_panels AS tp ON tp.id = ta.testid
-          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-          INNER JOIN billing AS b ON b.billingid = ta.billingid
-          INNER JOIN departments AS d ON d.id = tp.category
-          WHERE ta.collection = 'true'
-        `;
-
-      if (stage == "unentered") {
-        queryString += ` AND ta.ready = 'false'`;
-      }
-
-      if (stage == "entered") {
-        queryString += ` AND ta.ready = 'true'`;
-      }
-
-      queryString += ` AND d.department <> 'ultrasound' AND DATE(b.billedon) = CURRENT_DATE`;
-
-      queryString += ` GROUP BY d.department,d.id,ta.id`;
-
-      const result = await promisifyQuery(queryString);
-
-      response.send({ result, status: "success", statusCode: 200 });
-    }
-  };
-  getAllEnterResult = async function (request, response) {
-    const { from, to, patientid, billingid, sortingwise, count, page } = request.query;
+  async getAllEnterResult(data: resultQuery) {
+    const { from, to, patientid, billingid, sortingwise, count, page } = data;
     let queryString = `SELECT  CONCAT(  np.FIRSTNAME,
                   ' ',
                   np.MIDDLENAME,
@@ -231,8 +182,8 @@ class Operations {
                           ta.ready,
                           ta.ready_date
                         FROM test_ascension as ta
-                          INNER JOIN test_panels as tp ON ta.testid = tp.ID
-                          INNER JOIN departments AS d ON d.id = tp.CATEGORY
+                          INNER JOIN test_panels as tp ON ta.testid = tp.id
+                          INNER JOIN departments AS d ON d.id = tp.category
        WHERE ta.billingid = ?`;
       result = await Promise.all(
         result.map(async (item, index) => {
@@ -245,12 +196,8 @@ class Operations {
         })
       );
     }
-    response.send({
-      statusCode: 200,
-      status: "success",
-      result,
-    });
-  };
+    return result;
+  }
 
   getAllTestPreview = async function (request, response) {
     const { billingid } = request.query;
@@ -287,38 +234,28 @@ class Operations {
     }
   };
 
-  async getUltrasoundWaitingList(request, response) {
-    const { count = 10, page = 1 } = request.query;
+  async getUltrasoundWaitingList(data: { count: number; page: number }) {
+    const { count = 10, page = 1 } = data;
     const queryString = ` 
     SELECT DISTINCT
-    CASE 
-        WHEN MIDDLENAME IS NULL THEN CONCAT(
-            np.FIRSTNAME,
-            ' ',
-            np.LASTNAME
-          )  ELSE CONCAT(  np.FIRSTNAME,
-            ' ',
-            np.MIDDLENAME,
-            ' ',
-            np.LASTNAME) END AS fullname,
-    np.patientid,
-    b.billingid,
-    b.billedon,
-    tp.name,
-    tp.ID AS testid,
-    tp.category,
-    d.department
+          np.patientid,
+          b.billingid,
+          CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
+          b.billedon,
+          tp.name,
+          tp.id AS testid,
+          tp.category,
+          d.department
   FROM new_patients as np
-    INNER JOIN billing as b ON np.PATIENTID = b.patientid
+    INNER JOIN billing as b ON np.patientid = b.patientid
     INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
     INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-    INNER JOIN test_panels AS tp ON tp.ID = ta.testid
-    INNER JOIN departments AS d ON d.ID = tp.CATEGORY
+    INNER JOIN test_panels AS tp ON tp.id = ta.testid
+    INNER JOIN departments AS d ON d.id = tp.category
   WHERE  d.department = 'ultrasound' AND ta.ready = 'false' LIMIT ? OFFSET ?`;
 
     const result = await paginationQuery({ count, page }, queryString);
-
-    response.send({ statusCode: 200, result, status: "success" });
+    return result;
   }
 
   async processedScanList(request, response) {
@@ -327,30 +264,21 @@ class Operations {
       const { from, to, search } = request.query;
       let query = `
       SELECT DISTINCT
-      CASE 
-          WHEN MIDDLENAME IS NULL THEN CONCAT(
-              np.FIRSTNAME,
-              ' ',
-              np.LASTNAME
-            )  ELSE CONCAT(  np.FIRSTNAME,
-              ' ',
-              np.MIDDLENAME,
-              ' ',
-              np.LASTNAME) END AS fullname,
-      np.patientid,
-      b.billingid,
-      b.billedon,
-      tp.name,
-      tp.ID AS testid,
-      tp.category,
-      ta.ready,
-      d.department
+          np.patientid,
+          b.billingid,
+          CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
+          b.billedon,
+          tp.name,
+          tp.id AS testid,
+          tp.category,
+          ta.ready,
+          d.department
     FROM new_patients as np
-      INNER JOIN billing as b ON np.PATIENTID = b.patientid
-      INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
-      INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-      INNER JOIN test_panels AS tp ON tp.ID = ta.testid
-      INNER JOIN departments AS d ON d.ID = tp.CATEGORY
+          INNER JOIN billing as b ON np.PATIENTID = b.patientid
+          INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+          INNER JOIN test_panels AS tp ON tp.id = ta.testid
+          INNER JOIN departments AS d ON d.id = tp.CATEGORY
     WHERE  d.department = 'ultrasound' AND ta.ready ='true'
       `;
       const values = [];

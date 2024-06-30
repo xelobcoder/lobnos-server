@@ -39,9 +39,20 @@ export interface IRegistration {
   isClientSame(clientdata: clientdata): boolean;
   checkEmailOrMobileExist(email: string, mobile: number): boolean;
   checkPatientIdExist(patientid: number): Promise<boolean>;
-  getPatientBasicData(): Promise<[]>;
+  getPatientBasicData(patientid: number | string): Promise<[]>;
   addPersonalInformation(records: NewRegistration): Promise<registrationOutcome | void>;
   addressingInformation(paientid: number, records: addressInformation): Promise<boolean | void>;
   addNewPatient(data: NewRegistration): Promise<number>;
   updatePersonalInformation(patientdata: NewRegistration): Promise<boolean>;
 }
+
+export type PatientRecords = {
+  count: number;
+  email: string;
+  patientid: number;
+  page: number;
+  from: string;
+  to: string;
+  fullname: string;
+  mobile: number;
+};

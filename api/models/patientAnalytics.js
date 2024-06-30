@@ -22,6 +22,10 @@ class Patient extends Registration {
     })
   }
 
+  getCustomersRecords() {
+
+  }
+
 
   getTransactionsByDate = async function (patientid, to, from) {
     const isArgGiven = arguments.length > 0 && typeof arguments[0] == 'number' ? patientid : this.patientid;
@@ -113,27 +117,6 @@ class Patient extends Registration {
       { parameters.push(item?.parameter) }
     })
     return parameters;
-  }
-
-
-  async billingPartitionPrunner(startdate, enddate) {
-    if (!startdate || !startdate) throw new Error("required startdate and enddate not provided");
-    let partitonQuery = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
-    let partitions = await promisifyQuery(partitonQuery);
-    if (partitions.length == 0) return [];
-
-    const startYear = new Date(startdate).getFullYear();
-    const endYear = new Date(enddate).getFullYear();
-    const stMonth = new Date(startdate).getMonth();
-    const edMonth = new Date(enddate).getMonth();
-
-    partitions = partitions.map((a, index) => a.PARTITION_NAME);
-
-    partitions.filter((_part, index) => {
-      const [_, year, month] = _part.split("_");
-      return year == startYear || year == endYear || (endYear == year && stMonth == month) || (startYear == year && edMonth == month);
-    })
-    return partitions.length > 0 ? partitions.join(",") : [];
   }
 
 
