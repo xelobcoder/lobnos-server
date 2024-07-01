@@ -30,3 +30,22 @@ const q_update_dept_requisition = `UPDATE departmentrequisition SET quantity_app
 const q_update_dept_requisition_after_supplied = `UPDATE departmentrequisition SET
                 store_supplied = ?
                 WHERE id = ?`;
+const q_updateQtyDeptReceived = `UPDATE departmentrequisition 
+       SET quantityReceived = ?, departmentReceived = ?, 
+       status = ?, receivingemployee = ? WHERE id = ?`;
+const q_do_dept_have_Stock_brand = `SELECT * FROM departmentsmainsupply WHERE stockid = ? AND brand = ? AND batchnumber = ? LIMIT 1`;
+const q_get_dept_stock_brand = `SELECT * FROM departmentsmainsupply WHERE stockid = ? AND brand = ? AND batchnumber = ? LIMIT ?`;
+const q_insertDeptMainStockSupply = `INSERT INTO departmentsmainsupply (quantity,
+      stockid,brand,batchnumber,departmentid) VALUES(quantity,stockid,brand,batchnumber,departmentid)`;
+const q_departmentsmainsupply = `UPDATE departmentsmainsupply SET 
+      quantity = ? WHERE stockid = ? AND  brand = ? AND batchnumber = ?`;
+const q_delete_requisition_query = `DELETE FROM departmentrequisition WHERE id = ?`;
+const q_getDepartmentBrandBatch = `SELECT id,
+              bt.batchnumber,
+              bb.brand,
+              bb.brandid,
+              bt.departmentid,
+              bt.quantity
+      FROM departmentsmainsupply AS bt INNER JOIN stocksbrands AS bb ON bb.brandid = bt.brand
+      WHERE bt.stockid = ? AND bt.departmentid = ?`;
+const q_getDepartmentExpired = ``;

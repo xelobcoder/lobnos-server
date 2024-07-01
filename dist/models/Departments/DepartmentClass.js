@@ -148,48 +148,38 @@ class Departments {
         const values = [store_supplied, requisitionid];
         return rowAffected(await promisifyQuery(q_update_dept_requisition_after_supplied, values));
     }
-    async updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, requisitionid) {
-        const update_query = `UPDATE departmentrequisition 
-       SET quantityReceived = ?, departmentReceived = ?, 
-       status = ?, receivingemployee = ? WHERE id = ?`;
+    async updateQtyDeptReceived(reqdata) {
+        const { quantityReceived, departmentReceived, status, employeeid, requisitionid } = reqdata;
         const values = [quantityReceived, departmentReceived, status, employeeid, requisitionid];
-        return rowAffected(await promisifyQuery(update_query, values));
+        return rowAffected(await promisifyQuery(q_updateQtyDeptReceived, values));
     }
     async isDeptHaveStockBrand(stockid, brandid, batchnumber) {
-        const count = await promisifyQuery(`SELECT * FROM departmentsmainsupply WHERE stockid = ? AND brand = ? AND batchnumber = ? LIMIT 1`, [
-            stockid,
-            brandid,
-            batchnumber,
-        ]);
+        const count = await promisifyQuery(q_do_dept_have_Stock_brand, [stockid, brandid, batchnumber]);
         return count.length > 0;
     }
     async getDeptHaveStockBrand(stockid, brandid, batchnumber, LIMIT) {
-        const count = await promisifyQuery(`SELECT * FROM departmentsmainsupply WHERE stockid = ? AND brand = ? AND batchnumber = ? LIMIT ?`, [
-            stockid,
-            brandid,
-            batchnumber,
-            LIMIT,
-        ]);
-        return count;
+        const rows = await promisifyQuery(q_get_dept_stock_brand, [stockid, brandid, batchnumber, LIMIT]);
+        return rows;
     }
     async insertDeptMainStockSupply(records) {
         const { qty, stockid, brandid, batchnumber, departmentid } = records;
-        const query = `INSERT INTO departmentsmainsupply (quantity,
-      stockid,brand,batchnumber,departmentid) VALUES(quantity,stockid,brand,batchnumber,departmentid)`;
-        return rowAffected(await promisifyQuery(query, [qty, stockid, brandid, batchnumber, departmentid]));
+        return rowAffected(await promisifyQuery(q_insertDeptMainStockSupply, [qty, stockid, brandid, batchnumber, departmentid]));
     }
     async updateDepartmentMainStocks(records, arithmetric = "add") {
         const { stockid, brandid, batchnumber, qty } = records;
         if (await this.isDeptHaveStockBrand(stockid, brandid, batchnumber)) {
             const info = await this.getDeptHaveStockBrand(stockid, brandid, batchnumber, 1);
             const current_qty = info[0]["quantity"];
-            const updated_qty = arithmetric === "add" ? parseInt(current_qty) + parseInt(qty) : parseInt(current_qty) - parseInt(qty);
-            return await promisifyQuery(`UPDATE departmentsmainsupply SET 
-      quantity = ? WHERE stockid = ? AND  brand = ? AND batchnumber = ?`, [updated_qty, stockid, brandid, batchnumber]);
+            const updated_qty = arithmetric === "add" ? parseInt(current_qty) + qty : parseInt(current_qty) - qty;
+            return await promisifyQuery(q_departmentsmainsupply, [updated_qty, stockid, brandid, batchnumber]);
         }
         else {
             await this.insertDeptMainStockSupply(records);
         }
+    }
+    async deleteRequisition(requisitionid) {
+        const packet = await promisifyQuery(q_delete_requisition_query, [requisitionid]);
+        return rowAffected(packet);
     }
     async updateReqtAfterReceivedDept(records) {
         const { quantityReceived, departmentReceived, id, status, employeeid, departmentid, stockid } = records;
@@ -199,7 +189,7 @@ class Departments {
         let esrow = new Escrow(id);
         let esrowItems = await esrow.getEsrowReqt();
         if (esrowItems.length <= 0) {
-            await database_queries.del(id, "departmentrequisition", "id");
+            await this.deleteRequisition(id);
             return "NO ITEM IN ESCROW";
         }
         function isToday(dateString) {
@@ -215,11 +205,11 @@ class Departments {
         if (esrowItems.length === 0) {
             esrow.updateEscrow(id, "canceled");
             // delete requisition
-            await database_queries.del(id, "departmentrequisition", "id");
+            await this.deleteRequisition(id);
             return "EXPIRED ESROW TIME, REQUEST AGAIN";
         }
         try {
-            await this.updateQtyDeptReceived(quantityReceived, departmentReceived, status, employeeid, id);
+            await this.updateQtyDeptReceived({ quantityReceived, departmentReceived, status, employeeid, requisitionid: id });
             await esrow.updateEscrow(id, "received");
             // ---NOTE-- functions below have been implemented with triggers to avoid lock deadlock issues with transactions
             // await this.updateDepartmentMainStocks(item)
@@ -237,16 +227,8 @@ class Departments {
             if (!stockid || !departmentid) {
                 throw new Error("stockid and departmentid are required");
             }
-            const queryString = `SELECT id,
-              bt.batchnumber,
-              bb.brand,
-              bb.brandid,
-              bt.departmentid,
-              bt.quantity
-      FROM departmentsmainsupply AS bt INNER JOIN stocksbrands AS bb ON bb.brandid = bt.brand
-      WHERE bt.stockid = ? AND bt.departmentid = ?`;
             const values = [stockid, departmentid];
-            let result = await promisifyQuery(queryString, values);
+            let result = await promisifyQuery(q_getDepartmentBrandBatch, values);
             return result;
         }
         catch (err) {

@@ -29,3 +29,22 @@ export type UpdateReqtData = {
   requisitionid: number;
   status: number | string | boolean;
 };
+
+
+
+
+export type updateQtyDeptReceived = {
+  quantityReceived: number;
+  departmentReceived: number;
+  status: string | number;
+  employeeid: number;
+  requisitionid: number;
+};
+
+export type DepartMain = {
+  qty: number;
+  stockid: number;
+  brandid: number;
+  batchnumber: string | number;
+  departmentid: number;
+};
