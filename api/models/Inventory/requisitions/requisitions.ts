@@ -8,8 +8,8 @@ import {
   INSERT_DEPARTMENT_CONSUMPTION_HX_QUERY,
 } from "./queries";
 import { promisifyQuery, rowAffected, paginationQuery, customError } from "../../../helper";
-import logger from "../../../logger";
-import User from "../../LobnosAuth/user";
+import logger from "../../../../logger";
+import User from "../../../LobnosAuth/user";
 import Departments from "../Departments/DepartmentClass";
 
 class Requisition extends Departments {

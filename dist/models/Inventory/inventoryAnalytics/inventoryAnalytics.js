@@ -23,8 +23,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const helper_1 = require("../../../../helper"); // Adjust the path as per your project structure
-const logger_1 = require("../../../logger");
+const helper_1 = require("../../../../helper");
+const logger_1 = require("../../../../logger");
 const queries = __importStar(require("./queries"));
 class Inventoryanalytics {
     constructor(stockid, departmentid) {

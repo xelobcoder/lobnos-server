@@ -1,8 +1,5 @@
-import { promisifyQuery, paginationQuery } from "../../../../helper"; // Adjust the path as per your project structure
-import { logger } from "../../../logger";
-import Departments from "../Departments/DepartmentClass";
-import Inventory from "./inventoryclass";
-import WastageInventory from "./wastageClass";
+import { promisifyQuery, paginationQuery } from "../../../../helper"; 
+import { logger } from "../../../../logger";
 import * as queries from "./queries";
 
 class Inventoryanalytics {
