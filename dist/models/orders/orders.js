@@ -66,7 +66,7 @@ class Orders extends inventoryClass_1.default {
                 i++;
             }
         }
-        query += ` GROUP BY orderTransactionid`;
+        query += ` GROUP BY orderTransactionid  ORDER BY ord.productordersid DESC`;
         if (paginate === true) {
             query += ` LIMIT ? OFFSET ?`;
             const packets = await (0, helper_1.paginationQuery)({ page, count }, query, values);
@@ -75,6 +75,9 @@ class Orders extends inventoryClass_1.default {
         else {
             return await (0, helper_1.promisifyQuery)(query);
         }
+    }
+    async getOrdersTransactionItems(transactionid) {
+        return await (0, helper_1.promisifyQuery)(queries.q_get_transaction_items, [transactionid]);
     }
     async getorderTransactionSummary(data, paginate = true) {
         let packets = await this.getOrdersTransactions(data, paginate);

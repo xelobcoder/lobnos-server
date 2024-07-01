@@ -47,4 +47,8 @@ export const q_updateOrderReceivedTransactionSummary = `
 export const q_get_all_orders_transactions = `SELECT * FROM orders  
 AS ord RIGHT JOIN roles AS rr ON rr.employeeid = ord.requestedby`;
 
-// ord.requestedby, ord.orderTransactionid, ord.transactiondate, ord.receivedby; 
+// ord.requestedby, ord.orderTransactionid, ord.transactiondate, ord.receivedby;
+
+
+
+export const q_get_transaction_items = `SELECT * FROM orders WHERE orderTransactionid = ?;`

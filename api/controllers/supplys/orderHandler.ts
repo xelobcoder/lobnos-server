@@ -10,14 +10,19 @@ export const handlePlaceOrder = (request: Request, response: Response): void => 
 
 export const handleGetOrders = async (request: Request, response: Response) => {
   try {
-    const orders = await getunReceivedOrders(request.query as any);
-    response.send({ result: orders, status: "success", statusCode: 200 });
+    const { status = "pending", transactionid } = request.query;
+    if (status === "pending") {
+      const orders = await getunReceivedOrders(request.query as any);
+      response.send({ result: orders, status: "success", statusCode: 200 });
+    } else {
+      const orders = await new Orders().getOrdersTransactionItems(parseInt(transactionid as any));
+      console.log(orders,'111')
+      response.send({ result: orders, status: "success", statusCode: 200 });
+    }
   } catch (err) {
     responseError(response);
   }
 };
-
-
 
 export const handleDeleteAspecificOrder = async (request: Request, response: Response): Promise<Response> => {
   try {
@@ -39,12 +44,11 @@ export const handleDeleteAspecificOrder = async (request: Request, response: Res
   }
 };
 
-
-
-
 export async function handleTransactionsOrders(request: Request, response: Response) {
-  // const { from, end, supplier, stock, page = 1, count = 10 } = request.query;
-  const result = await new Orders().getorderTransactionSummary(request.query as any,true);
-
-  response.send(result);
+  try {
+    const result = await new Orders().getorderTransactionSummary(request.query as any, true);
+    response.send(result);
+  } catch (err) {
+    responseError(response);
+  }
 }

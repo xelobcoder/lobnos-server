@@ -45,7 +45,7 @@ export class Orders extends Inventory {
         i++;
       }
     }
-    query += ` GROUP BY orderTransactionid`;
+    query += ` GROUP BY orderTransactionid  ORDER BY ord.productordersid DESC`;
 
     if (paginate === true) {
       query += ` LIMIT ? OFFSET ?`;
@@ -54,6 +54,10 @@ export class Orders extends Inventory {
     } else {
       return await promisifyQuery(query);
     }
+  }
+
+  public async getOrdersTransactionItems(transactionid: number) {
+    return await promisifyQuery(queries.q_get_transaction_items,[transactionid])
   }
 
   public async getorderTransactionSummary(data: orderTransactions, paginate = true) {
@@ -181,6 +185,9 @@ export const getunReceivedOrders = async function (data: RequestQuery) {
     throw new Error(err);
   }
 };
+
+
+
 
 export const deleteAspecificOrder = async function (orderid: number, response: any) {
   const query = queries.q_deleteOrder;
