@@ -94,8 +94,8 @@ export const addCommodity = async (request: Request, response: Response): Promis
 
 export async function handleReceiveOrders(request: Request, response: Response) {
   try {
-    const { data, tax, totalprice } = request.body;
-    const result = await new Inventory(null).receivePurchaseStocks(data, totalprice, tax);
+    const { data, tax, totalprice,employeeid } = request.body;
+    const result = await new Inventory(null).receivePurchaseStocks(data, totalprice, tax,employeeid);
     return result
       ? response.send({ message: "order updated successfully", statusCode: 200, status: "success" })
       : response.send({ message: "order update failed", statusCode: 200, status: "success" });

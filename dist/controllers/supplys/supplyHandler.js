@@ -106,8 +106,8 @@ const addCommodity = async (request, response) => {
 exports.addCommodity = addCommodity;
 async function handleReceiveOrders(request, response) {
     try {
-        const { data, tax, totalprice } = request.body;
-        const result = await new inventoryClass_1.default(null).receivePurchaseStocks(data, totalprice, tax);
+        const { data, tax, totalprice, employeeid } = request.body;
+        const result = await new inventoryClass_1.default(null).receivePurchaseStocks(data, totalprice, tax, employeeid);
         return result
             ? response.send({ message: "order updated successfully", statusCode: 200, status: "success" })
             : response.send({ message: "order update failed", statusCode: 200, status: "success" });

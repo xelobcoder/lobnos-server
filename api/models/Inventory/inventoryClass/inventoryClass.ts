@@ -170,6 +170,7 @@ class Inventory implements InventoryInterface {
     records: any[],
     total: number,
     tax: { amount: number; method: string },
+    employeeid:number,
     response?: any
   ): Promise<boolean | void> {
     try {
@@ -219,6 +220,7 @@ class Inventory implements InventoryInterface {
           productordersid,
           orderTransactionid,
           stockid,
+          employeeid
         ];
       });
       let successCount = 0;
@@ -227,7 +229,7 @@ class Inventory implements InventoryInterface {
       let ordersSummaryUpdated = false;
 
       while (current < records.length) {
-        const updateRecord = await this.updateStockOrders(requiredDataSource[current]);
+        const updateRecord = await this.updateStockOrders({ ...requiredDataSource[current] ,employeeid});
         rowAffected(updateRecord) ? successCount++ : errorCount++;
         current++;
       }
@@ -243,7 +245,8 @@ class Inventory implements InventoryInterface {
       }
       return !response
         ? ordersSummaryUpdated
-        : response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
+        :
+        response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
     } catch (err) {
       logger.error(err);
       throw new Error(err);

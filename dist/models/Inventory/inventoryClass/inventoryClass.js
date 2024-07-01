@@ -158,7 +158,7 @@ class Inventory {
         const values = [method, total, amount, orderTransactionid];
         return await (0, helper_1.promisifyQuery)(query, values);
     }
-    async receivePurchaseStocks(records, total, tax, response) {
+    async receivePurchaseStocks(records, total, tax, employeeid, response) {
         try {
             if (records.length === 0) {
                 if (response) {
@@ -194,6 +194,7 @@ class Inventory {
                     productordersid,
                     orderTransactionid,
                     stockid,
+                    employeeid
                 ];
             });
             let successCount = 0;
@@ -201,7 +202,7 @@ class Inventory {
             let current = 0;
             let ordersSummaryUpdated = false;
             while (current < records.length) {
-                const updateRecord = await this.updateStockOrders(requiredDataSource[current]);
+                const updateRecord = await this.updateStockOrders(Object.assign(Object.assign({}, requiredDataSource[current]), { employeeid }));
                 (0, helper_1.rowAffected)(updateRecord) ? successCount++ : errorCount++;
                 current++;
             }
@@ -217,7 +218,8 @@ class Inventory {
             }
             return !response
                 ? ordersSummaryUpdated
-                : response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
+                :
+                    response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
         }
         catch (err) {
             logger_1.default.error(err);
