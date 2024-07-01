@@ -1,10 +1,9 @@
 import { DepartMain, EscrowOrder, EsrowData, ServeDeptType, updateQtyDeptReceived, UpdateReqtData } from "./types";
 
-const { promisifyQuery, rowAffected, retryableTransaction } = require("../../../helper");
-const logger = require("../../../logger");
-const database_queries = require("../../database/queries");
-const Escrow = require("../Inventory/esrow");
-const Inventory = require("./../Inventory/inventoryclass");
+import { promisifyQuery, rowAffected } from "../../../helper";
+import logger from "../../../logger";
+import Inventory from "./../Inventory/inventoryclass";
+import Escrow from "../Inventory/escrow/esrow";
 
 class Departments {
   private departmentid: number;

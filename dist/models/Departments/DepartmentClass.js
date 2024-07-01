@@ -1,10 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-const { promisifyQuery, rowAffected, retryableTransaction } = require("../../../helper");
-const logger = require("../../../logger");
-const database_queries = require("../../database/queries");
-const Escrow = require("../Inventory/esrow");
-const Inventory = require("./../Inventory/inventoryclass");
+const helper_1 = require("../../../helper");
+const logger_1 = __importDefault(require("../../../logger"));
+const inventoryclass_1 = __importDefault(require("./../Inventory/inventoryclass"));
+const esrow_1 = __importDefault(require("../Inventory/escrow/esrow"));
 class Departments {
     constructor(departmentid) {
         this.departmentid = departmentid;
@@ -15,7 +17,7 @@ class Departments {
             query += ` AND departmentid = ?`;
         }
         query += ` GROUP BY hx.departmentid`;
-        return await promisifyQuery(query, [this.departmentid]);
+        return await (0, helper_1.promisifyQuery)(query, [this.departmentid]);
     }
     async getDeptSpecificReqData(id, type) {
         try {
@@ -38,22 +40,22 @@ class Departments {
             if (type === "receiving") {
                 mysql_query += ` WHERE drh.departmentid = ? AND quantity_approved IS NOT NULL AND status = 'approved' AND store_supplied = 1`;
             }
-            return promisifyQuery(mysql_query, [id]);
+            return (0, helper_1.promisifyQuery)(mysql_query, [id]);
         }
         catch (err) {
-            logger.error(err);
+            logger_1.default.error(err);
             throw new Error(err);
         }
     }
     async StoreServeDeptReq(departmentid, stockid) {
         if (!departmentid || !stockid)
             throw new Error("Departmentid and stockid Required");
-        const inventory = new Inventory();
+        const inventory = new inventoryclass_1.default();
         const brands = await inventory.getAstockBrands({ stockid });
         const stocksbrands = brands.map((a, i) => a.brandid);
         if (stocksbrands.length === 0)
             return [];
-        let product = await promisifyQuery(`SELECT * FROM mainstoresupply AS ms INNER JOIN stocksbrands AS sb ON sb.brandid =  ms.brandid
+        let product = await (0, helper_1.promisifyQuery)(`SELECT * FROM mainstoresupply AS ms INNER JOIN stocksbrands AS sb ON sb.brandid =  ms.brandid
       WHERE ms.brandid IN (${stocksbrands.length === 1 ? stocksbrands[0] : Array.prototype.toString.call(stocksbrands)}) AND ms.stockid = ?`, [stockid]);
         product = product.map((item, index) => {
             return Object.assign(Object.assign({}, item), { storeQty: item === null || item === void 0 ? void 0 : item.quantity });
@@ -63,22 +65,22 @@ class Departments {
     async checkStoreSuppliedAlready(requisitionid) {
         if (!requisitionid)
             throw new Error("requisition id is required");
-        const row = await promisifyQuery(q_has_store_supplied_already, [requisitionid]);
+        const row = await (0, helper_1.promisifyQuery)(q_has_store_supplied_already, [requisitionid]);
         return row[0]["store_supplied"] == 1;
     }
     async addNewDeptRequisionhx(records) {
         const { productordersid, stockid, brandid, batchnumber, served, type, requisitionid, departmentid } = records;
         const values = [productordersid, stockid, brandid, batchnumber, served, requisitionid, departmentid, "received"];
-        return rowAffected(await promisifyQuery(q_new_department_reqt, values));
+        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(q_new_department_reqt, values));
     }
     async addProductEscrow(data) {
         const { productordersid, stockid, brandid, batchnumber, qty, type, requisitionid, departmentid } = data;
         const values = [productordersid, stockid, brandid, batchnumber, qty, type, requisitionid, departmentid];
-        return await promisifyQuery(q_new_Escrow_data, values);
+        return await (0, helper_1.promisifyQuery)(q_new_Escrow_data, values);
     }
     async checkEscrowOrderExists(data) {
         const { productordersid, stockid, batchnumber, brandid } = data;
-        const result = await promisifyQuery(q_escrow_order_exist, [productordersid, stockid, brandid, batchnumber]);
+        const result = await (0, helper_1.promisifyQuery)(q_escrow_order_exist, [productordersid, stockid, brandid, batchnumber]);
         const orderCount = result[0].count;
         return orderCount > 0;
     }
@@ -109,7 +111,7 @@ class Departments {
                         requisitionid,
                         departmentid,
                     });
-                    return rowAffected(outcome);
+                    return (0, helper_1.rowAffected)(outcome);
                 }));
                 const passedCount = results.filter((value) => value === true).length;
                 return passedCount === filterData.length ? "PASSED" : "FAILED";
@@ -121,8 +123,8 @@ class Departments {
         }
         catch (err) {
             await this.updateDeptReqtAfterSupplied(0, requisitionid);
-            await promisifyQuery(q_delete_requit_from_escrow, [requisitionid]);
-            logger.error(err);
+            await (0, helper_1.promisifyQuery)(q_delete_requit_from_escrow, [requisitionid]);
+            logger_1.default.error(err);
             throw new Error(err);
         }
     }
@@ -136,8 +138,8 @@ class Departments {
         }
         if (quantity < 0)
             return false;
-        const result = await promisifyQuery(q_update_dept_requisition, [quantity, status, requisitionid]);
-        return rowAffected(result);
+        const result = await (0, helper_1.promisifyQuery)(q_update_dept_requisition, [quantity, status, requisitionid]);
+        return (0, helper_1.rowAffected)(result);
     }
     async updateDeptReqtAfterSupplied(store_supplied, requisitionid) {
         if (typeof store_supplied == "string") {
@@ -146,24 +148,24 @@ class Departments {
         if (store_supplied < 0 || !requisitionid)
             throw new Error("int store_supplied and requisitionid  required");
         const values = [store_supplied, requisitionid];
-        return rowAffected(await promisifyQuery(q_update_dept_requisition_after_supplied, values));
+        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(q_update_dept_requisition_after_supplied, values));
     }
     async updateQtyDeptReceived(reqdata) {
         const { quantityReceived, departmentReceived, status, employeeid, requisitionid } = reqdata;
         const values = [quantityReceived, departmentReceived, status, employeeid, requisitionid];
-        return rowAffected(await promisifyQuery(q_updateQtyDeptReceived, values));
+        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(q_updateQtyDeptReceived, values));
     }
     async isDeptHaveStockBrand(stockid, brandid, batchnumber) {
-        const count = await promisifyQuery(q_do_dept_have_Stock_brand, [stockid, brandid, batchnumber]);
+        const count = await (0, helper_1.promisifyQuery)(q_do_dept_have_Stock_brand, [stockid, brandid, batchnumber]);
         return count.length > 0;
     }
     async getDeptHaveStockBrand(stockid, brandid, batchnumber, LIMIT) {
-        const rows = await promisifyQuery(q_get_dept_stock_brand, [stockid, brandid, batchnumber, LIMIT]);
+        const rows = await (0, helper_1.promisifyQuery)(q_get_dept_stock_brand, [stockid, brandid, batchnumber, LIMIT]);
         return rows;
     }
     async insertDeptMainStockSupply(records) {
         const { qty, stockid, brandid, batchnumber, departmentid } = records;
-        return rowAffected(await promisifyQuery(q_insertDeptMainStockSupply, [qty, stockid, brandid, batchnumber, departmentid]));
+        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(q_insertDeptMainStockSupply, [qty, stockid, brandid, batchnumber, departmentid]));
     }
     async updateDepartmentMainStocks(records, arithmetric = "add") {
         const { stockid, brandid, batchnumber, qty } = records;
@@ -171,22 +173,22 @@ class Departments {
             const info = await this.getDeptHaveStockBrand(stockid, brandid, batchnumber, 1);
             const current_qty = info[0]["quantity"];
             const updated_qty = arithmetric === "add" ? parseInt(current_qty) + qty : parseInt(current_qty) - qty;
-            return await promisifyQuery(q_departmentsmainsupply, [updated_qty, stockid, brandid, batchnumber]);
+            return await (0, helper_1.promisifyQuery)(q_departmentsmainsupply, [updated_qty, stockid, brandid, batchnumber]);
         }
         else {
             await this.insertDeptMainStockSupply(records);
         }
     }
     async deleteRequisition(requisitionid) {
-        const packet = await promisifyQuery(q_delete_requisition_query, [requisitionid]);
-        return rowAffected(packet);
+        const packet = await (0, helper_1.promisifyQuery)(q_delete_requisition_query, [requisitionid]);
+        return (0, helper_1.rowAffected)(packet);
     }
     async updateReqtAfterReceivedDept(records) {
         const { quantityReceived, departmentReceived, id, status, employeeid, departmentid, stockid } = records;
         if (!quantityReceived || !departmentReceived || !id || !employeeid || !departmentid) {
             throw new Error("quantityReceived, departmentReceived, requisitionid, departmentid status and employee id required");
         }
-        let esrow = new Escrow(id);
+        let esrow = new esrow_1.default(id);
         let esrowItems = await esrow.getEsrowReqt();
         if (esrowItems.length <= 0) {
             await this.deleteRequisition(id);
@@ -218,7 +220,7 @@ class Departments {
             return "UPDATE SUCCESSFUL";
         }
         catch (error) {
-            logger.error(error);
+            logger_1.default.error(error);
             throw new Error(error);
         }
     }
@@ -228,7 +230,7 @@ class Departments {
                 throw new Error("stockid and departmentid are required");
             }
             const values = [stockid, departmentid];
-            let result = await promisifyQuery(q_getDepartmentBrandBatch, values);
+            let result = await (0, helper_1.promisifyQuery)(q_getDepartmentBrandBatch, values);
             return result;
         }
         catch (err) {
@@ -238,7 +240,7 @@ class Departments {
     async getDepartmentExpired(departmentid) {
         if (!departmentid)
             throw new Error("departmentid is required");
-        const result = await promisifyQuery(q_getDepartmentExpired, [departmentid, departmentid]);
+        const result = await (0, helper_1.promisifyQuery)(q_getDepartmentExpired, [departmentid, departmentid]);
         return result;
     }
 }
