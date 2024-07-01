@@ -244,5 +244,4 @@ class Departments {
         return result;
     }
 }
-module.exports = Departments;
-// new Departments().getDepartmentExpired(8)
+exports.default = Departments;

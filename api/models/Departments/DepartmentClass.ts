@@ -5,7 +5,7 @@ import logger from "../../../logger";
 import Inventory from "./../Inventory/inventoryclass";
 import Escrow from "../Inventory/escrow/esrow";
 
-class Departments {
+export default class Departments {
   private departmentid: number;
   constructor(departmentid: number) {
     this.departmentid = departmentid;
@@ -287,6 +287,4 @@ class Departments {
   }
 }
 
-module.exports = Departments;
 
-// new Departments().getDepartmentExpired(8)

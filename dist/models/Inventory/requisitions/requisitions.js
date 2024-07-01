@@ -4,10 +4,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
-const helper_1 = require("../../../helper");
+const helper_1 = require("../../../../helper");
 const logger_1 = __importDefault(require("../../../../logger"));
 const user_1 = __importDefault(require("../../../LobnosAuth/user"));
-const DepartmentClass_1 = __importDefault(require("../Departments/DepartmentClass"));
+const DepartmentClass_1 = __importDefault(require("../../Departments/DepartmentClass"));
 class Requisition extends DepartmentClass_1.default {
     constructor(requisitionid, departmentid) {
         super(departmentid);
@@ -68,7 +68,7 @@ class Requisition extends DepartmentClass_1.default {
         if (!role) {
             return "user not recognized";
         }
-        if (role != "admin" || role != "manager") {
+        if (role != "admin" && role != "manager") {
             return "user do not have permission to delete stocks";
         }
         return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(queries_1.DELETE_DEPT_STOCKS_QUERY, [departmentid]));

@@ -7,10 +7,10 @@ import {
   UPDATE_DEPARTMENT_STOCK_QUERY,
   INSERT_DEPARTMENT_CONSUMPTION_HX_QUERY,
 } from "./queries";
-import { promisifyQuery, rowAffected, paginationQuery, customError } from "../../../helper";
+import { promisifyQuery, rowAffected, paginationQuery, customError } from "../../../../helper";
 import logger from "../../../../logger";
 import User from "../../../LobnosAuth/user";
-import Departments from "../Departments/DepartmentClass";
+import Departments from "../../Departments/DepartmentClass";
 
 class Requisition extends Departments {
   private requisitionid: any;
@@ -85,7 +85,7 @@ class Requisition extends Departments {
       return "user not recognized";
     }
 
-    if (role != "admin" || role != "manager") {
+    if (role != "admin" && role != "manager") {
       return "user do not have permission to delete stocks";
     }
 
