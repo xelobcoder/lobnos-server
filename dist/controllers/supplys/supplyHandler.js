@@ -3,10 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addCommodity = exports.updateSupplier = exports.deleteSupplier = exports.addSupplier = exports.getSupplierById = exports.getSupplierStatusUnfulfilled = exports.getSuppliers = void 0;
+exports.handleReceiveOrders = exports.addCommodity = exports.updateSupplier = exports.deleteSupplier = exports.addSupplier = exports.getSupplierById = exports.getSupplierStatusUnfulfilled = exports.getSuppliers = void 0;
 const supplierClass_1 = __importDefault(require("../../models/supply/supplierClass"));
 const helper_1 = require("../../../helper");
-const logger_1 = __importDefault(require("../../../logger"));
+const logger_1 = require("../../../logger");
+const inventoryClass_1 = __importDefault(require("../../models/Inventory/inventoryClass/inventoryClass"));
 const getSuppliers = async (request, response) => {
     try {
         const { supplierid } = request.query;
@@ -21,7 +22,7 @@ const getSuppliers = async (request, response) => {
     }
     catch (err) {
         (0, helper_1.customError)("something went wrong", 500, response);
-        logger_1.default.err(err);
+        logger_1.logger.err(err);
     }
 };
 exports.getSuppliers = getSuppliers;
@@ -103,3 +104,16 @@ const addCommodity = async (request, response) => {
     }
 };
 exports.addCommodity = addCommodity;
+async function handleReceiveOrders(request, response) {
+    try {
+        const { data, tax, totalprice } = request.body;
+        const result = await new inventoryClass_1.default(null).receivePurchaseStocks(data, totalprice, tax);
+        return result
+            ? response.send({ message: "order updated successfully", statusCode: 200, status: "success" })
+            : response.send({ message: "order update failed", statusCode: 200, status: "success" });
+    }
+    catch (err) {
+        (0, helper_1.customError)("something wrong occured", 500, response);
+    }
+}
+exports.handleReceiveOrders = handleReceiveOrders;

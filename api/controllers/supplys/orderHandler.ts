@@ -11,7 +11,7 @@ export const handlePlaceOrder = (request: Request, response: Response): void => 
 export const handleGetOrders = async (request: Request, response: Response) => {
   try {
     const orders = await getOrders(request.query as any);
-    response.send({ orders, status: "success", statusCode: 200 });
+    response.send({ result: orders, status: "success", statusCode: 200 });
   } catch (err) {
     responseError(response);
   }

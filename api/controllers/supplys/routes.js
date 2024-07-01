@@ -1,12 +1,13 @@
 const router = require("express").Router();
 const {
-          getSuppliers,
-          getSupplierStatusUnfulfilled,
-          getSupplierById,
-          addSupplier,
-          deleteSupplier,
-          updateSupplier,
-          addCommodity,
+  getSuppliers,
+  getSupplierStatusUnfulfilled,
+  getSupplierById,
+  addSupplier,
+  deleteSupplier,
+  updateSupplier,
+  addCommodity,
+  handleReceiveOrders,
 } = require("../../../dist/controllers/supplys/supplyHandler");
 const { handlePlaceOrder, handleGetOrders, handleDeleteAspecificOrder } = require("../../../dist/controllers/supplys/orderHandler");
 
@@ -18,10 +19,9 @@ router.delete("/api/v1/suppliers", deleteSupplier);
 router.put("/api/v1/suppliers", updateSupplier);
 router.post("/api/v1/commodities", addCommodity);
 
-
 router.post("/api/v1/orders", handlePlaceOrder);
 router.get("/api/v1/orders", handleGetOrders);
 router.delete("/api/v1/orders", handleDeleteAspecificOrder);
-
+router.post("/api/v1/purchases", handleReceiveOrders);
 
 module.exports = router;

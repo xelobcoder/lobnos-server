@@ -10,7 +10,7 @@ exports.handlePlaceOrder = handlePlaceOrder;
 const handleGetOrders = async (request, response) => {
     try {
         const orders = await (0, orders_1.getOrders)(request.query);
-        response.send({ orders, status: "success", statusCode: 200 });
+        response.send({ result: orders, status: "success", statusCode: 200 });
     }
     catch (err) {
         (0, helper_1.responseError)(response);
