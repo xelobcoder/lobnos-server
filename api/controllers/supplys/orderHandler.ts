@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { placeOrder, getOrders, deleteAspecificOrder } from "../../models/orders/orders";
+import { placeOrder, getunReceivedOrders, deleteAspecificOrder,Orders } from "../../models/orders/orders";
 import { responseError } from "../../../helper";
 
 
@@ -10,7 +10,7 @@ export const handlePlaceOrder = (request: Request, response: Response): void => 
 
 export const handleGetOrders = async (request: Request, response: Response) => {
   try {
-    const orders = await getOrders(request.query as any);
+    const orders = await getunReceivedOrders(request.query as any);
     response.send({ result: orders, status: "success", statusCode: 200 });
   } catch (err) {
     responseError(response);
@@ -38,3 +38,13 @@ export const handleDeleteAspecificOrder = async (request: Request, response: Res
     responseError(response);
   }
 };
+
+
+
+
+export async function handleTransactionsOrders(request: Request, response: Response) {
+  // const { from, end, supplier, stock, page = 1, count = 10 } = request.query;
+  const result = await new Orders().getorderTransactionSummary(request.query as any,true);
+
+  response.send(result);
+}

@@ -1,9 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.q_updateOrderReceivedTransactionSummary = exports.q_getStockBrands = exports.q_addToStockTransactions = exports.q_updateOrders = exports.q_deleteOrder = exports.q_updateGeneralStocks = exports.q_updateStock = exports.q_getOrders = exports.q_checkOrderExist = exports.q_addNewOrder = void 0;
+exports.q_get_all_orders_transactions = exports.q_updateOrderReceivedTransactionSummary = exports.q_getStockBrands = exports.q_addToStockTransactions = exports.q_updateOrders = exports.q_deleteOrder = exports.q_updateGeneralStocks = exports.q_updateStock = exports.q_getOrders = exports.q_checkOrderExist = exports.q_addNewOrder = void 0;
 exports.q_addNewOrder = `
-  INSERT INTO orders (quantity, stockid, name, suppliername, supplierid, purchaseunit, orderTransactionid)
-  VALUES (?,?,?,?,?,?,?)
+  INSERT INTO orders (quantity, stockid, name, suppliername, supplierid, purchaseunit, orderTransactionid,requestedby)
+  VALUES (?,?,?,?,?,?,?,?)
 `;
 exports.q_checkOrderExist = `
   SELECT COUNT(*) AS count FROM orders WHERE stockid = ? AND received = ? AND supplierid = ?
@@ -35,3 +35,6 @@ exports.q_getStockBrands = `
 exports.q_updateOrderReceivedTransactionSummary = `
   UPDATE orderreceivedaccountsummary SET method = ?, debit = ?, taxAmount = ?, updatedOn = NOW() WHERE orderTransactionid = ?
 `;
+exports.q_get_all_orders_transactions = `SELECT * FROM orders  
+AS ord RIGHT JOIN roles AS rr ON rr.employeeid = ord.requestedby`;
+// ord.requestedby, ord.orderTransactionid, ord.transactiondate, ord.receivedby; 

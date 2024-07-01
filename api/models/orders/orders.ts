@@ -2,6 +2,7 @@ import { promisifyQuery, customError, rowAffected, paginationQuery } from "../..
 import logger from "./../../../logger";
 import Inventory from "../../models/Inventory/inventoryClass/inventoryClass";
 import * as queries from "./queries";
+import { orderTransactions } from "./Type";
 
 export class Orders extends Inventory {
   orderid: number;
@@ -10,6 +11,76 @@ export class Orders extends Inventory {
     super(stockid);
     this.orderid = orderid;
   }
+
+  public async getOrdersTransactions(data: orderTransactions, paginate = true): Promise<[]> {
+    let query = queries.q_get_all_orders_transactions;
+    let conditions = [];
+    let values = [];
+
+    const { stockid, supplierid, from, end, page = 1, count = 10 } = data;
+    if (stockid) {
+      conditions.push(` stockid = ?`);
+      values.push(stockid);
+    }
+
+    if (supplierid) {
+      conditions.push(`supplierid = ?`);
+      values.push(supplierid);
+    }
+
+    if (from && end) {
+      conditions.push(` DATE(transactiondate) BETWEEN ?? AND ??`);
+      values.push(from);
+      values.push(end);
+    }
+
+    if (conditions.length > 0) {
+      let i = 0;
+      while (i < conditions.length) {
+        if (i == 0) {
+          query += ` WHERE ` + conditions[i];
+        } else {
+          query += ` AND ` + conditions[i];
+        }
+        i++;
+      }
+    }
+    query += ` GROUP BY orderTransactionid`;
+
+    if (paginate === true) {
+      query += ` LIMIT ? OFFSET ?`;
+      const packets = await paginationQuery({ page, count }, query, values);
+      return packets;
+    } else {
+      return await promisifyQuery(query);
+    }
+  }
+
+  public async getorderTransactionSummary(data: orderTransactions, paginate = true) {
+    let packets: [] = await this.getOrdersTransactions(data, paginate);
+    if (packets.length === 0) return [];
+    let trimmedPackets = Promise.all(
+      packets.map(async (item: any, index) => {
+        const data = {
+          requestedby: item.username,
+          receivedby: item.receivedby,
+          orderTransactionid: item.orderTransactionid,
+          orderdate: item.transactiondate,
+        };
+
+        if (data.receivedby != null) {
+          let receivedby = await promisifyQuery(`SELECT username FROM roles WHERE employeeid = ?`, [item.receivedby]);
+          if (receivedby.length > 0) {
+            data.receivedby = receivedby[0]["username"];
+          }
+        }
+
+        return data;
+      })
+    );
+
+    return trimmedPackets;
+  }
 }
 
 export const placeOrder = async function (request: any, response: any) {
@@ -17,9 +88,18 @@ export const placeOrder = async function (request: any, response: any) {
   let errorCount = 0;
   let Exit: any[] = [];
 
-  const addNewOrder = async (orderTransactionid: number, item: any) => {
+  const addNewOrder = async (orderTransactionid: number, item: any, employeeid: number) => {
     const { quantity, stockid, name, suppliername, supplierid, purchaseunit } = item;
-    return promisifyQuery(queries.q_addNewOrder, [quantity, stockid, name, suppliername, supplierid, purchaseunit, orderTransactionid]);
+    return promisifyQuery(queries.q_addNewOrder, [
+      quantity,
+      stockid,
+      name,
+      suppliername,
+      supplierid,
+      purchaseunit,
+      orderTransactionid,
+      employeeid,
+    ]);
   };
 
   const checkOrderExist = async (item: any) => {
@@ -27,7 +107,7 @@ export const placeOrder = async function (request: any, response: any) {
     return promisifyQuery(queries.q_checkOrderExist, [stockid, "FALSE", supplierid]);
   };
 
-  const { stock } = request.body;
+  const { stock, employeeid } = request.body;
   const orderTransactionid = Date.now();
 
   if (Array.isArray(stock) && stock.length > 0) {
@@ -39,7 +119,7 @@ export const placeOrder = async function (request: any, response: any) {
         if (present && count > 0) {
           Exit.push(item);
         } else {
-          let added = await addNewOrder(orderTransactionid, item);
+          let added = await addNewOrder(orderTransactionid, item, employeeid);
           const affectedRows = added?.affectedRows;
           if (affectedRows === 1) successCount++;
         }
@@ -65,14 +145,13 @@ export const placeOrder = async function (request: any, response: any) {
   }
 };
 
-
 type RequestQuery = {
-  page: number,
-  count: number,
-  orderTransactionid: number,
-  includebrands: boolean
-}
-export const getOrders = async function (data: RequestQuery) {
+  page: number;
+  count: number;
+  orderTransactionid: number;
+  includebrands: boolean;
+};
+export const getunReceivedOrders = async function (data: RequestQuery) {
   const { orderTransactionid, includebrands, page, count } = data;
   const queryValues: any[] = [];
   let query = queries.q_getOrders;

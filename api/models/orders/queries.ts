@@ -1,6 +1,6 @@
 export const q_addNewOrder = `
-  INSERT INTO orders (quantity, stockid, name, suppliername, supplierid, purchaseunit, orderTransactionid)
-  VALUES (?,?,?,?,?,?,?)
+  INSERT INTO orders (quantity, stockid, name, suppliername, supplierid, purchaseunit, orderTransactionid,requestedby)
+  VALUES (?,?,?,?,?,?,?,?)
 `;
 
 export const q_checkOrderExist = `
@@ -41,3 +41,10 @@ export const q_getStockBrands = `
 export const q_updateOrderReceivedTransactionSummary = `
   UPDATE orderreceivedaccountsummary SET method = ?, debit = ?, taxAmount = ?, updatedOn = NOW() WHERE orderTransactionid = ?
 `;
+
+
+
+export const q_get_all_orders_transactions = `SELECT * FROM orders  
+AS ord RIGHT JOIN roles AS rr ON rr.employeeid = ord.requestedby`;
+
+// ord.requestedby, ord.orderTransactionid, ord.transactiondate, ord.receivedby; 

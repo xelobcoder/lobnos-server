@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateOrderReceivedTransactionSummary = exports.addToStockTransactions = exports.updateOrders = exports.updateStock = exports.deleteAspecificOrder = exports.getOrders = exports.placeOrder = exports.Orders = void 0;
+exports.updateOrderReceivedTransactionSummary = exports.addToStockTransactions = exports.updateOrders = exports.updateStock = exports.deleteAspecificOrder = exports.getunReceivedOrders = exports.placeOrder = exports.Orders = void 0;
 const helper_1 = require("../../../helper");
 const logger_1 = __importDefault(require("./../../../logger"));
 const inventoryClass_1 = __importDefault(require("../../models/Inventory/inventoryClass/inventoryClass"));
@@ -36,21 +36,91 @@ class Orders extends inventoryClass_1.default {
         super(stockid);
         this.orderid = orderid;
     }
+    async getOrdersTransactions(data, paginate = true) {
+        let query = queries.q_get_all_orders_transactions;
+        let conditions = [];
+        let values = [];
+        const { stockid, supplierid, from, end, page = 1, count = 10 } = data;
+        if (stockid) {
+            conditions.push(` stockid = ?`);
+            values.push(stockid);
+        }
+        if (supplierid) {
+            conditions.push(`supplierid = ?`);
+            values.push(supplierid);
+        }
+        if (from && end) {
+            conditions.push(` DATE(transactiondate) BETWEEN ?? AND ??`);
+            values.push(from);
+            values.push(end);
+        }
+        if (conditions.length > 0) {
+            let i = 0;
+            while (i < conditions.length) {
+                if (i == 0) {
+                    query += ` WHERE ` + conditions[i];
+                }
+                else {
+                    query += ` AND ` + conditions[i];
+                }
+                i++;
+            }
+        }
+        query += ` GROUP BY orderTransactionid`;
+        if (paginate === true) {
+            query += ` LIMIT ? OFFSET ?`;
+            const packets = await (0, helper_1.paginationQuery)({ page, count }, query, values);
+            return packets;
+        }
+        else {
+            return await (0, helper_1.promisifyQuery)(query);
+        }
+    }
+    async getorderTransactionSummary(data, paginate = true) {
+        let packets = await this.getOrdersTransactions(data, paginate);
+        if (packets.length === 0)
+            return [];
+        let trimmedPackets = Promise.all(packets.map(async (item, index) => {
+            const data = {
+                requestedby: item.username,
+                receivedby: item.receivedby,
+                orderTransactionid: item.orderTransactionid,
+                orderdate: item.transactiondate,
+            };
+            if (data.receivedby != null) {
+                let receivedby = await (0, helper_1.promisifyQuery)(`SELECT username FROM roles WHERE employeeid = ?`, [item.receivedby]);
+                if (receivedby.length > 0) {
+                    data.receivedby = receivedby[0]["username"];
+                }
+            }
+            return data;
+        }));
+        return trimmedPackets;
+    }
 }
 exports.Orders = Orders;
 const placeOrder = async function (request, response) {
     let successCount = 0;
     let errorCount = 0;
     let Exit = [];
-    const addNewOrder = async (orderTransactionid, item) => {
+    const addNewOrder = async (orderTransactionid, item, employeeid) => {
         const { quantity, stockid, name, suppliername, supplierid, purchaseunit } = item;
-        return (0, helper_1.promisifyQuery)(queries.q_addNewOrder, [quantity, stockid, name, suppliername, supplierid, purchaseunit, orderTransactionid]);
+        return (0, helper_1.promisifyQuery)(queries.q_addNewOrder, [
+            quantity,
+            stockid,
+            name,
+            suppliername,
+            supplierid,
+            purchaseunit,
+            orderTransactionid,
+            employeeid,
+        ]);
     };
     const checkOrderExist = async (item) => {
         const { supplierid, stockid } = item;
         return (0, helper_1.promisifyQuery)(queries.q_checkOrderExist, [stockid, "FALSE", supplierid]);
     };
-    const { stock } = request.body;
+    const { stock, employeeid } = request.body;
     const orderTransactionid = Date.now();
     if (Array.isArray(stock) && stock.length > 0) {
         let counter = 0;
@@ -63,7 +133,7 @@ const placeOrder = async function (request, response) {
                     Exit.push(item);
                 }
                 else {
-                    let added = await addNewOrder(orderTransactionid, item);
+                    let added = await addNewOrder(orderTransactionid, item, employeeid);
                     const affectedRows = added === null || added === void 0 ? void 0 : added.affectedRows;
                     if (affectedRows === 1)
                         successCount++;
@@ -91,7 +161,7 @@ const placeOrder = async function (request, response) {
     }
 };
 exports.placeOrder = placeOrder;
-const getOrders = async function (data) {
+const getunReceivedOrders = async function (data) {
     const { orderTransactionid, includebrands, page, count } = data;
     const queryValues = [];
     let query = queries.q_getOrders;
@@ -119,7 +189,7 @@ const getOrders = async function (data) {
         throw new Error(err);
     }
 };
-exports.getOrders = getOrders;
+exports.getunReceivedOrders = getunReceivedOrders;
 const deleteAspecificOrder = async function (orderid, response) {
     const query = queries.q_deleteOrder;
     return await (0, helper_1.rowAffected)((0, helper_1.promisifyQuery)(query, [orderid]));

@@ -9,7 +9,7 @@ const {
   addCommodity,
   handleReceiveOrders,
 } = require("../../../dist/controllers/supplys/supplyHandler");
-const { handlePlaceOrder, handleGetOrders, handleDeleteAspecificOrder } = require("../../../dist/controllers/supplys/orderHandler");
+const { handlePlaceOrder, handleGetOrders, handleDeleteAspecificOrder, handleTransactionsOrders } = require("../../../dist/controllers/supplys/orderHandler");
 
 router.get("/api/v1/suppliers", getSuppliers);
 router.get("/api/v1/supplier/status/unforfilled", getSupplierStatusUnfulfilled);
@@ -23,5 +23,9 @@ router.post("/api/v1/orders", handlePlaceOrder);
 router.get("/api/v1/orders", handleGetOrders);
 router.delete("/api/v1/orders", handleDeleteAspecificOrder);
 router.post("/api/v1/purchases", handleReceiveOrders);
+
+
+
+router.get("/api/v1/orders/transactions",handleTransactionsOrders)
 
 module.exports = router;

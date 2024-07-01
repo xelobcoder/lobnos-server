@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleDeleteAspecificOrder = exports.handleGetOrders = exports.handlePlaceOrder = void 0;
+exports.handleTransactionsOrders = exports.handleDeleteAspecificOrder = exports.handleGetOrders = exports.handlePlaceOrder = void 0;
 const orders_1 = require("../../models/orders/orders");
 const helper_1 = require("../../../helper");
 const handlePlaceOrder = (request, response) => {
@@ -9,7 +9,7 @@ const handlePlaceOrder = (request, response) => {
 exports.handlePlaceOrder = handlePlaceOrder;
 const handleGetOrders = async (request, response) => {
     try {
-        const orders = await (0, orders_1.getOrders)(request.query);
+        const orders = await (0, orders_1.getunReceivedOrders)(request.query);
         response.send({ result: orders, status: "success", statusCode: 200 });
     }
     catch (err) {
@@ -38,3 +38,9 @@ const handleDeleteAspecificOrder = async (request, response) => {
     }
 };
 exports.handleDeleteAspecificOrder = handleDeleteAspecificOrder;
+async function handleTransactionsOrders(request, response) {
+    // const { from, end, supplier, stock, page = 1, count = 10 } = request.query;
+    const result = await new orders_1.Orders().getorderTransactionSummary(request.query, true);
+    response.send(result);
+}
+exports.handleTransactionsOrders = handleTransactionsOrders;
