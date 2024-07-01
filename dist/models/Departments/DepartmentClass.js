@@ -238,34 +238,7 @@ class Departments {
     async getDepartmentExpired(departmentid) {
         if (!departmentid)
             throw new Error("departmentid is required");
-        const query = `
-              SELECT 
-              dm.stockid,
-              sc.brand,
-              dm.brand AS brandid,
-              dm.quantity AS qtyAvailable,
-              dm.batchnumber,
-              gs.name,
-              od.expirydate
-          FROM 
-              departmentsmainsupply AS dm
-          INNER JOIN 
-              orders AS od ON dm.stockid = od.stockid
-          INNER JOIN 
-              stocksbrands AS sc ON sc.brandid = dm.brand
-          INNER JOIN 
-              generalstocks AS gs ON gs.stockid = dm.stockid
-          WHERE 
-              od.stockid = dm.stockid 
-              AND dm.batchnumber = od.batchnumber 
-              AND dm.brand = od.brand 
-              AND dm.expiredDisposed = 0 
-              AND DATE(od.expirydate) < CURRENT_DATE
-              AND dm.departmentid = ?
-          GROUP BY 
-    dm.batchnumber, dm.brand, dm.stockid, dm.quantity, gs.name, od.expirydate
-`;
-        const result = await promisifyQuery(query, [departmentid, departmentid]);
+        const result = await promisifyQuery(q_getDepartmentExpired, [departmentid, departmentid]);
         return result;
     }
 }
