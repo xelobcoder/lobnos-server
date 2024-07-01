@@ -10,14 +10,13 @@ export const handlePlaceOrder = (request: Request, response: Response): void => 
 
 export const handleGetOrders = async (request: Request, response: Response) => {
   try {
-    const { status = "pending", transactionid } = request.query;
+    const { status , orderTransactionid } = request.query;
     if (status === "pending") {
       const orders = await getunReceivedOrders(request.query as any);
       response.send({ result: orders, status: "success", statusCode: 200 });
     } else {
-      const orders = await new Orders().getOrdersTransactionItems(parseInt(transactionid as any));
-      console.log(orders,'111')
-      response.send({ result: orders, status: "success", statusCode: 200 });
+      const orders = await new Orders().getOrdersTransactionItems(orderTransactionid as any);
+      response.send({ result: { products: orders }, status: "success", statusCode: 200 });
     }
   } catch (err) {
     responseError(response);

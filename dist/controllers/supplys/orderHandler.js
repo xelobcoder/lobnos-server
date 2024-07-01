@@ -9,15 +9,14 @@ const handlePlaceOrder = (request, response) => {
 exports.handlePlaceOrder = handlePlaceOrder;
 const handleGetOrders = async (request, response) => {
     try {
-        const { status = "pending", transactionid } = request.query;
+        const { status, orderTransactionid } = request.query;
         if (status === "pending") {
             const orders = await (0, orders_1.getunReceivedOrders)(request.query);
             response.send({ result: orders, status: "success", statusCode: 200 });
         }
         else {
-            const orders = await new orders_1.Orders().getOrdersTransactionItems(parseInt(transactionid));
-            console.log(orders, '111');
-            response.send({ result: orders, status: "success", statusCode: 200 });
+            const orders = await new orders_1.Orders().getOrdersTransactionItems(orderTransactionid);
+            response.send({ result: { products: orders }, status: "success", statusCode: 200 });
         }
     }
     catch (err) {
