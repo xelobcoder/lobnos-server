@@ -50,7 +50,7 @@ class Orders extends inventoryClass_1.default {
             values.push(supplierid);
         }
         if (from && end) {
-            conditions.push(` DATE(transactiondate) BETWEEN ?? AND ??`);
+            conditions.push(` DATE(transactiondate) BETWEEN ? AND ?`);
             values.push(from);
             values.push(end);
         }

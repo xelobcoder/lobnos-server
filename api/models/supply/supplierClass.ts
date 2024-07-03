@@ -26,13 +26,18 @@ class Supplys {
   }
 
   private async sendEmailVerification(email: string, data: any): Promise<any> {
-    const applicationSettings = await new ApplicationSettings().getAllAppSettings();
-    if (applicationSettings.length == 0) return false;
-    const email_settings: AppSettingsInterface = applicationSettings[0];
-    if (email_settings.emailNotification === 1) {
-      const emailService = new EmailService(1);
-      const token = await emailService.generateToken(data, "30m");
-      return await emailService.sendAuthenticateEmail(token, email, "EMAIL VERIFICATION NOTICE");
+    try {
+      const applicationSettings = await new ApplicationSettings().getAllAppSettings();
+      if (applicationSettings.length == 0) return false;
+      const email_settings: AppSettingsInterface = applicationSettings[0];
+      if (email_settings.emailNotification === 1) {
+        const emailService = new EmailService(1);
+        const token = await emailService.generateToken(data, "30m");
+        emailService.sendAuthenticateEmail(token, email, "EMAIL VERIFICATION NOTICE");
+        return;
+      }
+    } catch (err) {
+      console.log(err);
     }
   }
 

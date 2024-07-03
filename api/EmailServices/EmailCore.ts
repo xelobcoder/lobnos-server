@@ -8,6 +8,13 @@ import EmailQueries from "./EmailQueries";
 import logger from "../../logger";
 import clinicianClass from "../models/clincians/clinicianClass";
 import { Billing } from "../models/billing/billing";
+import Core from "./core";
+
+
+// console.log(
+// new Core().createMailTransporter({to:'hamzatiifu45@gmail.com',subject:'tui',html: '<h1>Tiifu</h1>' })
+// )
+
 
 class EmailService {
   private user: string;
@@ -32,26 +39,26 @@ class EmailService {
     return { from: this.company, to: targetEmail, subject, html };
   }
 
-  public async transportEmail(mailOptions: any): Promise<any> {
-    if (!this.user || !this.password || !this.company || !this.provider) {
-      throw new Error(`Right credentials not provided`);
-    }
+  protected async transportEmail(mailOptions): Promise<any> {
+    try {
+      if (!this.user || !this.password || !this.company || !this.provider) {
+        throw new Error(`Right credentials not provided`);
+      }
 
-    if (!mailOptions) {
-      throw new Error(`Mail option not provided`);
-    }
+      if (typeof mailOptions !== "object" || !mailOptions) {
+        throw new TypeError("Mail options must be an object");
+      }
 
-    if (typeof mailOptions !== "object") {
-      throw new TypeError("Mail options must be an object");
-    }
+      const keys = Object.keys(mailOptions);
+      if (!keys.includes("to") || !keys.includes("from") || !keys.includes("subject")) {
+        throw new Error("From, to, or subject not provided");
+      }
 
-    const keys = Object.keys(mailOptions);
-    if (!keys.includes("to") || !keys.includes("from") || !keys.includes("subject")) {
-      throw new Error("From, to, or subject not provided");
+      let transport = createTransport({ service: this.provider, auth: { user: this.user, pass: this.password } });
+      return await transport.sendMail(mailOptions);
+    } catch (err) {
+      throw new Error(err);
     }
-
-    let transport = createTransport({ service: this.provider, auth: { user: this.user, pass: this.password } });
-    return await transport.sendMail(mailOptions);
   }
 
   /**
@@ -88,6 +95,8 @@ class EmailService {
         case "clinician":
           const data = await clinicianClass.getClinicianBasicInfo(identifier);
           isValidId = data.length > 0 && email === data[0]["email"];
+          break;
+        case "supplier":
           break;
         default:
           isValidId = false;
@@ -152,7 +161,7 @@ class EmailService {
       if (!token) throw new Error("Token not provided");
       if (!email) throw new Error("Email not provided");
 
-      const html = await ejs.renderFile(path.join(__dirname, "../views", "templates", "verifyemail.ejs"), { token });
+      const html = await ejs.renderFile(path.join(__dirname, "../../api/EmailTemplates/supplierEmailVerification.ejs"), { token });
       return this.transportEmail(this.mailOptions(email, subject, html));
     } catch (err) {
       logger.error(err);
@@ -350,7 +359,6 @@ class EmailService {
    * @returns {Promise<any>} - A promise that resolves to the email preference settings.
    */
   private async getEmailPreference(): Promise<any> {
-    // Implement your logic here to fetch email preference settings
     return []; // Placeholder
   }
 
@@ -361,7 +369,7 @@ class EmailService {
    * @param {Function} [callback] - Optional callback function.
    * @returns {Promise<void>} - A promise that resolves when the email is sent.
    */
-  public async clientMailing(patientid: number, email: string, callback?: Function): Promise<void> {
+  public async RegistrationEmailNotification(patientid: number, email: string, callback?: Function): Promise<void> {
     const isMailServiceActivated = await this.isEmailServiceActivated();
     const pref = await this.selectedPreferenceActivated("registration");
 

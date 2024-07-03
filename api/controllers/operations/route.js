@@ -1,5 +1,5 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   getAllCollections,
   getBillingTest,
   initiateProcessing,
@@ -8,7 +8,7 @@ import {
   getAllPendingCases,
   getUltrasoundWaitingList,
   getProcessedScanList,
-} from "./operationsHandlers";
+} = require("../../../dist/controllers/operations/operationsHandlers");
 
 const router = express.Router();
 
@@ -21,4 +21,4 @@ router.get("/api/v1/operation/pendingcases/all", getAllPendingCases);
 router.get("/api/v1/operations/imaging/ultrasound", getUltrasoundWaitingList);
 router.get("/api/v1/operations/imaging/ultrasound/processed", getProcessedScanList);
 
-export default router;
+module.exports = router;

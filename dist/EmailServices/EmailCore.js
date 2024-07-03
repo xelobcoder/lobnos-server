@@ -13,6 +13,9 @@ const EmailQueries_1 = __importDefault(require("./EmailQueries"));
 const logger_1 = __importDefault(require("../../logger"));
 const clinicianClass_1 = __importDefault(require("../models/clincians/clinicianClass"));
 const billing_1 = require("../models/billing/billing");
+// console.log(
+// new Core().createMailTransporter({to:'hamzatiifu45@gmail.com',subject:'tui',html: '<h1>Tiifu</h1>' })
+// )
 class EmailService {
     constructor(employeeid) {
         /**
@@ -39,21 +42,23 @@ class EmailService {
         return { from: this.company, to: targetEmail, subject, html };
     }
     async transportEmail(mailOptions) {
-        if (!this.user || !this.password || !this.company || !this.provider) {
-            throw new Error(`Right credentials not provided`);
+        try {
+            if (!this.user || !this.password || !this.company || !this.provider) {
+                throw new Error(`Right credentials not provided`);
+            }
+            if (typeof mailOptions !== "object" || !mailOptions) {
+                throw new TypeError("Mail options must be an object");
+            }
+            const keys = Object.keys(mailOptions);
+            if (!keys.includes("to") || !keys.includes("from") || !keys.includes("subject")) {
+                throw new Error("From, to, or subject not provided");
+            }
+            let transport = (0, nodemailer_1.createTransport)({ service: this.provider, auth: { user: this.user, pass: this.password } });
+            return await transport.sendMail(mailOptions);
         }
-        if (!mailOptions) {
-            throw new Error(`Mail option not provided`);
+        catch (err) {
+            throw new Error(err);
         }
-        if (typeof mailOptions !== "object") {
-            throw new TypeError("Mail options must be an object");
-        }
-        const keys = Object.keys(mailOptions);
-        if (!keys.includes("to") || !keys.includes("from") || !keys.includes("subject")) {
-            throw new Error("From, to, or subject not provided");
-        }
-        let transport = (0, nodemailer_1.createTransport)({ service: this.provider, auth: { user: this.user, pass: this.password } });
-        return await transport.sendMail(mailOptions);
     }
     /**
      * Validates the token data.
@@ -86,6 +91,8 @@ class EmailService {
                 case "clinician":
                     const data = await clinicianClass_1.default.getClinicianBasicInfo(identifier);
                     isValidId = data.length > 0 && email === data[0]["email"];
+                    break;
+                case "supplier":
                     break;
                 default:
                     isValidId = false;
@@ -137,7 +144,7 @@ class EmailService {
                 throw new Error("Token not provided");
             if (!email)
                 throw new Error("Email not provided");
-            const html = await ejs_1.default.renderFile(path_1.default.join(__dirname, "../views", "templates", "verifyemail.ejs"), { token });
+            const html = await ejs_1.default.renderFile(path_1.default.join(__dirname, "../../api/EmailTemplates/supplierEmailVerification.ejs"), { token });
             return this.transportEmail(this.mailOptions(email, subject, html));
         }
         catch (err) {
@@ -331,7 +338,6 @@ class EmailService {
      * @returns {Promise<any>} - A promise that resolves to the email preference settings.
      */
     async getEmailPreference() {
-        // Implement your logic here to fetch email preference settings
         return []; // Placeholder
     }
     /**
@@ -341,7 +347,7 @@ class EmailService {
      * @param {Function} [callback] - Optional callback function.
      * @returns {Promise<void>} - A promise that resolves when the email is sent.
      */
-    async clientMailing(patientid, email, callback) {
+    async RegistrationEmailNotification(patientid, email, callback) {
         const isMailServiceActivated = await this.isEmailServiceActivated();
         const pref = await this.selectedPreferenceActivated("registration");
         if (isMailServiceActivated && pref) {

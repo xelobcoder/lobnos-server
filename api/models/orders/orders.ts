@@ -29,7 +29,7 @@ export class Orders extends Inventory {
     }
 
     if (from && end) {
-      conditions.push(` DATE(transactiondate) BETWEEN ?? AND ??`);
+      conditions.push(` DATE(transactiondate) BETWEEN ? AND ?`);
       values.push(from);
       values.push(end);
     }

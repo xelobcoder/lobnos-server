@@ -2,18 +2,20 @@ import {
   q_approved_samples,
   q_billing_test_collection,
   q_checkbillingid,
+  q_get_all_entered_result,
   q_get_all_result_entry,
+  q_get_all_test_preview,
   q_log_result_entry,
   q_qualifiedToProcessByDepartment,
   q_startProcessingTest,
+  q_ultrasound_processed_list,
+  q_ultrasound_waitingList,
 } from "./queries";
-import { OperationsFailures, OperationsFilterResultEntry, resultQuery } from "./types";
+import { OperationsFailures, OperationsFilterResultEntry, ProcessedScan, resultQuery } from "./types";
 
-const { customError, promisifyQuery, paginationQuery, responseError, rowAffected } = require("../../helper");
-const logger = require("../../logger");
-const connection = require("../db");
+import { customError, promisifyQuery, paginationQuery, responseError, rowAffected } from "../../../helper";
 
-class Operations {
+export default class Operations {
   public billingid: number;
   constructor(billingid: number) {
     this.billingid = billingid;
@@ -35,7 +37,7 @@ class Operations {
     }
   }
 
-  async getLaboratoryBillReadyForResultEntry(departmentid: number | string): Promise<[] | string> {
+  async getLaboratoryTestReadyForResultEntry(departmentid: number | string): Promise<[] | string> {
     const certified = await this.readyforTest();
     if (!certified) return OperationsFailures.notready;
 
@@ -71,7 +73,8 @@ class Operations {
   }
 
   initiateTestProcessing = async (testid: number, billingid: number) => {
-    return await promisifyQuery(q_startProcessingTest, [billingid, testid]);
+    const is_updated = await promisifyQuery(q_startProcessingTest, [billingid, testid]);
+    return rowAffected(is_updated);
   };
 
   logResultEntry = async (testid: number, billingid: number) => {
@@ -80,76 +83,61 @@ class Operations {
     return rowAffected(isResultEntryLogged);
   };
 
-  async getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<[]> {
-    const { fullname, count, page, department, testid, status, from, to } = requestQuery;
+  public async getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<any[]> {
+    const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
     try {
       let query: string = q_get_all_result_entry;
-      const values = [];
+      const values: any[] = [];
+      const conditions: string[] = [];
+
       if (fullname) {
-        query += ` CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) LIKE ??`;
+        conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
         values.push(`${fullname}%`);
       }
-      if (department) {
-        if (department == "all") {
-          query = query;
-        } else {
-          query += ` AND d.id = ?`;
-          values.push(department);
-        }
+
+      if (departmentid && departmentid !== "all") {
+        conditions.push(`tp.category = ?`);
+        values.push(departmentid);
       }
 
       if (status === "completed") {
-        query += ` AND ta.ready='true'`;
+        conditions.push(`ta.ready = 'true'`);
       } else if (status === "pending") {
-        query += ` AND ta.ready='false'`;
-      } else {
-        query = query;
+        conditions.push(`ta.ready = 'false'`);
       }
 
       if (testid && !isNaN(testid)) {
-        query += ` AND ta.testid = ?`;
+        conditions.push(`ta.testid = ?`);
         values.push(testid);
       }
 
-      if (from && !to) {
-        query += ` AND DATE(b.billedon) BETWEEN ?? AND CURRENT_DATE`;
+      if (from && to) {
+        conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
+        values.push(from, to);
+      } else if (from) {
+        conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
         values.push(from);
-      } else if (from && to) {
-        query += ` AND DATE(b.billedon) BETWEEN ?? AND  ??`;
-        values.push(from);
-        values.push(to);
-      } else {
-        query = query;
       }
 
-      query += ` ORDER BY b.billingid DESC
-    LIMIT ? OFFSET ?`;
+      if (conditions.length > 0) {
+        query += ` AND ${conditions.join(" AND ")}`;
+      }
 
+      query += `
+      ORDER BY b.billingid DESC
+      LIMIT ? OFFSET ?
+    `;
       return await paginationQuery({ count, page }, query, values);
     } catch (err) {
       throw err;
     }
   }
 
+
+  
   async getAllEnterResult(data: resultQuery) {
     const { from, to, patientid, billingid, sortingwise, count, page } = data;
-    let queryString = `SELECT  CONCAT(  np.FIRSTNAME,
-                  ' ',
-                  np.MIDDLENAME,
-                  ' ',
-                  np.LASTNAME) AS fullname,
-                np.PATIENTID AS patientid,
-                np.gender,
-                b.BILLINGID AS billingid,
-                b.billedon AS billing_date,
-                tp.CATEGORY AS category
-              FROM new_patients as np
-                INNER JOIN billing as b ON np.PATIENTID = b.PATIENTID
-                INNER JOIN samplestatus AS ss ON ss.billingid = b.BILLINGID
-                INNER JOIN test_ascension AS ta ON ta.billingid = b.BILLINGID
-                INNER JOIN test_panels AS tp ON tp.ID = ss.testid
-                INNER JOIN departments AS d ON d.ID = tp.CATEGORY
-            `;
+    let queryString = q_get_all_entered_result;
     queryString += ` WHERE ss.approvalstatus = 1 AND d.department <> 'ultrasound'`;
 
     if (from && !to) {
@@ -199,119 +187,46 @@ class Operations {
     return result;
   }
 
-  getAllTestPreview = async function (request, response) {
-    const { billingid } = request.query;
-
+  getAllTestPreview = async function (billingid: number) {
     if (billingid) {
-      const queryString = `
-            SELECT ta.testid,
-            tp.NAME,
-            ta.billingid,
-            tp.CATEGORY,
-            ta.processing,
-            ta.processing_date,
-            ta.ready,
-            ta.ready_date
-          FROM test_ascension as ta
-            INNER JOIN test_panels as tp ON ta.testid = tp.ID
-            INNER JOIN departments AS d ON d.id = tp.CATEGORY
-          WHERE ta.billingid = ${billingid}
-      `;
-
-      connection.query(queryString, (err, result) => {
-        if (err) {
-          customError(err.message, 500);
-        } else {
-          response.send({
-            statusCode: 200,
-            result,
-            status: "success",
-          });
-        }
-      });
-    } else {
-      customError("billingid is required", 400);
+      const alltest = await promisifyQuery(q_get_all_test_preview, [billingid]);
+      return alltest;
     }
   };
 
   async getUltrasoundWaitingList(data: { count: number; page: number }) {
     const { count = 10, page = 1 } = data;
-    const queryString = ` 
-    SELECT DISTINCT
-          np.patientid,
-          b.billingid,
-          CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
-          b.billedon,
-          tp.name,
-          tp.id AS testid,
-          tp.category,
-          d.department
-  FROM new_patients as np
-    INNER JOIN billing as b ON np.patientid = b.patientid
-    INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
-    INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-    INNER JOIN test_panels AS tp ON tp.id = ta.testid
-    INNER JOIN departments AS d ON d.id = tp.category
-  WHERE  d.department = 'ultrasound' AND ta.ready = 'false' LIMIT ? OFFSET ?`;
-
-    const result = await paginationQuery({ count, page }, queryString);
+    const result = await paginationQuery({ count, page }, q_ultrasound_waitingList);
     return result;
   }
 
-  async processedScanList(request, response) {
+  public async processedScanList(data: ProcessedScan) {
     try {
-      const { count = 10, page = 1 } = request.query;
-      const { from, to, search } = request.query;
-      let query = `
-      SELECT DISTINCT
-          np.patientid,
-          b.billingid,
-          CONCAT( np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
-          b.billedon,
-          tp.name,
-          tp.id AS testid,
-          tp.category,
-          ta.ready,
-          d.department
-    FROM new_patients as np
-          INNER JOIN billing as b ON np.PATIENTID = b.patientid
-          INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
-          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-          INNER JOIN test_panels AS tp ON tp.id = ta.testid
-          INNER JOIN departments AS d ON d.id = tp.CATEGORY
-    WHERE  d.department = 'ultrasound' AND ta.ready ='true'
-      `;
+      const { from, to, search, count = 10, page = 1 } = data;
       const values = [];
-      if (from && to) {
-        query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
-        values.push(`${from}`);
-        values.push(`${to}`);
-      } else if (from && !to) {
-        query += `  AND DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`;
-        values.push(`${from}`);
-      } else {
-        query = query;
+      const conditions = [`d.department = 'ultrasound'`, `ta.ready = 'true'`];
+
+      if (from) {
+        conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
+        values.push(from, to || "CURRENT_DATE");
       }
 
       if (search) {
-        query += ` AND (CONCAT(np.firstname," ",np.middlename," ",np.lastname) LIKE ? 
-        OR np.MOBILE_NUMBER = ?)`;
-        values.push(`%${search}%`);
-        values.push(search);
+        conditions.push(`(CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ? OR np.MOBILE_NUMBER = ?)`);
+        values.push(`%${search}%`, search);
       }
-      if (!from && !to) {
-        query += ` ORDER BY b.BILLINGID ASC  LIMIT ? OFFSET ?`;
+
+      let whereClause = "";
+      if (conditions.length > 0) {
+        whereClause = "WHERE " + conditions.join(" AND ");
       }
-      console.log(values);
 
-      const result = await paginationQuery({ count, page }, query, values);
+      const query = q_ultrasound_processed_list;
+      values.unshift(whereClause);
 
-      response.send({ result, statusCode: 200, status: "success" });
+      return await paginationQuery({ count, page }, query, values);
     } catch (err) {
-      console.log(err);
-      responseError(response);
+      throw new Error(err);
     }
   }
 }
-
-module.exports = Operations;

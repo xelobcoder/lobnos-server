@@ -7,7 +7,7 @@ const { Billing, getClientBillingInformation, getBilledClients, updateBilling } 
 const branchesHandler = require("./api/branches")
 const resultChecker = require("./api/controllers/results")
 const Manager = require("./api/controllers/manager")
-const operationsRouter = require("./api/controllers/operations")
+const operationsRouter = require("./api/controllers/operations/route");
 const registrationRouter = require("./api/controllers/registration")
 const rejectedRouter = require("./api/controllers/rejected")
 const stocksRouter = require("./api/controllers/Inventory/stocks")
@@ -199,3 +199,21 @@ app.get('/api/v1/cachedata/getSavedrecords', async function (request, response) 
   const result = await promisifyQuery(`SELECT * FROM customtestcreation`);
   response.send(result);
 }) 
+
+
+// app.get('/verify-email', (req, res) => {
+//   const data = {
+//     supplierName: 'John Doe',
+//     verificationLink: 'https://example.com/verify/1234567890abcdef'
+//   };
+
+//   // Render the EJS template with dummy data
+//   ejs.renderFile('./api/EmailTemplates/supplierEmailVerification.ejs', data, (err, html) => {
+//     if (err) {
+//       console.log(err);
+//       res.status(500).send('Error rendering template');
+//     } else {
+//       res.send(html);
+//     }
+//   });
+// });

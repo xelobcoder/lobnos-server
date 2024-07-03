@@ -14,13 +14,26 @@ export type resultQuery = {
   page: number;
 };
 
-export type OperationsFilterResultEntry = {
-  count: number;
-  page: number;
-  department: number | string;
-  status: string;
-  testid: number;
-  fullname: string;
-  from: string;
-  to: string;
-};
+
+
+
+export type ProcessedScan = {
+  search: string,
+  from: string,
+  count: number,
+  page:number,
+  to:string
+}
+
+
+
+export interface OperationsFilterResultEntry {
+  fullname?: string;
+  count?: number;
+  page?: number;
+  departmentid?: number| string;
+  testid?: number;
+  status?: string;
+  from?: string;
+  to?: string;
+}

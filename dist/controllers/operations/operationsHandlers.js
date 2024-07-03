@@ -4,12 +4,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getProcessedScanList = exports.getUltrasoundWaitingList = exports.getAllPendingCases = exports.getAllTestPreview = exports.getAllEnterResult = exports.initiateProcessing = exports.getBillingTest = exports.getAllCollections = void 0;
-const helper_1 = require("../../helper");
-const operations_1 = __importDefault(require("../models/operations"));
+const express_1 = require("express");
+const helper_1 = require("../../../helper");
+const operations_1 = __importDefault(require("../../models/operations/operations"));
 const getAllCollections = async (req, res) => {
-    const collections = new operations_1.default();
-    const result = await collections.getAllReadyTest(req);
-    res.send({ statusCode: 200, message: "success", result });
+    try {
+        const { departmentid } = req.query;
+        if (!departmentid) {
+            return (0, helper_1.customError)("departmentid not included in request query", 400, res);
+        }
+        const collections = new operations_1.default(null);
+        const result = await collections.getLaboratoryTestReadyForResultEntry(departmentid);
+        res.send({ statusCode: 200, message: "success", result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.getAllCollections = getAllCollections;
 const getBillingTest = async (req, res) => {
@@ -38,34 +48,78 @@ const getBillingTest = async (req, res) => {
 };
 exports.getBillingTest = getBillingTest;
 const initiateProcessing = async (req, res) => {
-    const { billingid, testid } = req.query;
-    if (!billingid || !testid) {
-        (0, helper_1.customError)("billing id or testid is missing", 404, res);
-        return;
+    try {
+        const { billingid, testid } = req.query;
+        if (!billingid || !testid) {
+            return (0, helper_1.customError)("billing id or testid is missing", 404, res);
+        }
+        const operations = new operations_1.default(billingid);
+        const result = await operations.initiateTestProcessing(testid, billingid);
+        res.send({ status: result ? "success" : "failed" });
     }
-    const updatesProcessing = new operations_1.default(billingid);
-    const result = await updatesProcessing.initiateStart(testid, billingid);
-    res.send({ status: (0, helper_1.rowAffected)(result) ? "success" : "failed" });
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.initiateProcessing = initiateProcessing;
 const getAllEnterResult = async (req, res) => {
-    await new operations_1.default().getAllEnterResult(req, res);
+    try {
+        const result = await new operations_1.default().getAllEnterResult(req.query);
+        express_1.response.send(result);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.getAllEnterResult = getAllEnterResult;
 const getAllTestPreview = async (req, res) => {
-    await new operations_1.default().getAllTestPreview(req, res);
+    try {
+        let billingid = req.query.billingid;
+        if (!billingid)
+            return (0, helper_1.customError)("billingid required", 400, res);
+        const result = await new operations_1.default(billingid).getAllTestPreview(billingid);
+        res.send({
+            statusCode: 200,
+            result,
+            status: "success",
+        });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.getAllTestPreview = getAllTestPreview;
 const getAllPendingCases = async (req, res) => {
-    const { count = 10, page = 1, departmentid, status, testid } = req.query;
-    await new operations_1.default().getAllPendingCases(count, page, departmentid, status, testid, res);
+    try {
+        const { count = 10, page = 1, departmentid, status, testid, fullname } = req.query;
+        const data = { count, page, departmentid, status, testid, fullname };
+        const result = await new operations_1.default(null).getAllCasesResultEntryByMany(data);
+        res.send({ result, statusCode: 200, status: "success" });
+    }
+    catch (err) {
+        console.log(err);
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.getAllPendingCases = getAllPendingCases;
-const getUltrasoundWaitingList = async (req, res) => {
-    await new operations_1.default().getUltrasoundWaitingList(req, res);
+const getUltrasoundWaitingList = async (request, response) => {
+    try {
+        const { page, count } = request.query;
+        const waitingList = await new operations_1.default(null).getUltrasoundWaitingList({ page, count });
+        response.send(waitingList);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
 };
 exports.getUltrasoundWaitingList = getUltrasoundWaitingList;
 const getProcessedScanList = async (req, res) => {
-    await new operations_1.default().processedScanList(req, res);
+    try {
+        const result = await new operations_1.default(null).processedScanList(req.query);
+        express_1.response.send(result);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
 };
 exports.getProcessedScanList = getProcessedScanList;

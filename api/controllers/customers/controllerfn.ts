@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Registration } from "../../models/registration/registration";
+import Registration from "../../models/registration/registration";
 import { PatientRecords } from "../../models/registration/types";
 
 export async function getCustomers(request: Request, response: Response) {

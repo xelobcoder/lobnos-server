@@ -48,14 +48,20 @@ class Supplys {
         return result.length === 0;
     }
     async sendEmailVerification(email, data) {
-        const applicationSettings = await new appset_1.default().getAllAppSettings();
-        if (applicationSettings.length == 0)
-            return false;
-        const email_settings = applicationSettings[0];
-        if (email_settings.emailNotification === 1) {
-            const emailService = new EmailCore_1.default(1);
-            const token = await emailService.generateToken(data, "30m");
-            return await emailService.sendAuthenticateEmail(token, email, "EMAIL VERIFICATION NOTICE");
+        try {
+            const applicationSettings = await new appset_1.default().getAllAppSettings();
+            if (applicationSettings.length == 0)
+                return false;
+            const email_settings = applicationSettings[0];
+            if (email_settings.emailNotification === 1) {
+                const emailService = new EmailCore_1.default(1);
+                const token = await emailService.generateToken(data, "30m");
+                emailService.sendAuthenticateEmail(token, email, "EMAIL VERIFICATION NOTICE");
+                return;
+            }
+        }
+        catch (err) {
+            console.log(err);
         }
     }
     async addSupplier(records) {

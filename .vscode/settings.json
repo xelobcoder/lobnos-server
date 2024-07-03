@@ -1,19 +1,21 @@
 {
-  "workbench.editor.pinnedTabSizing": "shrink",
+  "workbench.editor.pinnedTabSizing": "normal",
   "editor.tabSize": 10,
+  // "editor.fontFamily": "'Cascadia Code','monospace'",
   "editor.fontFamily": "peggy mono",
   "editor.tabCompletion": "on",
   "editor.wordWrap": "on",
-  "editor.wordWrapColumn": 500,
+  "editor.wordWrapColumn": 700,
   "editor.fontWeight": "normal",
   "editor.formatOnSave": true,
   "editor.fontLigatures": true,
-  "editor.fontSize": 18,
+  "editor.fontSize": 19,
   "editor.autoClosingBrackets": "always",
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "editor.bracketPairColorization.enabled": true,
-  "editor.lineHeight": 17,
+  "editor.lineHeight": 16,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "restoreTerminals.artificialDelayMilliseconds": 150,
   "restoreTerminals.terminals": [
     {
       "splitTerminals": [
