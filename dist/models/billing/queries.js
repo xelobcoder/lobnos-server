@@ -69,7 +69,7 @@ exports.updateCurrentBill = `UPDATE billing  SET testCost = ?, payable = ?, outs
     WHERE billingid = ?`;
 exports.getBillAscesnsion = `SELECT * FROM test_ascension WHERE billingid = ?`;
 exports.deleteBillTransactionQuery = `DELETE FROM billing WHERE billingid = ?`;
-exports.q_getAllpartiton = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
+exports.q_getAllpartiton = `SELECT * FROM information_schema.partitions WHERE table_name = ?`;
 const q_addNewPartition = (partitionName, year, month) => `
     ALTER TABLE billing 
     ADD PARTITION (PARTITION ${partitionName} VALUES LESS THAN (${year}, ${month}));

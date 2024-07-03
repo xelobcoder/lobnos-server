@@ -84,7 +84,7 @@ export const getBillAscesnsion: string = `SELECT * FROM test_ascension WHERE bil
 
 export const deleteBillTransactionQuery: string = `DELETE FROM billing WHERE billingid = ?`;
 
-export const q_getAllpartiton: string = `SELECT * FROM information_schema.partitions WHERE table_name = "billing"`;
+export const q_getAllpartiton: string = `SELECT * FROM information_schema.partitions WHERE table_name = ?`;
 
 export const q_addNewPartition = (partitionName: string, year: number, month: number): string => `
     ALTER TABLE billing 

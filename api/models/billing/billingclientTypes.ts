@@ -71,3 +71,47 @@ export type BreakingPoint = {
   min: number;
   max: number;
 };
+
+
+export interface Partition {
+  tablename: string,
+  
+}
+
+
+/**
+ * Represents the interface for managing billing operations.
+ */
+interface IPartitionManager {
+  /**
+   * Retrieves all billing partitions associated with a table.
+   * @param tablename The name of the table to fetch partitions for.
+   * @returns A list of partition names.
+   */
+  getTablePartitions(tablename: string): Promise<any[]>;
+
+  /**
+   * Adds a new partition to the managed table.
+   * @param tablename The name of the table to add partitions to.
+   * @param year The year for which to add partitions.
+   * @returns A promise indicating the success of the operation.
+   */
+  addYearPartition(tablename: string, year: number): Promise<boolean>;
+
+  /**
+   * Drops all partitions from the managed table.
+   * @param tablename The name of the table to drop partitions from.
+   * @returns A promise indicating the success of the operation.
+   */
+  dropTablePartition(tablename: string): Promise<any>;
+
+  /**
+   * Drops a specific partition from the managed table.
+   * @param tablename The name of the table to drop partitions from.
+   * @param partitionName The name of the partition to drop.
+   * @returns A promise indicating the success of the operation.
+   */
+  dropTableSpecificPartition(tablename: string, partitionName: string): Promise<any>;
+}
+
+export default IPartitionManager;
