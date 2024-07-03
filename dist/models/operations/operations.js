@@ -6,17 +6,40 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
 const helper_1 = require("../../../helper");
 const partitioning_1 = __importDefault(require("../billing/partitioning"));
+/**
+ * Class representing operations related to billing and test management.
+ */
 class Operations {
+    /**
+     * Creates an instance of Operations.
+     * @param {number} billingid - The billing ID associated with this instance.
+     */
     constructor(billingid) {
+        /**
+         * Initiates test processing for a given test ID and billing ID.
+         * @param {number} testid - The test ID.
+         * @param {number} billingid - The billing ID.
+         * @returns {Promise<number>} - A promise that resolves to the number of rows affected.
+         */
         this.initiateTestProcessing = async (testid, billingid) => {
             const is_updated = await (0, helper_1.promisifyQuery)(queries_1.q_startProcessingTest, [billingid, testid]);
             return (0, helper_1.rowAffected)(is_updated);
         };
+        /**
+         * Logs result entry for a given test ID and billing ID.
+         * @param {number} testid - The test ID.
+         * @param {number} billingid - The billing ID.
+         * @returns {Promise<number>} - A promise that resolves to the number of rows affected.
+         */
         this.logResultEntry = async (testid, billingid) => {
-            // update test ascension table with the testid, datetime and the billing id and ready = true and ready_date = NOW()
             const isResultEntryLogged = await (0, helper_1.promisifyQuery)(queries_1.q_log_result_entry, [billingid, testid]);
             return (0, helper_1.rowAffected)(isResultEntryLogged);
         };
+        /**
+         * Retrieves a preview of all tests for a given billing ID.
+         * @param {number} billingid - The billing ID.
+         * @returns {Promise<any[]>} - A promise that resolves to the list of test previews.
+         */
         this.getAllTestPreview = async function (billingid) {
             if (billingid) {
                 const alltest = await (0, helper_1.promisifyQuery)(queries_1.q_get_all_test_preview, [billingid]);
@@ -25,10 +48,18 @@ class Operations {
         };
         this.billingid = billingid;
     }
+    /**
+     * Checks if the billing ID is valid.
+     * @returns {Promise<boolean>} - A promise that resolves to true if the billing ID is valid, otherwise false.
+     */
     async isvalidBillingid() {
         const result = await (0, helper_1.promisifyQuery)(queries_1.q_checkbillingid, [this.billingid]);
         return result.length === 0;
     }
+    /**
+     * Checks if the billing ID is ready for test processing.
+     * @returns {Promise<boolean | string>} - A promise that resolves to true if the billing ID is ready, false if not, or an error message if invalid.
+     */
     async readyforTest() {
         const validId = await this.isvalidBillingid();
         if (!validId) {
@@ -39,6 +70,12 @@ class Operations {
             return !(result.length === 0);
         }
     }
+    /**
+     * Retrieves laboratory tests ready for result entry based on the department ID.
+     * @param {number | string} departmentid - The department ID to filter by.
+     * @returns {Promise<[] | string>} - A promise that resolves to the list of laboratory tests ready for result entry or a failure message.
+     * @throws {Error} - Throws an error if the department ID is not provided or in the wrong format.
+     */
     async getLaboratoryTestReadyForResultEntry(departmentid) {
         const certified = await this.readyforTest();
         if (!certified)
@@ -55,8 +92,14 @@ class Operations {
         queryString += ` AND ta.collection = 'true' AND ta.ready='false'  AND d.department <> 'ultrasound' `;
         return await (0, helper_1.promisifyQuery)(queryString, values);
     }
+    /**
+     * Retrieves all qualified tests to process by department.
+     * @param {number | string} category - The category to filter by.
+     * @param {number} count - The number of results per page.
+     * @param {number} page - The page number.
+     * @returns {Promise<[]>} - A promise that resolves to the list of qualified tests.
+     */
     async getAllQualifiedToProcessByDepartment(category, count, page) {
-        //  we want to return all test whose sample was approved and ready to be processed
         let queryString = queries_1.q_qualifiedToProcessByDepartment;
         const values = [];
         if (category != "all") {
@@ -69,10 +112,15 @@ class Operations {
     GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT ? OFFSET ?`;
         return await (0, helper_1.promisifyQuery)(queryString, values);
     }
+    /**
+     * Retrieves all cases for result entry based on various filters.
+     * @param {OperationsFilterResultEntry} requestQuery - The query parameters for filtering.
+     * @returns {Promise<any[]>} - A promise that resolves to the list of cases.
+     * @throws {Error} - Throws an error if the query fails.
+     */
     async getAllCasesResultEntryByMany(requestQuery) {
         const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
         try {
-            let queries = [];
             let finalQuery;
             const values = [];
             const conditions = [];
@@ -148,6 +196,12 @@ class Operations {
             throw err;
         }
     }
+    /**
+     * Retrieves all entered results based on various filters.
+     * @param {resultQuery} data - The query parameters for filtering.
+     * @returns {Promise<any[]>} - A promise that resolves to the list of entered results.
+     * @throws {Error} - Throws an error if the query fails.
+     */
     async getAllEnterResult(data) {
         const { from, to, patientid, billingid, sortingwise, count, page } = data;
         let queryString = queries_1.q_get_all_entered_result;
@@ -193,11 +247,24 @@ class Operations {
         }
         return result;
     }
+    /**
+     * Retrieves the ultrasound waiting list with pagination.
+     * @param {object} data - The pagination parameters.
+     * @param {number} data.count - The number of results per page.
+     * @param {number} data.page - The page number.
+     * @returns {Promise<any[]>} - A promise that resolves to the list of ultrasound waiting items.
+     */
     async getUltrasoundWaitingList(data) {
         const { count = 10, page = 1 } = data;
         const result = await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_ultrasound_waitingList);
         return result;
     }
+    /**
+     * Retrieves the processed scan list based on various filters.
+     * @param {ProcessedScan} data - The query parameters for filtering.
+     * @returns {Promise<any[]>} - A promise that resolves to the list of processed scans.
+     * @throws {Error} - Throws an error if the query fails.
+     */
     async processedScanList(data) {
         try {
             const { from, to, search, count = 10, page = 1 } = data;

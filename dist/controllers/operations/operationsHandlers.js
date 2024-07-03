@@ -62,13 +62,13 @@ const initiateProcessing = async (req, res) => {
     }
 };
 exports.initiateProcessing = initiateProcessing;
-const getAllEnterResult = async (req, res) => {
+const getAllEnterResult = async (req, response) => {
     try {
-        const result = await new operations_1.default().getAllEnterResult(req.query);
-        express_1.response.send(result);
+        const result = await new operations_1.default(null).getAllEnterResult(req.query);
+        response.send({ result, statusCode: 200 });
     }
     catch (err) {
-        (0, helper_1.responseError)(res);
+        (0, helper_1.responseError)(response);
     }
 };
 exports.getAllEnterResult = getAllEnterResult;

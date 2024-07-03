@@ -1,7 +1,8 @@
 import { Request, response, Response } from "express";
 import { customError, rowAffected,responseError } from "../../../helper";
 import Operations from "../../models/operations/operations";
-import g from '../../models/operations/part'
+
+
 export const getAllCollections = async (req: Request, res: Response) => {
   try {
     const { departmentid } = req.query;
@@ -54,12 +55,12 @@ export const initiateProcessing = async (req: Request, res: Response) => {
   }
 };
 
-export const getAllEnterResult = async (req: Request, res: Response) => {
+export const getAllEnterResult = async (req: Request, response: Response) => {
   try {
-    const result = await new Operations().getAllEnterResult(req.query);
-    response.send(result);
+    const result = await new Operations(null).getAllEnterResult(req.query as any);
+    response.send({ result, statusCode: 200 });
   } catch (err) {
-    responseError(res);
+    responseError(response);
   }
 };
 
@@ -82,10 +83,10 @@ export const getAllPendingCases = async (req: Request, res: Response) => {
   try {
     const { count = 10, page = 1, departmentid, status, testid, fullname, from, to } = req.query;
     const data = { count, page, departmentid, status, testid, fullname, from, to };
-    const result = await new Operations(null).getAllCasesResultEntryByMany(data);
-    res.send({result,statusCode:200,status:"success"});
+    const result = await new Operations(null).getAllCasesResultEntryByMany(data as any);
+    res.send({ result, statusCode: 200, status: "success" });
   } catch (err) {
-    console.log(err)
+    console.log(err);
     responseError(res);
   }
 };

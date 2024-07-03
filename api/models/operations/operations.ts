@@ -18,17 +18,33 @@ import { customError, promisifyQuery, paginationQuery, responseError, rowAffecte
 
 import PartitionManager from "../billing/partitioning";
 
+/**
+ * Class representing operations related to billing and test management.
+ */
 export default class Operations {
   public billingid: number;
+
+  /**
+   * Creates an instance of Operations.
+   * @param {number} billingid - The billing ID associated with this instance.
+   */
   constructor(billingid: number) {
     this.billingid = billingid;
   }
 
+  /**
+   * Checks if the billing ID is valid.
+   * @returns {Promise<boolean>} - A promise that resolves to true if the billing ID is valid, otherwise false.
+   */
   async isvalidBillingid(): Promise<boolean> {
     const result = await promisifyQuery(q_checkbillingid, [this.billingid]);
     return result.length === 0;
   }
 
+  /**
+   * Checks if the billing ID is ready for test processing.
+   * @returns {Promise<boolean | string>} - A promise that resolves to true if the billing ID is ready, false if not, or an error message if invalid.
+   */
   async readyforTest(): Promise<boolean | string> {
     const validId = await this.isvalidBillingid();
     if (!validId) {
@@ -40,6 +56,12 @@ export default class Operations {
     }
   }
 
+  /**
+   * Retrieves laboratory tests ready for result entry based on the department ID.
+   * @param {number | string} departmentid - The department ID to filter by.
+   * @returns {Promise<[] | string>} - A promise that resolves to the list of laboratory tests ready for result entry or a failure message.
+   * @throws {Error} - Throws an error if the department ID is not provided or in the wrong format.
+   */
   async getLaboratoryTestReadyForResultEntry(departmentid: number | string): Promise<[] | string> {
     const certified = await this.readyforTest();
     if (!certified) return OperationsFailures.notready;
@@ -60,8 +82,14 @@ export default class Operations {
     return await promisifyQuery(queryString, values);
   }
 
+  /**
+   * Retrieves all qualified tests to process by department.
+   * @param {number | string} category - The category to filter by.
+   * @param {number} count - The number of results per page.
+   * @param {number} page - The page number.
+   * @returns {Promise<[]>} - A promise that resolves to the list of qualified tests.
+   */
   public async getAllQualifiedToProcessByDepartment(category: number | string, count: number, page: number): Promise<[]> {
-    //  we want to return all test whose sample was approved and ready to be processed
     let queryString = q_qualifiedToProcessByDepartment;
     const values = [];
     if (category != "all") {
@@ -75,20 +103,37 @@ export default class Operations {
     return await promisifyQuery(queryString, values);
   }
 
-  initiateTestProcessing = async (testid: number, billingid: number) => {
+  /**
+   * Initiates test processing for a given test ID and billing ID.
+   * @param {number} testid - The test ID.
+   * @param {number} billingid - The billing ID.
+   * @returns {Promise<number>} - A promise that resolves to the number of rows affected.
+   */
+  initiateTestProcessing = async (testid: number, billingid: number): Promise<number> => {
     const is_updated = await promisifyQuery(q_startProcessingTest, [billingid, testid]);
     return rowAffected(is_updated);
   };
 
-  logResultEntry = async (testid: number, billingid: number) => {
-    // update test ascension table with the testid, datetime and the billing id and ready = true and ready_date = NOW()
+  /**
+   * Logs result entry for a given test ID and billing ID.
+   * @param {number} testid - The test ID.
+   * @param {number} billingid - The billing ID.
+   * @returns {Promise<number>} - A promise that resolves to the number of rows affected.
+   */
+  logResultEntry = async (testid: number, billingid: number): Promise<number> => {
     const isResultEntryLogged = await promisifyQuery(q_log_result_entry, [billingid, testid]);
     return rowAffected(isResultEntryLogged);
   };
+
+  /**
+   * Retrieves all cases for result entry based on various filters.
+   * @param {OperationsFilterResultEntry} requestQuery - The query parameters for filtering.
+   * @returns {Promise<any[]>} - A promise that resolves to the list of cases.
+   * @throws {Error} - Throws an error if the query fails.
+   */
   async getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<any[]> {
     const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
     try {
-      let queries: string[] = [];
       let finalQuery: string;
       const values: any[] = [];
       const conditions: string[] = [];
@@ -108,6 +153,7 @@ export default class Operations {
         let billingPartitions = await new PartitionManager("billing", "billing").TablePartitionPrunner(from, to);
         let testAscensionsPartions = await new PartitionManager("test_ascension", "asc").TablePartitionPrunner(from, to);
         const canMove = typeof billingPartitions === "string" && typeof testAscensionsPartions === "string";
+
         if (canMove) {
           const query = q_get_all_result_entry_partitioning
             .replace("{billing_table}", billingPartitions)
@@ -116,6 +162,7 @@ export default class Operations {
         } else {
           finalQuery = q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
         }
+        
       } else if (hasDuration && hasSameMonth && hasSameYear) {
         const billingTable = getPartitionTableName("billing");
         const ascTable = getPartitionTableName("asc");
@@ -169,7 +216,13 @@ export default class Operations {
     }
   }
 
-  async getAllEnterResult(data: resultQuery) {
+  /**
+   * Retrieves all entered results based on various filters.
+   * @param {resultQuery} data - The query parameters for filtering.
+   * @returns {Promise<any[]>} - A promise that resolves to the list of entered results.
+   * @throws {Error} - Throws an error if the query fails.
+   */
+  async getAllEnterResult(data: resultQuery): Promise<any[]> {
     const { from, to, patientid, billingid, sortingwise, count, page } = data;
     let queryString = q_get_all_entered_result;
     queryString += ` WHERE ss.approvalstatus = 1 AND d.department <> 'ultrasound'`;
@@ -193,7 +246,6 @@ export default class Operations {
     queryString += ` GROUP BY b.billingid DESC LIMIT 30`;
 
     let result = await promisifyQuery(queryString);
-
     if (result.length > 0) {
       const getTestQuery = ` SELECT ta.testid,
                           tp.name,
@@ -221,20 +273,38 @@ export default class Operations {
     return result;
   }
 
-  getAllTestPreview = async function (billingid: number) {
+  /**
+   * Retrieves a preview of all tests for a given billing ID.
+   * @param {number} billingid - The billing ID.
+   * @returns {Promise<any[]>} - A promise that resolves to the list of test previews.
+   */
+  getAllTestPreview = async function (billingid: number): Promise<any[]> {
     if (billingid) {
       const alltest = await promisifyQuery(q_get_all_test_preview, [billingid]);
       return alltest;
     }
   };
 
-  async getUltrasoundWaitingList(data: { count: number; page: number }) {
+  /**
+   * Retrieves the ultrasound waiting list with pagination.
+   * @param {object} data - The pagination parameters.
+   * @param {number} data.count - The number of results per page.
+   * @param {number} data.page - The page number.
+   * @returns {Promise<any[]>} - A promise that resolves to the list of ultrasound waiting items.
+   */
+  async getUltrasoundWaitingList(data: { count: number; page: number }): Promise<any[]> {
     const { count = 10, page = 1 } = data;
     const result = await paginationQuery({ count, page }, q_ultrasound_waitingList);
     return result;
   }
 
-  public async processedScanList(data: ProcessedScan) {
+  /**
+   * Retrieves the processed scan list based on various filters.
+   * @param {ProcessedScan} data - The query parameters for filtering.
+   * @returns {Promise<any[]>} - A promise that resolves to the list of processed scans.
+   * @throws {Error} - Throws an error if the query fails.
+   */
+  public async processedScanList(data: ProcessedScan): Promise<any[]> {
     try {
       const { from, to, search, count = 10, page = 1 } = data;
       const values = [];
