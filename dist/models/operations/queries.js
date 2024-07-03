@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.q_get_all_test_preview = exports.q_get_all_entered_result = exports.q_ultrasound_processed_list = exports.q_ultrasound_waitingList = exports.q_get_all_result_entry = exports.q_log_result_entry = exports.q_startProcessingTest = exports.q_qualifiedToProcessByDepartment = exports.q_billing_test_collection = exports.q_approved_samples = exports.q_checkbillingid = void 0;
+exports.q_get_all_test_preview = exports.q_get_all_entered_result = exports.q_ultrasound_processed_list = exports.q_ultrasound_waitingList = exports.q_get_all_result_entry_partitioning = exports.q_get_all_result_entry = exports.q_log_result_entry = exports.q_startProcessingTest = exports.q_qualifiedToProcessByDepartment = exports.q_billing_test_collection = exports.q_approved_samples = exports.q_checkbillingid = void 0;
 exports.q_checkbillingid = "SELECT * FROM billing WHERE billingid = ?";
 exports.q_approved_samples = "SELECT * FROM samplestatus WHERE billingid = ? AND approvalstatus= 1";
 exports.q_billing_test_collection = `SELECT ta.testid,
@@ -59,6 +59,41 @@ exports.q_get_all_result_entry = `
   WHERE ss.approvalstatus = 1
     AND ta.collection = 'true'
     AND d.department <> 'ultrasound'
+`;
+exports.q_get_all_result_entry_partitioning = `SELECT 
+    CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
+    CONCAT(np.age, " ", np.agetype) AS age,
+    np.patientid,
+    b.billingid,
+    tp.category,
+    d.department,
+    tp.name,
+    b.clinician,
+    ss.approvalstatus,
+    ta.ready,
+    ta.processing,
+    tp.id,
+    b.clientstatus,
+    CASE WHEN b.organization <> 0 THEN
+      (SELECT name FROM organization WHERE id = b.organization)
+    END AS organization,
+    CASE WHEN b.clinician <> 0 THEN
+      (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
+    END AS clinicianName
+  FROM new_patients AS np
+  INNER JOIN (
+    SELECT * FROM billing PARTITION (billing_2024_01, billing_2024_02, billing_2024_03, billing_2024_06, billing_2024_07)
+  ) AS b ON np.patientid = b.patientid
+  INNER JOIN (
+    SELECT * FROM test_ascension PARTITION (asc_2024_01, asc_2024_02, asc_2024_03, asc_2024_06, asc_2024_07)
+  ) AS ta ON ta.billingid = b.billingid
+  INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+  INNER JOIN test_panels AS tp ON tp.id = ss.testid
+  INNER JOIN departments AS d ON d.id = tp.category
+  WHERE ss.approvalstatus = 1
+    AND ta.collection = 'true'
+    AND d.department <> 'ultrasound'
+
 `;
 exports.q_ultrasound_waitingList = `SELECT DISTINCT
           np.patientid,

@@ -1,7 +1,7 @@
 import { Request, response, Response } from "express";
 import { customError, rowAffected,responseError } from "../../../helper";
 import Operations from "../../models/operations/operations";
-
+import g from '../../models/operations/part'
 export const getAllCollections = async (req: Request, res: Response) => {
   try {
     const { departmentid } = req.query;
@@ -82,7 +82,7 @@ export const getAllPendingCases = async (req: Request, res: Response) => {
   try {
     const { count = 10, page = 1, departmentid, status, testid, fullname } = req.query;
     const data = { count, page, departmentid, status, testid, fullname };
-    const result = await new Operations(null).getAllCasesResultEntryByMany(data as any);
+    const result = await g(data as any);
     res.send({result,statusCode:200,status:"success"});
   } catch (err) {
     console.log(err)

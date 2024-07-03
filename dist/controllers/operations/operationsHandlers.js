@@ -7,6 +7,7 @@ exports.getProcessedScanList = exports.getUltrasoundWaitingList = exports.getAll
 const express_1 = require("express");
 const helper_1 = require("../../../helper");
 const operations_1 = __importDefault(require("../../models/operations/operations"));
+const part_1 = __importDefault(require("../../models/operations/part"));
 const getAllCollections = async (req, res) => {
     try {
         const { departmentid } = req.query;
@@ -93,7 +94,7 @@ const getAllPendingCases = async (req, res) => {
     try {
         const { count = 10, page = 1, departmentid, status, testid, fullname } = req.query;
         const data = { count, page, departmentid, status, testid, fullname };
-        const result = await new operations_1.default(null).getAllCasesResultEntryByMany(data);
+        const result = await (0, part_1.default)(data);
         res.send({ result, statusCode: 200, status: "success" });
     }
     catch (err) {

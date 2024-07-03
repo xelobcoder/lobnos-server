@@ -128,6 +128,39 @@ class PartitionManager implements PartitionManager {
   }
 
   /**
+   * Prunes billing partitions based on the provided start and end dates.
+   *
+   * This method retrieves all partitions for the table managed by this instance and filters them
+   * based on the provided start and end dates. It returns a comma-separated string of partition names
+   * that fall within the specified date range.
+   *
+   * @param startdate The start date for pruning partitions (format: YYYY-MM-DD).
+   * @param enddate The end date for pruning partitions (format: YYYY-MM-DD).
+   * @returns A promise that resolves to a comma-separated string of partition names or an empty array if no partitions match the criteria.
+   * @throws An error if the startdate or enddate are not provided.
+   */
+  public async billingPartitionPrunner(startdate: string, enddate: string): Promise<string | string[]> {
+    if (!startdate || !enddate) throw new Error("required startdate and enddate not provided");
+
+    let partitions = await PartitionManager.getTablePartitions(this.tablename);
+    if (partitions.length == 0) return [];
+
+    const startYear = new Date(startdate).getFullYear();
+    const endYear = new Date(enddate).getFullYear();
+    const stMonth = new Date(startdate).getMonth();
+    const edMonth = new Date(enddate).getMonth();
+
+    partitions = partitions.map((a, index: number) => a.PARTITION_NAME);
+
+    partitions = partitions.filter((_part, index: number) => {
+      const [_, year, month] = _part.split("_");
+      return year == startYear || year == endYear || (endYear == year && stMonth == month) || (startYear == year && edMonth == month);
+    });
+
+    return partitions.length > 0 ? partitions.join(",") : [];
+  }
+
+  /**
    * Initializes partitions for the billing table.
    * @param basename The base name used for partition identifiers.
    * @param year The year associated with the partitions.
