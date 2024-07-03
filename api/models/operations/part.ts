@@ -33,34 +33,85 @@ export const q_get_all_result_entry_base: string = `
     AND d.department <> 'ultrasound'
 `;
 
-function getPartitionTableName(baseName: string, date: string): string {
-  const yearMonth = date.slice(0, 7).replace("-", "_");
-  return `${baseName}_${yearMonth}`;
+
+export const q_get_all_result_entry_partitioning = `SELECT 
+    CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
+    CONCAT(np.age, " ", np.agetype) AS age,
+    np.patientid,
+    b.billingid,
+    tp.category,
+    d.department,
+    tp.name,
+    b.clinician,
+    ss.approvalstatus,
+    ta.ready,
+    ta.processing,
+    tp.id,
+    b.clientstatus,
+    CASE WHEN b.organization <> 0 THEN
+      (SELECT name FROM organization WHERE id = b.organization)
+    END AS organization,
+    CASE WHEN b.clinician <> 0 THEN
+      (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
+    END AS clinicianName
+  FROM new_patients AS np
+  INNER JOIN (
+    SELECT * FROM billing PARTITION ({billing_table})
+  ) AS b ON np.patientid = b.patientid
+  INNER JOIN (
+    SELECT * FROM test_ascension PARTITION ({asc_table})
+  ) AS ta ON ta.billingid = b.billingid
+  INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+  INNER JOIN test_panels AS tp ON tp.id = ss.testid
+  INNER JOIN departments AS d ON d.id = tp.category
+  WHERE ss.approvalstatus = 1
+    AND ta.collection = 'true'
+    AND d.department <> 'ultrasound'
+
+`;
+function getPartitionTableName(baseName: string, currentDate = new Date()): string {
+  const year = currentDate.getFullYear();
+  const month = `${currentDate.getMonth() + 1}`.padStart(2, "0");
+  return `${baseName}_${year}_${month}`;
 }
 
 export default async function getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<any[]> {
   const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
   try {
     let queries: string[] = [];
+    let finalQuery: string;
     const values: any[] = [];
     const conditions: string[] = [];
+    const hasDuration = from && to;
+    const providedFrom = new Date(new Date(from));
+    const providedTo = new Date(new Date(to));
+    const hasSameMonth = providedFrom.getMonth() === providedTo.getMonth();
+    const hasSameYear = providedFrom.getFullYear() === providedTo.getFullYear();
 
-    if (from && to) {
-      let currentDate = new Date(from);
-      while (currentDate <= new Date(to)) {
-        let billingPartitions = new PartitionManager("billing", "billing");
-        const billingTable = getPartitionTableName("billing", currentDate.toISOString());
-        const ascTable = getPartitionTableName("test_ascension", currentDate.toISOString());
-        const query = q_get_all_result_entry_base.replace("{billing_table}", billingTable).replace("{asc_table}", ascTable);
-        queries.push(query);
-        currentDate.setMonth(currentDate.getMonth() + 1);
+    if (hasDuration && !(hasSameMonth && hasSameYear)) {
+      // const billingTable = getPartitionTableName("billing", currentDate.toISOString());
+      // const ascTable = getPartitionTableName("test_ascension", currentDate.toISOString());
+      // const query = q_get_all_result_entry_base.replace("{billing_table}", billingTable).replace("{asc_table}", ascTable);
+      // queries.push(query);
+      // currentDate.setMonth(currentDate.getMonth() + 1);
+      let billingPartitions = await new PartitionManager("billing", "billing").TablePartitionPrunner(from, to);
+      let testAscensionsPartions = await new PartitionManager("test_ascension", "asc").TablePartitionPrunner(from, to);
+      const canMove = typeof billingPartitions === "string" && typeof testAscensionsPartions === "string";
+      if (canMove) {
+        const query = q_get_all_result_entry_partitioning
+          .replace("{billing_table}", billingPartitions)
+          .replace("{asc_table}", testAscensionsPartions);
+        finalQuery = query;
+      } else {
+        finalQuery = q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
       }
+    } else if (hasDuration && hasSameMonth && hasSameYear) {
+      const billingTable = getPartitionTableName("billing");
+      const ascTable = getPartitionTableName("asc");
+      const query = q_get_all_result_entry_partitioning.replace("{billing_table}", billingTable).replace("{asc_table}", ascTable);
+      finalQuery = query;
     } else {
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      const billingTable = getPartitionTableName("billing", currentMonth);
-      const ascTable = getPartitionTableName("test_ascension", currentMonth);
-      const query = q_get_all_result_entry_base.replace("{billing_table}", billingTable).replace("{asc_table}", ascTable);
-      queries.push(query);
+      finalQuery = q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
     }
 
     if (fullname) {
@@ -92,21 +143,14 @@ export default async function getAllCasesResultEntryByMany(requestQuery: Operati
       values.push(from);
     }
 
-    const unionQueries = queries.join(" UNION ");
-
-    let finalQuery = `
-      SELECT * FROM (${unionQueries}) AS combinedResults
-    `;
-
     if (conditions.length > 0) {
-      finalQuery += ` WHERE ${conditions.join(" AND ")}`;
+      finalQuery += ` AND ${conditions.join(" AND ")} `;
     }
 
     finalQuery += `
       ORDER BY billingid DESC
       LIMIT ? OFFSET ?
     `;
-    // values.push(count, (page - 1) * count);
 
     return await paginationQuery({ count, page }, finalQuery, values);
   } catch (err) {

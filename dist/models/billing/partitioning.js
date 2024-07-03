@@ -110,7 +110,7 @@ class PartitionManager {
         return result;
     }
     /**
-     * Prunes billing partitions based on the provided start and end dates.
+     * Prunes Table partitions based on the provided start and end dates.
      *
      * This method retrieves all partitions for the table managed by this instance and filters them
      * based on the provided start and end dates. It returns a comma-separated string of partition names
@@ -121,7 +121,7 @@ class PartitionManager {
      * @returns A promise that resolves to a comma-separated string of partition names or an empty array if no partitions match the criteria.
      * @throws An error if the startdate or enddate are not provided.
      */
-    async billingPartitionPrunner(startdate, enddate) {
+    async TablePartitionPrunner(startdate, enddate) {
         if (!startdate || !enddate)
             throw new Error("required startdate and enddate not provided");
         let partitions = await PartitionManager.getTablePartitions(this.tablename);

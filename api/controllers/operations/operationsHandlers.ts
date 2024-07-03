@@ -80,8 +80,8 @@ export const getAllTestPreview = async (req: Request, res: Response) => {
 
 export const getAllPendingCases = async (req: Request, res: Response) => {
   try {
-    const { count = 10, page = 1, departmentid, status, testid, fullname } = req.query;
-    const data = { count, page, departmentid, status, testid, fullname };
+    const { count = 10, page = 1, departmentid, status, testid, fullname, from, to } = req.query;
+    const data = { count, page, departmentid, status, testid, fullname, from, to };
     const result = await g(data as any);
     res.send({result,statusCode:200,status:"success"});
   } catch (err) {
