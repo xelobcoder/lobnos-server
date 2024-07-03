@@ -72,11 +72,6 @@ exports.q_get_all_result_entry_partitioning = `SELECT
     AND d.department <> 'ultrasound'
 
 `;
-function getPartitionTableName(baseName, currentDate = new Date()) {
-    const year = currentDate.getFullYear();
-    const month = `${currentDate.getMonth() + 1}`.padStart(2, "0");
-    return `${baseName}_${year}_${month}`;
-}
 async function getAllCasesResultEntryByMany(requestQuery) {
     const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
     try {
@@ -89,12 +84,12 @@ async function getAllCasesResultEntryByMany(requestQuery) {
         const providedTo = new Date(new Date(to));
         const hasSameMonth = providedFrom.getMonth() === providedTo.getMonth();
         const hasSameYear = providedFrom.getFullYear() === providedTo.getFullYear();
+        function getPartitionTableName(baseName, currentDate = new Date()) {
+            const year = currentDate.getFullYear();
+            const month = `${currentDate.getMonth() + 1}`.padStart(2, "0");
+            return `${baseName}_${year}_${month}`;
+        }
         if (hasDuration && !(hasSameMonth && hasSameYear)) {
-            // const billingTable = getPartitionTableName("billing", currentDate.toISOString());
-            // const ascTable = getPartitionTableName("test_ascension", currentDate.toISOString());
-            // const query = q_get_all_result_entry_base.replace("{billing_table}", billingTable).replace("{asc_table}", ascTable);
-            // queries.push(query);
-            // currentDate.setMonth(currentDate.getMonth() + 1);
             let billingPartitions = await new partitioning_1.default("billing", "billing").TablePartitionPrunner(from, to);
             let testAscensionsPartions = await new partitioning_1.default("test_ascension", "asc").TablePartitionPrunner(from, to);
             const canMove = typeof billingPartitions === "string" && typeof testAscensionsPartions === "string";

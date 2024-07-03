@@ -82,7 +82,7 @@ export const getAllPendingCases = async (req: Request, res: Response) => {
   try {
     const { count = 10, page = 1, departmentid, status, testid, fullname, from, to } = req.query;
     const data = { count, page, departmentid, status, testid, fullname, from, to };
-    const result = await g(data as any);
+    const result = await new Operations(null).getAllCasesResultEntryByMany(data);
     res.send({result,statusCode:200,status:"success"});
   } catch (err) {
     console.log(err)

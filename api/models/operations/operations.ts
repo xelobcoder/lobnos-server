@@ -3,7 +3,8 @@ import {
   q_billing_test_collection,
   q_checkbillingid,
   q_get_all_entered_result,
-  q_get_all_result_entry,
+  q_get_all_result_entry_base,
+  q_get_all_result_entry_partitioning,
   q_get_all_test_preview,
   q_log_result_entry,
   q_qualifiedToProcessByDepartment,
@@ -14,6 +15,8 @@ import {
 import { OperationsFailures, OperationsFilterResultEntry, ProcessedScan, resultQuery } from "./types";
 
 import { customError, promisifyQuery, paginationQuery, responseError, rowAffected } from "../../../helper";
+
+import PartitionManager from "../billing/partitioning";
 
 export default class Operations {
   public billingid: number;
@@ -82,13 +85,45 @@ export default class Operations {
     const isResultEntryLogged = await promisifyQuery(q_log_result_entry, [billingid, testid]);
     return rowAffected(isResultEntryLogged);
   };
-
-  public async getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<any[]> {
+  async getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<any[]> {
     const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
     try {
-      let query: string = q_get_all_result_entry;
+      let queries: string[] = [];
+      let finalQuery: string;
       const values: any[] = [];
       const conditions: string[] = [];
+      const hasDuration = from && to;
+      const providedFrom = new Date(new Date(from));
+      const providedTo = new Date(new Date(to));
+      const hasSameMonth = providedFrom.getMonth() === providedTo.getMonth();
+      const hasSameYear = providedFrom.getFullYear() === providedTo.getFullYear();
+
+      function getPartitionTableName(baseName: string, currentDate = new Date()): string {
+        const year = currentDate.getFullYear();
+        const month = `${currentDate.getMonth() + 1}`.padStart(2, "0");
+        return `${baseName}_${year}_${month}`;
+      }
+
+      if (hasDuration && !(hasSameMonth && hasSameYear)) {
+        let billingPartitions = await new PartitionManager("billing", "billing").TablePartitionPrunner(from, to);
+        let testAscensionsPartions = await new PartitionManager("test_ascension", "asc").TablePartitionPrunner(from, to);
+        const canMove = typeof billingPartitions === "string" && typeof testAscensionsPartions === "string";
+        if (canMove) {
+          const query = q_get_all_result_entry_partitioning
+            .replace("{billing_table}", billingPartitions)
+            .replace("{asc_table}", testAscensionsPartions);
+          finalQuery = query;
+        } else {
+          finalQuery = q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
+        }
+      } else if (hasDuration && hasSameMonth && hasSameYear) {
+        const billingTable = getPartitionTableName("billing");
+        const ascTable = getPartitionTableName("asc");
+        const query = q_get_all_result_entry_partitioning.replace("{billing_table}", billingTable).replace("{asc_table}", ascTable);
+        finalQuery = query;
+      } else {
+        finalQuery = q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
+      }
 
       if (fullname) {
         conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
@@ -120,21 +155,20 @@ export default class Operations {
       }
 
       if (conditions.length > 0) {
-        query += ` AND ${conditions.join(" AND ")}`;
+        finalQuery += ` AND ${conditions.join(" AND ")} `;
       }
 
-      query += `
-      ORDER BY b.billingid DESC
+      finalQuery += `
+      ORDER BY billingid DESC
       LIMIT ? OFFSET ?
     `;
-      return await paginationQuery({ count, page }, query, values);
+
+      return await paginationQuery({ count, page }, finalQuery, values);
     } catch (err) {
       throw err;
     }
   }
 
-
-  
   async getAllEnterResult(data: resultQuery) {
     const { from, to, patientid, billingid, sortingwise, count, page } = data;
     let queryString = q_get_all_entered_result;

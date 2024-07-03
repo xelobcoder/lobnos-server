@@ -31,7 +31,9 @@ export const q_startProcessingTest: string = `UPDATE test_ascension SET processi
     processing = 'true'  WHERE billingid = ? AND testid = ?`;
 
 export const q_log_result_entry: string = `UPDATE test_ascension SET ready_date = NOW(),ready = 'true'  WHERE billingid = ? AND testid = ?`;
-export const q_get_all_result_entry: string = `
+
+
+export const q_get_all_result_entry_base: string = `
   SELECT 
     CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
     CONCAT(np.age, " ", np.agetype) AS age,
@@ -53,8 +55,8 @@ export const q_get_all_result_entry: string = `
       (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
     END AS clinicianName
   FROM new_patients AS np
-  INNER JOIN billing AS b ON np.patientid = b.patientid
-  INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+  INNER JOIN {billing_table} AS b ON np.patientid = b.patientid
+  INNER JOIN {asc_table} AS ta ON ta.billingid = b.billingid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
   INNER JOIN departments AS d ON d.id = tp.category
@@ -85,10 +87,10 @@ export const q_get_all_result_entry_partitioning = `SELECT
     END AS clinicianName
   FROM new_patients AS np
   INNER JOIN (
-    SELECT * FROM billing PARTITION (billing_2024_01, billing_2024_02, billing_2024_03, billing_2024_06, billing_2024_07)
+    SELECT * FROM billing PARTITION ({billing_table})
   ) AS b ON np.patientid = b.patientid
   INNER JOIN (
-    SELECT * FROM test_ascension PARTITION (asc_2024_01, asc_2024_02, asc_2024_03, asc_2024_06, asc_2024_07)
+    SELECT * FROM test_ascension PARTITION ({asc_table})
   ) AS ta ON ta.billingid = b.billingid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
@@ -98,6 +100,7 @@ export const q_get_all_result_entry_partitioning = `SELECT
     AND d.department <> 'ultrasound'
 
 `;
+
 export const q_ultrasound_waitingList: string = `SELECT DISTINCT
           np.patientid,
           b.billingid,

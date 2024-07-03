@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.q_get_all_test_preview = exports.q_get_all_entered_result = exports.q_ultrasound_processed_list = exports.q_ultrasound_waitingList = exports.q_get_all_result_entry_partitioning = exports.q_get_all_result_entry = exports.q_log_result_entry = exports.q_startProcessingTest = exports.q_qualifiedToProcessByDepartment = exports.q_billing_test_collection = exports.q_approved_samples = exports.q_checkbillingid = void 0;
+exports.q_get_all_test_preview = exports.q_get_all_entered_result = exports.q_ultrasound_processed_list = exports.q_ultrasound_waitingList = exports.q_get_all_result_entry_partitioning = exports.q_get_all_result_entry_base = exports.q_log_result_entry = exports.q_startProcessingTest = exports.q_qualifiedToProcessByDepartment = exports.q_billing_test_collection = exports.q_approved_samples = exports.q_checkbillingid = void 0;
 exports.q_checkbillingid = "SELECT * FROM billing WHERE billingid = ?";
 exports.q_approved_samples = "SELECT * FROM samplestatus WHERE billingid = ? AND approvalstatus= 1";
 exports.q_billing_test_collection = `SELECT ta.testid,
@@ -29,7 +29,7 @@ exports.q_qualifiedToProcessByDepartment = `SELECT CONCAT(np.firstname,' ',np.mi
 exports.q_startProcessingTest = `UPDATE test_ascension SET processing_date = NOW(),
     processing = 'true'  WHERE billingid = ? AND testid = ?`;
 exports.q_log_result_entry = `UPDATE test_ascension SET ready_date = NOW(),ready = 'true'  WHERE billingid = ? AND testid = ?`;
-exports.q_get_all_result_entry = `
+exports.q_get_all_result_entry_base = `
   SELECT 
     CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
     CONCAT(np.age, " ", np.agetype) AS age,
@@ -51,8 +51,8 @@ exports.q_get_all_result_entry = `
       (SELECT name FROM clinicianbasicinfo WHERE id = b.clinician)
     END AS clinicianName
   FROM new_patients AS np
-  INNER JOIN billing AS b ON np.patientid = b.patientid
-  INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
+  INNER JOIN {billing_table} AS b ON np.patientid = b.patientid
+  INNER JOIN {asc_table} AS ta ON ta.billingid = b.billingid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
   INNER JOIN departments AS d ON d.id = tp.category
@@ -82,10 +82,10 @@ exports.q_get_all_result_entry_partitioning = `SELECT
     END AS clinicianName
   FROM new_patients AS np
   INNER JOIN (
-    SELECT * FROM billing PARTITION (billing_2024_01, billing_2024_02, billing_2024_03, billing_2024_06, billing_2024_07)
+    SELECT * FROM billing PARTITION ({billing_table})
   ) AS b ON np.patientid = b.patientid
   INNER JOIN (
-    SELECT * FROM test_ascension PARTITION (asc_2024_01, asc_2024_02, asc_2024_03, asc_2024_06, asc_2024_07)
+    SELECT * FROM test_ascension PARTITION ({asc_table})
   ) AS ta ON ta.billingid = b.billingid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid

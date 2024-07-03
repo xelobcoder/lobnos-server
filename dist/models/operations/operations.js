@@ -1,7 +1,11 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
 const helper_1 = require("../../../helper");
+const partitioning_1 = __importDefault(require("../billing/partitioning"));
 class Operations {
     constructor(billingid) {
         this.initiateTestProcessing = async (testid, billingid) => {
@@ -68,9 +72,43 @@ class Operations {
     async getAllCasesResultEntryByMany(requestQuery) {
         const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
         try {
-            let query = queries_1.q_get_all_result_entry;
+            let queries = [];
+            let finalQuery;
             const values = [];
             const conditions = [];
+            const hasDuration = from && to;
+            const providedFrom = new Date(new Date(from));
+            const providedTo = new Date(new Date(to));
+            const hasSameMonth = providedFrom.getMonth() === providedTo.getMonth();
+            const hasSameYear = providedFrom.getFullYear() === providedTo.getFullYear();
+            function getPartitionTableName(baseName, currentDate = new Date()) {
+                const year = currentDate.getFullYear();
+                const month = `${currentDate.getMonth() + 1}`.padStart(2, "0");
+                return `${baseName}_${year}_${month}`;
+            }
+            if (hasDuration && !(hasSameMonth && hasSameYear)) {
+                let billingPartitions = await new partitioning_1.default("billing", "billing").TablePartitionPrunner(from, to);
+                let testAscensionsPartions = await new partitioning_1.default("test_ascension", "asc").TablePartitionPrunner(from, to);
+                const canMove = typeof billingPartitions === "string" && typeof testAscensionsPartions === "string";
+                if (canMove) {
+                    const query = queries_1.q_get_all_result_entry_partitioning
+                        .replace("{billing_table}", billingPartitions)
+                        .replace("{asc_table}", testAscensionsPartions);
+                    finalQuery = query;
+                }
+                else {
+                    finalQuery = queries_1.q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
+                }
+            }
+            else if (hasDuration && hasSameMonth && hasSameYear) {
+                const billingTable = getPartitionTableName("billing");
+                const ascTable = getPartitionTableName("asc");
+                const query = queries_1.q_get_all_result_entry_partitioning.replace("{billing_table}", billingTable).replace("{asc_table}", ascTable);
+                finalQuery = query;
+            }
+            else {
+                finalQuery = queries_1.q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
+            }
             if (fullname) {
                 conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
                 values.push(`${fullname}%`);
@@ -98,13 +136,13 @@ class Operations {
                 values.push(from);
             }
             if (conditions.length > 0) {
-                query += ` AND ${conditions.join(" AND ")}`;
+                finalQuery += ` AND ${conditions.join(" AND ")} `;
             }
-            query += `
-      ORDER BY b.billingid DESC
+            finalQuery += `
+      ORDER BY billingid DESC
       LIMIT ? OFFSET ?
     `;
-            return await (0, helper_1.paginationQuery)({ count, page }, query, values);
+            return await (0, helper_1.paginationQuery)({ count, page }, finalQuery, values);
         }
         catch (err) {
             throw err;
