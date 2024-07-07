@@ -1,44 +1,60 @@
-// src/handlers.ts
-
 import { Request, Response } from "express";
-import { customError, responseError } from "../../helper";
-import ResultPrint from "../models/ResultPrint";
-import EmailService from "../EmailServices/EmailCore";
-import { getBillingInvoiceData } from "../models/invoice";
-import Payment from "../models/payment";
-import logger from "../../logger";
-import PDFGENERATION from "../models/pdfGeneration";
+import { customError, responseError } from "../../../helper";
+import ResultPrint from "../../models/result/resultPrint";
+import EmailService from "../../EmailServices/EmailCore";
+import { getBillingInvoiceData } from "../../models/invoice";
+import Payment from "../../models/payment";
+import logger from "../../../logger";
 
 const payment = new Payment();
 
 export const getResultReady = async (req: Request, res: Response) => {
-  new ResultPrint().get_printables(req, res);
+  try {
+    const result = await new ResultPrint(null).get_printables(req.query);
+    res.send(result);
+  } catch (err) {
+    responseError(res);
+  }
 };
 
-export const getAdvancedTablesSearch = (req: Request, res: Response) => {
-  new ResultPrint().advancedTablesSearch(req, res);
+export const getAdvancedTablesSearch = async (req: Request, res: Response) => {
+  try {
+    const result = await new ResultPrint(null).advancedTablesSearch(req.query);
+    res.send({ status: "success", statusCode: 200, result });
+  } catch (err) {
+    responseError(res);
+  }
 };
 
 export const getResultById = async (req: Request, res: Response) => {
-  const billingid = parseInt(req.params.id.slice(1));
-  if (!billingid) return customError("billingid not provided", 404, res);
-  await new ResultPrint().get_extrainfo_test(billingid, res);
+  try {
+    const billingid = parseInt(req.params.id.slice(1));
+    if (!billingid) return customError("billingid not provided", 404, res);
+    const result = await new ResultPrint(null).get_extrainfo_test(billingid);
+    res.send(result);
+  } catch (err) {
+    responseError(res);
+  }
 };
 
 export const updatePrintCount = async (req: Request, res: Response) => {
   try {
     const { id, count } = req.body;
     if (!id || !count) return customError("test ascension id and count of print required", 404, res);
-    const result = await new ResultPrint().updatePrintCount(id, count);
+    const result = await new ResultPrint(null).updatePrintCount(id, count);
     res.send({ status: result === true ? "success" : "failed" });
   } catch (err) {
-    logger.error(err);
     responseError(res);
   }
 };
 
-export const getSummaryReadyPage = (req: Request, res: Response) => {
-  new ResultPrint().get_summary_ready_page(req, res);
+export const getSummaryReadyPage = async (req: Request, res: Response) => {
+  try {
+    const result = await new ResultPrint(null).get_summary_ready_page(req.query);
+    res.send(result);
+  } catch (err) {
+    responseError(res);
+  }
 };
 
 export const getClientTransactionInfo = async (req: Request, res: Response) => {
@@ -55,7 +71,7 @@ export const getClientBulkOutstanding = async (req: Request, res: Response) => {
   if (!patientid) {
     customError("patientid required", 404, res);
   } else {
-    const result = await payment.allClientDebtTransactions(patientid as string);
+    const result = await payment.allClientDebtTransactions(patientid);
     res.send({ result, statusCode: 200, status: "success" });
   }
 };
@@ -93,7 +109,7 @@ export const updatePayment = (req: Request, res: Response) => {
 
 export const previewReport = (req: Request, res: Response) => {
   try {
-    new ResultPrint().previewReport(req, res);
+    new ResultPrint(null).previewReport(req, res);
   } catch (err) {
     logger.error(err);
   }
@@ -102,7 +118,8 @@ export const previewReport = (req: Request, res: Response) => {
 export const getPreviewComments = (req: Request, res: Response) => {
   const { billingid, testid } = req.query;
   if (billingid) {
-    new ResultPrint().getComments(billingid as string, testid as string, res);
+    const billid: number = parseInt(billingid as string);
+    new ResultPrint(billid).getComments(billingid as any, parseInt(testid as string), res as any);
   } else {
     res.send({ status: "error", statusCode: 401, message: "Include Billingid" });
   }
@@ -113,59 +130,48 @@ export const getResultEntryScientist = async (req: Request, res: Response) => {
   if (!billingid || !testid) {
     return customError("billingid or testid not included in the query", 404, res);
   }
-  const result = await new ResultPrint().getResultEntryScientist(billingid as string, testid as string);
+  const result = await new ResultPrint(null).getResultEntryScientist(billingid, testid);
   res.send(result);
 };
 
 export const checkApproval = (req: Request, res: Response) => {
   const { billingid, testid } = req.body;
   if (billingid && testid) {
-    new ResultPrint().checkApproval(billingid, testid, res);
+    new ResultPrint(null).checkApproval(billingid, testid, res);
   } else {
     res.status(401).json({ status: "error", message: "include testid and billing in request body" });
   }
 };
 
-export const makeDecisionOnResult = (req: Request, res: Response) => {
-  new ResultPrint().makeDecisionOnResult(req, res);
+export const makeDecisionOnResult = async (req: Request, res: Response) => {
+  try {
+    const result = await new ResultPrint(null).makeDecisionOnResult(req.body);
+    result
+      ? res.send({ status: "success", statusCode: 200, message: "update successful" })
+      : res.send({ status: "error", statusCode: 401, message: "error updating data" });
+  } catch (err) {
+    responseError(res);
+  }
 };
 
 export const getBillingInvoice = (req: Request, res: Response) => {
   const { billingid } = req.query;
-  getBillingInvoiceData(billingid as string, res);
+  getBillingInvoiceData(billingid, res);
 };
 
-export const emailBillingReceipt = async (req: Request, res: Response) => {
-  const { billingid } = req.query;
-  if (billingid) {
-    await new EmailService().forwardBillingReceipt(billingid as string);
-  } else {
-    customError("billing id required", 404, res);
-  }
-};
-
-export const generatePDFResult = async (req: Request, res: Response) => {
-  const { billingid, testname, testid } = req.query;
-  try {
-    if (billingid && testname && testid) {
-      try {
-        const pdfgenerate = new PDFGENERATION(billingid as string, testid as string, testname as string);
-        await pdfgenerate.generatePDFResult(res);
-      } catch (error) {
-        customError("error fetching data", 500, res);
-      }
-    } else {
-      customError("include billingid, testname and testid", 404, res);
-    }
-  } catch (err) {
-    console.log(err);
-  }
-};
+// export const emailBillingReceipt = async (req: Request, res: Response) => {
+//   const { billingid } = req.query;
+//   if (billingid) {
+//     await new EmailService().forwardBillingReceipt(billingid);
+//   } else {
+//     customError("billing id required", 404, res);
+//   }
+// };
 
 export const getTransactionApprovedTest = async (req: Request, res: Response) => {
   try {
     const { billingid } = req.query;
-    const result = await new ResultPrint().getTransactionApprovedTest(billingid as string);
+    const result = await new ResultPrint(billingid).getTransactionApprovedTest(billingid);
     res.send(result);
   } catch (err) {
     responseError(res);

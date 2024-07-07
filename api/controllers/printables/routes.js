@@ -1,5 +1,5 @@
-import express from "express";
-import {
+const express = require("express");
+const {
   getResultReady,
   getAdvancedTablesSearch,
   getResultById,
@@ -17,11 +17,11 @@ import {
   checkApproval,
   makeDecisionOnResult,
   getBillingInvoice,
-  emailBillingReceipt,
-  generatePDFResult,
+  // emailBillingReceipt,
+  // generatePDFResult,
   getTransactionApprovedTest,
   getBillingReceipt,
-} from "./handlers";
+} = require("./../../../dist/controllers/printables/handlers");
 
 const router = express.Router();
 
@@ -42,9 +42,9 @@ router.get("/api/v1/result/preview/entry/scientist", getResultEntryScientist);
 router.post("/api/v1/test/result/preview/approved/check", checkApproval);
 router.post("/api/v1/result/approve", makeDecisionOnResult);
 router.get("/api/v1/billing/invoice", getBillingInvoice);
-router.get("/api/v1/billing/email/receipt", emailBillingReceipt);
-router.get("/billing/result/pdf", generatePDFResult);
+// router.get("/api/v1/billing/email/receipt", emailBillingReceipt);
+// router.get("/billing/result/pdf", generatePDFResult);
 router.get("/api/v1/result/printout/approved/test", getTransactionApprovedTest);
 router.get("/billing/receipt", getBillingReceipt);
 
-export default router;
+module.exports = router;

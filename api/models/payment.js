@@ -8,7 +8,7 @@ class Payment {
     this.patientid = patientid
   }
 
-  getClientTransactionInformation = async (records, response) => {
+  getClientTransactionInformation = async (records) => {
     try {
       const { patientid, from, to, count = 10, page = 1 } = records
       const values = []

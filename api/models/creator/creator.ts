@@ -1,4 +1,3 @@
-import { Response } from "express";
 import { promisifyQuery, rowAffected, responseError } from "../../../helper";
 import testpanel from "../../testpanel/list";
 import { _comments_query, getGenderQuery, testCreationRule, update_creation_query } from "./queries";

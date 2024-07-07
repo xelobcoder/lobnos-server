@@ -1,4 +1,4 @@
-const samplingQuery = `
+export const samplingQuery = `
   SELECT
   ts.ready_date,
   b.clientstatus as urgency,
@@ -29,7 +29,7 @@ const samplingQuery = `
   where ts.billingid = ? AND ts.testid = ? GROUP BY ts.billingid LIMIT 1
 `;
 
-const modelQueryBase = `
+export const modelQueryBase = `
   SELECT 
       ta.billingid AS billingid,
  (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid AND ready = 'false' AND processing = 'true') AS processing,
@@ -55,28 +55,28 @@ const modelQueryBase = `
      ta.ready = 'true' and ta.ApprovalStatus = 1
 `;
 
-const modelQueryWithFilters = (querydate, content) => {
-          let query = modelQueryBase;
-          const params = [];
+export const modelQueryWithFilters = (querydate, content) => {
+  let query = modelQueryBase;
+  const params = [];
 
-          // Add filters if provided
-          if (querydate) {
-                    query += " AND DATE(ta.ready_date) = ?";
-                    params.push(querydate);
-          } else {
-                    query += " AND DATE(ta.ready_date) = CURDATE()";
-          }
+  // Add filters if provided
+  if (querydate) {
+    query += " AND DATE(ta.ready_date) = ?";
+    params.push(querydate);
+  } else {
+    query += " AND DATE(ta.ready_date) = CURDATE()";
+  }
 
-          if (content) {
-                    query += " AND ta.billingid = ?";
-                    params.push(content);
-          }
+  if (content) {
+    query += " AND ta.billingid = ?";
+    params.push(content);
+  }
 
-          query += " GROUP BY ta.billingid ORDER BY ta.billingid DESC LIMIT 100";
-          return { query, params };
+  query += " GROUP BY ta.billingid ORDER BY ta.billingid DESC LIMIT 100";
+  return { query, params };
 };
 
-const extrainfoTestQuery = `
+export const extrainfoTestQuery = `
   SELECT  DISTINCT tp.NAME AS name,
                   ta.testid,
                   ta.ready,
@@ -96,19 +96,19 @@ const extrainfoTestQuery = `
   WHERE billingid = ?
 `;
 
-const updatePrintCountQuery = `UPDATE test_ascension SET printcount = ?, printedOn =  NOW() WHERE id = ?`;
+export const updatePrintCountQuery = `UPDATE test_ascension SET printcount = ?, printedOn =  NOW() WHERE id = ?`;
 
-const testNameQuery = `SELECT * FROM test_panels WHERE id = ?`;
+export const testNameQuery = `SELECT * FROM test_panels WHERE id = ?`;
 
-const employeeIdQuery = (tablename) => `SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`;
+export const employeeIdQuery = (tablename) => `SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`;
 
-const usernameQuery = `SELECT username FROM roles WHERE employeeid = ?`;
+export const usernameQuery = `SELECT username FROM roles WHERE employeeid = ?`;
 
-const approvedByQuery = `SELECT ApprovedBy FROM test_ascension WHERE billingid = ? AND testid = ?`;
+export const approvedByQuery = `SELECT ApprovedBy FROM test_ascension WHERE billingid = ? AND testid = ?`;
 
-const approvedByUsernameQuery = `SELECT username FROM roles WHERE employeeid = ?`;
+export const approvedByUsernameQuery = `SELECT username FROM roles WHERE employeeid = ?`;
 
-const summaryReadyPageQuery = `
+export const summaryReadyPageQuery = `
   SELECT 
     pt.billedon,
     pt.billingid,
@@ -124,15 +124,15 @@ const summaryReadyPageQuery = `
   WHERE DATE(pt.billedon) = ?
 `;
 
-const makeDecisionOnResultQuery = `UPDATE test_ascension 
+export const makeDecisionOnResultQuery = `UPDATE test_ascension 
   SET approvalstatus = ?, actionPlan = ?,
   declineMessage = ?,
   approvedby = ?  
   WHERE billingid = ? AND testid = ?`;
 
-const checkApprovalQuery = `SELECT approvalstatus FROM test_ascension WHERE billingid = ? AND testid = ?`;
+export const checkApprovalQuery = `SELECT approvalstatus FROM test_ascension WHERE billingid = ? AND testid = ?`;
 
-const advancedTablesSearchQueryBase = `
+export const advancedTablesSearchQueryBase = `
   SELECT 
       ta.billingid AS billingid,
       (SELECT COUNT(*) FROM test_ascension WHERE billingid = ta.billingid AND ready = 'false' AND processing = 'true') AS processing,
@@ -157,53 +157,47 @@ const advancedTablesSearchQueryBase = `
     WHERE ta.billingid IS NOT NULL
 `;
 
-const advancedTablesSearchQueryWithFilters = (patientid, fullname, mobile, from, to, count, page) => {
-          let query = advancedTablesSearchQueryBase;
-          const values = [];
+export const advancedTablesSearchQueryWithFilters = (filters) => {
+  const { patientid, fullname, mobile, from, to, count, page } = filters;
+  let query = advancedTablesSearchQueryBase;
+  const values = [];
 
-          if (patientid) {
-                    query += `AND np.PATIENTID = ${patientid}`;
-                    values.push(parseInt(patientid));
-          }
+  if (patientid) {
+    query += `AND np.PATIENTID = ${patientid}`;
+    values.push(parseInt(patientid));
+  }
 
-          if (fullname) {
-                    query += ` AND CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) LIKE ?`;
-                    values.push(`%${fullname}%`);
-          }
+  if (fullname) {
+    query += ` AND CONCAT(np.FIRSTNAME, ' ', np.MIDDLENAME, ' ', np.LASTNAME) LIKE ?`;
+    values.push(`%${fullname}%`);
+  }
 
-          if (mobile) {
-                    query += `AND np.mobile_number = ?`;
-                    values.push(mobile);
-          }
+  if (mobile) {
+    query += `AND np.mobile_number = ?`;
+    values.push(mobile);
+  }
 
-          if (from && to) {
-                    query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
-                    values.push(`${from}`);
-                    values.push(`${to}`);
-          }
+  if (from && to) {
+    query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+    values.push(`${from}`);
+    values.push(`${to}`);
+  }
 
-          if (from && !to) {
-                    query += ` AND DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`;
-                    values.push(`${from}`);
-          }
+  if (from && !to) {
+    query += ` AND DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`;
+    values.push(`${from}`);
+  }
 
-          if (!fullname && !from && !mobile && !patientid) {
-                    query += ` AND DATE(b.billedon) = CURRENT_DATE`;
-          }
+  if (!fullname && !from && !mobile && !patientid) {
+    query += ` AND DATE(b.billedon) = CURRENT_DATE`;
+  }
 
-          query += ` GROUP BY b.billingid ORDER BY b.billingid DESC LIMIT ? OFFSET ?`;
+  query += ` GROUP BY b.billingid ORDER BY b.billingid DESC LIMIT ? OFFSET ?`;
 
-          return { query, values };
+  return { query, values };
 };
 
-const previewReportQuery = (testTable, test) => {
-          const testname = testTable[test];
-          const category = testCategoryMapping[test];
-          const query = PDF_QUERIES.hematologicalQ(testname);
-          return { query, category };
-};
-
-const transactionApprovedTestQuery = `
+export const transactionApprovedTestQuery = `
   SELECT 
     tp.name,
     ta.testid
@@ -212,20 +206,3 @@ const transactionApprovedTestQuery = `
   WHERE ta.billingid = ? AND ta.approvalStatus = 1
 `;
 
-module.exports = {
-          samplingQuery,
-          modelQueryWithFilters,
-          extrainfoTestQuery,
-          updatePrintCountQuery,
-          testNameQuery,
-          employeeIdQuery,
-          usernameQuery,
-          approvedByQuery,
-          approvedByUsernameQuery,
-          summaryReadyPageQuery,
-          makeDecisionOnResultQuery,
-          checkApprovalQuery,
-          advancedTablesSearchQueryWithFilters,
-          previewReportQuery,
-          transactionApprovedTestQuery
-};

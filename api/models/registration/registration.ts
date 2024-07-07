@@ -1,7 +1,7 @@
-import { q_filter_patients, q_new_registation, q_patient_data } from "./queries";
+import { q_filter_patient_using_billingid_query, q_filter_patients, q_new_registation, q_patient_data } from "./queries";
 import { addressInformation, clientdata, IRegistration, NewRegistration, PatientRecords, registrationOutcome } from "./types";
 
-import { customError, promisifyQuery, rowAffected } from "../../../helper";
+import { promisifyQuery } from "../../../helper";
 
 export default class Registration implements IRegistration {
   patientid: number;
@@ -135,5 +135,10 @@ export default class Registration implements IRegistration {
   }
   updatePersonalInformation(patientdata: NewRegistration): Promise<boolean> {
     throw new Error("Method not implemented.");
+  }
+
+  public async getPatientInfoUsingBillingId(billingid: number) {
+    const result = await promisifyQuery(q_filter_patient_using_billingid_query, [billingid]);
+    return result;
   }
 }

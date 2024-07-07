@@ -23,8 +23,8 @@ router.get("/api/v1/result/preview/entry/scientist", handlers_1.getResultEntrySc
 router.post("/api/v1/test/result/preview/approved/check", handlers_1.checkApproval);
 router.post("/api/v1/result/approve", handlers_1.makeDecisionOnResult);
 router.get("/api/v1/billing/invoice", handlers_1.getBillingInvoice);
-router.get("/api/v1/billing/email/receipt", handlers_1.emailBillingReceipt);
-router.get("/billing/result/pdf", handlers_1.generatePDFResult);
+// router.get("/api/v1/billing/email/receipt", emailBillingReceipt);
+// router.get("/billing/result/pdf", generatePDFResult);
 router.get("/api/v1/result/printout/approved/test", handlers_1.getTransactionApprovedTest);
 router.get("/billing/receipt", handlers_1.getBillingReceipt);
 exports.default = router;

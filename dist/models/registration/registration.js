@@ -109,5 +109,9 @@ class Registration {
     updatePersonalInformation(patientdata) {
         throw new Error("Method not implemented.");
     }
+    async getPatientInfoUsingBillingId(billingid) {
+        const result = await (0, helper_1.promisifyQuery)(queries_1.q_filter_patient_using_billingid_query, [billingid]);
+        return result;
+    }
 }
 exports.default = Registration;

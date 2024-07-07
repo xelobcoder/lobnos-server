@@ -20,7 +20,7 @@ const supplyRouter = require("./api/controllers/supplys/routes")
 const settingsRouter = require("./api/controllers/settings")
 const User = require("./api/LobnosAuth/user")
 const LoginsRouter = require("./api/controllers/logins")
-const resultprintRouter = require("./api/controllers/printable")
+const resultprintRouter = require("./api/controllers/printables/routes")
 const organizationRouter = require("./api/controllers/organization")
 const applicationsettingsRouter = require("./api/controllers/applicationsettings/route")
 const generalSalesRouter = require("./api/controllers/sales")
@@ -37,7 +37,7 @@ const Security = require("./api/models/security/SecurityClass");
 const SecurityRouter = require("./api/controllers/security/security.controllers");
 const Appointmentouter = require("./api/controllers/appointments/appointment");
 const customerRouter = require("./api/controllers/customers/route");
-const { customError, responseError, promisifyQuery, paginationQuery } = require("./helper")
+const { promisifyQuery, paginationQuery } = require("./helper")
 
 app.listen(port, async (err) => {
   const security = new Security();

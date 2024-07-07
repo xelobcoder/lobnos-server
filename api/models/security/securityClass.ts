@@ -7,7 +7,7 @@ import { queries } from "./securityQueries";
 class Security {
   private employeeid: string;
   private loginDuration: number;
-  private sqlConnection: any; // Adjust the type as per your promisifyQuery type
+  private sqlConnection: any; 
   private isMaster: boolean;
 
   constructor(employeeid: string, loginDuration?: number) {
