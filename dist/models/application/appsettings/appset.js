@@ -21,11 +21,11 @@ class ApplicationSettings {
         }
         else {
             const taxValue = getTax.reduce((a, b) => {
-                a + b.value;
+                return a + b.value;
             }, 0);
             return {
                 includeTax,
-                taxValue,
+                taxValue: taxValue,
                 PaidBillsBeforeTransaction,
             };
         }

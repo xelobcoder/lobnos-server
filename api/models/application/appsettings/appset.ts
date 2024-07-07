@@ -32,16 +32,17 @@ export default class ApplicationSettings {
     if (includeTax === 0) {
       return { includeTax, taxValue: 0, PaidBillsBeforeTransaction };
     }
-    const getTax = await promisifyQuery(q_active_tax);
+
+    const getTax: [] = await promisifyQuery(q_active_tax);
     if (getTax.length == 0) {
       return { includeTax, taxValue: 0, PaidBillsBeforeTransaction };
     } else {
-      const taxValue = getTax.reduce((a, b) => {
-        a + b.value;
+      const taxValue = getTax.reduce((a, b: any) => {
+        return a + b.value;
       }, 0);
       return {
         includeTax,
-        taxValue,
+        taxValue: taxValue,
         PaidBillsBeforeTransaction,
       };
     }

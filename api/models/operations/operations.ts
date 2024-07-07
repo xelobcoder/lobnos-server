@@ -162,7 +162,7 @@ export default class Operations {
         } else {
           finalQuery = q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
         }
-        
+
       } else if (hasDuration && hasSameMonth && hasSameYear) {
         const billingTable = getPartitionTableName("billing");
         const ascTable = getPartitionTableName("asc");
@@ -334,3 +334,4 @@ export default class Operations {
     }
   }
 }
+
