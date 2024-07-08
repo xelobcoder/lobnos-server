@@ -327,26 +327,27 @@ exports.testpanel = {
         }
         return Ttestname.join("");
     },
+    generatedTestTableName: function (testname) {
+        return `result${this.generateTableName(testname)}`.trim();
+    },
     generateAuditLogName: function (testname) {
         const tablename = this.generateTableName(testname);
         return `result${tablename}AuditLog`.trim();
     },
-    createCustomTest: async function (testname, iscustom = 1) {
-        let hasTestBeenCreated = false;
+    testTableExist: async function (testname) {
+        const tablename = this.generatedTestTableName(testname);
+        const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'limsdb' 
+                    AND table_name = ?`;
+        const info = await (0, helper_1.promisifyQuery)(tableExistenceQuery, [tablename]);
+        return info[0]["ispresent"] === 1;
+    },
+    createTestProcess: async function (testname) {
         try {
-            if (!testname) {
-                throw new Error("Testname required");
-            }
-            if (await this.hasTest(testname)) {
-                return "EXIST";
-            }
-            const query = `INSERT INTO test_panels (name, iscustom) VALUES (?, ?)`;
-            const istestcreated = (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(query, [testname, iscustom]));
-            if (istestcreated) {
-                hasTestBeenCreated = true;
-                const generatedTableName = `result${this.generateTableName(testname)}`.trim();
-                const auditLogTableName = `result${generatedTableName}AuditLog`.trim();
-                const createTestTableQuery = `
+            const generatedTableName = `result${this.generateTableName(testname)}`.trim();
+            const auditLogTableName = `result${generatedTableName}AuditLog`.trim();
+            const createTestTableQuery = `
         CREATE TABLE \`${generatedTableName}\` (
             id INT PRIMARY KEY AUTO_INCREMENT,
             field VARCHAR(100),
@@ -359,7 +360,7 @@ exports.testpanel = {
             entrymode VARCHAR(20) DEFAULT 'manual',
             INDEX idx_billingid_patientid (billingid, patientid)
         )`;
-                const createAuditLogTableQuery = `
+            const createAuditLogTableQuery = `
         CREATE TABLE \`${auditLogTableName}\` (
             id INT PRIMARY KEY AUTO_INCREMENT,
             field VARCHAR(100),
@@ -371,7 +372,7 @@ exports.testpanel = {
             entrymode VARCHAR(20) DEFAULT 'manual',
             created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP
         )`;
-                const createUpdateTriggerQuery = `
+            const createUpdateTriggerQuery = `
         CREATE TRIGGER \`trg_audit_log_update_${generatedTableName}\`
         AFTER UPDATE ON \`${generatedTableName}\`
         FOR EACH ROW
@@ -394,7 +395,7 @@ exports.testpanel = {
                 OLD.entrymode
             );
         END`;
-                const createDeleteTriggerQuery = `
+            const createDeleteTriggerQuery = `
         CREATE TRIGGER \`trg_audit_log_delete_${generatedTableName}\`
         AFTER DELETE ON \`${generatedTableName}\`
         FOR EACH ROW
@@ -417,11 +418,30 @@ exports.testpanel = {
                 OLD.entrymode
             );
         END`;
-                await (0, helper_1.promisifyQuery)(createTestTableQuery);
-                await (0, helper_1.promisifyQuery)(createAuditLogTableQuery);
-                await (0, helper_1.promisifyQuery)(createUpdateTriggerQuery);
-                await (0, helper_1.promisifyQuery)(createDeleteTriggerQuery);
-                return true;
+            await (0, helper_1.promisifyQuery)(createTestTableQuery);
+            await (0, helper_1.promisifyQuery)(createAuditLogTableQuery);
+            await (0, helper_1.promisifyQuery)(createUpdateTriggerQuery);
+            await (0, helper_1.promisifyQuery)(createDeleteTriggerQuery);
+            return true;
+        }
+        catch (err) {
+            throw err;
+        }
+    },
+    createCustomTest: async function (testname, iscustom = 1) {
+        let hasTestBeenCreated = false;
+        try {
+            if (!testname) {
+                throw new Error("Testname required");
+            }
+            if (await this.hasTest(testname)) {
+                return "EXIST";
+            }
+            const query = `INSERT INTO test_panels (name, iscustom) VALUES (?, ?)`;
+            const istestcreated = (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(query, [testname, iscustom]));
+            if (istestcreated) {
+                hasTestBeenCreated = true;
+                await this.createTestProcess(testname);
             }
         }
         catch (err) {

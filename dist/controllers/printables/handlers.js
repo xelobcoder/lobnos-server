@@ -8,7 +8,6 @@ const helper_1 = require("../../../helper");
 const resultPrint_1 = __importDefault(require("../../models/result/resultPrint"));
 const invoice_1 = require("../../models/invoice/invoice");
 const payments_1 = __importDefault(require("../../models/payments/payments"));
-const logger_1 = __importDefault(require("../../../logger"));
 const payment = new payments_1.default(null);
 const getResultReady = async (req, res) => {
     try {
@@ -121,12 +120,13 @@ const updatePayment = (req, res) => {
     payment.updatePayment(req, res);
 };
 exports.updatePayment = updatePayment;
-const previewReport = (req, res) => {
+const previewReport = async (req, res) => {
     try {
-        new resultPrint_1.default(null).previewReport(req, res);
+        const result = await new resultPrint_1.default(null).previewReport(req, res);
+        res.send({ result });
     }
     catch (err) {
-        logger_1.default.error(err);
+        (0, helper_1.responseError)(res);
     }
 };
 exports.previewReport = previewReport;

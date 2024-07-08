@@ -77,7 +77,7 @@ class ResultPrint {
             if (!testname) {
                 throw new Error("wrong testid provided");
             }
-            const tablename = list_1.testpanel.generateTableName(testname);
+            const tablename = list_1.testpanel.generatedTestTableName(testname);
             const getEmployeeid = await (0, helper_1.promisifyQuery)(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
             let employeeid = null;
             if (getEmployeeid.length > 0) {

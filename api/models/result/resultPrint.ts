@@ -94,7 +94,7 @@ class ResultPrint {
         throw new Error("wrong testid provided");
       }
 
-      const tablename = testpanel.generateTableName(testname);
+      const tablename = testpanel.generatedTestTableName(testname);
       const getEmployeeid = await promisifyQuery(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
       let employeeid: string | null = null;
       if (getEmployeeid.length > 0) {
@@ -109,7 +109,6 @@ class ResultPrint {
 
       let approvedBy: string | null = null;
       const approvedByResult = await promisifyQuery(approvedByQuery, [billingid, testid]);
-
       if (approvedByResult.length > 0) {
         approvedBy = approvedByResult[0]["ApprovedBy"];
         const approvedByUsernameResult = await promisifyQuery(usernameQuery, [approvedBy]);

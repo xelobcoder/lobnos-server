@@ -107,11 +107,12 @@ export const updatePayment = (req: Request, res: Response) => {
   payment.updatePayment(req, res);
 };
 
-export const previewReport = (req: Request, res: Response) => {
+export const previewReport = async (req: Request, res: Response) => {
   try {
-    new ResultPrint(null).previewReport(req, res);
+    const result = await new ResultPrint(null).previewReport(req, res);
+    res.send({ result });
   } catch (err) {
-    logger.error(err);
+    responseError(res);
   }
 };
 

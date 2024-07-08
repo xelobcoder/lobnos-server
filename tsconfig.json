@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
-    "target": "ES2017",        
-    "lib": ["ES2017", "DOM"],  
+    "target": "ES2017",
+    "lib": ["ES2017", "DOM"],
     "module": "commonjs",
     // "strict": true,
     "esModuleInterop": true,
@@ -9,6 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist"
   },
-  "include": ["api/**/*"],
+  "include": ["api/**/*", "convertoldtables.js"],
   "exclude": ["node_modules"]
 }

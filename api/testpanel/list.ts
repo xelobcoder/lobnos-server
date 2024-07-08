@@ -382,29 +382,32 @@ export  const testpanel = {
     return Ttestname.join("");
   },
 
+  generatedTestTableName: function (testname: string) {
+    return `result${this.generateTableName(testname)}`.trim();
+  },
+
   generateAuditLogName: function (testname: string) {
     const tablename = this.generateTableName(testname);
     return `result${tablename}AuditLog`.trim();
   },
 
-  createCustomTest: async function (testname: string, iscustom: number = 1) {
-    let hasTestBeenCreated = false;
+  testTableExist: async function (testname: string) {
+    const tablename = this.generatedTestTableName(testname);
+    const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
+                    FROM information_schema.tables 
+                    WHERE table_schema = 'limsdb' 
+                    AND table_name = ?`;
+
+    const info = await promisifyQuery(tableExistenceQuery, [tablename]);
+    return info[0]["ispresent"] === 1;
+  },
+
+  createTestProcess: async function (testname: string) {
     try {
-      if (!testname) {
-        throw new Error("Testname required");
-      }
-      if (await this.hasTest(testname)) {
-        return "EXIST";
-      }
+      const generatedTableName = `result${this.generateTableName(testname)}`.trim();
+      const auditLogTableName = `result${generatedTableName}AuditLog`.trim();
 
-      const query = `INSERT INTO test_panels (name, iscustom) VALUES (?, ?)`;
-      const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]));
-      if (istestcreated) {
-        hasTestBeenCreated = true;
-        const generatedTableName = `result${this.generateTableName(testname)}`.trim();
-        const auditLogTableName = `result${generatedTableName}AuditLog`.trim();
-
-        const createTestTableQuery = `
+      const createTestTableQuery = `
         CREATE TABLE \`${generatedTableName}\` (
             id INT PRIMARY KEY AUTO_INCREMENT,
             field VARCHAR(100),
@@ -418,7 +421,7 @@ export  const testpanel = {
             INDEX idx_billingid_patientid (billingid, patientid)
         )`;
 
-        const createAuditLogTableQuery = `
+      const createAuditLogTableQuery = `
         CREATE TABLE \`${auditLogTableName}\` (
             id INT PRIMARY KEY AUTO_INCREMENT,
             field VARCHAR(100),
@@ -431,7 +434,7 @@ export  const testpanel = {
             created_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP
         )`;
 
-        const createUpdateTriggerQuery = `
+      const createUpdateTriggerQuery = `
         CREATE TRIGGER \`trg_audit_log_update_${generatedTableName}\`
         AFTER UPDATE ON \`${generatedTableName}\`
         FOR EACH ROW
@@ -455,7 +458,7 @@ export  const testpanel = {
             );
         END`;
 
-        const createDeleteTriggerQuery = `
+      const createDeleteTriggerQuery = `
         CREATE TRIGGER \`trg_audit_log_delete_${generatedTableName}\`
         AFTER DELETE ON \`${generatedTableName}\`
         FOR EACH ROW
@@ -479,11 +482,31 @@ export  const testpanel = {
             );
         END`;
 
-        await promisifyQuery(createTestTableQuery);
-        await promisifyQuery(createAuditLogTableQuery);
-        await promisifyQuery(createUpdateTriggerQuery);
-        await promisifyQuery(createDeleteTriggerQuery);
-        return true;
+      await promisifyQuery(createTestTableQuery);
+      await promisifyQuery(createAuditLogTableQuery);
+      await promisifyQuery(createUpdateTriggerQuery);
+      await promisifyQuery(createDeleteTriggerQuery);
+      return true;
+    } catch (err) {
+      throw err;
+    }
+  },
+
+  createCustomTest: async function (testname: string, iscustom: number = 1) {
+    let hasTestBeenCreated = false;
+    try {
+      if (!testname) {
+        throw new Error("Testname required");
+      }
+      if (await this.hasTest(testname)) {
+        return "EXIST";
+      }
+
+      const query = `INSERT INTO test_panels (name, iscustom) VALUES (?, ?)`;
+      const istestcreated = rowAffected(await promisifyQuery(query, [testname, iscustom]));
+      if (istestcreated) {
+        hasTestBeenCreated = true;
+        await this.createTestProcess(testname);
       }
     } catch (err) {
       if (hasTestBeenCreated) {
