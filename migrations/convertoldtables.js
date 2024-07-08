@@ -1,5 +1,5 @@
-const { testpanel } = require("./dist/testpanel/list");
-const { promisifyQuery } = require("./helper");
+const { testpanel } = require("../dist/testpanel/list");
+const { promisifyQuery } = require("../helper");
 
 async function getOldTables() {
           const testnamescollection = await promisifyQuery(`SELECT name FROM test_panels`);
@@ -239,7 +239,7 @@ ADD COLUMN entrymode VARCHAR(20) DEFAULT 'manual';
 
                               if (!hasAudit) {
                                         return await createAuditTable(item)
-                              } 
+                              }
 
 
                               if (has_delete === 0) {

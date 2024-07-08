@@ -9,6 +9,6 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist"
   },
-  "include": ["api/**/*", "convertoldtables.js"],
+  "include": ["api/**/*", "migrations/convertoldtables.js"],
   "exclude": ["node_modules"]
 }
