@@ -2,7 +2,7 @@ import logger from "../../../logger";
 import { promisifyQuery, customError, rowAffected, paginationQuery } from "../../../helper";
 import Creator from "../creator/creator";
 import Registration from "../registration/registration";
-import testpanel from "../../testpanel/list";
+import { testpanel } from "../../testpanel/list";
 import {
   extrainfoTestQuery,
   updatePrintCountQuery,
@@ -81,42 +81,46 @@ class ResultPrint {
    * @throws Will throw an error if billingid or testid is not provided.
    */
   async getResultEntryScientist(billingid: number, testid: number): Promise<{ resultentry: string | null; validatedBy: string | null }> {
-    if (!billingid || !testid) {
-      throw new Error("billingid and testid are required");
-    }
-    let testname: string | null = null;
-    const testnameResult = await promisifyQuery(`SELECT * FROM test_panels WHERE id = ?`, [testid]);
-    if (testnameResult.length > 0) {
-      testname = testnameResult[0]["name"];
-    }
-    if (!testname) {
-      throw new Error("wrong testid provided");
-    }
-
-    const tablename = testpanel.generateTableName(testname);
-    const getEmployeeid = await promisifyQuery(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
-    let employeeid: string | null = null;
-    if (getEmployeeid.length > 0) {
-      employeeid = getEmployeeid[0]["employeeid"];
-    }
-
-    let username: string | null = null;
-    const usernameResult = await promisifyQuery(approvedByUsernameQuery, [employeeid]);
-    if (usernameResult.length > 0) {
-      username = usernameResult[0]["username"];
-    }
-
-    let approvedBy: string | null = null;
-    const approvedByResult = await promisifyQuery(approvedByQuery, [billingid, testid]);
-
-    if (approvedByResult.length > 0) {
-      approvedBy = approvedByResult[0]["ApprovedBy"];
-      const approvedByUsernameResult = await promisifyQuery(usernameQuery, [approvedBy]);
-      if (approvedByUsernameResult.length > 0) {
-        approvedBy = approvedByUsernameResult[0]["username"];
+    try {
+      if (!billingid || !testid) {
+        throw new Error("billingid and testid are required");
       }
+      let testname: string | null = null;
+      const testnameResult = await promisifyQuery(`SELECT * FROM test_panels WHERE id = ?`, [testid]);
+      if (testnameResult.length > 0) {
+        testname = testnameResult[0]["name"];
+      }
+      if (!testname) {
+        throw new Error("wrong testid provided");
+      }
+
+      const tablename = testpanel.generateTableName(testname);
+      const getEmployeeid = await promisifyQuery(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
+      let employeeid: string | null = null;
+      if (getEmployeeid.length > 0) {
+        employeeid = getEmployeeid[0]["employeeid"];
+      }
+
+      let username: string | null = null;
+      const usernameResult = await promisifyQuery(approvedByUsernameQuery, [employeeid]);
+      if (usernameResult.length > 0) {
+        username = usernameResult[0]["username"];
+      }
+
+      let approvedBy: string | null = null;
+      const approvedByResult = await promisifyQuery(approvedByQuery, [billingid, testid]);
+
+      if (approvedByResult.length > 0) {
+        approvedBy = approvedByResult[0]["ApprovedBy"];
+        const approvedByUsernameResult = await promisifyQuery(usernameQuery, [approvedBy]);
+        if (approvedByUsernameResult.length > 0) {
+          approvedBy = approvedByUsernameResult[0]["username"];
+        }
+      }
+      return { resultentry: username, validatedBy: approvedBy };
+    } catch (err) {
+      throw err;
     }
-    return { resultentry: username, validatedBy: approvedBy };
   }
 
   /**

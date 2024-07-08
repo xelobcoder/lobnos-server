@@ -2,11 +2,11 @@ import { Request, Response } from "express";
 import { customError, responseError } from "../../../helper";
 import ResultPrint from "../../models/result/resultPrint";
 import EmailService from "../../EmailServices/EmailCore";
-import { getBillingInvoiceData } from "../../models/invoice";
-import Payment from "../../models/payment";
+import { getBillingInvoiceData } from "../../models/invoice/invoice";
+import Payment from "../../models/payments/payments";
 import logger from "../../../logger";
 
-const payment = new Payment();
+const payment = new Payment(null);
 
 export const getResultReady = async (req: Request, res: Response) => {
   try {
@@ -126,12 +126,16 @@ export const getPreviewComments = (req: Request, res: Response) => {
 };
 
 export const getResultEntryScientist = async (req: Request, res: Response) => {
-  const { testid, billingid } = req.query;
-  if (!billingid || !testid) {
-    return customError("billingid or testid not included in the query", 404, res);
+  try {
+    const { testid, billingid } = req.query;
+    if (!billingid || !testid) {
+      return customError("billingid or testid not included in the query", 404, res);
+    }
+    const result = await new ResultPrint(null).getResultEntryScientist(billingid, testid);
+    res.send(result);
+  } catch (err) {
+    responseError(res);
   }
-  const result = await new ResultPrint(null).getResultEntryScientist(billingid, testid);
-  res.send(result);
 };
 
 export const checkApproval = (req: Request, res: Response) => {
@@ -156,7 +160,7 @@ export const makeDecisionOnResult = async (req: Request, res: Response) => {
 
 export const getBillingInvoice = (req: Request, res: Response) => {
   const { billingid } = req.query;
-  getBillingInvoiceData(billingid, res);
+  getBillingInvoiceData(billingid as any, res);
 };
 
 // export const emailBillingReceipt = async (req: Request, res: Response) => {

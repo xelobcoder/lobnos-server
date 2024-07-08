@@ -64,7 +64,7 @@ class Creator {
             return result;
         }
         catch (err) {
-            (0, helper_1.responseError)(Response);
+            throw err;
         }
     }
     async getCustomCommentsRecords(billingid, testid) {

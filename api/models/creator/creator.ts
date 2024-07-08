@@ -83,7 +83,7 @@ class Creator {
       }
       return result;
     } catch (err) {
-      responseError(Response);
+      throw err;
     }
   }
 

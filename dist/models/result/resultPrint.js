@@ -7,7 +7,7 @@ const logger_1 = __importDefault(require("../../../logger"));
 const helper_1 = require("../../../helper");
 const creator_1 = __importDefault(require("../creator/creator"));
 const registration_1 = __importDefault(require("../registration/registration"));
-const list_1 = __importDefault(require("../../testpanel/list"));
+const list_1 = require("../../testpanel/list");
 const queries_1 = require("./queries");
 const emptySummry = [
     { title: "registered clients", value: 0 },
@@ -65,38 +65,43 @@ class ResultPrint {
      * @throws Will throw an error if billingid or testid is not provided.
      */
     async getResultEntryScientist(billingid, testid) {
-        if (!billingid || !testid) {
-            throw new Error("billingid and testid are required");
-        }
-        let testname = null;
-        const testnameResult = await (0, helper_1.promisifyQuery)(`SELECT * FROM test_panels WHERE id = ?`, [testid]);
-        if (testnameResult.length > 0) {
-            testname = testnameResult[0]["name"];
-        }
-        if (!testname) {
-            throw new Error("wrong testid provided");
-        }
-        const tablename = list_1.default.generateTableName(testname);
-        const getEmployeeid = await (0, helper_1.promisifyQuery)(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
-        let employeeid = null;
-        if (getEmployeeid.length > 0) {
-            employeeid = getEmployeeid[0]["employeeid"];
-        }
-        let username = null;
-        const usernameResult = await (0, helper_1.promisifyQuery)(queries_1.approvedByUsernameQuery, [employeeid]);
-        if (usernameResult.length > 0) {
-            username = usernameResult[0]["username"];
-        }
-        let approvedBy = null;
-        const approvedByResult = await (0, helper_1.promisifyQuery)(queries_1.approvedByQuery, [billingid, testid]);
-        if (approvedByResult.length > 0) {
-            approvedBy = approvedByResult[0]["ApprovedBy"];
-            const approvedByUsernameResult = await (0, helper_1.promisifyQuery)(queries_1.usernameQuery, [approvedBy]);
-            if (approvedByUsernameResult.length > 0) {
-                approvedBy = approvedByUsernameResult[0]["username"];
+        try {
+            if (!billingid || !testid) {
+                throw new Error("billingid and testid are required");
             }
+            let testname = null;
+            const testnameResult = await (0, helper_1.promisifyQuery)(`SELECT * FROM test_panels WHERE id = ?`, [testid]);
+            if (testnameResult.length > 0) {
+                testname = testnameResult[0]["name"];
+            }
+            if (!testname) {
+                throw new Error("wrong testid provided");
+            }
+            const tablename = list_1.testpanel.generateTableName(testname);
+            const getEmployeeid = await (0, helper_1.promisifyQuery)(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
+            let employeeid = null;
+            if (getEmployeeid.length > 0) {
+                employeeid = getEmployeeid[0]["employeeid"];
+            }
+            let username = null;
+            const usernameResult = await (0, helper_1.promisifyQuery)(queries_1.approvedByUsernameQuery, [employeeid]);
+            if (usernameResult.length > 0) {
+                username = usernameResult[0]["username"];
+            }
+            let approvedBy = null;
+            const approvedByResult = await (0, helper_1.promisifyQuery)(queries_1.approvedByQuery, [billingid, testid]);
+            if (approvedByResult.length > 0) {
+                approvedBy = approvedByResult[0]["ApprovedBy"];
+                const approvedByUsernameResult = await (0, helper_1.promisifyQuery)(queries_1.usernameQuery, [approvedBy]);
+                if (approvedByUsernameResult.length > 0) {
+                    approvedBy = approvedByUsernameResult[0]["username"];
+                }
+            }
+            return { resultentry: username, validatedBy: approvedBy };
         }
-        return { resultentry: username, validatedBy: approvedBy };
+        catch (err) {
+            throw err;
+        }
     }
     /**
      * Retrieves summary information for the ready page based on query parameters.
