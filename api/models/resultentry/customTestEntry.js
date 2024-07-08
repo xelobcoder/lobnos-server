@@ -18,14 +18,6 @@ class CustomTest {
     if (result.length === 0) return null;
     return result[0]['iscustom'] == 1
   }
-  async isApprovalSetTrue() {
-    const result = await new ApplicationSettings().getApplicationSettings();
-    if (result.length > 0) {
-      const approval_status = result[0]["approvalbeforeprinting"]
-      return !approval_status == 0 
-    }
-    return null;
-  }
 }
 
 module.exports = CustomTest

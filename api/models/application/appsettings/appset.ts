@@ -99,12 +99,12 @@ export default class ApplicationSettings {
         emailNotification,
         includeTax,
       ];
-      const result = await promisifyQuery(q_TruncateTable)
+      const result = await promisifyQuery(q_TruncateTable);
       if (!result) return false;
       const isUpdated: boolean = rowAffected(await promisifyQuery(q_update_general_app_set, values));
       return isUpdated;
     } catch (err) {
-      console.log(err)
+      console.log(err);
       throw err;
     }
   }
@@ -167,6 +167,15 @@ export default class ApplicationSettings {
     if (isTruncated) {
       //       return new EmailService().insertEmailSettings(records);
     }
+  }
+
+  async isApprovalSetTrue() {
+    const result = await this.getAllAppSettings();
+    if (result.length > 0) {
+      const approval_status = result[0]["approvalbeforeprinting"];
+      return !(parseInt(approval_status) === 0);
+    }
+    return false;
   }
 }
 

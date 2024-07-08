@@ -130,5 +130,13 @@ class ApplicationSettings {
             //       return new EmailService().insertEmailSettings(records);
         }
     }
+    async isApprovalSetTrue() {
+        const result = await this.getAllAppSettings();
+        if (result.length > 0) {
+            const approval_status = result[0]["approvalbeforeprinting"];
+            return !(parseInt(approval_status) === 0);
+        }
+        return false;
+    }
 }
 exports.default = ApplicationSettings;

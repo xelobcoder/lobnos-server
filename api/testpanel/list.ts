@@ -18,7 +18,7 @@ interface ProcedureManual {
   title: string;
 }
 
-export  const testpanel = {
+  const testpanel = {
   listquery: `SELECT 
       tp.name,
       tp.id,
@@ -490,6 +490,15 @@ export  const testpanel = {
     } catch (err) {
       throw err;
     }
+  },
+
+
+
+  getTestUsingTestid: async function (testid:number) {
+    const query = `SELECT name FROM test_panels WHERE id = ?`;
+    const packets = await promisifyQuery(query, [testid]);
+    if (packets.length == 0) return false;
+    return packets[0]['name'];
   },
 
   createCustomTest: async function (testname: string, iscustom: number = 1) {

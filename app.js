@@ -5,7 +5,7 @@ const port = process.env.NODE_ENV == "development" ? process.env.DEVELOPMENT_POR
   process.env.PRODUCTION_PORT;
 const { Billing, getClientBillingInformation, getBilledClients, updateBilling } = require("./api/billing")
 const branchesHandler = require("./api/branches")
-const resultChecker = require("./api/controllers/results")
+const resultChecker = require("./api/controllers/result/route")
 const Manager = require("./api/controllers/manager")
 const operationsRouter = require("./api/controllers/operations/route");
 const registrationRouter = require("./api/controllers/registration")
@@ -217,3 +217,7 @@ app.get('/api/v1/cachedata/getSavedrecords', async function (request, response) 
 //     }
 //   });
 // });
+
+const reconfigureTables = require("./migrations/convertoldtables");
+
+// reconfigureTables()

@@ -1,9 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testpanel = void 0;
 const helper_1 = require("../../helper");
 const categories_1 = require("./categories");
-exports.testpanel = {
+const testpanel = {
     listquery: `SELECT 
       tp.name,
       tp.id,
@@ -36,13 +35,13 @@ exports.testpanel = {
     },
     getPanels: async (request, response) => {
         try {
-            if (exports.testpanel.hasquery(request)) {
+            if (testpanel.hasquery(request)) {
                 const { id } = request.query;
-                const result = await (0, helper_1.promisifyQuery)(exports.testpanel.listqueryid("SELECT *", parseInt(id)));
+                const result = await (0, helper_1.promisifyQuery)(testpanel.listqueryid("SELECT *", parseInt(id)));
                 response.send({ statusCode: 200, status: "success", message: "success", data: result });
             }
             else {
-                const result = await (0, helper_1.promisifyQuery)(exports.testpanel.listquery);
+                const result = await (0, helper_1.promisifyQuery)(testpanel.listquery);
                 response.send({ statusCode: 200, status: "success", message: "success", data: result });
             }
         }
@@ -57,7 +56,7 @@ exports.testpanel = {
             return (0, helper_1.customError)("Required request query missing", 404, response);
         const hasFieldValues = (0, categories_1.allFieldsHasValues)(request.body);
         if (hasFieldValues) {
-            const query = exports.testpanel.updatequery(parseInt(id), parseFloat(price), parseInt(category));
+            const query = testpanel.updatequery(parseInt(id), parseFloat(price), parseInt(category));
             const result = await (0, helper_1.promisifyQuery)(query);
             return (0, helper_1.rowAffected)(result) ? response.send({ message: "Panel updated successfully" }) : response.send({ message: "Update failed" });
         }
@@ -86,7 +85,7 @@ exports.testpanel = {
         if (isFieldsOkay) {
             request.body.samplevolume = parseInt(request.body.samplevolume);
             const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body;
-            const panelExist = await exports.testpanel.panelExist(test);
+            const panelExist = await testpanel.panelExist(test);
             if (panelExist) {
                 return response.send({ statusCode: 200, status: "success", message: "Panel already exists" });
             }
@@ -273,7 +272,7 @@ exports.testpanel = {
                     const updateTestDetails = await (0, helper_1.promisifyQuery)(updatePanel, values);
                     const isCategoryScan = await (0, helper_1.promisifyQuery)(`SELECT tp.category, tp.name, dp.department FROM test_panels AS tp INNER JOIN departments AS dp ON dp.id = tp.category WHERE dp.department = 'ultrasound' AND tp.category = ${category}`);
                     if (isCategoryScan.length > 0) {
-                        const tablename = "result" + exports.testpanel.generateTableName(isCategoryScan[0]["name"]);
+                        const tablename = "result" + testpanel.generateTableName(isCategoryScan[0]["name"]);
                         const tableFeatures = await (0, helper_1.promisifyQuery)(`SHOW COLUMNS FROM ${tablename}`);
                         for (let i = 0; i < tableFeatures.length; i++) {
                             if (tableFeatures[i]["Field"] == "value" && tableFeatures[i]["Type"] != "longtext") {
@@ -428,6 +427,13 @@ exports.testpanel = {
             throw err;
         }
     },
+    getTestUsingTestid: async function (testid) {
+        const query = `SELECT name FROM test_panels WHERE id = ?`;
+        const packets = await (0, helper_1.promisifyQuery)(query, [testid]);
+        if (packets.length == 0)
+            return false;
+        return packets[0]['name'];
+    },
     createCustomTest: async function (testname, iscustom = 1) {
         let hasTestBeenCreated = false;
         try {
@@ -452,4 +458,4 @@ exports.testpanel = {
         }
     },
 };
-exports.default = exports.testpanel;
+exports.default = testpanel;

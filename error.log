@@ -1342,3 +1342,7 @@
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"UPDATE orders\n              SET received = `0` = 'TRUE', `1` = 344, `2` = '1997-08-10', `3` = 'received', `4` = '1996-10-10', `5` = 'lot56', `6` = 0, `7` = 43, `8` = 10, `9` = 3440, `10` = 50, `11` = 1719860990496, `12` = 7, `13` = 3, `employeeid` = 3,\n                  quantityReceived = ?,\n                  receiveddate = ?,\n                  status = ?,\n                  expirydate = ?,\n                  batchnumber = ?,\n                  balance = ?,\n                  brand = ? ,\n                  price = ?,\n                  totalamount = ? \n              WHERE productordersid = ?\n              AND orderTransactionid = ? \n              AND stockid =?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?,\n                  receiveddate = ?,\n                  status = ?,\n        ...' at line 3","sqlState":"42000"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}

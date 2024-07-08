@@ -1,6 +1,8 @@
-import { promisifyQuery, rowAffected, responseError } from "../../../helper";
+import { promisifyQuery, rowAffected, customError } from "../../../helper";
 import testpanel from "../../testpanel/list";
 import { _comments_query, getGenderQuery, testCreationRule, update_creation_query } from "./queries";
+import ApplicationSettings from "../application/appsettings/appset";
+import Operations from "../operations/operations";
 interface CreationRule {
   name: string;
   value?: string;
@@ -29,10 +31,9 @@ class Creator {
     return [];
   }
 
-  
-
   async getPreviousRecords(testname: string, billingid: string, patientid: string) {
-    const tablename = `result${testpanel.generateTableName(testname)}`;
+    const tablename = testpanel.generatedTestTableName(testname);
+    console.log("tttt", tablename);
     const previousRecords = await promisifyQuery(`SELECT * FROM ${tablename} WHERE billingid = ? AND patientid = ?`, [
       billingid,
       patientid,
@@ -40,11 +41,13 @@ class Creator {
     return previousRecords;
   }
 
-
-
-
-  async getCustomPreviousRecords(testname: string, billingid: string, patientid: string) {
+  async getCustomPreviousRecords(testid: number, billingid: string, patientid: string) {
     try {
+      console.log("hittt");
+      const testname = await testpanel.getTestUsingTestid(testid);
+      if (testname === false) {
+        throw new Error("wrong testid provided");
+      }
       const previousRecords = await this.getPreviousRecords(testname, billingid, patientid);
       if (previousRecords.length > 0 && previousRecords.some((item) => item.field === "ultrasound")) {
         return previousRecords[0];
@@ -87,8 +90,6 @@ class Creator {
     }
   }
 
-
-
   async getCustomCommentsRecords(billingid: string, testid: string) {
     if (!billingid || !testid) {
       throw new Error("testid and billingid required");
@@ -97,8 +98,6 @@ class Creator {
     return comments.length > 0 ? comments[0]["comments"] : "";
   }
 
-
-
   async updateTestCreationRule(data: CreationRule[]) {
     if (!this.testid || !data) throw new Error("testid and data is required");
     const stringdata = JSON.stringify(data);
@@ -106,7 +105,112 @@ class Creator {
     return rowAffected(isUpdated);
   }
 
+  public async sanitize_patientid_billingid_query(csvid: string, ptid: string, target: string | string[]) {
+    if (typeof target != "string" && !Array.isArray(target)) throw new TypeError("Array or string separated by delimeter , required");
+    let splitter = target;
+    if (typeof target == "string") {
+      splitter = target.split(",");
+    }
 
+    const ptsplitter = parseInt(splitter[1]);
+    const blsplitter = parseInt(splitter[0]);
+    let patientid = ptid.slice(ptsplitter);
+    let billingid = csvid.slice(blsplitter);
+
+    if (!isNaN(patientid as any) && !isNaN(billingid as any)) {
+      patientid = parseInt(patientid) as any;
+      billingid = parseInt(billingid) as any;
+    }
+    return { patientid, billingid };
+  }
+
+  public async resultEntry(request, response) {
+    const { csvid, ptid, testid, fields, employeeid, comments, isScan } = request.body;
+
+    if (!csvid || !ptid || !testid || !fields) {
+      return customError("billingid, patientid, testid,test and fields are required", 400, response);
+    }
+
+    if (fields.length == 0) {
+      return customError("Field length must not be 0", 400, response);
+    }
+
+    let { billingid, patientid } = await this.sanitize_patientid_billingid_query(csvid, ptid, "70,50");
+
+    if (typeof billingid != "number" || typeof patientid != "number") {
+      return customError(`patientid and billingid must be type number`, 400, response);
+    }
+    const testname = await testpanel.getTestUsingTestid(testid);
+
+    const tablename = testpanel.generatedTestTableName(testname);
+
+    const shouldCreateRecord = async function (billingid: number, patientid: number, testtable: string, field) {
+      const records = await promisifyQuery(`SELECT * FROM ${testtable} WHERE billingid = ? AND field = ? AND patientid = ?`, [
+        billingid,
+        field,
+        patientid,
+      ]);
+      return records.length === 0;
+    };
+
+    let ascensionQuery = `UPDATE test_ascension SET ready = 'true', ready_date = NOW()`;
+
+    const isApprovalTrue = await new ApplicationSettings().isApprovalSetTrue();
+
+    if (isApprovalTrue === false) {
+      ascensionQuery += `,ApprovalStatus = 1`;
+    }
+
+    ascensionQuery += ` WHERE billingid = ? AND testid = ?`;
+
+    const insertUpdate = async function () {
+      const insertAll = await Promise.all(
+        fields.map(async (item: any, index: number) => {
+          if (await shouldCreateRecord(billingid, patientid, tablename, item.field)) {
+            const values = [item.field, billingid, patientid, item.value, employeeid];
+
+            const query = `INSERT INTO ${tablename} (field,billingid,patientid,value,employeeid) VALUES(?,?,?,?,?)`;
+            await new Operations(billingid).initiateTestProcessing(testid, billingid);
+            await promisifyQuery(ascensionQuery, [billingid, testid]);
+            return rowAffected(await promisifyQuery(query, values));
+          } else {
+            const updateRecords = `UPDATE \`${tablename}\` SET value = ?,updatedon =Now(),employeeid = ? WHERE patientid = ? AND billingid = ? AND field = ?`;
+
+            const result = await promisifyQuery(updateRecords, [item.value, employeeid, patientid, billingid, item.field]);
+            return rowAffected(result);
+          }
+        })
+      );
+      const isAllInserted = insertAll.some((a, i) => a == false);
+
+      const pushCommentsQuery = `UPDATE result_comments SET COMMENTS = ? WHERE BILLINGID = ? AND TESTID = ?`;
+
+      const commentSection = async function () {
+        const isRecordAvailable = await promisifyQuery(`SELECT * FROM result_comments WHERE testid = ? AND billingid = ?`, [
+          testid,
+          billingid,
+        ]);
+
+        if (isRecordAvailable.length > 0) {
+          return rowAffected(await promisifyQuery(pushCommentsQuery, [comments, billingid, testid]));
+        } else {
+          return rowAffected(
+            await promisifyQuery(`INSERT INTO RESULT_COMMENTS (TESTID,BILLINGID,COMMENTS) VALUES (?,?,?)`, [testid, billingid, comments])
+          );
+        }
+      };
+
+      const isCommented = await commentSection();
+
+      if (isAllInserted === false && isCommented) {
+        response.send({ status: "success", statusCode: 200, message: "records updated successfully" });
+      } else {
+        response.send({ status: "failed", statusCode: 404, message: "error occured saving results" });
+      }
+    };
+
+    await insertUpdate();
+  }
 }
 
 export default Creator;

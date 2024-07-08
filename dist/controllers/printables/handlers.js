@@ -155,10 +155,11 @@ const getResultEntryScientist = async (req, res) => {
     }
 };
 exports.getResultEntryScientist = getResultEntryScientist;
-const checkApproval = (req, res) => {
+const checkApproval = async (req, res) => {
     const { billingid, testid } = req.body;
     if (billingid && testid) {
-        new resultPrint_1.default(null).checkApproval(billingid, testid, res);
+        const approved = await new resultPrint_1.default(null).checkApproval(billingid, testid);
+        res.send({ approved });
     }
     else {
         res.status(401).json({ status: "error", message: "include testid and billing in request body" });

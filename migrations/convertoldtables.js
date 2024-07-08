@@ -3,8 +3,8 @@ const { promisifyQuery } = require("../helper");
 
 async function getOldTables() {
           const testnamescollection = await promisifyQuery(`SELECT name FROM test_panels`);
-
-          testnamescollection.map(async (item, index) => {
+          console.log("################### Starting Reconfiguration #################");
+          await Promise.all(testnamescollection.map(async (item, index) => {
                     let newName = testpanel.generatedTestTableName(item.name);
 
                     async function AlteringColumnNames(columnName) {
@@ -39,8 +39,7 @@ ADD COLUMN entrymode VARCHAR(20) DEFAULT 'manual';
                     async function reconfigureTables(name) {
                               try {
                                         let newName = testpanel.generatedTestTableName(name);
-                                        let oldName = "result" + name.toString().replaceAll(" ", "_");
-
+                                        let oldName = `result${name.toString().replaceAll(" ", "_") }`;
                                         const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
                                                   FROM information_schema.tables 
                                                   WHERE table_schema = 'limsdb' 
@@ -48,8 +47,10 @@ ADD COLUMN entrymode VARCHAR(20) DEFAULT 'manual';
 
 
                                         async function rename(oldName, newName) {
-                                                  const altername = `RENAME TABLE ?? TO ??`;
-                                                  await promisifyQuery(altername, [oldName, newName]);
+                                                  const altername = `RENAME TABLE ${oldName} TO ${newName}`;
+
+                                                  console.log(altername);
+                                                  // await promisifyQuery(altername);
                                         }
 
                                         let isPresentOld = await promisifyQuery(tableExistenceQuery, [oldName]);
@@ -58,7 +59,7 @@ ADD COLUMN entrymode VARCHAR(20) DEFAULT 'manual';
 
                                         let old_pr = isPresentOld[0]["ispresent"];
                                         let new_pr = isPresntNew[0]["ispresent"];
-
+console.table({oldName,newName,old_pr,new_pr})
                                         if (old_pr === 0 && new_pr === 0) {
                                                   const outcome = await testpanel.createTestProcess(name);
                                                   return outcome;
@@ -265,9 +266,10 @@ ADD COLUMN entrymode VARCHAR(20) DEFAULT 'manual';
                     await reconfiguringTableTriggers(item);
                     console.log('reconfiguring audit and triggers done');
 
+          }));
 
-
-          });
+          console.log("################### Reconfiguration Successfully Done #################");
 }
 
-getOldTables();
+
+module.exports = getOldTables;

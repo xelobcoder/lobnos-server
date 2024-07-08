@@ -146,7 +146,7 @@ class Creator {
 
   async resultEntry(request, response) {
     const { csvid, ptid, testid, fields, employeeid, comments, isScan } = request.body
-    console.log(request.body)
+
     if (!csvid || !ptid || !testid || !fields) {
       return customError("billingid, patientid, testid,test and fields are required", 400, response)
     }

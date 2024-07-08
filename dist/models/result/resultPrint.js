@@ -7,7 +7,7 @@ const logger_1 = __importDefault(require("../../../logger"));
 const helper_1 = require("../../../helper");
 const creator_1 = __importDefault(require("../creator/creator"));
 const registration_1 = __importDefault(require("../registration/registration"));
-const list_1 = require("../../testpanel/list");
+const list_1 = __importDefault(require("../../testpanel/list"));
 const queries_1 = require("./queries");
 const emptySummry = [
     { title: "registered clients", value: 0 },
@@ -77,7 +77,7 @@ class ResultPrint {
             if (!testname) {
                 throw new Error("wrong testid provided");
             }
-            const tablename = list_1.testpanel.generatedTestTableName(testname);
+            const tablename = list_1.default.generatedTestTableName(testname);
             const getEmployeeid = await (0, helper_1.promisifyQuery)(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
             let employeeid = null;
             if (getEmployeeid.length > 0) {
@@ -235,7 +235,7 @@ class ResultPrint {
      * @returns {Promise<boolean>} - True if the test is approved, false otherwise.
      * @throws Will throw an error if the query fails.
      */
-    async checkApproval(billingid, testid, response) {
+    async checkApproval(billingid, testid) {
         try {
             const result = await (0, helper_1.promisifyQuery)(queries_1.checkApprovalQuery, [billingid, testid]);
             if (result && result.length > 0) {
@@ -274,14 +274,14 @@ class ResultPrint {
      */
     async previewReport(request, response) {
         try {
-            const { test, testid, billingid } = request.query;
-            if (!test)
-                return (0, helper_1.customError)("test missing", 404, response);
+            const { testid, billingid } = request.query;
+            if (!testid || !billingid)
+                return (0, helper_1.customError)("required query params missing", 400, response);
             let patientid = await new registration_1.default().getPatientInfoUsingBillingId(parseInt(billingid));
             if (patientid.length === 0)
                 return (0, helper_1.customError)("patient not found", 404, response);
             patientid = patientid[0]["patientid"];
-            const result = await new creator_1.default(testid).getCustomPreviousRecords(test, billingid, patientid);
+            const result = await new creator_1.default(testid).getCustomPreviousRecords(testid, billingid, patientid);
             return result;
         }
         catch (err) {
