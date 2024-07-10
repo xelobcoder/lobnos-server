@@ -233,54 +233,61 @@ export default class Operations {
    * @throws {Error} - Throws an error if the query fails.
    */
   async getAllEnterResult(data: resultQuery): Promise<any[]> {
-    const { from, to, patientid, billingid, fullname, sortingwise, count, page } = data;
-    let queryString = q_get_all_entered_result;
-    const conditions: string[] = [];
-    const values: any[] = [];
+    try {
+      const { from, to, patientid, billingid, fullname, sortingwise, count, page } = data;
+      let queryString = q_get_all_entered_result;
+      const conditions: string[] = [];
+      const values: any[] = [];
 
-    conditions.push(`ss.approvalstatus = 1 AND d.department <> 'ultrasound'`);
+      conditions.push(`ss.approvalstatus = 1 AND d.department <> 'ultrasound'`);
 
-    if (from && !to) {
-      conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
-      values.push(from);
-    } else if (from && to) {
-      conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
-      values.push(from, to);
+      if (from && !to) {
+        conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
+        values.push(from);
+      } else if (from && to) {
+        conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
+        values.push(from, to);
+      }
+
+      if (patientid) {
+        conditions.push(`np.PATIENTID = ?`);
+        values.push(patientid);
+      }
+
+      if (billingid) {
+        conditions.push(`b.billingid = ?`);
+        values.push(billingid);
+      }
+
+      if (fullname) {
+        conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
+        values.push(`${fullname}%`);
+      }
+
+      if (conditions.length > 0) {
+        queryString += ` WHERE ${conditions.join(" AND ")}`;
+      }
+
+      queryString += ` GROUP BY b.billingid`;
+      queryString += ` ORDER BY np.firstname, np.middlename, np.lastname, b.billingid DESC`;
+      queryString += ` LIMIT ? OFFSET ?`;
+      let result = await paginationQuery({ page, count }, queryString, values);
+      // if (result.length > 0) {
+      //   result = await Promise.all(
+      //     result.map(async (item) => {
+      //       const { billingid } = item;
+      //       if (billingid) {
+      //         const test_outcome = await this.getBillCompletedTest(billingid);
+      //         item.testMap = test_outcome;
+      //       }
+      //       return item;
+      //     })
+      //   );
+      // }
+      return result;
+    } catch (err) {
+      console.log(err);
     }
-
-    if (patientid) {
-      conditions.push(`np.PATIENTID = ?`);
-      values.push(patientid);
-    }
-
-    if (billingid) {
-      conditions.push(`b.billingid = ?`);
-      values.push(billingid);
-    }
-
-    if (fullname) {
-      conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
-      values.push(`${fullname}%`);
-    }
-
-    queryString += ` WHERE ${conditions.join(" AND ")}`;
-    queryString += ` ORDER BY np.firstname, np.middlename, np.lastname, b.billingid`;
-    queryString += ` GROUP BY b.billingid DESC LIMIT ? OFFSET ?`;
-
-    let result = await promisifyQuery({ page, count }, queryString, values);
-    if (result.length > 0) {
-      result = await Promise.all(
-        result.map(async (item) => {
-          const { billingid } = item;
-          if (billingid) {
-            const test_outcome = await this.getBillCompletedTest(billingid);
-            item.testMap = test_outcome;
-          }
-          return item;
-        })
-      );
-    }
-    return result;
   }
 
   /**

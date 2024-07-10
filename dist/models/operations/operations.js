@@ -197,43 +197,71 @@ class Operations {
         }
     }
     /**
+     *
+     */
+    async getBillCompletedTest(billingid) {
+        if (billingid) {
+            const test_outcome = await (0, helper_1.promisifyQuery)(queries_1.q_entered_result_part, [billingid]);
+            return test_outcome;
+        }
+    }
+    /**
      * Retrieves all entered results based on various filters.
      * @param {resultQuery} data - The query parameters for filtering.
      * @returns {Promise<any[]>} - A promise that resolves to the list of entered results.
      * @throws {Error} - Throws an error if the query fails.
      */
     async getAllEnterResult(data) {
-        const { from, to, patientid, billingid, sortingwise, count, page } = data;
-        let queryString = queries_1.q_get_all_entered_result;
-        queryString += ` WHERE ss.approvalstatus = 1 AND d.department <> 'ultrasound'`;
-        if (from && !to) {
-            queryString += ` AND DATE(b.billedon) BETWEEN '${from}' AND CURRENT_DATE`;
+        try {
+            const { from, to, patientid, billingid, fullname, sortingwise, count, page } = data;
+            let queryString = queries_1.q_get_all_entered_result;
+            const conditions = [];
+            const values = [];
+            conditions.push(`ss.approvalstatus = 1 AND d.department <> 'ultrasound'`);
+            if (from && !to) {
+                conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
+                values.push(from);
+            }
+            else if (from && to) {
+                conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
+                values.push(from, to);
+            }
+            if (patientid) {
+                conditions.push(`np.PATIENTID = ?`);
+                values.push(patientid);
+            }
+            if (billingid) {
+                conditions.push(`b.billingid = ?`);
+                values.push(billingid);
+            }
+            if (fullname) {
+                conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
+                values.push(`${fullname}%`);
+            }
+            if (conditions.length > 0) {
+                queryString += ` WHERE ${conditions.join(" AND ")}`;
+            }
+            queryString += ` GROUP BY b.billingid`;
+            queryString += ` ORDER BY np.firstname, np.middlename, np.lastname, b.billingid DESC`;
+            queryString += ` LIMIT ? OFFSET ?`;
+            let result = await (0, helper_1.paginationQuery)({ page, count }, queryString, values);
+            // if (result.length > 0) {
+            //   result = await Promise.all(
+            //     result.map(async (item) => {
+            //       const { billingid } = item;
+            //       if (billingid) {
+            //         const test_outcome = await this.getBillCompletedTest(billingid);
+            //         item.testMap = test_outcome;
+            //       }
+            //       return item;
+            //     })
+            //   );
+            // }
+            return result;
         }
-        else if (from && to) {
-            queryString += ` AND DATE(b.billedon) BETWEEN '${from}' AND  '${to}'`;
+        catch (err) {
+            console.log(err);
         }
-        else {
-            queryString = queryString;
-        }
-        if (patientid) {
-            queryString += ` AND np.PATIENTID = ${patientid}`;
-        }
-        if (billingid) {
-            queryString += ` AND b.billingid = ${billingid}`;
-        }
-        queryString += ` GROUP BY b.billingid DESC LIMIT 30`;
-        let result = await (0, helper_1.promisifyQuery)(queryString);
-        if (result.length > 0) {
-            result = await Promise.all(result.map(async (item, index) => {
-                const { billingid } = item;
-                if (billingid) {
-                    const test_outcome = await (0, helper_1.promisifyQuery)(queries_1.q_entered_result_part, [billingid]);
-                    item.testMap = test_outcome;
-                }
-                return item;
-            }));
-        }
-        return result;
     }
     /**
      * Retrieves the ultrasound waiting list with pagination.
