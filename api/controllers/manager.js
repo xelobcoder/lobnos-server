@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const Manager = require('../models/manager');
+const Manager = require('../models/manager/manager');
 
 
 router.get('/api/v1/manager/approvalist', function(request,response) {

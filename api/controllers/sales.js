@@ -1,7 +1,7 @@
 const { Billing } = require('../billing');
 const Expenses = require('../models/Expenses/Expense');
 const Registration = require('../models/registration');
-const sales = require('../models/sales');
+const sales = require('../models/billing/sales/sales');
 const router = require('express').Router();
 
 

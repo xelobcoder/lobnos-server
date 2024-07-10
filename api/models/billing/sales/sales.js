@@ -1,6 +1,5 @@
-const { promisifyQuery, responseError } = require("../../helper.js")
-const logger = require("../../logger.js")
-const connection = require("../db.js")
+const { promisifyQuery, responseError } = require("../../../../helper.js")
+
 
 const sales = {}
 
