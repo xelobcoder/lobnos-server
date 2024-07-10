@@ -2,9 +2,9 @@ import { promisifyQuery, paginationQuery } from "../../../helper";
 import ApplicationSettings from "../../models/application/appsettings/appset";
 import EmailService from "../../EmailServices/EmailCore";
 import * as queries from "./queries";
-import { SupplierRecord, CommodityRecord, ApiResponse, ApplicationSettings as AppSettingsInterface } from "./types";
+import ISupplys, { SupplierRecord, CommodityRecord, ApiResponse, ApplicationSettings as AppSettingsInterface } from "./types";
 
-class Supplys {
+class Supplys implements ISupplys {
   private supplierid: number | null;
 
   constructor(supplierid: number | null = null) {

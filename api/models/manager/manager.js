@@ -1,6 +1,5 @@
-const { promisifyQuery, customError } = require("../../helper");
-const logger = require("../../logger");
-const connection = require("../db");
+const { promisifyQuery, customError } = require("../../../helper");
+const logger = require("../../../logger");
 class Manager {
   constructor(employeeid, billingid, testid) {
     this.employeeid = employeeid;

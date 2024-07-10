@@ -3,12 +3,13 @@ import jwt from "jsonwebtoken";
 import path from "node:path";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../../helper";
 import { queries } from "./securityQueries";
+import ISecurity from "./SecurityIinterface";
 
-class Security {
-  private employeeid: string;
-  private loginDuration: number;
-  private sqlConnection: any; 
-  private isMaster: boolean;
+class Security implements ISecurity {
+  employeeid: string;
+  loginDuration: number;
+  sqlConnection: any;
+  isMaster: boolean;
 
   constructor(employeeid: string, loginDuration?: number) {
     this.employeeid = employeeid;
