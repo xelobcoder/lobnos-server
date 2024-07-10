@@ -2,6 +2,7 @@ import {
   q_approved_samples,
   q_billing_test_collection,
   q_checkbillingid,
+  q_entered_result_part,
   q_get_all_entered_result,
   q_get_all_result_entry_base,
   q_get_all_result_entry_partitioning,
@@ -247,23 +248,11 @@ export default class Operations {
 
     let result = await promisifyQuery(queryString);
     if (result.length > 0) {
-      const getTestQuery = ` SELECT ta.testid,
-                          tp.name,
-                          ta.billingid,
-                          tp.category,
-                          ta.processing,
-                          ta.processing_date,
-                          ta.ready,
-                          ta.ready_date
-                        FROM test_ascension as ta
-                          INNER JOIN test_panels as tp ON ta.testid = tp.id
-                          INNER JOIN departments AS d ON d.id = tp.category
-       WHERE ta.billingid = ?`;
       result = await Promise.all(
         result.map(async (item, index) => {
           const { billingid } = item;
           if (billingid) {
-            const test_outcome = await promisifyQuery(getTestQuery, [parseInt(billingid)]);
+            const test_outcome = await promisifyQuery(q_entered_result_part, [billingid]);
             item.testMap = test_outcome;
           }
           return item;

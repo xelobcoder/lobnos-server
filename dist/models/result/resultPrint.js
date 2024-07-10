@@ -7,7 +7,7 @@ const logger_1 = __importDefault(require("../../../logger"));
 const helper_1 = require("../../../helper");
 const creator_1 = __importDefault(require("../creator/creator"));
 const registration_1 = __importDefault(require("../registration/registration"));
-const list_1 = __importDefault(require("../../testpanel/list"));
+const list_1 = require("../../testpanel/list");
 const queries_1 = require("./queries");
 const emptySummry = [
     { title: "registered clients", value: 0 },
@@ -77,7 +77,7 @@ class ResultPrint {
             if (!testname) {
                 throw new Error("wrong testid provided");
             }
-            const tablename = list_1.default.generatedTestTableName(testname);
+            const tablename = list_1.testpanel.generatedTestTableName(testname);
             const getEmployeeid = await (0, helper_1.promisifyQuery)(`SELECT employeeid FROM \`${tablename}\` WHERE billingid = ?`, [billingid]);
             let employeeid = null;
             if (getEmployeeid.length > 0) {

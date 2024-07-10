@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateStockOrderQuery = exports.FILTERSTOCKQUERY = exports.DELETEASTOCKQUERY = exports.UPDATEASTOCKQUERY = exports.GENERALUNEXPIREDSTOCKS = exports.EXPIREDPRODUCTSMINI = exports.EXPIREDSTOCKSQUERY = exports.GETGENERALSTOCK = exports.DELETESTOCKABRANDQUERY = exports.NEWSTOCKQUERY = void 0;
+exports.q_purchasetoConsumeInsight = exports.q_debiting_stock = exports.updateStockOrderQuery = exports.FILTERSTOCKQUERY = exports.DELETEASTOCKQUERY = exports.UPDATEASTOCKQUERY = exports.GENERALUNEXPIREDSTOCKS = exports.EXPIREDPRODUCTSMINI = exports.EXPIREDSTOCKSQUERY = exports.GETGENERALSTOCK = exports.DELETESTOCKABRANDQUERY = exports.NEWSTOCKQUERY = void 0;
 exports.NEWSTOCKQUERY = `INSERT INTO generalstocks (name,category,consumptionunit,purchaseunit,quantity,alertlevel,materialcode,warehouse,shelf) VALUES (?,?,?,?,?,?,?,?,?)`;
 exports.DELETESTOCKABRANDQUERY = "DELETE FROM stocksbrands WHERE stockid = ? && brandid = ?";
 exports.GETGENERALSTOCK = ` SELECT 
@@ -52,3 +52,25 @@ exports.updateStockOrderQuery = `UPDATE orders
               WHERE productordersid = ?
               AND orderTransactionid = ? 
               AND stockid =?`;
+exports.q_debiting_stock = `SELECT DISTINCT
+              chx.credit,
+              chx.id AS creditid,
+              chx.productordersid,
+              chx.stockid,
+              chx.brandid,
+              chx.batchnumber,
+              stb.brand,
+              dhx.debitqty
+      FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
+      AS chx ON chx.productordersid = dhx.productordersid
+      INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
+      WHERE chx.stockid = ?  AND dhx.wastage = 0 AND  chx.brandid IN ({list}) GROUP BY chx.productordersid, chx.batchnumber,chx.brandid ,chx.stockid`;
+exports.q_purchasetoConsumeInsight = `SELECT 
+                  date as orderdate,
+                  productordersid,
+                  receiveddate,
+                  batchnumber,
+                  brand,
+                  stockid,
+    DATEDIFF(date,receiveddate) as pt_to_grn FROM orders WHERE stockid = ? 
+    AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`;

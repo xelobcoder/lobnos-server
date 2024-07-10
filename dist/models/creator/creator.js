@@ -4,10 +4,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../../helper");
-const list_1 = __importDefault(require("../../testpanel/list"));
-const queries_1 = require("./queries");
+const list_1 = require("../../testpanel/list");
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
 const operations_1 = __importDefault(require("../operations/operations"));
+const queries_1 = require("./queries");
+const registration_1 = __importDefault(require("../registration/registration"));
 class Creator {
     constructor(testid) {
         this.testid = testid;
@@ -23,18 +24,31 @@ class Creator {
         return [];
     }
     async getPreviousRecords(testname, billingid, patientid) {
-        const tablename = list_1.default.generatedTestTableName(testname);
-        console.log("tttt", tablename);
+        const tablename = list_1.testpanel.generatedTestTableName(testname);
         const previousRecords = await (0, helper_1.promisifyQuery)(`SELECT * FROM ${tablename} WHERE billingid = ? AND patientid = ?`, [
             billingid,
             patientid,
         ]);
         return previousRecords;
     }
+    async getResultEntryTest(scvid, ptid, target) {
+        if (typeof target == "string")
+            target = target.split(",");
+        const patientid = parseInt(ptid.slice(target[1]));
+        const billingid = parseInt(scvid.slice(target[0]));
+        const patientdata = await new registration_1.default().getPatientBasicData(patientid);
+        if (patientdata.length === 0) {
+            throw new Error("patient not found.");
+        }
+        const collection = await (0, helper_1.promisifyQuery)(queries_1.q_get_test_ascension_name_and_id, [billingid]);
+        if (collection.length > 0) {
+            return { personal_data: patientdata.slice(0, 1), test: collection || [] };
+        }
+        return { personal_data: patientdata || {}, test: collection || [] };
+    }
     async getCustomPreviousRecords(testid, billingid, patientid) {
         try {
-            console.log("hittt");
-            const testname = await list_1.default.getTestUsingTestid(testid);
+            const testname = await list_1.testpanel.getTestUsingTestid(testid);
             if (testname === false) {
                 throw new Error("wrong testid provided");
             }
@@ -118,8 +132,8 @@ class Creator {
         if (typeof billingid != "number" || typeof patientid != "number") {
             return (0, helper_1.customError)(`patientid and billingid must be type number`, 400, response);
         }
-        const testname = await list_1.default.getTestUsingTestid(testid);
-        const tablename = list_1.default.generatedTestTableName(testname);
+        const testname = await list_1.testpanel.getTestUsingTestid(testid);
+        const tablename = list_1.testpanel.generatedTestTableName(testname).toLowerCase();
         const shouldCreateRecord = async function (billingid, patientid, testtable, field) {
             const records = await (0, helper_1.promisifyQuery)(`SELECT * FROM ${testtable} WHERE billingid = ? AND field = ? AND patientid = ?`, [
                 billingid,
@@ -144,7 +158,7 @@ class Creator {
                     return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(query, values));
                 }
                 else {
-                    const updateRecords = `UPDATE \`${tablename}\` SET value = ?,updatedon =Now(),employeeid = ? WHERE patientid = ? AND billingid = ? AND field = ?`;
+                    const updateRecords = `UPDATE ${tablename} SET value = ?,updatedon =Now(),employeeid = ? WHERE patientid = ? AND billingid = ? AND field = ?`;
                     const result = await (0, helper_1.promisifyQuery)(updateRecords, [item.value, employeeid, patientid, billingid, item.field]);
                     return (0, helper_1.rowAffected)(result);
                 }

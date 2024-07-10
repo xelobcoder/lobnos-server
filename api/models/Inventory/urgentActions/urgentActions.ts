@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import InventoryAnalytics from "./inventoryAnalytics";
-import Wastage from "./wastageClass";
+import InventoryAnalytics from "../inventoryAnalytics/inventoryAnalytics";
+import Wastage from "../wastage/wastageInventory";
 import {
   GET_NEAR_EXPIRY_QUERY,
   GET_EXPIRED_COUNT_QUERY,
@@ -9,8 +9,8 @@ import {
   GET_COMPLETE_ORDERS_COUNT_QUERY,
 } from "./queries";
 
-const analytics = new InventoryAnalytics();
-const wastage = new Wastage();
+const analytics = new InventoryAnalytics(null, null);
+const wastage = new Wastage(null);
 
 const urgentActions = async (action: string, response: Response) => {
   try {
@@ -50,16 +50,15 @@ const urgentActions = async (action: string, response: Response) => {
           return { receiveddate, batchnumber, expirydate, quantityReceived, name, expiredqty: amtInstock, expiredDisposed };
         })
       );
-
       response.send({ result, status: "success" });
     } else if (action === "belowalert") {
       const result = await analytics.getBelowAlert();
       response.send({ result, status: "success" });
     } else if (action === "uncompletedorders") {
-      const result = await analytics.getIncompOrdersCount();
+      const result = await analytics.getIncompOrdersCount(false);
       response.send({ result, status: "success" });
     } else if (action === "completedorders") {
-      const result = await analytics.completeOrdersCount();
+      const result = await analytics.completeOrdersCount(false);
       response.send({ result, status: "success" });
     } else {
       response.send({ result: [], status: "warning" });

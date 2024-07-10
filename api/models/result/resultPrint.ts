@@ -2,7 +2,7 @@ import logger from "../../../logger";
 import { promisifyQuery, customError, rowAffected, paginationQuery } from "../../../helper";
 import Creator from "../creator/creator";
 import Registration from "../registration/registration";
-import testpanel from "../../testpanel/list";
+import {testpanel} from "../../testpanel/list";
 import {
   extrainfoTestQuery,
   updatePrintCountQuery,
@@ -17,6 +17,7 @@ import {
   advancedTablesSearchQueryWithFilters,
   transactionApprovedTestQuery,
 } from "./queries";
+import IResultPrint from "./RInterface";
 
 const emptySummry = [
   { title: "registered clients", value: 0 },
@@ -30,7 +31,7 @@ const emptySummry = [
 /**
  * Class representing ResultPrint with various methods to handle print-related functionalities.
  */
-class ResultPrint {
+class ResultPrint  implements IResultPrint{
   billingid: number;
 
   constructor(billingid: number) {

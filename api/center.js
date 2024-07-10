@@ -1,17 +1,14 @@
-const connection = require('./db')
-// handler for sample center
+const { promisifyQuery } = require("../helper");
 
 
-const get = (req, res) => {
-   // get all sampling_centers from db
-   let query = "SELECT * FROM branch";
-   connection.query(query, (err, result) => {
-      if (err) {
-         res.status(500).send(err);
-      } else {
-         res.status(200).send(result);
-      }
-   })
+const getAllSamplingCenters = async (req, res) => {
+   try {
+      let query = "SELECT * FROM branch";
+      const result = await promisifyQuery(query);
+      res.status(200).send(result);
+   } catch (err) {
+      res.status(500).send(err);
+   }
 }
 
 
@@ -21,5 +18,5 @@ const get = (req, res) => {
 
 
 module.exports = {
-   get
+   getAllSamplingCenters
 }

@@ -1,8 +1,9 @@
-import { promisifyQuery, rowAffected, customError } from "../../../helper";
-import testpanel from "../../testpanel/list";
-import { _comments_query, getGenderQuery, testCreationRule, update_creation_query } from "./queries";
+import { customError, promisifyQuery, rowAffected } from "../../../helper";
+import { testpanel } from "../../testpanel/list";
 import ApplicationSettings from "../application/appsettings/appset";
 import Operations from "../operations/operations";
+import { _comments_query, getGenderQuery, q_get_test_ascension_name_and_id, testCreationRule, update_creation_query } from "./queries";
+import Registration from "../registration/registration";
 interface CreationRule {
   name: string;
   value?: string;
@@ -33,7 +34,6 @@ class Creator {
 
   async getPreviousRecords(testname: string, billingid: string, patientid: string) {
     const tablename = testpanel.generatedTestTableName(testname);
-    console.log("tttt", tablename);
     const previousRecords = await promisifyQuery(`SELECT * FROM ${tablename} WHERE billingid = ? AND patientid = ?`, [
       billingid,
       patientid,
@@ -41,9 +41,23 @@ class Creator {
     return previousRecords;
   }
 
+  async getResultEntryTest(scvid: string, ptid: string, target: any) {
+    if (typeof target == "string") target = target.split(",");
+    const patientid: number = parseInt(ptid.slice(target[1]));
+    const billingid: number = parseInt(scvid.slice(target[0]));
+    const patientdata: [] = await new Registration().getPatientBasicData(patientid);
+    if (patientdata.length === 0) {
+      throw new Error("patient not found.");
+    }
+    const collection: [] = await promisifyQuery(q_get_test_ascension_name_and_id, [billingid]);
+    if (collection.length > 0) {
+      return { personal_data: patientdata.slice(0, 1), test: collection || [] };
+    }
+    return { personal_data: patientdata || {}, test: collection || [] };
+  }
+
   async getCustomPreviousRecords(testid: number, billingid: string, patientid: string) {
     try {
-      console.log("hittt");
       const testname = await testpanel.getTestUsingTestid(testid);
       if (testname === false) {
         throw new Error("wrong testid provided");
@@ -142,7 +156,7 @@ class Creator {
     }
     const testname = await testpanel.getTestUsingTestid(testid);
 
-    const tablename = testpanel.generatedTestTableName(testname);
+    const tablename = testpanel.generatedTestTableName(testname).toLowerCase();
 
     const shouldCreateRecord = async function (billingid: number, patientid: number, testtable: string, field) {
       const records = await promisifyQuery(`SELECT * FROM ${testtable} WHERE billingid = ? AND field = ? AND patientid = ?`, [
@@ -168,13 +182,12 @@ class Creator {
         fields.map(async (item: any, index: number) => {
           if (await shouldCreateRecord(billingid, patientid, tablename, item.field)) {
             const values = [item.field, billingid, patientid, item.value, employeeid];
-
             const query = `INSERT INTO ${tablename} (field,billingid,patientid,value,employeeid) VALUES(?,?,?,?,?)`;
             await new Operations(billingid).initiateTestProcessing(testid, billingid);
             await promisifyQuery(ascensionQuery, [billingid, testid]);
             return rowAffected(await promisifyQuery(query, values));
           } else {
-            const updateRecords = `UPDATE \`${tablename}\` SET value = ?,updatedon =Now(),employeeid = ? WHERE patientid = ? AND billingid = ? AND field = ?`;
+            const updateRecords = `UPDATE ${tablename} SET value = ?,updatedon =Now(),employeeid = ? WHERE patientid = ? AND billingid = ? AND field = ?`;
 
             const result = await promisifyQuery(updateRecords, [item.value, employeeid, patientid, billingid, item.field]);
             return rowAffected(result);

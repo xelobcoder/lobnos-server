@@ -56,3 +56,29 @@ export const updateStockOrderQuery: string = `UPDATE orders
               WHERE productordersid = ?
               AND orderTransactionid = ? 
               AND stockid =?`;
+
+
+export const q_debiting_stock = `SELECT DISTINCT
+              chx.credit,
+              chx.id AS creditid,
+              chx.productordersid,
+              chx.stockid,
+              chx.brandid,
+              chx.batchnumber,
+              stb.brand,
+              dhx.debitqty
+      FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
+      AS chx ON chx.productordersid = dhx.productordersid
+      INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
+      WHERE chx.stockid = ?  AND dhx.wastage = 0 AND  chx.brandid IN ({list}) GROUP BY chx.productordersid, chx.batchnumber,chx.brandid ,chx.stockid`;
+
+
+      export const q_purchasetoConsumeInsight = `SELECT 
+                  date as orderdate,
+                  productordersid,
+                  receiveddate,
+                  batchnumber,
+                  brand,
+                  stockid,
+    DATEDIFF(date,receiveddate) as pt_to_grn FROM orders WHERE stockid = ? 
+    AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`;

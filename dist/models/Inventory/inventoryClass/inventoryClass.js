@@ -194,7 +194,7 @@ class Inventory {
                     productordersid,
                     orderTransactionid,
                     stockid,
-                    employeeid
+                    employeeid,
                 ];
             });
             let successCount = 0;
@@ -202,7 +202,8 @@ class Inventory {
             let current = 0;
             let ordersSummaryUpdated = false;
             while (current < records.length) {
-                const updateRecord = await this.updateStockOrders(Object.assign(Object.assign({}, requiredDataSource[current]), { employeeid }));
+                const data = Object.assign(Object.assign({}, requiredDataSource[current]), { employeeid });
+                const updateRecord = await this.updateStockOrders(data);
                 (0, helper_1.rowAffected)(updateRecord) ? successCount++ : errorCount++;
                 current++;
             }
@@ -218,8 +219,7 @@ class Inventory {
             }
             return !response
                 ? ordersSummaryUpdated
-                :
-                    response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
+                : response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
         }
         catch (err) {
             logger_1.default.error(err);
@@ -250,19 +250,7 @@ class Inventory {
             throw new TypeError("Array required and must not be empty");
         }
         const list = brands.join(",");
-        const QUERY = `SELECT DISTINCT
-              chx.credit,
-              chx.id AS creditid,
-              chx.productordersid,
-              chx.stockid,
-              chx.brandid,
-              chx.batchnumber,
-              stb.brand,
-              dhx.debitqty
-      FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
-      AS chx ON chx.productordersid = dhx.productordersid
-      INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
-      WHERE chx.stockid = ?  AND dhx.wastage = 0 AND  chx.brandid IN (${list}) GROUP BY chx.productordersid, chx.batchnumber,chx.brandid ,chx.stockid`;
+        const QUERY = queries_1.q_debiting_stock.replace("{list}", list);
         let data = await (0, helper_1.promisifyQuery)(QUERY, [stockid]);
         data = data
             .map((item, index) => {
@@ -276,16 +264,7 @@ class Inventory {
         const { stockid, records } = data;
         if (!stockid || !records)
             throw new Error("stockid and records are required");
-        const ORDERHX = `SELECT 
-                  date as orderdate,
-                  productordersid,
-                  receiveddate,
-                  batchnumber,
-                  brand,
-                  stockid,
-    DATEDIFF(date,receiveddate) as pt_to_grn FROM orders WHERE stockid = ? 
-    AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`;
-        const getStockOrdersHx = await (0, helper_1.promisifyQuery)(ORDERHX, [stockid, records]);
+        const getStockOrdersHx = await (0, helper_1.promisifyQuery)(queries_1.q_purchasetoConsumeInsight, [stockid, records]);
         let result = [];
         if (getStockOrdersHx.length > 0) {
             result = await Promise.all(getStockOrdersHx.map(async (transaction, i) => {

@@ -18,7 +18,7 @@ interface ProcedureManual {
   title: string;
 }
 
-  const testpanel = {
+  export const testpanel = {
   listquery: `SELECT 
       tp.name,
       tp.id,
@@ -526,4 +526,4 @@ interface ProcedureManual {
   },
 };
 
-export default testpanel;
+

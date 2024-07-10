@@ -13,7 +13,7 @@ import {
 } from "./queries";
 
 class WastageInventory extends Inventory {
-  private stockid: number;
+  stockid: number;
 
   constructor(stockid: number) {
     super(stockid);
@@ -65,8 +65,6 @@ class WastageInventory extends Inventory {
       await this.updateOrdersWastage(productordersid, 1);
       return true;
     } catch (err) {
-//       console.log(err);
-      logger.error(err);
       throw new Error(err);
     }
   }

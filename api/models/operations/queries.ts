@@ -2,6 +2,20 @@ export const q_checkbillingid = "SELECT * FROM billing WHERE billingid = ?";
 
 export const q_approved_samples = "SELECT * FROM samplestatus WHERE billingid = ? AND approvalstatus= 1";
 
+
+export const q_entered_result_part = `SELECT ta.testid,
+                          tp.name,
+                          ta.billingid,
+                          tp.category,
+                          ta.processing,
+                          ta.processing_date,
+                          ta.ready,
+                          ta.ready_date
+                        FROM test_ascension as ta
+                          INNER JOIN test_panels as tp ON ta.testid = tp.id
+                          INNER JOIN departments AS d ON d.id = tp.category
+       WHERE ta.billingid = ?`;
+
 export const q_billing_test_collection = `SELECT ta.testid,
                 tp.name,
                 ta.billingid,

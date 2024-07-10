@@ -49,8 +49,6 @@ class WastageInventory extends inventoryClass_1.default {
             return true;
         }
         catch (err) {
-            //       console.log(err);
-            logger.error(err);
             throw new Error(err);
         }
     }

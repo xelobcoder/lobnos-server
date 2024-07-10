@@ -1,6 +1,18 @@
-import { rowAffected, paginationQuery, promisifyQuery, customError } from "../../../../helper";
-import logger from '../../../../logger'
-import { NEWSTOCKQUERY ,UPDATEASTOCKQUERY,DELETEASTOCKQUERY,DELETESTOCKABRANDQUERY,EXPIREDPRODUCTSMINI,EXPIREDSTOCKSQUERY,GENERALUNEXPIREDSTOCKS,GETGENERALSTOCK,FILTERSTOCKQUERY, updateStockOrderQuery} from "./queries";
+import { customError, paginationQuery, promisifyQuery, rowAffected } from "../../../../helper";
+import logger from '../../../../logger';
+import {
+  DELETEASTOCKQUERY,
+  DELETESTOCKABRANDQUERY,
+  EXPIREDSTOCKSQUERY,
+  FILTERSTOCKQUERY,
+  GENERALUNEXPIREDSTOCKS,
+  GETGENERALSTOCK,
+  NEWSTOCKQUERY,
+  q_debiting_stock,
+  q_purchasetoConsumeInsight,
+  UPDATEASTOCKQUERY,
+  updateStockOrderQuery
+} from "./queries";
 // const database_queries = require("../../database/queries");
 class Inventory implements InventoryInterface {
   stockid: number | null;
@@ -170,7 +182,7 @@ class Inventory implements InventoryInterface {
     records: any[],
     total: number,
     tax: { amount: number; method: string },
-    employeeid:number,
+    employeeid: number,
     response?: any
   ): Promise<boolean | void> {
     try {
@@ -220,7 +232,7 @@ class Inventory implements InventoryInterface {
           productordersid,
           orderTransactionid,
           stockid,
-          employeeid
+          employeeid,
         ];
       });
       let successCount = 0;
@@ -229,7 +241,8 @@ class Inventory implements InventoryInterface {
       let ordersSummaryUpdated = false;
 
       while (current < records.length) {
-        const updateRecord = await this.updateStockOrders({ ...requiredDataSource[current] ,employeeid});
+        const data = { ...requiredDataSource[current], employeeid };
+        const updateRecord = await this.updateStockOrders(data);
         rowAffected(updateRecord) ? successCount++ : errorCount++;
         current++;
       }
@@ -245,8 +258,7 @@ class Inventory implements InventoryInterface {
       }
       return !response
         ? ordersSummaryUpdated
-        :
-        response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
+        : response.send({ message: "order updated successfully", statusCode: 200, status: "success" });
     } catch (err) {
       logger.error(err);
       throw new Error(err);
@@ -288,19 +300,7 @@ class Inventory implements InventoryInterface {
       throw new TypeError("Array required and must not be empty");
     }
     const list = brands.join(",");
-    const QUERY = `SELECT DISTINCT
-              chx.credit,
-              chx.id AS creditid,
-              chx.productordersid,
-              chx.stockid,
-              chx.brandid,
-              chx.batchnumber,
-              stb.brand,
-              dhx.debitqty
-      FROM  generalstoredebithx AS dhx INNER JOIN generalstorecredithx
-      AS chx ON chx.productordersid = dhx.productordersid
-      INNER JOIN stocksbrands AS stb ON stb.brandid = chx.brandid
-      WHERE chx.stockid = ?  AND dhx.wastage = 0 AND  chx.brandid IN (${list}) GROUP BY chx.productordersid, chx.batchnumber,chx.brandid ,chx.stockid`;
+    const QUERY = q_debiting_stock.replace("{list}", list);
     let data = await promisifyQuery(QUERY, [stockid]);
 
     data = data
@@ -315,16 +315,7 @@ class Inventory implements InventoryInterface {
   async purchasetoConsumeInsight(data: any): Promise<any[]> {
     const { stockid, records } = data;
     if (!stockid || !records) throw new Error("stockid and records are required");
-    const ORDERHX = `SELECT 
-                  date as orderdate,
-                  productordersid,
-                  receiveddate,
-                  batchnumber,
-                  brand,
-                  stockid,
-    DATEDIFF(date,receiveddate) as pt_to_grn FROM orders WHERE stockid = ? 
-    AND received = 'TRUE' ORDER BY productordersid DESC LIMIT ?`;
-    const getStockOrdersHx = await promisifyQuery(ORDERHX, [stockid, records]);
+    const getStockOrdersHx = await promisifyQuery(q_purchasetoConsumeInsight, [stockid, records]);
     let result: any[] = [];
     if (getStockOrdersHx.length > 0) {
       result = await Promise.all(

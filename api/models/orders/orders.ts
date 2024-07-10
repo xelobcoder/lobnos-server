@@ -192,22 +192,6 @@ export const getunReceivedOrders = async function (data: RequestQuery) {
 export const deleteAspecificOrder = async function (orderid: number, response: any) {
   const query = queries.q_deleteOrder;
   return await rowAffected(promisifyQuery(query, [orderid]));
-  // connection.query(query, [orderid], function (err: any, result: any) {
-  //   if (err) {
-  //     console.log(err);
-  //     response.send({
-  //       status: "error",
-  //       err,
-  //     });
-  //   }
-  //   if (result) {
-  //     response.send({
-  //       status: "success",
-  //       message: "Order deleted successfully",
-  //       statusCode: 200,
-  //     });
-  //   }
-  // });
 };
 
 export const updateStock = async function (stockid: number, planned: number, request: any, response: any): Promise<boolean> {

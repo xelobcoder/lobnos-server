@@ -1,4 +1,4 @@
-const { promisifyQuery, rowAffected, responseError, customError } = require("../../../helper");
+const { promisifyQuery, rowAffected,customError } = require("../../../helper");
 const testpanel = require("../../testpanel/list");
 const Registration = require("../../models/registration");
 const CustomTest = require("../resultentry/customTestEntry");

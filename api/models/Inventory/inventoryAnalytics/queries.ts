@@ -26,7 +26,7 @@ export const q_getInvSummaryAnalytics = `
   SELECT * FROM inventoryanalyticssummary
 `;
 
-export const q_getIncompOrdersCount = (count: boolean) => `
+export const q_getIncompOrdersCount = (count:boolean) => `
   SELECT ${count ? "COUNT(*) AS count" : "*"} FROM orders WHERE received = 'FALSE'
 `;
 

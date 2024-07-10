@@ -1,8 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.testpanel = void 0;
 const helper_1 = require("../../helper");
 const categories_1 = require("./categories");
-const testpanel = {
+exports.testpanel = {
     listquery: `SELECT 
       tp.name,
       tp.id,
@@ -35,13 +36,13 @@ const testpanel = {
     },
     getPanels: async (request, response) => {
         try {
-            if (testpanel.hasquery(request)) {
+            if (exports.testpanel.hasquery(request)) {
                 const { id } = request.query;
-                const result = await (0, helper_1.promisifyQuery)(testpanel.listqueryid("SELECT *", parseInt(id)));
+                const result = await (0, helper_1.promisifyQuery)(exports.testpanel.listqueryid("SELECT *", parseInt(id)));
                 response.send({ statusCode: 200, status: "success", message: "success", data: result });
             }
             else {
-                const result = await (0, helper_1.promisifyQuery)(testpanel.listquery);
+                const result = await (0, helper_1.promisifyQuery)(exports.testpanel.listquery);
                 response.send({ statusCode: 200, status: "success", message: "success", data: result });
             }
         }
@@ -56,7 +57,7 @@ const testpanel = {
             return (0, helper_1.customError)("Required request query missing", 404, response);
         const hasFieldValues = (0, categories_1.allFieldsHasValues)(request.body);
         if (hasFieldValues) {
-            const query = testpanel.updatequery(parseInt(id), parseFloat(price), parseInt(category));
+            const query = exports.testpanel.updatequery(parseInt(id), parseFloat(price), parseInt(category));
             const result = await (0, helper_1.promisifyQuery)(query);
             return (0, helper_1.rowAffected)(result) ? response.send({ message: "Panel updated successfully" }) : response.send({ message: "Update failed" });
         }
@@ -85,7 +86,7 @@ const testpanel = {
         if (isFieldsOkay) {
             request.body.samplevolume = parseInt(request.body.samplevolume);
             const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body;
-            const panelExist = await testpanel.panelExist(test);
+            const panelExist = await exports.testpanel.panelExist(test);
             if (panelExist) {
                 return response.send({ statusCode: 200, status: "success", message: "Panel already exists" });
             }
@@ -272,7 +273,7 @@ const testpanel = {
                     const updateTestDetails = await (0, helper_1.promisifyQuery)(updatePanel, values);
                     const isCategoryScan = await (0, helper_1.promisifyQuery)(`SELECT tp.category, tp.name, dp.department FROM test_panels AS tp INNER JOIN departments AS dp ON dp.id = tp.category WHERE dp.department = 'ultrasound' AND tp.category = ${category}`);
                     if (isCategoryScan.length > 0) {
-                        const tablename = "result" + testpanel.generateTableName(isCategoryScan[0]["name"]);
+                        const tablename = "result" + exports.testpanel.generateTableName(isCategoryScan[0]["name"]);
                         const tableFeatures = await (0, helper_1.promisifyQuery)(`SHOW COLUMNS FROM ${tablename}`);
                         for (let i = 0; i < tableFeatures.length; i++) {
                             if (tableFeatures[i]["Field"] == "value" && tableFeatures[i]["Type"] != "longtext") {
@@ -458,4 +459,3 @@ const testpanel = {
         }
     },
 };
-exports.default = testpanel;

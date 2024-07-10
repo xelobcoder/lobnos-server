@@ -3,10 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const inventoryAnalytics_1 = __importDefault(require("./inventoryAnalytics"));
-const wastageClass_1 = __importDefault(require("./wastageClass"));
-const analytics = new inventoryAnalytics_1.default();
-const wastage = new wastageClass_1.default();
+const inventoryAnalytics_1 = __importDefault(require("../inventoryAnalytics/inventoryAnalytics"));
+const wastageInventory_1 = __importDefault(require("../wastage/wastageInventory"));
+const analytics = new inventoryAnalytics_1.default(null, null);
+const wastage = new wastageInventory_1.default(null);
 const urgentActions = async (action, response) => {
     try {
         if (action === "nearexpiry") {
@@ -41,11 +41,11 @@ const urgentActions = async (action, response) => {
             response.send({ result, status: "success" });
         }
         else if (action === "uncompletedorders") {
-            const result = await analytics.getIncompOrdersCount();
+            const result = await analytics.getIncompOrdersCount(false);
             response.send({ result, status: "success" });
         }
         else if (action === "completedorders") {
-            const result = await analytics.completeOrdersCount();
+            const result = await analytics.completeOrdersCount(false);
             response.send({ result, status: "success" });
         }
         else {

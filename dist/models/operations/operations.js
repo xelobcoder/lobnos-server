@@ -224,22 +224,10 @@ class Operations {
         queryString += ` GROUP BY b.billingid DESC LIMIT 30`;
         let result = await (0, helper_1.promisifyQuery)(queryString);
         if (result.length > 0) {
-            const getTestQuery = ` SELECT ta.testid,
-                          tp.name,
-                          ta.billingid,
-                          tp.category,
-                          ta.processing,
-                          ta.processing_date,
-                          ta.ready,
-                          ta.ready_date
-                        FROM test_ascension as ta
-                          INNER JOIN test_panels as tp ON ta.testid = tp.id
-                          INNER JOIN departments AS d ON d.id = tp.category
-       WHERE ta.billingid = ?`;
             result = await Promise.all(result.map(async (item, index) => {
                 const { billingid } = item;
                 if (billingid) {
-                    const test_outcome = await (0, helper_1.promisifyQuery)(getTestQuery, [parseInt(billingid)]);
+                    const test_outcome = await (0, helper_1.promisifyQuery)(queries_1.q_entered_result_part, [billingid]);
                     item.testMap = test_outcome;
                 }
                 return item;
