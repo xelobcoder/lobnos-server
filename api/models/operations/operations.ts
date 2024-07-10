@@ -163,7 +163,6 @@ export default class Operations {
         } else {
           finalQuery = q_get_all_result_entry_base.replace("{billing_table}", "billing").replace("{asc_table}", "test_ascension");
         }
-
       } else if (hasDuration && hasSameMonth && hasSameYear) {
         const billingTable = getPartitionTableName("billing");
         const ascTable = getPartitionTableName("asc");
@@ -218,41 +217,63 @@ export default class Operations {
   }
 
   /**
+   *
+   */
+  public async getBillCompletedTest(billingid: number) {
+    if (billingid) {
+      const test_outcome = await promisifyQuery(q_entered_result_part, [billingid]);
+      return test_outcome;
+    }
+  }
+
+  /**
    * Retrieves all entered results based on various filters.
    * @param {resultQuery} data - The query parameters for filtering.
    * @returns {Promise<any[]>} - A promise that resolves to the list of entered results.
    * @throws {Error} - Throws an error if the query fails.
    */
   async getAllEnterResult(data: resultQuery): Promise<any[]> {
-    const { from, to, patientid, billingid, sortingwise, count, page } = data;
+    const { from, to, patientid, billingid, fullname, sortingwise, count, page } = data;
     let queryString = q_get_all_entered_result;
-    queryString += ` WHERE ss.approvalstatus = 1 AND d.department <> 'ultrasound'`;
+    const conditions: string[] = [];
+    const values: any[] = [];
+
+    conditions.push(`ss.approvalstatus = 1 AND d.department <> 'ultrasound'`);
 
     if (from && !to) {
-      queryString += ` AND DATE(b.billedon) BETWEEN '${from}' AND CURRENT_DATE`;
+      conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
+      values.push(from);
     } else if (from && to) {
-      queryString += ` AND DATE(b.billedon) BETWEEN '${from}' AND  '${to}'`;
-    } else {
-      queryString = queryString;
+      conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
+      values.push(from, to);
     }
 
     if (patientid) {
-      queryString += ` AND np.PATIENTID = ${patientid}`;
+      conditions.push(`np.PATIENTID = ?`);
+      values.push(patientid);
     }
 
     if (billingid) {
-      queryString += ` AND b.billingid = ${billingid}`;
+      conditions.push(`b.billingid = ?`);
+      values.push(billingid);
     }
 
-    queryString += ` GROUP BY b.billingid DESC LIMIT 30`;
+    if (fullname) {
+      conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
+      values.push(`${fullname}%`);
+    }
 
-    let result = await promisifyQuery(queryString);
+    queryString += ` WHERE ${conditions.join(" AND ")}`;
+    queryString += ` ORDER BY np.firstname, np.middlename, np.lastname, b.billingid`;
+    queryString += ` GROUP BY b.billingid DESC LIMIT ? OFFSET ?`;
+
+    let result = await promisifyQuery({ page, count }, queryString, values);
     if (result.length > 0) {
       result = await Promise.all(
-        result.map(async (item, index) => {
+        result.map(async (item) => {
           const { billingid } = item;
           if (billingid) {
-            const test_outcome = await promisifyQuery(q_entered_result_part, [billingid]);
+            const test_outcome = await this.getBillCompletedTest(billingid);
             item.testMap = test_outcome;
           }
           return item;
@@ -323,4 +344,3 @@ export default class Operations {
     }
   }
 }
-

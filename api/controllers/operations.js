@@ -54,9 +54,9 @@ router.put("/api/v1/operations/test/initiateprocessing", async (request, respons
 //   await new Operations().operationsOverview(request, response)
 // })
 
-router.get("/api/v1/operations/collection/result", async function (request, response) {
-  await new Operations().getAllEnterResult(request, response)
-})
+// router.get("/api/v1/operations/collection/result", async function (request, response) {
+//   await new Operations().getAllEnterResult(request, response)
+// })
 
 router.get("/api/v1/operations/test/result", async function (request, response) {
   await new Operations().getAllTestPreview(request, response)

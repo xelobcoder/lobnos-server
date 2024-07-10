@@ -8,6 +8,7 @@ export type resultQuery = {
   from: string;
   to: string;
   patientid: number;
+  fullname?: string;
   billingid: number;
   sortingwise: number;
   count: number;
