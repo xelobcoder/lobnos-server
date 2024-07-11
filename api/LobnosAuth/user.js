@@ -3,7 +3,7 @@ const jwt = require("jsonwebtoken")
 const logger = require("../../logger")
 const { convertKeysToLowerCase, promisifyQuery, customError } = require("../../helper")
 const configuration = require("../../helpers/configuration")
-const Security = require("../models/security/SecurityClass")
+const Security = require("../models/security/security")
 
 class User {
   constructor(name, password, role, email, branch) {

@@ -1,0 +1,1 @@
+ALTER TABLE `sampletype` CHANGE `id` `id` INT(255) NOT NULL AUTO_INCREMENT;

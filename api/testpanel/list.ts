@@ -142,7 +142,7 @@ interface ProcedureManual {
   deleteSampleType: async (request: Request, response: Response) => {
     try {
       const { id } = request.query as { id: string };
-      if (!id || isNaN(Number(id))) return customError("Valid id not provided", 404, response);
+      if (!id || isNaN(parseInt(id))) return customError("Valid id not provided", 404, response);
       const deleteQuery = "DELETE FROM sampletype WHERE id = ?";
       const result = await promisifyQuery(deleteQuery, [parseInt(id)]);
       return rowAffected(result)

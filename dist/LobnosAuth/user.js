@@ -31,7 +31,7 @@ const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const logger_1 = __importDefault(require("../../logger"));
 const helper_1 = require("../../helper");
 const configuration_1 = __importDefault(require("../../helpers/configuration"));
-const SecurityClass_1 = __importDefault(require("../models/security/SecurityClass"));
+const security_1 = __importDefault(require("../../api/models/security/security"));
 const queries = __importStar(require("./queries"));
 class User {
     constructor(name, password, role, email, branch) {
@@ -163,7 +163,7 @@ class User {
                 return (0, helper_1.customError)("token provided is invalid", 401, response);
             }
             const { role, employeeid } = tokenValid;
-            const isUserLoggedIn = await new SecurityClass_1.default(employeeid).getCanInitiateLogin();
+            const isUserLoggedIn = await new security_1.default(employeeid).getCanInitiateLogin();
             if (isUserLoggedIn) {
                 return response.send({ loggedIn: false, message: "user is not loggedIn" });
             }

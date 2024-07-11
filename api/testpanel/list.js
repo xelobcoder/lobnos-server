@@ -134,7 +134,7 @@ const testpanel = {
   deleteSampleType: async function (request, response) {
     try {
       const { id } = request.query;
-      if (!id || !isNaN(id)) return customError("Valid id not provided", 404, response);
+      if (!id || isNaN(id)) return customError("Valid id not provided", 404, response);
       const deleteQuery = "DELETE FROM sampletype WHERE id = ?";
       const result = await promisifyQuery(deleteQuery, [parseInt(id)]);
       return rowAffected(result)

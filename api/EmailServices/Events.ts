@@ -6,7 +6,7 @@ import ejs from "ejs";
 import path from "path";
 
 class ApplicationEvents extends EmailService {
-  private events: any; 
+  events: any; 
 
   constructor(employeeid: number, events: any) {
     super(employeeid);

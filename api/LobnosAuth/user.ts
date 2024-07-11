@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import logger from "../../logger";
 import { convertKeysToLowerCase, promisifyQuery, customError } from "../../helper";
 import configuration from "../../helpers/configuration";
-import Security from "../models/security/SecurityClass";
+import Security from "../../api/models/security/security";
 import * as queries from "./queries";
 
 class User {

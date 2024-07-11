@@ -3,7 +3,7 @@ const User = require("../LobnosAuth/user");
 const { customError, promisifyQuery, paginationQuery, responseError, rowAffected } = require("../../helper")
 const logger = require("../../logger");
 const client = require("../models/redisclient");
-const Security = require("../models/security/SecurityClass");
+const Security = require("../models/security/security");
 
 const createNewAccount = async (req, res) => {
   try {

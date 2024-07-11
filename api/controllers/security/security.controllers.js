@@ -1,7 +1,7 @@
 const router = require("express").Router()
 const { responseError, customError } = require("../../../helper")
 const User = require("../../LobnosAuth/user")
-const Security = require("../../models/security/SecurityClass");
+const Security = require("../../models/security/security");
 
 
 router.get("/api/v1/security/getloggedsessions", async function (request, response) {
