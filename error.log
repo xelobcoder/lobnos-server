@@ -1348,3 +1348,32 @@
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
 {"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"code":"ER_PARSE_ERROR","errno":1064,"index":0,"level":"error","sql":"UPDATE orders\n              SET received = `0` = 'TRUE', `1` = '200', `2` = '2024-07-13', `3` = 'incomplete', `4` = '2024-07-20', `5` = 'lot545', `6` = 6466, `7` = 29, `8` = 10, `9` = 2000, `10` = 55, `11` = 1719967641138, `12` = 4, `13` = 3, `employeeid` = 3,\n                  quantityReceived = ?,\n                  receiveddate = ?,\n                  status = ?,\n                  expirydate = ?,\n                  batchnumber = ?,\n                  balance = ?,\n                  brand = ? ,\n                  price = ?,\n                  totalamount = ? \n              WHERE productordersid = ?\n              AND orderTransactionid = ? \n              AND stockid =?","sqlMessage":"You have an error in your SQL syntax; check the manual that corresponds to your MariaDB server version for the right syntax to use near '?,\n                  receiveddate = ?,\n                  status = ?,\n        ...' at line 3","sqlState":"42000"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"code":"EDNS","command":"CONN","errno":-3008,"hostname":"smtp.gmail.com","level":"error","syscall":"getaddrinfo"}
+{"code":"EDNS","command":"CONN","errno":-3008,"hostname":"smtp.gmail.com","level":"error","syscall":"getaddrinfo"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}
+{"level":"error","message":"Cannot set headers after they are sent to the client"}

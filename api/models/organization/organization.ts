@@ -1,11 +1,18 @@
 import { promisifyQuery } from "../../../helper";
 import logger from "../../../logger";
-import { MONTHLYSALESQUERY, WEEKLYSALESQUERY, DAILYSALESQUERY, TODAYSALESQUERY, YEARLYSALESQUERY } from "./queries";
+import { MONTHLYSALESQUERY, WEEKLYSALESQUERY, DAILYSALESQUERY, TODAYSALESQUERY, YEARLYSALESQUERY, q_accountInfo } from "./queries";
 
 interface OrganizationInfo {
   id: number;
   commission: number;
 }
+
+const defaultSalesParam = {
+  discountedAmount: 0,
+  payable: 0,
+  commissionRate: 0,
+  referedCases: 0,
+};
 
 class Organization {
   private organizationId: number | null;
@@ -14,7 +21,7 @@ class Organization {
     this.organizationId = organizationId;
   }
 
-  private async getCommissionRate(): Promise<number> {
+  protected async getCommissionRate(): Promise<number> {
     let commissionRate = 0;
     const organizationInfo = await this.organizationAccountInfo();
     if (organizationInfo.length !== 0 && organizationInfo[0]["commission"] !== 0) {
@@ -23,27 +30,18 @@ class Organization {
     return commissionRate;
   }
 
-  private async calculateRate(data: any[]): Promise<any> {
+  private async calculateRate<T>(data: T[]): Promise<T> {
     const commissionRate = await this.getCommissionRate();
     const payable = data[0]["payable"];
     const rate = parseFloat(payable) * (parseFloat(commissionRate.toString()) / 100);
     return { ...data[0], commissionRate: rate };
   }
 
-  private get defaultSalesParam() {
-    return {
-      discountedAmount: 0,
-      payable: 0,
-      commissionRate: 0,
-      referedCases: 0,
-    };
-  }
-
   public async monthSales(): Promise<any> {
     try {
       let monthly = await promisifyQuery(MONTHLYSALESQUERY, [this.organizationId]);
       if (monthly.length === 0) {
-        return this.defaultSalesParam;
+        return defaultSalesParam;
       }
       monthly = await this.calculateRate(monthly);
       return monthly;
@@ -56,7 +54,7 @@ class Organization {
     try {
       let result = await promisifyQuery(TODAYSALESQUERY, [this.organizationId]);
       if (result.length === 0) {
-        return this.defaultSalesParam;
+        return defaultSalesParam;
       }
       result = await this.calculateRate(result);
       return result;
@@ -86,7 +84,7 @@ class Organization {
     try {
       let result = await promisifyQuery(YEARLYSALESQUERY, [this.organizationId]);
       if (result.length === 0) {
-        return this.defaultSalesParam;
+        return defaultSalesParam;
       }
       result = await this.calculateRate(result);
       return result;
@@ -106,9 +104,7 @@ class Organization {
   }
 
   private async organizationAccountInfo(): Promise<OrganizationInfo[]> {
-    return await promisifyQuery<OrganizationInfo>("SELECT * FROM organizationaccountinformation WHERE organizationid = ?", [
-      this.organizationId,
-    ]);
+    return await promisifyQuery(q_accountInfo, [this.organizationId]);
   }
 
   public async getOrganizationInfo(): Promise<any> {

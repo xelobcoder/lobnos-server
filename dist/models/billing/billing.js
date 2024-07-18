@@ -94,7 +94,6 @@ class Billing {
             return insertId;
         }
         catch (err) {
-            console.error(err);
             throw new Error(billingclientTypes_1.billErrors.error);
         }
     }

@@ -6,6 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../../helper");
 const logger_1 = __importDefault(require("../../../logger"));
 const queries_1 = require("./queries");
+const defaultSalesParam = {
+    discountedAmount: 0,
+    payable: 0,
+    commissionRate: 0,
+    referedCases: 0,
+};
 class Organization {
     constructor(organizationId) {
         this.organizationId = organizationId;
@@ -24,19 +30,11 @@ class Organization {
         const rate = parseFloat(payable) * (parseFloat(commissionRate.toString()) / 100);
         return Object.assign(Object.assign({}, data[0]), { commissionRate: rate });
     }
-    get defaultSalesParam() {
-        return {
-            discountedAmount: 0,
-            payable: 0,
-            commissionRate: 0,
-            referedCases: 0,
-        };
-    }
     async monthSales() {
         try {
             let monthly = await (0, helper_1.promisifyQuery)(queries_1.MONTHLYSALESQUERY, [this.organizationId]);
             if (monthly.length === 0) {
-                return this.defaultSalesParam;
+                return defaultSalesParam;
             }
             monthly = await this.calculateRate(monthly);
             return monthly;
@@ -49,7 +47,7 @@ class Organization {
         try {
             let result = await (0, helper_1.promisifyQuery)(queries_1.TODAYSALESQUERY, [this.organizationId]);
             if (result.length === 0) {
-                return this.defaultSalesParam;
+                return defaultSalesParam;
             }
             result = await this.calculateRate(result);
             return result;
@@ -79,7 +77,7 @@ class Organization {
         try {
             let result = await (0, helper_1.promisifyQuery)(queries_1.YEARLYSALESQUERY, [this.organizationId]);
             if (result.length === 0) {
-                return this.defaultSalesParam;
+                return defaultSalesParam;
             }
             result = await this.calculateRate(result);
             return result;
@@ -99,9 +97,7 @@ class Organization {
         }
     }
     async organizationAccountInfo() {
-        return await (0, helper_1.promisifyQuery)("SELECT * FROM organizationaccountinformation WHERE organizationid = ?", [
-            this.organizationId,
-        ]);
+        return await (0, helper_1.promisifyQuery)(queries_1.q_accountInfo, [this.organizationId]);
     }
     async getOrganizationInfo() {
         return await (0, helper_1.promisifyQuery)("SELECT * FROM organization WHERE id = ?", [this.organizationId]);

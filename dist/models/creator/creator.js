@@ -151,15 +151,15 @@ class Creator {
         const insertUpdate = async function () {
             const insertAll = await Promise.all(fields.map(async (item, index) => {
                 if (await shouldCreateRecord(billingid, patientid, tablename, item.field)) {
-                    const values = [item.field, billingid, patientid, item.value, employeeid];
-                    const query = `INSERT INTO ${tablename} (field,billingid,patientid,value,employeeid) VALUES(?,?,?,?,?)`;
+                    const values = [item.field, billingid, patientid, item.value, employeeid, item === null || item === void 0 ? void 0 : item.entrymode];
+                    const query = `INSERT INTO ${tablename} (field,billingid,patientid,value,employeeid,entrymode) VALUES(?,?,?,?,?,?)`;
                     await new operations_1.default(billingid).initiateTestProcessing(testid, billingid);
                     await (0, helper_1.promisifyQuery)(ascensionQuery, [billingid, testid]);
                     return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(query, values));
                 }
                 else {
-                    const updateRecords = `UPDATE ${tablename} SET value = ?,updatedon =Now(),employeeid = ? WHERE patientid = ? AND billingid = ? AND field = ?`;
-                    const result = await (0, helper_1.promisifyQuery)(updateRecords, [item.value, employeeid, patientid, billingid, item.field]);
+                    const updateRecords = `UPDATE ${tablename} SET value = ?,updatedon =Now(),employeeid = ?,entrymode = ? WHERE patientid = ? AND billingid = ? AND field = ?`;
+                    const result = await (0, helper_1.promisifyQuery)(updateRecords, [item.value, employeeid, item === null || item === void 0 ? void 0 : item.entrymode, patientid, billingid, item.field]);
                     return (0, helper_1.rowAffected)(result);
                 }
             }));

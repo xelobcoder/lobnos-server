@@ -81,12 +81,11 @@ export const getAllTestPreview = async (req: Request, res: Response) => {
 
 export const getAllPendingCases = async (req: Request, res: Response) => {
   try {
-    const { count = 10, page = 1, departmentid, status, testid, fullname, from, to } = req.query;
-    const data = { count, page, departmentid, status, testid, fullname, from, to };
+    const { count = 10, page = 1, departmentid, status, testid, billingid, fullname, from, to } = req.query;
+    const data = { count, page, departmentid, status, testid, fullname, from, to, billingid };
     const result = await new Operations(null).getAllCasesResultEntryByMany(data as any);
     res.send({ result, statusCode: 200, status: "success" });
   } catch (err) {
-    console.log(err);
     responseError(res);
   }
 };

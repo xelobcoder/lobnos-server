@@ -1,4 +1,4 @@
-const { customError, promisifyQuery, rowAffected, responseError, paginationQuery } = require("../../../helper");
+const { customError, promisifyQuery, rowAffected, paginationQuery } = require("../../../helper");
 const logger = require("../../../logger");
 const User = require("../../LobnosAuth/user");
 const { readdir, unlink } = require("node:fs/promises");
@@ -9,10 +9,10 @@ class Expenses {
             this.branchid = branchid;
       }
 
-      isExpenseApproved(expenseid) {
+      isExpenseApproved() {
 
       }
-      getAdminRequest(branchid) {
+      getAdminRequest() {
 
       }
 
@@ -101,7 +101,7 @@ class Expenses {
             try {
                   let images = await readdir('api/uploads/receipts')
                   if (images.length > 0) {
-                        images = images.filter((item, index) => item.split("-")[0] == expenseid);
+                        images = images.filter((item) => item.split("-")[0] == expenseid);
                   }
                   return images;
             } catch (err) {
@@ -127,14 +127,14 @@ class Expenses {
                   throw new TypeError('Array required');
             }
             if (data.length == 0) return;
-            const status =await Promise.all( data.map(async (item, index) => {
+            const status = await Promise.all(data.map(async (item) => {
                   try {
                         await unlink(`api/uploads/receipts/${item}`)
                   } catch (err) {
                         return false;
                   }
             }))
-            return status.some((a, i) => a == false) ? false : true;
+            return status.some((a) => a == false) ? false : true;
       }
 
 

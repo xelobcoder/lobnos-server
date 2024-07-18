@@ -20,5 +20,4 @@ router.get("/api/v1/operations/test/result", getAllTestPreview);
 router.get("/api/v1/operation/pendingcases/all", getAllPendingCases);
 router.get("/api/v1/operations/imaging/ultrasound", getUltrasoundWaitingList);
 router.get("/api/v1/operations/imaging/ultrasound/processed", getProcessedScanList);
-
 module.exports = router;

@@ -91,13 +91,12 @@ const getAllTestPreview = async (req, res) => {
 exports.getAllTestPreview = getAllTestPreview;
 const getAllPendingCases = async (req, res) => {
     try {
-        const { count = 10, page = 1, departmentid, status, testid, fullname, from, to } = req.query;
-        const data = { count, page, departmentid, status, testid, fullname, from, to };
+        const { count = 10, page = 1, departmentid, status, testid, billingid, fullname, from, to } = req.query;
+        const data = { count, page, departmentid, status, testid, fullname, from, to, billingid };
         const result = await new operations_1.default(null).getAllCasesResultEntryByMany(data);
         res.send({ result, statusCode: 200, status: "success" });
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(res);
     }
 };

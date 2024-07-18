@@ -97,18 +97,18 @@ class ApplicationSettings {
       includeTax,
     ]
     try {
-      const result = await promisifyQuery(TruncateTable)
+      const result = await promisifyQuery(TruncateTable);
       if (result) {
         const isUpdated = await promisifyQuery(query, values)
         isUpdated && response.send({ message: "Applications settings updated successfully", statusCode: 200, status: "success" })
       }
     } catch (err) {
-      logger.error(err)
       customError(err?.message, 500, response)
     }
   }
 
   async updateSmsSettings(request, response) {
+    console.log(request.body)
     try {
       const updateSms = await promisifyQuery(`UPDATE applicationsettings SET smsSettings = ?`, [JSON.stringify(request.body)])
       if (updateSms) {

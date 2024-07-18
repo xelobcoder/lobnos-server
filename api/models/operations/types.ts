@@ -35,6 +35,7 @@ export interface OperationsFilterResultEntry {
   departmentid?: number| string;
   testid?: number;
   status?: string;
+  billingid?: number;
   from?: string;
   to?: string;
 }

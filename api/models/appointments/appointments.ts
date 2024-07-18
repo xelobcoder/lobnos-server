@@ -133,7 +133,7 @@ class Appointment {
     return await this.connection(query, values);
   }
 
-  public getAppointmentCount() {}
+  public getAppointmentCount() { }
 }
 
 // new Appointment(12).getDaySchedules("general", 44, { count: 10, page: 1 });

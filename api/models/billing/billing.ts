@@ -1,4 +1,4 @@
-import { AscensionParameter, billErrors, BreakingPoint, IBillNewClient, Pagination, TBillingData } from "./billingclientTypes";
+import { AscensionParameter, billErrors, IBillNewClient, Pagination, TBillingData } from "./billingclientTypes";
 import { promisifyQuery, rowAffected } from "./../../../helper.js";
 import {
   AddtoTestAscenstionQuery,
@@ -8,8 +8,6 @@ import {
   deleteNewBillPaymentHx,
   insertBillQuery,
   patientBilledTodayQuery,
-  q_addNewPartition,
-  q_getAllpartiton,
   updatebillHistoryQuery,
 } from "./queries";
 
@@ -124,7 +122,6 @@ export class Billing implements IBillNewClient {
       if (affectedRows == 0) return false;
       return insertId;
     } catch (err) {
-      console.error(err);
       throw new Error(billErrors.error);
     }
   }

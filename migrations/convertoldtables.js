@@ -20,122 +20,122 @@ async function getOldTables() {
        //               console.log(err)
        //        }
        // })
-          console.log("################### Starting Reconfiguration #################");
-                 await Promise.all(testnamescollection.map(async (item, index) => {
-                           let newName = testpanel.generatedTestTableName(item.name);
+       console.log("################### Starting Reconfiguration #################");
+       await Promise.all(testnamescollection.map(async (item, index) => {
+              let newName = testpanel.generatedTestTableName(item.name);
 
-                           async function AlteringColumnNames(columnName) {
-                                     const q_checking_column_present = `SELECT COUNT(*) as count
+              async function AlteringColumnNames(columnName) {
+                     const q_checking_column_present = `SELECT COUNT(*) as count
                                                FROM information_schema.COLUMNS
                                                WHERE TABLE_SCHEMA = 'limsdb'
                                                AND TABLE_NAME = '${newName}'
                                                AND COLUMN_NAME = '${columnName}'`;
 
 
-                                     const packet = await promisifyQuery(q_checking_column_present);
+                     const packet = await promisifyQuery(q_checking_column_present);
 
-                                     const hasColumn = packet[0]['count'] === 1;
+                     const hasColumn = packet[0]['count'] === 1;
 
-                                     if (!hasColumn) {
-                                               const altering = `ALTER TABLE ${newName}
+                     if (!hasColumn) {
+                            const altering = `ALTER TABLE ${newName}
        ADD COLUMN entrymode VARCHAR(20) DEFAULT 'manual';
        `
 
-                                               const addColumn = await promisifyQuery(altering);
+                            const addColumn = await promisifyQuery(altering);
 
-                                               console.log(addColumn, 'column added successfully');
-                                     }
-                           }
-
-
+                            console.log(addColumn, 'column added successfully');
+                     }
+              }
 
 
 
 
 
-                           async function reconfigureTables(name) {
-                                     try {
-                                               let newName = testpanel.generatedTestTableName(name);
-                                               let oldName = `result${name.toString().replaceAll(" ", "_") }`;
-                                               const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
+
+
+              async function reconfigureTables(name) {
+                     try {
+                            let newName = testpanel.generatedTestTableName(name);
+                            let oldName = `result${name.toString().replaceAll(" ", "_")}`;
+                            const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
                                                          FROM information_schema.tables
                                                          WHERE table_schema = 'limsdb'
                                                          AND table_name = ?`;
 
 
-                                               async function rename(oldName, newName) {
-                                                         const altername = `RENAME TABLE ${oldName} TO ${newName}`;
+                            async function rename(oldName, newName) {
+                                   const altername = `RENAME TABLE ${oldName} TO ${newName}`;
 
-                                                         console.log(altername);
-                                                         // await promisifyQuery(altername);
-                                               }
+                                   console.log(altername);
+                                   // await promisifyQuery(altername);
+                            }
 
-                                               let isPresentOld = await promisifyQuery(tableExistenceQuery, [oldName]);
-                                               let isPresntNew = await promisifyQuery(tableExistenceQuery, [newName]);
-
-
-                                               let old_pr = isPresentOld[0]["ispresent"];
-                                               let new_pr = isPresntNew[0]["ispresent"];
-       console.table({oldName,newName,old_pr,new_pr})
-                                               if (old_pr === 0 && new_pr === 0) {
-                                                         const outcome = await testpanel.createTestProcess(name);
-                                                         return outcome;
-                                               } else if (old_pr == 1 && new_pr === 0) {
-                                                         rename(oldName, newName);
-                                                         return newName;
-                                               } else {
-                                                         return newName;
-                                               }
+                            let isPresentOld = await promisifyQuery(tableExistenceQuery, [oldName]);
+                            let isPresntNew = await promisifyQuery(tableExistenceQuery, [newName]);
 
 
-
-
-                                     } catch (err) {
-                                               console.log(err);
-                                     }
-                           }
+                            let old_pr = isPresentOld[0]["ispresent"];
+                            let new_pr = isPresntNew[0]["ispresent"];
+                            console.table({ oldName, newName, old_pr, new_pr })
+                            if (old_pr === 0 && new_pr === 0) {
+                                   const outcome = await testpanel.createTestProcess(name);
+                                   return outcome;
+                            } else if (old_pr == 1 && new_pr === 0) {
+                                   rename(oldName, newName);
+                                   return newName;
+                            } else {
+                                   return newName;
+                            }
 
 
 
-                           async function addingIndexToTable() {
-                                     const test_table = testpanel.generatedTestTableName(item.name);
 
-                                     const _checking_index = `SELECT COUNT(*) as count
+                     } catch (err) {
+                            console.log(err);
+                     }
+              }
+
+
+
+              async function addingIndexToTable() {
+                     const test_table = testpanel.generatedTestTableName(item.name);
+
+                     const _checking_index = `SELECT COUNT(*) as count
                                                FROM information_schema.STATISTICS
                                                WHERE table_schema = 'limsdb'
                                                AND table_name = ?
                                                AND index_name = 'idx_billingid_patientid'
        `
-                                     const hasIndex = await promisifyQuery(_checking_index, [test_table]);
-                                     const count = hasIndex[0]['count'];
+                     const hasIndex = await promisifyQuery(_checking_index, [test_table]);
+                     const count = hasIndex[0]['count'];
 
-                                     if (count === 0) {
-                                               const addingIndex = `ALTER TABLE ?? ADD INDEX idx_billingid_patientid (billingid, patientid)`;
-                                               await promisifyQuery(addingIndex, [test_table]);
-                                     }
+                     if (count === 0) {
+                            const addingIndex = `ALTER TABLE ?? ADD INDEX idx_billingid_patientid (billingid, patientid)`;
+                            await promisifyQuery(addingIndex, [test_table]);
+                     }
 
-                           }
-
-
+              }
 
 
-                           async function hasAuditTable(item) {
-                                     const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
+
+
+              async function hasAuditTable(item) {
+                     const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
                                                          FROM information_schema.tables
                                                          WHERE table_schema = 'limsdb'
                                                          AND table_name = ?`;
-                                     const test_table = testpanel.generatedTestTableName(item.name);
-                                     const generateAuditLogName = `result${test_table}AuditLog`.trim().toLowerCase();
-                                     const pack = await promisifyQuery(tableExistenceQuery, [generateAuditLogName]);
-                                     return pack[0]['ispresent'] === 1;
-                           }
+                     const test_table = testpanel.generatedTestTableName(item.name);
+                     const generateAuditLogName = `result${test_table}AuditLog`.trim().toLowerCase();
+                     const pack = await promisifyQuery(tableExistenceQuery, [generateAuditLogName]);
+                     return pack[0]['ispresent'] === 1;
+              }
 
 
 
 
-                           async function createAuditUpdateTrigger(generatedTableName) {
-                                     const auditLogTableName = `result${generatedTableName}AuditLog`.trim().toLowerCase();
-                                     const createUpdateTriggerQuery = `
+              async function createAuditUpdateTrigger(generatedTableName) {
+                     const auditLogTableName = `result${generatedTableName}AuditLog`.trim().toLowerCase();
+                     const createUpdateTriggerQuery = `
                                                CREATE TRIGGER \`trg_audit_log_update_${generatedTableName}\`
                                                AFTER UPDATE ON \`${generatedTableName}\`
                                                FOR EACH ROW
@@ -159,16 +159,16 @@ async function getOldTables() {
                                                          );
                                                END`;
 
-                                     await promisifyQuery(createUpdateTriggerQuery);
-                                     console.log("audit update trigger done");
-                           }
+                     await promisifyQuery(createUpdateTriggerQuery);
+                     console.log("audit update trigger done");
+              }
 
 
 
 
-                           async function createAuditDeleteTrigger(generatedTableName) {
-                                     const auditLogTableName = `result${generatedTableName}AuditLog`.trim().toLowerCase();
-                                     const createDeleteTriggerQuery = `
+              async function createAuditDeleteTrigger(generatedTableName) {
+                     const auditLogTableName = `result${generatedTableName}AuditLog`.trim().toLowerCase();
+                     const createDeleteTriggerQuery = `
                                                CREATE TRIGGER \`trg_audit_log_delete_${generatedTableName}\`
                                                AFTER DELETE ON \`${generatedTableName}\`
                                                FOR EACH ROW
@@ -192,20 +192,20 @@ async function getOldTables() {
                                                          );
                                                END`;
 
-                                     await promisifyQuery(createDeleteTriggerQuery);
-                                     console.log("audit delete trigger done");
+                     await promisifyQuery(createDeleteTriggerQuery);
+                     console.log("audit delete trigger done");
 
-                           }
-
-
-
-                           async function createAuditTable(item) {
-
-                                     const generatedTableName = testpanel.generatedTestTableName(item.name);
-                                     const auditLogTableName = `result${generatedTableName}AuditLog`.trim().toLowerCase();
+              }
 
 
-                                     const createAuditLogTableQuery = `
+
+              async function createAuditTable(item) {
+
+                     const generatedTableName = testpanel.generatedTestTableName(item.name);
+                     const auditLogTableName = `result${generatedTableName}AuditLog`.trim().toLowerCase();
+
+
+                     const createAuditLogTableQuery = `
                                                CREATE TABLE \`${auditLogTableName}\` (
                                                          id INT PRIMARY KEY AUTO_INCREMENT,
                                                          field VARCHAR(100),
@@ -221,71 +221,71 @@ async function getOldTables() {
 
 
 
-                                     await promisifyQuery(createAuditLogTableQuery);
-                                     await createAuditUpdateTrigger(generatedTableName);
-                                     await createAuditDeleteTrigger(generatedTableName);
-                                     console.log('audit table creation successful \n');
-                           }
+                     await promisifyQuery(createAuditLogTableQuery);
+                     await createAuditUpdateTrigger(generatedTableName);
+                     await createAuditDeleteTrigger(generatedTableName);
+                     console.log('audit table creation successful \n');
+              }
 
 
 
 
-                           async function reconfiguringTableTriggers(item) {
-                                     const test_table = testpanel.generatedTestTableName(item.name);
-                                     const deleteTrigger = `trg_audit_log_delete_${test_table}`;
-                                     const updateTrigger = `trg_audit_log_update_${test_table}`;
+              async function reconfiguringTableTriggers(item) {
+                     const test_table = testpanel.generatedTestTableName(item.name);
+                     const deleteTrigger = `trg_audit_log_delete_${test_table}`;
+                     const updateTrigger = `trg_audit_log_update_${test_table}`;
 
-                                     const updateTriggerQuery = `SELECT COUNT(*) as count
+                     const updateTriggerQuery = `SELECT COUNT(*) as count
                                      FROM information_schema.TRIGGERS
                                      WHERE TRIGGER_SCHEMA = 'limsdb'
                                      AND TRIGGER_NAME = '${updateTrigger}'`;
 
-                                     const deleteTriggerQuery = `SELECT COUNT(*) as count
+                     const deleteTriggerQuery = `SELECT COUNT(*) as count
                                      FROM information_schema.TRIGGERS
                                      WHERE TRIGGER_SCHEMA = 'limsdb'
                                      AND TRIGGER_NAME = '${deleteTrigger}'`;
 
-                                     let has_update = await promisifyQuery(updateTriggerQuery);
-                                     let has_delete = await promisifyQuery(deleteTriggerQuery);
+                     let has_update = await promisifyQuery(updateTriggerQuery);
+                     let has_delete = await promisifyQuery(deleteTriggerQuery);
 
 
 
-                                     has_update = has_update[0]['count'];
-                                     has_delete = has_delete[0]['count'];
+                     has_update = has_update[0]['count'];
+                     has_delete = has_delete[0]['count'];
 
-                                     const hasAudit = await hasAuditTable(item);
+                     const hasAudit = await hasAuditTable(item);
 
-                                     if (!hasAudit) {
-                                               return await createAuditTable(item)
-                                     }
-
-
-                                     if (has_delete === 0) {
-                                               await createAuditDeleteTrigger(test_table);
-
-                                     }
-
-                                     if (!has_update === 0) {
-                                               await createAuditUpdateTrigger(test_table);
-                                     }
-
-                           }
+                     if (!hasAudit) {
+                            return await createAuditTable(item)
+                     }
 
 
+                     if (has_delete === 0) {
+                            await createAuditDeleteTrigger(test_table);
 
-                           await AlteringColumnNames('entrymode');
-                           console.log("....................initiating reconfiguring of tables..................")
-                           reconfigureTables(item['name']);
-                           console.log("--------------------------reconfiguring table done ------------- ");
-                           console.log("initiating testtable indexing");
-                           await addingIndexToTable();
-                           console.log("Indexing on database tables successfully done");
-                           await reconfiguringTableTriggers(item);
-                           console.log('reconfiguring audit and triggers done');
+                     }
 
-                 }));
+                     if (!has_update === 0) {
+                            await createAuditUpdateTrigger(test_table);
+                     }
 
-                 console.log("################### Reconfiguration Successfully Done #################");
+              }
+
+
+
+              await AlteringColumnNames('entrymode');
+              console.log("....................initiating reconfiguring of tables..................")
+              reconfigureTables(item['name']);
+              console.log("--------------------------reconfiguring table done ------------- ");
+              console.log("initiating testtable indexing");
+              await addingIndexToTable();
+              console.log("Indexing on database tables successfully done");
+              await reconfiguringTableTriggers(item);
+              console.log('reconfiguring audit and triggers done');
+
+       }));
+
+       console.log("################### Reconfiguration Successfully Done #################");
 }
 
 

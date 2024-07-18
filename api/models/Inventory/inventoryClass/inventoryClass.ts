@@ -249,9 +249,9 @@ class Inventory implements InventoryInterface {
       if (successCount === records.length) {
         const summary = {
           orderTransactionid,
-          total: parseFloat(total),
+          total: parseFloat(total.toString()),
           method: tax?.method,
-          amount: parseFloat(tax?.amount),
+          amount: parseFloat(tax?.amount.toString()),
         };
         const updateSummary = await this.updateOrderReceivedTransactionSummary(summary);
         ordersSummaryUpdated = rowAffected(updateSummary);

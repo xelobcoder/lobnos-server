@@ -191,14 +191,14 @@ app.get("/api/v1/center", (req, res) => {
 
 app.get("/email/templates", async function (request, response) {
   var path = require('node:path')
-  response.render(path.join(__dirname,'./api/views/templates/sampleRejection.ejs'),{data:{labname:'Vitalscan laboratory',header:'sample rejection notice'}})
+  response.render(path.join(__dirname, './api/views/templates/sampleRejection.ejs'), { data: { labname: 'Vitalscan laboratory', header: 'sample rejection notice' } })
 })
 
 
 app.get('/api/v1/cachedata/getSavedrecords', async function (request, response) {
   const result = await promisifyQuery(`SELECT * FROM customtestcreation`);
   response.send(result);
-}) 
+})
 
 
 // app.get('/verify-email', (req, res) => {
@@ -218,6 +218,8 @@ app.get('/api/v1/cachedata/getSavedrecords', async function (request, response) 
 //   });
 // });
 
-const reconfigureTables = require("./migrations/convertoldtables");
 
-// reconfigureTables()
+
+app.post("/api/v1/interfacing/hormones/analyzer", async function (request, response) {
+
+})

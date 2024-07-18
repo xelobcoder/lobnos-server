@@ -77,7 +77,7 @@ class Creator {
       if (previousRecords.length > 0) {
         result = result.map((item, index) => {
           const matched = previousRecords.find((u, inx) => u.field == item.name);
-          return matched ? { ...item, value: matched?.value } : item;
+          return matched ? { ...item, value: matched?.value ,entrymode:matched?.entrymode} : item;
         });
       }
 

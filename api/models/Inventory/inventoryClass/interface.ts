@@ -23,7 +23,7 @@ interface InventoryInterface {
 
   updateStockCategory(records: any): Promise<number | Error>;
 
-  deleteStockCategory(stockid: number): Promise<boolean>;
+  deleteStockCategory(stockCategoryId: number): Promise<boolean>;
 
   getGeneralUnExpiredStocks(requestQuery: any): Promise<any[]>;
 

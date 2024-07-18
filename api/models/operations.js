@@ -131,6 +131,7 @@ class Operations {
           ss.approvalstatus,
           ta.ready,
           ta.processing,
+          ta.ascension,
           tp.id,
           b.clientstatus,
           CASE WHEN b.organization <> 0 THEN

@@ -41,9 +41,14 @@ class Operations {
          * @returns {Promise<any[]>} - A promise that resolves to the list of test previews.
          */
         this.getAllTestPreview = async function (billingid) {
-            if (billingid) {
-                const alltest = await (0, helper_1.promisifyQuery)(queries_1.q_get_all_test_preview, [billingid]);
-                return alltest;
+            try {
+                if (billingid) {
+                    const alltest = await (0, helper_1.promisifyQuery)(queries_1.q_get_all_test_preview, [billingid]);
+                    return alltest;
+                }
+            }
+            catch (error) {
+                throw error;
             }
         };
         this.billingid = billingid;
@@ -100,17 +105,22 @@ class Operations {
      * @returns {Promise<[]>} - A promise that resolves to the list of qualified tests.
      */
     async getAllQualifiedToProcessByDepartment(category, count, page) {
-        let queryString = queries_1.q_qualifiedToProcessByDepartment;
-        const values = [];
-        if (category != "all") {
-            queryString += ` AND tp.category = ?`;
-            values.push(category);
+        try {
+            let queryString = queries_1.q_qualifiedToProcessByDepartment;
+            const values = [];
+            if (category != "all") {
+                queryString += ` AND tp.category = ?`;
+                values.push(category);
+            }
+            values.push(count);
+            values.push(page - 1 * count);
+            queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound' 
+      GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT ? OFFSET ?`;
+            return await (0, helper_1.promisifyQuery)(queryString, values);
         }
-        values.push(count);
-        values.push(page - 1 * count);
-        queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound' 
-    GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT ? OFFSET ?`;
-        return await (0, helper_1.promisifyQuery)(queryString, values);
+        catch (error) {
+            throw error;
+        }
     }
     /**
      * Retrieves all cases for result entry based on various filters.
@@ -119,14 +129,14 @@ class Operations {
      * @throws {Error} - Throws an error if the query fails.
      */
     async getAllCasesResultEntryByMany(requestQuery) {
-        const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
+        const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid } = requestQuery;
         try {
             let finalQuery;
             const values = [];
             const conditions = [];
             const hasDuration = from && to;
-            const providedFrom = new Date(new Date(from));
-            const providedTo = new Date(new Date(to));
+            const providedFrom = new Date(from);
+            const providedTo = new Date(to);
             const hasSameMonth = providedFrom.getMonth() === providedTo.getMonth();
             const hasSameYear = providedFrom.getFullYear() === providedTo.getFullYear();
             function getPartitionTableName(baseName, currentDate = new Date()) {
@@ -182,6 +192,10 @@ class Operations {
             else if (from) {
                 conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
                 values.push(from);
+            }
+            if (billingid) {
+                conditions.push(`b.billingid = ?`);
+                values.push(billingid);
             }
             if (conditions.length > 0) {
                 finalQuery += ` AND ${conditions.join(" AND ")} `;
@@ -242,7 +256,7 @@ class Operations {
                 queryString += ` WHERE ${conditions.join(" AND ")}`;
             }
             queryString += ` GROUP BY b.billingid`;
-            queryString += ` ORDER BY np.firstname, np.middlename, np.lastname, b.billingid DESC`;
+            queryString += ` ORDER BY  b.billingid DESC, np.firstname, np.middlename, np.lastname`;
             queryString += ` LIMIT ? OFFSET ?`;
             let result = await (0, helper_1.paginationQuery)({ page, count }, queryString, values);
             // if (result.length > 0) {

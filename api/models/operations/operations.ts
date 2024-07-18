@@ -15,7 +15,7 @@ import {
 } from "./queries";
 import { OperationsFailures, OperationsFilterResultEntry, ProcessedScan, resultQuery } from "./types";
 
-import { customError, promisifyQuery, paginationQuery, responseError, rowAffected } from "../../../helper";
+import { promisifyQuery, paginationQuery, rowAffected } from "../../../helper";
 
 import PartitionManager from "../billing/partitioning";
 
@@ -91,17 +91,21 @@ export default class Operations {
    * @returns {Promise<[]>} - A promise that resolves to the list of qualified tests.
    */
   public async getAllQualifiedToProcessByDepartment(category: number | string, count: number, page: number): Promise<[]> {
-    let queryString = q_qualifiedToProcessByDepartment;
-    const values = [];
-    if (category != "all") {
-      queryString += ` AND tp.category = ?`;
-      values.push(category);
+    try {
+      let queryString = q_qualifiedToProcessByDepartment;
+      const values = [];
+      if (category != "all") {
+        queryString += ` AND tp.category = ?`;
+        values.push(category);
+      }
+      values.push(count);
+      values.push(page - 1 * count);
+      queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound' 
+      GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT ? OFFSET ?`;
+      return await promisifyQuery(queryString, values);
+    } catch (error) {
+      throw error;
     }
-    values.push(count);
-    values.push(page - 1 * count);
-    queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound' 
-    GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT ? OFFSET ?`;
-    return await promisifyQuery(queryString, values);
   }
 
   /**
@@ -133,14 +137,15 @@ export default class Operations {
    * @throws {Error} - Throws an error if the query fails.
    */
   async getAllCasesResultEntryByMany(requestQuery: OperationsFilterResultEntry): Promise<any[]> {
-    const { fullname, count = 10, page = 1, departmentid, testid, status, from, to } = requestQuery;
+    const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid } = requestQuery;
+
     try {
       let finalQuery: string;
       const values: any[] = [];
       const conditions: string[] = [];
       const hasDuration = from && to;
-      const providedFrom = new Date(new Date(from));
-      const providedTo = new Date(new Date(to));
+      const providedFrom = new Date(from);
+      const providedTo = new Date(to);
       const hasSameMonth = providedFrom.getMonth() === providedTo.getMonth();
       const hasSameYear = providedFrom.getFullYear() === providedTo.getFullYear();
 
@@ -201,6 +206,10 @@ export default class Operations {
         values.push(from);
       }
 
+      if (billingid) {
+        conditions.push(`b.billingid = ?`);
+        values.push(billingid);
+      }
       if (conditions.length > 0) {
         finalQuery += ` AND ${conditions.join(" AND ")} `;
       }
@@ -269,7 +278,7 @@ export default class Operations {
       }
 
       queryString += ` GROUP BY b.billingid`;
-      queryString += ` ORDER BY np.firstname, np.middlename, np.lastname, b.billingid DESC`;
+      queryString += ` ORDER BY  b.billingid DESC, np.firstname, np.middlename, np.lastname`;
       queryString += ` LIMIT ? OFFSET ?`;
       let result = await paginationQuery({ page, count }, queryString, values);
       // if (result.length > 0) {
@@ -296,9 +305,13 @@ export default class Operations {
    * @returns {Promise<any[]>} - A promise that resolves to the list of test previews.
    */
   getAllTestPreview = async function (billingid: number): Promise<any[]> {
-    if (billingid) {
-      const alltest = await promisifyQuery(q_get_all_test_preview, [billingid]);
-      return alltest;
+    try {
+      if (billingid) {
+        const alltest = await promisifyQuery(q_get_all_test_preview, [billingid]);
+        return alltest;
+      }
+    } catch (error) {
+      throw error;
     }
   };
 

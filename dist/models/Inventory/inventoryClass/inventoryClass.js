@@ -210,9 +210,9 @@ class Inventory {
             if (successCount === records.length) {
                 const summary = {
                     orderTransactionid,
-                    total: parseFloat(total),
+                    total: parseFloat(total.toString()),
                     method: tax === null || tax === void 0 ? void 0 : tax.method,
-                    amount: parseFloat(tax === null || tax === void 0 ? void 0 : tax.amount),
+                    amount: parseFloat(tax === null || tax === void 0 ? void 0 : tax.amount.toString()),
                 };
                 const updateSummary = await this.updateOrderReceivedTransactionSummary(summary);
                 ordersSummaryUpdated = (0, helper_1.rowAffected)(updateSummary);

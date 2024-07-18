@@ -19,3 +19,5 @@ export const DAILYSALESQUERY = `SELECT DAY(billedon) AS day, ${INITQUERY} AND YE
 export const TODAYSALESQUERY = `SELECT ${INITQUERY} AND DAY(billedon) = DAY(CURRENT_DATE)`;
 
 export const YEARLYSALESQUERY = `SELECT SUM(payable) AS payable, SUM(discount) AS discountedAmount, COUNT(billingid) AS referedCases, YEAR(billedon) AS yearlySales FROM billing WHERE organization = ? GROUP BY yearlySales`;
+
+export const q_accountInfo = "SELECT * FROM organizationaccountinformation WHERE organizationid = ?";
