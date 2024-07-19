@@ -48,6 +48,7 @@ exports.q_get_all_result_entry_base = `
     np.patientid,
     b.billingid,
     tp.category,
+    b.billedon AS billing_date,
     d.department,
     ta.id AS ascensionid,
     tp.name,
@@ -78,6 +79,7 @@ exports.q_get_all_result_entry_partitioning = `SELECT
     CONCAT(np.age, " ", np.agetype) AS age,
     np.patientid,
     b.billingid,
+    b.billedon AS billing_date,
     tp.category,
     ta.id AS acensionid,
     d.department,
@@ -149,6 +151,7 @@ exports.q_get_all_entered_result = `SELECT  CONCAT(np.firstname,' ',np.middlenam
           np.PATIENTID AS patientid,
           np.gender,
           b.BILLINGID AS billingid,
+          ta.id AS ascensionid,
           b.billedon AS billing_date,
           tp.CATEGORY AS category
         FROM new_patients as np

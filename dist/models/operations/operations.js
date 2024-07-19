@@ -201,7 +201,7 @@ class Operations {
                 finalQuery += ` AND ${conditions.join(" AND ")} `;
             }
             finalQuery += `
-      ORDER BY billingid DESC
+      ORDER BY b.billingid DESC
       LIMIT ? OFFSET ?
     `;
             return await (0, helper_1.paginationQuery)({ count, page }, finalQuery, values);
@@ -256,7 +256,7 @@ class Operations {
                 queryString += ` WHERE ${conditions.join(" AND ")}`;
             }
             queryString += ` GROUP BY b.billingid`;
-            queryString += ` ORDER BY  b.billingid DESC, np.firstname, np.middlename, np.lastname`;
+            queryString += ` ORDER BY ta.id DESC`;
             queryString += ` LIMIT ? OFFSET ?`;
             let result = await (0, helper_1.paginationQuery)({ page, count }, queryString, values);
             // if (result.length > 0) {

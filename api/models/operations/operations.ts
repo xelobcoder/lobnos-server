@@ -215,7 +215,7 @@ export default class Operations {
       }
 
       finalQuery += `
-      ORDER BY billingid DESC
+      ORDER BY b.billingid DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -278,7 +278,7 @@ export default class Operations {
       }
 
       queryString += ` GROUP BY b.billingid`;
-      queryString += ` ORDER BY  b.billingid DESC, np.firstname, np.middlename, np.lastname`;
+      queryString += ` ORDER BY ta.id DESC`;
       queryString += ` LIMIT ? OFFSET ?`;
       let result = await paginationQuery({ page, count }, queryString, values);
       // if (result.length > 0) {
