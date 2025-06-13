@@ -42,6 +42,7 @@ router.get("/api/v1/orders/temporary/processing", clinicianHandlers.getTemporary
 router.post("/api/v1/orders/processed", clinicianHandlers.postProcessedOrderHandler);
 const billingStrategyHandler_1 = require("./billingStrategyHandler");
 router.post('/api/v1/billing/strategies', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.createBillingStrategy));
+router.get('/api/v1/billing/strategies/all', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getAllBillingStrategies));
 router.get('/api/v1/billing/strategies/check/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.checkStrategyExists));
 router.get('/api/v1/billing/strategies/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getBillingStrategy));
 router.put('/api/v1/billing/strategies/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.updateBillingStrategy));

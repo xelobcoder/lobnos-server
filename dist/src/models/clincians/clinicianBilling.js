@@ -25,6 +25,23 @@ class BillingStrategy extends clinicianClass_1.default {
                 return false;
         }
     }
+    async getEntityInfo(tenantId, entity_type, entity_id) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        switch (entity_type) {
+            case 'clinician':
+                const clinician = await this.getSingleClinician(tenantId, entity_id);
+                return clinician;
+            case 'insurance':
+                return await new Insurance_1.default(entity_id).checkInsuranceExistence(tenantId, entity_id);
+            case 'organization':
+                const organization = await connection('organization').where({ id: entity_id }).first();
+                return organization;
+            case 'general':
+                return true;
+            default:
+                return false;
+        }
+    }
     calculateDiscountedValue(originalPrice, concessionMode, concessionValue, pricingType) {
         let discountedValue = concessionMode === 'absolute' ? concessionValue : (originalPrice * concessionValue) / 100;
         discountedValue = Math.max(0, discountedValue);
@@ -168,11 +185,7 @@ class BillingStrategy extends clinicianClass_1.default {
             return parseInt(strategyId.toString());
         }
         catch (error) {
-            console.error('Error in insertBillingStrategy:', error);
             throw new Error(`Failed to insert billing strategy: ${error.message}`);
-        }
-        finally {
-            await connection.destroy().catch(e => console.error('Error releasing connection:', e));
         }
     }
     async addApplicableTests(tenantId, strategyid, applicableTest) {
@@ -248,11 +261,8 @@ class BillingStrategy extends clinicianClass_1.default {
         }
         const applicableTest = await connection('billingstrategy_tests as bst')
             .leftJoin('test_panels as tp', 'bst.testid', 'tp.id')
-            .select('bst.testid', 'bst.concessionValue', 'bst.discountedValue', 'bst.concessionMode', 'bst.pricingType', 'tp.price as actualPrice', 'tp.price as originalPrice')
+            .select('bst.testid', 'bst.concessionValue', 'bst.discountedValue', 'bst.concessionMode', 'bst.pricingType', 'tp.price as actualPrice', 'tp.price as originalPrice', 'tp.name')
             .where({ 'bst.strategyid': strategyid });
-        const applicableEntities = await connection('billingstrategy_mapping')
-            .select('entity_type', 'entity_id')
-            .where({ strategyid });
         return Object.assign(Object.assign({}, strategy), { description: strategy.description || null, valid_from: strategy.valid_from || null, valid_until: strategy.valid_until || null, applicableTest: applicableTest.map(test => ({
                 testid: test.testid,
                 concessionValue: test.concessionValue,
@@ -260,8 +270,9 @@ class BillingStrategy extends clinicianClass_1.default {
                 concessionMode: test.concessionMode,
                 pricingType: test.pricingType,
                 actualPrice: test.actualPrice || 0,
+                name: test.name,
                 originalPrice: test.originalPrice || 0
-            })), applicableEntities: applicableEntities });
+            })) });
     }
     async getBillingStrategy(tenantId, strategyid) {
         try {
@@ -303,6 +314,11 @@ class BillingStrategy extends clinicianClass_1.default {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const strategies = await connection('billingstrategy').select('*');
         return Promise.all(strategies.map(strategy => this.sanitizeToFieldsOfStrategy(strategy.strategyid, tenantId)));
+    }
+    async getAllBillingStrategiesWithoutApplicableTest(tenantId) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const strategies = await connection('billingstrategy').select('*');
+        return strategies;
     }
     async getBillingStrategyByEntity(tenantId, entity_type, entity_id, isvalidonly = false) {
         if (!entity_type || !entity_id) {

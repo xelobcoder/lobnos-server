@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
+exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
 const clinicianBilling_1 = __importDefault(require("../../models/clincians/clinicianBilling"));
 async function createBillingStrategy(req, res) {
     try {
@@ -107,6 +107,45 @@ async function updateBillingStrategy(req, res) {
     }
 }
 exports.updateBillingStrategy = updateBillingStrategy;
+async function getAllBillingStrategies(request, response) {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString(), 10);
+        if (isNaN(tenantId)) {
+            return response.status(400).json({ message: 'Invalid tenant ID' });
+        }
+        const { entitytype, entityid } = request.query;
+        if (entitytype && !['clinician', 'insurance', 'organization', 'general'].includes(entitytype)) {
+            return response.status(400).json({ message: 'Invalid entity type. Must be clinician, insurance, organization, or general.' });
+        }
+        if (entityid && isNaN(parseInt(entityid.toString(), 10))) {
+            return response.status(400).json({ message: 'Invalid entity ID' });
+        }
+        if (entitytype && !entityid) {
+            return response.status(400).json({ message: 'Entity ID is required when entity type is provided.' });
+        }
+        let entityInformation = null;
+        if (entitytype && entityid) {
+            const strategyInstance = await new clinicianBilling_1.default().entityExists(tenantId, entitytype, entityid);
+            entityInformation = strategyInstance ? await new clinicianBilling_1.default().getEntityInfo(tenantId, entitytype, entityid) : null;
+        }
+        const strategyInstance = new clinicianBilling_1.default();
+        const strategies = await strategyInstance.getAllBillingStrategies(tenantId);
+        if (!strategies || strategies.length === 0) {
+            return response.status(404).json({ message: 'No billing strategies found.' });
+        }
+        response.status(200).json({
+            strategies,
+            entityInformation: entityInformation || null
+        });
+    }
+    catch (error) {
+        response.status(500).json({
+            message: 'Error retrieving billing strategies.',
+            error: error.message
+        });
+    }
+}
+exports.getAllBillingStrategies = getAllBillingStrategies;
 async function deleteBillingStrategy(req, res) {
     try {
         const strategyId = parseInt(req.params.strategyid);
@@ -133,9 +172,9 @@ async function deleteBillingStrategy(req, res) {
 exports.deleteBillingStrategy = deleteBillingStrategy;
 async function checkEntityHasStrategy(req, res) {
     try {
-        const tenantId = parseInt(req.query.tenantId || '0', 10);
-        const entityId = parseInt(req.params.entityid, 10);
-        const entityType = req.query.entityType;
+        const tenantId = parseInt(req.query.tenantId);
+        const entityId = parseInt(req.params.entityid);
+        const entityType = req.params.entityType;
         if (isNaN(tenantId) ||
             isNaN(entityId) ||
             !entityType ||
@@ -144,9 +183,13 @@ async function checkEntityHasStrategy(req, res) {
         }
         const strategyInstance = new clinicianBilling_1.default();
         const hasStrategy = await strategyInstance.entityHasStrategy(tenantId, entityType, entityId);
+        if (hasStrategy === null) {
+            return res.status(404).json({ message: 'Billing strategy not found for the specified entity.' });
+        }
         res.status(200).json({ hasStrategy });
     }
     catch (error) {
+        console.log(error);
         res.status(500).json({
             message: 'An error occurred while checking the billing strategy.',
             error: error.message,

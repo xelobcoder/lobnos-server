@@ -3,16 +3,16 @@ import { EntityType } from "../../models/clincians/c.dev.type";
 import BillingStrategy from "../../models/clincians/clinicianBilling";
 
 interface BillingStrategyRequestBody {
-  allConcessionApplied: boolean;
-  concessionValue: number;
-  concessionMode: 'absolute' | 'percentage';
-  price_type?: 'discount' | 'surcharge';
-  valid_from?: string;
-  valid_until?: string;
-  name: string;
-  description?: string;
-  applicableEntities?: { entity_type: EntityType; entity_id: number }[];
-  applicableTest?: { testid: number; concessionValue: number; discountedValue: number; concessionMode: 'absolute' | 'percentage'; pricingType: 'discount' | 'surcharge'; actualPrice: number; originalPrice: number }[];
+    allConcessionApplied: boolean;
+    concessionValue: number;
+    concessionMode: 'absolute' | 'percentage';
+    price_type?: 'discount' | 'surcharge';
+    valid_from?: string;
+    valid_until?: string;
+    name: string;
+    description?: string;
+    applicableEntities?: { entity_type: EntityType; entity_id: number }[];
+    applicableTest?: { testid: number; concessionValue: number; discountedValue: number; concessionMode: 'absolute' | 'percentage'; pricingType: 'discount' | 'surcharge'; actualPrice: number; originalPrice: number }[];
 }
 
 export async function createBillingStrategy(
@@ -128,6 +128,56 @@ export async function updateBillingStrategy(
     }
 }
 
+
+export async function getAllBillingStrategies(request: Request<{}, {}, {}, {
+    tenantId: number, entitytype?: EntityType, entityid?: number,
+}>, response: Response) {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString(), 10);
+        if (isNaN(tenantId)) {
+            return response.status(400).json({ message: 'Invalid tenant ID' });
+        }
+
+        const { entitytype, entityid } = request.query;
+
+        if (entitytype && !['clinician', 'insurance', 'organization', 'general'].includes(entitytype)) {
+            return response.status(400).json({ message: 'Invalid entity type. Must be clinician, insurance, organization, or general.' });
+        }
+
+
+        if (entityid && isNaN(parseInt(entityid.toString(), 10))) {
+            return response.status(400).json({ message: 'Invalid entity ID' });
+        }
+
+        if (entitytype && !entityid) {
+            return response.status(400).json({ message: 'Entity ID is required when entity type is provided.' });
+        }
+
+        let entityInformation = null;
+        if (entitytype && entityid) {
+            const strategyInstance = await new BillingStrategy().entityExists(tenantId, entitytype, entityid);
+            entityInformation = strategyInstance ? await new BillingStrategy().getEntityInfo(tenantId, entitytype, entityid) : null;
+        }
+
+        const strategyInstance = new BillingStrategy();
+        const strategies = await strategyInstance.getAllBillingStrategies(tenantId);
+
+        if (!strategies || strategies.length === 0) {
+            return response.status(404).json({ message: 'No billing strategies found.' });
+        }
+
+        response.status(200).json({
+            strategies,
+            entityInformation: entityInformation || null
+        });
+    } catch (error: any) {
+        response.status(500).json({
+            message: 'Error retrieving billing strategies.',
+            error: error.message
+        });
+    }
+}
+
 export async function deleteBillingStrategy(
     req: Request<{ strategyid: string }, {}, {}, { tenantId: string }>,
     res: Response
@@ -155,13 +205,13 @@ export async function deleteBillingStrategy(
 }
 
 export async function checkEntityHasStrategy(
-    req: Request<{ entityid: string }, {}, {}, { tenantId: string; entityType: EntityType }>,
+    req: Request<{ entityid: string, entityType: EntityType }, {}, {}, { tenantId: string; }>,
     res: Response
 ) {
     try {
-        const tenantId = parseInt(req.query.tenantId || '0', 10);
-        const entityId = parseInt(req.params.entityid, 10);
-        const entityType =  req.query.entityType;
+        const tenantId = parseInt(req.query.tenantId);
+        const entityId = parseInt(req.params.entityid);
+        const entityType = req.params.entityType as EntityType;
 
         if (
             isNaN(tenantId) ||
@@ -174,9 +224,12 @@ export async function checkEntityHasStrategy(
 
         const strategyInstance = new BillingStrategy();
         const hasStrategy = await strategyInstance.entityHasStrategy(tenantId, entityType, entityId);
-
+        if (hasStrategy === null) {
+            return res.status(404).json({ message: 'Billing strategy not found for the specified entity.' });
+        }
         res.status(200).json({ hasStrategy });
     } catch (error: any) {
+        console.log(error)
         res.status(500).json({
             message: 'An error occurred while checking the billing strategy.',
             error: error.message,
@@ -191,7 +244,7 @@ export async function getEntityBillingStrategy(
     try {
         const tenantId = parseInt(req.query.tenantId || '0', 10);
         const entityId = parseInt(req.params.entityid, 10);
-        const entityType =  req.query.entityType;
+        const entityType = req.query.entityType;
 
         if (
             isNaN(tenantId) ||

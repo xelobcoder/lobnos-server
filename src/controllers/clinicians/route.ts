@@ -27,9 +27,11 @@ import {
   deleteBillingStrategy,
   checkEntityHasStrategy,
   getEntityBillingStrategy,
+  getAllBillingStrategies,
 } from './billingStrategyHandler';
 
 router.post('/api/v1/billing/strategies', handleOverLoad(createBillingStrategy));
+router.get('/api/v1/billing/strategies/all', handleOverLoad(getAllBillingStrategies));
 router.get('/api/v1/billing/strategies/check/:strategyid', handleOverLoad(checkStrategyExists));
 router.get('/api/v1/billing/strategies/:strategyid', handleOverLoad(getBillingStrategy));
 router.put('/api/v1/billing/strategies/:strategyid', handleOverLoad(updateBillingStrategy));

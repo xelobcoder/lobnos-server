@@ -30,6 +30,25 @@ export default class BillingStrategy extends ClinicianClass {
           }
      }
 
+
+   async getEntityInfo(tenantId: number, entity_type: EntityType, entity_id: number): Promise<boolean> {
+          const connection = await KnexConnection(tenantId);
+          switch (entity_type) {
+               case 'clinician':
+                    const clinician = await this.getSingleClinician(tenantId, entity_id);
+                    return clinician
+               case 'insurance':
+                    return await new InsuranceClass(entity_id).checkInsuranceExistence(tenantId, entity_id);
+               case 'organization':
+                    const organization = await connection('organization').where({ id: entity_id }).first();
+                    return organization
+               case 'general':
+                    return true;
+               default:
+                    return false;
+          }
+     }
+
      private calculateDiscountedValue(
           originalPrice: number,
           concessionMode: 'absolute' | 'percentage',
@@ -158,58 +177,58 @@ export default class BillingStrategy extends ClinicianClass {
           };
      }
 
-public async insertBillingStrategy(tenantId: number, requestBody: BillingStrategyRequestBody): Promise<number> {
-    const connection = await KnexConnection(tenantId);
-    try {
-        const strategyId = await connection.transaction(async (trx) => {
-            const data = await this.sanitizeClinicianBillingData(tenantId, requestBody);
-            if (typeof data === 'string') throw new Error(data);
+     public async insertBillingStrategy(tenantId: number, requestBody: BillingStrategyRequestBody): Promise<number> {
+          const connection = await KnexConnection(tenantId);
+          try {
+               const strategyId = await connection.transaction(async (trx) => {
+                    const data = await this.sanitizeClinicianBillingData(tenantId, requestBody);
+                    if (typeof data === 'string') throw new Error(data);
 
-            const insertResult = await trx('billingstrategy')
-                .insert({
-                    name: data.name,
-                    description: data.description,
-                    allConcessionApplied: data.allConcessionApplied,
-                    concessionValue: data.concessionValue,
-                    concessionMode: data.concessionMode,
-                    price_type: data.price_type,
-                    valid_from: data.valid_from,
-                    valid_until: data.valid_until,
-                    is_expired: data.is_expired,
-                    createdon: data.createdon,
-                    updatedon: data.updatedon
-                })
-                .onConflict('name')
-                .merge({
-                    description: data.description,
-                    allConcessionApplied: data.allConcessionApplied,
-                    concessionValue: data.concessionValue,
-                    concessionMode: data.concessionMode,
-                    price_type: data.price_type,
-                    valid_from: data.valid_from,
-                    valid_until: data.valid_until,
-                    is_expired: data.is_expired,
-                    updatedon: trx.fn.now()
-                });
+                    const insertResult = await trx('billingstrategy')
+                         .insert({
+                              name: data.name,
+                              description: data.description,
+                              allConcessionApplied: data.allConcessionApplied,
+                              concessionValue: data.concessionValue,
+                              concessionMode: data.concessionMode,
+                              price_type: data.price_type,
+                              valid_from: data.valid_from,
+                              valid_until: data.valid_until,
+                              is_expired: data.is_expired,
+                              createdon: data.createdon,
+                              updatedon: data.updatedon
+                         })
+                         .onConflict('name')
+                         .merge({
+                              description: data.description,
+                              allConcessionApplied: data.allConcessionApplied,
+                              concessionValue: data.concessionValue,
+                              concessionMode: data.concessionMode,
+                              price_type: data.price_type,
+                              valid_from: data.valid_from,
+                              valid_until: data.valid_until,
+                              is_expired: data.is_expired,
+                              updatedon: trx.fn.now()
+                         });
 
-         
-            const [insertedStrategyId] = insertResult;
-            if (!insertedStrategyId) {
-                throw new Error('Failed to insert or update billing strategy.');
-            }
 
-            if (data.allConcessionApplied === 0 && data.applicableTest?.length > 0) {
-                const values = data.applicableTest.map(test => [
-                    insertedStrategyId,
-                    test.testid,
-                    test.concessionValue,
-                    test.discountedValue,
-                    test.concessionMode,
-                    test.pricingType
-                ]);
+                    const [insertedStrategyId] = insertResult;
+                    if (!insertedStrategyId) {
+                         throw new Error('Failed to insert or update billing strategy.');
+                    }
 
-     
-                await trx.raw(`
+                    if (data.allConcessionApplied === 0 && data.applicableTest?.length > 0) {
+                         const values = data.applicableTest.map(test => [
+                              insertedStrategyId,
+                              test.testid,
+                              test.concessionValue,
+                              test.discountedValue,
+                              test.concessionMode,
+                              test.pricingType
+                         ]);
+
+
+                         await trx.raw(`
                     INSERT INTO billingstrategy_tests 
                     (strategyid, testid, concessionValue, discountedValue, concessionMode, pricingType)
                     VALUES ${values.map(() => '(?, ?, ?, ?, ?, ?)').join(',')}
@@ -219,20 +238,16 @@ public async insertBillingStrategy(tenantId: number, requestBody: BillingStrateg
                         concessionMode = VALUES(concessionMode),
                         pricingType = VALUES(pricingType)
                 `, values.flat());
-            }
+                    }
 
-            return insertedStrategyId;
-        });
+                    return insertedStrategyId;
+               });
 
-        return parseInt(strategyId.toString());
-    } catch (error) {
-        console.error('Error in insertBillingStrategy:', error);
-        throw new Error(`Failed to insert billing strategy: ${error.message}`);
-    } finally {
-    
-        await connection.destroy().catch(e => console.error('Error releasing connection:', e));
-    }
-}
+               return parseInt(strategyId.toString());
+          } catch (error) {
+               throw new Error(`Failed to insert billing strategy: ${error.message}`);
+          }
+     }
 
      public async addApplicableTests(
           tenantId: number,
@@ -333,13 +348,11 @@ public async insertBillingStrategy(tenantId: number, requestBody: BillingStrateg
                     'bst.concessionMode',
                     'bst.pricingType',
                     'tp.price as actualPrice',
-                    'tp.price as originalPrice'
+                    'tp.price as originalPrice',
+                    'tp.name'
                )
                .where({ 'bst.strategyid': strategyid });
 
-          const applicableEntities = await connection('billingstrategy_mapping')
-               .select('entity_type', 'entity_id')
-               .where({ strategyid });
 
           return {
                ...strategy,
@@ -353,9 +366,9 @@ public async insertBillingStrategy(tenantId: number, requestBody: BillingStrateg
                     concessionMode: test.concessionMode,
                     pricingType: test.pricingType,
                     actualPrice: test.actualPrice || 0,
+                    name: test.name,
                     originalPrice: test.originalPrice || 0
                })),
-               applicableEntities: applicableEntities
           };
      }
 
@@ -407,6 +420,12 @@ public async insertBillingStrategy(tenantId: number, requestBody: BillingStrateg
           const connection = await KnexConnection(tenantId);
           const strategies = await connection('billingstrategy').select('*');
           return Promise.all(strategies.map(strategy => this.sanitizeToFieldsOfStrategy(strategy.strategyid, tenantId)));
+     }
+
+     public async getAllBillingStrategiesWithoutApplicableTest(tenantId: number): Promise<(IBillingStrategy & { applicableTest: ApplicableTest[], applicableEntities: ApplicableEntity[] })[]> {
+          const connection = await KnexConnection(tenantId);
+          const strategies = await connection('billingstrategy').select('*');
+          return strategies;
      }
 
      public async getBillingStrategyByEntity(
