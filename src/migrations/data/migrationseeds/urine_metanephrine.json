@@ -1,0 +1,64 @@
+{
+  "testcreationrule": [
+    {
+      "name": "24 Hour Urine Volume",
+      "value": "",
+      "hasUnits": true,
+      "units": "mL",
+      "plan": "input",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Metanephrine",
+      "value": "",
+      "hasUnits": true,
+      "units": "μg/24h",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "350",
+      "lowerLimit": "0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Normetanephrine",
+      "value": "",
+      "hasUnits": true,
+      "units": "μg/24h",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "600",
+      "lowerLimit": "0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Total Metanephrines",
+      "value": "",
+      "hasUnits": true,
+      "units": "μg/24h",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "950",
+      "lowerLimit": "0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

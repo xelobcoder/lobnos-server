@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "C-Reactive Protein",
+      "value": "",
+      "hasUnits": true,
+      "units": "mg/L",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "10",
+      "lowerLimit": "0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

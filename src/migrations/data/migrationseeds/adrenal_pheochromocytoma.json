@@ -1,0 +1,79 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Specimen Type",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "input",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Gross Description",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Microscopic Findings",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Immunohistochemistry",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Diagnosis",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 5,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

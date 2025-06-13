@@ -1,0 +1,64 @@
+{
+  "testcreationrule": [
+    {
+      "name": "HBV DNA",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Detected,Not Detected"
+    },
+    {
+      "name": "Internal Control",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Valid,Invalid"
+    },
+    {
+      "name": "Method",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Comments",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

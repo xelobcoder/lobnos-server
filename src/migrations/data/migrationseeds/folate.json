@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Folate",
+      "value": "",
+      "hasUnits": true,
+      "units": "ng/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "20",
+      "lowerLimit": "3",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

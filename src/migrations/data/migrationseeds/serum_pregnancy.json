@@ -1,0 +1,49 @@
+{
+  "testcreationrule": [
+    {
+      "name": "β-hCG",
+      "value": "",
+      "hasUnits": true,
+      "units": "mIU/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "100000",
+      "lowerLimit": "0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Result",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Positive,Negative,Indeterminate"
+    },
+    {
+      "name": "Interpretation",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

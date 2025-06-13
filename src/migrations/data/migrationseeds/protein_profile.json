@@ -1,0 +1,49 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Total Protein",
+      "value": "",
+      "hasUnits": true,
+      "units": "g/dL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "8.0",
+      "lowerLimit": "6.0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Albumin",
+      "value": "",
+      "hasUnits": true,
+      "units": "g/dL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "5.0",
+      "lowerLimit": "3.5",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Comments",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

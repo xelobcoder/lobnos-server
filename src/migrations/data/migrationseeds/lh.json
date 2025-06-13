@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "LH",
+      "value": "",
+      "hasUnits": true,
+      "units": "mIU/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "95.0",
+      "lowerLimit": "1.5",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

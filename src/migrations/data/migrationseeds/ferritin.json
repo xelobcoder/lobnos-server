@@ -1,0 +1,19 @@
+{
+    "testcreationrule": [
+      {
+        "name": "Ferritin",
+        "value": "",
+        "hasUnits": true,
+        "units": "ng/mL",
+        "plan": "limits",
+        "plain": "",
+        "ordering": 1,
+        "textReference": "Male: 30-300 ng/mL, Female: 15-200 ng/mL",
+        "upperLimit": "300",
+        "lowerLimit": "30",
+        "underCategory": false,
+        "categoryId": null,
+        "options": ""
+      }
+    ]
+}

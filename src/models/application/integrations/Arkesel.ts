@@ -1,0 +1,209 @@
+interface SmsConfig {
+    apiKey: string;
+    defaultSender: string;
+    baseUrl: string;
+}
+
+interface SmsResponse {
+    status: string;
+    code: number;
+    message: string;
+    data?: any;
+}
+
+interface SmsSendOptions {
+    sender?: string;
+    callbackUrl?: string;
+    scheduledDate?: string;
+}
+
+// Add new interfaces for validation
+interface PhoneValidationResult {
+    isValid: boolean;
+    formattedNumber: string | null;
+    error?: string;
+}
+
+export class SmsService {
+    private readonly config: SmsConfig;
+    
+    constructor(apiKey?: string) {
+        this.config = {
+            apiKey: apiKey || process.env.ARKESEL_SMS_API_KEY || '',
+            defaultSender: process.env.SMS_DEFAULT_SENDER || 'Vitalscan',
+            baseUrl: 'https://sms.arkesel.com'
+        };
+
+        if (!this.config.apiKey) {
+            throw new Error('SMS API key is required');
+        }
+    }
+
+    private async sendRequest(endpoint: string, method: string, data?: object): Promise<SmsResponse> {
+        try {
+            const headers: HeadersInit = {
+                'Content-Type': 'application/json',
+                'api-key': this.config.apiKey
+            };
+
+            const response = await fetch(
+                `${this.config.baseUrl}${endpoint}`, 
+                {
+                    method,
+                    headers,
+                    body: method !== 'GET' && data ? JSON.stringify(data) : undefined,
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`SMS API error: ${response.status} ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            return result;
+        } catch (error) {
+            console.error('SMS service error:', error);
+            throw new Error(error instanceof Error ? error.message : 'Unknown SMS service error');
+        }
+    }
+
+    private validatePhoneNumber(phone: string): PhoneValidationResult {
+        if (!phone) {
+            return { 
+                isValid: false, 
+                formattedNumber: null, 
+                error: 'Phone number is required' 
+            };
+        }
+
+        // Remove all non-digit characters
+        let digits = phone.replace(/\D/g, '');
+
+        // Handle numbers starting with 00
+        if (digits.startsWith('00')) {
+            digits = digits.slice(2);
+        }
+
+        // Handle different formats
+        let formattedNumber: string | null = null;
+
+        if (digits.length === 9) {
+            formattedNumber = '0' + digits;
+        } else if (digits.startsWith('255') && digits.length === 12) {
+            formattedNumber = '0' + digits.slice(3);
+        } else if (digits.length === 10) {
+            formattedNumber = digits.startsWith('0') ? digits : '0' + digits;
+        }
+
+        if (!formattedNumber || !/^0\d{9}$/.test(formattedNumber)) {
+            return {
+                isValid: false,
+                formattedNumber: null,
+                error: 'Invalid phone number format'
+            };
+        }
+
+        return {
+            isValid: true,
+            formattedNumber
+        };
+    }
+
+    private validateRecipients(recipients: string[]): {
+        validNumbers: string[];
+        invalidNumbers: Array<{ number: string; error: string }>;
+    } {
+        const validNumbers: string[] = [];
+        const invalidNumbers: Array<{ number: string; error: string }> = [];
+
+        recipients.forEach(number => {
+            const validation = this.validatePhoneNumber(number);
+            if (validation.isValid && validation.formattedNumber) {
+                validNumbers.push(validation.formattedNumber);
+            } else {
+                invalidNumbers.push({
+                    number,
+                    error: validation.error || 'Invalid number'
+                });
+            }
+        });
+
+        return { validNumbers, invalidNumbers };
+    }
+
+    async sendSms(
+        recipients: string[], 
+        message: string, 
+        options: SmsSendOptions = {}
+    ): Promise<SmsResponse> {
+        if (!recipients.length || !message.trim()) {
+            throw new Error('Recipients and message are required');
+        }
+
+        // Validate all numbers first
+        const { validNumbers, invalidNumbers } = this.validateRecipients(recipients);
+
+        if (invalidNumbers.length > 0) {
+            console.warn('Invalid phone numbers detected:', invalidNumbers);
+        }
+
+        if (validNumbers.length === 0) {
+            throw new Error('No valid phone numbers provided');
+        }
+
+        const data = {
+            sender: options.sender || this.config.defaultSender,
+            message: message.trim(),
+            recipients: validNumbers,
+            ...(options.callbackUrl && { callback_url: options.callbackUrl }),
+            ...(options.scheduledDate && { scheduled_date: options.scheduledDate })
+        };
+
+        return this.sendRequest('/api/v2/sms/send', 'POST', data);
+    }
+
+    async sendSingleSms(
+        to: string, 
+        message: string, 
+        options: SmsSendOptions = {}
+    ): Promise<SmsResponse> {
+        if (!to || !message.trim()) {
+            throw new Error('Recipient and message are required');
+        }
+
+        const validation = this.validatePhoneNumber(to);
+        if (!validation.isValid) {
+            throw new Error(`Invalid phone number: ${validation.error}`);
+        }
+
+        const queryParams = new URLSearchParams({
+            action: 'send-sms',
+            api_key: this.config.apiKey,
+            to: validation.formattedNumber!,
+            sms: message.trim(),
+            sender: options.sender || this.config.defaultSender
+        });
+
+        return this.sendRequest(`/sms/api?${queryParams}`, 'GET');
+    }
+
+    // Convenience methods
+    async scheduleSms(
+        recipients: string[], 
+        message: string, 
+        scheduledDate: string, 
+        sender?: string
+    ): Promise<SmsResponse> {
+        return this.sendSms(recipients, message, { scheduledDate, sender });
+    }
+
+    async sendSmsWithWebhook(
+        recipients: string[], 
+        message: string, 
+        callbackUrl: string, 
+        sender?: string
+    ): Promise<SmsResponse> {
+        return this.sendSms(recipients, message, { callbackUrl, sender });
+    }
+}
+

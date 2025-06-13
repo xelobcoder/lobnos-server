@@ -1,0 +1,34 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Leptospira IgG",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Positive,Negative,Equivocal"
+    },
+    {
+      "name": "Interpretation",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

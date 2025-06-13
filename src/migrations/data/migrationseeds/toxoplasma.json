@@ -1,0 +1,79 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Toxoplasma IgG",
+      "value": "",
+      "hasUnits": true,
+      "units": "IU/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "3.0",
+      "lowerLimit": "0.0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Toxoplasma IgG Interpretation",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Negative,Positive,Equivocal"
+    },
+    {
+      "name": "Toxoplasma IgM",
+      "value": "",
+      "hasUnits": true,
+      "units": "Index",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "1.0",
+      "lowerLimit": "0.0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Toxoplasma IgM Interpretation",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Negative,Positive,Equivocal"
+    },
+    {
+      "name": "Comments",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 5,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "name": "lobnos-server",
+  "version": "1.0.0",
+  "description": "Server for running lobnos sotware",
+  "main": "app.js",
+  "scripts": {
+    "dev": "nodemon --env-file=./.env ./dist/src/app.js ",
+    "tsdev": "npx tsc --w",
+    "start": "node ./dist/app.js"
+  },
+  "keywords": [
+    "high performance laboratory information system",
+    "lims"
+  ],
+  "author": "Tiifu Hamza",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^5.1.0",
+    "cookie-session": "^2.0.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
+    "ejs": "^3.1.9",
+    "express": "^4.19.2",
+    "install": "^0.13.0",
+    "jsonwebtoken": "^9.0.2",
+    "knex": "^3.1.0",
+    "kysely": "^0.27.4",
+    "luxon": "^3.6.1",
+    "moment": "^2.30.1",
+    "multer": "^1.4.5-lts.1",
+    "mysql": "^2.18.1",
+    "mysql2": "^3.11.5",
+    "nodemailer": "^6.9.5",
+    "nodemailer-smtp-transport": "^2.4.2",
+    "redis": "^4.6.13",
+    "winston": "^3.10.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.1",
+    "@types/multer": "^1.4.12",
+    "typescript": "^5.4.5"
+  }
+}

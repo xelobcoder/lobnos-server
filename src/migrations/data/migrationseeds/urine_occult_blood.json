@@ -1,0 +1,64 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Occult Blood",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Negative,Trace,1+,2+,3+"
+    },
+    {
+      "name": "RBC Count",
+      "value": "",
+      "hasUnits": true,
+      "units": "/HPF",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "5",
+      "lowerLimit": "0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Hemoglobin",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Not Detected,Small,Moderate,Large"
+    },
+    {
+      "name": "Comments",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

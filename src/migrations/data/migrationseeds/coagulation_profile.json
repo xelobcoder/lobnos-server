@@ -1,0 +1,64 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Prothrombin Time (PT)",
+      "value": "",
+      "hasUnits": true,
+      "units": "seconds",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "13.5",
+      "lowerLimit": "10.5",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "INR",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "1.1",
+      "lowerLimit": "0.8",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "APTT",
+      "value": "",
+      "hasUnits": true,
+      "units": "seconds",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "35",
+      "lowerLimit": "25",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Comments",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

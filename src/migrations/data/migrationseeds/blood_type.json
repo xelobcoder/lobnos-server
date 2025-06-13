@@ -1,0 +1,34 @@
+{
+    "testcreationrule": [
+      {
+        "name": "ABO Blood Group",
+        "value": "",
+        "hasUnits": false,
+        "units": "",
+        "plan": "options",
+        "plain": "",
+        "ordering": 1,
+        "textReference": "",
+        "upperLimit": "",
+        "lowerLimit": "",
+        "underCategory": false,
+        "categoryId": null,
+        "options": "A,B,AB,O"
+      },
+      {
+        "name": "Rh Factor",
+        "value": "",
+        "hasUnits": false,
+        "units": "",
+        "plan": "options",
+        "plain": "",
+        "ordering": 2,
+        "textReference": "",
+        "upperLimit": "",
+        "lowerLimit": "",
+        "underCategory": false,
+        "categoryId": null,
+        "options": "Positive,Negative"
+      }
+    ]
+}

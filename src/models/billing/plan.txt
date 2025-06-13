@@ -1,0 +1,53 @@
+TEST ASCENSION FIELD 
+
+
+
+
+BILLING FIELD
+     1. billingid
+     2. patientid
+     3. paidAmount
+     4. amountPayable
+     5. discount
+     6. organization
+     7. clinician
+     8. refererType
+     9. branchid
+     10. clientstatus
+     11. testcost 
+     12. employeeid
+
+SERVICE FIELD
+     1. billingid
+     2. testid
+     3. cost 
+     4. amountPaid
+     5. isGeneral
+     6. organizationBillingid
+     7. iInsurance
+     5. PaymentMode
+     6. discount
+     7. isPaymentComplete
+     8. amountDue
+     9. month
+     10.year
+     11.day
+     12. employeeid
+     13. discountAppliedBy
+     14. isRefunded
+
+
+BILLINGREFUNDTABLE
+    1. serviceid
+    2. amountRefunded
+    3. refundedBy
+    4.firstWitness
+    5.secondWitness
+    6. thirdWitness
+    7.purposeForRefund
+    8. firstWitnessDate
+    9. secondWitnessDate
+    10.thirdWitnessDate
+    11. isRefundCompleted
+
+     SERVICEFIELD AUDIT 

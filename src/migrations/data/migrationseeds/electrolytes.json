@@ -1,0 +1,64 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Sodium",
+      "value": "",
+      "hasUnits": true,
+      "units": "mEq/L",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "145",
+      "lowerLimit": "135",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Potassium",
+      "value": "",
+      "hasUnits": true,
+      "units": "mEq/L",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "5.0",
+      "lowerLimit": "3.5",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Chloride",
+      "value": "",
+      "hasUnits": true,
+      "units": "mEq/L",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "106",
+      "lowerLimit": "98",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Comments",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

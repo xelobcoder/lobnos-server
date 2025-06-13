@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Anti-Mullerian Hormone",
+      "value": "",
+      "hasUnits": true,
+      "units": "ng/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "12.6",
+      "lowerLimit": "0.7",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

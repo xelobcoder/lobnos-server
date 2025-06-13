@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Anti-HCV",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Reactive,Non-Reactive"
+    }
+  ]
+}

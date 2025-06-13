@@ -1,0 +1,417 @@
+"use strict";
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ALERT_OPTIONS = exports.CONSTRAINTSLEVEL = void 0;
+const testpanelList_1 = require("../../testpanel/testpanelList");
+const queries_1 = require("./queries");
+const registration_1 = __importDefault(require("../registration/registration"));
+const ascension_1 = require("../operations/ascension");
+const helper_1 = require("../../hooks/helper");
+const resultEncryptionReferer_1 = __importDefault(require("./resultEncryptionReferer"));
+const TestCreationRulesRepository_1 = __importDefault(require("../TestCreation/TestCreationRulesRepository"));
+const CriticalValueEvaluator_1 = require("./CriticalValueEvaluator");
+class Creator {
+    constructor(testid) {
+        this.testid = testid;
+    }
+    async getTestCreationRule(tenantId) {
+        if (!this.testid)
+            throw new Error("testid is required");
+        const rule = await (0, helper_1.promisifyQuery)(tenantId, queries_1.testCreationRule, [this.testid]);
+        if (rule.length > 0 && rule[0].creationrule !== "{}") {
+            const result = JSON.parse(rule[0].creationrule);
+            return result;
+        }
+        return [];
+    }
+    async getPreviousRecords(tenantId, testid, billingid, patientid) {
+        const previousRecords = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM test_results WHERE billingid = ? AND patientid = ? AND testid  = ?`, [
+            billingid,
+            patientid,
+            testid
+        ]);
+        return previousRecords;
+    }
+    async getPreviousRecordsOrCreationRule(tenantId, testid, billingid, patientid) {
+        try {
+            const [previousRecords, creationRules] = await Promise.all([
+                this.getPreviousRecords(tenantId, testid, billingid, patientid),
+                new TestCreationRulesRepository_1.default(tenantId).findByTestId(testid)
+            ]);
+            if (previousRecords.length === 0)
+                return creationRules;
+            if (previousRecords.length > 0 && creationRules.length > 0) {
+                const mappings = previousRecords.map(item => {
+                    const matchingRule = creationRules.find(rule => rule.id === item.fieldid);
+                    return matchingRule ? Object.assign(Object.assign({}, matchingRule), item) : null;
+                });
+                return mappings.filter(Boolean);
+            }
+        }
+        catch (err) {
+        }
+    }
+    async getPreviousRecordsWithTestRuleMapped(tenantId, testid, billingid, patientid) {
+        try {
+            const [previousRecords, creationRules] = await Promise.all([
+                this.getPreviousRecords(tenantId, testid, billingid, patientid),
+                new TestCreationRulesRepository_1.default(tenantId).findByTestId(testid)
+            ]);
+            if (!Array.isArray(previousRecords) || previousRecords.length === 0 ||
+                !Array.isArray(creationRules) || creationRules.length === 0) {
+                return null;
+            }
+            const mappings = previousRecords.map(item => {
+                const matchingRule = creationRules.find(rule => rule.id === item.fieldid);
+                return matchingRule ? Object.assign(Object.assign({}, matchingRule), item) : null;
+            });
+            return mappings.filter(Boolean);
+        }
+        catch (error) {
+            console.error('Error in getPreviousRecordsWithTestRuleMapped:', error);
+            throw new Error('Failed to map previous records with test rules');
+        }
+    }
+    async getResultEntryTest(tenantId, scvid, ptid, target) {
+        if (typeof target == "string")
+            target = target.split(",");
+        const patientid = parseInt(ptid.slice(target[1]));
+        const billingid = parseInt(scvid.slice(target[0]));
+        const patientdata = await new registration_1.default().getPatientBasicData(tenantId, patientid);
+        if (patientdata === null)
+            return "such id not found" /* OperationsFailures.unfoundID */ + '. Patient Not Found';
+        const collection = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_test_ascension_name_and_id, [billingid]);
+        if (collection.length > 0) {
+            return { personal_data: patientdata, test: collection || [] };
+        }
+        return { personal_data: patientdata || {}, test: collection || [] };
+    }
+    async getResultEntryRecords(tenantId, testid, billingid, patientid) {
+        try {
+            let hasDrugs = false;
+            const parsedBillingid = parseInt(billingid.toString());
+            const parsedPatientid = parseInt(patientid.toString());
+            const testname = await testpanelList_1.testpanel.getTestUsingTestid(tenantId, testid);
+            if (!testname)
+                return "such id not found" /* OperationsFailures.unfoundID */;
+            let previousRecords = await this.getPreviousRecordsOrCreationRule(tenantId, testid, parsedBillingid, parsedPatientid);
+            if (previousRecords.length === 0)
+                return { result: [], testname: null, hasDrugs: false };
+            hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
+            return { result: previousRecords, testname, hasDrugs };
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async getCustomPreviousRecords(tenantId, testid, billingid, patientid) {
+        try {
+            let hasDrugs = false;
+            const parsedBillingid = parseInt(billingid.toString());
+            const parsedPatientid = parseInt(patientid.toString());
+            const testname = await testpanelList_1.testpanel.getTestUsingTestid(tenantId, testid);
+            if (!testname)
+                return "such id not found" /* OperationsFailures.unfoundID */;
+            let previousRecords = await this.getPreviousRecordsWithTestRuleMapped(tenantId, testid, parsedBillingid, parsedPatientid);
+            if (!Array.isArray(previousRecords) || previousRecords.length === 0)
+                return { result: [], testname: null, hasDrugs: false };
+            const testDetails = await testpanelList_1.testpanel.getTestDetails(tenantId, testid);
+            hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
+            const hasGenderVariation = testDetails ? testDetails['hasGenderVariation'] : false;
+            let clientGender = "";
+            if (hasGenderVariation) {
+                const packet = await (0, helper_1.promisifyQuery)(tenantId, queries_1.getGenderQuery, [patientid]);
+                if (packet.length > 0)
+                    clientGender = packet[0]["gender"];
+            }
+            if (hasGenderVariation && clientGender) {
+                previousRecords = previousRecords.map((item) => {
+                    const obj = Object.assign({}, item);
+                    if (item[clientGender]) {
+                        obj.upperlimit = item[clientGender].upperlimit;
+                        obj.lowerlimit = item[clientGender].lowerlimit;
+                        delete obj.female;
+                        delete obj.male;
+                    }
+                    return obj;
+                });
+            }
+            return { testname, result: previousRecords, hasDrugs };
+        }
+        catch (err) {
+            throw err;
+        }
+    }
+    async resultPresentationView(tenantId, testid, billingid, patientid) {
+        const resultDataset = await this.getCustomPreviousRecords(tenantId, testid, billingid, patientid);
+        if (typeof resultDataset == "string")
+            return resultDataset;
+        const { result, hasDrugs, testname } = resultDataset;
+        if (result && Array.isArray(result) && result.length > 0) {
+            let resultOmissionMaleFemale = result.map((item, index) => {
+                const { female, male, isValueTracked, type, valueAlert, plain, useplain, alert, constraint } = item, rest = __rest(item, ["female", "male", "isValueTracked", "type", "valueAlert", "plain", "useplain", "alert", "constraint"]);
+                return rest;
+            });
+            return {
+                result: resultOmissionMaleFemale,
+                hasDrugs,
+                testname
+            };
+        }
+        return [];
+    }
+    async hasDrugAssociatedWithTest(tenantId, testid, hasDrugs) {
+        let testDetails = await testpanelList_1.testpanel.getPanelEditSingle(tenantId, testid);
+        if (Array.isArray(testDetails) && testDetails.length > 0) {
+            const iHasDrugs = testDetails[0]['hasDrugs'];
+            hasDrugs = iHasDrugs == 1 ? true : false;
+        }
+        return hasDrugs;
+    }
+    async getCustomCommentsRecords(tenantId, billingid, testid) {
+        if (!billingid || !testid) {
+            throw new Error("testid and billingid required");
+        }
+        let comments = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_comments_query, [billingid, testid]);
+        return comments.length > 0 ? comments[0]["comments"] : "";
+    }
+    async createUltrasoundTemplateTable(tenantId, tablename) {
+        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.modify_ultrasound_field_to_support_long_text);
+    }
+    async updateTestCreationRule(tenantId, data) {
+        if (!this.testid || !data)
+            throw new Error("testid and data is required");
+        const stringdata = JSON.stringify(data);
+        const isUpdated = await (0, helper_1.promisifyQuery)(tenantId, queries_1.update_creation_query, [stringdata, this.testid]);
+        const isUltrasoundScan = await testpanelList_1.testpanel.isTestUltrasoundScanCategory(tenantId, this.testid);
+        if (isUltrasoundScan) {
+            const tableName = testpanelList_1.testpanel.generateTableNameUsingTestid(this.testid);
+            this.createUltrasoundTemplateTable(tenantId, tableName);
+        }
+        return (0, helper_1.rowAffected)(isUpdated);
+    }
+    sanitize_patientid_billingid_query(csvid, ptid, target) {
+        if (typeof target != "string" && !Array.isArray(target))
+            throw new TypeError("Array or string separated by delimeter , required");
+        let splitter = target;
+        if (typeof target == "string") {
+            splitter = target.trim().split(",");
+        }
+        const ptsplitter = parseInt(splitter[1]);
+        const blsplitter = parseInt(splitter[0]);
+        let patientid = ptid.slice(ptsplitter);
+        let billingid = csvid.slice(blsplitter);
+        if (!isNaN(patientid) && !isNaN(billingid)) {
+            patientid = parseInt(patientid);
+            billingid = parseInt(billingid);
+        }
+        return { patientid: parseInt(patientid.toString()), billingid: parseInt(billingid) };
+    }
+    async resultEntry(tenantId, requestBody) {
+        const { csvid, ptid, testid, fields, employeeid, comments, ascensionid, isScan, hasDrugs, drugs } = requestBody;
+        if (!csvid || !ptid || !testid || !fields || (Array.isArray(fields) && fields.length == 0)) {
+            return "Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */;
+        }
+        let { billingid, patientid } = this.sanitize_patientid_billingid_query(csvid, ptid, "70,50");
+        if (typeof billingid != "number" || typeof patientid != "number") {
+            return "The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */;
+        }
+        const shouldCreateRecord = async function (tenantId, field, ascensionId) {
+            const records = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND field = ?`, [
+                ascensionId, field
+            ]);
+            return Array.isArray(records) && records.length === 0;
+        };
+        const insertUpdate = async function (tenantId, fields) {
+            const { resources } = await (0, resultEncryptionReferer_1.default)(fields);
+            const insertAll = await Promise.all(resources.map(async (item, index) => {
+                const originalvalue = item.originalvalue;
+                const isCreateRecord = await shouldCreateRecord(tenantId, item.field, ascensionid);
+                if (isCreateRecord) {
+                    const values = [item.field, billingid, patientid, item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.fieldid, testid, ascensionid];
+                    if (isScan) {
+                        await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
+                    }
+                    const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid) 
+						VALUES(?,?,?,?,?,?,?,?,?,?)`;
+                    await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
+                    return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
+                }
+                else {
+                    const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,fieldid = ? WHERE ascensionid = ? AND field = ?`;
+                    const result = await (0, helper_1.promisifyQuery)(tenantId, updateRecords, [item.value, employeeid, item === null || item === void 0 ? void 0 : item.entrymode, originalvalue, item.fieldid, ascensionid, item.field, testid]);
+                    await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
+                    return (0, helper_1.rowAffected)(result);
+                }
+            }));
+            const isAllInserted = insertAll.some((a, i) => a == false);
+            const pushCommentsQuery = `UPDATE result_comments SET comments = ? WHERE billingid = ? AND testid = ?`;
+            const commentSection = async function () {
+                const isRecordAvailable = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM result_comments WHERE testid = ? AND billingid = ?`, [
+                    testid,
+                    billingid,
+                ]);
+                if (isRecordAvailable.length > 0) {
+                    return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, pushCommentsQuery, [comments, billingid, testid]));
+                }
+                else {
+                    return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, `insert into result_comments (testid,billingid,comments) VALUES (?,?,?)`, [testid, billingid, comments]));
+                }
+            };
+            const isCommented = await commentSection();
+            return isAllInserted === false && isCommented;
+        };
+        if (hasDrugs && drugs.length > 0) {
+            let refinedDrugsArray = drugs.map((item, index) => { return Object.assign(Object.assign({}, item), { ascensionid, testid, reaction: item.sensitivity, drugid: item.id }); });
+            let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray);
+            if (isDrugsInserted) {
+                await ascension_1.TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+            }
+        }
+        if (!hasDrugs) {
+            await ascension_1.TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+        }
+        const criticalcallout = await CriticalValueEvaluator_1.CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
+        return !isScan ? await insertUpdate(tenantId, fields) : await insertUpdate(tenantId, criticalcallout);
+    }
+    static async logCriticalValue(tenantId, testid, billingid, statement, employeeid) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.insert_critical_value_alert, [billingid, testid, statement, employeeid]);
+        return (0, helper_1.rowAffected)(result);
+    }
+    static async createUltrasoundScanTemplateMapper(tenantId, template) {
+        const { employeeid, name, testid, visibleToAll, associatedbodypart } = template;
+        const insert = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_insert_new_ultrasound_template_mapper, [testid, name, employeeid, visibleToAll, associatedbodypart]);
+        return insert.insertId ? parseInt(insert.insertId) : false;
+    }
+    static async updateUltrasoundScanTemplateMapper(tenantId, template) {
+        const { employeeid, name, testid, visibleToAll, associatedbodypart, keyid } = template;
+        const updateRow = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_ultrasound_template_mapper, [name, employeeid, visibleToAll, associatedbodypart, keyid]);
+        return (0, helper_1.rowAffected)(updateRow);
+    }
+    static async createUltrasoundTemplate(tenantId, template) {
+        try {
+            const { fields } = template;
+            const templateId = await this.createUltrasoundScanTemplateMapper(tenantId, template);
+            if (typeof templateId !== "number")
+                return false;
+            if (Array.isArray(fields) && fields.length > 0) {
+                for (let i = 0; i < fields.length; i++) {
+                    const { name, value, id } = fields[i];
+                    await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_insert_ultrasound_template, [templateId, name, value, id]);
+                }
+            }
+            return true;
+        }
+        catch (error) {
+            console.error("Error creating ultrasound template:", error);
+            return false;
+        }
+    }
+    static async updateUltrasoundTemplate(tenantId, template) {
+        const { fields, keyid } = template;
+        const isUpdated = await this.updateUltrasoundScanTemplateMapper(tenantId, template);
+        if (!isUpdated)
+            return "Query execution failed." /* OperationsFailures.queryExecutionFailed */;
+        if (Array.isArray(fields) && fields.length > 0) {
+            for (let i = 0; i < fields.length; i++) {
+                const { field, value } = fields[i];
+                const hasField = await this.hasUltrasoundTemplateField(tenantId, keyid, field);
+                if (hasField) {
+                    await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_ultrasound_template, [field, value, keyid, field]);
+                }
+                else {
+                    await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_insert_ultrasound_template, [keyid, field, value]);
+                }
+            }
+        }
+        return true;
+    }
+    static async getUltrasoundTemplateField(tenantId, templateid, fieldName) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_ultrasound_template_field, [templateid, fieldName]);
+        if (result.length === 0)
+            return null;
+        return result;
+    }
+    static async hasUltrasoundTemplateField(tenantId, templateid, fieldName) {
+        const result = await this.getUltrasoundTemplateField(tenantId, templateid, fieldName);
+        if (result === null)
+            return false;
+        return result.length > 0;
+    }
+    static async getUltrasoundTemplate(tenantId, templateId) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_a_single_ultrasound_template, [templateId]);
+        return result;
+    }
+    static async getUltrasoundTypeTemplates(tenantId, testid, count, page, employeeid) {
+        return await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_get_ultrasound_template_mapper_scan_type, [employeeid, testid], tenantId);
+    }
+    static async getUltrasoundTemplateMapper(tenantId, templateid) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_a_single_ultrasound_mapper, [templateid]);
+        if (result.length === 0)
+            return null;
+        return result[0];
+    }
+    static async getUltrasoundTemplateSingleDetail(tenantId, templateid) {
+        const template = await this.getUltrasoundTemplateMapper(tenantId, templateid);
+        template.fields = await this.getUltrasoundTemplate(tenantId, templateid);
+        return template;
+    }
+    static async getUltrasoundTemplatesAll(tenantId, count, page, employeeid) {
+        return await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_get_ultrasound_template_mapper, [employeeid], tenantId);
+    }
+    static async getResultDrugReactions(tenantId, ascensionId, testid) {
+        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_drug_reaction_inserts_find, [testid, ascensionId]);
+    }
+    static async updateResultDrugReactions(tenantId, reaction, ascensionId, testid) {
+        let result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_drug_reaction, [reaction, ascensionId, testid]);
+        return (0, helper_1.rowAffected)(result);
+    }
+    static async hasResultDrugreactions(tenantId, ascensionId, testid, drugid) {
+        const packets = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_has_drug_reaction_inserts, [testid, ascensionId, drugid]);
+        return packets.length > 0;
+    }
+    static async insertResultDrugReaction(tenantId, drugRxn) {
+        const { drugid, reaction, ascensionid, testid } = drugRxn;
+        const hasRxn = await this.hasResultDrugreactions(tenantId, ascensionid, testid, drugid);
+        if (!hasRxn) {
+            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_insert_drug_reaction, [drugid, reaction, ascensionid, testid]);
+            return (0, helper_1.rowAffected)(result);
+        }
+        else {
+            return await this.updateResultDrugReactions(tenantId, reaction, ascensionid, testid);
+        }
+    }
+    static async insertResultDrugReactionBulk(tenantId, drugs) {
+        const insertPromises = drugs.map((item) => this.insertResultDrugReaction(tenantId, item));
+        const results = await Promise.allSettled(insertPromises);
+        const hasErrorOccurred = results.some((res) => res.status === 'rejected');
+        return !hasErrorOccurred;
+    }
+}
+exports.default = Creator;
+exports.CONSTRAINTSLEVEL = [
+    { value: 0, description: 'select an option here', symbol: '' },
+    { value: 1, description: 'less than value', symbol: '<' },
+    { value: 2, description: 'greater than value', symbol: '>' },
+    { value: 3, description: 'match value', symbol: '=' },
+    { value: 4, description: 'does not match value', symbol: '≠' }
+];
+exports.ALERT_OPTIONS = {
+    0: 'select an option below',
+    1: 'alert',
+    2: 'do not alert',
+    3: 'replace value with custom text'
+};

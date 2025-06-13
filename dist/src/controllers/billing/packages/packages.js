@@ -1,0 +1,26 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = __importDefault(require("express"));
+const packagesHandlers_1 = require("./packagesHandlers");
+const router = express_1.default.Router();
+router.post('/api/v1/clinician-packages', packagesHandlers_1.createClinicianPackageHandler);
+router.get('/api/v1/clinician-packages/:id?', packagesHandlers_1.getClinicianPackagesHandler);
+router.put('/api/v1/clinician-packages/:id', packagesHandlers_1.updateClinicianPackageHandler);
+router.delete('/api/v1/clinician-packages/:id', packagesHandlers_1.deleteClinicianPackageHandler);
+router.post('/api/v1/organization-packages', packagesHandlers_1.createOrganizationPackageHandler);
+router.get('/api/v1/organization-packages/:id?', packagesHandlers_1.getOrganizationPackagesHandler);
+router.put('/api/v1/organization-packages/:id', packagesHandlers_1.updateOrganizationPackageHandler);
+router.delete('/api/v1/organization-packages/:id', packagesHandlers_1.deleteOrganizationPackageHandler);
+router.post('/api/v1/packages', packagesHandlers_1.createPackageHandler);
+router.get('/api/v1/packages/:id?/:page?/:count?', packagesHandlers_1.getPackagesHandler);
+router.put('/api/v1/packages/:id', packagesHandlers_1.updatePackageHandler);
+router.delete('/api/v1/packages/:id', packagesHandlers_1.deletePackageHandler);
+router.post('/api/v1/package-tests', packagesHandlers_1.createPackageTestHandler);
+router.get('/api/v1/package-tests/:id?', packagesHandlers_1.getPackageTestsHandler);
+router.put('/api/v1/package-tests/:id', packagesHandlers_1.updatePackageTestHandler);
+router.delete('/api/v1/package-tests/:id', packagesHandlers_1.deletePackageTestHandler);
+router.post("/api/v1/packages/billing/verify/load", packagesHandlers_1.verifyAndLoadPackagesHandler);
+exports.default = router;

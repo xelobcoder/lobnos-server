@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Sickling Test",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "options",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": "Positive,Negative"
+    }
+  ]
+}

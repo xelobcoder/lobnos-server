@@ -1,0 +1,739 @@
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+12.63 src/controllers/sms/route.ts(36,5): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+12.63 src/controllers/supplys/orderHandler.ts(3,31): error TS2307: Cannot find module '../../../helper' or its corresponding type declarations.
+12.63 src/controllers/supplys/orderHandler.ts(18,28): error TS2554: Expected 2 arguments, but got 0.
+12.63 src/controllers/supplys/orderHandler.ts(48,26): error TS2554: Expected 2 arguments, but got 0.
+12.63 src/controllers/supplys/routes.ts(26,33): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(request: Request, response: Response) => Promise<Response>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+12.63 src/controllers/supplys/routes.ts(27,34): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+12.63 src/controllers/supplys/supplyHandler.ts(3,23): error TS2307: Cannot find module '../../models/Inventory/inventoryClass/inventoryClass' or its corresponding type declarations.
+12.63 src/controllers/supplys/supplyHandler.ts(19,12): error TS2339: Property 'err' does not exist on type 'Logger'.
+12.63 src/controllers/testpanel/routes.ts(60,56): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+12.63 src/controllers/testpanel/routes.ts(61,54): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+12.63 src/controllers/testpanel/routes.ts(62,45): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+12.63 src/controllers/testpanel/routes.ts(63,48): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+12.63 src/controllers/testpanel/routes.ts(64,59): error TS2769: No overload matches this call.
+12.63   The last overload gave the following error.
+12.63     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+12.63       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+12.63 src/migrations/data/SeedTestPanels/panelRunner.ts(30,49): error TS2339: Property 'testcreationrule' does not exist on type 'TestCreationRule[]'.
+12.63 src/models/application/sms/smsClass.ts(167,49): error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'number[]'.
+12.63   Type 'string' is not assignable to type 'number'.
+12.63 src/models/application/sms/smsClass.ts(295,13): error TS2322: Type 'boolean | SmsResponse' is not assignable to type 'boolean'.   
+12.63   Type 'SmsResponse' is not assignable to type 'boolean'.
+12.63 src/models/application/synchronization/synchronization.ts(2,45): error TS2307: Cannot find module '../../../../helper' or its corresponding type declarations.
+12.63 src/models/billing/multi-steps/billing-multi-steps.ts(51,21): error TS2322: Type 'string' is not assignable to type 'number'.     
+12.63 src/models/billing/multi-steps/billing-multi-steps.ts(80,21): error TS2322: Type 'string' is not assignable to type 'number'.     
+12.63 src/models/billing/omni-bill.ts(45,56): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.  
+12.63 src/models/billing/omni-bill.ts(69,95): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(71,54): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(76,59): error TS2554: Expected 1 arguments, but got 0.
+12.63 src/models/billing/omni-bill.ts(89,47): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(101,84): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(139,91): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(148,68): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(152,90): error TS2554: Expected 1 arguments, but got 0.
+12.63 src/models/billing/omni-bill.ts(153,68): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(159,118): error TS2554: Expected 1 arguments, but got 0.
+12.63 src/models/billing/omni-bill.ts(160,68): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(166,68): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(170,68): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(179,52): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(186,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(194,51): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(200,57): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(201,22): error TS2339: Property 'insert' does not exist on type 'Promise<Knex<any, any[]>>'.      
+12.63 src/models/billing/omni-bill.ts(265,82): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(274,111): error TS2554: Expected 4 arguments, but got 3.
+12.63 src/models/billing/omni-bill.ts(280,111): error TS2554: Expected 4 arguments, but got 3.
+12.63 src/models/billing/omni-bill.ts(420,60): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(421,27): error TS2339: Property 'where' does not exist on type 'Promise<Knex<any, any[]>>'.       
+12.63 src/models/billing/omni-bill.ts(500,46): error TS2339: Property 'discount' does not exist on type '{ discountedValue: number; hasNightAdjustment: boolean; nightAdjustmentMode: "percentage" | "absolute" | "none"; nightAdjustmentValue: number; }'.
+12.63 src/models/billing/omni-bill.ts(504,40): error TS2339: Property 'keyid' does not exist on type '{ discountedValue: number; hasNightAdjustment: boolean; nightAdjustmentMode: "percentage" | "absolute" | "none"; nightAdjustmentValue: number; }'.
+12.63 src/models/billing/omni-bill.ts(531,43): error TS2339: Property 'package_id' does not exist on type '{ discountedValue: number; hasNightAdjustment: boolean; nightAdjustmentMode: "percentage" | "absolute" | "none"; nightAdjustmentValue: number; }'.
+12.63 src/models/billing/omni-bill.ts(538,34): error TS2554: Expected 2-3 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(555,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(561,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(566,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(571,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(578,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(585,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(590,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(595,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(603,56): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(608,73): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(615,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(619,32): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+12.63 src/models/billing/omni-bill.ts(641,65): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(657,33): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(658,33): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(714,157): error TS2554: Expected 6 arguments, but got 3.
+12.63 src/models/billing/omni-bill.ts(747,81): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(814,63): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(819,85): error TS2554: Expected 1 arguments, but got 0.
+12.63 src/models/billing/omni-bill.ts(890,60): error TS2554: Expected 4 arguments, but got 3.
+12.63 src/models/billing/omni-bill.ts(908,69): error TS2554: Expected 1 arguments, but got 0.
+12.63 src/models/billing/omni-bill.ts(911,66): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(928,70): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(929,73): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(936,75): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(975,36): error TS2554: Expected 2 arguments, but got 1.
+12.63 src/models/billing/omni-bill.ts(1062,81): error TS2554: Expected 1 arguments, but got 0.
+12.63 src/models/billing/omni-bill.ts(1064,66): error TS2554: Expected 3 arguments, but got 2.
+12.63 src/models/billing/omni-bill.ts(1193,58): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.12.63 src/models/manager/manager.ts(23,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.    
+12.63 src/models/manager/manager.ts(35,29): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.    
+12.63 src/models/manager/manager.ts(45,26): error TS2554: Expected 2-3 arguments, but got 1.
+12.63 src/models/orders/orders.ts(1,75): error TS2307: Cannot find module '../../../helper' or its corresponding type declarations.     
+12.63 src/models/orders/orders.ts(3,23): error TS2307: Cannot find module '../../models/Inventory/inventoryClass/inventoryClass' or its 
+corresponding type declarations.
+12.63 src/models/supply/supplierClass.ts(2,26): error TS2307: Cannot find module '../../EmailServices/EmailCore' or its corresponding type declarations.
+12.63 src/models/supply/supplierClass.ts(24,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(30,67): error TS2554: Expected 1 arguments, but got 0.
+12.63 src/models/supply/supplierClass.ts(31,31): error TS2339: Property 'length' does not exist on type 'ApplicationSettingsData'.      
+12.63 src/models/supply/supplierClass.ts(48,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(72,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(78,20): error TS2554: Expected 4 arguments, but got 2.
+12.63 src/models/supply/supplierClass.ts(88,42): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(95,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(106,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(114,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(121,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+12.63 src/models/supply/supplierClass.ts(126,18): error TS2554: Expected 4 arguments, but got 2.
+------
+failed to solve: process "/bin/sh -c npx tsc --skipLibCheck" did not complete successfully: exit code: 2
+
+C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server>docker-compose build
+time="2025-06-03T23:33:33+01:00" level=warning msg="C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\d4ef54760a186e113db5188472d9efdf491686bd94580a1c1  0.0s
+ => [app internal] load build context                                                                                              0.6s 
+ => => transferring context: 72B                                                                                                   0.1s 
+ => CACHED [app builder 2/4] WORKDIR /usr/src/app                                                                                  0.0s 
+ => CACHED [app builder 3/4] COPY package*.json ./                                                                                 0.0s 
+ => CACHED [app builder 4/4] RUN npm ci                                                                                            0.0s 
+ => CACHED [app stage-1 4/6] RUN npm ci --only=production                                                                          0.0s 
+ => ERROR [app stage-1 5/6] COPY --from=builder /usr/src/app/dist ./dist                                                           0.0s 
+ => ERROR [app stage-1 6/6] COPY --from=builder /usr/src/app/src ./src                                                             0.0s 
+------
+ > [app stage-1 5/6] COPY --from=builder /usr/src/app/dist ./dist:
+------
+------
+ > [app stage-1 6/6] COPY --from=builder /usr/src/app/src ./src:
+------
+failed to solve: failed to compute cache key: failed to calculate checksum of ref bcefee4d-672d-43e7-9d79-3994ac2de727::lo6te1dc5lk91hyyduow3a5od: "/usr/src/app/dist": not found
+
+C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server>docker-compose down
+time="2025-06-03T23:35:02+01:00" level=warning msg="C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[+] Running 3/3
+ ✔ Container lobnos-mysql                Removed                                                                                   3.5s 
+ ✔ Container lobnos-server               Removed                                                                                   0.8s 
+ ✔ Network lobnos-server_lobnos-network  Removed                                                                                   0.9s 
+
+C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server>docker-compose build 
+time="2025-06-03T23:35:17+01:00" level=warning msg="C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+Compose can now delegate builds to bake for better performance.
+ To do so, set COMPOSE_BAKE=true.
+[+] Building 32.8s (11/14)                                                                                         docker:desktop-linux 
+ => [app internal] load build definition from Dockerfile                                                                           0.1s 
+ => => transferring dockerfile: 735B                                                                                               0.0s 
+ => [app internal] load metadata for docker.io/library/node:20-alpine                                                              6.4s 
+ => [app internal] load .dockerignore                                                                                              0.1s 
+ => => transferring context: 123B                                                                                                  0.0s 
+ => [app builder 1/7] FROM docker.io/library/node:20-alpine@sha256:d3507a213936fe4ef54760a186e113db5188472d9efdf491686bd94580a1c1  0.0s 
+ => [app internal] load build context                                                                                              0.6s 
+ => => transferring context: 3.94MB                                                                                                0.4s 
+ => CACHED [app builder 2/7] WORKDIR /usr/src/app                                                                                  0.0s 
+ => CACHED [app builder 3/7] COPY package*.json ./                                                                                 0.0s 
+ => CACHED [app builder 4/7] RUN npm ci                                                                                            0.0s 
+ => [app builder 5/7] COPY tsconfig*.json ./                                                                                       1.5s 
+ => [app builder 6/7] COPY src/ ./src/                                                                                             3.6s 
+ => ERROR [app builder 7/7] RUN npx tsc -p tsconfig.build.json                                                                    18.7s 
+------
+ > [app builder 7/7] RUN npx tsc -p tsconfig.build.json:
+13.18 src/LobnosAuth/createAccount.ts(2,20): error TS2307: Cannot find module '../../logger' or its corresponding type declarations.   
+13.18 src/controllers/analytics/test-ascension-analytics/routes.ts(6,46): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request<{}, {}, {}, TatDataQuery>, res: Response<TatDataResponse>) => Promise<Response<TatDataResponse, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<{}, {}, {}, TatDataQuery, Record<string, any>>, res: Response<TatDataResponse, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/applicationsettings/route.ts(31,43): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request<{    target: string;}>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<{ target: string; }, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/applicationsettings/route.ts(33,58): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request<{    target: string;}>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18 src/controllers/applicationsettings/route.ts(44,63): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/applicationsettings/route.ts(52,77): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/applicationsettings/route.ts(53,77): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/appointments/attendancerouters.ts(51,63): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/appointments/attendancerouters.ts(52,75): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/appointments/attendancerouters.ts(59,61): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/appointments/attendancerouters.ts(60,64): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.18 src/controllers/appointments/attendancerouters.ts(66,45): error TS2769: No overload matches this call.
+13.18   The last overload gave the following error.
+13.18     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.18       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(67,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(68,48): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(72,42): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(73,41): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(_req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(_req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(74,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(75,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(76,48): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/appointments/attendancerouters.ts(82,61): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{    cycleid: number;}>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{ cycleid: number; }, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/billing/index.ts(73,53): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/billing/packages/packages.ts(29,46): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{}, {}, OrganizationPackageRequest[]>, res: Response) => Promise<Response<any, Record<string, 
+any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{}, {}, OrganizationPackageRequest[], ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/billing/packages/packages.ts(39,38): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{}, {}, PackageTestRequest[]>, res: Response) => Promise<Response<any, Record<string, any>>>' 
+is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{}, {}, PackageTestRequest[], ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/billing/packages/packages.ts(44,53): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, PackageVerificationType>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, PackageVerificationType, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/billing/packages/packagesHandlers.ts(185,41): error TS2551: Property 'updatePackageTest' does not exist on type 'typeof Packages'. Did you mean 'updatePackage'?
+13.19 src/controllers/billing/packages/packagesHandlers.ts(195,41): error TS2551: Property 'deletePackageTest' does not exist on type 'typeof Packages'. Did you mean 'deletePackage'?
+13.19 src/controllers/billing/sales/route.ts(8,50): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, { key: string; startDate: string; tenantId: number; endDate: string; branchid: number; }, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 
+'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, { key: string; startDate: string; tenantId: number; endDate: string; branchid: number; }, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/billing/sales/route.ts(9,58): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(7,34): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(8,47): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(34,62): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{}, {}, BillingStrategyRequestBody, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{}, {}, BillingStrategyRequestBody, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(35,65): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{ strategyid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<Response<...>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{ strategyid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<Response<...>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(36,65): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{ strategyid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<Response<...>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{ strategyid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<Response<...>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(37,68): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{ strategyid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<Response<...>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{ strategyid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<Response<...>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(38,68): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{ clinicianid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{ clinicianid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(39,70): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{ clinicianid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{ clinicianid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(40,70): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{    insuranceid: string;}, {}, {}, {    tenantId: string;}>, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{ insuranceid: string; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/clinicians/route.ts(41,92): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<{ associatedid: string; strategy: "phis" | "clinicians"; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<{ associatedid: string; strategy: "phis" | "clinicians"; }, {}, {}, { tenantId: string; }, Record<string, any>>, res: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/customers/route.ts(13,54): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/drugs/drugsRouter.ts(16,38): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/drugs/drugsRouter.ts(18,37): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/drugs/drugsRouter.ts(19,44): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/drugs/drugsRouter.ts(22,30): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/drugs/drugsRouter.ts(24,29): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/drugs/drugsRouter.ts(25,32): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/expenses/route.ts(39,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/insurance/routes.ts(12,35): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/logins/authHandlers.ts(20,11): error TS2345: Argument of type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>' is not assignable to parameter of type 'UserRequest'.
+13.19   Types of property 'query' are incompatible.
+13.19     Property 'tenantId' is missing in type 'ParsedQs' but required in type '{ name?: string; email?: string; contact?: string; role?: string; tenantId: string; id?: string; }'.
+13.19 src/controllers/logins/authHandlers.ts(45,16): error TS2345: Argument of type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>' is not assignable to parameter of type 'UserRequest'.
+13.19 src/controllers/logins/authHandlers.ts(49,22): error TS2345: Argument of type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>' is not assignable to parameter of type 'UserRequest'.
+13.19 src/controllers/logins/authHandlers.ts(55,12): error TS2345: Argument of type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>' is not assignable to parameter of type 'UserRequest'.
+13.19 src/controllers/logins/authHandlers.ts(59,16): error TS2345: Argument of type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>' is not assignable to parameter of type 'UserRequest'.
+13.19 src/controllers/logins/authHandlers.ts(73,23): error TS2345: Argument of type 'Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>' is not assignable to parameter of type 'UserRequest'.
+13.19 src/controllers/manager.ts(8,4): error TS2554: Expected 3 arguments, but got 0.
+13.19 src/controllers/medicalRecords/route.ts(13,44): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, MedicalRecord, {    tenantId: string;}>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, MedicalRecord, { tenantId: string; }, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/medicalRecords/route.ts(14,61): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, {    consultationid: string;    tenantId: string;}>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, { consultationid: string; tenantId: string; }, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/medicalRecords/route.ts(16,53): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, {    consultationid: string;    tenantId: string;}>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, { consultationid: string; tenantId: string; }, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/operationsHandlers.ts(30,44): error TS2339: Property 'billingTest' does not exist on type 'Operations'.13.19 src/controllers/operations/operationsHandlers.ts(95,45): error TS2339: Property 'processedScanList' does not exist on type 'Operations'.
+13.19 src/controllers/operations/route.ts(65,52): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(72,97): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+13.19         Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'void | Promise<void>'.
+13.19           Type 'Promise<Response<any, Record<string, any>>>' is not assignable to type 'Promise<void>'.
+13.19             Type 'Response<any, Record<string, any>>' is not assignable to type 'void'.
+13.19 src/controllers/operations/route.ts(109,74): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(110,74): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(131,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(132,44): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(133,48): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(134,57): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(135,48): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(136,62): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(137,58): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/operations/route.ts(138,51): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/organization/route.ts(25,42): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: IRequest, response: IResponse) => Promise<IResponse>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: IRequest, response: IResponse) => Promise<IResponse>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/organization/route.ts(32,50): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: IRequest, response: IResponse) => Promise<IResponse>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: IRequest, response: IResponse) => Promise<IResponse>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/organization/route.ts(52,53): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, { serviceid: number; employeeid: number; }, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.     
+13.19       Type '(request: Request<{}, {}, { serviceid: number; employeeid: number; }, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/organization/uploadImages.ts(14,68): error TS2345: Argument of type 'boolean' is not assignable to parameter of type 'string'.
+13.19 src/controllers/organization/uploadImages.ts(20,51): error TS2345: Argument of type 'string | ParsedQs | (string | ParsedQs)[]' is not assignable to parameter of type 'string'.
+13.19   Type 'ParsedQs' is not assignable to type 'string'.
+13.19 src/controllers/registration/patient/routes.ts(17,60): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/registration/patient/routes.ts(21,61): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/result/resultHandlers.ts(148,51): error TS2339: Property 'getUnviewedTracksAlert' does not exist on type 'typeof TrackValuesAlertClass'.
+13.19 src/controllers/result/route.ts(29,62): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: IRequest, response: IResponse) => Promise<void | IResponse>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: IRequest, response: IResponse) => Promise<void | IResponse>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/result/route.ts(32,56): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/result/route.ts(45,57): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/result/route.ts(58,59): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, {    isScan: boolean;    ascensionId: number;    testid: number;    csvid: string;    ptid: string;    target: string;    tenantId: string;}>, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, { isScan: boolean; ascensionId: number; testid: number; csvid: string; ptid: string; target: string; tenantId: string; }, Record<string, any>>, response: Response<...>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/result/route.ts(59,68): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, {    csvid: string;    ptid: string;    target: string;    isUltrasoundInclusive: boolean;    tenantId: string;}>, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter 
+of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, { csvid: string; ptid: string; target: string; isUltrasoundInclusive: boolean; tenantId: string; }, Record<string, any>>, response: Response<any, Record<...>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/result/route.ts(60,82): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response, next: NextFunction) => Response<any, Record<string, any>>' is not assignable to parameter of type 'RequestHandlerParams<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+13.19       Type '(request: Request, response: Response, next: NextFunction) => Response<any, Record<string, any>>' is not assignable to type 'RequestHandler<ParamsDictionary, any, any, ParsedQs, Record<string, any>>'.
+13.19         Type 'Response<any, Record<string, any>>' is not assignable to type 'void | Promise<void>'.
+13.19 src/controllers/routes/sampleContainerRoutes.ts(14,42): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: CustomRequest, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: CustomRequest, res: Response<any, Record<string, any>>) => Promise<Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/routes/sampleContainerRoutes.ts(15,41): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: CustomRequest, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: CustomRequest, res: Response<any, Record<string, any>>) => Promise<Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/routes/sampleContainerRoutes.ts(16,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: CustomRequest, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: CustomRequest, res: Response<any, Record<string, any>>) => Promise<Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/routes/sampleContainerRoutes.ts(17,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: CustomRequest, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: CustomRequest, res: Response<any, Record<string, any>>) => Promise<Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/routes/sampleContainerRoutes.ts(18,48): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: CustomRequest, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: CustomRequest, res: Response<any, Record<string, any>>) => Promise<Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/routes/sampleContainerRoutes.ts(19,50): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: CustomRequest, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: CustomRequest, res: Response<any, Record<string, any>>) => Promise<Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/routes/sampleContainerRoutes.ts(20,60): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: CustomRequest, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: CustomRequest, res: Response<any, Record<string, any>>) => Promise<Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/samples/rejected/route.ts(8,49): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/settings/route.ts(20,36): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to 
+parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/settings/route.ts(21,35): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/settings/route.ts(22,38): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/settings/route.ts(23,39): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/settings/route.ts(26,48): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(7,42): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, Omit<PrimeLimsTablesmstemplate, "createdon" | "tempateid">, SmsTemplateQuery, Record<string, any>>, response: Response<...>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.  
+13.19       Type '(request: Request<{}, {}, Omit<PrimeLimsTablesmstemplate, "createdon" | "tempateid">, SmsTemplateQuery, Record<string, any>>, response: Response<...>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(8,41): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, SmsTemplateQuery, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, SmsTemplateQuery, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(9,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, SmsTemplateQuery, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, SmsTemplateQuery, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(10,41): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, Partial<PrimeLimsTablesmstemplate>, SmsTemplateQuery, Record<string, any>>, response: Response<...>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, Partial<PrimeLimsTablesmstemplate>, SmsTemplateQuery, Record<string, any>>, response: Response<...>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, 
+engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(11,44): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<{}, {}, {}, SmsTemplateQuery, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<{}, {}, {}, SmsTemplateQuery, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(18,35): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request, res: Response) => Promise<Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(31,5): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/sms/route.ts(36,5): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, 
+any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, res: Response<any, Record<string, any>>) => 
+Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/supplys/orderHandler.ts(3,31): error TS2307: Cannot find module '../../../helper' or its corresponding type declarations.
+13.19 src/controllers/supplys/orderHandler.ts(18,28): error TS2554: Expected 2 arguments, but got 0.
+13.19 src/controllers/supplys/orderHandler.ts(48,26): error TS2554: Expected 2 arguments, but got 0.
+13.19 src/controllers/supplys/routes.ts(26,33): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request, response: Response) => Promise<Response>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/supplys/routes.ts(27,34): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(request: Request<ParamsDictionary, any, any, ParsedQs, Record<string, any>>, response: Response<any, Record<string, any>>) => Promise<...>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.
+13.19 src/controllers/supplys/supplyHandler.ts(3,23): error TS2307: Cannot find module '../../models/Inventory/inventoryClass/inventoryClass' or its corresponding type declarations.
+13.19 src/controllers/supplys/supplyHandler.ts(19,12): error TS2339: Property 'err' does not exist on type 'Logger'.
+13.19 src/controllers/testpanel/routes.ts(60,56): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+13.19 src/controllers/testpanel/routes.ts(61,54): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+13.19 src/controllers/testpanel/routes.ts(62,45): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+13.19 src/controllers/testpanel/routes.ts(63,48): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+13.19 src/controllers/testpanel/routes.ts(64,59): error TS2769: No overload matches this call.
+13.19   The last overload gave the following error.
+13.19     Argument of type '(req: IRequest, res: Response) => Promise<void | Response<any, Record<string, any>>>' is not assignable to parameter of type 'Application<Record<string, any>>'.
+13.19       Type '(req: IRequest, res: Response<any, Record<string, any>>) => Promise<void | Response<any, Record<string, any>>>' is missing the following properties from type 'Application<Record<string, any>>': init, defaultConfiguration, engine, set, and 63 more.       
+13.19 src/migrations/data/SeedTestPanels/panelRunner.ts(30,49): error TS2339: Property 'testcreationrule' does not exist on type 'TestCreationRule[]'.
+13.19 src/models/application/sms/smsClass.ts(167,49): error TS2345: Argument of type 'string[]' is not assignable to parameter of type 'number[]'.
+13.19   Type 'string' is not assignable to type 'number'.
+13.19 src/models/application/sms/smsClass.ts(295,13): error TS2322: Type 'boolean | SmsResponse' is not assignable to type 'boolean'.   
+13.19   Type 'SmsResponse' is not assignable to type 'boolean'.
+13.19 src/models/application/synchronization/synchronization.ts(2,45): error TS2307: Cannot find module '../../../../helper' or its corresponding type declarations.
+13.19 src/models/billing/multi-steps/billing-multi-steps.ts(51,21): error TS2322: Type 'string' is not assignable to type 'number'.     
+13.19 src/models/billing/multi-steps/billing-multi-steps.ts(80,21): error TS2322: Type 'string' is not assignable to type 'number'.     
+13.19 src/models/billing/omni-bill.ts(45,56): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.  
+13.19 src/models/billing/omni-bill.ts(69,95): error TS2554: Expected 3 arguments, but got 2.
+13.19 src/models/billing/omni-bill.ts(71,54): error TS2554: Expected 2 arguments, but got 1.
+13.19 src/models/billing/omni-bill.ts(76,59): error TS2554: Expected 1 arguments, but got 0.
+13.19 src/models/billing/omni-bill.ts(89,47): error TS2554: Expected 2 arguments, but got 1.
+13.19 src/models/billing/omni-bill.ts(101,84): error TS2554: Expected 3 arguments, but got 2.
+13.19 src/models/billing/omni-bill.ts(139,91): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(148,68): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(152,90): error TS2554: Expected 1 arguments, but got 0.
+13.20 src/models/billing/omni-bill.ts(153,68): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(159,118): error TS2554: Expected 1 arguments, but got 0.
+13.20 src/models/billing/omni-bill.ts(160,68): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(166,68): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(170,68): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(179,52): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(186,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(194,51): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(200,57): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(201,22): error TS2339: Property 'insert' does not exist on type 'Promise<Knex<any, any[]>>'.      
+13.20 src/models/billing/omni-bill.ts(265,82): error TS2554: Expected 3 arguments, but got 2.
+13.20 src/models/billing/omni-bill.ts(274,111): error TS2554: Expected 4 arguments, but got 3.
+13.20 src/models/billing/omni-bill.ts(280,111): error TS2554: Expected 4 arguments, but got 3.
+13.20 src/models/billing/omni-bill.ts(420,60): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(421,27): error TS2339: Property 'where' does not exist on type 'Promise<Knex<any, any[]>>'.       
+13.20 src/models/billing/omni-bill.ts(500,46): error TS2339: Property 'discount' does not exist on type '{ discountedValue: number; hasNightAdjustment: boolean; nightAdjustmentMode: "percentage" | "absolute" | "none"; nightAdjustmentValue: number; }'.
+13.20 src/models/billing/omni-bill.ts(504,40): error TS2339: Property 'keyid' does not exist on type '{ discountedValue: number; hasNightAdjustment: boolean; nightAdjustmentMode: "percentage" | "absolute" | "none"; nightAdjustmentValue: number; }'.
+13.20 src/models/billing/omni-bill.ts(531,43): error TS2339: Property 'package_id' does not exist on type '{ discountedValue: number; hasNightAdjustment: boolean; nightAdjustmentMode: "percentage" | "absolute" | "none"; nightAdjustmentValue: number; }'.
+13.20 src/models/billing/omni-bill.ts(538,34): error TS2554: Expected 2-3 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(555,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(561,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(566,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(571,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(578,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(585,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(590,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(595,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(603,56): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(608,73): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(615,39): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(619,32): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'. 
+13.20 src/models/billing/omni-bill.ts(641,65): error TS2554: Expected 3 arguments, but got 2.
+13.20 src/models/billing/omni-bill.ts(657,33): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(658,33): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(714,157): error TS2554: Expected 6 arguments, but got 3.
+13.20 src/models/billing/omni-bill.ts(747,81): error TS2554: Expected 3 arguments, but got 2.
+13.20 src/models/billing/omni-bill.ts(814,63): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(819,85): error TS2554: Expected 1 arguments, but got 0.
+13.20 src/models/billing/omni-bill.ts(890,60): error TS2554: Expected 4 arguments, but got 3.
+13.20 src/models/billing/omni-bill.ts(908,69): error TS2554: Expected 1 arguments, but got 0.
+13.20 src/models/billing/omni-bill.ts(911,66): error TS2554: Expected 3 arguments, but got 2.
+13.20 src/models/billing/omni-bill.ts(928,70): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(929,73): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(936,75): error TS2554: Expected 3 arguments, but got 2.
+13.20 src/models/billing/omni-bill.ts(975,36): error TS2554: Expected 2 arguments, but got 1.
+13.20 src/models/billing/omni-bill.ts(1062,81): error TS2554: Expected 1 arguments, but got 0.
+13.20 src/models/billing/omni-bill.ts(1064,66): error TS2554: Expected 3 arguments, but got 2.
+13.20 src/models/billing/omni-bill.ts(1193,58): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.13.20 src/models/manager/manager.ts(23,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.    
+13.20 src/models/manager/manager.ts(35,29): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.    
+13.20 src/models/manager/manager.ts(45,26): error TS2554: Expected 2-3 arguments, but got 1.
+13.20 src/models/orders/orders.ts(1,75): error TS2307: Cannot find module '../../../helper' or its corresponding type declarations.     
+13.20 src/models/orders/orders.ts(3,23): error TS2307: Cannot find module '../../models/Inventory/inventoryClass/inventoryClass' or its 
+corresponding type declarations.
+13.20 src/models/supply/supplierClass.ts(2,26): error TS2307: Cannot find module '../../EmailServices/EmailCore' or its corresponding type declarations.
+13.20 src/models/supply/supplierClass.ts(24,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.20 src/models/supply/supplierClass.ts(30,67): error TS2554: Expected 1 arguments, but got 0.
+13.20 src/models/supply/supplierClass.ts(31,31): error TS2339: Property 'length' does not exist on type 'ApplicationSettingsData'.      
+13.20 src/models/supply/supplierClass.ts(48,43): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.20 src/models/supply/supplierClass.ts(72,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.20 src/models/supply/supplierClass.ts(78,20): error TS2554: Expected 4 arguments, but got 2.
+13.21 src/models/supply/supplierClass.ts(88,42): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.21 src/models/supply/supplierClass.ts(95,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.21 src/models/supply/supplierClass.ts(106,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.21 src/models/supply/supplierClass.ts(114,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.21 src/models/supply/supplierClass.ts(121,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+13.21 src/models/supply/supplierClass.ts(126,18): error TS2554: Expected 4 arguments, but got 2.
+------
+failed to solve: process "/bin/sh -c npx tsc -p tsconfig.build.json" did not complete successfully: exit code: 2
+
+C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server>

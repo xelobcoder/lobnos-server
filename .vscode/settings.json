@@ -1,0 +1,9 @@
+{
+	"editor.tabSize": 5,
+	"files.autoSave": "afterDelay",
+	"workbench.colorTheme": "Default Dark+",
+	"workbench.editor.pinnedTabSizing": "shrink",
+	"workbench.sideBar.location": "left",
+	"terminal.integrated.splitCwd": "workspaceRoot",
+	"terminal.integrated.shellIntegration.enabled": true
+}

@@ -1,0 +1,340 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
+const logger_1 = __importDefault(require("../../hooks/logger"));
+const user_1 = __importDefault(require("../../LobnosAuth/user"));
+const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
+const interface_1 = require("../../database/interface");
+const Tax_1 = __importDefault(require("../../models/application/Tax"));
+const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
+const appset_1 = __importDefault(require("./../../models/application/appsettings/appset"));
+const helper_1 = require("../../hooks/helper");
+const appsettings = new appset_1.default();
+const tax = new Tax_1.default(null);
+const result = new resultSettings_1.default(null);
+const getApplicationSettings = async (req, response) => {
+    try {
+        const target = req.params.target;
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const result = await appsettings.getAllAppSettings(tenantId);
+        if (result && target) {
+            if (result[target] !== undefined) {
+                response.send({ statusCode: 200, status: "success", [target]: result[target] });
+            }
+            else {
+                response.send({ statusCode: 404, status: "error", message: `${target} not found` });
+            }
+        }
+        response.send({ statusCode: 200, status: "success", result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.getApplicationSettings = getApplicationSettings;
+const getApplicationSettingsBilling = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const data = await appsettings.getAppBillSettings(tenantId);
+        res.send(data);
+    }
+    catch (err) {
+        console.log(err);
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.getApplicationSettingsBilling = getApplicationSettingsBilling;
+const updateApplicationBillSettingsHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const data = await appset_1.default.updateApplicationBillSettings(tenantId, req.body);
+        res.send({ status: data > 0 ? true : false });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.updateApplicationBillSettingsHandler = updateApplicationBillSettingsHandler;
+const updateApplicationSettings = async (request, response) => {
+    try {
+        const data = request.body;
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const is_updated = await appsettings.updateApplicationSettings(tenantId, data);
+        is_updated && response.send({ message: "Applications settings updated successfully", statusCode: 200, status: "success" });
+    }
+    catch (err) {
+        console.log(err);
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.updateApplicationSettings = updateApplicationSettings;
+const updateSmsSettings = async (req, res) => {
+    try {
+        const data = JSON.stringify(req.body);
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const is_updated = await appsettings.updateSmsSettings(tenantId, data);
+        res.send({ status: is_updated });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.updateSmsSettings = updateSmsSettings;
+const getSmsSettings = async (request, response) => {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const sms_settings = await appsettings.getSmsSettings(tenantId);
+        response.send(sms_settings);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.getSmsSettings = getSmsSettings;
+const getEmailPreference = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const result = await appsettings.getEmailPreference(tenantId);
+        res.send({ message: "success", status: "success", statusCode: 200, result });
+    }
+    catch (err) {
+        (0, helper_1.customError)("something went wrong", 500, res);
+    }
+};
+exports.getEmailPreference = getEmailPreference;
+const getGeneralEmailSettings = async (req, response) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const result = await appsettings.getGeneralEmailSettings(tenantId);
+        response.send({ message: "success", status: "success", statusCode: 200, result });
+    }
+    catch (err) {
+        (0, helper_1.customError)("something went wrong", 500, response);
+    }
+};
+exports.getGeneralEmailSettings = getGeneralEmailSettings;
+const updateGeneralEmailSettings = async (request, res) => {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const result = await appsettings.updateGeneralEmailSettings(tenantId, request.body);
+        res.send({
+            message: result ? "updated successfully" : "No updates effected",
+            status: "success",
+            statusCode: 200,
+        });
+    }
+    catch (err) {
+        (0, helper_1.customError)("something went wrong", 500, res);
+    }
+};
+exports.updateGeneralEmailSettings = updateGeneralEmailSettings;
+const updateEmailPreference = (request, response) => {
+    try {
+        const data = request.body;
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const updated = appsettings.updateEmailPreference(tenantId, data);
+        response.send(updated);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.updateEmailPreference = updateEmailPreference;
+const updateRegistrationFields = async (request, response) => {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const result = await appsettings.updateRegistrationFields(tenantId, request.body);
+        if (result === true) {
+            response.send({ message: "fields updated successfully", statusCode: 200, status: "success" });
+        }
+        else {
+            response.send({ message: "fields update failed", statusCode: "error", status: "error" });
+        }
+    }
+    catch (err) {
+        logger_1.default.error(err);
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.updateRegistrationFields = updateRegistrationFields;
+const getRegistrationSettings = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString());
+        let result = await appsettings.getRegistrationSettings(tenantId);
+        if (result.length > 0) {
+            result = result[0]["fields"];
+            if (result !== "{}") {
+                res.send(JSON.parse(result));
+            }
+            else {
+                res.send(result);
+            }
+        }
+        else {
+            res.send({});
+        }
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.getRegistrationSettings = getRegistrationSettings;
+const addTax = (req, res) => {
+    tax.addTax(req, res);
+};
+exports.addTax = addTax;
+const getTax = (req, res) => {
+    tax.getTax(req, res);
+};
+exports.getTax = getTax;
+const updateTax = (req, res) => {
+    tax.updateTax(req, res);
+};
+exports.updateTax = updateTax;
+const changeTaxStatus = (req, res) => {
+    tax.changeTaxStatus(req, res);
+};
+exports.changeTaxStatus = changeTaxStatus;
+const deleteTax = (req, res) => {
+    tax.deleteTax(req, res);
+};
+exports.deleteTax = deleteTax;
+const getResultSettings = async (req, response) => {
+    try {
+        const { tenantId } = req.query;
+        const resultSettings = await result.getResultSettings(parseInt(tenantId.toString()));
+        response.send(resultSettings);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.getResultSettings = getResultSettings;
+const updateResultSettings = (req, res) => {
+    result.updateResultSettings(req, res);
+};
+exports.updateResultSettings = updateResultSettings;
+// RESULT ENTRY SETTINGS
+const validateUserRole = async (employeeid, tenantId) => {
+    const parsedEmployeeid = parseInt(employeeid.toString());
+    const parsedTenantId = parseInt(tenantId.toString());
+    const role = await new user_1.default(null, null, null, null, null).getUserRole(parsedEmployeeid, parsedTenantId);
+    const validRoles = ["manager", "admin", "scientist"];
+    return validRoles.includes(role.toLowerCase());
+};
+exports.validateUserRole = validateUserRole;
+const handleInvalidRequest = (response) => {
+    response.send({ status: false, message: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ });
+};
+const resultEntrySettingsHandler = async (request, response) => {
+    try {
+        const { employeeid, tenantId } = request.query;
+        if (!employeeid)
+            return handleInvalidRequest(response);
+        if (!(await (0, exports.validateUserRole)(employeeid, parseInt(tenantId.toString())))) {
+            response.send({ status: false, message: "You do not have permission to delete this resources" /* OperationsFailures.dontHavePermission */ });
+        }
+        else {
+            const settings = await resultSettings_1.default.getResultEntrySettings(parseInt(tenantId.toString()));
+            response.send({ result: settings });
+        }
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.resultEntrySettingsHandler = resultEntrySettingsHandler;
+const resultEntrySettingsUpdateHandler = async (request, response) => {
+    try {
+        const { employeeid, tenantId } = request.query;
+        if (!employeeid)
+            return handleInvalidRequest(response);
+        if (!(await (0, exports.validateUserRole)(employeeid, parseInt(tenantId.toString())))) {
+            response.send({ status: false, message: "You do not have permission to delete this resources" /* OperationsFailures.dontHavePermission */ });
+        }
+        else {
+            const result = await resultSettings_1.default.updateResultEntrySettings(parseInt(tenantId.toString()), request.body);
+            response.send({ status: result });
+        }
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.resultEntrySettingsUpdateHandler = resultEntrySettingsUpdateHandler;
+const TableFiltering = async (request, response) => {
+    try {
+        const tablename = request.params;
+        const { value, original = '', limit = 10, tenantId } = request.query;
+        if (!tablename.tablename || !value || value.trim().length <= 0 || isNaN(limit)) {
+            return (0, helper_1.customError)("Invalid request query parameters" /* OperationsFailures.invalidRequestParams */, 404, response);
+        }
+        const columnName = original && original.trim().length > 0 && original.trim() != "undefined" ? original : null;
+        const tenantIdP = parseInt(request.query.tenantId, 10);
+        const result = await TiifuWorkingClass_1.TiifuWorkingClass.filterDatabaseTable(tenantIdP, tablename.tablename, columnName, value, parseInt(limit.toString()));
+        response.send(result);
+    }
+    catch (err) {
+        if (err && (err === null || err === void 0 ? void 0 : err.code) == "ER_NO_SUCH_TABLE" /* OperationsFailures.ER_NO_SUCH_TABLE */) {
+            response.send({ status: false, message: "ER_NO_SUCH_TABLE" /* OperationsFailures.ER_NO_SUCH_TABLE */ });
+        }
+        else {
+            (0, helper_1.responseError)(response);
+        }
+    }
+};
+exports.TableFiltering = TableFiltering;
+const columnFiltering = async (request, response) => {
+    try {
+        const tablename = request.params;
+        const { tenantId } = request.query;
+        if (tablename.column && typeof tablename.column === "string" && tablename.column.trim().length > 0) {
+            const tenantIdP = parseInt(tenantId.toString(), 10);
+            let columns = await TiifuWorkingClass_1.TiifuWorkingClass.getTableColumns(tenantIdP, tablename.column);
+            if (columns.length > 0) {
+                columns = columns.map((item) => ({
+                    value: item.Field,
+                    field: item.Field.replace(/[^\w\s]|_/g, ' ')
+                }));
+            }
+            response.send(columns);
+        }
+        else {
+            return (0, helper_1.customError)("Invalid request query parameters" /* OperationsFailures.invalidRequestParams */, 400, response);
+        }
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.columnFiltering = columnFiltering;
+const getCategoryColumns = async (request, response) => {
+    try {
+        const { category, tenantId } = request.query;
+        if (!category || category.trim().length <= 3) {
+            return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */, 400, response);
+        }
+        const tableName = interface_1.categoryColumnMapper[category];
+        if (tableName) {
+            const tenantIdP = parseInt(tenantId, 10);
+            let columns = await TiifuWorkingClass_1.TiifuWorkingClass.getTableColumns(tenantIdP, tableName);
+            if (columns.length > 0) {
+                columns = columns.map((item) => ({
+                    value: item.Field,
+                    field: item.Field.replace(/[^\w\s]|_/g, ' ')
+                }));
+            }
+            response.send(columns);
+        }
+        else {
+            return (0, helper_1.customError)("Invalid category provided", 404, response);
+        }
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.getCategoryColumns = getCategoryColumns;

@@ -1,0 +1,79 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Fasting Blood Glucose",
+      "value": "",
+      "hasUnits": true,
+      "units": "mg/dL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "100",
+      "lowerLimit": "70",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "1 Hour Post Glucose",
+      "value": "",
+      "hasUnits": true,
+      "units": "mg/dL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 2,
+      "textReference": "",
+      "upperLimit": "180",
+      "lowerLimit": "90",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "2 Hours Post Glucose",
+      "value": "",
+      "hasUnits": true,
+      "units": "mg/dL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 3,
+      "textReference": "",
+      "upperLimit": "140",
+      "lowerLimit": "70",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "3 Hours Post Glucose",
+      "value": "",
+      "hasUnits": true,
+      "units": "mg/dL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 4,
+      "textReference": "",
+      "upperLimit": "120",
+      "lowerLimit": "70",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    },
+    {
+      "name": "Interpretation",
+      "value": "",
+      "hasUnits": false,
+      "units": "",
+      "plan": "textReference",
+      "plain": "",
+      "ordering": 5,
+      "textReference": "",
+      "upperLimit": "",
+      "lowerLimit": "",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

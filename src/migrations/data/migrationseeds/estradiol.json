@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Estradiol (E2)",
+      "value": "",
+      "hasUnits": true,
+      "units": "pg/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "400",
+      "lowerLimit": "10",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

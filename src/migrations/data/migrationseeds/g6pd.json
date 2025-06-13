@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "G6PD",
+      "value": "",
+      "hasUnits": true,
+      "units": "U/g Hb",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "12.0",
+      "lowerLimit": "4.6",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

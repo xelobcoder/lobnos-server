@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Beta HCG",
+      "value": "",
+      "hasUnits": true,
+      "units": "mIU/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "5",
+      "lowerLimit": "0",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

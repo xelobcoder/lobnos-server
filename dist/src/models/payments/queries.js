@@ -1,0 +1,78 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.queries = void 0;
+exports.queries = {
+    getClientTransactionInformation: `
+    SELECT 
+      np.patientid,
+      CONCAT(np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
+      np.email,
+      CONCAT(0,np.mobile_number) AS mobileNumber,
+      b.billingid,
+      b.outstanding,
+      b.totalRefunded,
+      b.discount,
+      b.paid,
+      b.payable,
+      np.fullpatientid,
+      DATE(b.billedon) as date
+    FROM new_patients AS np
+    INNER JOIN billing as b ON np.patientid = b.patientid
+  `,
+    getClientFullOutstanding: `
+    SELECT SUM(paid) AS paid, SUM(payable) AS total 
+    FROM billing 
+    WHERE PATIENTID = ?
+  `,
+    getTransactionData: `
+    SELECT * 
+    FROM billing AS b 
+    INNER JOIN new_patients AS np ON b.patientid = np.patientid 
+    WHERE np.patientid = ?
+  `,
+    allClientDebtTransactions: `
+    SELECT 
+      billedon AS date,
+      billingid,
+      outstanding,
+      paid,
+      payable,
+      discount
+    FROM billing 
+    WHERE patientid = ?
+    AND outstanding > 0
+  `,
+    updateSingleTransactionDebt: `
+    UPDATE billing 
+    SET paid = ?, outstanding = ? 
+    WHERE billingid = ?
+  `,
+    updateTransactionHx: `
+    INSERT INTO billingHx (billingid, paymentmode, amount, employeeid) 
+    VALUES (?,?,?,?)
+  `,
+    updatePayment: `
+    SELECT * 
+    FROM BILLING 
+    WHERE billingid = ?
+  `,
+    updatePaymentUpdate: `
+    UPDATE billing 
+    SET outstanding = ?, paid_amount = ?
+    WHERE billingid = ?
+  `,
+    insertBillingHx: `
+    INSERT INTO billingHx (billing, paymentmode, amount) 
+    VALUES (?,?,?)
+  `,
+    paymentMode: `
+    SELECT * 
+    FROM paymentmodes
+  `,
+    specificBillTransactionHx: `
+    SELECT * 
+    FROM billingHx 
+    WHERE billingid = ?  
+    ORDER BY keyid DESC
+  `,
+};

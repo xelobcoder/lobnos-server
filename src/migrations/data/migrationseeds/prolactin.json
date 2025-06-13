@@ -1,0 +1,19 @@
+{
+  "testcreationrule": [
+    {
+      "name": "Prolactin",
+      "value": "",
+      "hasUnits": true,
+      "units": "ng/mL",
+      "plan": "limits",
+      "plain": "",
+      "ordering": 1,
+      "textReference": "",
+      "upperLimit": "20",
+      "lowerLimit": "2",
+      "underCategory": false,
+      "categoryId": null,
+      "options": ""
+    }
+  ]
+}

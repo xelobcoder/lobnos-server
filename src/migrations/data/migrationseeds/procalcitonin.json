@@ -1,0 +1,19 @@
+{
+    "testcreationrule": [
+      {
+        "name": "Procalcitonin",
+        "value": "",
+        "hasUnits": true,
+        "units": "ng/mL",
+        "plan": "limits",
+        "plain": "",
+        "ordering": 1,
+        "textReference": "<0.5: Low risk of sepsis\n0.5-2: Moderate risk\n>2: High risk of sepsis",
+        "upperLimit": "0.5",
+        "lowerLimit": "0.02",
+        "underCategory": false,
+        "categoryId": null,
+        "options": ""
+      }
+    ]
+}

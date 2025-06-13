@@ -1,0 +1,34 @@
+{
+    "testcreationrule": [
+      {
+        "name": "Cortisol (Morning 6-10 AM)",
+        "value": "",
+        "hasUnits": true,
+        "units": "μg/dL",
+        "plan": "limits",
+        "plain": "",
+        "ordering": 1,
+        "textReference": "Morning (6-10 AM): 6.2-19.4 μg/dL",
+        "upperLimit": "19.4",
+        "lowerLimit": "6.2",
+        "underCategory": false,
+        "categoryId": null,
+        "options": ""
+      },
+      {
+        "name": "Cortisol (Evening 4-8 PM)",
+        "value": "",
+        "hasUnits": true,
+        "units": "μg/dL",
+        "plan": "limits",
+        "plain": "",
+        "ordering": 2,
+        "textReference": "Evening (4-8 PM): 2.3-11.9 μg/dL",
+        "upperLimit": "11.9",
+        "lowerLimit": "2.3",
+        "underCategory": false,
+        "categoryId": null,
+        "options": ""
+      }
+    ]
+}

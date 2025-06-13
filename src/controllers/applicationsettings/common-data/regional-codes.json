@@ -1,0 +1,1074 @@
+{
+     "ASHANTI REGION": [
+          {
+               "district": "Adansi North",
+               "code": "A2"
+          },
+          {
+               "district": "Adansi South",
+               "code": "A3"
+          },
+          {
+               "district": "Bosome Freho",
+               "code": "A4"
+          },
+          {
+               "district": "Adansi Asokwa",
+               "code": "A5"
+          },
+          {
+               "district": "Offinso North",
+               "code": "A6"
+          },
+          {
+               "district": "Offinso South",
+               "code": "A7"
+          },
+          {
+               "district": "Ahafo Ano South East",
+               "code": "A8"
+          },
+          {
+               "district": "Asante Akim South",
+               "code": "AA"
+          },
+          {
+               "district": "Akrofuom",
+               "code": "AAF"
+          },
+          {
+               "district": "Afigya Kwabre North",
+               "code": "AAK"
+          },
+          {
+               "district": "Amansie South",
+               "code": "AAM"
+          },
+          {
+               "district": "Asokwa",
+               "code": "AAS"
+          },
+          {
+               "district": "Atwima Nwabiagya North",
+               "code": "AAT"
+          },
+          {
+               "district": "Bekwai",
+               "code": "AB"
+          },
+          {
+               "district": "Asante Akim Central",
+               "code": "AC"
+          },
+          {
+               "district": "Kwabre East",
+               "code": "AD"
+          },
+          {
+               "district": "Ejisu",
+               "code": "AE"
+          },
+          {
+               "district": "Afigya Kwabre",
+               "code": "AF"
+          },
+          {
+               "district": "Atwima Kwanwoma",
+               "code": "AG"
+          },
+          {
+               "district": "Atwima Nwabiagya",
+               "code": "AH"
+          },
+          {
+               "district": "Atwima Mponua",
+               "code": "AI"
+          },
+          {
+               "district": "Ejura-Sekyedumase",
+               "code": "AJ"
+          },
+          {
+               "district": "Kumasi",
+               "code": "AK"
+          },
+          {
+               "district": "Kwadaso",
+               "code": "AKW"
+          },
+          {
+               "district": "Juaben",
+               "code": "AL"
+          },
+          {
+               "district": "Mampong",
+               "code": "AM"
+          },
+          {
+               "district": "Asante Akim North",
+               "code": "AN"
+          },
+          {
+               "district": "Obuasi",
+               "code": "AO"
+          },
+          {
+               "district": "Obuasi East",
+               "code": "AOE"
+          },
+          {
+               "district": "Oforikrom",
+               "code": "AOK"
+          },
+          {
+               "district": "Old Tafo",
+               "code": "AOT"
+          },
+          {
+               "district": "Sekyere Afram Plains",
+               "code": "AP"
+          },
+          {
+               "district": "Sekyere Central",
+               "code": "AQ"
+          },
+          {
+               "district": "Sekyere East",
+               "code": "AR"
+          },
+          {
+               "district": "Asokore Mampong",
+               "code": "AS"
+          },
+          {
+               "district": "Suame",
+               "code": "ASU"
+          },
+          {
+               "district": "Bosomtwe",
+               "code": "AT"
+          },
+          {
+               "district": "Sekyere Kumawu",
+               "code": "AU"
+          },
+          {
+               "district": "Amansie Central",
+               "code": "AV"
+          },
+          {
+               "district": "Amansie West",
+               "code": "AW"
+          },
+          {
+               "district": "Ahafo Ano North",
+               "code": "AX"
+          },
+          {
+               "district": "Ahafo Ano South West",
+               "code": "AY"
+          },
+          {
+               "district": "Sekyere South",
+               "code": "AZ"
+          }
+     ],
+     "BONO REGION": [
+          {
+               "district": "Banda",
+               "code": "BA"
+          },
+          {
+               "district": "Berekum East",
+               "code": "BB"
+          },
+          {
+               "district": "Berekum West",
+               "code": "BC"
+          },
+          {
+               "district": "Dormaa Central",
+               "code": "BD"
+          },
+          {
+               "district": "Dormaa East",
+               "code": "BE"
+          },
+          {
+               "district": "Dormaa West",
+               "code": "BF"
+          },
+          {
+               "district": "Jaman South",
+               "code": "BI"
+          },
+          {
+               "district": "Jaman North",
+               "code": "BJ"
+          },
+          {
+               "district": "Sunyani",
+               "code": "BS"
+          },
+          {
+               "district": "Wenchi",
+               "code": "BW"
+          },
+          {
+               "district": "Sunyani West",
+               "code": "BY"
+          },
+          {
+               "district": "Tain",
+               "code": "BZ"
+          }
+     ],
+     "AHAFO REGION": [
+          {
+               "district": "Asunafo North",
+               "code": "HA"
+          },
+          {
+               "district": "Asunafo South",
+               "code": "HB"
+          },
+          {
+               "district": "Asutifi North",
+               "code": "HQ"
+          },
+          {
+               "district": "Asutifi South",
+               "code": "HR"
+          },
+          {
+               "district": "Tano North",
+               "code": "HT"
+          },
+          {
+               "district": "Tano South",
+               "code": "HT"
+          }
+     ],
+     "BONO EAST REGION": [
+          {
+               "district": "Atebubu-Amantin",
+               "code": "TA"
+          },
+          {
+               "district": "Kintampo North",
+               "code": "TK"
+          },
+          {
+               "district": "Kintampo South",
+               "code": "TL"
+          },
+          {
+               "district": "Nkoranza North",
+               "code": "TN"
+          },
+          {
+               "district": "Nkoranza South",
+               "code": "TO"
+          },
+          {
+               "district": "Pru East",
+               "code": "TP"
+          },
+          {
+               "district": "Pru West",
+               "code": "TW"
+          },
+          {
+               "district": "Sene East",
+               "code": "TE"
+          },
+          {
+               "district": "Sene West",
+               "code": "TS"
+          },
+          {
+               "district": "Techiman",
+               "code": "TT"
+          },
+          {
+               "district": "Techiman North",
+               "code": "TT"
+          }
+     ],
+     "CENTRAL REGION": [
+          {
+               "district": "Abura Asebu Kwamankese",
+               "code": "CA"
+          },
+          {
+               "district": "Agona East",
+               "code": "CP"
+          },
+          {
+               "district": "Agona West",
+               "code": "CO"
+          },
+          {
+               "district": "Ajumako Enyan Esiam",
+               "code": "CJ"
+          },
+          {
+               "district": "Asikuma / Odoben / Brakwa",
+               "code": "CB"
+          },
+          {
+               "district": "Assin Central",
+               "code": "CN"
+          },
+          {
+               "district": "Assin North",
+               "code": "CR"
+          },
+          {
+               "district": "Assin South",
+               "code": "CS"
+          },
+          {
+               "district": "Awutu Senya East",
+               "code": "CX"
+          },
+          {
+               "district": "Cape Coast",
+               "code": "CC"
+          },
+          {
+               "district": "Effutu",
+               "code": "CE"
+          },
+          {
+               "district": "Ekumfi",
+               "code": "CF"
+          },
+          {
+               "district": "Gomoa Central",
+               "code": "CL"
+          },
+          {
+               "district": "Gomoa East",
+               "code": "CG"
+          },
+          {
+               "district": "Gomoa West",
+               "code": "CI"
+          },
+          {
+               "district": "Hemang Lower Denkyira",
+               "code": "CH"
+          },
+          {
+               "district": "Komenda Edina Eguafo",
+               "code": "CK"
+          },
+          {
+               "district": "Mfantseman",
+               "code": "CM"
+          },
+          {
+               "district": "Twifo Ati-Morkwa",
+               "code": "CT"
+          },
+          {
+               "district": "Upper Denkyira East",
+               "code": "CU"
+          },
+          {
+               "district": "Upper Denkyira West",
+               "code": "CV"
+          }
+     ],
+     "EASTERN REGION": [
+          {
+               "district": "Abuakwa North",
+               "code": "E4"
+          },
+          {
+               "district": "Abuakwa South",
+               "code": "E5"
+          },
+          {
+               "district": "Achiase",
+               "code": "EC"
+          },
+          {
+               "district": "Akuapem North",
+               "code": "E2"
+          },
+          {
+               "district": "Akuapem South",
+               "code": "E3"
+          },
+          {
+               "district": "Akyemansa",
+               "code": "EM"
+          },
+          {
+               "district": "Asene Manso Akroso",
+               "code": "E8"
+          },
+          {
+               "district": "Asuogyaman",
+               "code": "EA"
+          },
+          {
+               "district": "Atiwa East",
+               "code": "E9"
+          },
+          {
+               "district": "Atiwa West",
+               "code": "ET"
+          },
+          {
+               "district": "Ayensuano",
+               "code": "EO"
+          },
+          {
+               "district": "Birim Central",
+               "code": "EB"
+          },
+          {
+               "district": "Birim North",
+               "code": "EX"
+          },
+          {
+               "district": "Birim South",
+               "code": "EZ"
+          },
+          {
+               "district": "Denkyembour",
+               "code": "ED"
+          },
+          {
+               "district": "Fanteakwa North",
+               "code": "EF"
+          },
+          {
+               "district": "Fanteakwa South",
+               "code": "E6"
+          },
+          {
+               "district": "Kwaebibirem",
+               "code": "EK"
+          },
+          {
+               "district": "Kwahu Afram Plains North",
+               "code": "EP"
+          },
+          {
+               "district": "Kwahu Afram Plains South",
+               "code": "EQ"
+          },
+          {
+               "district": "Kwahu East",
+               "code": "EH"
+          },
+          {
+               "district": "Kwahu South",
+               "code": "EI"
+          },
+          {
+               "district": "Kwahu West",
+               "code": "EJ"
+          },
+          {
+               "district": "Lower Manya Krobo",
+               "code": "EL"
+          },
+          {
+               "district": "New Juaben North",
+               "code": "E7"
+          },
+          {
+               "district": "New Juaben South",
+               "code": "EN"
+          },
+          {
+               "district": "Nsawam Adoagyiri",
+               "code": "EG"
+          },
+          {
+               "district": "Okere",
+               "code": "ER"
+          },
+          {
+               "district": "Suhum",
+               "code": "ES"
+          },
+          {
+               "district": "Upper Manya Krobo",
+               "code": "EU"
+          },
+          {
+               "district": "Upper West Akim",
+               "code": "EV"
+          },
+          {
+               "district": "West Akim",
+               "code": "EW"
+          },
+          {
+               "district": "Yilo Krobo",
+               "code": "EY"
+          }
+     ],
+     "GREATER ACCRA REGION": [
+          {
+               "district": "Ablekuma Central",
+               "code": "G7"
+          },
+          {
+               "district": "Ablekuma North",
+               "code": "GF"
+          },
+          {
+               "district": "Ablekuma West",
+               "code": "GU"
+          },
+          {
+               "district": "Accra",
+               "code": "GA"
+          },
+          {
+               "district": "Ada East",
+               "code": "GY"
+          },
+          {
+               "district": "Ada West",
+               "code": "GX"
+          },
+          {
+               "district": "Adentan",
+               "code": "GD"
+          },
+          {
+               "district": "Ashaiman",
+               "code": "GB"
+          },
+          {
+               "district": "Ayawaso Central",
+               "code": "G2"
+          },
+          {
+               "district": "Ayawaso East",
+               "code": "GV"
+          },
+          {
+               "district": "Ayawaso North",
+               "code": "G3"
+          },
+          {
+               "district": "Ayawaso West",
+               "code": "G4"
+          },
+          {
+               "district": "Ga Central",
+               "code": "GC"
+          },
+          {
+               "district": "Ga East",
+               "code": "GE"
+          },
+          {
+               "district": "Ga North",
+               "code": "GG"
+          },
+          {
+               "district": "Ga South",
+               "code": "GS"
+          },
+          {
+               "district": "Ga West",
+               "code": "GW"
+          },
+          {
+               "district": "Korle Klottey",
+               "code": "GR"
+          },
+          {
+               "district": "Kpone Katamanso",
+               "code": "GK"
+          },
+          {
+               "district": "Krowor",
+               "code": "G6"
+          },
+          {
+               "district": "La Dade Kotopon",
+               "code": "GL"
+          },
+          {
+               "district": "La Nkwantanang Madina",
+               "code": "GM"
+          },
+          {
+               "district": "Ledzokuku",
+               "code": "GZ"
+          },
+          {
+               "district": "Ningo Prampram",
+               "code": "GN"
+          },
+          {
+               "district": "Okaikwei North",
+               "code": "GI"
+          },
+          {
+               "district": "Shai-Osudoku",
+               "code": "GO"
+          },
+          {
+               "district": "Tema",
+               "code": "GT"
+          },
+          {
+               "district": "Tema West",
+               "code": "GQ"
+          },
+          {
+               "district": "Weija Gbawe",
+               "code": "GJ"
+          }
+     ],
+     "NORTH EAST REGION": [
+          {
+               "district": "Bunkpurugu Nakpanduri",
+               "code": "MP"
+          },
+          {
+               "district": "Chereponi",
+               "code": "MC"
+          },
+          {
+               "district": "East Mamprusi",
+               "code": "ME"
+          },
+          {
+               "district": "Mamprugu Moaduri",
+               "code": "MM"
+          },
+          {
+               "district": "West Mamprusi",
+               "code": "MW"
+          },
+          {
+               "district": "Yunyoo Nasuan",
+               "code": "MY"
+          }
+     ],
+     "NORTHERN REGION": [
+          {
+               "district": "Gushiegu",
+               "code": "NG"
+          },
+          {
+               "district": "Karaga",
+               "code": "NR"
+          },
+          {
+               "district": "Kpandai",
+               "code": "NA"
+          },
+          {
+               "district": "Kumbungu",
+               "code": "NK"
+          },
+          {
+               "district": "Mion",
+               "code": "NI"
+          },
+          {
+               "district": "Nanton",
+               "code": "NU"
+          },
+          {
+               "district": "Nanumba North",
+               "code": "NN"
+          },
+          {
+               "district": "Nanumba South",
+               "code": "NO"
+          },
+          {
+               "district": "Saboba",
+               "code": "NX"
+          },
+          {
+               "district": "Sagnerigu",
+               "code": "NS"
+          },
+          {
+               "district": "Savelugu",
+               "code": "NV"
+          },
+          {
+               "district": "Tamale",
+               "code": "NT"
+          },
+          {
+               "district": "Tatale Sangule",
+               "code": "NF"
+          },
+          {
+               "district": "Tolon",
+               "code": "NL"
+          },
+          {
+               "district": "Yendi",
+               "code": "NY"
+          },
+          {
+               "district": "Zabzugu",
+               "code": "NZ"
+          }
+     ],
+     "OTI REGION": [
+          {
+               "district": "Biakoye",
+               "code": "OB"
+          },
+          {
+               "district": "Guan",
+               "code": "OG"
+          },
+          {
+               "district": "Jasikan",
+               "code": "OJ"
+          },
+          {
+               "district": "Kadjebi",
+               "code": "OK"
+          },
+          {
+               "district": "Krachi East",
+               "code": "OE"
+          },
+          {
+               "district": "Krachi Nchumuru",
+               "code": "OQ"
+          },
+          {
+               "district": "Krachi West",
+               "code": "OW"
+          },
+          {
+               "district": "Nkwanta North",
+               "code": "ON"
+          },
+          {
+               "district": "Nkwanta South",
+               "code": "OS"
+          }
+     ],
+     "SAVANNAH REGION": [
+          {
+               "district": "Bole",
+               "code": "SB"
+          },
+          {
+               "district": "Central Gonja",
+               "code": "SG"
+          },
+          {
+               "district": "East Gonja",
+               "code": "SE"
+          },
+          {
+               "district": "North East Gonja",
+               "code": "SJ"
+          },
+          {
+               "district": "North Gonja",
+               "code": "SN"
+          },
+          {
+               "district": "Sawla Tuna Kalba",
+               "code": "SS"
+          },
+          {
+               "district": "West Gonja",
+               "code": "SW"
+          }
+     ],
+     "UPPER EAST REGION": [
+          {
+               "district": "Bawku",
+               "code": "UA"
+          },
+          {
+               "district": "Bawku West",
+               "code": "UW"
+          },
+          {
+               "district": "Binduri",
+               "code": "UU"
+          },
+          {
+               "district": "Bolgatanga",
+               "code": "UB"
+          },
+          {
+               "district": "Bolgatanga East",
+               "code": "UE"
+          },
+          {
+               "district": "Bongo",
+               "code": "UO"
+          },
+          {
+               "district": "Builsa North",
+               "code": "UR"
+          },
+          {
+               "district": "Builsa South",
+               "code": "US"
+          },
+          {
+               "district": "Garu",
+               "code": "UG"
+          },
+          {
+               "district": "Kassena Nankana East",
+               "code": "UK"
+          },
+          {
+               "district": "Kassena Nankana West",
+               "code": "UL"
+          },
+          {
+               "district": "Nabdam",
+               "code": "UN"
+          },
+          {
+               "district": "Pusiga",
+               "code": "UP"
+          },
+          {
+               "district": "Talensi",
+               "code": "UT"
+          },
+          {
+               "district": "Tempane",
+               "code": "UM"
+          }
+     ],
+     "UPPER WEST REGION": [
+          {
+               "district": "Daffiama Bussie Issa",
+               "code": "XD"
+          },
+          {
+               "district": "Jirapa",
+               "code": "XJ"
+          },
+          {
+               "district": "Lambussie Karni",
+               "code": "XK"
+          },
+          {
+               "district": "Lawra",
+               "code": "XL"
+          },
+          {
+               "district": "Nadowli Kaleo",
+               "code": "XO"
+          },
+          {
+               "district": "Nandom",
+               "code": "XN"
+          },
+          {
+               "district": "Sissala East",
+               "code": "XS"
+          },
+          {
+               "district": "Sissala West",
+               "code": "XT"
+          },
+          {
+               "district": "Wa",
+               "code": "XW"
+          },
+          {
+               "district": "Wa East",
+               "code": "XX"
+          },
+          {
+               "district": "Wa West",
+               "code": "XY"
+          }
+     ],
+     "VOLTA REGION": [
+          {
+               "district": "Adaklu",
+               "code": "VA"
+          },
+          {
+               "district": "Afadjato South",
+               "code": "VF"
+          },
+          {
+               "district": "Agotime Ziope",
+               "code": "VG"
+          },
+          {
+               "district": "Akatsi North",
+               "code": "VW"
+          },
+          {
+               "district": "Akatsi South",
+               "code": "VX"
+          },
+          {
+               "district": "Anloga",
+               "code": "VN"
+          },
+          {
+               "district": "Central Tongu",
+               "code": "VV"
+          },
+          {
+               "district": "Ho",
+               "code": "VH"
+          },
+          {
+               "district": "Ho West",
+               "code": "VI"
+          },
+          {
+               "district": "Hohoe",
+               "code": "VC"
+          },
+          {
+               "district": "Keta",
+               "code": "VK"
+          },
+          {
+               "district": "Ketu North",
+               "code": "VY"
+          },
+          {
+               "district": "Ketu South",
+               "code": "VZ"
+          },
+          {
+               "district": "Kpando",
+               "code": "VP"
+          },
+          {
+               "district": "North Dayi",
+               "code": "VD"
+          },
+          {
+               "district": "North Tongu",
+               "code": "VT"
+          },
+          {
+               "district": "South Dayi",
+               "code": "VE"
+          },
+          {
+               "district": "South Tongu",
+               "code": "VU"
+          }
+     ],
+     "WESTERN REGION": [
+          {
+               "district": "Ahanta West",
+               "code": "WH"
+          },
+          {
+               "district": "Effia Kwesimintim",
+               "code": "WK"
+          },
+          {
+               "district": "Ellembelle",
+               "code": "WE"
+          },
+          {
+               "district": "Jomoro",
+               "code": "WJ"
+          },
+          {
+               "district": "Mpohor",
+               "code": "WM"
+          },
+          {
+               "district": "Nzema East",
+               "code": "WN"
+          },
+          {
+               "district": "Prestea Huni Valley",
+               "code": "WP"
+          },
+          {
+               "district": "Sekondi-Takoradi",
+               "code": "WS"
+          },
+          {
+               "district": "Shama",
+               "code": "WR"
+          },
+          {
+               "district": "Tarkwa Nsuaem",
+               "code": "WT"
+          },
+          {
+               "district": "Wassa Amenfi Central",
+               "code": "WW"
+          },
+          {
+               "district": "Wassa Amenfi East",
+               "code": "WX"
+          },
+          {
+               "district": "Wassa Amenfi West",
+               "code": "WY"
+          },
+          {
+               "district": "Wassa East",
+               "code": "WZ"
+          }
+     ],
+     "WESTERN NORTH REGION": [
+          {
+               "district": "Aowin",
+               "code": "YA"
+          },
+          {
+               "district": "Bia East",
+               "code": "YE"
+          },
+          {
+               "district": "Bia West",
+               "code": "YW"
+          },
+          {
+               "district": "Bibiani Anhwiaso Bekwai",
+               "code": "YB"
+          },
+          {
+               "district": "Bodi",
+               "code": "YD"
+          },
+          {
+               "district": "Juaboso",
+               "code": "YJ"
+          },
+          {
+               "district": "Sefwi Akontombra",
+               "code": "YK"
+          },
+          {
+               "district": "Sefwi Wiawso",
+               "code": "YS"
+          },
+          {
+               "district": "Suaman",
+               "code": "YU"
+          }
+     ]
+}

@@ -1,0 +1,230 @@
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+import logger from "../hooks/logger";
+import configuration from "../../helpers/configuration";
+import * as queries from "./queries";
+import Security from "../models/security/securityClass";
+import { convertKeysToLowerCase, customError, promisifyQuery } from "../hooks/helper";
+import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
+import { OperationsFailures } from "../models/operations/types";
+import ApplicationSettings from "../models/application/appsettings/appset";
+import ResultSettings from "../models/application/appsettings/resultSettings";
+
+
+class User {
+	private name: string;
+	private password: string;
+	private role: string;
+	private email: string;
+	private branch: number | null;
+
+	constructor(name: string | null = null, password: string | null = null, role: string | null = null, email: string | null = null, branch: number | null = null) {
+		this.name = name || null;
+		this.password = password || null;
+		this.role = role || null;
+		this.email = email || null;
+		this.branch = branch || null;
+	}
+
+	public async checkUserExistUsingEmail(tenantId: number): Promise<boolean> {
+		return await new TiifuWorkingClass("role").findOne(tenantId, "emails", this.email) ? true : false;
+	}
+
+	public async hashPassword(): Promise<string> {
+		const salt = await bcrypt.genSalt(10);
+		this.password = await bcrypt.hash(this.password, salt);
+		return this.password;
+	}
+
+	public async isPasswordSame(password: string, hashpassword: string): Promise<boolean> {
+		return await bcrypt.compare(password, hashpassword);
+	}
+
+	public async insertionOne(name: string, password: string, tenantId: number): Promise<any> {
+		if (!this.branch) {
+			throw new Error("User must be assigned a branch");
+		}
+		const parsedBranch = parseInt(this.branch.toString());
+		if (isNaN(parsedBranch)) {
+			throw new TypeError("branch must be an integer");
+		}
+		return promisifyQuery(tenantId, queries.INSERT_USER, [tenantId, name, password, this.role, this.email, this.branch]);
+	}
+
+	public async getUserDataUsingEmail(email: string, tenantId: number): Promise<any> {
+		const result = await new TiifuWorkingClass("roles").findOne(tenantId, "email", email);
+		return result ? result : false
+	}
+	public async getUserDataById(employeeid: number, tenantId: number): Promise<any> {
+		try {
+			const result = await promisifyQuery(tenantId, queries.SELECT_USERDATA_BY_EMPLOYEE_ID, [tenantId, employeeid]);
+			return result;
+		} catch (err) {
+			logger.error(err);
+			return false;
+		}
+	}
+
+	public async processUserData(data: any, tenantId: number): Promise<any> {
+		const user = convertKeysToLowerCase(data);
+		const { permissions, email, activation, username, role, employeeid, branch } = user;
+		if (activation !== 1) {
+			return `Access Denied!!. User not activated to have access`;
+		}
+		if (permissions === "{}") {
+			return `Access Denied!!. Permissions not set`;
+		}
+		if (configuration.configurations.strictBranchCheck) {
+			if (!branch || branch <= 0) {
+				return "Access Denied!!.User not assigned to a branch";
+			}
+		}
+		let branchname = null;
+		if (branch) {
+			const branchData = await promisifyQuery(tenantId, queries.SELECT_BRANCH_NAME_BY_ID, [tenantId, parseInt(branch)]);
+			if (branchData.length > 0) {
+				branchname = branchData[0]["name"];
+			}
+		}
+		return { permissions, role, activation, email, employeeid, username, branchid: branch, branch: branchname };
+	}
+
+	public async createUser(tenantId: number): Promise<any> {
+		try {
+			const isUserExist = await this.checkUserExistUsingEmail(tenantId);
+			if (isUserExist) return "user already exist";
+			const hashPassword = await this.hashPassword();
+			return await this.insertionOne(this.name, hashPassword, tenantId);
+		} catch (err) {
+			logger.error(err);
+			throw new Error(err?.message || "error creating user");
+		}
+	}
+
+	public async checkLogins(email: string, password: string, tenantId: number): Promise<boolean> {
+		try {
+			const storedPassword = await promisifyQuery(tenantId, queries.SELECT_USER_BY_EMAIL, [tenantId, email]);
+			if (storedPassword.length === 0) return false;
+			return await bcrypt.compare(password, storedPassword[0]?.password);
+		} catch (err) {
+			logger.error(err);
+			throw new Error(err?.message || "something went wrong");
+		}
+	}
+
+	public async applicationAccessToken(): Promise<string> {
+		return jwt.sign({ clientid: 74747 }, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: "1y" });
+	}
+
+	public async createAccessTokenCredentials(accesskey: string, email: string, data: any, expiresIn: string): Promise<string> {
+		try {
+			const accessToken = jwt.sign({ ...data }, accesskey, { expiresIn });
+			return accessToken;
+		} catch (err) {
+			logger.error(err);
+			throw new Error(err?.message || "something went wrong");
+		}
+	}
+
+	public async validateRequestToken(req: any, res: any, next: any, accessSecret: string): Promise<void> {
+		try {
+			const accessToken = req.headers.authorization && req.headers.authorization.split(" ")[1];
+			if (!accessToken) {
+				return customError("Unauthorized to access service.", 401, res);
+			}
+			const isValidated = await this.verifyToken(accessToken);
+			if (isValidated) {
+				next();
+			}
+		} catch (err) {
+			return customError("Application license expired, please contact admin for renewal", 401, res);
+		}
+	}
+
+	async loggedInAccessoryInformation(employeeId: number, tenantId: number) {
+		const services = await new ApplicationSettings().applicationConnectedServices(tenantId);
+		const resultEntry = await ResultSettings.getResultEntrySettings(tenantId);
+		return { services, resultEntry }
+	}
+
+	public async validateEmployeeToken(request: any, response: any, tenantId: number) {
+		try {
+			const { token } = request.query;
+			if (!token) return OperationsFailures.invalidTokenProvided
+
+			const tokenValid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string);
+
+			if (!tokenValid) return OperationsFailures.invalidTokenProvided
+			const { role, employeeid } = tokenValid;
+
+			const isUserLoggedIn = await new Security(employeeid).getCanInitiateLogin(tenantId);
+
+			if (isUserLoggedIn) {
+				return response.send({ loggedIn: false, message: "user is not loggedIn" });
+			}
+
+			if (!role) {
+				return customError("token is invalid", 404, response);
+			}
+
+			switch (role) {
+				case "clinician":
+				case "patient":
+					response.send({ statusCode: 200, status: "success", user: tokenValid });
+					break;
+				default:
+					const allValid = ["username", "activation", "email", "employeeid", "permissions", "role"].some(
+						(item) => !tokenValid.hasOwnProperty(item)
+					);
+
+					if (allValid) {
+						return customError("invalid token data received", 401, response);
+					}
+
+					let branch = await promisifyQuery(tenantId, queries.SELECT_BRANCH_NAME_BY_ID, [tenantId, parseInt((tokenValid as any)?.branchid)]);
+					if (branch.length > 0) {
+						branch = branch[0]["name"];
+					}
+					response.send({ statusCode: 200, status: "success", user: { ...tokenValid, branch } });
+			}
+		} catch (err) {
+			return customError("Expired token", 404, response);
+		}
+	}
+
+	private async verifyToken(token: string): Promise<any> {
+		return jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string);
+	}
+
+	public async tokenizeData(data: any, expiresIn: string): Promise<string> {
+		return jwt.sign({ ...data }, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn });
+	}
+
+	public async getUserRole(employeeid: number, tenantId: number): Promise<string | null> {
+		const data = await promisifyQuery(tenantId, queries.SELECT_ROLE_BY_EMPLOYEE_ID, [tenantId, employeeid]);
+		return data.length > 0 ? data[0]["role"] : null;
+	}
+
+	public async getExpectedRole(employeeid: number, expected: string | string[], tenantId: number): Promise<boolean | null> {
+		const parsedEmployeeid = parseInt(employeeid.toString());
+		const role = await this.getUserRole(parsedEmployeeid, tenantId);
+		if (role === null) return null;
+		if (Array.isArray(expected)) {
+			return expected.includes(role.toLowerCase());
+		} else {
+			return role.toLowerCase() === expected.toLowerCase();
+		}
+	}
+
+	public async userExistWithId(id: number, tenantId: number): Promise<any> {
+		try {
+			const result = await promisifyQuery(tenantId, queries.SELECT_USER_BY_EMPLOYEE_ID, [tenantId, id]);
+			return result.length === 0 ? false : result;
+		} catch (err) {
+			logger.error(err);
+			throw new Error(err?.message || "something went wrong");
+		}
+	}
+}
+
+export default User;

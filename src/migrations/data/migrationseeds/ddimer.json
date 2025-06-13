@@ -1,0 +1,19 @@
+{
+    "testcreationrule": [
+      {
+        "name": "D-Dimer",
+        "value": "",
+        "hasUnits": true,
+        "units": "ng/mL FEU",
+        "plan": "limits",
+        "plain": "",
+        "ordering": 1,
+        "textReference": "Values >500 ng/mL FEU may indicate thrombosis",
+        "upperLimit": "500",
+        "lowerLimit": "0",
+        "underCategory": false,
+        "categoryId": null,
+        "options": ""
+      }
+    ]
+}

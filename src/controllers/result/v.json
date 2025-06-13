@@ -1,0 +1,29 @@
+[
+     {
+          "testName": "Renal function test",
+          "originalPrice": 96,
+          "concessionAmount": 10,
+          "discountedAmount": 9.600000000000001,
+          "actualPrice": 86.4,
+          "testid": 1001101,
+          "concessionMode": "percentage"
+     },
+     {
+          "testName": "LIVER(FUNCTION)TEST",
+          "originalPrice": 1000,
+          "concessionAmount": 5,
+          "discountedAmount": 5,
+          "actualPrice": 995,
+          "testid": 1001143,
+          "concessionMode": "absolute"
+     },
+     {
+          "testName": "Prostrate Specific Antigen ",
+          "originalPrice": 150,
+          "concessionAmount": 10,
+          "discountedAmount": 15,
+          "actualPrice": 135,
+          "testid": 1001114,
+          "concessionMode": "percentage"
+     }
+]
