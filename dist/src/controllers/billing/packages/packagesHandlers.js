@@ -132,7 +132,7 @@ const updatePackageHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
         const result = await Billlingpackages_1.Packages.updatePackage(tenantId, Number(req.params.id), req.body);
-        res.status(200).json(result);
+        res.status(200).json({ status: result > 0 });
     }
     catch (error) {
         res.status(500).json({ error: error.message });
@@ -143,7 +143,7 @@ const deletePackageHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
         const result = await Billlingpackages_1.Packages.deletePackage(tenantId, Number(req.params.id));
-        res.status(200).json(result);
+        res.status(200).json({ status: result > 0, message: result > 0 ? "Package deleted successfully" : "Package not found" });
     }
     catch (error) {
         res.status(500).json({ error: error.message });

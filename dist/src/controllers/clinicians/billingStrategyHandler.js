@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
+exports.getAllBillingStrategiesMini = exports.removeCategoryFromStrategy = exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
 const clinicianBilling_1 = __importDefault(require("../../models/clincians/clinicianBilling"));
 async function createBillingStrategy(req, res) {
     try {
@@ -183,10 +183,13 @@ async function checkEntityHasStrategy(req, res) {
         }
         const strategyInstance = new clinicianBilling_1.default();
         const hasStrategy = await strategyInstance.entityHasStrategy(tenantId, entityType, entityId);
+        //get entity information
         if (hasStrategy === null) {
             return res.status(404).json({ message: 'Billing strategy not found for the specified entity.' });
         }
-        res.status(200).json({ hasStrategy });
+        const strategyIn = await strategyInstance.getBillingStrategyByEntity(tenantId, entityType, entityId);
+        const strategyId = Array.isArray(strategyIn) && strategyIn.length > 0 ? strategyIn[0].strategyid : null;
+        res.status(200).json({ hasStrategy, strategyId });
     }
     catch (error) {
         console.log(error);
@@ -288,3 +291,48 @@ async function addCategoryToStrategy(req, res) {
     }
 }
 exports.addCategoryToStrategy = addCategoryToStrategy;
+async function removeCategoryFromStrategy(req, res) {
+    try {
+        const strategyId = parseInt(req.params.strategyid);
+        const tenantId = parseInt(req.query.tenantId);
+        const { category, associatedid } = req.body;
+        if (isNaN(strategyId) || isNaN(tenantId) || !category || !associatedid) {
+            return res.status(400).json({ message: 'Invalid strategyId, tenantId, category, or associatedid.' });
+        }
+        const strategyInstance = new clinicianBilling_1.default();
+        const result = await strategyInstance.deleteStrategyApplicableEntities(tenantId, strategyId, associatedid, category);
+        res.status(200).json({ message: 'Category removed from strategy successfully.', result });
+    }
+    catch (error) {
+        console.log(error);
+        res.status(500).json({
+            message: 'Error removing category from strategy.',
+            error: error.message
+        });
+    }
+}
+exports.removeCategoryFromStrategy = removeCategoryFromStrategy;
+async function getAllBillingStrategiesMini(req, res) {
+    var _a, _b, _c, _d;
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString(), 10);
+        if (isNaN(tenantId)) {
+            return res.status(400).json({ message: 'Invalid tenant ID' });
+        }
+        const strategyInstance = new clinicianBilling_1.default();
+        const page = parseInt(((_b = (_a = req.query) === null || _a === void 0 ? void 0 : _a.page) === null || _b === void 0 ? void 0 : _b.toString()) || '1', 10);
+        const count = parseInt(((_d = (_c = req.query) === null || _c === void 0 ? void 0 : _c.count) === null || _d === void 0 ? void 0 : _d.toString()) || '10', 10);
+        const strategies = await strategyInstance.getAllBillingStrategiesWithoutApplicableTest(tenantId, count, page);
+        if (!strategies || strategies.length === 0) {
+            return res.status(404).json({ message: 'No billing strategies found.' });
+        }
+        res.status(200).json(strategies);
+    }
+    catch (error) {
+        res.status(500).json({
+            message: 'Error retrieving billing strategies.',
+            error: error.message
+        });
+    }
+}
+exports.getAllBillingStrategiesMini = getAllBillingStrategiesMini;

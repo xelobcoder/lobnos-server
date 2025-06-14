@@ -27,6 +27,7 @@ import { handleAuthenticationEmployee } from "../../middleware/redis/handlerAsce
 import { getPatientTransactions, getPatientTransactionDetails } from "./BillingHandler";
 import { getSalesSessionList, handleCreateNewSalesSesion, handleEndSalesSession, hasSalesSessionAvailableHandler } from "./SessionManger/handler";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
+import { handleOverLoad } from "../../hooks/helper";
 
 
 
@@ -70,7 +71,7 @@ router.get('/api/v1/billing/patient/transactions/:billingid', getPatientTransact
 
 // sales session
 
-router.post("/api/v1/billing/sales/session/create", handleCreateNewSalesSesion);
+router.post("/api/v1/billing/sales/session/create", handleOverLoad(handleCreateNewSalesSesion));
 router.get("/api/v1/billing/sales/session/list", getSalesSessionList);
 router.put("/api/v1/billing/sales/session/endsession",handleEndSalesSession);
 router.get('/api/v1/billing/sales/session/verify/session',hasSalesSessionAvailableHandler)

@@ -1,21 +1,22 @@
 import { Router } from 'express';
 import { SmsTemplateController } from './handlers';
 import * as  SmsEventsHandlers from './SmsEventsHandlers';
+import { handleOverLoad } from '../../hooks/helper';
 
 const router = Router();
 
 router.post('/api/v1/sms/sms-templates', SmsTemplateController.handleCreateNewSmsTemplate);
 router.get('/api/v1/sms/sms-templates', SmsTemplateController.handleReadSmsTemplateById);
-router.get('/api/v1/sms/sms-templates/all', SmsTemplateController.handleReadAllSmsTemplates);
+router.get('/api/v1/sms/sms-templates/all', handleOverLoad(SmsTemplateController.handleReadAllSmsTemplates));
 router.put('/api/v1/sms/sms-templates', SmsTemplateController.handleUpdateSmsTemplateById);
-router.delete('/api/v1/sms/sms-templates', SmsTemplateController.handleDeleteSmsTemplateById);
+router.delete('/api/v1/sms/sms-templates', handleOverLoad(SmsTemplateController.handleDeleteSmsTemplateById));
 router.post('/api/v1/sms/schedule/message', SmsTemplateController.createNewSmsMessage);
 router.get("/api/v1/sms/scheduled/messages", SmsTemplateController.getMessages);
 router.get("/api/v1/sms/scheduled/messages/unsent", SmsTemplateController.sendScheduledMessageReachedAndUnsentHandler);
 
 router.get("/api/v1/sms/scheduled/messages/recipient", SmsTemplateController.getMessageRecipients);
 // SMS Events routes
-router.post("/api/v1/sms/events", SmsEventsHandlers.createEvent);
+router.post("/api/v1/sms/events", handleOverLoad(SmsEventsHandlers.createEvent));
 router.get("/api/v1/sms/events", SmsEventsHandlers.getAllEvents);
 router.get("/api/v1/sms/events/:id", SmsEventsHandlers.getEventById);
 router.put("/api/v1/sms/events/:id", SmsEventsHandlers.updateEvent);

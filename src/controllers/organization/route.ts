@@ -7,6 +7,7 @@ import {
 } from "./outsourceHandlers"
 import { organizationImageUpload } from './uploadImages'
 import { createAOrganization, createOrganizationPricingHandler, dailyOrganizationCommission, deleteOrganization, generateMonthlySalesReport, getOrganizationCommissionByMonth, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationWithDetails, getTopPerformance, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
+import { handleOverLoad } from '../../hooks/helper';
 
 
 const router = express.Router();
@@ -22,14 +23,14 @@ router.get("/api/v1/organization/id", getOrganizationId);
 router.get("/api/v1/organization/performance/top", getTopPerformance);
 router.get("/api/v1/organization/detail/report/monthly", generateMonthlySalesReport);
 router.get("/api/v1/organizations/details", getOrganizationWithDetails);
-router.post("/api/v1/new/organizations", createAOrganization);
+router.post("/api/v1/new/organizations", handleOverLoad(createAOrganization));
 router.put("/api/v1/organization/update/basic", updateOrganizationBasic);
 router.put("/api/v1/organization/update/contact", updateOrganizationContact);
 router.put("/api/v1/organization/update/payment", updateOrganizationPayment);
 router.post("/api/v1/new/organization/images", upload);
 router.delete("/api/v1/organization", deleteOrganization);
 router.post(`/api/v1/organization/profile/image`, organizationImageUpload, uploadOrganizationProfilePicture);
-router.post("/api/v1/organization/billing/test", createOrganizationPricingHandler)
+router.post("/api/v1/organization/billing/test",handleOverLoad( createOrganizationPricingHandler))
 router.get("/api/v1/organization/billing/test", getOrganizationPricingHandler)
 
 
@@ -49,7 +50,7 @@ router.get("/api/v1/outsourcing/organization/check/test", checkIsServiceRendered
 router.put('/api/v1/outsourcing/organization/testpanel/outsourceinfo/update', updateTestPanelOutsourcingInformation)
 router.get('/api/v1/outsourcing/organization/testpanel/outsourceinfo', getTestOutSourcingOrganizations)
 router.get('/api/v1/outsourced/testpanel/:stage?', getOutsourcedTestBasedStageHandler)
-router.post("/api/v1/outsourced/testpanel/resolve", updateToResolveOutsourcedHandler)
+router.post("/api/v1/outsourced/testpanel/resolve",handleOverLoad( updateToResolveOutsourcedHandler))
 
 
 export default router

@@ -14,6 +14,7 @@ import {
   updateExpenseCategory,
   getAllExpenseCategory,
 } from "./expenseHandlers";
+import { handleOverLoad } from "../../hooks/helper";
 
 const router = express.Router();
 const RECEIPTS_PATH ="/../../../public/uploads/expenses/receipts"
@@ -36,7 +37,7 @@ router.get("/api/v1/expenses/receipt/upload/images", getReceiptImage);
 router.get("/api/v1/expenses/receipt/uploaded/images/list", getExpenseImageList);
 router.delete("/api/v1/expenses/receipt/uploaded/images", deleteReceiptsList);
 router.post("/api/v1/expense/pending/decision", updateExpenseDecision);
-router.post("/api/v1/expense/new/category", createExpenseCategory);
+router.post("/api/v1/expense/new/category", handleOverLoad(createExpenseCategory));
 router.put("/api/v1/expense/new/category", updateExpenseCategory);
 router.get("/api/v1/expense/get/category", getAllExpenseCategory);
 

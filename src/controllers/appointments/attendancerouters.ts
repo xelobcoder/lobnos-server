@@ -42,44 +42,45 @@ import {
      deleteTask,
      listTasks,
 } from './tasksHandlers'
+import { handleOverLoad } from "../../hooks/helper";
 
 const router = Router();
 
 // Preferred Shifts routes
 router.post("/api/v1/attendance/preferred-shifts", createPreferredShiftHandler);
 router.get("/api/v1/attendance/preferred-shifts", getAllPreferredShiftsHandler);
-router.get("/api/v1/attendance/preferred-shifts/:employeeid", getPreferredShiftHandler);
-router.delete("/api/v1/attendance/preferred-shifts/:employeeid/:shiftid", deletePreferredShiftHandler);
+router.get("/api/v1/attendance/preferred-shifts/:employeeid", handleOverLoad(getPreferredShiftHandler));
+router.delete("/api/v1/attendance/preferred-shifts/:employeeid/:shiftid", handleOverLoad(deletePreferredShiftHandler));
 
 
 
 // Unavailable Days routes
 router.post("/api/v1/employee/unavailable-days", createUnavailableDayHandler);
 router.get("/api/v1/employee/unavailable-days", getAllUnavailableDaysHandler);
-router.get("/api/v1/employee/unavailable-days/:employeeid", getUnavailableDayHandler);
-router.delete("/api/v1/employee/unavailable-days/:employeeid", deleteUnavailableDayHandler);
+router.get("/api/v1/employee/unavailable-days/:employeeid", handleOverLoad(getUnavailableDayHandler));
+router.delete("/api/v1/employee/unavailable-days/:employeeid", handleOverLoad(deleteUnavailableDayHandler));
 
 
 
 router.post("/api/v1/attendance/shifts", createShiftHandler);
 router.get("/api/v1/attendance/shifts", getAllShiftsHandler);
-router.get("/api/v1/attendance/shifts/:id", getShiftByIdHandler);
-router.put("/api/v1/attendance/shifts/:id", updateShiftHandler);
-router.delete("/api/v1/attendance/shifts/:id", deleteShiftHandler);
+router.get("/api/v1/attendance/shifts/:id", handleOverLoad(getShiftByIdHandler));
+router.put("/api/v1/attendance/shifts/:id", handleOverLoad(updateShiftHandler));
+router.delete("/api/v1/attendance/shifts/:id", handleOverLoad(deleteShiftHandler));
 
 //  cycles
 
-router.post("/api/v1/attendance/cycles", createAttendanceCycleHandler);
-router.get("/api/v1/attendance/cycles", getAllAttendanceCyclesHandler);
-router.get("/api/v1/attendance/cycles/:id", getAttendanceCycleHandler);
-router.put("/api/v1/attendance/cycles/:id", updateAttendanceCycleHandler);
-router.delete("/api/v1/attendance/cycles/:id", deleteAttendanceCycleHandler);
+router.post("/api/v1/attendance/cycles", handleOverLoad(createAttendanceCycleHandler));
+router.get("/api/v1/attendance/cycles",handleOverLoad( getAllAttendanceCyclesHandler));
+router.get("/api/v1/attendance/cycles/:id", handleOverLoad(getAttendanceCycleHandler));
+router.put("/api/v1/attendance/cycles/:id", handleOverLoad(updateAttendanceCycleHandler));
+router.delete("/api/v1/attendance/cycles/:id", handleOverLoad(deleteAttendanceCycleHandler));
 
 
 
 
 
-router.get("/api/v1/attendance/employees/summary/:cycleid", getEmployeeAttendanceSummaryHandler);
+router.get("/api/v1/attendance/employees/summary/:cycleid", handleOverLoad(getEmployeeAttendanceSummaryHandler));
 
 
 router.get("/api/v1/attendance/timetable", getAllStaffAttendance);

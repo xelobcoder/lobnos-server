@@ -23,7 +23,7 @@ const createUploadMiddleware = (destination, fieldName, identifier) => {
                 cb(null, destination);
             }
             else {
-                cb(new Error('File type jpeg, png, jpg required'), false);
+                cb(new Error('File type jpeg, png, jpg required'), null);
             }
         },
         filename: async (req, file, cb) => {

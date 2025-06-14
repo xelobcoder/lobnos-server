@@ -1,6 +1,5 @@
 import KnexConnection from "../../../../database/KnexConnections";
 import { promisifyQuery } from "../../../../hooks/helper";
-import { Billing } from "../../../billing/billing";
 import { SmsService } from "../../integrations/Arkesel";
 import { PrimeSmsServices } from "../smsClass";
 import { BirthdayQueries } from "./BirthdayQueries";

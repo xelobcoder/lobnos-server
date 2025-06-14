@@ -21,15 +21,16 @@ import {
        getPaginatedLoggingCriticalValueAlerts,
        getAllLoggingCriticalValueAlerts
 } from './loggingCriticalValueAlertHandlers';
+import { handleOverLoad } from "../../hooks/helper";
 
 const router = express.Router();
 
 // router.get(`/api/v1/result/patientrend/single`, getPatientTestTrend);
 router.post("/api/v1/result/entry/customtest", resultEntry);
-router.get("/api/v1/testpanel/list/customtestrule/previous", getPreviousResultEntryRecordsIfAny);
+router.get("/api/v1/testpanel/list/customtestrule/previous", handleOverLoad(getPreviousResultEntryRecordsIfAny));
 router.get("/api/v1/testpanel/list/customtestrule/previous/comments", getResultCommentsHandler);
 router.get("/api/v1/result/entry/customtest/drugs", resultEntryDrugsHandler)
-router.get('/api/v1/test/creation-rules/only/:testid', getTestCreationRule);
+router.get('/api/v1/test/creation-rules/only/:testid', handleOverLoad(getTestCreationRule));
 
 
 
@@ -42,7 +43,7 @@ router.get("/api/v1/result/analysis/test", handlerTestTotalCasesCount)
 router.get("/api/v1/result/analysis/test/month", handlergetTestTotalCasesMonthDaily)
 router.get("/api/v1/result/analysis/test/getTestMonthlyCount", handlergetTestMonthlyCountForYear)
 router.get("/api/v1/result/analysis/test/alltest/yearlycount", handlergetAllTestYearlyAnalysis)
-router.get("/api/v1/result/analysis/test/resultvalues", handlergetTestResultValuesForMonth)
+router.get("/api/v1/result/analysis/test/resultvalues", handleOverLoad(handlergetTestResultValuesForMonth))
 router.get("/api/v1/result/analysis/test/resultvalues/resultfields", getFieldResultValuesAcrossMonthOverYear)
 
 
@@ -55,9 +56,9 @@ router.get("/api/v1/result/criticalvalues/unseen", criticalValuesUnseenHandler)
 
 
 // Result Printout 
-router.get("/api/v1/result/printout/ascension/getResult", getResultPrintoutHandler)
-router.get("/api/v1/result/printout/ascension/multiple/getResult", getResultPrintMultipleHandler)
-router.get("/api/v1/result/printout/ascension/multiple/getResult/channel/email", billingIdChecker, sendResultViaEmailHandler)
+router.get("/api/v1/result/printout/ascension/getResult", handleOverLoad(getResultPrintoutHandler))
+router.get("/api/v1/result/printout/ascension/multiple/getResult", handleOverLoad(getResultPrintMultipleHandler))
+router.get("/api/v1/result/printout/ascension/multiple/getResult/channel/email", handleOverLoad(billingIdChecker), handleOverLoad(sendResultViaEmailHandler))
 
 
 

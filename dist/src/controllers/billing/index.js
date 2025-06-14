@@ -7,6 +7,7 @@ const handlerAscensionBillingCheck_1 = require("../../middleware/redis/handlerAs
 const BillingHandler_1 = require("./BillingHandler");
 const handler_1 = require("./SessionManger/handler");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
+const helper_1 = require("../../hooks/helper");
 const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
@@ -35,7 +36,7 @@ router.get("/api/v1/billing/refund/details/status", controllers_1.getAlRefundsPa
 router.get('/api/v1/billing/patient/transactions', BillingHandler_1.getPatientTransactions);
 router.get('/api/v1/billing/patient/transactions/:billingid', BillingHandler_1.getPatientTransactionDetails);
 // sales session
-router.post("/api/v1/billing/sales/session/create", handler_1.handleCreateNewSalesSesion);
+router.post("/api/v1/billing/sales/session/create", (0, helper_1.handleOverLoad)(handler_1.handleCreateNewSalesSesion));
 router.get("/api/v1/billing/sales/session/list", handler_1.getSalesSessionList);
 router.put("/api/v1/billing/sales/session/endsession", handler_1.handleEndSalesSession);
 router.get('/api/v1/billing/sales/session/verify/session', handler_1.hasSalesSessionAvailableHandler);

@@ -7,14 +7,15 @@ const express_1 = __importDefault(require("express"));
 const router = express_1.default.Router();
 const departmenthandlers_1 = require("./handlers/departmenthandlers");
 const companyhandler_1 = require("./handlers/companyhandler");
+const helper_1 = require("../../hooks/helper");
 // Department routes
 router.get("/api/v1/departments", departmenthandlers_1.handleGetDepartments);
-router.post("/api/v1/departments", departmenthandlers_1.handleAddNewDepartment);
-router.put("/api/v1/departments", departmenthandlers_1.handleUpdateDepartment);
-router.delete("/api/v1/departments", departmenthandlers_1.handleDeleteDepartment);
-router.get('/api/v1/departments/:id', departmenthandlers_1.handleGetSpecificDepartment);
+router.post("/api/v1/departments", (0, helper_1.handleOverLoad)(departmenthandlers_1.handleAddNewDepartment));
+router.put("/api/v1/departments", (0, helper_1.handleOverLoad)(departmenthandlers_1.handleUpdateDepartment));
+router.delete("/api/v1/departments", (0, helper_1.handleOverLoad)(departmenthandlers_1.handleDeleteDepartment));
+router.get('/api/v1/departments/:id', (0, helper_1.handleOverLoad)(departmenthandlers_1.handleGetSpecificDepartment));
 // Company profile routes
-router.post("/api/v1/settings/companyprofile", companyhandler_1.AddCompanyInfoHandler);
+router.post("/api/v1/settings/companyprofile", (0, helper_1.handleOverLoad)(companyhandler_1.AddCompanyInfoHandler));
 router.get("/api/v1/settings/companyprofile", companyhandler_1.getCompanyInfoHandler);
 router.post("/api/v1/settings/companyprofile/images", companyhandler_1.handleUploadCompanyImage);
 router.get("/api/v1/settings/companyprofile/images", companyhandler_1.getCompanyImageHandler);

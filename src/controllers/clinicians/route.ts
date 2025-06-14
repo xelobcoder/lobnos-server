@@ -28,17 +28,22 @@ import {
   checkEntityHasStrategy,
   getEntityBillingStrategy,
   getAllBillingStrategies,
+  addCategoryToStrategy,
+  removeCategoryFromStrategy,
+  getAllBillingStrategiesMini,
 } from './billingStrategyHandler';
 
 router.post('/api/v1/billing/strategies', handleOverLoad(createBillingStrategy));
 router.get('/api/v1/billing/strategies/all', handleOverLoad(getAllBillingStrategies));
+router.get('/api/v1/billing/strategies/all/mini', handleOverLoad(getAllBillingStrategiesMini));
 router.get('/api/v1/billing/strategies/check/:strategyid', handleOverLoad(checkStrategyExists));
 router.get('/api/v1/billing/strategies/:strategyid', handleOverLoad(getBillingStrategy));
 router.put('/api/v1/billing/strategies/:strategyid', handleOverLoad(updateBillingStrategy));
 router.delete('/api/v1/billing/strategies/:strategyid', handleOverLoad(deleteBillingStrategy));
 router.get('/api/v1/billing/strategies/:entityType/:entityid/has-strategy', handleOverLoad(checkEntityHasStrategy));
 router.get('/api/v1/billing/strategies/:entityType/:entityid', handleOverLoad(getEntityBillingStrategy));
-
+router.post('/api/v1/billing/strategies/apply/strategy/entity/:strategyid', handleOverLoad(addCategoryToStrategy));
+router.delete('/api/v1/billing/strategies/remove/entity/:strategyid', handleOverLoad(removeCategoryFromStrategy));
 
 
 // payment routes of the clinicians

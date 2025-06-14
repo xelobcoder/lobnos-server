@@ -329,13 +329,13 @@ export class Billing {
 			}
 
 			if (categoryTrackId === 3) {
-				const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy(insuranceId).getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId);
+				const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId);
 				price = discountedValue;
 				isOutsourced = isoutsourced == 1;
 			}
 
 			if (categoryTrackId === 6) {
-				const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy(clinicianId).getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
+				const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
 
 				if (discountedValue >= 0) {
 					price = discountedValue;
@@ -1484,7 +1484,7 @@ export class Billing {
 			const isInserted = await queryRunner.raw(AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
 			// const result = await TestApprovalClass.addAprovalItem(tenantId, isInserted.insertId, trx);
 			// console.log(result)
-			return  isInserted.insertId;
+			return isInserted.insertId;
 		} catch (err) {
 			console.log(err)
 			if (err && err.code && err.errno == 1526 && err.code == 'ER_NO_PARTITION_FOR_GIVEN_VALUE'.trim()) {

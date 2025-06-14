@@ -22,7 +22,7 @@ export class PromoCodeController {
                const tenantId = parseInt(req.query.tenantId as string);
                if (!tenantId || tenantId <= 0) throw new Error('Invalid tenantId');
                const repo = new BillingStrategyRepository(tenantId);
-               const data: BillingPromoCode = {
+               const data = {
                     ...req.body,
                     valid_from: new Date(req.body.valid_from),
                     valid_to: req.body.valid_to ? new Date(req.body.valid_to) : null,
@@ -54,7 +54,7 @@ export class PromoCodeController {
                const id = parseInt(req.params.id);
                if (!tenantId || tenantId <= 0) throw new Error('Invalid tenantId');
                const repo = new BillingStrategyRepository(tenantId);
-               const data: BillingPromoCode = {
+               const data = {
                     ...req.body,
                     id,
                     valid_from: new Date(req.body.valid_from),

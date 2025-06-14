@@ -224,10 +224,14 @@ export async function checkEntityHasStrategy(
 
         const strategyInstance = new BillingStrategy();
         const hasStrategy = await strategyInstance.entityHasStrategy(tenantId, entityType, entityId);
+        //get entity information
         if (hasStrategy === null) {
             return res.status(404).json({ message: 'Billing strategy not found for the specified entity.' });
         }
-        res.status(200).json({ hasStrategy });
+
+        const strategyIn = await strategyInstance.getBillingStrategyByEntity(tenantId, entityType, entityId);
+        const strategyId = Array.isArray(strategyIn) && strategyIn.length > 0 ? strategyIn[0].strategyid : null;
+        res.status(200).json({ hasStrategy, strategyId });
     } catch (error: any) {
         console.log(error)
         res.status(500).json({
@@ -327,7 +331,7 @@ export async function checkStrategyExists(
 }
 
 export async function addCategoryToStrategy(
-    req: Request<{ strategyid: string }, {}, { category: 'phis' | 'clinician'; associatedid: number }, { tenantId: string }>,
+    req: Request<{ strategyid: string }, {}, { category: EntityType; associatedid: number }, { tenantId: string }>,
     res: Response
 ) {
     try {
@@ -343,6 +347,64 @@ export async function addCategoryToStrategy(
     } catch (error: any) {
         res.status(500).json({
             message: 'Error adding category to strategy.',
+            error: error.message
+        });
+    }
+}
+
+
+
+
+
+
+export async function removeCategoryFromStrategy(
+    req: Request<{ strategyid: string }, {}, { category: EntityType; associatedid: number }, { tenantId: string }>,
+    res: Response
+) {
+    try {
+        const strategyId = parseInt(req.params.strategyid);
+        const tenantId = parseInt(req.query.tenantId);
+        const { category, associatedid } = req.body;
+        if (isNaN(strategyId) || isNaN(tenantId) || !category || !associatedid) {
+            return res.status(400).json({ message: 'Invalid strategyId, tenantId, category, or associatedid.' });
+        }
+        const strategyInstance = new BillingStrategy();
+        const result = await strategyInstance.deleteStrategyApplicableEntities(tenantId, strategyId, associatedid, category);
+        res.status(200).json({ message: 'Category removed from strategy successfully.', result });
+    } catch (error: any) {
+        console.log(error)
+        res.status(500).json({
+            message: 'Error removing category from strategy.',
+            error: error.message
+        });
+    }
+}
+
+
+
+export async function getAllBillingStrategiesMini(
+    req: Request<{}, {}, {}, { tenantId: string, page?: string; count?: string }>,
+    res: Response
+) {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString(), 10);
+        if (isNaN(tenantId)) {
+            return res.status(400).json({ message: 'Invalid tenant ID' });
+        }
+
+        const strategyInstance = new BillingStrategy();
+        const page = parseInt(req.query?.page?.toString() || '1', 10);
+        const count = parseInt(req.query?.count?.toString() || '10', 10);
+        const strategies = await strategyInstance.getAllBillingStrategiesWithoutApplicableTest(tenantId, count, page);
+
+        if (!strategies || strategies.length === 0) {
+            return res.status(404).json({ message: 'No billing strategies found.' });
+        }
+
+        res.status(200).json(strategies);
+    } catch (error: any) {
+        res.status(500).json({
+            message: 'Error retrieving billing strategies.',
             error: error.message
         });
     }

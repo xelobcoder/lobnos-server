@@ -11,17 +11,18 @@ import {
     deleteDrug,
     getDrugs
 } from "./handlers";
+import { handleOverLoad } from '../../hooks/helper';
 
 // Drug Category Routes
-router.post('/api/v1/drugsCategory', insertNewDrugCategory);
+router.post('/api/v1/drugsCategory', handleOverLoad(insertNewDrugCategory));
 router.get('/api/v1/drugsCategory', getDrugsCategory);
-router.put('/api/v1/drugsCategory', updateDrugCategory);
-router.delete('/api/v1/drugsCategory/:id', deleteDrugCategory);
+router.put('/api/v1/drugsCategory', handleOverLoad(updateDrugCategory));
+router.delete('/api/v1/drugsCategory/:id', handleOverLoad(deleteDrugCategory));
 
 // Drug Routes
-router.post('/api/v1/drugs', insertNewDrug);
+router.post('/api/v1/drugs',handleOverLoad( insertNewDrug));
 router.get('/api/v1/drugs', getDrugs);
-router.put('/api/v1/drugs', updateDrug);
-router.delete('/api/v1/drugs', deleteDrug);
+router.put('/api/v1/drugs', handleOverLoad(updateDrug));
+router.delete('/api/v1/drugs', handleOverLoad(deleteDrug));
 
 export default router;

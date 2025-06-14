@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const multer_1 = __importDefault(require("multer"));
 const node_path_1 = __importDefault(require("node:path"));
 const expenseHandlers_1 = require("./expenseHandlers");
+const helper_1 = require("../../hooks/helper");
 const router = express_1.default.Router();
 const RECEIPTS_PATH = "/../../../public/uploads/expenses/receipts";
 const storage = multer_1.default.diskStorage({
@@ -26,7 +27,7 @@ router.get("/api/v1/expenses/receipt/upload/images", expenseHandlers_1.getReceip
 router.get("/api/v1/expenses/receipt/uploaded/images/list", expenseHandlers_1.getExpenseImageList);
 router.delete("/api/v1/expenses/receipt/uploaded/images", expenseHandlers_1.deleteReceiptsList);
 router.post("/api/v1/expense/pending/decision", expenseHandlers_1.updateExpenseDecision);
-router.post("/api/v1/expense/new/category", expenseHandlers_1.createExpenseCategory);
+router.post("/api/v1/expense/new/category", (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpenseCategory));
 router.put("/api/v1/expense/new/category", expenseHandlers_1.updateExpenseCategory);
 router.get("/api/v1/expense/get/category", expenseHandlers_1.getAllExpenseCategory);
 exports.default = router;

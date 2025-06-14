@@ -219,7 +219,6 @@ export default class Creator {
 		if (!this.testid || !data) throw new Error("testid and data is required");
 		const stringdata = JSON.stringify(data);
 		const isUpdated = await promisifyQuery(tenantId, update_creation_query, [stringdata, this.testid]);
-
 		const isUltrasoundScan = await testpanel.isTestUltrasoundScanCategory(tenantId, this.testid);
 
 		if (isUltrasoundScan) {

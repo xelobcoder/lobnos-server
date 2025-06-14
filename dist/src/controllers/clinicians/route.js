@@ -43,12 +43,15 @@ router.post("/api/v1/orders/processed", clinicianHandlers.postProcessedOrderHand
 const billingStrategyHandler_1 = require("./billingStrategyHandler");
 router.post('/api/v1/billing/strategies', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.createBillingStrategy));
 router.get('/api/v1/billing/strategies/all', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getAllBillingStrategies));
+router.get('/api/v1/billing/strategies/all/mini', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getAllBillingStrategiesMini));
 router.get('/api/v1/billing/strategies/check/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.checkStrategyExists));
 router.get('/api/v1/billing/strategies/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getBillingStrategy));
 router.put('/api/v1/billing/strategies/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.updateBillingStrategy));
 router.delete('/api/v1/billing/strategies/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.deleteBillingStrategy));
 router.get('/api/v1/billing/strategies/:entityType/:entityid/has-strategy', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.checkEntityHasStrategy));
 router.get('/api/v1/billing/strategies/:entityType/:entityid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getEntityBillingStrategy));
+router.post('/api/v1/billing/strategies/apply/strategy/entity/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.addCategoryToStrategy));
+router.delete('/api/v1/billing/strategies/remove/entity/:strategyid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.removeCategoryFromStrategy));
 // payment routes of the clinicians
 const clinicianPaymentHandler = new ClinicianPaymentHandler_1.ClinicianPaymentHandler();
 router.put('/api/v1/clinicians/payments/:id', (req, res) => clinicianPaymentHandler.createPayment(req, res));

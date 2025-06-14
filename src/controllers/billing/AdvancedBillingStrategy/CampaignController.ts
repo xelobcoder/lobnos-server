@@ -7,7 +7,7 @@ export class CampaignController {
                const tenantId = parseInt(req.query.tenantId as string);
                if (!tenantId || tenantId <= 0) throw new Error('Invalid tenantId');
                const repo = new BillingStrategyRepository(tenantId);
-               const data: BillingCampaign = {
+               const data = {
                     ...req.body,
                     start_date: new Date(req.body.start_date),
                     end_date: req.body.end_date ? new Date(req.body.end_date) : null,
@@ -39,7 +39,7 @@ export class CampaignController {
                const id = parseInt(req.params.id);
                if (!tenantId || tenantId <= 0) throw new Error('Invalid tenantId');
                const repo = new BillingStrategyRepository(tenantId);
-               const data: BillingCampaign = {
+               const data = {
                     ...req.body,
                     id,
                     start_date: new Date(req.body.start_date),

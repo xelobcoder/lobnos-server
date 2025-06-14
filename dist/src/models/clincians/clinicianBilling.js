@@ -7,12 +7,12 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const Insurance_1 = __importDefault(require("../insurance/Insurance"));
 const customTestEntry_1 = require("../resultentry/customTestEntry");
 const clinicianClass_1 = __importDefault(require("./clinicianClass"));
-class BillingStrategy extends clinicianClass_1.default {
+class BillingStrategy {
     async entityExists(tenantId, entity_type, entity_id) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         switch (entity_type) {
             case 'clinician':
-                const clinician = await this.getSingleClinician(tenantId, entity_id);
+                const clinician = await new clinicianClass_1.default().getSingleClinician(tenantId, entity_id);
                 return clinician.length > 0;
             case 'insurance':
                 return await new Insurance_1.default(entity_id).checkInsuranceExistence(tenantId, entity_id);
@@ -29,10 +29,10 @@ class BillingStrategy extends clinicianClass_1.default {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         switch (entity_type) {
             case 'clinician':
-                const clinician = await this.getSingleClinician(tenantId, entity_id);
+                const clinician = await new clinicianClass_1.default().getSingleClinician(tenantId, entity_id);
                 return clinician;
             case 'insurance':
-                return await new Insurance_1.default(entity_id).checkInsuranceExistence(tenantId, entity_id);
+                return await new Insurance_1.default(entity_id).getInsuranceById(tenantId, entity_id);
             case 'organization':
                 const organization = await connection('organization').where({ id: entity_id }).first();
                 return organization;
@@ -161,6 +161,7 @@ class BillingStrategy extends clinicianClass_1.default {
                     throw new Error('Failed to insert or update billing strategy.');
                 }
                 if (data.allConcessionApplied === 0 && ((_a = data.applicableTest) === null || _a === void 0 ? void 0 : _a.length) > 0) {
+                    // 1. Prepare data
                     const values = data.applicableTest.map(test => [
                         insertedStrategyId,
                         test.testid,
@@ -169,16 +170,29 @@ class BillingStrategy extends clinicianClass_1.default {
                         test.concessionMode,
                         test.pricingType
                     ]);
+                    // 2. UPSERT: Insert or update existing
                     await trx.raw(`
-                    INSERT INTO billingstrategy_tests 
-                    (strategyid, testid, concessionValue, discountedValue, concessionMode, pricingType)
-                    VALUES ${values.map(() => '(?, ?, ?, ?, ?, ?)').join(',')}
-                    ON DUPLICATE KEY UPDATE
-                        concessionValue = VALUES(concessionValue),
-                        discountedValue = VALUES(discountedValue),
-                        concessionMode = VALUES(concessionMode),
-                        pricingType = VALUES(pricingType)
-                `, values.flat());
+                         INSERT INTO billingstrategy_tests 
+                         (strategyid, testid, concessionValue, discountedValue, concessionMode, pricingType)
+                         VALUES ${values.map(() => '(?, ?, ?, ?, ?, ?)').join(',')}
+                         ON DUPLICATE KEY UPDATE
+                         concessionValue = VALUES(concessionValue),
+                         discountedValue = VALUES(discountedValue),
+                         concessionMode = VALUES(concessionMode),
+                         pricingType = VALUES(pricingType)
+                    `, values.flat());
+                    // 3. DELETE: Remove tests no longer in the request
+                    const requestTestIds = data.applicableTest.map(test => test.testid);
+                    await trx('billingstrategy_tests')
+                        .where({ strategyid: insertedStrategyId })
+                        .whereNotIn('testid', requestTestIds)
+                        .del();
+                }
+                else {
+                    // If allConcessionApplied is 1, clear old tests
+                    await trx('billingstrategy_tests')
+                        .where({ strategyid: insertedStrategyId })
+                        .del();
                 }
                 return insertedStrategyId;
             });
@@ -227,7 +241,7 @@ class BillingStrategy extends clinicianClass_1.default {
             if (!strategy) {
                 throw new Error('Billing strategy not found.');
             }
-            const entity_type = category === 'phis' ? 'insurance' : 'clinician';
+            const entity_type = category === 'phis' ? 'insurance' : category;
             if (!['clinician', 'insurance', 'organization', 'general'].includes(entity_type)) {
                 throw new Error(`Invalid entity type: ${entity_type}`);
             }
@@ -238,11 +252,14 @@ class BillingStrategy extends clinicianClass_1.default {
             const existingMapping = await connection('billingstrategy_mapping')
                 .where({ strategyid, entity_type, entity_id: associatedid })
                 .first();
-            if (existingMapping) {
-                throw new Error(`Mapping for strategy ${strategyid} to ${entity_type} ID ${associatedid} already exists.`);
-            }
+            //      if (existingMapping) {
+            //      throw new Error(`Mapping for strategy ${strategyid} to ${entity_type} ID ${associatedid} already exists.`);
+            // }
             await connection('billingstrategy_mapping').insert({
                 strategyid,
+                entity_type,
+                entity_id: associatedid
+            }).onConflict(['strategyid', 'entity_type', 'entity_id']).merge({
                 entity_type,
                 entity_id: associatedid
             });
@@ -263,6 +280,24 @@ class BillingStrategy extends clinicianClass_1.default {
             .leftJoin('test_panels as tp', 'bst.testid', 'tp.id')
             .select('bst.testid', 'bst.concessionValue', 'bst.discountedValue', 'bst.concessionMode', 'bst.pricingType', 'tp.price as actualPrice', 'tp.price as originalPrice', 'tp.name')
             .where({ 'bst.strategyid': strategyid });
+        let applicableEntities = await connection('billingstrategy_mapping')
+            .leftJoin('billingstrategy', 'billingstrategy_mapping.strategyid', 'billingstrategy.strategyid')
+            .select('billingstrategy_mapping.entity_type', 'billingstrategy_mapping.entity_id')
+            .where({ 'billingstrategy.strategyid': strategyid });
+        if (Array.isArray(applicableEntities) && applicableEntities.length > 0) {
+            const entityPromises = applicableEntities.map(async (entity) => {
+                const information = await this.getEntityInfo(tenantId, entity.entity_type, entity.entity_id);
+                if (information && Array.isArray(information) && information.length > 0) {
+                    return Object.assign({ entity_type: entity.entity_type }, information[0]);
+                }
+                if (information && typeof information === "object" && Object.keys(information).length > 0) {
+                    return Object.assign({ entity_type: entity.entity_type }, information);
+                }
+                return null;
+            });
+            applicableEntities = await Promise.all(entityPromises)
+                .then(results => results.filter(result => result !== null));
+        }
         return Object.assign(Object.assign({}, strategy), { description: strategy.description || null, valid_from: strategy.valid_from || null, valid_until: strategy.valid_until || null, applicableTest: applicableTest.map(test => ({
                 testid: test.testid,
                 concessionValue: test.concessionValue,
@@ -272,7 +307,7 @@ class BillingStrategy extends clinicianClass_1.default {
                 actualPrice: test.actualPrice || 0,
                 name: test.name,
                 originalPrice: test.originalPrice || 0
-            })) });
+            })), applicableEntities });
     }
     async getBillingStrategy(tenantId, strategyid) {
         try {
@@ -315,9 +350,10 @@ class BillingStrategy extends clinicianClass_1.default {
         const strategies = await connection('billingstrategy').select('*');
         return Promise.all(strategies.map(strategy => this.sanitizeToFieldsOfStrategy(strategy.strategyid, tenantId)));
     }
-    async getAllBillingStrategiesWithoutApplicableTest(tenantId) {
+    async getAllBillingStrategiesWithoutApplicableTest(tenantId, count = 10, page = 1) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const strategies = await connection('billingstrategy').select('*');
+        const strategies = await connection('billingstrategy')
+            .select('*').limit(count).offset((page - 1) * count);
         return strategies;
     }
     async getBillingStrategyByEntity(tenantId, entity_type, entity_id, isvalidonly = false) {
@@ -539,6 +575,18 @@ class BillingStrategy extends clinicianClass_1.default {
         }
         catch (error) {
             console.error('Error in getStrategySingleTestValue:', error);
+            throw new Error('Internal server error.');
+        }
+    }
+    async deleteStrategyApplicableEntities(tenantId, strategyId, entityId, entityType) {
+        try {
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const strategy = await connection('billingstrategy_mapping')
+                .where({ strategyid: strategyId, entity_id: entityId, entity_type: entityType }).del();
+            return strategy > 0;
+        }
+        catch (error) {
+            console.error('Error in deleteStrategyApplicableEntities:', error);
             throw new Error('Internal server error.');
         }
     }

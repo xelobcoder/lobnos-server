@@ -6,10 +6,11 @@ import {
      updateInsurance,
      deleteInsurance
 } from './insuranceHandler';
+import { handleOverLoad } from '../../hooks/helper';
 
 const router = express.Router();
 
-router.post('/api/v1/insurances', createInsurance);
+router.post('/api/v1/insurances', handleOverLoad(createInsurance));
 router.get('/api/v1/insurances', getAllInsurances);
 router.get('/api/v1/insurances/:insuranceId', getInsuranceById);
 router.put('/api/v1/insurances/:insuranceId', updateInsurance);

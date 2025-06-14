@@ -11,11 +11,11 @@ const createUploadMiddleware = (destination: string, fieldName: string, identifi
             if (accepted.includes(ext)) {
                 cb(null, destination);
             } else {
-                cb(new Error('File type jpeg, png, jpg required'), false);
+                cb(new Error('File type jpeg, png, jpg required'),null);
             }
         },
         filename: async (req, file, cb) => {
-            const id = req.query[identifier]
+            const id = req.query[identifier] as string
             const uniqueSuffix = id + '-' + fieldName + "-" + Date.now() + path.extname(file.originalname);
             await unlinkPreviousImages(fieldName, id)
             cb(null, uniqueSuffix);

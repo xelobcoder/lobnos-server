@@ -235,12 +235,12 @@ class Billing {
                 price = await this.getTestOrganizationPriceValue(tenantId, organizationId, trackId, price);
             }
             if (categoryTrackId === 3) {
-                const { discountedValue, isoutsourced } = await new clinicianBilling_1.default(insuranceId).getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId);
+                const { discountedValue, isoutsourced } = await new clinicianBilling_1.default().getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId);
                 price = discountedValue;
                 isOutsourced = isoutsourced == 1;
             }
             if (categoryTrackId === 6) {
-                const { discountedValue, isoutsourced } = await new clinicianBilling_1.default(clinicianId).getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
+                const { discountedValue, isoutsourced } = await new clinicianBilling_1.default().getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
                 if (discountedValue >= 0) {
                     price = discountedValue;
                     isOutsourced = isoutsourced == 1;

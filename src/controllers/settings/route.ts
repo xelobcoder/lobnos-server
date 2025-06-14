@@ -14,16 +14,17 @@ import {
   AddCompanyInfoHandler,
   handleUploadCompanyImage
 } from "./handlers/companyhandler";
+import { handleOverLoad } from '../../hooks/helper';
 
 // Department routes
 router.get("/api/v1/departments", handleGetDepartments);
-router.post("/api/v1/departments", handleAddNewDepartment);
-router.put("/api/v1/departments", handleUpdateDepartment);
-router.delete("/api/v1/departments", handleDeleteDepartment);
-router.get('/api/v1/departments/:id', handleGetSpecificDepartment);
+router.post("/api/v1/departments", handleOverLoad(handleAddNewDepartment));
+router.put("/api/v1/departments", handleOverLoad(handleUpdateDepartment));
+router.delete("/api/v1/departments", handleOverLoad(handleDeleteDepartment));
+router.get('/api/v1/departments/:id', handleOverLoad(handleGetSpecificDepartment));
 
 // Company profile routes
-router.post("/api/v1/settings/companyprofile", AddCompanyInfoHandler);
+router.post("/api/v1/settings/companyprofile", handleOverLoad(AddCompanyInfoHandler));
 router.get("/api/v1/settings/companyprofile", getCompanyInfoHandler);
 router.post("/api/v1/settings/companyprofile/images", handleUploadCompanyImage);
 router.get("/api/v1/settings/companyprofile/images", getCompanyImageHandler);
