@@ -218,6 +218,7 @@ const verifyAndLoadPackagesHandler = async (request, response) => {
         response.send([]);
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(response, err);
     }
 };

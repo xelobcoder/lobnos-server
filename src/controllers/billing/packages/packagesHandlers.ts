@@ -223,6 +223,7 @@ export const verifyAndLoadPackagesHandler = async (request: Request<{}, {}, Pack
           }
           response.send([]);
      } catch (err: any) {
+          console.log(err)
           responseError(response, err);
      }
 };
