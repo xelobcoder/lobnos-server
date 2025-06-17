@@ -8,6 +8,7 @@ interface ExpenseRequestQuery {
      expensesId: number | null;
      tenantId: string;
      branchid: string;
+     employeeid?: string;
      empId?: string;
      limitCount?: string;
      categoryId?: string;
@@ -16,27 +17,33 @@ interface ExpenseRequestQuery {
 
 export default class ExpensesAnalyticsController {
      evaluateQueryParams(query: ExpenseRequestQuery, response: Response) {
-          const startDate = query.startDate ? new Date(query.startDate) : null;
-          const endDate = query.endDate ? new Date(query.endDate) : null;
-          const expensesId = query.expensesId ? parseInt(query.expensesId.toString()) : null;
-          const tenantId = parseInt(query.tenantId);
-          const branchid = query.branchid;
-
+          const { branchid, employeeid, tenantId, expensesId, startDate, endDate } = query;
+          console.log(query, 'AMMM');
           if (!branchid || !tenantId) {
                return customError("Branch ID and Tenant ID are required.", 400, response);
           }
 
+          const pTenantId = parseInt(tenantId);
+          const pBranchId = parseInt(branchid);
+          const pstartDate = startDate ? startDate : null;
+          const pendDate = endDate ? endDate : null;
+          const pexpensesId = expensesId ? parseInt(expensesId.toString()) : null;
+          const pEmployeeId = employeeid ? parseInt(employeeid.toString()) : null;
+
+
+
           return new ExpensesAnalytics(
-               parseInt(branchid),
-               tenantId,
-               expensesId,
-               startDate ? startDate.toISOString().split('T')[0] : null,
-               endDate ? endDate.toISOString().split('T')[0] : null
+               pBranchId,
+               pTenantId,
+               pexpensesId,
+               pstartDate,
+               pendDate
           );
      }
 
-     async getBranchMonthlyExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getBranchMonthlyExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
+
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
 
@@ -48,11 +55,11 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getEmployeeCategoryExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getEmployeeCategoryExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
-               const empId = req.query.empId ? parseInt(req.query.empId) : null;
+               const empId = req.query.employeeid ? parseInt(req.query.employeeid) : null;
                if (!empId) return customError("Employee ID is required.", 400, res);
                const data = await expensesAnalytics.getEmployeeCategoryExpenses(empId);
                res.status(200).json(data);
@@ -62,7 +69,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getApprovalStatusByBranchExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getApprovalStatusByBranchExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -74,7 +81,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getServiceLinkedExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getServiceLinkedExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -86,7 +93,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getExpenseDetailsExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getExpenseDetailsExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -100,7 +107,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getMonthlyExpenseSummaryExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getMonthlyExpenseSummaryExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -112,7 +119,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getTotalExpensesByCategoryHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getTotalExpensesByCategoryHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -124,7 +131,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getDailyExpenseSummaryExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getDailyExpenseSummaryExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -136,7 +143,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getWeeklyExpenseSummaryExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getWeeklyExpenseSummaryExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -148,7 +155,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getYearlyExpenseSummaryExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getYearlyExpenseSummaryExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -160,7 +167,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getHourlyExpenseSummaryForDateExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getHourlyExpenseSummaryForDateExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -174,7 +181,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getTopExpenseCategoriesExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getTopExpenseCategoriesExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -187,7 +194,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getEmployeeTopExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getEmployeeTopExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -200,7 +207,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getExpenseTrendByCategoryExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getExpenseTrendByCategoryExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -218,7 +225,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getPendingExpensesListHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getPendingExpensesListHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;
@@ -230,7 +237,7 @@ export default class ExpensesAnalyticsController {
           }
      }
 
-     async getExpenseCountByStatusExpensesHandler(req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) {
+     getExpenseCountByStatusExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                if (!expensesAnalytics) return;

@@ -35,12 +35,12 @@ const routes_4 = __importDefault(require("./controllers/analytics/test-ascension
 const sampleContainerRoutes_1 = __importDefault(require("./controllers/routes/sampleContainerRoutes"));
 const uploadController_1 = __importDefault(require("./controllers/uploads/uploadController"));
 const routes_5 = __importDefault(require("./controllers/registration/patient/routes"));
+const expenses_analytics_route_1 = __importDefault(require("./controllers/analytics/Expenses-analytics/expenses-analytics-route"));
 const qualityControlRoutes_1 = __importDefault(require("./controllers/QualityControl/qualityControlRoutes"));
 const route_18 = __importDefault(require("./controllers/billing/AdvancedBillingStrategy/route"));
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
-const Expenses_Analytics_1 = __importDefault(require("./models/analytics/ExpensesAnalytics/Expenses-Analytics"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -83,6 +83,7 @@ app.use(packages_1.default);
 app.use(clinicians_analytics_routes_1.default);
 app.use(routes_5.default);
 app.use(patient_analytics_route_1.default);
+app.use(expenses_analytics_route_1.default);
 app.use(qualityControlRoutes_1.default);
 app.use(route_18.default);
 app.get("/", (req, res) => {
@@ -119,13 +120,6 @@ app.listen(5000, async (err) => {
         // // Then start the test client
         // const testClient = new TestHL7Client('localhost', 6668);
         // testClient.connect();
-        // PanelRunner(3)
-        new Expenses_Analytics_1.default(32, 3, null, '2023-01-01', '2026-12-31').getBranchMonthlyExpenses()
-            .then((result) => {
-            console.log(result);
-        }).catch((err) => {
-            console.log(err);
-        });
         console.log(`connected to port 5000`);
     }
     catch (err) {

@@ -30,6 +30,7 @@ import TestAscensionAnalytics from './controllers/analytics/test-ascension-analy
 import sampleContainerRouter from "./controllers/routes/sampleContainerRoutes";
 import FileUploadsRouter from './controllers/uploads/uploadController';
 import IndividualPatientAnalyticRouter from './controllers/registration/patient/routes';
+import ExpensesAnalyticsRouter from './controllers/analytics/Expenses-analytics/expenses-analytics-route';
 import { DeviceManager } from './services/medical-devices/DeviceManager';
 import { TestHL7Client } from './services/medical-devices/TestHL7Client';
 import qualityControlRoutes from './controllers/QualityControl/qualityControlRoutes';
@@ -95,6 +96,7 @@ app.use(BillingPackages);
 app.use(ClinicianAnalyticsRouter);
 app.use(IndividualPatientAnalyticRouter);
 app.use(PatientAnalytics);
+app.use(ExpensesAnalyticsRouter);
 app.use(qualityControlRoutes);
 app.use(AdvancedBillingRouter);
 
@@ -149,16 +151,7 @@ app.listen(5000, async (err?: Error) => {
 		// const testClient = new TestHL7Client('localhost', 6668);
 		// testClient.connect();
 
-		// PanelRunner(3)
-		new ExpensesAnalytics(32, 3, null, '2023-01-01', '2026-12-31').getBranchMonthlyExpenses()
-			.then((result) => {
-				console.log(result);
-			}
-			).catch((err) => {
-				console.log(err);
-			}
-			);
-
+	
 		console.log(`connected to port 5000`);
 	} catch (err) {
 		console.log(err)
