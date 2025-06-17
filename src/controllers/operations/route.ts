@@ -61,7 +61,7 @@ import { handleOverLoad } from "../../hooks/helper"
 const router = express.Router();
 
 router.get(`/api/v1/operations/collection`, getAllCollections);
-router.get(`/api/v1/operations/ascension/staging`, (req,res) => {ascensionStagingHandler(req, res)});
+router.get(`/api/v1/operations/ascension/staging`, handleOverLoad(ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, getAllEnterResult);
 router.get(`/api/v1/operations/test/result`, getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, getAllPendingCases);

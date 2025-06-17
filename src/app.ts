@@ -33,7 +33,7 @@ import IndividualPatientAnalyticRouter from './controllers/registration/patient/
 import { DeviceManager } from './services/medical-devices/DeviceManager';
 import { TestHL7Client } from './services/medical-devices/TestHL7Client';
 import qualityControlRoutes from './controllers/QualityControl/qualityControlRoutes';
-import AdvancedBillingRouter  from './controllers/billing/AdvancedBillingStrategy/route';
+import AdvancedBillingRouter from './controllers/billing/AdvancedBillingStrategy/route';
 
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
@@ -47,6 +47,8 @@ import { configuration } from "./hooks/configuration";
 import PartitionManager from "./models/billing/partitioning";
 import { PanelRunner } from "./migrations/data/SeedTestPanels/panelRunner";
 import EventsExecutor from "./models/application/sms/events/EventsExecutor";
+import ExpenseAuditLog from "./models/Expenses/ExpenseAuditLog";
+import ExpensesAnalytics from "./models/analytics/ExpensesAnalytics/Expenses-Analytics";
 
 const app = express();
 const port = process.env.NODE_ENV === "development"
@@ -128,8 +130,6 @@ app.listen(5000, async (err?: Error) => {
 		// 	console.log('Application is expired')
 		// 	process.exit(0)
 		// }
-
-
 		// )
 		// const currentYear = new Date().getFullYear();
 
@@ -150,6 +150,14 @@ app.listen(5000, async (err?: Error) => {
 		// testClient.connect();
 
 		// PanelRunner(3)
+		new ExpensesAnalytics(32, 3, null, '2023-01-01', '2026-12-31').getBranchMonthlyExpenses()
+			.then((result) => {
+				console.log(result);
+			}
+			).catch((err) => {
+				console.log(err);
+			}
+			);
 
 		console.log(`connected to port 5000`);
 	} catch (err) {

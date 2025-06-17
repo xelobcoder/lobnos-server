@@ -13,11 +13,13 @@ import {
   createExpenseCategory,
   updateExpenseCategory,
   getAllExpenseCategory,
+  updateExpenseRecord,
+  getExpenseLog,
 } from "./expenseHandlers";
 import { handleOverLoad } from "../../hooks/helper";
 
 const router = express.Router();
-const RECEIPTS_PATH ="/../../../public/uploads/expenses/receipts"
+const RECEIPTS_PATH ="/../../../../public/uploads/expenses/receipts"
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, path.join(__dirname,RECEIPTS_PATH));
@@ -30,8 +32,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 router.post("/api/v1/expenses", generateNewExpense);
+router.put('/api/v1/expenses', handleOverLoad(updateExpenseRecord));
 router.get("/api/v1/expenses/records", getExpensesRecord);
+router.get('/api/v1/expenses/audit/:expenseId', handleOverLoad(getExpenseLog))
 router.get("/api/v1/expenses/record/single", getSingleExpense);
+router.put('/api/v1/expense/record/single', handleOverLoad(updateExpenseRecord));
 router.post("/api/v1/expenses/receipt/upload", upload.array("images", 10), uploadReceipts);
 router.get("/api/v1/expenses/receipt/upload/images", getReceiptImage);
 router.get("/api/v1/expenses/receipt/uploaded/images/list", getExpenseImageList);

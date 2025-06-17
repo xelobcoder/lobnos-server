@@ -1,8 +1,6 @@
 import { CustomTest } from '../resultentry/customTestEntry';
 import { q_test_month_case_count, q_test_month_case_count_by_day, q_test_month_case_count_year } from './resultAnalysisQueries';
 import { IResultAnalysis, MonthlyCaseData, monthCollection } from './ResultAnalysisInterface';
-import { testpanel } from '../../testpanel/testpanelList';
-import User from '../../LobnosAuth/user';
 import { promisifyQuery } from '../../hooks/helper';
 import resultEncrptionReferer from '../creator/resultEncryptionReferer';
 import RolesRepository from '../settings/users/RolesRepository';

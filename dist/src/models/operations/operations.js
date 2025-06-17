@@ -104,9 +104,9 @@ class Operations {
                 finalQuery += ` AND ${conditions.join(" AND ")} `;
             }
             finalQuery += `
-      ORDER BY b.billingid DESC
-      LIMIT ? OFFSET ?
-    `;
+					ORDER BY b.billingid DESC
+					LIMIT ? OFFSET ?
+				`;
             return await (0, helper_1.paginationQuery)({ count, page }, finalQuery, [], tenantId);
         }
         catch (err) {

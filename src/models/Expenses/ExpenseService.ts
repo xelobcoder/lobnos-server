@@ -1,4 +1,4 @@
-import { customError, promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
+import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import { readdir, unlink } from 'fs/promises';
 import User from "../../LobnosAuth/user";
@@ -12,24 +12,33 @@ import {
      getExpenseImageListQuery,
      getExpensesRecordQuery,
      isExpenseExistQuery,
+     isRecordExistQuery,
      RECEIPTS_PATH,
      updateExpenseCategoryQuery,
-     updateExpenseDecisionQuery
+     updateExpenseDecisionQuery,
+     updateExpenseQuery
 } from "./queries";
 import { IExpenseRepository } from "./interfaces/IExpenseRepository";
-import { ExpenseData } from "./interfaces/types";
 import path from "path";
+import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
+import { OperationsFailures } from "../operations/types";
 
 export default class Expenses implements IExpenseRepository {
-     private employeeid: number | undefined;
-     private branchid: number | undefined;
+     private employeeid: number;
+     private branchid: number;
+     private tenantId: number;
+     private expenseId: null | number
 
-     constructor(employeeid: number | undefined, branchid: number | undefined) {
+     constructor(employeeid: number, branchid: number, tenantId: number, expenseId: number | null = null) {
           this.employeeid = employeeid;
           this.branchid = branchid;
+          this.tenantId = tenantId
+          this.expenseId = expenseId;
      }
 
-     isExpenseApproved(): void { }
+     isExpenseApproved(): Promise<boolean> {
+          return
+     }
 
      getAdminRequest(): void { }
 
@@ -39,8 +48,7 @@ export default class Expenses implements IExpenseRepository {
           }
      }
      async generateNewExpense(
-          tenantId:number,
-          data: ExpenseData
+          data: Omit<PrimeLimsTableexpensesrecord, 'id'>
      ): Promise<boolean> {
           try {
                if (Object.keys(data).length === 0 || typeof data !== 'object') {
@@ -56,17 +64,19 @@ export default class Expenses implements IExpenseRepository {
                     throw new Error('category id not provided');
                }
 
-               let inserted = await promisifyQuery(tenantId, generateNewExpenseQuery, [name, amount, mode, employeeid, branchid, description, merchant, category, date]);
+               let inserted = await promisifyQuery(this.tenantId, generateNewExpenseQuery, [name, amount, mode, employeeid, branchid, description, merchant, category, date]);
 
                inserted = rowAffected(inserted);
                return inserted
           } catch (err: any) {
+               console.log(err)
                logger.error(err?.message);
+               throw new Error(err);
           }
      }
 
      async getExpensesRecord(
-          tenantId:number,
+          tenantId: number,
           employeeid: number,
           branchid: number,
           status: string | undefined,
@@ -75,7 +85,7 @@ export default class Expenses implements IExpenseRepository {
           to?: string,
           state?: string
      ): Promise<any> {
-          const record = await new User(null, null, null, null, null).userExistWithId(employeeid,tenantId);
+          const record = await new User(null, null, null, null, null).userExistWithId(employeeid, tenantId);
 
           let role: string | undefined;
           let query = getExpensesRecordQuery;
@@ -111,15 +121,15 @@ export default class Expenses implements IExpenseRepository {
                values.push(state);
           }
 
-          query += ` LIMIT ? OFFSET ?`;
-          return await paginationQuery(pageQuery, query, values,tenantId);
+          query += ` ORDER BY er.id DESC LIMIT ? OFFSET ?`;
+          return await paginationQuery(pageQuery, query, values, tenantId);
      }
 
 
 
      async getExpenseImageList(expenseid: string): Promise<string[]> {
           try {
-               let images = await readdir(path.join(__dirname,RECEIPTS_PATH));
+               let images = await readdir(path.join(__dirname, RECEIPTS_PATH));
                if (images.length > 0) {
                     images = images.filter((item) => item.split("-")[0] === expenseid);
                }
@@ -129,7 +139,7 @@ export default class Expenses implements IExpenseRepository {
           }
      }
 
-     async getSingleExpense(tenantId:number,expenseid: string): Promise<any[]> {
+     async getSingleExpense(tenantId: number, expenseid: string): Promise<any[]> {
           const result = await promisifyQuery(tenantId, getExpenseImageListQuery, [parseInt(expenseid)]);
           if (result.length > 0) {
                const images = await this.getExpenseImageList(expenseid);
@@ -138,6 +148,56 @@ export default class Expenses implements IExpenseRepository {
           }
           return result;
      }
+
+     async isExpenseRecordAvailable(): Promise<boolean> {
+          const result = await promisifyQuery(this.tenantId, isRecordExistQuery, [this.expenseId]);
+          return Array.isArray(result) && result.length > 0;
+     }
+
+
+     public async updateExpenseRecord(expenseData: PrimeLimsTableexpensesrecord) {
+          try {
+               
+               const isValidExpenseRecord = await this.isExpenseRecordAvailable();
+               
+               if (!isValidExpenseRecord) return OperationsFailures.unfoundID;
+               
+               const {
+                    id,
+                    name,
+                    mode,
+                    date,
+                    amount,
+                    category,
+                    branchid,
+                    description,
+                    merchant,
+                    employeeid,
+               } = expenseData;
+
+
+               const queryParams = [
+                    name,
+                    amount,
+                    mode,
+                    employeeid,
+                    branchid,
+                    description,
+                    merchant,
+                    category,
+                    date,
+                    id,
+               ];
+
+               const insertionStatus = await promisifyQuery(this.tenantId, updateExpenseQuery, queryParams);
+
+               return rowAffected(insertionStatus);
+          } catch (error) {
+               console.error('Error updating expense record:', error);
+               return false;
+          }
+     }
+
 
      async deleteReceiptsList(data: string[]): Promise<boolean> {
           if (!data) {
@@ -151,7 +211,8 @@ export default class Expenses implements IExpenseRepository {
           const status = await Promise.all(
                data.map(async (item) => {
                     try {
-                         await unlink(`api/uploads/receipts/${item}`);
+                         const filepath = path.join(__dirname,'../../../../',`/public/uploads/expenses/receipts/${item}`)
+                         await unlink(filepath);
                          return true;
                     } catch {
                          return false;
@@ -162,7 +223,7 @@ export default class Expenses implements IExpenseRepository {
           return !status.includes(false);
      }
 
-     async calculateDailyExpense(tenantId:number,branchid: number | undefined, requireddate: string | null): Promise<number | null> {
+     async calculateDailyExpense(tenantId: number, branchid: number | undefined, requireddate: string | null): Promise<number | null> {
           let query = calculateDailyExpenseQuery;
           query += branchid && typeof branchid === "number" ? ` AND branchid = ${branchid}` : query
           const result = await promisifyQuery(tenantId, query, [requireddate ? requireddate : 'CURRENT_DATE']);
@@ -172,7 +233,7 @@ export default class Expenses implements IExpenseRepository {
           return null;
      }
 
-     async calCurrentMonthExpense(tenantId:number,month?: number): Promise<number | null> {
+     async calCurrentMonthExpense(tenantId: number, month?: number): Promise<number | null> {
           if (month && typeof month !== 'number') {
                throw new TypeError('Argument must be empty if current month required or an integer of the month interested provided');
           }
@@ -190,7 +251,7 @@ export default class Expenses implements IExpenseRepository {
           return null;
      }
 
-     async calculateYearlyExpense(tenantId:number,year?: number): Promise<number | null> {
+     async calculateYearlyExpense(tenantId: number, year?: number): Promise<number | null> {
           let query = calculateYearlyExpenseQuery
           if (year) {
                query += ` YEAR(date) = ? AND approved = 1`;
@@ -215,7 +276,7 @@ export default class Expenses implements IExpenseRepository {
           return report;
      }
 
-     async updateExpenseDecision(tenantId:number,status: string, expenseid: number, information: string, employeeid: number): Promise<boolean> {
+     async updateExpenseDecision(tenantId: number, status: string, expenseid: number, information: string, employeeid: number): Promise<boolean> {
           if (!expenseid || !status || !employeeid) {
                throw new Error('status, employeeid, and expenseid must be provided');
           }
@@ -248,31 +309,31 @@ export default class Expenses implements IExpenseRepository {
           return rowAffected(await promisifyQuery(tenantId, query, values));
      }
 
-     async getAllExpenseCategory(tenantId:number): Promise<any[]> {
-          return await promisifyQuery(tenantId, getAllExpenseCategoryQuery);
+     async getAllExpenseCategory(): Promise<PrimeLimsTableexpensesrecord[]> {
+          return await promisifyQuery(this.tenantId, getAllExpenseCategoryQuery);
      }
 
-     async isExpenseExist(tenantId:number,category: string): Promise<boolean> {
+     async isExpenseExist(tenantId: number, category: string): Promise<boolean> {
           if (!category) throw new TypeError('category not needed');
           const row = await promisifyQuery(tenantId, isExpenseExistQuery, [category]);
           return row.length > 0;
      }
 
-     async createExpenseCategory(tenantId:number,category: string, employeeid: number): Promise<string | boolean> {
+     async createExpenseCategory(tenantId: number, category: string, employeeid: number): Promise<string | boolean> {
           if (!category) throw new ReferenceError('category not provided');
           if (typeof category !== 'string') throw new TypeError('category must be type string');
           if (isNaN(employeeid)) {
                throw new TypeError(employeeid + " must be type number");
           }
 
-          if (await this.isExpenseExist(tenantId,category)) {
+          if (await this.isExpenseExist(tenantId, category)) {
                return `category exist`;
           }
 
           const isInserted = await promisifyQuery(tenantId, createExpenseCategoryQuery, [category, employeeid]);
           return rowAffected(isInserted);
      }
-     async updateExpenseCategory(tenantId:number,editid: number, category: string): Promise<boolean> {
+     async updateExpenseCategory(tenantId: number, editid: number, category: string): Promise<boolean> {
           if (!editid || !category) {
                throw new Error('category and editid not provided');
           }

@@ -10,18 +10,22 @@ const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const queries_1 = require("./queries");
 const path_1 = __importDefault(require("path"));
 class Expenses {
-    constructor(employeeid, branchid) {
+    constructor(employeeid, branchid, tenantId, expenseId = null) {
         this.employeeid = employeeid;
         this.branchid = branchid;
+        this.tenantId = tenantId;
+        this.expenseId = expenseId;
     }
-    isExpenseApproved() { }
+    isExpenseApproved() {
+        return;
+    }
     getAdminRequest() { }
     getRequest() {
         if (!this.employeeid || !this.branchid) {
             throw new Error('branchid or employeeid not provided');
         }
     }
-    async generateNewExpense(tenantId, data) {
+    async generateNewExpense(data) {
         try {
             if (Object.keys(data).length === 0 || typeof data !== 'object') {
                 throw new TypeError('object with keys required');
@@ -33,12 +37,14 @@ class Expenses {
             if (category === 0 || !category) {
                 throw new Error('category id not provided');
             }
-            let inserted = await (0, helper_1.promisifyQuery)(tenantId, queries_1.generateNewExpenseQuery, [name, amount, mode, employeeid, branchid, description, merchant, category, date]);
+            let inserted = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.generateNewExpenseQuery, [name, amount, mode, employeeid, branchid, description, merchant, category, date]);
             inserted = (0, helper_1.rowAffected)(inserted);
             return inserted;
         }
         catch (err) {
+            console.log(err);
             logger_1.default.error(err === null || err === void 0 ? void 0 : err.message);
+            throw new Error(err);
         }
     }
     async getExpensesRecord(tenantId, employeeid, branchid, status, pageQuery = { count: 10, page: 1 }, from, to, state) {
@@ -74,7 +80,7 @@ class Expenses {
             query += ` AND er.state = ?`;
             values.push(state);
         }
-        query += ` LIMIT ? OFFSET ?`;
+        query += ` ORDER BY er.id DESC LIMIT ? OFFSET ?`;
         return await (0, helper_1.paginationQuery)(pageQuery, query, values, tenantId);
     }
     async getExpenseImageList(expenseid) {
@@ -98,6 +104,36 @@ class Expenses {
         }
         return result;
     }
+    async isExpenseRecordAvailable() {
+        const result = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.isRecordExistQuery, [this.expenseId]);
+        return Array.isArray(result) && result.length > 0;
+    }
+    async updateExpenseRecord(expenseData) {
+        try {
+            const isValidExpenseRecord = await this.isExpenseRecordAvailable();
+            if (!isValidExpenseRecord)
+                return "such id not found" /* OperationsFailures.unfoundID */;
+            const { id, name, mode, date, amount, category, branchid, description, merchant, employeeid, } = expenseData;
+            const queryParams = [
+                name,
+                amount,
+                mode,
+                employeeid,
+                branchid,
+                description,
+                merchant,
+                category,
+                date,
+                id,
+            ];
+            const insertionStatus = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.updateExpenseQuery, queryParams);
+            return (0, helper_1.rowAffected)(insertionStatus);
+        }
+        catch (error) {
+            console.error('Error updating expense record:', error);
+            return false;
+        }
+    }
     async deleteReceiptsList(data) {
         if (!data) {
             throw new Error('data not provided');
@@ -109,7 +145,8 @@ class Expenses {
             return true;
         const status = await Promise.all(data.map(async (item) => {
             try {
-                await (0, promises_1.unlink)(`api/uploads/receipts/${item}`);
+                const filepath = path_1.default.join(__dirname, '../../../../', `/public/uploads/expenses/receipts/${item}`);
+                await (0, promises_1.unlink)(filepath);
                 return true;
             }
             catch (_a) {
@@ -197,8 +234,8 @@ class Expenses {
         values.push(expenseid);
         return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
     }
-    async getAllExpenseCategory(tenantId) {
-        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.getAllExpenseCategoryQuery);
+    async getAllExpenseCategory() {
+        return await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.getAllExpenseCategoryQuery);
     }
     async isExpenseExist(tenantId, category) {
         if (!category)

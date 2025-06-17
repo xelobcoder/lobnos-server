@@ -16,7 +16,7 @@ const PatientClinicalHistoryUltrasoundHandler_1 = require("./PatientClinicalHist
 const helper_1 = require("../../hooks/helper");
 const router = express_1.default.Router();
 router.get(`/api/v1/operations/collection`, operationsHandlers_1.getAllCollections);
-router.get(`/api/v1/operations/ascension/staging`, (req, res) => { (0, ascensionStageHandler_1.ascensionStagingHandler)(req, res); });
+router.get(`/api/v1/operations/ascension/staging`, (0, helper_1.handleOverLoad)(ascensionStageHandler_1.ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, operationsHandlers_1.getAllEnterResult);
 router.get(`/api/v1/operations/test/result`, operationsHandlers_1.getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, operationsHandlers_1.getAllPendingCases);

@@ -9,7 +9,7 @@ const node_path_1 = __importDefault(require("node:path"));
 const expenseHandlers_1 = require("./expenseHandlers");
 const helper_1 = require("../../hooks/helper");
 const router = express_1.default.Router();
-const RECEIPTS_PATH = "/../../../public/uploads/expenses/receipts";
+const RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts";
 const storage = multer_1.default.diskStorage({
     destination: function (req, file, cb) {
         cb(null, node_path_1.default.join(__dirname, RECEIPTS_PATH));
@@ -20,8 +20,11 @@ const storage = multer_1.default.diskStorage({
 });
 const upload = (0, multer_1.default)({ storage: storage });
 router.post("/api/v1/expenses", expenseHandlers_1.generateNewExpense);
+router.put('/api/v1/expenses', (0, helper_1.handleOverLoad)(expenseHandlers_1.updateExpenseRecord));
 router.get("/api/v1/expenses/records", expenseHandlers_1.getExpensesRecord);
+router.get('/api/v1/expenses/audit/:expenseId', (0, helper_1.handleOverLoad)(expenseHandlers_1.getExpenseLog));
 router.get("/api/v1/expenses/record/single", expenseHandlers_1.getSingleExpense);
+router.put('/api/v1/expense/record/single', (0, helper_1.handleOverLoad)(expenseHandlers_1.updateExpenseRecord));
 router.post("/api/v1/expenses/receipt/upload", upload.array("images", 10), expenseHandlers_1.uploadReceipts);
 router.get("/api/v1/expenses/receipt/upload/images", expenseHandlers_1.getReceiptImage);
 router.get("/api/v1/expenses/receipt/uploaded/images/list", expenseHandlers_1.getExpenseImageList);

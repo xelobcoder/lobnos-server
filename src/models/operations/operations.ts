@@ -92,7 +92,7 @@ export default class Operations {
 		const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid, branchid } = requestQuery;
 
 		try {
-			var { conditions, finalQuery }: { conditions: (string|Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery(tenantId, { from, to, stage: null, searchString: null, isUltrasound: false });
+			var { conditions, finalQuery }: { conditions: (string | Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery(tenantId, { from, to, stage: null, searchString: null, isUltrasound: false });
 
 			if (fullname) {
 				conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
@@ -125,9 +125,9 @@ export default class Operations {
 			}
 
 			finalQuery += `
-      ORDER BY b.billingid DESC
-      LIMIT ? OFFSET ?
-    `;
+					ORDER BY b.billingid DESC
+					LIMIT ? OFFSET ?
+				`;
 
 			return await paginationQuery({ count, page }, finalQuery, [], tenantId);
 		} catch (err) {

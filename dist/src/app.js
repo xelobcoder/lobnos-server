@@ -40,6 +40,7 @@ const route_18 = __importDefault(require("./controllers/billing/AdvancedBillingS
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
+const Expenses_Analytics_1 = __importDefault(require("./models/analytics/ExpensesAnalytics/Expenses-Analytics"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -119,6 +120,12 @@ app.listen(5000, async (err) => {
         // const testClient = new TestHL7Client('localhost', 6668);
         // testClient.connect();
         // PanelRunner(3)
+        new Expenses_Analytics_1.default(32, 3, null, '2023-01-01', '2026-12-31').getBranchMonthlyExpenses()
+            .then((result) => {
+            console.log(result);
+        }).catch((err) => {
+            console.log(err);
+        });
         console.log(`connected to port 5000`);
     }
     catch (err) {

@@ -1,7 +1,8 @@
+import { PrimeLimsTableexpensesrecord } from "../../../database/DatabaseTableSchema";
 import { ExpenseData, PaginationQuery } from "./types";
 
 export interface IExpenseRepository {
-    generateNewExpense(tenantId: number, data: ExpenseData): Promise<boolean>;
+    generateNewExpense(data: Omit<PrimeLimsTableexpensesrecord,'id'>): Promise<boolean>;
     getExpensesRecord(
         tenantId: number,
         employeeId: number,
@@ -14,6 +15,7 @@ export interface IExpenseRepository {
     ): Promise<any>;
     getExpenseImageList(expenseId: string): Promise<string[]>;
     getSingleExpense(tenantId: number, expenseId: string): Promise<any[]>;
+    isExpenseApproved(tenantId: number, expenseid: number): Promise<boolean>;
     deleteReceiptsList(data: string[]): Promise<boolean>;
     calculateDailyExpense(tenantId: number, branchId?: number, requiredDate?: string): Promise<number | null>;
     calCurrentMonthExpense(tenantId: number, month?: number): Promise<number | null>;

@@ -119,17 +119,38 @@ export type PrimeLimsTablebillinghx = {
 
 export type PrimeLimsTablebillingstrategy = {
   strategyid: number;
-  associatedid: number;
-  allconcessionApplied: number;
+  name: string;
+  description?: string ;
   concessionMode?: string ;
-  applicableOrganization?: string ;
-  applicableTest?: string ;
-  concessionValue: number;
+  concessionValue?: number ;
+  price_type?: string ;
+  allconcessionApplied: number;
+  valid_from?: Date | string ;
+  valid_until?: Date | string ;
+  is_expired: number;
   createdon: Date | string;
   updatedon?: Date | string ;
+  associatedid: number;
+  applicableOrganization?: string ;
+  applicableTest?: string ;
   isInsurance: number;
   isClinician: number;
   category: string;
+};
+
+export type PrimeLimsTablebillingstrategy_mapping = {
+  strategyid: number;
+  entity_type: string;
+  entity_id: number;
+};
+
+export type PrimeLimsTablebillingstrategy_tests = {
+  strategyid: number;
+  testid: number;
+  concessionValue: number;
+  discountedValue: number;
+  concessionMode: string;
+  pricingType: string;
 };
 
 export type PrimeLimsTablebillingtemporarytable = {
@@ -220,6 +241,19 @@ export type PrimeLimsTableclinicianscredentials = {
   identifier: string;
 };
 
+export type PrimeLimsTableclinician_daily_sales_summary = {
+  sale_date?: Date | string ;
+  clinician_id: number;
+  clinician_name: string;
+  clinician_phone: string;
+  occupation?: string ;
+  organization?: number ;
+  total_services: number;
+  total_value?: number ;
+  additional_services_count?: number ;
+  test_panels_count?: number ;
+};
+
 export type PrimeLimsTableclinician_packages = {
   id: number;
   clinician_id: number;
@@ -308,15 +342,47 @@ export type PrimeLimsTablecustomtestcreation = {
   updatedon?: Date | string ;
 };
 
-export type PrimeLimsTabledboexpensecategory = {
-  id: number;
-  category: string;
-  createdon: Date | string;
-  updatedon?: Date | string ;
-  employeeid: number;
+export type PrimeLimsTabledaily_adjustments_impact = {
+  report_date?: Date | string ;
+  total_billed_without_night_adjustment?: number ;
+  amount_gained_from_night_adjustment?: number ;
+  total_billed_with_night_adjustment?: number ;
+  billed_without_night_adjustment_part_for_night_adjusted_services?: number ;
+  night_adjustment_uplift?: number ;
+  package_cases?: number ;
+  package_total_value?: number ;
+  total_cases: number;
+  clinician_referrals?: number ;
+  organization_referrals?: number ;
+  self_cases?: number ;
 };
 
-export type PrimeLimsTabledbosystemsecurity ={
+export type PrimeLimsTabledaily_analytics_snapshot = {
+  analytics_date?: Date | string ;
+  total_billing_amount?: number ;
+  total_payable_amount?: number ;
+  total_paid_amount?: number ;
+  total_services_rendered: number;
+  total_refunds_processed?: number ;
+  total_refund_payments_made?: number ;
+  total_outstanding_amount?: number ;
+  total_discounts_given?: number ;
+  total_tax_incurred?: number ;
+  unique_patients_billed: number;
+  refund_completion_rate_percentage?: number ;
+};
+
+export type PrimeLimsTabledaily_test_transaction_snap_shot = {
+  serviceAddedOn: Date | string;
+  test_date?: Date | string ;
+  trackId: number;
+  serviceCategory?: string ;
+  test_panel_name?: string ;
+  test_count: number;
+  total_amount?: number ;
+};
+
+export type PrimeLimsTabledbo.systemsecurity = {
   id: number;
   computerName: string;
   computerDrive: string;
@@ -349,6 +415,14 @@ export type PrimeLimsTabledbobillingrefundtable = {
   amountRefunded: number;
 };
 
+export type PrimeLimsTabledboexpensecategory = {
+  id: number;
+  category: string;
+  createdon: Date | string;
+  updatedon?: Date | string ;
+  employeeid: number;
+};
+
 export type PrimeLimsTabledbogeneraltesteditcount = {
   id: number;
   ascensionid: number;
@@ -356,942 +430,6 @@ export type PrimeLimsTabledbogeneraltesteditcount = {
   counter: number;
   updatedon: Date | string;
   count: number;
-};
-
-export type PrimeLimsTabledboresult100102 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100103 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100105 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100121 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100122 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100123 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100124 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100125 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100126 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100127 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100128 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100129 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100133 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100134 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100135 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100136 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100137 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100138 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100139 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100140 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100141 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100142 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100143 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100144 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100145 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100146 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100147 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100148 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100149 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100150 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100151 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100152 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100153 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100154 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresult100155 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100102 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100103 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100105 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100121 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100122 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100123 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100124 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100125 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100126 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100127 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100128 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100129 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100133 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100134 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100135 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100136 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100137 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100138 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100139 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100140 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100141 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100142 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100143 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100144 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100145 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100146 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100147 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100148 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100149 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100150 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100151 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100152 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100153 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100154 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlog100155 = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultauditlogundefined = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  previousValue?: string ;
-  previousoriginalvalue?: string ;
-  employeeid?: number ;
-  fieldid?: number ;
-  entrymode?: string ;
-  created_on?: Date | string ;
-};
-
-export type PrimeLimsTabledboresultundefined = {
-  id: number;
-  field?: string ;
-  billingid?: number ;
-  patientid?: number ;
-  value?: string ;
-  originalvalue?: string ;
-  created_on?: Date | string ;
-  updatedon?: Date | string ;
-  employeeid?: number ;
-  entrymode?: string ;
 };
 
 export type PrimeLimsTabledboservices = {
@@ -1371,6 +509,8 @@ export type PrimeLimsTabledbotestresultapproval = {
   approvedBy?: string ;
   printCount: number;
   lastupdatedon: Date | string;
+  maxvalidation?: number ;
+  minvalidation?: number ;
 };
 
 export type PrimeLimsTabledbovitalsigns = {
@@ -1456,6 +596,13 @@ export type PrimeLimsTabledepartments = {
   departmentManager: string;
   date: Date | string;
   employeeid: number;
+  name: string;
+  description?: string ;
+  head_employee_id?: number ;
+  budget?: number ;
+  is_active?: number ;
+  created_at: Date | string;
+  updated_at: Date | string;
 };
 
 export type PrimeLimsTabledepartmentsmainsupply = {
@@ -1572,6 +719,21 @@ export type PrimeLimsTableexpensesrecord = {
   approvedby: number;
   approvedon?: Date | string ;
   rejectionmessage?: string ;
+  isassociatedservice?: number ;
+  serviceid?: number ;
+};
+
+export type PrimeLimsTableexpensesrecord_audit_log = {
+  audit_id: number;
+  uid: string;
+  operation: string;
+  table_name: string;
+  record_id: number;
+  old_data?: string ;
+  new_data?: string ;
+  changed_by?: number ;
+  changed_on?: Date | string ;
+  client_ip?: string ;
 };
 
 export type PrimeLimsTablefield_constraints = {
@@ -1646,6 +808,74 @@ export type PrimeLimsTablegeneralstoredebithx = {
   debitqty: number;
   departmentid: number;
   wastage: number;
+};
+
+export type PrimeLimsTablehr_auditlogs = {
+  auditid: number;
+  employeeid: number;
+  action?: string ;
+  timestamp?: Date | string ;
+  digitalsignature?: string ;
+};
+
+export type PrimeLimsTablehr_employeelogincredentials = {
+  credentialid: number;
+  employeeid: number;
+  password: string;
+  pin?: number ;
+  authenticationmethod?: string ;
+  accountstatus?: string ;
+  activation: number;
+  refreshtoken?: string ;
+  lastlogin?: Date | string ;
+  emailauthenticated?: number ;
+  datecreated?: Date | string ;
+  timecreated?: string ;
+  updatedon?: Date | string ;
+};
+
+export type PrimeLimsTablehr_employeemergencycontacts = {
+  contactid: number;
+  employeeid: number;
+  contactname: string;
+  relationship?: string ;
+  contactphone?: string ;
+  contactemail?: string ;
+};
+
+export type PrimeLimsTablehr_performancemetrics = {
+  metricid: number;
+  employeeid: number;
+  samplesprocessed?: number ;
+  errorsreported?: number ;
+  qaoutcomes?: string ;
+  reportdate?: Date | string ;
+};
+
+export type PrimeLimsTablehr_rolespermissions = {
+  roleid: number;
+  employeeid: number;
+  rolename: string;
+  permissions?: string ;
+  accessrights?: string ;
+};
+
+export type PrimeLimsTablehr_trainingrecords = {
+  trainingid: number;
+  employeeid: number;
+  trainingname?: string ;
+  completiondate?: Date | string ;
+  refresherduedate?: Date | string ;
+  competencyscore?: number ;
+  certificationfileurl?: string ;
+};
+
+export type PrimeLimsTablehr_workflowassignments = {
+  assignmentid: number;
+  employeeid: number;
+  workflowname?: string ;
+  instrumentname?: string ;
+  projectname?: string ;
 };
 
 export type PrimeLimsTableinventoryanalyticssummary = {
@@ -2041,9 +1271,106 @@ export type PrimeLimsTablepatients_settings = {
   emailAuthenticated: string;
 };
 
+export type PrimeLimsTablepatient_clinical_history_ultrasound = {
+  id: number;
+  ascensionid: number;
+  clinical_history?: string ;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
 export type PrimeLimsTablepaymentmodes = {
   KeyID: number;
   PaymentMode: string;
+};
+
+export type PrimeLimsTableprime_active_billing_strategy_assignments = {
+  id: number;
+  billing_strategy_id: number;
+  entity_type: string;
+  track_id?: number ;
+  applies_from: Date | string;
+  applies_to?: Date | string ;
+};
+
+export type PrimeLimsTableprime_billing_audit = {
+  id: number;
+  entity_type: string;
+  track_id?: number ;
+  test_panel_id: number;
+  base_price: number;
+  final_price: number;
+  strategy_id?: number ;
+  price_id?: number ;
+  promo_code_id?: number ;
+  conditions_applied?: string ;
+  calculated_at: Date | string;
+};
+
+export type PrimeLimsTableprime_billing_campaigns = {
+  id: number;
+  name: string;
+  description?: string ;
+  start_date: Date | string;
+  end_date?: Date | string ;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+export type PrimeLimsTableprime_billing_promo_codes = {
+  id: number;
+  code: string;
+  description?: string ;
+  campaign_id?: number ;
+  discount_type: string;
+  discount_value: number;
+  max_uses?: number ;
+  times_used?: number ;
+  is_active?: number ;
+  valid_from: Date | string;
+  valid_to?: Date | string ;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+export type PrimeLimsTableprime_billing_strategies = {
+  id: number;
+  name: string;
+  description?: string ;
+  is_discount?: number ;
+  applies_to_all_tests?: number ;
+  priority?: number ;
+  apply_time_based?: number ;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+export type PrimeLimsTableprime_billing_strategy_assignments = {
+  id: number;
+  billing_strategy_id: number;
+  entity_type: string;
+  track_id?: number ;
+  applies_from: Date | string;
+  applies_to?: Date | string ;
+};
+
+export type PrimeLimsTableprime_billing_strategy_conditions = {
+  id: number;
+  billing_strategy_id: number;
+  condition_type: string;
+  condition_value?: string ;
+  comparator?: string ;
+  start_time?: string ;
+  end_time?: string ;
+  timezone?: string ;
+};
+
+export type PrimeLimsTableprime_billing_strategy_prices = {
+  id: number;
+  billing_strategy_id: number;
+  test_panel_id?: number ;
+  price_type: string;
+  amount: number;
 };
 
 export type PrimeLimsTableprivateinsurance = {
@@ -2168,12 +1495,11 @@ export type PrimeLimsTableroles = {
   updated_on?: Date | string ;
   emailAuthenticated: string;
   branch?: number ;
-  pin: number;
+  pin?: number ;
   time?: string ;
   mobile: string;
   alternativeMobile?: string ;
   dob?: Date | string ;
-  imageurl?: string ;
 };
 
 export type PrimeLimsTablesales = {
@@ -2291,6 +1617,11 @@ export type PrimeLimsTableshelves = {
 export type PrimeLimsTableshifts = {
   id: number;
   name: string;
+  start_time: string;
+  end_time: string;
+  break_duration_minutes?: number ;
+  is_active?: number ;
+  created_at: Date | string;
   color?: string ;
   starttime: string;
   endtime: string;
@@ -2345,6 +1676,30 @@ export type PrimeLimsTablesms_logs = {
   sender_type?: string ;
   retries?: number ;
   error_message?: string ;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+export type PrimeLimsTablesms_schedules = {
+  id: number;
+  template_id: number;
+  recipient_type: string;
+  recipient_ids?: string ;
+  send_at: Date | string;
+  frequency?: string ;
+  status?: string ;
+  created_by?: string ;
+  created_at: Date | string;
+  updated_at: Date | string;
+};
+
+export type PrimeLimsTablesms_templates = {
+  id: number;
+  name: string;
+  message_template: string;
+  description?: string ;
+  category?: string ;
+  is_active?: number ;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -2684,6 +2039,7 @@ export type PrimeLimsTableultrasoundtemplates = {
   field: string;
   value: string;
   lastupdatedon: Date | string;
+  fieldid: number;
 };
 
 export type PrimeLimsTableultrasoundtemplatesmapper = {
@@ -2694,6 +2050,20 @@ export type PrimeLimsTableultrasoundtemplatesmapper = {
   createdOn: Date | string;
   createdby: number;
   visibletoAll: number;
+};
+
+export type PrimeLimsTableusers = {
+  id: number;
+  username: string;
+  email: string;
+  password_hash: string;
+  role?: string ;
+  is_active?: number ;
+  created_at: Date | string;
+  updated_at: Date | string;
+  USER?: string ;
+  CURRENT_CONNECTIONS: number;
+  TOTAL_CONNECTIONS: number;
 };
 
 export type PrimeLimsTableview_billing_summary = {

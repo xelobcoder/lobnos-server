@@ -126,7 +126,7 @@ export const q_get_all_test_ready_for_various_stages = function (currentQuery: s
       query += ` AND (ta.processingStartDate IS NULL OR  ta.processingEndDATE IS NULL) AND  d.department <> 'ultrasound'`;
       return query;
     case OperationsStages.COMPLETED:
-      query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NULL 
+      query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL)
      AND d.department <> 'ultrasound'`
       return query;
     case OperationsStages.VALIDATION:

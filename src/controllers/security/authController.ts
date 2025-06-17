@@ -27,13 +27,15 @@ export class AuthController {
             const { email, password } = req.body;
             const tokens = await this.authRepo.login(email, password);
             if (!tokens) {
-                res.status(401).json({ message: 'Invalid email or password' });
+                const message ='Invalid email or password'
+                res.status(401).json({ status:false, error: message });
                 return;
             }
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);
             const { role, username, employeeid } = user;
             res.status(200).json({ status: true, accessToken: tokens.accessToken, user: { role, employeeid, username, email } });
         } catch (error) {
+            console.log(error)
             res.status(400).json({ message: error.message });
         }
     }
