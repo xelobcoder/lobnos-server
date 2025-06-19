@@ -14,8 +14,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllBillingStrategiesMini = exports.removeCategoryFromStrategy = exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
+exports.getEntityInfoUsingSpecialCode = exports.getAllBillingStrategiesMini = exports.removeCategoryFromStrategy = exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
 const clinicianBilling_1 = __importDefault(require("../../models/clincians/clinicianBilling"));
+const ReferralCodingRepo_1 = require("../../models/referral/repositories/ReferralCodingRepo");
 async function createBillingStrategy(req, res) {
     try {
         const { allConcessionApplied, concessionMode, concessionValue, price_type, name, applicableTest } = req.body;
@@ -228,8 +229,10 @@ async function getEntityBillingStrategy(req, res) {
 exports.getEntityBillingStrategy = getEntityBillingStrategy;
 async function getProvidentialBillingHandler(req, res) {
     try {
-        const tenantId = parseInt(req.query.tenantId || '0', 10);
-        const associatedId = parseInt(req.params.associatedid, 10);
+        const tenantId = parseInt(req.query.tenantId);
+        const fallbackToDefault = req.query.fallbacktodefault && ['true', 'false'].includes(req.query.fallbacktodefault) ?
+            req.query.fallbacktodefault == 'true' : false;
+        const associatedId = parseInt(req.params.associatedid);
         const { entityType } = req.params;
         if (isNaN(tenantId) ||
             isNaN(associatedId) ||
@@ -238,7 +241,7 @@ async function getProvidentialBillingHandler(req, res) {
             return res.status(400).json({ message: 'Invalid tenantId, associatedId, or entityType (must be clinician, insurance, organization, general).' });
         }
         const strategyInstance = new clinicianBilling_1.default();
-        const billingData = await strategyInstance.getProvidentialBillingHandler(tenantId, entityType, associatedId);
+        const billingData = await strategyInstance.getProvidentialBillingHandler(tenantId, entityType, associatedId, fallbackToDefault);
         if (!billingData || billingData.length === 0) {
             return res.status(404).json({ message: 'Billing data not found.' });
         }
@@ -336,3 +339,32 @@ async function getAllBillingStrategiesMini(req, res) {
     }
 }
 exports.getAllBillingStrategiesMini = getAllBillingStrategiesMini;
+async function getEntityInfoUsingSpecialCode(req, res) {
+    var _a;
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString(), 10);
+        const specialCode = (_a = req.query.code) === null || _a === void 0 ? void 0 : _a.toString();
+        if (!specialCode) {
+            return res.status(400).json({ message: 'Special code is required.' });
+        }
+        const getEntityInfo = await new ReferralCodingRepo_1.ReferralCodingRepo(tenantId).findByCode(parseInt(specialCode, 10));
+        if (!getEntityInfo) {
+            return res.status(404).json({ status: 'unfound', message: 'Entity information not found for the provided special code.' });
+        }
+        const entityType = getEntityInfo.entity_type;
+        const entityId = getEntityInfo.entity_id;
+        const strategyInstance = new clinicianBilling_1.default();
+        const entityInformation = await strategyInstance.getEntityInfoWithId(tenantId, entityType, entityId);
+        if (!entityInformation) {
+            return res.status(404).json({ status: 'unfound', message: 'Entity information not found.' });
+        }
+        res.send(entityInformation);
+    }
+    catch (error) {
+        res.status(500).json({
+            message: 'Error retrieving entity information using special code.',
+            error: error.message
+        });
+    }
+}
+exports.getEntityInfoUsingSpecialCode = getEntityInfoUsingSpecialCode;

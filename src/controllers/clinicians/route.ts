@@ -31,8 +31,12 @@ import {
   addCategoryToStrategy,
   removeCategoryFromStrategy,
   getAllBillingStrategiesMini,
+  getProvidentialBillingHandler,
+  getEntityInfoUsingSpecialCode,
 } from './billingStrategyHandler';
 
+
+router.get('/api/v1/billing/testpanel/strategies/panels/:entityType/:associatedid', handleOverLoad(getProvidentialBillingHandler));
 router.post('/api/v1/billing/strategies', handleOverLoad(createBillingStrategy));
 router.get('/api/v1/billing/strategies/all', handleOverLoad(getAllBillingStrategies));
 router.get('/api/v1/billing/strategies/all/mini', handleOverLoad(getAllBillingStrategiesMini));
@@ -44,8 +48,7 @@ router.get('/api/v1/billing/strategies/:entityType/:entityid/has-strategy', hand
 router.get('/api/v1/billing/strategies/:entityType/:entityid', handleOverLoad(getEntityBillingStrategy));
 router.post('/api/v1/billing/strategies/apply/strategy/entity/:strategyid', handleOverLoad(addCategoryToStrategy));
 router.delete('/api/v1/billing/strategies/remove/entity/:strategyid', handleOverLoad(removeCategoryFromStrategy));
-
-
+router.get('/api/v1/billing/specialcodeinfo', handleOverLoad(getEntityInfoUsingSpecialCode));
 // payment routes of the clinicians
 
 const clinicianPaymentHandler = new ClinicianPaymentHandler();

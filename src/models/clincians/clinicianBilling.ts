@@ -49,6 +49,30 @@ export default class BillingStrategy {
           }
      }
 
+     
+
+     async getEntityInfoWithId(tenantId: number, entity_type: EntityType, entity_id: number): Promise<any> {
+          const entityInfo = await this.getEntityInfo(tenantId, entity_type, entity_id);
+          if (!entityInfo) {
+               return null;
+          }
+          if (Array.isArray(entityInfo)) {
+               return entityInfo.map((item) => {
+                    if (entity_type === 'clinician') {
+                         return { id: item.id, name: item.name, entity_type: 'clinician' };
+                    }
+                    if (entity_type === 'insurance' || entity_type === 'phis') {
+                         return { id: item.id, name: item.insuranceName, entity_type: 'insurance' };
+                    }
+                    if (entity_type === 'organization') {
+                         return {
+                              id: item.id, name: item.name, entity_type: 'organization'
+                         };
+                    }
+               })
+          }
+     }
+
      private calculateDiscountedValue(
           originalPrice: number,
           concessionMode: 'absolute' | 'percentage',
@@ -72,7 +96,8 @@ export default class BillingStrategy {
 
           if (!allConcessionApplied && applicableTest.length > 0) {
                const connection = await KnexConnection(tenantId);
-               const validTests = await connection('test_panels').select('id', 'price').whereIn('id', applicableTest.map(item => item.testid));
+               const validTests = await connection('test_panels')
+                    .select('id', 'price').whereIn('id', applicableTest.map(item => item.testid));
                const mapped = applicableTest.filter(item => {
                     const test = validTests.find((valid: { id: number }) => valid.id === item.testid);
                     if (
@@ -147,10 +172,6 @@ export default class BillingStrategy {
                return 'Concession value must be between 0 and 9999.99.';
           }
 
-          // const validatedApplicableEntities = await this.validateApplicableEntities(tenantId, applicableEntities || []);
-          // if (validatedApplicableEntities === null) {
-          //      return 'No valid entities provided.';
-          // }
 
           let validatedApplicableTest: ApplicableTest[] | null = null;
           if (!allConcessionApplied && applicableTest && Array.isArray(applicableTest) && applicableTest.length > 0) {
@@ -476,20 +497,27 @@ export default class BillingStrategy {
           tenantId: number,
           entity_type: EntityType,
           entity_id: number,
-          isvalidonly: boolean = false
      ): Promise<(IBillingStrategy & { applicableTest: ApplicableTest[], applicableEntities: ApplicableEntity[] })[]> {
           if (!entity_type || !entity_id) {
                throw new Error('Entity type and ID are required.');
           }
           const connection = await KnexConnection(tenantId);
+
           const query = connection('billingstrategy_mapping as m')
                .join('billingstrategy as s', 's.strategyid', 'm.strategyid')
-               .where({ 'm.entity_type': entity_type, 'm.entity_id': entity_id, 's.is_expired': 0 });
-          if (isvalidonly) {
-               query.whereRaw('s.valid_from IS NULL OR s.valid_from <= CURRENT_TIMESTAMP')
-                    .whereRaw('s.valid_until IS NULL OR s.valid_until >= CURRENT_TIMESTAMP');
-          }
+               .whereRaw(`
+                    m.entity_type = ?
+                    AND m.entity_id = ?
+                    AND (s.valid_from IS NULL OR s.valid_from <= CURRENT_TIMESTAMP)
+                    AND (s.valid_until IS NULL OR s.valid_until >= CURRENT_TIMESTAMP)
+               `, [entity_type, entity_id]);
+
           const strategies = await query.select('s.*');
+
+          if (strategies.length === 0) {
+               return [];
+          }
+
           return Promise.all(strategies.map(strategy => this.sanitizeToFieldsOfStrategy(strategy.strategyid, tenantId)));
      }
 
@@ -501,78 +529,103 @@ export default class BillingStrategy {
           return !!exists;
      }
 
-     public async getProvidentialBillingHandler(tenantId: number, entity_type: EntityType, associatedid: number): Promise<any[]> {
+     public async getProvidentialBillingHandler(
+          tenantId: number,
+          entity_type: EntityType,
+          associatedid: number,
+          fallbackToDefault: boolean
+     ): Promise<any> {
           try {
                if (!entity_type || !associatedid) {
                     throw new Error('Entity type and associated ID are required.');
                }
 
                const strategyList = await this.getBillingStrategyByEntity(tenantId, entity_type, associatedid);
-               if (strategyList.length === 0) return [];
 
-               const { concessionMode, concessionValue, allConcessionApplied, applicableTest } = strategyList[0];
-               const isTruthy = (value: number) => value === 1;
-               const allTest = await new CustomTest(null, null).loadTestWithDetails(tenantId);
-
-               if (isTruthy(allConcessionApplied) && allTest.length) {
-                    const billingTestList = await Promise.all(
-                         allTest.map(async ({ price, name, testid, id }) => {
-                              const discountedValue = this.calculateDiscountedValue(
-                                   price,
-                                   concessionMode,
-                                   concessionValue,
-                                   strategyList[0].price_type
-                              );
-                              return {
-                                   discountedValue,
-                                   price,
-                                   name,
-                                   id,
-                                   testid,
-                                   concessionMode,
-                                   actualPrice: price,
-                                   originalPrice: price,
-                                   concessionValue
-                              };
-                         })
-                    );
-                    return billingTestList;
+               if (!strategyList.length && fallbackToDefault == false) {
+                    return `${OperationsFailures.billingStrategyNotFoundForEntity} or ${OperationsFailures.billingStrategyExpired}`;
                }
 
-               if (applicableTest && applicableTest.length > 0) {
-                    const connection = await KnexConnection(tenantId);
-                    const testDetails = await connection('test_panels')
-                         .select('id', 'price', 'name')
-                         .whereIn('id', applicableTest.map(test => test.testid));
+               const allTest = await new CustomTest(null, null).loadTestWithDetails(tenantId);
+               const testMap = new Map(allTest.map(test => [test.testid, test]));
+
+               if (strategyList.length == 0 && fallbackToDefault) {
+                    // CASE 3: No discount logic applies — return raw prices
+                    return allTest.map(({ price, name, testid, id }) => ({
+                         discountedValue: price,
+                         price,
+                         name,
+                         id,
+                         testid,
+                         concessionMode: 'absolute',
+                         concessionValue: 0,
+                         pricingType: 'discount',
+                         actualPrice: price,
+                         originalPrice: price
+                    }));
+               }
+
+               const {
+                    concessionMode,
+                    concessionValue,
+                    allConcessionApplied,
+                    applicableTest,
+                    price_type
+               } = strategyList[0];
+
+               const isTruthy = (val: number) => val === 1;
+
+
+
+               // CASE 1: All concession applies
+               if (strategyList.length > 0 && isTruthy(allConcessionApplied) && allTest.length) {
+                    return allTest.map(({ price, name, testid, id }) => {
+                         const discountedValue = this.calculateDiscountedValue(price, concessionMode, concessionValue, price_type);
+                         return {
+                              discountedValue,
+                              price,
+                              name,
+                              id,
+                              testid,
+                              concessionMode,
+                              concessionValue,
+                              actualPrice: price,
+                              originalPrice: price
+                         };
+                    });
+               }
+
+               // CASE 2: Specific applicable tests
+               if (strategyList.length > 0 && applicableTest && Array.isArray(applicableTest) && applicableTest.length > 0) {
+                    const applicableTestIds = applicableTest.map(test => test.testid);
 
                     const formattedApplicableTest = applicableTest.map(test => {
-                         const matchedTest = testDetails.find(t => t.id === test.testid);
-                         if (matchedTest) {
-                              const { price, name, id } = matchedTest;
-                              const discountedValue = this.calculateDiscountedValue(
-                                   test.originalPrice,
-                                   test.concessionMode,
-                                   test.concessionValue,
-                                   test.pricingType
-                              );
-                              return {
-                                   discountedValue,
-                                   price,
-                                   name,
-                                   id,
-                                   testid: test.testid,
-                                   concessionMode: test.concessionMode,
-                                   concessionValue: test.concessionValue,
-                                   actualPrice: test.actualPrice,
-                                   originalPrice: test.originalPrice,
-                                   pricingType: test.pricingType
-                              };
-                         }
-                         return null;
-                    }).filter((item): item is NonNullable<typeof item> => item !== null);
+                         const matched = testMap.get(test.testid) as { price: number; name: string; id: number };
+                         if (!matched) return null;
 
-                    const reformattedTest = allTest
-                         .filter(test => !applicableTest.some(apTest => apTest.testid === test.testid))
+                         const discountedValue = this.calculateDiscountedValue(
+                              test.originalPrice,
+                              test.concessionMode,
+                              test.concessionValue,
+                              test.pricingType
+                         );
+
+                         return {
+                              discountedValue,
+                              price: matched.price,
+                              name: matched.name,
+                              id: matched.id,
+                              testid: test.testid,
+                              concessionMode: test.concessionMode,
+                              concessionValue: test.concessionValue,
+                              actualPrice: test.originalPrice,
+                              originalPrice: test.originalPrice,
+                              pricingType: test.pricingType
+                         };
+                    }).filter(Boolean);
+
+                    const remainingTests = allTest
+                         .filter(test => !applicableTestIds.includes(test.testid))
                          .map(({ price, name, testid, id }) => ({
                               discountedValue: price,
                               price,
@@ -586,26 +639,16 @@ export default class BillingStrategy {
                               originalPrice: price
                          }));
 
-                    return [...formattedApplicableTest, ...reformattedTest];
+                    return [...formattedApplicableTest, ...remainingTests];
                }
 
-               return allTest.map(({ price, name, testid, id }) => ({
-                    discountedValue: price,
-                    price,
-                    name,
-                    id,
-                    testid,
-                    concessionMode: 'absolute',
-                    concessionValue: 0,
-                    pricingType: 'discount',
-                    actualPrice: price,
-                    originalPrice: price
-               }));
+
           } catch (error) {
                console.error('Error in getProvidentialBillingHandler:', error);
                throw new Error('Internal server error.');
           }
      }
+
 
      public static async getStrategyBulkBillingData(tenantId: number, entity_type: EntityType, entity_id: number): Promise<any[]> {
           try {
@@ -760,6 +803,7 @@ export default class BillingStrategy {
                throw new Error('Internal server error.');
           }
      }
+
      public async deleteStrategyApplicableEntities(
           tenantId: number,
           strategyId: number,
@@ -776,7 +820,5 @@ export default class BillingStrategy {
                throw new Error('Internal server error.');
           }
      }
-
-
 
 }

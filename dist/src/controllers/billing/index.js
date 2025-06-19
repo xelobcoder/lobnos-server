@@ -8,6 +8,7 @@ const BillingHandler_1 = require("./BillingHandler");
 const handler_1 = require("./SessionManger/handler");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
 const helper_1 = require("../../hooks/helper");
+const PrimeBillingCampaignController_1 = require("./PrimeBillingCampaignController");
 const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
@@ -40,4 +41,9 @@ router.post("/api/v1/billing/sales/session/create", (0, helper_1.handleOverLoad)
 router.get("/api/v1/billing/sales/session/list", handler_1.getSalesSessionList);
 router.put("/api/v1/billing/sales/session/endsession", handler_1.handleEndSalesSession);
 router.get('/api/v1/billing/sales/session/verify/session', handler_1.hasSalesSessionAvailableHandler);
+router.post("/api/v1/campaigns", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.create));
+router.get("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.findById));
+router.put("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.update));
+router.delete("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.delete));
+router.get("/api/v1/campaigns", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.list));
 exports.default = router;

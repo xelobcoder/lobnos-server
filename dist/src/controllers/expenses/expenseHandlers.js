@@ -179,7 +179,7 @@ const updateExpenseDecision = async (req, res) => {
             expenseId: parseInt(expenseid.toString())
         });
         const result = await expenses.updateExpenseDecision(parseInt(tenantId.toString()), status, expenseid, information, employeeid);
-        res.send({ status: result === true ? "success" : "failed" });
+        res.send({ status: result });
     }
     catch (err) {
         (0, helper_1.responseError)(res);

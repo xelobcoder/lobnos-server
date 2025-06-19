@@ -188,10 +188,10 @@ export default class BillingStrategyRepository {
     const conn = await this.connection;
     try {
       const result = await conn(this.strategyAssignmentsTable)
-        .where( "entity_type", entityType )
-        .andWhere('trackId',trackId)
+        .where("entity_type", entityType)
+        .andWhere('trackId', trackId)
         .andWhere('billing_strategy_id', billing_strategy_id);
-        return result[0];
+      return result[0];
     } catch (error) {
       throw new Error(`Failed to fetch strategy assignments: ${error.message}`);
     }

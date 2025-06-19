@@ -211,7 +211,7 @@ export const updateExpenseDecision = async (req: Request, res: Response) => {
 			employeeid
 		);
 
-		res.send({ status: result === true ? "success" : "failed" });
+		res.send({ status: result });
 	} catch (err) {
 		responseError(res);
 	}

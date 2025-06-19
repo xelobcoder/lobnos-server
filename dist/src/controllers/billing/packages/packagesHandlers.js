@@ -202,24 +202,24 @@ exports.deletePackageTestHandler = deletePackageTestHandler;
 const verifyAndLoadPackagesHandler = async (request, response) => {
     try {
         const tenantId = parseInt(request.query.tenantId, 10);
-        const { clinicianId, organizationId, billingSource } = request.body;
-        if (billingSource == 6 && clinicianId) {
-            const packages = await Billlingpackages_1.Packages.getClinicianPackages(tenantId, clinicianId);
+        const { entityId, entitytype, categorytrackid } = request.body;
+        if (categorytrackid == 6 && entitytype === "clinician" && entityId) {
+            const packages = await Billlingpackages_1.Packages.getClinicianPackages(tenantId, entityId);
             return response.send(packages);
         }
-        if (billingSource == 2 && organizationId) {
-            const packages = await Billlingpackages_1.Packages.getOrganizationPackagesByOrganizationId(tenantId, organizationId);
+        if (categorytrackid == 2 && entitytype === "organization" && entityId) {
+            const packages = await Billlingpackages_1.Packages.getOrganizationPackagesByOrganizationId(tenantId, entityId);
             return response.send(packages);
         }
-        if (billingSource === 1) {
+        if (categorytrackid == 1) {
             const packages = await Billlingpackages_1.Packages.getPackages(tenantId);
             return response.send(packages);
         }
-        response.send([]);
+        return response.status(400).send({ error: "Invalid request parameters" });
     }
-    catch (err) {
-        console.log(err);
-        (0, helper_1.responseError)(response, err);
+    catch (error) {
+        console.log(error);
+        (0, helper_1.responseError)(response, error);
     }
 };
 exports.verifyAndLoadPackagesHandler = verifyAndLoadPackagesHandler;

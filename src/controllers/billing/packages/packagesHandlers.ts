@@ -139,7 +139,7 @@ export const updatePackageHandler = async (req: Request<{ id: string }, {}>, res
      try {
           const tenantId: number = parseInt(req.query.tenantId as string, 10);
           const result = await Packages.updatePackage(tenantId, Number(req.params.id), req.body);
-          res.status(200).json({status: result > 0});
+          res.status(200).json({ status: result > 0 });
      } catch (error: any) {
           res.status(500).json({ error: error.message });
      }
@@ -149,7 +149,7 @@ export const deletePackageHandler = async (req: Request<{ id: string }>, res: Re
      try {
           const tenantId: number = parseInt(req.query.tenantId as string, 10);
           const result = await Packages.deletePackage(tenantId, Number(req.params.id));
-          res.status(200).json({status: result > 0, message: result > 0 ? "Package deleted successfully" : "Package not found"});
+          res.status(200).json({ status: result > 0, message: result > 0 ? "Package deleted successfully" : "Package not found" });
      } catch (error: any) {
           res.status(500).json({ error: error.message });
      }
@@ -200,31 +200,33 @@ export const deletePackageTestHandler = async (req: Request<{ id: string }>, res
 };
 
 interface PackageVerificationType {
-     billingSource: number;
-     organizationId: number;
-     clinicianId: number;
+     entityId: number;
+     entitytype: string;
+     categorytrackid: number;
 }
 
 export const verifyAndLoadPackagesHandler = async (request: Request<{}, {}, PackageVerificationType>, response: Response) => {
      try {
           const tenantId: number = parseInt(request.query.tenantId as string, 10);
-          const { clinicianId, organizationId, billingSource } = request.body;
-          if (billingSource == 6 && clinicianId) {
-               const packages = await Packages.getClinicianPackages(tenantId, clinicianId);
+          const { entityId, entitytype, categorytrackid } = request.body;
+
+          if (categorytrackid == 6 && entitytype === "clinician" && entityId) {
+               const packages = await Packages.getClinicianPackages(tenantId, entityId);
                return response.send(packages);
           }
-          if (billingSource == 2 && organizationId) {
-               const packages = await Packages.getOrganizationPackagesByOrganizationId(tenantId, organizationId);
+          if (categorytrackid == 2 && entitytype === "organization" && entityId) {
+               const packages = await Packages.getOrganizationPackagesByOrganizationId(tenantId, entityId);
                return response.send(packages);
           }
-          if (billingSource === 1) {
+          if (categorytrackid == 1) {
                const packages = await Packages.getPackages(tenantId);
                return response.send(packages);
           }
-          response.send([]);
-     } catch (err: any) {
-          console.log(err)
-          responseError(response, err);
+       
+          return response.status(400).send({ error: "Invalid request parameters" });
+     } catch (error) {
+          console.log(error)
+          responseError(response, error);
      }
 };
 
@@ -233,25 +235,25 @@ export const removeClinicianPackageByIdsHandler = async (req: Request<{ clinicia
           const tenantId: number = parseInt(req.query.tenantId as string, 10);
           const clinicianId = Number(req.params.clinicianId);
           const packageId = Number(req.params.packageId);
-          
+
           const result = await Packages.removeClinicianPackageByIds(tenantId, clinicianId, packageId);
-          
+
           if (result > 0) {
-               res.status(200).json({ 
-                    message: 'Clinician package removed successfully', 
+               res.status(200).json({
+                    message: 'Clinician package removed successfully',
                     status: true,
-                    deletedCount: result 
+                    deletedCount: result
                });
           } else {
-               res.status(404).json({ 
-                    message: 'Clinician package not found', 
-                    status: false 
+               res.status(404).json({
+                    message: 'Clinician package not found',
+                    status: false
                });
           }
      } catch (error: any) {
-          res.status(500).json({ 
-               message: error.message, 
-               status: false 
+          res.status(500).json({
+               message: error.message,
+               status: false
           });
      }
 };

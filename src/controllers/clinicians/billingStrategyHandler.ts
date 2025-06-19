@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { EntityType } from "../../models/clincians/c.dev.type";
 import BillingStrategy from "../../models/clincians/clinicianBilling";
+import { ReferralCoding, ReferralCodingRepo } from "../../models/referral/repositories/ReferralCodingRepo";
 
 interface BillingStrategyRequestBody {
     allConcessionApplied: boolean;
@@ -276,12 +277,14 @@ export async function getEntityBillingStrategy(
 }
 
 export async function getProvidentialBillingHandler(
-    req: Request<{ associatedid: string; entityType: EntityType }, {}, {}, { tenantId: string }>,
+    req: Request<{ associatedid: string; entityType: EntityType }, {}, {}, { tenantId: string, fallbacktodefault?: string }>,
     res: Response
 ) {
     try {
-        const tenantId = parseInt(req.query.tenantId || '0', 10);
-        const associatedId = parseInt(req.params.associatedid, 10);
+        const tenantId = parseInt(req.query.tenantId);
+        const fallbackToDefault = req.query.fallbacktodefault && ['true', 'false'].includes(req.query.fallbacktodefault) ?
+            req.query.fallbacktodefault == 'true' : false;
+        const associatedId = parseInt(req.params.associatedid);
         const { entityType } = req.params;
 
         if (
@@ -294,7 +297,7 @@ export async function getProvidentialBillingHandler(
         }
 
         const strategyInstance = new BillingStrategy();
-        const billingData = await strategyInstance.getProvidentialBillingHandler(tenantId, entityType, associatedId);
+        const billingData = await strategyInstance.getProvidentialBillingHandler(tenantId, entityType, associatedId, fallbackToDefault);
 
         if (!billingData || billingData.length === 0) {
             return res.status(404).json({ message: 'Billing data not found.' });
@@ -405,6 +408,36 @@ export async function getAllBillingStrategiesMini(
     } catch (error: any) {
         res.status(500).json({
             message: 'Error retrieving billing strategies.',
+            error: error.message
+        });
+    }
+}
+
+
+export async function getEntityInfoUsingSpecialCode(req: Request, res: Response) {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString(), 10);
+        const specialCode = req.query.code?.toString();
+
+        if (!specialCode) {
+            return res.status(400).json({ message: 'Special code is required.' });
+        }
+        const getEntityInfo: ReferralCoding | null = await new ReferralCodingRepo(tenantId).findByCode(parseInt(specialCode, 10));
+       
+        if (!getEntityInfo) {
+            return res.status(404).json({ status: 'unfound', message: 'Entity information not found for the provided special code.' });
+        }
+        const entityType = getEntityInfo.entity_type;
+        const entityId = getEntityInfo.entity_id;
+        const strategyInstance = new BillingStrategy();
+        const entityInformation = await strategyInstance.getEntityInfoWithId(tenantId, entityType, entityId);
+        if (!entityInformation) {
+            return res.status(404).json({ status: 'unfound', message: 'Entity information not found.' });
+        }
+        res.send(entityInformation);
+    } catch (error: any) {
+        res.status(500).json({
+            message: 'Error retrieving entity information using special code.',
             error: error.message
         });
     }

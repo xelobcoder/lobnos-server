@@ -28,6 +28,7 @@ import { getPatientTransactions, getPatientTransactionDetails } from "./BillingH
 import { getSalesSessionList, handleCreateNewSalesSesion, handleEndSalesSession, hasSalesSessionAvailableHandler } from "./SessionManger/handler";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { handleOverLoad } from "../../hooks/helper";
+import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
 
 
 
@@ -36,13 +37,13 @@ const router = Router();
 // Billing Routes
 router.post("/api/v1/billing", handleNewBilling);
 router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", handleEmailReceiptSending)
-router.put("/api/v1/billing", isAuthorizedRoleAdmin,updateBilledTransaction);
+router.put("/api/v1/billing", isAuthorizedRoleAdmin, updateBilledTransaction);
 router.get("/api/v1/billing/caninitialbill", canInitiateBill);
 router.get("/api/v1/billing/information/single", getSavedCLientBillingInformation);
 router.post(`/api/v1/billing/previous/request/refund`, determineStageOfRefundRequestHandler);
 router.post(`/api/v1/billing/previous/request/refund/update`, requestForRefundHandler);
 router.post("/api/v1/billing/previous/refund/update/previous", updateWitnessWitnessNote as RequestHandler);
-router.post("/api/v1/billing/previous/refund/update/approve",isAuthorizedRoleAdmin, approveRequestForRefund);
+router.post("/api/v1/billing/previous/refund/update/approve", isAuthorizedRoleAdmin, approveRequestForRefund);
 router.post("/api/v1/billing/previous/refund/update/cashout", requestForRefundCashIssueOut);
 router.get("/api/v1/billing/previous/refund/update/verification/cashout", verificationBeforeCashoutHandler as unknown as RequestHandler);
 router.get("/api/v1/billing/filtering/service/refund", getServiceRefundItem);
@@ -73,7 +74,16 @@ router.get('/api/v1/billing/patient/transactions/:billingid', getPatientTransact
 
 router.post("/api/v1/billing/sales/session/create", handleOverLoad(handleCreateNewSalesSesion));
 router.get("/api/v1/billing/sales/session/list", getSalesSessionList);
-router.put("/api/v1/billing/sales/session/endsession",handleEndSalesSession);
-router.get('/api/v1/billing/sales/session/verify/session',hasSalesSessionAvailableHandler)
+router.put("/api/v1/billing/sales/session/endsession", handleEndSalesSession);
+router.get('/api/v1/billing/sales/session/verify/session', hasSalesSessionAvailableHandler)
+
+
+
+
+router.post("/api/v1/campaigns", handleOverLoad(PrimeBillingCampaignController.create));
+router.get("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignController.findById));
+router.put("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignController.update));
+router.delete("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignController.delete));
+router.get("/api/v1/campaigns", handleOverLoad(PrimeBillingCampaignController.list));
 export default router;
 
