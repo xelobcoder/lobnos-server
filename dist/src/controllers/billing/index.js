@@ -9,6 +9,7 @@ const handler_1 = require("./SessionManger/handler");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
 const helper_1 = require("../../hooks/helper");
 const PrimeBillingCampaignController_1 = require("./PrimeBillingCampaignController");
+const PrimePromoCode_1 = require("./PrimePromoCode");
 const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
@@ -46,4 +47,13 @@ router.get("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCam
 router.put("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.update));
 router.delete("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.delete));
 router.get("/api/v1/campaigns", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.list));
+// Promo code routes
+router.post("/api/v1/promo-codes", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.create));
+router.get("/api/v1/promo-codes/:id", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.findById));
+router.get("/api/v1/promo-codes/by-code", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.findByCode));
+router.put("/api/v1/promo-codes/:id", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.update));
+router.delete("/api/v1/promo-codes/:id", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.delete));
+router.get("/api/v1/promo-codes", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.list));
+router.post("/api/v1/promo-codes/increment-usage", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.incrementUsage));
+router.post("/api/v1/promo-codes/validate", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.validatePromoCode));
 exports.default = router;

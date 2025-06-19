@@ -29,6 +29,10 @@ import { getSalesSessionList, handleCreateNewSalesSesion, handleEndSalesSession,
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { handleOverLoad } from "../../hooks/helper";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
+import { PrimeBillingPromoCodeRepo } from "../../models/billing/repositories/PrimeBillingPromoCodeRepo";
+import { PrimeBillingPromoCodeController } from "./PrimePromoCode";
+
+
 
 
 
@@ -85,5 +89,16 @@ router.get("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignControlle
 router.put("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignController.update));
 router.delete("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignController.delete));
 router.get("/api/v1/campaigns", handleOverLoad(PrimeBillingCampaignController.list));
+
+// Promo code routes
+router.post("/api/v1/promo-codes", handleOverLoad(PrimeBillingPromoCodeController.create));
+router.get("/api/v1/promo-codes/:id", handleOverLoad(PrimeBillingPromoCodeController.findById));
+router.get("/api/v1/promo-codes/by-code", handleOverLoad(PrimeBillingPromoCodeController.findByCode));
+router.put("/api/v1/promo-codes/:id", handleOverLoad(PrimeBillingPromoCodeController.update));
+router.delete("/api/v1/promo-codes/:id", handleOverLoad(PrimeBillingPromoCodeController.delete));
+router.get("/api/v1/promo-codes", handleOverLoad(PrimeBillingPromoCodeController.list));
+router.post("/api/v1/promo-codes/increment-usage", handleOverLoad(PrimeBillingPromoCodeController.incrementUsage));
+router.post("/api/v1/promo-codes/validate", handleOverLoad(PrimeBillingPromoCodeController.validatePromoCode));
+
 export default router;
 
