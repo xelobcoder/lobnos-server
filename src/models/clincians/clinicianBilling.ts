@@ -49,29 +49,39 @@ export default class BillingStrategy {
           }
      }
 
-     
 
-     async getEntityInfoWithId(tenantId: number, entity_type: EntityType, entity_id: number): Promise<any> {
+
+     async getEntityInfoWithId(
+          tenantId: number,
+          entity_type: EntityType,
+          entity_id: number
+     ): Promise<any> {
           const entityInfo = await this.getEntityInfo(tenantId, entity_type, entity_id);
+
           if (!entityInfo) {
                return null;
           }
+
+          const formatEntity = (item: any) => {
+               if (entity_type === 'clinician') {
+                    return { id: item.id, name: item.name, entity_type: 'clinician' };
+               }
+               if (entity_type === 'insurance' || entity_type === 'phis') {
+                    return { id: item.id, name: item.insuranceName, entity_type: 'insurance' };
+               }
+               if (entity_type === 'organization') {
+                    return { id: item.id, name: item.name, entity_type: 'organization' };
+               }
+               return item; // fallback, in case none match
+          };
+
           if (Array.isArray(entityInfo)) {
-               return entityInfo.map((item) => {
-                    if (entity_type === 'clinician') {
-                         return { id: item.id, name: item.name, entity_type: 'clinician' };
-                    }
-                    if (entity_type === 'insurance' || entity_type === 'phis') {
-                         return { id: item.id, name: item.insuranceName, entity_type: 'insurance' };
-                    }
-                    if (entity_type === 'organization') {
-                         return {
-                              id: item.id, name: item.name, entity_type: 'organization'
-                         };
-                    }
-               })
+               return entityInfo.map(formatEntity);
           }
+
+          return [formatEntity(entityInfo)];
      }
+
 
      private calculateDiscountedValue(
           originalPrice: number,
@@ -378,6 +388,7 @@ export default class BillingStrategy {
 
           const applicableTest = await connection('billingstrategy_tests as bst')
                .leftJoin('test_panels as tp', 'bst.testid', 'tp.id')
+               .leftJoin('testdetails', 'tp.id', 'testdetails.testid')
                .select(
                     'bst.testid',
                     'bst.concessionValue',
@@ -386,7 +397,8 @@ export default class BillingStrategy {
                     'bst.pricingType',
                     'tp.price as actualPrice',
                     'tp.price as originalPrice',
-                    'tp.name'
+                    'tp.name',
+                    'testdetails.isoutsourced'
                )
                .where({ 'bst.strategyid': strategyid });
 
@@ -529,6 +541,28 @@ export default class BillingStrategy {
           return !!exists;
      }
 
+     private async loadAllTests(tenantId: number) {
+          return await new CustomTest(null, null).loadTestWithDetails(tenantId);
+     }
+
+     // Helper to map tests with default pricing
+     private mapTestsWithDefaults(tests: any[]) {
+          return tests.map(({ price, name, testid, id, isoutsourced }) => ({
+               discountedValue: price,
+               price,
+               name,
+               id,
+               isoutsourced,
+               testid,
+               concessionMode: 'absolute',
+               concessionValue: 0,
+               pricingType: 'discount',
+               actualPrice: price,
+               originalPrice: price
+          }));
+     }
+
+
      public async getProvidentialBillingHandler(
           tenantId: number,
           entity_type: EntityType,
@@ -536,33 +570,28 @@ export default class BillingStrategy {
           fallbackToDefault: boolean
      ): Promise<any> {
           try {
-               if (!entity_type || !associatedid) {
-                    throw new Error('Entity type and associated ID are required.');
+               if (!entity_type) {
+                    throw new Error('Entity type required.');
+               }
+               if (entity_type !== "general" && !associatedid) {
+                    throw new Error('Associated ID is required for non-general entities.');
+               }
+               if (entity_type === "general") {
+                    return this.mapTestsWithDefaults(await this.loadAllTests(tenantId));
                }
 
                const strategyList = await this.getBillingStrategyByEntity(tenantId, entity_type, associatedid);
 
-               if (!strategyList.length && fallbackToDefault == false) {
+               if (!strategyList.length && !fallbackToDefault) {
                     return `${OperationsFailures.billingStrategyNotFoundForEntity} or ${OperationsFailures.billingStrategyExpired}`;
                }
 
-               const allTest = await new CustomTest(null, null).loadTestWithDetails(tenantId);
+               const allTest = await this.loadAllTests(tenantId);
                const testMap = new Map(allTest.map(test => [test.testid, test]));
 
-               if (strategyList.length == 0 && fallbackToDefault) {
-                    // CASE 3: No discount logic applies — return raw prices
-                    return allTest.map(({ price, name, testid, id }) => ({
-                         discountedValue: price,
-                         price,
-                         name,
-                         id,
-                         testid,
-                         concessionMode: 'absolute',
-                         concessionValue: 0,
-                         pricingType: 'discount',
-                         actualPrice: price,
-                         originalPrice: price
-                    }));
+               // No strategy, fallback to default prices
+               if (!strategyList.length && fallbackToDefault) {
+                    return this.mapTestsWithDefaults(allTest);
                }
 
                const {
@@ -578,40 +607,40 @@ export default class BillingStrategy {
 
 
                // CASE 1: All concession applies
-               if (strategyList.length > 0 && isTruthy(allConcessionApplied) && allTest.length) {
-                    return allTest.map(({ price, name, testid, id }) => {
-                         const discountedValue = this.calculateDiscountedValue(price, concessionMode, concessionValue, price_type);
-                         return {
-                              discountedValue,
-                              price,
-                              name,
-                              id,
-                              testid,
-                              concessionMode,
-                              concessionValue,
-                              actualPrice: price,
-                              originalPrice: price
-                         };
-                    });
+               if (isTruthy(allConcessionApplied) && allTest.length) {
+                    return allTest.map(({ price, name, testid, id }) => ({
+                         discountedValue: this.calculateDiscountedValue(price, concessionMode, concessionValue, price_type),
+                         price,
+                         name,
+                         id,
+                         testid,
+                         concessionMode,
+                         concessionValue,
+                         actualPrice: price,
+                         originalPrice: price
+                    }));
                }
 
                // CASE 2: Specific applicable tests
-               if (strategyList.length > 0 && applicableTest && Array.isArray(applicableTest) && applicableTest.length > 0) {
+               if (applicableTest && Array.isArray(applicableTest) && applicableTest.length > 0) {
                     const applicableTestIds = applicableTest.map(test => test.testid);
 
                     const formattedApplicableTest = applicableTest.map(test => {
-                         const matched = testMap.get(test.testid) as { price: number; name: string; id: number };
+                         const matched = testMap.get(test.testid) as {
+                              price: number;
+                              name: string;
+                              id: number;
+                              isoutsourced?: boolean;
+                         } | undefined;
                          if (!matched) return null;
 
-                         const discountedValue = this.calculateDiscountedValue(
-                              test.originalPrice,
-                              test.concessionMode,
-                              test.concessionValue,
-                              test.pricingType
-                         );
-
                          return {
-                              discountedValue,
+                              discountedValue: this.calculateDiscountedValue(
+                                   test.originalPrice,
+                                   test.concessionMode,
+                                   test.concessionValue,
+                                   test.pricingType
+                              ),
                               price: matched.price,
                               name: matched.name,
                               id: matched.id,
@@ -619,6 +648,7 @@ export default class BillingStrategy {
                               concessionMode: test.concessionMode,
                               concessionValue: test.concessionValue,
                               actualPrice: test.originalPrice,
+                              isoutsourced: matched.isoutsourced ?? false,
                               originalPrice: test.originalPrice,
                               pricingType: test.pricingType
                          };

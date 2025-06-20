@@ -75,7 +75,6 @@ router.get('/api/v1/billing/patient/transactions/:billingid', getPatientTransact
 
 
 // sales session
-
 router.post("/api/v1/billing/sales/session/create", handleOverLoad(handleCreateNewSalesSesion));
 router.get("/api/v1/billing/sales/session/list", getSalesSessionList);
 router.put("/api/v1/billing/sales/session/endsession", handleEndSalesSession);
@@ -83,7 +82,7 @@ router.get('/api/v1/billing/sales/session/verify/session', hasSalesSessionAvaila
 
 
 
-
+// campaigns 
 router.post("/api/v1/campaigns", handleOverLoad(PrimeBillingCampaignController.create));
 router.get("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignController.findById));
 router.put("/api/v1/campaigns/:id", handleOverLoad(PrimeBillingCampaignController.update));
