@@ -191,6 +191,9 @@ export type TBillingData = {
   employeeid: number;
 };
 
+
+
+
 export enum billErrors {
   already = "client billed on same day. Kindly check the billing history to update billing",
   failed = "billing client failed",
@@ -199,7 +202,7 @@ export enum billErrors {
   unableToUpdateBilling = "Error Updating Billing Information",
   unableToLoadServices = "Error Loading Services Provided",
   unableToLoadTestAscension = "Error Adding data to Test Ascension ",
-  noDebtToClear="No debts found for the patient"
+  noDebtToClear = "No debts found for the patient"
 }
 
 export type Pagination = {
@@ -287,6 +290,7 @@ export default IPartitionManager;
 export const enum BillingValidationResult {
   INVALID_CART_OR_SERVICES = "InvalidCartOrServices",
   EMPTY_CART_AND_SERVICES = "EmptyCartAndServices",
+  MISSING_ENTITYID = 'Entity Id not provided',
   INVALID_EMPLOYEE_ID = "InvalidEmployeeID",
   INVALID_PAYMENT_MODE = "InvalidPaymentMode",
   MISSING_BRANCH_ID = "MissingBranchID",
@@ -295,7 +299,8 @@ export const enum BillingValidationResult {
   INVALID_PATIENT_ID = "PatientId Invalid",
   INVALID_BILLING_ID = "InvalidBillingId",
   INVALID_MISSING_BILLING_SOURCE = "Billingsource missing or invalid",
-  INVALID_BILLING_SOURCE_MATCH = "Provided Billing Source and Detail do not match"
+  INVALID_BILLING_SOURCE_MATCH = "Provided Billing Source and Detail do not match",
+  INVALID_PROMO_CODE = "InvalidPromoCode"
 }
 
 

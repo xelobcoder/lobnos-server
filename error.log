@@ -4594,3 +4594,7 @@
 {"code":"ECONNREFUSED","fatal":true,"level":"error","message":"Database query error:","stack":"AggregateError\n    at internalConnectMultiple (node:net:1114:18)\n    at afterConnectMultiple (node:net:1667:5)"}
 {"code":"ECONNREFUSED","fatal":true,"level":"error","message":"Database query error:","stack":"AggregateError\n    at internalConnectMultiple (node:net:1114:18)\n    at afterConnectMultiple (node:net:1667:5)"}
 {"code":"ECONNREFUSED","fatal":true,"level":"error","message":"Database query error:","stack":"AggregateError\n    at internalConnectMultiple (node:net:1114:18)\n    at afterConnectMultiple (node:net:1667:5)"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

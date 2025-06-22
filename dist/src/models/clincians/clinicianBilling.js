@@ -627,5 +627,50 @@ class BillingStrategy {
             throw new Error('Internal server error.');
         }
     }
+    async getProvidentialTestPrice(tenantId, entityType, entityId, testId, fallbackToDefault) {
+        var _a;
+        // Helper to get the default price from test_panels
+        const getDefaultPrice = async () => {
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const test = await connection('test_panels').where({ id: testId }).first();
+            if (!test)
+                throw new Error("Test not found");
+            return test.price;
+        };
+        if (entityType === "general") {
+            return getDefaultPrice();
+        }
+        const strategies = await this.getBillingStrategyByEntity(tenantId, entityType, entityId);
+        if (!strategies || strategies.length === 0) {
+            if (fallbackToDefault) {
+                return getDefaultPrice();
+            }
+            throw new Error("No billing strategy found for entity and fallbackToDefault is false");
+        }
+        const strategy = strategies[0];
+        let concessionMode = strategy.concessionMode || "absolute";
+        let concessionValue = (_a = strategy.concessionValue) !== null && _a !== void 0 ? _a : 0;
+        let pricingType = strategy.price_type || "discount";
+        const isAllConcession = strategy.allConcessionApplied === 1;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const test = await connection('test_panels').where({ id: testId }).first();
+        if (!test)
+            throw new Error("Test not found");
+        const basePrice = test.price;
+        if (isAllConcession) {
+            const discounted = this.calculateDiscountedValue(basePrice, concessionMode, concessionValue, pricingType);
+            return discounted;
+        }
+        // Check for test-specific mapping
+        if (Array.isArray(strategy.applicableTest)) {
+            for (const t of strategy.applicableTest) {
+                if (t.testid === testId) {
+                    const discounted = this.calculateDiscountedValue(basePrice, t.concessionMode, t.concessionValue, t.pricingType);
+                    return discounted;
+                }
+            }
+        }
+        return basePrice;
+    }
 }
 exports.default = BillingStrategy;

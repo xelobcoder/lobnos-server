@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { EntityType } from "../../models/clincians/c.dev.type";
-import BillingStrategy from "../../models/clincians/clinicianBilling";
+import BillingStrategy from "../../models/clincians/billingstrategy";
 import { ReferralCoding, ReferralCodingRepo } from "../../models/referral/repositories/ReferralCodingRepo";
 
 interface BillingStrategyRequestBody {

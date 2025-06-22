@@ -7,6 +7,8 @@ import { wrapperTryCatch } from "../../models/generics/trycatch";
 import { OperationsFailures } from "../../models/operations/types";
 import { RefundRequestBodyParams, UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType } from "./sales/type";
 import logger from "../../hooks/logger";
+import { MultiBillingRepo } from "../../models/billing/billnew";
+import { BillingUpdateRepo } from "../../models/billing/billing_update";
 
 export async function handleNewBilling(request: Request, response: Response) {
 	async function validate() {
@@ -23,6 +25,45 @@ export async function handleNewBilling(request: Request, response: Response) {
 		} else {
 			return customError(bill as string || billErrors.error, 400, response);
 		}
+	}
+	wrapperTryCatch(validate, (err) => console.log(err));
+}
+
+
+export async function handleMultiNewBilling(request: Request, response: Response) {
+	async function validate() {
+		if (!request.body || !request.body.patientid) {
+			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+		}
+		const { tenantId } = request.query;
+		const tenantIdP = parseInt(tenantId.toString());
+
+		let bill = await new MultiBillingRepo(tenantIdP).billNewTransaction(request.body);
+		if (typeof bill === "string") {
+			return customError(bill, 404, response);
+		} else if (typeof bill === "number") {
+			return response.send({ status: true, message: "Billing created successfully", billingid: bill });
+		} else {
+			return customError("An error occurred while processing the billing", 500, response);
+		}
+	}
+	wrapperTryCatch(validate, (err) => console.log(err));
+}
+
+
+export async function handleMultiUpdateBilling(request: Request, response: Response) {
+	async function validate() {
+		if (!request.body || !request.body.patientid) {
+			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+		}
+		const { tenantId } = request.query;
+		const tenantIdP = parseInt(tenantId.toString());
+
+		let bill = await BillingUpdateRepo.updateBillingTransaction(tenantIdP, parseInt(request.query.billingid.toString()), request.body);
+		if (typeof bill === "string") {
+			return customError(bill, 404, response);
+		}
+		response.send({ status: true, message: "Billing updated successfully" });
 	}
 	wrapperTryCatch(validate, (err) => console.log(err));
 }

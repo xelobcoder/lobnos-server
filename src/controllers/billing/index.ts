@@ -14,7 +14,9 @@ import {
     verificationBeforeCashoutHandler,
     getTransactionBillDataHandler,
     handleEmailReceiptSending,
-    refundAllTransactionHandler
+    refundAllTransactionHandler,
+    handleMultiNewBilling,
+    handleMultiUpdateBilling
 } from "./controllers";
 import {
     createServicesHandler,
@@ -40,6 +42,8 @@ const router = Router();
 
 // Billing Routes
 router.post("/api/v1/billing", handleNewBilling);
+router.post("/api/v1/billing/multi", handleMultiNewBilling);
+router.put('/api/v1/billing/multi', handleMultiUpdateBilling);
 router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", handleEmailReceiptSending)
 router.put("/api/v1/billing", isAuthorizedRoleAdmin, updateBilledTransaction);
 router.get("/api/v1/billing/caninitialbill", canInitiateBill);

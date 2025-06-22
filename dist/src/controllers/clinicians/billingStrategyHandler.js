@@ -15,7 +15,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getEntityInfoUsingSpecialCode = exports.getAllBillingStrategiesMini = exports.removeCategoryFromStrategy = exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
-const clinicianBilling_1 = __importDefault(require("../../models/clincians/clinicianBilling"));
+const billingstrategy_1 = __importDefault(require("../../models/clincians/billingstrategy"));
 const ReferralCodingRepo_1 = require("../../models/referral/repositories/ReferralCodingRepo");
 async function createBillingStrategy(req, res) {
     try {
@@ -37,7 +37,7 @@ async function createBillingStrategy(req, res) {
                 message: 'Concession value must be present and greater than zero.',
             });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const tenantId = parseInt(req.query.tenantId.toString());
         const strategyId = await strategyInstance.insertBillingStrategy(tenantId, req.body);
         if (typeof strategyId === 'string') {
@@ -66,7 +66,7 @@ async function getBillingStrategy(req, res) {
             res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
         }
         else {
-            const strategyInstance = new clinicianBilling_1.default();
+            const strategyInstance = new billingstrategy_1.default();
             const strategy = await strategyInstance.getBillingStrategy(tenantId, strategyId);
             if (!strategy) {
                 return res.status(404).json({ message: 'Billing strategy not found.' });
@@ -90,7 +90,7 @@ async function updateBillingStrategy(req, res) {
             res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
         }
         else {
-            const strategyInstance = new clinicianBilling_1.default();
+            const strategyInstance = new billingstrategy_1.default();
             const _a = req.body, { allConcessionApplied } = _a, rest = __rest(_a, ["allConcessionApplied"]);
             const updateData = Object.assign(Object.assign({}, rest), { allConcessionApplied: allConcessionApplied ? 1 : 0 });
             const result = await strategyInstance.updateBillingStrategy(tenantId, strategyId, updateData);
@@ -126,10 +126,10 @@ async function getAllBillingStrategies(request, response) {
         }
         let entityInformation = null;
         if (entitytype && entityid) {
-            const strategyInstance = await new clinicianBilling_1.default().entityExists(tenantId, entitytype, entityid);
-            entityInformation = strategyInstance ? await new clinicianBilling_1.default().getEntityInfo(tenantId, entitytype, entityid) : null;
+            const strategyInstance = await new billingstrategy_1.default().entityExists(tenantId, entitytype, entityid);
+            entityInformation = strategyInstance ? await new billingstrategy_1.default().getEntityInfo(tenantId, entitytype, entityid) : null;
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const strategies = await strategyInstance.getAllBillingStrategies(tenantId);
         if (!strategies || strategies.length === 0) {
             return response.status(404).json({ message: 'No billing strategies found.' });
@@ -155,7 +155,7 @@ async function deleteBillingStrategy(req, res) {
             res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
         }
         else {
-            const strategyInstance = new clinicianBilling_1.default();
+            const strategyInstance = new billingstrategy_1.default();
             const result = await strategyInstance.deleteBillingStrategy(tenantId, strategyId);
             if (!result) {
                 return res.status(404).json({ message: 'Billing strategy not found.' });
@@ -182,7 +182,7 @@ async function checkEntityHasStrategy(req, res) {
             !['clinician', 'insurance', 'organization', 'general'].includes(entityType)) {
             return res.status(400).json({ message: 'Invalid tenantId, entityId, or entityType (must be clinician, insurance, organization, general).' });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const hasStrategy = await strategyInstance.entityHasStrategy(tenantId, entityType, entityId);
         //get entity information
         if (hasStrategy === null) {
@@ -212,7 +212,7 @@ async function getEntityBillingStrategy(req, res) {
             !['clinician', 'insurance', 'organization', 'general'].includes(entityType)) {
             return res.status(400).json({ message: 'Invalid tenantId, entityId, or entityType (must be clinician, insurance, organization, general).' });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const strategies = await strategyInstance.getBillingStrategyByEntity(tenantId, entityType, entityId);
         if (!strategies || strategies.length === 0) {
             return res.status(404).json({ message: 'Billing strategy not found.' });
@@ -240,7 +240,7 @@ async function getProvidentialBillingHandler(req, res) {
             !['clinician', 'insurance', 'organization', 'general'].includes(entityType)) {
             return res.status(400).json({ message: 'Invalid tenantId, associatedId, or entityType (must be clinician, insurance, organization, general).' });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const billingData = await strategyInstance.getProvidentialBillingHandler(tenantId, entityType, associatedId, fallbackToDefault);
         if (!billingData || billingData.length === 0) {
             return res.status(404).json({ message: 'Billing data not found.' });
@@ -262,7 +262,7 @@ async function checkStrategyExists(req, res) {
         if (isNaN(strategyId) || isNaN(tenantId)) {
             return res.status(400).json({ message: 'Invalid strategyId or tenantId.' });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const strategy = await strategyInstance.getBillingStrategy(tenantId, strategyId);
         res.status(200).json({ hasStrategy: !!strategy });
     }
@@ -282,7 +282,7 @@ async function addCategoryToStrategy(req, res) {
         if (isNaN(strategyId) || isNaN(tenantId) || !category || !associatedid) {
             return res.status(400).json({ message: 'Invalid strategyId, tenantId, category, or associatedid.' });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const result = await strategyInstance.addCategoryToStrategy(tenantId, strategyId, category, associatedid);
         res.status(200).json({ message: 'Category added to strategy successfully.', result });
     }
@@ -302,7 +302,7 @@ async function removeCategoryFromStrategy(req, res) {
         if (isNaN(strategyId) || isNaN(tenantId) || !category || !associatedid) {
             return res.status(400).json({ message: 'Invalid strategyId, tenantId, category, or associatedid.' });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const result = await strategyInstance.deleteStrategyApplicableEntities(tenantId, strategyId, associatedid, category);
         res.status(200).json({ message: 'Category removed from strategy successfully.', result });
     }
@@ -322,7 +322,7 @@ async function getAllBillingStrategiesMini(req, res) {
         if (isNaN(tenantId)) {
             return res.status(400).json({ message: 'Invalid tenant ID' });
         }
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const page = parseInt(((_b = (_a = req.query) === null || _a === void 0 ? void 0 : _a.page) === null || _b === void 0 ? void 0 : _b.toString()) || '1', 10);
         const count = parseInt(((_d = (_c = req.query) === null || _c === void 0 ? void 0 : _c.count) === null || _d === void 0 ? void 0 : _d.toString()) || '10', 10);
         const strategies = await strategyInstance.getAllBillingStrategiesWithoutApplicableTest(tenantId, count, page);
@@ -353,7 +353,7 @@ async function getEntityInfoUsingSpecialCode(req, res) {
         }
         const entityType = getEntityInfo.entity_type;
         const entityId = getEntityInfo.entity_id;
-        const strategyInstance = new clinicianBilling_1.default();
+        const strategyInstance = new billingstrategy_1.default();
         const entityInformation = await strategyInstance.getEntityInfoWithId(tenantId, entityType, entityId);
         if (!entityInformation) {
             return res.status(404).json({ status: 'unfound', message: 'Entity information not found.' });

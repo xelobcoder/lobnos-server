@@ -95,9 +95,9 @@ export class PrimeBillingPromoCodeRepo {
      /**
       * Increment the times_used for a promo code by 1.
       */
-     async incrementUsage(id: number): Promise<number> {
+     async incrementUsage(id: number,trx:any): Promise<number> {
           try {
-               const conn = await this.connection;
+               const conn = trx || await this.connection;
                return await conn('prime_billing_promo_codes')
                     .where({ id })
                     .increment('times_used', 1);

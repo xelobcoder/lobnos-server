@@ -3,13 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleEmailReceiptSending = exports.handleNewBilling = void 0;
+exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleEmailReceiptSending = exports.handleMultiUpdateBilling = exports.handleMultiNewBilling = exports.handleNewBilling = void 0;
 const helper_1 = require("../../hooks/helper");
 const billing_1 = require("../../models/billing/billing");
 const billingclientTypes_1 = require("../../models/billing/billingclientTypes");
 const RefundClass_1 = require("../../models/billing/RefundClass");
 const trycatch_1 = require("../../models/generics/trycatch");
 const logger_1 = __importDefault(require("../../hooks/logger"));
+const billnew_1 = require("../../models/billing/billnew");
+const billing_update_1 = require("../../models/billing/billing_update");
 async function handleNewBilling(request, response) {
     async function validate() {
         const { patientid } = request.body;
@@ -29,6 +31,43 @@ async function handleNewBilling(request, response) {
     (0, trycatch_1.wrapperTryCatch)(validate, (err) => console.log(err));
 }
 exports.handleNewBilling = handleNewBilling;
+async function handleMultiNewBilling(request, response) {
+    async function validate() {
+        if (!request.body || !request.body.patientid) {
+            return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
+        }
+        const { tenantId } = request.query;
+        const tenantIdP = parseInt(tenantId.toString());
+        let bill = await new billnew_1.MultiBillingRepo(tenantIdP).billNewTransaction(request.body);
+        if (typeof bill === "string") {
+            return (0, helper_1.customError)(bill, 404, response);
+        }
+        else if (typeof bill === "number") {
+            return response.send({ status: true, message: "Billing created successfully", billingid: bill });
+        }
+        else {
+            return (0, helper_1.customError)("An error occurred while processing the billing", 500, response);
+        }
+    }
+    (0, trycatch_1.wrapperTryCatch)(validate, (err) => console.log(err));
+}
+exports.handleMultiNewBilling = handleMultiNewBilling;
+async function handleMultiUpdateBilling(request, response) {
+    async function validate() {
+        if (!request.body || !request.body.patientid) {
+            return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
+        }
+        const { tenantId } = request.query;
+        const tenantIdP = parseInt(tenantId.toString());
+        let bill = await billing_update_1.BillingUpdateRepo.updateBillingTransaction(tenantIdP, parseInt(request.query.billingid.toString()), request.body);
+        if (typeof bill === "string") {
+            return (0, helper_1.customError)(bill, 404, response);
+        }
+        response.send({ status: true, message: "Billing updated successfully" });
+    }
+    (0, trycatch_1.wrapperTryCatch)(validate, (err) => console.log(err));
+}
+exports.handleMultiUpdateBilling = handleMultiUpdateBilling;
 async function handleEmailReceiptSending(request, response) {
     try {
         const { patientid, billingid } = request.params;

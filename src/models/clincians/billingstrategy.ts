@@ -1,7 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import InsuranceClass from '../insurance/Insurance';
-import { OperationsFailures } from '../operations/types';
-import { CustomTest } from '../resultentry/customTestEntry';
+import { CustomTest} from '../resultentry/customTestEntry';
 import ClinicianClass from './clinicianClass';
 import {
      EntityType,
@@ -10,6 +9,7 @@ import {
      BillingStrategyRequestBody,
      IBillingStrategy
 } from './c.dev.type';
+import { OperationsFailures } from '../operations/types';
 
 export default class BillingStrategy {
      async entityExists(tenantId: number, entity_type: EntityType, entity_id: number): Promise<boolean> {
@@ -849,6 +849,63 @@ export default class BillingStrategy {
                console.error('Error in deleteStrategyApplicableEntities:', error);
                throw new Error('Internal server error.');
           }
+     }
+
+     public async getProvidentialTestPrice(
+          tenantId: number,
+          entityType: EntityType,
+          entityId: number,
+          testId: number,
+          fallbackToDefault: boolean,
+          trx: any = null
+     ): Promise<number> {
+          // Helper to get the default price from test_panels
+          const getDefaultPrice = async (): Promise<number> => {
+               const connection =  trx || await KnexConnection(tenantId);
+               const test = await connection('test_panels').where({ id: testId }).first();
+               if (!test) throw new Error("Test not found");
+               return test.price;
+          };
+
+          if (entityType === "general") {
+               return getDefaultPrice();
+          }
+
+          const strategies = await this.getBillingStrategyByEntity(tenantId, entityType, entityId);
+          if (!strategies || strategies.length === 0) {
+               if (fallbackToDefault) {
+                    return getDefaultPrice();
+               }
+               throw new Error("No billing strategy found for entity and fallbackToDefault is false");
+          }
+
+          const strategy = strategies[0];
+          let concessionMode = strategy.concessionMode || "absolute";
+          let concessionValue = strategy.concessionValue ?? 0;
+          let pricingType = strategy.price_type || "discount";
+          const isAllConcession = strategy.allConcessionApplied === 1;
+
+          const connection = await KnexConnection(tenantId);
+          const test = await connection('test_panels').where({ id: testId }).first();
+          if (!test) throw new Error("Test not found");
+          const basePrice = test.price;
+
+          if (isAllConcession) {
+               const discounted = this.calculateDiscountedValue(basePrice, concessionMode, concessionValue, pricingType);
+               return discounted;
+          }
+
+          // Check for test-specific mapping
+          if (Array.isArray(strategy.applicableTest)) {
+               for (const t of strategy.applicableTest) {
+                    if (t.testid === testId) {
+                         const discounted = this.calculateDiscountedValue(basePrice, t.concessionMode, t.concessionValue, t.pricingType);
+                         return discounted;
+                    }
+               }
+          }
+
+          return basePrice;
      }
 
 }

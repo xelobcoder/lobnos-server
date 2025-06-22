@@ -89,9 +89,9 @@ class PrimeBillingPromoCodeRepo {
     /**
      * Increment the times_used for a promo code by 1.
      */
-    async incrementUsage(id) {
+    async incrementUsage(id, trx) {
         try {
-            const conn = await this.connection;
+            const conn = trx || await this.connection;
             return await conn('prime_billing_promo_codes')
                 .where({ id })
                 .increment('times_used', 1);

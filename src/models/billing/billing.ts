@@ -5,7 +5,7 @@ import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import { testpanel } from "../../testpanel/testpanelList";
 import ApplicationSettings from "../application/appsettings/appset";
-import ClinicianBillingStrategy from "../clincians/clinicianBilling";
+import ClinicianBillingStrategy from "../clincians/billingstrategy";
 import { getBillingInvoiceData } from "../invoice/invoice";
 import { TestAscension } from "../operations/ascension";
 import { OperationsFailures } from "../operations/types";
@@ -1131,7 +1131,7 @@ export class Billing {
 		return Array.isArray(data) && data.length > 0;
 	}
 
-	private static async validateBillingRequestBody(
+	public static async validateBillingRequestBody(
 		tenantId: number,
 		billingData: TBillingData
 	): Promise<boolean | BillingValidationResult> {

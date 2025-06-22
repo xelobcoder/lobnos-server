@@ -37,6 +37,25 @@ export type updateRefundCashRequestBodyType = {
     selectedPaymentMode: number,
     trackId: number,
     billingid: number,
-    refundAmount:number,
+    refundAmount: number,
     cost: number
-} 
+}
+
+interface MultiTestItem {
+    id: number;
+    testid: number;
+    name: string;
+    price: number;
+    actualPrice: number;
+    originalPrice: number;
+    discountedValue: number;
+    discount: number;
+    isoutsourced: number;
+    concessionMode: "absolute" | "percentage" | string;
+    concessionValue: number;
+    pricingType: "discount" | "concession" | string;
+    hasNightAdjustment: boolean;
+    nightAdjustmentMode: "none" | "percentage" | "absolute" | string;
+    nightAdjustmentValue: number;
+}
+
