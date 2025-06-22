@@ -652,4 +652,89 @@ export class BillingSharedRepo {
                return false;
           }
      }
+
+     /**
+      * Calculates the price of a test/service given all required parameters.
+      * This is the backend-only, auditable, DRY utility for price calculation.
+      *
+      * @param opts - { tenantId, testuid, entity_type, entityid, discount, isNight, taxValue, promo, ... }
+      * @returns Detailed breakdown of all calculation steps and final price.
+      */
+     static async calculateTestOrServicePrice(opts: {
+          tenantId: number;
+          testuid: number | string;
+          entity_type: EntityType;
+          entityid: number | string;
+          discount?: number; // percent or absolute, as per business rules
+          isNight?: boolean;
+          nightAdjustmentMode?: 'percentage' | 'absolute' | 'none';
+          nightAdjustmentValue?: number;
+          taxValue?: number;
+          promo?: { method: 'flat' | 'percentage'; value: number };
+          trx?: any;
+     }) {
+          const {
+               tenantId, testuid, entity_type, entityid, discount = 0, isNight = false,
+               nightAdjustmentMode = 'none', nightAdjustmentValue = 0, taxValue = 0, promo, trx
+          } = opts;
+          const strategySvc = new BillingStrategy();
+          // 1. Fetch base price
+          const basePrice = await strategySvc.getProvidentialTestPrice(
+               tenantId, entity_type, Number(entityid), Number(testuid), true, trx
+          );
+          // 2. Night adjustment
+          let nightAdjustedPrice = basePrice;
+          if (isNight && nightAdjustmentValue && nightAdjustmentMode !== 'none') {
+               if (nightAdjustmentMode === 'percentage') {
+                    nightAdjustedPrice += (basePrice * nightAdjustmentValue) / 100;
+               } else if (nightAdjustmentMode === 'absolute') {
+                    nightAdjustedPrice += nightAdjustmentValue;
+               }
+          }
+          // 3. Discount
+          let discountedPrice = nightAdjustedPrice;
+          if (discount && discount > 0) {
+               discountedPrice -= (nightAdjustedPrice * discount) / 100;
+          }
+          // 4. Promo
+          let promoValue = 0;
+          let afterPromo = discountedPrice;
+          if (promo && promo.value > 0) {
+               if (promo.method === 'flat') {
+                    promoValue = promo.value;
+               } else if (promo.method === 'percentage') {
+                    promoValue = (promo.value / 100) * discountedPrice;
+               }
+               if (isNaN(promoValue) || !isFinite(promoValue)) promoValue = 0;
+               afterPromo = Math.max(0, discountedPrice - promoValue);
+          }
+          // 5. Tax
+          let taxAmount = 0;
+          let finalPrice = afterPromo;
+          if (taxValue && taxValue > 0) {
+               taxAmount = parseFloat(((afterPromo * taxValue) / 100).toFixed(2));
+               finalPrice = parseFloat((afterPromo + taxAmount).toFixed(2));
+          } else {
+               finalPrice = parseFloat(afterPromo.toFixed(2));
+          }
+          // Defensive rounding
+          return {
+               basePrice: parseFloat(basePrice.toFixed(2)),
+               nightAdjustedPrice: parseFloat(nightAdjustedPrice.toFixed(2)),
+               discountedPrice: parseFloat(discountedPrice.toFixed(2)),
+               promoValue: parseFloat(promoValue.toFixed(2)),
+               afterPromo: parseFloat(afterPromo.toFixed(2)),
+               taxAmount,
+               finalPrice,
+               breakdown: {
+                    basePrice,
+                    nightAdjustedPrice,
+                    discountedPrice,
+                    promoValue,
+                    afterPromo,
+                    taxAmount,
+                    finalPrice
+               }
+          };
+     }
 }

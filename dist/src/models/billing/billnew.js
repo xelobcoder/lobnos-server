@@ -125,9 +125,7 @@ class MultiBillingRepo {
             trx = await conn.transaction();
             // Generate billing ID inside transaction
             billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(billingData.patientid, this.tenantId, trx);
-            // format test cart 
-            const testCart = formatTestCart(billingData.testCart);
-            const ;
+            console.log("billingID", billingID);
             // Insert test cart
         }
         catch (error) {
@@ -138,10 +136,13 @@ class MultiBillingRepo {
             return billing_shared_types_1.BillErrors.Error;
         }
     }
-    formatTestCart(testCart) {
-        return testCart.map(item => (Object.assign(Object.assign({}, item), { 
-            // Ensure all necessary fields are present
-            concessionMode: item.concessionMode || 'none', discountedValue: item.discountedValue || 0, price: item.price || 0, testid: item.testid || 0, name: item.name || '' })));
-    }
 }
 exports.MultiBillingRepo = MultiBillingRepo;
+// STEPS 
+// 1. check if patient have pending  yet to be settled 
+// 2. check if active sales session exists for today
+// 3. receive the entity type and entity id and if it ia package 
+// if no package  chek if billing trategy exists for the entity, if no fall baxck on the general test
+// 4. if package send package information and proceed to checkout for payment
+// if no package, if night adjustment is enabled, check if night adjustment is applicable
+// 5. if night adjustment is applicable, apply night adjustment  and send to frontend for test selection

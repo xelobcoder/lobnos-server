@@ -202,9 +202,8 @@ export class MultiBillingRepo {
                 trx
             );
 
-            // format test cart 
-            const testCart = formatTestCart(billingData.testCart);
-            const 
+            console.log("billingID", billingID);
+         
 
             // Insert test cart
         } catch (error) {
@@ -216,15 +215,16 @@ export class MultiBillingRepo {
         }
     }
 
-    private formatTestCart(testCart: any[]): any[] {
-        return testCart.map(item => ({
-            ...item,
-            // Ensure all necessary fields are present
-            concessionMode: item.concessionMode || 'none',
-            discountedValue: item.discountedValue || 0,
-            price: item.price || 0,
-            testid: item.testid || 0,
-            name: item.name || ''
-        }));
-    }
+
+
 }
+
+
+// STEPS 
+// 1. check if patient have pending  yet to be settled 
+// 2. check if active sales session exists for today
+// 3. receive the entity type and entity id and if it ia package 
+// if no package  chek if billing trategy exists for the entity, if no fall baxck on the general test
+// 4. if package send package information and proceed to checkout for payment
+// if no package, if night adjustment is enabled, check if night adjustment is applicable
+// 5. if night adjustment is applicable, apply night adjustment  and send to frontend for test selection
