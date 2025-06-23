@@ -60,6 +60,7 @@ export interface CustomerInitResponse {
      hasNightAdjustment?: boolean;
      nightAdjustmentValue?: number;
      nightAdjustmentMode?: string;
+     totalServiceAmount: number;
      startTime?: string;
      endTime?: string;
      referalCode?: number;
@@ -112,6 +113,7 @@ export class CustomerBillingInit {
                refundList: [],
                previousPaymentHistory: [],
                subtotal: 0,
+               totalServiceAmount: 0,
                cart: [],
                totaldiscount: 0,
                totalAmountIncurredDueTax: 0,
@@ -188,12 +190,14 @@ export class CustomerBillingInit {
                               testid: test.test_id,
                               discount: test.discount || 0
                          }));
+                         // DRY: Always include constant data
+                         const constants = await this.getConstantCustomerInitData(patientId, billingid);
                          return {
                               ...defaultCustomerInitData,
+                              ...constants,
                               packageid: packageid,
                               isPackageUsed: true,
-                              testList: reformattedTest,
-                              previousRecords: [],
+                              testList: reformattedTest
                          };
                     }
                     return [];
@@ -330,9 +334,14 @@ export class CustomerBillingInit {
           packageid?: number;
      }): Promise<{ success: boolean; message: string; data?: any }> {
           if (!patientId) return { success: false, message: 'No patientId provided' };
-          if (!cart || !Array.isArray(cart) || cart.length === 0) return { success: false, message: 'Cart is empty' };
           if (!branchid) return { success: false, message: 'No branchid provided' };
           if (!billingSource) return { success: false, message: 'No billingSource provided' };
+          if (
+               (!cart || !Array.isArray(cart) || cart.length === 0) &&
+               (!servicesList || !Array.isArray(servicesList) || servicesList.length === 0)
+          ) {
+               return { success: false, message: 'Cart and servicesList are both empty' };
+          }
 
           // Validate session
           const sessionRepo = new SalesSessionRepo(this.tenantId);
@@ -472,7 +481,7 @@ export class CustomerBillingInit {
           }
 
           // Calculate totals
-          let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0;
+          let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0;
           if (usedPackage) {
                recalculatedPackageList.forEach(item => {
                     subtotal += item.discountedValue || item.price || 0;
@@ -491,6 +500,7 @@ export class CustomerBillingInit {
                     subtotal += item.discountedValue || item.price || item.servicePrice || 0;
                     totaldiscount += item.discount || 0;
                     totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+                    totalServiceAmount += item.discountedValue || item.price || item.servicePrice || 0;
                });
           }
 
@@ -532,7 +542,8 @@ export class CustomerBillingInit {
                     subtotal,
                     totaldiscount,
                     totalAmountIncurredDueTax,
-                    amountPayable, // Explicitly show amount payable
+                    totalServiceAmount, // <-- add this field to the response
+                    amountPayable,
                     paid,
                     balance,
                     cart: recalculatedCart,
@@ -626,5 +637,28 @@ export class CustomerBillingInit {
 
      async hasOutstandingDebt(patientId: number): Promise<boolean> {
           return await this.calculateCustomerOutstandingDebt(patientId) > 0;
+     }
+
+     // DRY: Helper to fetch constant data for init response
+     private async getConstantCustomerInitData(patientId: number, billingid: number | undefined): Promise<{
+          paymentModes: any[],
+          previousRecords: PrimeLimsTabledboservices[],
+          previousRecordsSummary: PrimeLimsTablebilling | null,
+          previousPaymentHistory: any[]
+     }> {
+          const conn = await KnexConnection(this.tenantId);
+          const paymentModes = await conn('paymentModes').select();
+          let previousRecords: PrimeLimsTabledboservices[] = [];
+          if (billingid) {
+               previousRecords = await conn('dboservices').where('billingid', billingid).select();
+          }
+          let previousPaymentHistory: any[] = [];
+          if (billingid) {
+               previousPaymentHistory = await conn('billinghx').where('billingid', billingid).select();
+          }
+          let previousRecordsSummary: PrimeLimsTablebilling | null = null;
+          const summary = await conn('billing').where('patientid', patientId).orderBy('billingid', 'desc').first();
+          if (summary) previousRecordsSummary = summary;
+          return { paymentModes, previousRecords, previousRecordsSummary, previousPaymentHistory };
      }
 }

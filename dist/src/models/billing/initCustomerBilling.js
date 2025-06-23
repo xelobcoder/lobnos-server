@@ -43,6 +43,7 @@ class CustomerBillingInit {
             refundList: [],
             previousPaymentHistory: [],
             subtotal: 0,
+            totalServiceAmount: 0,
             cart: [],
             totaldiscount: 0,
             totalAmountIncurredDueTax: 0,
@@ -111,7 +112,9 @@ class CustomerBillingInit {
                 const ApplicableTest = await Billlingpackages_1.Packages.getPackageTests(this.tenantId, packageid);
                 if (Array.isArray(ApplicableTest) && ApplicableTest.length > 0) {
                     const reformattedTest = ApplicableTest.map(test => (Object.assign(Object.assign({}, test), { discountedValue: test.price, testid: test.test_id, discount: test.discount || 0 })));
-                    return Object.assign(Object.assign({}, defaultCustomerInitData), { packageid: packageid, isPackageUsed: true, testList: reformattedTest, previousRecords: [] });
+                    // DRY: Always include constant data
+                    const constants = await this.getConstantCustomerInitData(patientId, billingid);
+                    return Object.assign(Object.assign(Object.assign({}, defaultCustomerInitData), constants), { packageid: packageid, isPackageUsed: true, testList: reformattedTest });
                 }
                 return [];
             }
@@ -206,12 +209,14 @@ class CustomerBillingInit {
     async checkoutCustomerBilling({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid }) {
         if (!patientId)
             return { success: false, message: 'No patientId provided' };
-        if (!cart || !Array.isArray(cart) || cart.length === 0)
-            return { success: false, message: 'Cart is empty' };
         if (!branchid)
             return { success: false, message: 'No branchid provided' };
         if (!billingSource)
             return { success: false, message: 'No billingSource provided' };
+        if ((!cart || !Array.isArray(cart) || cart.length === 0) &&
+            (!servicesList || !Array.isArray(servicesList) || servicesList.length === 0)) {
+            return { success: false, message: 'Cart and servicesList are both empty' };
+        }
         // Validate session
         const sessionRepo = new SalesSessionRepo_1.SalesSessionRepo(this.tenantId);
         const today = new Date();
@@ -328,7 +333,7 @@ class CustomerBillingInit {
             recalculatedServicesList = addNightAdjustmentInfo(recalculatedServicesList, billingsettings);
         }
         // Calculate totals
-        let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0;
+        let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0;
         if (usedPackage) {
             recalculatedPackageList.forEach(item => {
                 subtotal += item.discountedValue || item.price || 0;
@@ -348,6 +353,7 @@ class CustomerBillingInit {
                 subtotal += item.discountedValue || item.price || item.servicePrice || 0;
                 totaldiscount += item.discount || 0;
                 totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+                totalServiceAmount += item.discountedValue || item.price || item.servicePrice || 0;
             });
         }
         // --- PROMO CODE VALIDATION ---
@@ -386,7 +392,8 @@ class CustomerBillingInit {
                 subtotal,
                 totaldiscount,
                 totalAmountIncurredDueTax,
-                amountPayable, // Explicitly show amount payable
+                totalServiceAmount, // <-- add this field to the response
+                amountPayable,
                 paid,
                 balance,
                 cart: recalculatedCart,
@@ -481,6 +488,24 @@ class CustomerBillingInit {
     }
     async hasOutstandingDebt(patientId) {
         return await this.calculateCustomerOutstandingDebt(patientId) > 0;
+    }
+    // DRY: Helper to fetch constant data for init response
+    async getConstantCustomerInitData(patientId, billingid) {
+        const conn = await (0, KnexConnections_1.default)(this.tenantId);
+        const paymentModes = await conn('paymentModes').select();
+        let previousRecords = [];
+        if (billingid) {
+            previousRecords = await conn('dboservices').where('billingid', billingid).select();
+        }
+        let previousPaymentHistory = [];
+        if (billingid) {
+            previousPaymentHistory = await conn('billinghx').where('billingid', billingid).select();
+        }
+        let previousRecordsSummary = null;
+        const summary = await conn('billing').where('patientid', patientId).orderBy('billingid', 'desc').first();
+        if (summary)
+            previousRecordsSummary = summary;
+        return { paymentModes, previousRecords, previousRecordsSummary, previousPaymentHistory };
     }
 }
 exports.CustomerBillingInit = CustomerBillingInit;
