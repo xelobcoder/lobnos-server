@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
+exports.checkoutBillingHandler = exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
@@ -366,7 +366,15 @@ const initializeBillingHandler = async (req, res) => {
         };
         const billingInit = new initCustomerBilling_1.CustomerBillingInit(tenantId);
         const result = await billingInit.initCustomerBilling(parsed);
-        res.send(result);
+        if (typeof result === "object" && result.hasOwnProperty('testList')) {
+            res.send(result);
+        }
+        else {
+            res.status(200).send({
+                status: false,
+                message: result
+            });
+        }
     }
     catch (err) {
         console.error(err);
@@ -374,3 +382,37 @@ const initializeBillingHandler = async (req, res) => {
     }
 };
 exports.initializeBillingHandler = initializeBillingHandler;
+const checkoutBillingHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        if (!tenantId)
+            return res.status(400).json({ success: false, message: 'Missing tenantId' });
+        const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid } = req.body;
+        const billing = new initCustomerBilling_1.CustomerBillingInit(tenantId);
+        const result = await billing.checkoutCustomerBilling({
+            patientId,
+            billingid,
+            cart,
+            servicesList,
+            paymentDetails,
+            branchid,
+            billingSource,
+            referalCode,
+            promoCode,
+            isPromo,
+            isPackageUsed,
+            packageid
+        });
+        if (result.success) {
+            return res.status(200).json(result);
+        }
+        else {
+            return res.status(400).json(result);
+        }
+    }
+    catch (err) {
+        console.error(err);
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.checkoutBillingHandler = checkoutBillingHandler;

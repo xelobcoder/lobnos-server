@@ -12,6 +12,7 @@ const billingstrategy_1 = __importDefault(require("../clincians/billingstrategy"
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
 const ReferralCodingRepo_1 = require("../referral/repositories/ReferralCodingRepo");
 const services_1 = __importDefault(require("../services/services"));
+const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
 const BillingModuleCodes = {
     MODULE_DEBT: 'outstanding debt found',
     MODULE_NO_SESSION: 'no active sales session found',
@@ -202,7 +203,7 @@ class CustomerBillingInit {
         defaultCustomerInitData.paymentModes = paymentModes;
         return defaultCustomerInitData;
     }
-    async checkoutCustomerBilling({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode }) {
+    async checkoutCustomerBilling({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid }) {
         if (!patientId)
             return { success: false, message: 'No patientId provided' };
         if (!cart || !Array.isArray(cart) || cart.length === 0)
@@ -221,32 +222,166 @@ class CustomerBillingInit {
         const hasDebt = await this.calculateCustomerOutstandingDebt(patientId);
         if (hasDebt)
             return { success: false, message: 'Outstanding debt found' };
+        // Get app settings for recalculation
+        const appsettings = await new appset_1.default().getAllAppSettings(this.tenantId);
+        const { includeTax, billingsettings } = appsettings || {};
+        const taxation = appsettings ? await new appset_1.default().getAppBillSettings(this.tenantId) : {};
+        let recalculatedCart = [];
+        let recalculatedPackageList = [];
+        let usedPackage = false;
+        // If package billing, fetch and recalculate only selected package tests
+        if (isPackageUsed && packageid) {
+            const isPackageValid = await Billlingpackages_1.Packages.verifyPackageId(this.tenantId, packageid);
+            if (!isPackageValid)
+                return { success: false, message: 'Invalid package provided' };
+            const allPackageTests = await Billlingpackages_1.Packages.getPackageTests(this.tenantId, packageid);
+            if (!Array.isArray(allPackageTests) || allPackageTests.length === 0) {
+                return { success: false, message: 'No tests found for package' };
+            }
+            // Only keep selected tests
+            const selectedTestIds = cart.map(item => item.testid);
+            recalculatedPackageList = allPackageTests
+                .filter(test => selectedTestIds.includes(test.test_id))
+                .map(test => (Object.assign(Object.assign({}, test), { discountedValue: test.price, testid: test.test_id, discount: test.discount || 0 })));
+            recalculatedPackageList = CustomerBillingInit.applyDiscountsToTests(recalculatedPackageList);
+            if (billingsettings && billingsettings.hasNightAdjustment) {
+                recalculatedPackageList = CustomerBillingInit.applyNightAdjustmentsToTests(recalculatedPackageList, billingsettings);
+            }
+            if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
+                recalculatedPackageList = CustomerBillingInit.applyTaxToTests(recalculatedPackageList, taxation.taxValue);
+            }
+            usedPackage = true;
+        }
+        else {
+            // For each testid in cart, fetch from billing strategy/provincial billing
+            const selectedTestIds = cart.map(item => item.testid);
+            let allTests = [];
+            if (selectedTestIds.length > 0) {
+                // Try to get all available tests for this entity (provincial or general)
+                let entityType = 'general';
+                let entityId = null;
+                if (referalCode) {
+                    const referalRepo = await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).findByCode(parseInt(referalCode.toString(), 10));
+                    if (referalRepo) {
+                        entityType = referalRepo.entity_type;
+                        entityId = referalRepo.entity_id;
+                    }
+                }
+                allTests = await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, entityType, entityId, true);
+            }
+            recalculatedCart = allTests
+                .filter(test => selectedTestIds.includes(test.testid))
+                .map(test => (Object.assign(Object.assign({}, test), { discountedValue: test.price, discount: test.discount || 0 })));
+            recalculatedCart = CustomerBillingInit.applyDiscountsToTests(recalculatedCart);
+            if (billingsettings && billingsettings.hasNightAdjustment) {
+                recalculatedCart = CustomerBillingInit.applyNightAdjustmentsToTests(recalculatedCart, billingsettings);
+            }
+            if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
+                recalculatedCart = CustomerBillingInit.applyTaxToTests(recalculatedCart, taxation.taxValue);
+            }
+        }
+        // For each id in servicesList, fetch from services
+        let recalculatedServicesList = [];
+        if (servicesList && Array.isArray(servicesList) && servicesList.length > 0) {
+            const selectedServiceIds = servicesList.map(item => item.id);
+            let allServices = await new services_1.default(0).getAllservices(this.tenantId, undefined, undefined);
+            recalculatedServicesList = allServices
+                .filter(service => selectedServiceIds.includes(service.id))
+                .map(service => (Object.assign(Object.assign({}, service), { discountedValue: service.servicePrice, discount: service.discount || 0 })));
+            recalculatedServicesList = CustomerBillingInit.applyDiscountsToTests(recalculatedServicesList);
+            if (billingsettings && billingsettings.hasNightAdjustment) {
+                recalculatedServicesList = CustomerBillingInit.applyNightAdjustmentsToTests(recalculatedServicesList, billingsettings);
+            }
+            if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
+                recalculatedServicesList = CustomerBillingInit.applyTaxToTests(recalculatedServicesList, taxation.taxValue);
+            }
+        }
         // Calculate totals
         let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0;
-        cart.forEach(item => {
-            subtotal += item.discountedValue || item.price || item.servicePrice || 0;
-            totaldiscount += item.discount || 0;
-            totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
-        });
-        // Save billing record (pseudo-code, replace with your DB logic)
-        // const conn = await KnexConnection(this.tenantId);
-        // await conn('billing').insert({ ... });
-        // Save payment record (pseudo-code)
-        // await conn('payments').insert({ ... });
-        // Return summary
+        if (usedPackage) {
+            recalculatedPackageList.forEach(item => {
+                subtotal += item.discountedValue || item.price || 0;
+                totaldiscount += item.discount || 0;
+                totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+            });
+        }
+        else {
+            recalculatedCart.forEach(item => {
+                subtotal += item.discountedValue || item.price || item.servicePrice || 0;
+                totaldiscount += item.discount || 0;
+                totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+            });
+        }
+        if (recalculatedServicesList && Array.isArray(recalculatedServicesList)) {
+            recalculatedServicesList.forEach(item => {
+                subtotal += item.discountedValue || item.price || item.servicePrice || 0;
+                totaldiscount += item.discount || 0;
+                totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+            });
+        }
+        // --- PROMO CODE VALIDATION ---
+        let promoDiscount = 0;
+        let promoValid = false;
+        let promoDetails = null;
+        if (isPromo && promoCode) {
+            const promoRepo = new PrimeBillingPromoCodeRepo_1.PrimeBillingPromoCodeRepo(this.tenantId);
+            const promoResult = await promoRepo.validatePromoCode(promoCode);
+            promoValid = promoResult.valid;
+            promoDetails = promoResult.promo;
+            if (!promoValid) {
+                return { success: false, message: promoResult.reason || 'Invalid promo code', data: { promoCode } };
+            }
+        }
+        // --- APPLY PROMO DISCOUNT IF VALID ---
+        if (isPromo && promoValid && promoCode && promoDetails) {
+            if (promoDetails.discount_type === 'percentage') {
+                promoDiscount = Number(((subtotal * promoDetails.discount_value / 100)).toFixed(2));
+            }
+            else if (promoDetails.discount_type === 'flat') {
+                promoDiscount = Number(promoDetails.discount_value);
+            }
+            subtotal -= promoDiscount;
+            totaldiscount += promoDiscount;
+        }
+        // Calculate balance (amount payable)
+        const paid = paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0;
+        const amountPayable = subtotal + totalAmountIncurredDueTax;
+        const balance = amountPayable - paid;
+        // Return recalculated summary
         return {
             success: true,
-            message: 'Checkout successful',
+            message: 'Checkout recalculation successful. No payment has been received yet.',
             data: {
                 subtotal,
                 totaldiscount,
                 totalAmountIncurredDueTax,
-                paid: paymentDetails.amount,
-                balance: subtotal + totalAmountIncurredDueTax - paymentDetails.amount,
-                cart,
-                servicesList
+                amountPayable, // Explicitly show amount payable
+                paid,
+                balance,
+                cart: recalculatedCart,
+                servicesList: recalculatedServicesList,
+                promoCode: promoCode || undefined,
+                promoDiscount,
+                isPromo: !!isPromo,
+                isPackageUsed: !!isPackageUsed,
+                packageid: packageid || undefined,
+                packageTestList: usedPackage ? recalculatedPackageList : undefined,
+                promoDetails: promoValid ? promoDetails : undefined,
+                paymentStatus: 'pending', // Indicates payment not yet made
+                paymentReceived: false // Explicit boolean for frontend clarity
             }
         };
+    }
+    // --- REUSABLE BUSINESS RULE HELPERS ---
+    static applyAllBusinessRules(items, billingsettings, includeTax, taxation) {
+        let result = CustomerBillingInit.applyDiscountsToTests(items);
+        if (billingsettings && billingsettings.hasNightAdjustment) {
+            result = CustomerBillingInit.applyNightAdjustmentsToTests(result, billingsettings);
+        }
+        if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
+            result = CustomerBillingInit.applyTaxToTests(result, taxation.taxValue);
+        }
+        return result;
     }
     static applyDiscountsToTests(tests) {
         return tests.map(test => {

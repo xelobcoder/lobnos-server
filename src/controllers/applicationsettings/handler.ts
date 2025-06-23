@@ -363,7 +363,7 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 				? isPackageUsed === "true" || isPackageUsed === "1"
 				: !!isPackageUsed;
 		const billingSource = req.query.billingSource ? parseInt(req.query.billingSource as string, 10) : undefined;
-		
+
 		const parsed = {
 			entityId: parseEntityId,
 			entityType: entityType as EntityType,
@@ -379,9 +379,64 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 
 		const billingInit = new CustomerBillingInit(tenantId);
 		const result = await billingInit.initCustomerBilling(parsed);
-		res.send(result);
+		if (typeof result === "object" && result.hasOwnProperty('testList')) {
+			res.send(result);
+		} else {
+			res.status(200).send({
+				status: false,
+				message: result
+			}
+			)
+
+		}
 	} catch (err) {
 		console.error(err);
 		responseError(res, err);
 	}
+};
+
+export const checkoutBillingHandler = async (req: Request, res: Response) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId as string, 10);
+        if (!tenantId) return res.status(400).json({ success: false, message: 'Missing tenantId' });
+
+        const {
+            patientId,
+            billingid,
+            cart,
+            servicesList,
+            paymentDetails,
+            branchid,
+            billingSource,
+            referalCode,
+            promoCode,
+            isPromo,
+            isPackageUsed,
+            packageid
+        } = req.body;
+
+        const billing = new CustomerBillingInit(tenantId);
+        const result = await billing.checkoutCustomerBilling({
+            patientId,
+            billingid,
+            cart,
+            servicesList,
+            paymentDetails,
+            branchid,
+            billingSource,
+            referalCode,
+            promoCode,
+            isPromo,
+            isPackageUsed,
+            packageid
+        });
+        if (result.success) {
+            return res.status(200).json(result);
+        } else {
+            return res.status(400).json(result);
+        }
+    } catch (err) {
+        console.error(err);
+        responseError(res, err);
+    }
 };
