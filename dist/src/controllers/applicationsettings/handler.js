@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
+exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
@@ -12,6 +12,7 @@ const Tax_1 = __importDefault(require("../../models/application/Tax"));
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const appset_1 = __importDefault(require("./../../models/application/appsettings/appset"));
 const helper_1 = require("../../hooks/helper");
+const initCustomerBilling_1 = require("../../models/billing/initCustomerBilling");
 const appsettings = new appset_1.default();
 const tax = new Tax_1.default(null);
 const result = new resultSettings_1.default(null);
@@ -338,3 +339,38 @@ const getCategoryColumns = async (request, response) => {
     }
 };
 exports.getCategoryColumns = getCategoryColumns;
+const initializeBillingHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const { entityId, entityType, isPackageUsed, packageid, patientId, billingid, branchid } = req.query;
+        const parsePatientId = parseInt(patientId, 10);
+        const parseBillingId = billingid ? parseInt(billingid, 10) : undefined;
+        const parseBranchId = branchid ? parseInt(branchid, 10) : undefined;
+        const parseEntityId = parseInt(entityId, 10);
+        const parsePackageId = packageid ? parseInt(packageid, 10) : undefined;
+        const parseIsPackageUsed = typeof isPackageUsed === "string"
+            ? isPackageUsed === "true" || isPackageUsed === "1"
+            : !!isPackageUsed;
+        const billingSource = req.query.billingSource ? parseInt(req.query.billingSource, 10) : undefined;
+        const parsed = {
+            entityId: parseEntityId,
+            entityType: entityType,
+            patientId: parsePatientId,
+            isPackageUsed: parseIsPackageUsed,
+            billingid: parseBillingId,
+            packageid: parsePackageId,
+            includeServices: req.query.includeServices ? req.query.includeServices === "true" : false,
+            branchid: parseBranchId,
+            billingSource: billingSource,
+            referalCode: req.query.referalCode ? parseInt(req.query.referalCode, 10) : undefined
+        };
+        const billingInit = new initCustomerBilling_1.CustomerBillingInit(tenantId);
+        const result = await billingInit.initCustomerBilling(parsed);
+        res.send(result);
+    }
+    catch (err) {
+        console.error(err);
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.initializeBillingHandler = initializeBillingHandler;

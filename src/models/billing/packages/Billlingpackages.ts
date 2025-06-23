@@ -41,7 +41,7 @@ interface PaginationParams {
 }
 
 export class Packages {
-     static async createClinicianPackage(tenantId: number, data: ClinicianPackage[]): Promise<number[]|string> {
+     static async createClinicianPackage(tenantId: number, data: ClinicianPackage[]): Promise<number[] | string> {
           try {
                const connection = await KnexConnection(tenantId);
 
@@ -359,5 +359,29 @@ export class Packages {
           } catch (error) {
                throw new Error(`Error removing clinician package: ${error.message}`);
           }
+     }
+
+     static async getPackagesForEntity({ tenantId, entityId, entitytype, categorytrackid }: {
+          tenantId: number;
+          entityId?: number;
+          entitytype?: string;
+          categorytrackid?: number;
+     }): Promise<any> {
+          if (categorytrackid == 6 && entitytype === "clinician" && entityId) {
+               return await this.getClinicianPackages(tenantId, entityId);
+          }
+          if (categorytrackid == 2 && entitytype === "organization" && entityId) {
+               return await this.getOrganizationPackagesByOrganizationId(tenantId, entityId);
+          }
+          if (categorytrackid == 1) {
+               return await this.getPackages(tenantId);
+          }
+          return null;
+     }
+
+
+     static async verifyPackageId(tenantId: number, packageId: number): Promise<boolean> {
+         const packageNonReserve = await  this.getPackagesByIds(tenantId, [packageId]);
+           return packageNonReserve && packageNonReserve.length > 0;
      }
 }

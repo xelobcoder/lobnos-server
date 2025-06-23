@@ -5,11 +5,12 @@ import { BillingSharedRepo } from "./billing_shared";
 import KnexConnection from "../../database/KnexConnections";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 
-/**
- * ENFORCEMENT: Only 'paid', 'category', and 'billingsource' (if present) are accepted from the frontend.
- * All other finance-related fields (totals, discounts, promo, payable, outstanding, etc.) are strictly calculated and verified on the backend.
- * If future fields are added, ensure they are not accepted from the frontend unless explicitly allowed.
- */
+const enum BillingModuleCodes {
+    MODULE_DEBT = 'outstanding debt found',
+    MODULE_NO_SESSION = 'no active sales session found',
+    MODULE_NO_VALID_BILLING_ID = 'no valid billing ID provided',
+    MODULE_NO_PATIENT_ID = 'no patient ID provided',
+}
 export class MultiBillingRepo {
     tenantId: number;
     connection: any;
@@ -203,7 +204,7 @@ export class MultiBillingRepo {
             );
 
             console.log("billingID", billingID);
-         
+
 
             // Insert test cart
         } catch (error) {
@@ -214,17 +215,5 @@ export class MultiBillingRepo {
             return BillErrors.Error;
         }
     }
-
-
-
 }
 
-
-// STEPS 
-// 1. check if patient have pending  yet to be settled 
-// 2. check if active sales session exists for today
-// 3. receive the entity type and entity id and if it ia package 
-// if no package  chek if billing trategy exists for the entity, if no fall baxck on the general test
-// 4. if package send package information and proceed to checkout for payment
-// if no package, if night adjustment is enabled, check if night adjustment is applicable
-// 5. if night adjustment is applicable, apply night adjustment  and send to frontend for test selection

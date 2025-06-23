@@ -33,6 +33,7 @@ import { handleOverLoad } from "../../hooks/helper";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
 import { PrimeBillingPromoCodeRepo } from "../../models/billing/repositories/PrimeBillingPromoCodeRepo";
 import { PrimeBillingPromoCodeController } from "./PrimePromoCode";
+import { initializeBillingHandler } from "../applicationsettings/handler";
 
 
 
@@ -43,6 +44,7 @@ const router = Router();
 // Billing Routes
 router.post("/api/v1/billing", handleNewBilling);
 router.post("/api/v1/billing/multi", handleMultiNewBilling);
+router.get("/api/v1/billing/multi/init", initializeBillingHandler);
 router.put('/api/v1/billing/multi', handleMultiUpdateBilling);
 router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", handleEmailReceiptSending)
 router.put("/api/v1/billing", isAuthorizedRoleAdmin, updateBilledTransaction);

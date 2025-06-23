@@ -13,19 +13,42 @@ export type connectedServices = {
      isSmsServicesConnected: numberBoolean,
      isEmailServicesConnected: numberBoolean,
 }
+export type smsSettings = {
+     result: string;
+     registration: string;
+     sample: string;
+     birthday: string;
+};
+
+export type billingsettings = {
+     hasNightAdjustment: boolean;
+     nightAdjustmentValue: string;
+     nightAdjustmentMode: string;
+     startTime: string;
+     endTime: string;
+};
+
 export type ApplicationSettingsData = {
-     id: number;
-     bulkregistration: string;
+     keyid: number;
+     bulkregistration: number;
      fontsize: string;
      textcolor: string;
      BackgroundColor: string;
-     DeactivateBilling24hrs: string;
+     DeactivateBilling24hrs: number;
      PaidBillsBeforeTransaction: number;
-     completeFlow: string;
-     approvalbeforeprinting: string;
+     completeFlow: number;
+     approvalbeforeprinting: number;
+     smsActivated: number;
+     smsSettings: smsSettings;
      emailNotification: number;
      includeTax: number;
-     services: string | null
+     patientIdPrefix: string | null;
+     fontFamily: string | null;
+     billingidPrefix: string | null;
+     services: string | null;
+     billingsettings: billingsettings;
+     regioncode: number;
+     districtcode: number;
 };
 
 

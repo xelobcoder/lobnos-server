@@ -1,4 +1,4 @@
-import { request, Request, Response } from "express";
+import { request, Request, response, Response } from "express";
 import logger from "../../hooks/logger";
 import User from "../../LobnosAuth/user";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
@@ -9,6 +9,10 @@ import { OperationsFailures } from "../../models/operations/types";
 import ApplicationSettings from "./../../models/application/appsettings/appset";
 import { responseError, customError, rowAffected } from "../../hooks/helper";
 import { ApplicationBillSettings } from "../../models/application/appsettings/Type";
+import { MultiBillingRepo } from "../../models/billing/billnew";
+import { CustomerBillingInit } from "../../models/billing/initCustomerBilling";
+import { EntityType } from "../../models/billing/billing_shared_types";
+
 
 const appsettings = new ApplicationSettings();
 const tax = new Tax(null);
@@ -334,3 +338,50 @@ export const getCategoryColumns = async (request: Request<{}, {}, {}, {
 		responseError(response);
 	}
 }
+
+
+export const initializeBillingHandler = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as string, 10);
+		const {
+			entityId,
+			entityType,
+			isPackageUsed,
+			packageid,
+			patientId,
+			billingid,
+			branchid
+		} = req.query;
+
+		const parsePatientId = parseInt(patientId as string, 10);
+		const parseBillingId = billingid ? parseInt(billingid as string, 10) : undefined;
+		const parseBranchId = branchid ? parseInt(branchid as string, 10) : undefined
+		const parseEntityId = parseInt(entityId as string, 10);
+		const parsePackageId = packageid ? parseInt(packageid as string, 10) : undefined
+		const parseIsPackageUsed =
+			typeof isPackageUsed === "string"
+				? isPackageUsed === "true" || isPackageUsed === "1"
+				: !!isPackageUsed;
+		const billingSource = req.query.billingSource ? parseInt(req.query.billingSource as string, 10) : undefined;
+		
+		const parsed = {
+			entityId: parseEntityId,
+			entityType: entityType as EntityType,
+			patientId: parsePatientId,
+			isPackageUsed: parseIsPackageUsed,
+			billingid: parseBillingId,
+			packageid: parsePackageId,
+			includeServices: req.query.includeServices ? req.query.includeServices === "true" : false,
+			branchid: parseBranchId,
+			billingSource: billingSource,
+			referalCode: req.query.referalCode ? parseInt(req.query.referalCode as string, 10) : undefined
+		};
+
+		const billingInit = new CustomerBillingInit(tenantId);
+		const result = await billingInit.initCustomerBilling(parsed);
+		res.send(result);
+	} catch (err) {
+		console.error(err);
+		responseError(res, err);
+	}
+};

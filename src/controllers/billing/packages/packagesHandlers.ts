@@ -209,20 +209,8 @@ export const verifyAndLoadPackagesHandler = async (request: Request<{}, {}, Pack
      try {
           const tenantId: number = parseInt(request.query.tenantId as string, 10);
           const { entityId, entitytype, categorytrackid } = request.body;
-
-          if (categorytrackid == 6 && entitytype === "clinician" && entityId) {
-               const packages = await Packages.getClinicianPackages(tenantId, entityId);
-               return response.send(packages);
-          }
-          if (categorytrackid == 2 && entitytype === "organization" && entityId) {
-               const packages = await Packages.getOrganizationPackagesByOrganizationId(tenantId, entityId);
-               return response.send(packages);
-          }
-          if (categorytrackid == 1) {
-               const packages = await Packages.getPackages(tenantId);
-               return response.send(packages);
-          }
-       
+          const result = await Packages.getPackagesForEntity({ tenantId, entityId, entitytype, categorytrackid });
+          response.send(result)
           return response.status(400).send({ error: "Invalid request parameters" });
      } catch (error) {
           console.log(error)

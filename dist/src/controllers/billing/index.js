@@ -10,10 +10,12 @@ const validateTenancy_1 = require("../../middleware/validateTenancy");
 const helper_1 = require("../../hooks/helper");
 const PrimeBillingCampaignController_1 = require("./PrimeBillingCampaignController");
 const PrimePromoCode_1 = require("./PrimePromoCode");
+const handler_2 = require("../applicationsettings/handler");
 const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
 router.post("/api/v1/billing/multi", controllers_1.handleMultiNewBilling);
+router.get("/api/v1/billing/multi/init", handler_2.initializeBillingHandler);
 router.put('/api/v1/billing/multi', controllers_1.handleMultiUpdateBilling);
 router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", controllers_1.handleEmailReceiptSending);
 router.put("/api/v1/billing", validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.updateBilledTransaction);

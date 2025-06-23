@@ -9,11 +9,6 @@ const billing_shared_types_1 = require("./billing_shared_types");
 const billing_shared_1 = require("./billing_shared");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
-/**
- * ENFORCEMENT: Only 'paid', 'category', and 'billingsource' (if present) are accepted from the frontend.
- * All other finance-related fields (totals, discounts, promo, payable, outstanding, etc.) are strictly calculated and verified on the backend.
- * If future fields are added, ensure they are not accepted from the frontend unless explicitly allowed.
- */
 class MultiBillingRepo {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -138,11 +133,3 @@ class MultiBillingRepo {
     }
 }
 exports.MultiBillingRepo = MultiBillingRepo;
-// STEPS 
-// 1. check if patient have pending  yet to be settled 
-// 2. check if active sales session exists for today
-// 3. receive the entity type and entity id and if it ia package 
-// if no package  chek if billing trategy exists for the entity, if no fall baxck on the general test
-// 4. if package send package information and proceed to checkout for payment
-// if no package, if night adjustment is enabled, check if night adjustment is applicable
-// 5. if night adjustment is applicable, apply night adjustment  and send to frontend for test selection

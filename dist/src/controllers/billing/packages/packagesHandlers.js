@@ -203,18 +203,8 @@ const verifyAndLoadPackagesHandler = async (request, response) => {
     try {
         const tenantId = parseInt(request.query.tenantId, 10);
         const { entityId, entitytype, categorytrackid } = request.body;
-        if (categorytrackid == 6 && entitytype === "clinician" && entityId) {
-            const packages = await Billlingpackages_1.Packages.getClinicianPackages(tenantId, entityId);
-            return response.send(packages);
-        }
-        if (categorytrackid == 2 && entitytype === "organization" && entityId) {
-            const packages = await Billlingpackages_1.Packages.getOrganizationPackagesByOrganizationId(tenantId, entityId);
-            return response.send(packages);
-        }
-        if (categorytrackid == 1) {
-            const packages = await Billlingpackages_1.Packages.getPackages(tenantId);
-            return response.send(packages);
-        }
+        const result = await Billlingpackages_1.Packages.getPackagesForEntity({ tenantId, entityId, entitytype, categorytrackid });
+        response.send(result);
         return response.status(400).send({ error: "Invalid request parameters" });
     }
     catch (error) {
