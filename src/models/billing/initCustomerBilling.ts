@@ -353,6 +353,19 @@ export class CustomerBillingInit {
           let recalculatedPackageList: any[] = [];
           let usedPackage = false;
 
+          // Helper to add night adjustment info to each item
+          function addNightAdjustmentInfo(items: any[], billingsettings: any): any[] {
+               if (!Array.isArray(items)) return items;
+               return items.map(item => ({
+                    ...item,
+                    hasNightAdjustment: !!(billingsettings && billingsettings.hasNightAdjustment),
+                    nightAdjustmentValue: billingsettings && billingsettings.hasNightAdjustment ? Number(billingsettings.nightAdjustmentValue) : undefined,
+                    nightAdjustmentMode: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.nightAdjustmentMode : undefined,
+                    nightAdjustmentStartTime: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.startTime : undefined,
+                    nightAdjustmentEndTime: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.endTime : undefined
+               }));
+          }
+
           // If package billing, fetch and recalculate only selected package tests
           if (isPackageUsed && packageid) {
                const isPackageValid = await Packages.verifyPackageId(this.tenantId, packageid);
@@ -365,12 +378,19 @@ export class CustomerBillingInit {
                const selectedTestIds = cart.map(item => item.testid);
                recalculatedPackageList = allPackageTests
                     .filter(test => selectedTestIds.includes(test.test_id))
-                    .map(test => ({
-                         ...test,
-                         discountedValue: test.price,
-                         testid: test.test_id,
-                         discount: test.discount || 0
-                    }));
+                    .map(test => {
+                         const cartItem = cart.find((c: any) => c.testid === test.test_id);
+                         let price = cartItem && typeof cartItem.price === 'number' ? cartItem.price : test.price;
+                         let discount = cartItem ? Number(cartItem.discount) : Number(test.discount) || 0;
+                         if (isNaN(discount)) discount = 0;
+                         return {
+                              ...test,
+                              price,
+                              discountedValue: price - discount,
+                              testid: test.test_id,
+                              discount
+                         };
+                    });
                recalculatedPackageList = CustomerBillingInit.applyDiscountsToTests(recalculatedPackageList);
                if (billingsettings && billingsettings.hasNightAdjustment) {
                     recalculatedPackageList = CustomerBillingInit.applyNightAdjustmentsToTests(recalculatedPackageList, billingsettings);
@@ -378,6 +398,7 @@ export class CustomerBillingInit {
                if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                     recalculatedPackageList = CustomerBillingInit.applyTaxToTests(recalculatedPackageList, taxation.taxValue);
                }
+               recalculatedPackageList = addNightAdjustmentInfo(recalculatedPackageList, billingsettings);
                usedPackage = true;
           } else {
                // For each testid in cart, fetch from billing strategy/provincial billing
@@ -398,11 +419,18 @@ export class CustomerBillingInit {
                }
                recalculatedCart = allTests
                     .filter(test => selectedTestIds.includes(test.testid))
-                    .map(test => ({
-                         ...test,
-                         discountedValue: test.price,
-                         discount: test.discount || 0
-                    }));
+                    .map(test => {
+                         const cartItem = cart.find((c: any) => c.testid === test.testid);
+                         let price = cartItem && typeof cartItem.price === 'number' ? cartItem.price : test.price;
+                         let discount = cartItem ? Number(cartItem.discount) : Number(test.discount) || 0;
+                         if (isNaN(discount)) discount = 0;
+                         return {
+                              ...test,
+                              price,
+                              discountedValue: price - discount,
+                              discount
+                         };
+                    });
                recalculatedCart = CustomerBillingInit.applyDiscountsToTests(recalculatedCart);
                if (billingsettings && billingsettings.hasNightAdjustment) {
                     recalculatedCart = CustomerBillingInit.applyNightAdjustmentsToTests(recalculatedCart, billingsettings);
@@ -410,20 +438,29 @@ export class CustomerBillingInit {
                if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                     recalculatedCart = CustomerBillingInit.applyTaxToTests(recalculatedCart, taxation.taxValue);
                }
+               recalculatedCart = addNightAdjustmentInfo(recalculatedCart, billingsettings);
           }
 
           // For each id in servicesList, fetch from services
           let recalculatedServicesList: any[] = [];
           if (servicesList && Array.isArray(servicesList) && servicesList.length > 0) {
-               const selectedServiceIds = servicesList.map(item => item.id);
+               // Support both 'id' and 'keyid' for matching
+               const selectedServiceIds = servicesList.map(item => item.id ?? item.keyid);
                let allServices = await new Services(0).getAllservices(this.tenantId, undefined, undefined);
                recalculatedServicesList = allServices
-                    .filter(service => selectedServiceIds.includes(service.id))
-                    .map(service => ({
-                         ...service,
-                         discountedValue: service.servicePrice,
-                         discount: service.discount || 0
-                    }));
+                    .filter(service => selectedServiceIds.includes(service.id ?? service.keyid))
+                    .map(service => {
+                         const serviceItem = servicesList.find((s: any) => (s.id ?? s.keyid) === (service.id ?? service.keyid));
+                         let servicePrice = serviceItem && typeof serviceItem.servicePrice === 'number' ? serviceItem.servicePrice : service.servicePrice;
+                         let discount = serviceItem ? Number(serviceItem.discount) : Number(service.discount) || 0;
+                         if (isNaN(discount)) discount = 0;
+                         return {
+                              ...service,
+                              servicePrice,
+                              discountedValue: servicePrice - discount,
+                              discount
+                         };
+                    });
                recalculatedServicesList = CustomerBillingInit.applyDiscountsToTests(recalculatedServicesList);
                if (billingsettings && billingsettings.hasNightAdjustment) {
                     recalculatedServicesList = CustomerBillingInit.applyNightAdjustmentsToTests(recalculatedServicesList, billingsettings);
@@ -431,6 +468,7 @@ export class CustomerBillingInit {
                if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                     recalculatedServicesList = CustomerBillingInit.applyTaxToTests(recalculatedServicesList, taxation.taxValue);
                }
+               recalculatedServicesList = addNightAdjustmentInfo(recalculatedServicesList, billingsettings);
           }
 
           // Calculate totals

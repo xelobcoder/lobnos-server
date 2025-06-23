@@ -16,6 +16,7 @@ const router = (0, express_1.Router)();
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
 router.post("/api/v1/billing/multi", controllers_1.handleMultiNewBilling);
 router.get("/api/v1/billing/multi/init", handler_2.initializeBillingHandler);
+router.post("/api/v1/billing/multi/checkout", (0, helper_1.handleOverLoad)(handler_2.checkoutBillingHandler));
 router.put('/api/v1/billing/multi', controllers_1.handleMultiUpdateBilling);
 router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", controllers_1.handleEmailReceiptSending);
 router.put("/api/v1/billing", validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.updateBilledTransaction);

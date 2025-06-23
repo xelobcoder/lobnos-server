@@ -31,9 +31,8 @@ import { getSalesSessionList, handleCreateNewSalesSesion, handleEndSalesSession,
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { handleOverLoad } from "../../hooks/helper";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
-import { PrimeBillingPromoCodeRepo } from "../../models/billing/repositories/PrimeBillingPromoCodeRepo";
 import { PrimeBillingPromoCodeController } from "./PrimePromoCode";
-import { initializeBillingHandler } from "../applicationsettings/handler";
+import { checkoutBillingHandler, initializeBillingHandler } from "../applicationsettings/handler";
 
 
 
@@ -45,6 +44,7 @@ const router = Router();
 router.post("/api/v1/billing", handleNewBilling);
 router.post("/api/v1/billing/multi", handleMultiNewBilling);
 router.get("/api/v1/billing/multi/init", initializeBillingHandler);
+router.post("/api/v1/billing/multi/checkout", handleOverLoad(checkoutBillingHandler));
 router.put('/api/v1/billing/multi', handleMultiUpdateBilling);
 router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", handleEmailReceiptSending)
 router.put("/api/v1/billing", isAuthorizedRoleAdmin, updateBilledTransaction);
