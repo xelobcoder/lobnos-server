@@ -29,6 +29,29 @@ class CustomerBillingInit {
         this.tenantId = tenantId;
     }
     async initCustomerBilling({ entityId, entityType, packageid, patientId, includeServices = false, isPackageUsed = false, billingid, branchid, billingSource, referalCode }) {
+        const validationError = CustomerBillingInit.validateBillingInput({
+            patientId,
+            branchid,
+            billingSource,
+            cart: [], // No cart in init, but required by signature
+            servicesList: [], // No servicesList in init, but required by signature
+            errorCodes: {
+                NO_PATIENT_ID: BillingModuleCodes.MODULE_NO_PATIENT_ID,
+                NO_BRANCH_ID: BillingModuleCodes.BRANCH_ID_NOT_PROVIDED,
+                NO_BILLING_SOURCE: BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED,
+                CART_AND_SERVICES_EMPTY: "Cart and servicesList are both empty"
+            }
+        });
+        if (validationError)
+            return validationError;
+        // Validate session
+        const sessionError = await this.validateActiveSession(branchid, 'No active session');
+        // if (sessionError) return sessionError;
+        // Validate outstanding debt
+        const debtError = await this.validateNoOutstandingDebt(patientId, BillingModuleCodes.MODULE_DEBT);
+        if (debtError)
+            return debtError;
+        // Only check for required fields, not cart/servicesList, in initCustomerBilling
         if (!patientId)
             return BillingModuleCodes.MODULE_NO_PATIENT_ID;
         if (billingSource === undefined || billingSource === null)
@@ -206,25 +229,28 @@ class CustomerBillingInit {
         return defaultCustomerInitData;
     }
     async checkoutCustomerBilling({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid }) {
-        if (!patientId)
-            return { success: false, message: 'No patientId provided' };
-        if (!branchid)
-            return { success: false, message: 'No branchid provided' };
-        if (!billingSource)
-            return { success: false, message: 'No billingSource provided' };
-        if ((!cart || !Array.isArray(cart) || cart.length === 0) &&
-            (!servicesList || !Array.isArray(servicesList) || servicesList.length === 0)) {
-            return { success: false, message: 'Cart and servicesList are both empty' };
-        }
+        const validationError = CustomerBillingInit.validateBillingInput({
+            patientId,
+            branchid,
+            billingSource,
+            cart,
+            servicesList,
+            errorCodes: {
+                NO_PATIENT_ID: 'No patientId provided',
+                NO_BRANCH_ID: 'No branchid provided',
+                NO_BILLING_SOURCE: 'No billingSource provided',
+                CART_AND_SERVICES_EMPTY: 'Cart and servicesList are both empty'
+            }
+        });
+        if (validationError)
+            return { success: false, message: validationError };
         // Validate session
-        const sessionRepo = new SalesSessionRepo_1.SalesSessionRepo(this.tenantId);
-        const today = new Date();
-        const sessionExists = await sessionRepo.hasActiveSessionForDate(today, branchid);
-        // if (!sessionExists) return { success: false, message: 'No active session' };
+        const sessionError = await this.validateActiveSession(branchid, 'No active session');
+        // if (sessionError) return { success: false, message: sessionError };
         // Validate outstanding debt
-        const hasDebt = await this.calculateCustomerOutstandingDebt(patientId);
-        if (hasDebt)
-            return { success: false, message: 'Outstanding debt found' };
+        const debtError = await this.validateNoOutstandingDebt(patientId, 'Outstanding debt found');
+        if (debtError)
+            return { success: false, message: debtError };
         // Get app settings for recalculation
         const appsettings = await new appset_1.default().getAllAppSettings(this.tenantId);
         const { includeTax, billingsettings } = appsettings || {};
@@ -583,6 +609,39 @@ class CustomerBillingInit {
     }
     async hasOutstandingDebt(patientId) {
         return await this.calculateCustomerOutstandingDebt(patientId) > 0;
+    }
+    /**
+    * Validates if there is an active session for the branch today.
+    */
+    async validateActiveSession(branchid, errorMsg = 'No active session') {
+        const sessionRepo = new SalesSessionRepo_1.SalesSessionRepo(this.tenantId);
+        const today = new Date();
+        const sessionExists = await sessionRepo.hasActiveSessionForDate(today, branchid);
+        if (!sessionExists)
+            return errorMsg;
+        return null;
+    }
+    /**
+     * Validates that the patient has no outstanding debt.
+     */
+    async validateNoOutstandingDebt(patientId, errorMsg = 'Outstanding debt found') {
+        const conn = await (0, KnexConnections_1.default)(this.tenantId);
+        const result = await conn("billing").where("patientid", patientId).sum("outstanding as totalOutstanding").first();
+        if ((result === null || result === void 0 ? void 0 : result.totalOutstanding) && Number(result.totalOutstanding) > 0)
+            return errorMsg;
+        return null;
+    }
+    /**
+    * Static utility for validating billing input fields.
+    */
+    static validateBillingInput({ patientId, branchid, billingSource, cart, servicesList, errorCodes }) {
+        if (!patientId)
+            return errorCodes.NO_PATIENT_ID;
+        if (branchid === undefined || branchid === null)
+            return errorCodes.NO_BRANCH_ID;
+        if (billingSource === undefined || billingSource === null)
+            return errorCodes.NO_BILLING_SOURCE;
+        return null;
     }
     // DRY: Helper to fetch constant data for init response
     async getConstantCustomerInitData(patientId, billingid) {
