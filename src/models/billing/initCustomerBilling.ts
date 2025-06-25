@@ -194,6 +194,10 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           defaultCustomerInitData.subtotal = 0;
           defaultCustomerInitData.totaldiscount = 0;
           defaultCustomerInitData.totalAmountIncurredDueTax = 0;
+          defaultCustomerInitData.totalcost = 0;
+          defaultCustomerInitData.cost = 0;
+          defaultCustomerInitData.amountPayable = 0;
+          defaultCustomerInitData.totalAmountIncurredDueTax = 0;
           defaultCustomerInitData.previousRecordsSummary = previousRecordsSummary;
           defaultCustomerInitData.paid = previousRecordsSummary?.paid || 0;
           defaultCustomerInitData.balance = previousRecordsSummary?.balance || 0;

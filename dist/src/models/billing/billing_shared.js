@@ -543,14 +543,12 @@ class BillingSharedRepo {
         }
         return insertionErrors;
     }
-    async AddtoTestAscenstion(tenantId, serviceid, billingid, testid, trx) {
+    static async AddtoTestAscenstion(tenantId, serviceid, billingid, testid, trx) {
         try {
             if (!billingid || !serviceid || !testid)
                 return false;
             const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
             const isInserted = await queryRunner.raw(queries_1.AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
-            // const result = await TestApprovalClass.addAprovalItem(tenantId, isInserted.insertId, trx);
-            // console.log(result)
             return isInserted.insertId;
         }
         catch (err) {

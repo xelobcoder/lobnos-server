@@ -15,7 +15,11 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           }
           return CustomerBillingCheckoutSingleton.instance;
      }
-     static async checkoutCustomerBilling({
+     static async checkoutCustomerBilling(params: any): Promise<{ success: boolean; message: string; data?: any }> {
+          const billing = CustomerBillingCheckoutSingleton.getInstance(params.tenantId);
+          return billing.handleCheckout(params);
+     }
+     private async handleCheckout({
           patientId,
           billingid,
           cart,
@@ -29,35 +33,17 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           isPackageUsed,
           packageid,
           tenantId
-     }: {
-          patientId: number;
-          billingid?: number;
-          cart: any[];
-          servicesList?: any[];
-          paymentDetails: any;
-          branchid: number;
-          billingSource: number;
-          referalCode?: number;
-          promoCode?: string;
-          isPromo?: boolean;
-          isPackageUsed?: boolean;
-          packageid?: number;
-          tenantId: number;
-     }): Promise<{ success: boolean; message: string; data?: any }> {
-          const billing = CustomerBillingCheckoutSingleton.getInstance(tenantId);
-          // --- VALIDATION ---
+     }: any): Promise<{ success: boolean; message: string; data?: any }> {
           if (!patientId) return { success: false, message: 'No patientId provided' };
           if (branchid === undefined || branchid === null) return { success: false, message: 'No branchid provided' };
           if (billingSource === undefined || billingSource === null) return { success: false, message: 'No billingSource provided' };
 
-          // Validate outstanding debt
-          const totalOutstanding = await billing.getCustomerOutstandingDebt(patientId);
+          const totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
           if (totalOutstanding > 0) return { success: false, message: 'Outstanding debt found' };
 
-          // Get app settings for recalculation
-          const appsettings: ApplicationSettingsData | null = await billing.getAppSettings();
+          const appsettings: ApplicationSettingsData | null = await this.getAppSettings();
           const { includeTax, billingsettings } = appsettings || {};
-          const taxation: Partial<AppSetting> = appsettings ? await billing.getAppBillSettings() : {};
+          const taxation: Partial<AppSetting> = appsettings ? await this.getAppBillSettings() : {};
 
           let recalculatedCart: any[] = [];
           let recalculatedPackageList: any[] = [];
@@ -66,13 +52,11 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           let taxList: any = undefined;
           let taxValue: number | undefined = undefined;
 
-          // --- PROMO CODE VALIDATION ---
           let promoDiscount = 0;
           let promoValid = false;
           let promoDetails: any = null;
           if (isPromo && promoCode) {
-               const promoRepo = new PrimeBillingPromoCodeRepo(tenantId);
-               const promoResult = await promoRepo.validatePromoCode(promoCode);
+               const promoResult = await this.validatePromo(tenantId, promoCode);
                promoValid = promoResult.valid;
                promoDetails = promoResult.promo;
                if (!promoValid) {
@@ -80,7 +64,6 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                }
           }
 
-          // --- ALWAYS FETCH ORIGINAL DATA FOR TESTS/SERVICES ---
           if (isPackageUsed && packageid) {
                const pkgResult = await PackageBillingHelper.handlePackageCheckout({
                     tenantId: tenantId,
@@ -91,49 +74,11 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                recalculatedPackageList = pkgResult.recalculatedPackageList || [];
                usedPackage = true;
           } else {
-               const selectedTestIds = cart.map(item => item.testid);
-               let allTests: any[] = [];
-               if (selectedTestIds.length > 0) {
-                    let entityType: EntityType = 'general' as EntityType;
-                    let entityId = null;
-                    if (referalCode) {
-                         const referalRepo = await billing.getReferralByCode(referalCode);
-                         if (referalRepo) {
-                              entityType = referalRepo.entity_type;
-                              entityId = referalRepo.entity_id;
-                         }
-                    }
-                    allTests = await billing.getBillingHandler(entityType, entityId);
-               }
-               recalculatedCart = allTests
-                    .filter(test => selectedTestIds.includes(test.testid))
-                    .map(test => ({
-                         ...test,
-                         price: test.price,
-                         discount: test.discount || 0
-                    }));
-
-               if (billingsettings && billingsettings.hasNightAdjustment) {
-                    recalculatedCart = PrimeBillingEnterprise.applyNightAdjustmentsToTests(recalculatedCart, billingsettings, 'test');
-               }
-
-               // Discount
-               recalculatedCart = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedCart);
-               // Promo
-               if (isPromo && promoValid && promoCode && promoDetails) {
-                    recalculatedCart = PrimeBillingEnterprise.applyPromoToItems(recalculatedCart, { type: promoDetails.discount_type, value: promoDetails.discount_value });
-               }
-               // Tax
-               if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
-                    recalculatedCart = PrimeBillingEnterprise.applyTaxToTests(recalculatedCart, taxation.taxValue);
-                    taxIncluded = true;
-                    taxList = taxation;
-               }
-               recalculatedCart = PrimeBillingEnterprise.addNightAdjustmentInfo(recalculatedCart, billingsettings);
+               recalculatedCart = await this.getRecalculatedCart(cart, referalCode, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation);
           }
 
           let recalculatedServicesList: any[] = await CustomerBillingCheckoutSingleton.recalculateServicesList({
-               billing,
+               billing: this,
                servicesList,
                billingsettings,
                isPromo,
@@ -164,15 +109,22 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           const amountPayable = subtotal + totalAmountIncurredDueTax;
           const balance = amountPayable - paid;
 
+          const totalcost = subtotal + totalServiceAmount;
+          const totalTestAmountPayable = subtotal + totalAmountIncurredDueTax;
+          const totalServiceAmountPayable = totalServiceAmount;
+
           return {
                success: true,
                message: 'Checkout recalculation successful. No payment has been received yet.',
                data: {
                     subtotal,
+                    totalcost,
                     totaldiscount,
                     totalAmountIncurredDueTax,
                     totalServiceAmount,
                     amountPayable,
+                    totalTestAmountPayable,
+                    totalServiceAmountPayable,
                     paid,
                     balance,
                     cart: recalculatedCart,
@@ -191,8 +143,56 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                }
           };
      }
+     private async getRecalculatedCart(cart: any[], referalCode: any, billingsettings: any, isPromo: boolean, promoValid: boolean, promoCode: string, promoDetails: any, includeTax: any, taxation: any): Promise<any[]> {
+          const selectedTestIds = cart.map((item: any) => item.testid);
+          let allTests: any[] = [];
+          if (selectedTestIds.length > 0) {
+               let entityType: EntityType = 'general' as EntityType;
+               let entityId = null;
+               if (referalCode) {
+                    const referalRepo = await this.getReferralByCode(referalCode);
+                    if (referalRepo) {
+                         entityType = referalRepo.entity_type;
+                         entityId = referalRepo.entity_id;
+                    }
+               }
+               allTests = await this.getBillingHandler(entityType, entityId);
+          }
+          let recalculatedCart = allTests
+               .filter((test: any) => selectedTestIds.includes(test.testid))
+               .map((test: any) => ({
+                    ...test,
+                    price: test.price,
+                    discount: test.discount || 0
+               }));
+          recalculatedCart = this.applyAllBillingRulesToCart(recalculatedCart, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation);
+          return recalculatedCart;
+     }
+     private applyAllBillingRulesToCart(recalculatedCart: any[], billingsettings: any, isPromo: boolean, promoValid: boolean, promoCode: string, promoDetails: any, includeTax: any, taxation: any): any[] {
+          if (billingsettings && billingsettings.hasNightAdjustment) {
+               recalculatedCart = PrimeBillingEnterprise.applyNightAdjustmentsToTests(recalculatedCart, billingsettings, 'test');
+          }
+          recalculatedCart = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedCart);
+          if (isPromo && promoValid && promoCode && promoDetails) {
+               recalculatedCart = PrimeBillingEnterprise.applyPromoToItems(recalculatedCart, { type: promoDetails.discount_type, value: promoDetails.discount_value });
+          }
+          if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
+               recalculatedCart = PrimeBillingEnterprise.applyTaxToTests(recalculatedCart, taxation.taxValue);
+          }
+          recalculatedCart = PrimeBillingEnterprise.addNightAdjustmentInfo(recalculatedCart, billingsettings);
+          return recalculatedCart;
+     }
      static async recalculateServicesList(params: any): Promise<any[]> {
           return PrimeBillingEnterprise.recalculateServicesList(params);
+     }
+     private async validatePromo(tenantId: number, promoCode: string): Promise<{ valid: boolean, promo: any, reason?: string }> {
+          const promoRepo = new PrimeBillingPromoCodeRepo(tenantId);
+          const promoResult = await promoRepo.validatePromoCode(promoCode);
+          return {
+               valid: promoResult.valid,
+               promo: promoResult.promo || null,
+               reason: promoResult.reason
+          };
      }
 }
 

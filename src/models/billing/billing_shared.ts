@@ -637,13 +637,11 @@ export class BillingSharedRepo {
           return insertionErrors;
      }
 
-     public async AddtoTestAscenstion(tenantId: number, serviceid: number, billingid: number, testid: number, trx?: any): Promise<boolean | number> {
+     public static async AddtoTestAscenstion(tenantId: number, serviceid: number, billingid: number, testid: number, trx?: any): Promise<boolean | number> {
           try {
                if (!billingid || !serviceid || !testid) return false;
                const queryRunner = trx || await KnexConnection(tenantId);
                const isInserted = await queryRunner.raw(AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
-               // const result = await TestApprovalClass.addAprovalItem(tenantId, isInserted.insertId, trx);
-               // console.log(result)
                return isInserted.insertId;
           } catch (err) {
                console.log(err)

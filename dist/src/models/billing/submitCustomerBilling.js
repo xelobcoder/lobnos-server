@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubmitCustomerBilling = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const billing_shared_1 = require("./billing_shared");
+const billing_shared_types_1 = require("./billing_shared_types");
 const billingclientTypes_1 = require("./billingclientTypes");
 const initCustomerBilling_1 = require("./initCustomerBilling");
 class SubmitCustomerBilling {
@@ -27,27 +28,23 @@ class SubmitCustomerBilling {
     }
     async submit() {
         const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
-        // Step 1: Re-evaluate billing using checkout logic
-        const billingInit = new initCustomerBilling_1.CustomerBillingInit(tenantId);
-        const checkoutResult = await billingInit.checkoutCustomerBilling({
+        const billingInit = initCustomerBilling_1.CustomerBillingInit.getInstance(tenantId);
+        const checkoutResult = await billingInit.init({
+            entityId: null,
+            entityType: null,
             patientId,
             billingid,
-            cart,
-            servicesList: servicesProvided,
-            paymentDetails,
+            isPackageUsed,
+            packageid,
+            includeServices: true,
             branchid,
             billingSource,
-            referalCode,
-            promoCode,
-            isPromo,
-            isPackageUsed,
-            packageid
+            referalCode
         });
-        if (!checkoutResult.success) {
-            return { success: false, message: `Checkout validation failed: ${checkoutResult.message}` };
+        if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
+            return { success: false, message: `Checkout validation failed: ${checkoutResult}` };
         }
-        const data = checkoutResult.data;
-        // Step 2: Compare recalculated summary fields with submitted payload (excluding 'paid')
+        const data = checkoutResult;
         const summaryFields = [
             'subtotal',
             'totaldiscount',
@@ -68,13 +65,43 @@ class SubmitCustomerBilling {
         }
         let updatedBillingData = this.payload;
         if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
-            updatedBillingData.cart = checkoutResult.data.packageTestList;
+            updatedBillingData.cart = data.packageTestList;
         }
         const conn = await this.connection;
         const trx = await conn.transaction();
-        // Generate billing ID inside transaction
         const billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, trx);
         await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, updatedBillingData.taxValue, trx);
+        const testResult = await billing_shared_1.BillingSharedRepo.processTestCart(this.tenantId, updatedBillingData, billingID, updatedBillingData.taxValue, updatedBillingData.taxList, trx);
+        // Insert non-test services
+        const Multi = new billing_shared_1.BillingSharedRepo();
+        const serviceEntries = await Multi.mapAndInsertServices(this.tenantId, updatedBillingData.cart, billingID, trx);
+        // Combine test results and service entries
+        const allEntries = [...testResult, ...serviceEntries];
+        if (allEntries.length > 0) {
+            const loadAllServices = await new billing_shared_1.BillingSharedRepo()
+                .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
+            if (loadAllServices.length > 0) {
+                throw new Error(billing_shared_types_1.BillErrors.UnableToLoadServices);
+            }
+            console.log("All services loaded successfully", allEntries.length);
+            const totaldiscount = checkoutResult.totaldiscount || 0;
+            const totalAmountIncurredDueTax = checkoutResult.totalAmountIncurredDueTax || 0;
+            const totalOutstanding = updatedBillingData.outstanding || 0;
+            // const updateData = {
+            //     totalTransactionCost: billing_final_values.totalcost,
+            //     totalcost: billing_final_values.totalcost,
+            //     paid: billingData.paid,
+            //     payable: payableAfterPromo,
+            //     discount: billing_final_values.totalDiscount,
+            //     amountIncurredDueTax: billing_final_values.amountIncurredDueTax,
+            //     outstanding: Number((payableAfterPromo - billingData.paid).toFixed(2)),
+            //     totalrefunded: 0,
+            //     isPromo: billingData.isPromo || false,
+            //     promoValue: promoValue,
+            //     promoMethod: promoMethod,
+            //     promoCodeId: promoCodeId,
+            // }
+        }
     }
     static async validateBillingRequestBody(billingData, tenantId) {
         const { cart, servicesProvided, employeeid, paymentmode, branchid, isPromo, promo, billingSource, patientId, entityId, amountPayable, paid, payments } = billingData;
@@ -102,7 +129,6 @@ class SubmitCustomerBilling {
         if (isPromo && (!promo || !promo.code)) {
             return "Promo code is required when isPromo is true.";
         }
-        // Validate payments array and each payment's paymentmode
         if (payments && Array.isArray(payments)) {
             for (const payment of payments) {
                 if (!payment.mode || !(await billing_shared_1.BillingSharedRepo.validatePaymentModeId(parseInt(payment.mode.toString(), 10), tenantId))) {
@@ -153,14 +179,14 @@ class SubmitCustomerBilling {
             return {
                 billingid: billingID,
                 trackId: item.testid,
-                cost: item.discountedValue,
+                cost: item.cost,
                 employeeid: billingData.employeeid,
                 serviceCategory: billingclientTypes_1.serviceCategory[billingData.billingSource],
                 categoryTrackId: billingData.billingSource,
                 clinicianId,
                 organizationId,
                 registrationType,
-                branchid: billingData.samplingCenter,
+                branchid: billingData.branchid,
                 isoutsourced: item.isoutsourced === 1 ? 1 : 0,
                 outsourceid: item.outsourceid || null,
                 serviceAddedOn: new Date(),
@@ -170,7 +196,7 @@ class SubmitCustomerBilling {
                 taxIncluded: billingData.taxIncluded,
                 discount: item.discount,
                 totalcost: item.totalcost,
-                totalpayable: item.discountedValue || item.totalpayable,
+                totalpayable: item.totalpayable,
                 isNHIS: billingData.billingSource === 4 ? 1 : 0,
                 isPHIS: billingData.billingSource === 3 ? 1 : 0,
                 insuranceid: insuranceId,
@@ -184,6 +210,155 @@ class SubmitCustomerBilling {
         }));
         console.log(result);
         return result;
+    }
+    static async processNonTestServices(billingData, servicesProvided, billingID, taxValue, taxList) {
+        let organizationId = null;
+        let clinicianId = null;
+        let insuranceId = null;
+        const entityId = billingData.entityId ? parseInt(billingData.entityId.toString()) : null;
+        switch (billingData.billingSource) {
+            case 2:
+                organizationId = entityId;
+                break;
+            case 3:
+            case 4:
+                insuranceId = entityId;
+                break;
+            case 6:
+                clinicianId = entityId;
+                break;
+        }
+        const { employeeid, samplingCenter, taxIncluded, type, billingSource, isPackageUsed } = billingData;
+        return await Promise.all(servicesProvided
+            .map(async (item) => {
+            return {
+                billingid: billingID,
+                trackId: item.keyid,
+                cost: item.cost,
+                employeeid,
+                serviceCategory: billingclientTypes_1.serviceCategory[5],
+                categoryTrackId: 5,
+                clinicianId,
+                organizationId,
+                registrationType: type,
+                branchid: samplingCenter,
+                isoutsourced: 0,
+                outsourceid: 0,
+                serviceAddedOn: new Date(),
+                taxList,
+                taxValue,
+                amountIncurredDueTax: item.amountIncurredDueTax,
+                taxIncluded,
+                discount: item.discount,
+                totalcost: item.totalcost,
+                totalpayable: item.discountedValue,
+                isNHIS: billingSource === 4 ? 1 : 0,
+                isPHIS: billingSource === 3 ? 1 : 0,
+                insuranceid: insuranceId || null,
+                claimCode: null,
+                hasNightAdjustment: item.hasNightAdjustment,
+                nightAdjustmentMode: item.nightAdjustmentMode,
+                nightAdjustmentValue: item.nightAdjustmentValue,
+                isPackageUsed: isPackageUsed ? 1 : 0,
+                packageid: item.packageid || null,
+            };
+        }));
+    }
+    async loadMultipleServices(services, billingid, tenantId, trx) {
+        const insertionErrors = [];
+        const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
+        for (const item of services) {
+            try {
+                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
+                const outcome = await queryRunner("dboservices").insert({
+                    billingid,
+                    trackId,
+                    cost,
+                    employeeid,
+                    serviceCategory,
+                    categoryTrackId,
+                    clinicianId,
+                    organizationId,
+                    registrationType,
+                    branchid,
+                    isoutsourced,
+                    outsourceid,
+                    serviceAddedOn,
+                    taxList,
+                    taxValue,
+                    amountIncurredDueTax,
+                    taxIncluded,
+                    discount,
+                    totalcost,
+                    totalpayable,
+                    isNHIS,
+                    isPHIS,
+                    insuranceid,
+                    claimCode,
+                    hasNightAdjustment,
+                    nightAdjustmentMode,
+                    nightAdjustmentValue,
+                    isPackageUsed,
+                    packageid
+                });
+                if (outcome && item[5] != 5 && item[1]) {
+                    try {
+                        await billing_shared_1.BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                    }
+                    catch (err) {
+                        throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);
+                    }
+                }
+            }
+            catch (err) {
+                console.error("Error inserting service:", err);
+                insertionErrors.push(err);
+            }
+        }
+        return insertionErrors;
+    }
+    async mapAndInsertServices(tenantId, allEntries, billingid, trx) {
+        try {
+            const servicesMap = allEntries.map((service) => {
+                return [
+                    service.billingid,
+                    service.trackId,
+                    service.cost,
+                    service.employeeid,
+                    service.serviceCategory,
+                    service.categoryTrackId,
+                    service.clinicianId,
+                    service.organizationId,
+                    service.registrationType,
+                    service.branchid,
+                    service.isoutsourced || 0,
+                    service.outsourceid || null,
+                    service.serviceAddedOn,
+                    service.taxList,
+                    service.taxValue,
+                    service.amountIncurredDueTax,
+                    service.taxIncluded,
+                    service.discount,
+                    service.totalcost,
+                    service.totalpayable,
+                    service.isNHIS,
+                    service.isPHIS,
+                    service.insuranceid,
+                    service.claimCode,
+                    service.hasNightAdjustment,
+                    service.nightAdjustmentMode,
+                    service.nightAdjustmentValue,
+                    service.isPackageUsed,
+                    service.packageid
+                ];
+            });
+            const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
+            return loadAllServices;
+        }
+        catch (err) {
+            console.log('Error Loading services ');
+            throw err;
+        }
     }
 }
 exports.SubmitCustomerBilling = SubmitCustomerBilling;

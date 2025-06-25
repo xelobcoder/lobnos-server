@@ -180,6 +180,10 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
         defaultCustomerInitData.subtotal = 0;
         defaultCustomerInitData.totaldiscount = 0;
         defaultCustomerInitData.totalAmountIncurredDueTax = 0;
+        defaultCustomerInitData.totalcost = 0;
+        defaultCustomerInitData.cost = 0;
+        defaultCustomerInitData.amountPayable = 0;
+        defaultCustomerInitData.totalAmountIncurredDueTax = 0;
         defaultCustomerInitData.previousRecordsSummary = previousRecordsSummary;
         defaultCustomerInitData.paid = (previousRecordsSummary === null || previousRecordsSummary === void 0 ? void 0 : previousRecordsSummary.paid) || 0;
         defaultCustomerInitData.balance = (previousRecordsSummary === null || previousRecordsSummary === void 0 ? void 0 : previousRecordsSummary.balance) || 0;
