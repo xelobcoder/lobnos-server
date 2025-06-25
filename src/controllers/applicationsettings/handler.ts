@@ -1,4 +1,4 @@
-import { request, Request, response, Response } from "express";
+import { Request, Response } from "express";
 import logger from "../../hooks/logger";
 import User from "../../LobnosAuth/user";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
@@ -7,11 +7,13 @@ import Tax from "../../models/application/Tax";
 import ResultSettings from "../../models/application/appsettings/resultSettings";
 import { OperationsFailures } from "../../models/operations/types";
 import ApplicationSettings from "./../../models/application/appsettings/appset";
-import { responseError, customError, rowAffected } from "../../hooks/helper";
+import { responseError, customError } from "../../hooks/helper";
 import { ApplicationBillSettings } from "../../models/application/appsettings/Type";
-import { MultiBillingRepo } from "../../models/billing/billnew";
 import { CustomerBillingInit } from "../../models/billing/initCustomerBilling";
 import { EntityType } from "../../models/billing/billing_shared_types";
+import { SubmitCustomerBilling } from "../../models/billing/submitCustomerBilling";
+
+
 
 
 const appsettings = new ApplicationSettings();
@@ -396,47 +398,118 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 };
 
 export const checkoutBillingHandler = async (req: Request, res: Response) => {
-    try {
-        const tenantId = parseInt(req.query.tenantId as string, 10);
-        if (!tenantId) return res.status(400).json({ success: false, message: 'Missing tenantId' });
+	try {
+		const tenantId = parseInt(req.query.tenantId as string, 10);
+		if (!tenantId) return res.status(400).json({ success: false, message: 'Missing tenantId' });
 
-        const {
-            patientId,
-            billingid,
-            cart,
-            servicesList,
-            paymentDetails,
-            branchid,
-            billingSource,
-            referalCode,
-            promoCode,
-            isPromo,
-            isPackageUsed,
-            packageid
-        } = req.body;
+		const {
+			patientId,
+			billingid,
+			cart,
+			servicesList,
+			paymentDetails,
+			branchid,
+			billingSource,
+			referalCode,
+			promoCode,
+			isPromo,
+			isPackageUsed,
+			packageid
+		} = req.body;
 
-        const billing = new CustomerBillingInit(tenantId);
-        const result = await billing.checkoutCustomerBilling({
-            patientId,
-            billingid,
-            cart,
-            servicesList,
-            paymentDetails,
-            branchid,
-            billingSource,
-            referalCode,
-            promoCode,
-            isPromo,
-            isPackageUsed,
-            packageid
-        });
-        if (result.success) {
-            return res.status(200).json(result);
-        } else {
-            return res.status(400).json(result);
-        }
-    } catch (err) {
-        console.error(err);
-        responseError(res, err);
-    }
+		const billing = new CustomerBillingInit(tenantId);
+		const result = await billing.checkoutCustomerBilling({
+			patientId,
+			billingid,
+			cart,
+			servicesList,
+			paymentDetails,
+			branchid,
+			billingSource,
+			referalCode,
+			promoCode,
+			isPromo,
+			isPackageUsed,
+			packageid
+		});
+		if (result.success) {
+			return res.status(200).json(result);
+		} else {
+			return res.status(400).json(result);
+		}
+	} catch (err) {
+		console.error(err);
+		responseError(res, err);
+	}
+};
+
+export const submitBillingHandler = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as string, 10);
+		if (!tenantId) return res.status(400).json({ success: false, message: 'Missing tenantId' });
+
+		// Destructure all possible fields from the payload
+		const {
+			amountPayable,
+			cart,
+			servicesProvided,
+			billingSource,
+			paid,
+			status,
+			isConditionsUnderstood,
+			patientid,
+			employeeid,
+			isPackageUsed,
+			hasNightAdjustment,
+			samplingCenter,
+			payments,
+			isPromo,
+			promoMethod,
+			// legacy/optional fields for compatibility
+			patientId,
+			billingid,
+			paymentDetails,
+			branchid,
+			referalCode,
+			promoCode,
+			packageid,
+			servicesList
+		} = req.body;
+
+		// Use the SubmitCustomerBilling class and call .submit()
+		const result = await new SubmitCustomerBilling({
+			tenantId,
+			amountPayable,
+			cart,
+			servicesProvided,
+			billingSource,
+			paid,
+			status,
+			isConditionsUnderstood,
+			patientId: patientid ?? patientId, // Fix: use patientId as required by method
+			employeeid,
+			isPackageUsed,
+			hasNightAdjustment,
+			samplingCenter,
+			payments,
+			isPromo,
+			promoMethod,
+			billingid,
+			paymentDetails,
+			branchid,
+			referalCode,
+			promoCode,
+			packageid,
+			servicesList
+		}, tenantId).submit();
+		console.log("Submit Billing Result:", result);
+		if (result.success) {
+			return res.status(200).json(result);
+		} else {
+			return res.status(400).json(result);
+		}
+	} catch (err) {
+		console.error(err);
+		responseError(res, err);
+	}
 };

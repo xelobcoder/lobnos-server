@@ -9,7 +9,6 @@ import { PrimeLimsTablebilling, PrimeLimsTabledboservices } from "../../database
 import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
 import Services from "../services/services";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
-
 const BillingModuleCodes = {
      MODULE_DEBT: 'outstanding debt found',
      MODULE_NO_SESSION: 'no active sales session found',
@@ -52,6 +51,8 @@ export interface CustomerInitResponse {
      includeServices: boolean;
      promoCode?: string;
      billingid?: number;
+     taxIncluded?: boolean;
+     taxList?: any; // <-- Added this line
      billingSource?: number;
      servicesProvided: any[];
      branchid: number;
@@ -64,6 +65,7 @@ export interface CustomerInitResponse {
      startTime?: string;
      endTime?: string;
      referalCode?: number;
+     taxValue?: number;
      entityId?: number;
      entityType?: EntityType;
      patientId: number;
@@ -147,6 +149,7 @@ export class CustomerBillingInit {
                balance: 0,
                promoCode: undefined,
                servicesProvided: [],
+               taxIncluded: false,
                billingid: billingid,
                packageid: packageid,
                isPackageUsed: isPackageUsed,
@@ -154,6 +157,7 @@ export class CustomerBillingInit {
                nightAdjustmentValue: undefined,
                nightAdjustmentMode: undefined,
                patientId: patientId,
+               taxValue: undefined,
                entityId: entityId,
                entityType: entityType,
                referalCode: referalCode,
@@ -231,7 +235,7 @@ export class CustomerBillingInit {
           if (defaultCustomerInitData.referalCode) {
                const referalCode = defaultCustomerInitData.referalCode;
                const referalRepo = await new ReferralCodingRepo(this.tenantId).findByCode(parseInt(referalCode.toString(), 10));
-               if (referalCode) {
+               if (referalRepo) {
                     defaultCustomerInitData.entityType = referalRepo.entity_type;
                     defaultCustomerInitData.entityId = referalRepo.entity_id;
                }
@@ -280,6 +284,8 @@ export class CustomerBillingInit {
           if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                ApplicableTest = CustomerBillingInit.applyTaxToTests(ApplicableTest, taxation.taxValue);
                defaultCustomerInitData.testList = ApplicableTest;
+               defaultCustomerInitData.taxIncluded = true;
+               taxation.taxValue = taxation.taxValue || 0;
           }
 
 
@@ -388,6 +394,9 @@ export class CustomerBillingInit {
           let recalculatedCart: any[] = [];
           let recalculatedPackageList: any[] = [];
           let usedPackage = false;
+          let taxIncluded = false;
+          let taxList: any = undefined;
+          let taxValue: number | undefined = undefined;
 
           // Helper to add night adjustment info to each item
           function addNightAdjustmentInfo(items: any[], billingsettings: any): any[] {
@@ -433,6 +442,10 @@ export class CustomerBillingInit {
                }
                if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                     recalculatedPackageList = CustomerBillingInit.applyTaxToTests(recalculatedPackageList, taxation.taxValue);
+                    // defaultCustomerInitData.taxIncluded = true;
+                    // defaultCustomerInitData.taxList = taxation;
+                    taxIncluded = true;
+                    taxList = taxation;
                }
                recalculatedPackageList = addNightAdjustmentInfo(recalculatedPackageList, billingsettings);
                usedPackage = true;
@@ -473,6 +486,8 @@ export class CustomerBillingInit {
                }
                if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                     recalculatedCart = CustomerBillingInit.applyTaxToTests(recalculatedCart, taxation.taxValue);
+                    taxIncluded = true;
+                    taxList = taxation;
                }
                recalculatedCart = addNightAdjustmentInfo(recalculatedCart, billingsettings);
           }
@@ -503,12 +518,102 @@ export class CustomerBillingInit {
                }
                if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                     recalculatedServicesList = CustomerBillingInit.applyTaxToTests(recalculatedServicesList, taxation.taxValue);
+                    taxIncluded = true;
+                    taxValue = taxation.taxValue;
                }
                recalculatedServicesList = addNightAdjustmentInfo(recalculatedServicesList, billingsettings);
           }
 
           // Calculate totals
           let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0;
+          if (usedPackage) {
+               recalculatedPackageList.forEach(item => {
+                    if (typeof item.discountedValue !== 'number') {
+                         throw new Error('discountedValue must be present for all items in recalculatedPackageList');
+                    }
+                    subtotal += item.discountedValue;
+                    totaldiscount += item.discount || 0;
+                    totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+               });
+          } else {
+               recalculatedCart.forEach(item => {
+                    if (typeof item.discountedValue !== 'number') {
+                         throw new Error('discountedValue must be present for all items in recalculatedCart');
+                    }
+                    subtotal += item.discountedValue;
+                    totaldiscount += item.discount || 0;
+                    totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+               });
+          }
+          if (recalculatedServicesList && Array.isArray(recalculatedServicesList)) {
+               recalculatedServicesList.forEach(item => {
+                    if (typeof item.discountedValue !== 'number') {
+                         throw new Error('discountedValue must be present for all items in recalculatedServicesList');
+                    }
+                    subtotal += item.discountedValue;
+                    totaldiscount += item.discount || 0;
+                    totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+                    totalServiceAmount += item.discountedValue;
+               });
+          }
+
+          // --- PROMO CODE VALIDATION ---
+          let promoDiscount = 0;
+          let promoValid = false;
+          let promoDetails: any = null;
+          if (isPromo && promoCode) {
+               const promoRepo = new PrimeBillingPromoCodeRepo(this.tenantId);
+               const promoResult = await promoRepo.validatePromoCode(promoCode);
+               promoValid = promoResult.valid;
+               promoDetails = promoResult.promo;
+               if (!promoValid) {
+                    return { success: false, message: promoResult.reason || 'Invalid promo code', data: { promoCode } };
+               }
+          }
+
+          // --- APPLY BUSINESS RULES IN CORRECT ORDER ---
+          // 1. Discounts
+          // 2. Night Adjustment
+          // 3. Promo (per item)
+          // 4. Tax (last)
+
+          // Helper to apply all steps to a list (cart, services, package)
+          const applyAllSteps = (items: any[]) => {
+               let result = CustomerBillingInit.applyDiscountsToTests(items);
+               if (billingsettings && billingsettings.hasNightAdjustment) {
+                    result = CustomerBillingInit.applyNightAdjustmentsToTests(result, billingsettings);
+               }
+               // Apply promo per item if valid
+               if (isPromo && promoValid && promoCode && promoDetails) {
+                    let totalPromo = 0;
+                    if (promoDetails.discount_type === 'percentage') {
+                         const subtotal = result.reduce((sum, item) => sum + (item.discountedValue || 0), 0);
+                         totalPromo = Number(((subtotal * promoDetails.discount_value / 100)).toFixed(2));
+                    } else if (promoDetails.discount_type === 'flat') {
+                         totalPromo = Number(promoDetails.discount_value);
+                    }
+                    result = CustomerBillingInit.applyPromoToItems(result, totalPromo);
+               }
+               // Tax is always last
+               if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
+                    result = CustomerBillingInit.applyTaxToTests(result, taxation.taxValue);
+               }
+               return result;
+          };
+
+          // --- RECALCULATE CART, SERVICES, PACKAGE ---
+          if (usedPackage) {
+               recalculatedPackageList = applyAllSteps(recalculatedPackageList);
+          } else {
+               recalculatedCart = applyAllSteps(recalculatedCart);
+          }
+          if (recalculatedServicesList && Array.isArray(recalculatedServicesList)) {
+               recalculatedServicesList = applyAllSteps(recalculatedServicesList);
+          }
+
+          // --- CALCULATE TOTALS ---
+          // Remove duplicate variable declarations
+          subtotal = 0; totaldiscount = 0; totalAmountIncurredDueTax = 0; totalServiceAmount = 0;
           if (usedPackage) {
                recalculatedPackageList.forEach(item => {
                     subtotal += item.discountedValue || item.price || 0;
@@ -531,37 +636,21 @@ export class CustomerBillingInit {
                });
           }
 
-          // --- PROMO CODE VALIDATION ---
-          let promoDiscount = 0;
-          let promoValid = false;
-          let promoDetails: any = null;
-          if (isPromo && promoCode) {
-               const promoRepo = new PrimeBillingPromoCodeRepo(this.tenantId);
-               const promoResult = await promoRepo.validatePromoCode(promoCode);
-               promoValid = promoResult.valid;
-               promoDetails = promoResult.promo;
-               if (!promoValid) {
-                    return { success: false, message: promoResult.reason || 'Invalid promo code', data: { promoCode } };
-               }
-          }
-
-          // --- APPLY PROMO DISCOUNT IF VALID ---
+          // --- PROMO DISCOUNT (for reporting only) ---
           if (isPromo && promoValid && promoCode && promoDetails) {
                if (promoDetails.discount_type === 'percentage') {
                     promoDiscount = Number(((subtotal * promoDetails.discount_value / 100)).toFixed(2));
                } else if (promoDetails.discount_type === 'flat') {
                     promoDiscount = Number(promoDetails.discount_value);
                }
-               subtotal -= promoDiscount;
-               totaldiscount += promoDiscount;
           }
 
-          // Calculate balance (amount payable)
+          // --- FINAL AMOUNT PAYABLE ---
           const paid = paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0;
           const amountPayable = subtotal + totalAmountIncurredDueTax;
           const balance = amountPayable - paid;
 
-          // Return recalculated summary
+          // --- RETURN ---
           return {
                success: true,
                message: 'Checkout recalculation successful. No payment has been received yet.',
@@ -569,7 +658,7 @@ export class CustomerBillingInit {
                     subtotal,
                     totaldiscount,
                     totalAmountIncurredDueTax,
-                    totalServiceAmount, // <-- add this field to the response
+                    totalServiceAmount,
                     amountPayable,
                     paid,
                     balance,
@@ -582,135 +671,15 @@ export class CustomerBillingInit {
                     packageid: packageid || undefined,
                     packageTestList: usedPackage ? recalculatedPackageList : undefined,
                     promoDetails: promoValid ? promoDetails : undefined,
-                    paymentStatus: 'pending', // Indicates payment not yet made
-                    paymentReceived: false    // Explicit boolean for frontend clarity
+                    paymentStatus: 'pending',
+                    paymentReceived: false,
+                    taxIncluded,
+                    taxList
                }
           };
      }
 
-     /**
-     * Submits the finalized billing information to the database.
-     * If a referral code was used, updates entityId and entityType accordingly.
-     */
-     async submitCustomerBilling({
-          patientId,
-          billingid,
-          cart,
-          servicesList,
-          paymentDetails,
-          branchid,
-          billingSource,
-          referalCode,
-          promoCode,
-          isPromo,
-          isPackageUsed,
-          packageid
-     }: {
-          patientId: number;
-          billingid?: number;
-          cart: any[];
-          servicesList?: any[];
-          paymentDetails: any;
-          branchid: number;
-          billingSource: number;
-          referalCode?: number;
-          promoCode?: string;
-          isPromo?: boolean;
-          isPackageUsed?: boolean;
-          packageid?: number;
-     }): Promise<{ success: boolean; message: string; billingid?: number }> {
-          if (!patientId) return { success: false, message: 'No patientId provided' };
-          if (!branchid) return { success: false, message: 'No branchid provided' };
-          if (!billingSource) return { success: false, message: 'No billingSource provided' };
-          if (
-               (!cart || !Array.isArray(cart) || cart.length === 0) &&
-               (!servicesList || !Array.isArray(servicesList) || servicesList.length === 0)
-          ) {
-               return { success: false, message: 'Cart and servicesList are both empty' };
-          }
-
-          // If referral code is used, update entityId and entityType
-          let entityId: number | null = null;
-          let entityType: EntityType = 'general' as EntityType;
-          if (referalCode) {
-               const referalRepo = await new ReferralCodingRepo(this.tenantId).findByCode(parseInt(referalCode.toString(), 10));
-               if (referalRepo) {
-                    entityType = referalRepo.entity_type;
-                    entityId = referalRepo.entity_id;
-               }
-          }
-
-          // Prepare billing data
-          const conn = await KnexConnection(this.tenantId);
-          const now = new Date();
-          const billingData: any = {
-               patientid: patientId,
-               branchid,
-               billingSource,
-               entityid: entityId,
-               entitytype: entityType,
-               referalCode,
-               promoCode,
-               isPromo: !!isPromo,
-               isPackageUsed: !!isPackageUsed,
-               packageid,
-               created_at: now,
-               updated_at: now,
-               paid: paymentDetails?.amount || 0,
-               paymentStatus: 'pending',
-               // Add more fields as needed
-          };
-
-          try {
-               // Insert billing record
-               const [newBillingId] = await conn('billing').insert(billingData).returning('billingid');
-               // Insert cart items as dboservices
-               if (cart && cart.length > 0) {
-                    const serviceRows = cart.map((item: any) => ({
-                         billingid: newBillingId,
-                         patientid: patientId,
-                         testid: item.testid,
-                         price: item.price,
-                         discount: item.discount,
-                         discountedValue: item.discountedValue,
-                         created_at: now,
-                         updated_at: now
-                    }));
-                    await conn('dboservices').insert(serviceRows);
-               }
-               // Insert servicesList items as services_billed (if table exists)
-               if (servicesList && servicesList.length > 0) {
-                    const serviceRows = servicesList.map((item: any) => ({
-                         billingid: newBillingId,
-                         patientid: patientId,
-                         serviceid: item.id ?? item.keyid,
-                         servicePrice: item.servicePrice,
-                         discount: item.discount,
-                         discountedValue: item.discountedValue,
-                         created_at: now,
-                         updated_at: now
-                    }));
-                    // If you have a table for billed services, insert here (e.g., 'services_billed')
-                    // await conn('services_billed').insert(serviceRows);
-               }
-               // Insert payment history
-               if (paymentDetails && paymentDetails.amount) {
-                    await conn('billinghx').insert({
-                         billingid: newBillingId,
-                         patientid: patientId,
-                         amount: paymentDetails.amount,
-                         paymentDate: now,
-                         paymentMode: paymentDetails.paymentMode || null,
-                         created_at: now
-                    });
-               }
-               return { success: true, message: 'Billing submitted successfully', billingid: newBillingId };
-          } catch (error: any) {
-               return { success: false, message: 'Error submitting billing: ' + error.message };
-          }
-     }
-
-     // --- REUSABLE BUSINESS RULE HELPERS ---
+     // --- REUSABLE BUSINESS RULES ---
      static applyAllBusinessRules<T>(items: T[], billingsettings: any, includeTax: number, taxation: Partial<AppSetting>): T[] {
           let result = CustomerBillingInit.applyDiscountsToTests(items);
           if (billingsettings && billingsettings.hasNightAdjustment) {
@@ -732,15 +701,38 @@ export class CustomerBillingInit {
           });
      }
 
-     static applyTaxToTests<T extends { discountedValue?: number; servicePrice?: number; price?: number }>(tests: T[], taxValue: number): T[] {
+     // Refactored applyTaxToTests to compute totalcost and totalpayable correctly
+     static applyTaxToTests<T extends { discountedValue?: number; servicePrice?: number; price?: number; cost?: number; totalpayable?: number; totalcost?: number; discount?: number; promoDiscount?: number; nightAdjustmentValue?: number; nightAdjustmentMode?: string; isNightTime?: boolean }>(tests: T[], taxValue: number): T[] {
           if (!Array.isArray(tests) || !taxValue || taxValue <= 0) return tests;
           return tests.map(test => {
-               const base = typeof test.discountedValue === 'number' ? test.discountedValue : (test.servicePrice ?? test.price ?? 0);
-               const taxAmount = Number(((base * taxValue) / 100).toFixed(2));
+               // cost: base price before any discount/adjustment
+               const cost = typeof test.servicePrice === 'number' ? test.servicePrice : (test.price ?? 0);
+               // Only apply night adjustment if isNightTime is true
+               let nightAdjustment = 0;
+               if (test.isNightTime) {
+                    if (typeof test.nightAdjustmentValue === 'number' && test.nightAdjustmentMode) {
+                         if (test.nightAdjustmentMode === 'percentage') {
+                              nightAdjustment = cost * (Number(test.nightAdjustmentValue) / 100);
+                         } else if (test.nightAdjustmentMode === 'absolute') {
+                              nightAdjustment = Number(test.nightAdjustmentValue);
+                         }
+                    }
+               }
+               // totalcost: cost + nightAdjustment + tax
+               const preDiscountValue = cost + nightAdjustment;
+               const taxAmount = Number(((preDiscountValue * taxValue) / 100).toFixed(2));
+               const totalcost = Number((preDiscountValue + taxAmount).toFixed(2));
+               // totalpayable: totalcost - discount - promo
+               const discount = Number(test.discount || 0);
+               const promo = Number(test.promoDiscount || 0);
+               const totalpayable = Number((totalcost - discount - promo).toFixed(2));
                return {
                     ...test,
                     amountIncurredDueTax: taxAmount,
-                    subtotal: Number((base + taxAmount).toFixed(2))
+                    totalcost,
+                    totalpayable,
+                    cost,
+                    discountedValue: totalpayable // Set discountedValue to totalpayable for frontend
                };
           });
      }
@@ -761,20 +753,30 @@ export class CustomerBillingInit {
           return currentHour >= startHour && currentHour < endHour;
      }
 
-     static applyNightAdjustmentsToTests<T extends { discountedValue?: number; servicePrice?: number; price?: number }>(tests: T[], billingsettings: any): T[] {
+     static applyNightAdjustmentsToTests<T extends { discountedValue?: number; servicePrice?: number; price?: number; discount?: number }>(tests: T[], billingsettings: any): T[] {
           if (!Array.isArray(tests) || !billingsettings || !billingsettings.hasNightAdjustment) return tests;
           const { nightAdjustmentValue, nightAdjustmentMode, startTime, endTime } = billingsettings;
           const [startHour] = (startTime || "0:00").split(":").map(Number);
           const [endHour] = (endTime || "0:00").split(":").map(Number);
           const now = new Date();
           const currentHour = now.getHours();
-          if (!this.isNightTime(currentHour, startHour, endHour)) return tests;
+          const isNight = this.isNightTime(currentHour, startHour, endHour);
           return tests.map(test => {
-               let base = typeof test.discountedValue === 'number' ? test.discountedValue : (test.servicePrice ?? test.price ?? 0);
-               let adjustedValue = base;
-               if (nightAdjustmentMode === "percentage") adjustedValue = Number((base + (base * Number(nightAdjustmentValue) / 100)).toFixed(2));
-               else if (nightAdjustmentMode === "absolute") adjustedValue = Number((base + Number(nightAdjustmentValue)).toFixed(2));
-               return { ...test, discountedValue: adjustedValue };
+               // Always use the original base (servicePrice or price) minus discount
+               const base = typeof test.servicePrice === 'number' ? test.servicePrice : (test.price ?? 0);
+               const discount = Number(test.discount || 0);
+               const discountedBase = base - discount;
+               if (!isNight) {
+                    // If not night, do NOT apply night adjustment, and set discountedValue to discountedBase
+                    return { ...test, discountedValue: discountedBase, isNightTime: false };
+               }
+               let adjustedValue = discountedBase;
+               if (nightAdjustmentMode === "percentage") {
+                    adjustedValue = Number((discountedBase + (discountedBase * Number(nightAdjustmentValue) / 100)).toFixed(2));
+               } else if (nightAdjustmentMode === "absolute") {
+                    adjustedValue = Number((discountedBase + Number(nightAdjustmentValue)).toFixed(2));
+               }
+               return { ...test, discountedValue: adjustedValue, isNightTime: true };
           });
      }
 
@@ -859,5 +861,28 @@ export class CustomerBillingInit {
           const summary = await conn('billing').where('patientid', patientId).orderBy('billingid', 'desc').first();
           if (summary) previousRecordsSummary = summary;
           return { paymentModes, previousRecords, previousRecordsSummary, previousPaymentHistory };
+     }
+
+     /**
+     * Distribute promo discount proportionally to each item based on discountedValue
+     */
+     static applyPromoToItems<T extends { discountedValue?: number; promoDiscount?: number; discount?: number }>(items: T[], totalPromoDiscount: number): T[] {
+          if (!Array.isArray(items) || !totalPromoDiscount || totalPromoDiscount <= 0) return items;
+          const total = items.reduce((sum, item) => sum + (item.discountedValue || 0), 0);
+          if (total === 0) return items;
+          let distributed = 0;
+          const result = items.map((item, idx) => {
+               const share = idx === items.length - 1
+                    ? totalPromoDiscount - distributed // last item gets the remainder
+                    : Number(((item.discountedValue || 0) / total * totalPromoDiscount).toFixed(2));
+               distributed += share;
+               return {
+                    ...item,
+                    promoDiscount: share,
+                    discountedValue: Number(((item.discountedValue || 0) - share).toFixed(2)),
+                    discount: Number(((item.discount || 0) + share).toFixed(2))
+               };
+          });
+          return result;
      }
 }

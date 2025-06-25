@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.checkoutBillingHandler = exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
+exports.submitBillingHandler = exports.checkoutBillingHandler = exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
@@ -13,6 +13,7 @@ const resultSettings_1 = __importDefault(require("../../models/application/appse
 const appset_1 = __importDefault(require("./../../models/application/appsettings/appset"));
 const helper_1 = require("../../hooks/helper");
 const initCustomerBilling_1 = require("../../models/billing/initCustomerBilling");
+const submitCustomerBilling_1 = require("../../models/billing/submitCustomerBilling");
 const appsettings = new appset_1.default();
 const tax = new Tax_1.default(null);
 const result = new resultSettings_1.default(null);
@@ -416,3 +417,52 @@ const checkoutBillingHandler = async (req, res) => {
     }
 };
 exports.checkoutBillingHandler = checkoutBillingHandler;
+const submitBillingHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        if (!tenantId)
+            return res.status(400).json({ success: false, message: 'Missing tenantId' });
+        // Destructure all possible fields from the payload
+        const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, promoMethod, 
+        // legacy/optional fields for compatibility
+        patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList } = req.body;
+        // Use the SubmitCustomerBilling class and call .submit()
+        const result = await new submitCustomerBilling_1.SubmitCustomerBilling({
+            tenantId,
+            amountPayable,
+            cart,
+            servicesProvided,
+            billingSource,
+            paid,
+            status,
+            isConditionsUnderstood,
+            patientId: patientid !== null && patientid !== void 0 ? patientid : patientId, // Fix: use patientId as required by method
+            employeeid,
+            isPackageUsed,
+            hasNightAdjustment,
+            samplingCenter,
+            payments,
+            isPromo,
+            promoMethod,
+            billingid,
+            paymentDetails,
+            branchid,
+            referalCode,
+            promoCode,
+            packageid,
+            servicesList
+        }, tenantId).submit();
+        console.log("Submit Billing Result:", result);
+        if (result.success) {
+            return res.status(200).json(result);
+        }
+        else {
+            return res.status(400).json(result);
+        }
+    }
+    catch (err) {
+        console.error(err);
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.submitBillingHandler = submitBillingHandler;
