@@ -14,6 +14,7 @@ const appset_1 = __importDefault(require("./../../models/application/appsettings
 const helper_1 = require("../../hooks/helper");
 const initCustomerBilling_1 = require("../../models/billing/initCustomerBilling");
 const submitCustomerBilling_1 = require("../../models/billing/submitCustomerBilling");
+const customerBillingCheckout_1 = require("../../models/billing/customerBillingCheckout");
 const appsettings = new appset_1.default();
 const tax = new Tax_1.default(null);
 const result = new resultSettings_1.default(null);
@@ -365,8 +366,8 @@ const initializeBillingHandler = async (req, res) => {
             billingSource: billingSource,
             referalCode: req.query.referalCode ? parseInt(req.query.referalCode, 10) : undefined
         };
-        const billingInit = new initCustomerBilling_1.CustomerBillingInit(tenantId);
-        const result = await billingInit.initCustomerBilling(parsed);
+        const billingInit = initCustomerBilling_1.CustomerBillingInit.getInstance(tenantId);
+        const result = await billingInit.init(parsed);
         if (typeof result === "object" && result.hasOwnProperty('testList')) {
             res.send(result);
         }
@@ -389,8 +390,7 @@ const checkoutBillingHandler = async (req, res) => {
         if (!tenantId)
             return res.status(400).json({ success: false, message: 'Missing tenantId' });
         const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid } = req.body;
-        const billing = new initCustomerBilling_1.CustomerBillingInit(tenantId);
-        const result = await billing.checkoutCustomerBilling({
+        const result = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
             patientId,
             billingid,
             cart,
@@ -402,7 +402,8 @@ const checkoutBillingHandler = async (req, res) => {
             promoCode,
             isPromo,
             isPackageUsed,
-            packageid
+            packageid,
+            tenantId
         });
         if (result.success) {
             return res.status(200).json(result);
@@ -452,13 +453,7 @@ const submitBillingHandler = async (req, res) => {
             packageid,
             servicesList
         }, tenantId).submit();
-        console.log("Submit Billing Result:", result);
-        if (result.success) {
-            return res.status(200).json(result);
-        }
-        else {
-            return res.status(400).json(result);
-        }
+        res.send(result);
     }
     catch (err) {
         console.error(err);

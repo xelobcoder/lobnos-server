@@ -17,6 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubmitCustomerBilling = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const billing_shared_1 = require("./billing_shared");
+const billingclientTypes_1 = require("./billingclientTypes");
 const initCustomerBilling_1 = require("./initCustomerBilling");
 class SubmitCustomerBilling {
     constructor(payload, tenantId) {
@@ -45,10 +46,7 @@ class SubmitCustomerBilling {
         if (!checkoutResult.success) {
             return { success: false, message: `Checkout validation failed: ${checkoutResult.message}` };
         }
-        console.log(this.payload.paid, checkoutResult.data.paid);
-        console.log(this.payload.amountPayable, checkoutResult.data.amountPayable);
-        console.log(checkoutResult.data);
-        const { data } = checkoutResult;
+        const data = checkoutResult.data;
         // Step 2: Compare recalculated summary fields with submitted payload (excluding 'paid')
         const summaryFields = [
             'subtotal',
@@ -68,11 +66,15 @@ class SubmitCustomerBilling {
         if (isValid !== true) {
             return { success: false, message: `Validation failed: ${isValid}` };
         }
+        let updatedBillingData = this.payload;
+        if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
+            updatedBillingData.cart = checkoutResult.data.packageTestList;
+        }
         const conn = await this.connection;
         const trx = await conn.transaction();
         // Generate billing ID inside transaction
         const billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, trx);
-        console.log("Generated Billing ID:", billingID);
+        await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, updatedBillingData.taxValue, trx);
     }
     static async validateBillingRequestBody(billingData, tenantId) {
         const { cart, servicesProvided, employeeid, paymentmode, branchid, isPromo, promo, billingSource, patientId, entityId, amountPayable, paid, payments } = billingData;
@@ -148,28 +150,27 @@ class SubmitCustomerBilling {
             registrationType = "self";
         }
         const result = await Promise.all(billingData.cart.map(async (item) => {
-            const subtotal = item.subtotal || item.discountedValue || item.actualPrice;
             return {
                 billingid: billingID,
                 trackId: item.testid,
                 cost: item.discountedValue,
                 employeeid: billingData.employeeid,
-                serviceCategory: serviceCategory[billingData.billingSource],
+                serviceCategory: billingclientTypes_1.serviceCategory[billingData.billingSource],
                 categoryTrackId: billingData.billingSource,
                 clinicianId,
                 organizationId,
                 registrationType,
                 branchid: billingData.samplingCenter,
-                isoutsourced: item.isOutsourced === true || item.isoutsourced === 1 ? 1 : 0,
+                isoutsourced: item.isoutsourced === 1 ? 1 : 0,
                 outsourceid: item.outsourceid || null,
                 serviceAddedOn: new Date(),
                 taxList: typeof taxList === "string" ? taxList : null,
                 taxValue,
-                amountIncurredDueTax: amountIncurredDueTax,
+                amountIncurredDueTax: item.amountIncurredDueTax,
                 taxIncluded: billingData.taxIncluded,
-                discount: totalDiscount,
-                totalcost: item.actualPrice,
-                totalpayable: item.discountedValue,
+                discount: item.discount,
+                totalcost: item.totalcost,
+                totalpayable: item.discountedValue || item.totalpayable,
                 isNHIS: billingData.billingSource === 4 ? 1 : 0,
                 isPHIS: billingData.billingSource === 3 ? 1 : 0,
                 insuranceid: insuranceId,
@@ -181,6 +182,7 @@ class SubmitCustomerBilling {
                 packageid: billingData.packageid || null
             };
         }));
+        console.log(result);
         return result;
     }
 }

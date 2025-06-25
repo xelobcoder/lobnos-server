@@ -12,7 +12,7 @@ import { ApplicationBillSettings } from "../../models/application/appsettings/Ty
 import { CustomerBillingInit } from "../../models/billing/initCustomerBilling";
 import { EntityType } from "../../models/billing/billing_shared_types";
 import { SubmitCustomerBilling } from "../../models/billing/submitCustomerBilling";
-
+import { CustomerBillingCheckout } from "../../models/billing/customerBillingCheckout";
 
 
 
@@ -379,8 +379,8 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 			referalCode: req.query.referalCode ? parseInt(req.query.referalCode as string, 10) : undefined
 		};
 
-		const billingInit = new CustomerBillingInit(tenantId);
-		const result = await billingInit.initCustomerBilling(parsed);
+		const billingInit = CustomerBillingInit.getInstance(tenantId);
+		const result = await billingInit.init(parsed);
 		if (typeof result === "object" && result.hasOwnProperty('testList')) {
 			res.send(result);
 		} else {
@@ -417,8 +417,7 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			packageid
 		} = req.body;
 
-		const billing = new CustomerBillingInit(tenantId);
-		const result = await billing.checkoutCustomerBilling({
+		const result = await CustomerBillingCheckout.checkoutCustomerBilling({
 			patientId,
 			billingid,
 			cart,
@@ -430,7 +429,8 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			promoCode,
 			isPromo,
 			isPackageUsed,
-			packageid
+			packageid,
+			tenantId
 		});
 		if (result.success) {
 			return res.status(200).json(result);
@@ -502,12 +502,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			packageid,
 			servicesList
 		}, tenantId).submit();
-		console.log("Submit Billing Result:", result);
-		if (result.success) {
-			return res.status(200).json(result);
-		} else {
-			return res.status(400).json(result);
-		}
+		res.send(result)
 	} catch (err) {
 		console.error(err);
 		responseError(res, err);

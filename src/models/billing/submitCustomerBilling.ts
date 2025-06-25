@@ -1,5 +1,7 @@
 import KnexConnection from "../../database/KnexConnections";
 import { BillingSharedRepo } from "./billing_shared";
+import { serviceCategory } from "./billingclientTypes";
+import { BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { CustomerBillingInit } from "./initCustomerBilling";
 
 export class SubmitCustomerBilling {
@@ -57,10 +59,8 @@ export class SubmitCustomerBilling {
         if (!checkoutResult.success) {
             return { success: false, message: `Checkout validation failed: ${checkoutResult.message}` };
         }
-        console.log(this.payload.paid, checkoutResult.data.paid);
-        console.log(this.payload.amountPayable, checkoutResult.data.amountPayable);
-        console.log(checkoutResult.data);
-        const { data } = checkoutResult;
+
+        const data = checkoutResult.data;
         // Step 2: Compare recalculated summary fields with submitted payload (excluding 'paid')
         const summaryFields = [
             'subtotal',
@@ -85,6 +85,14 @@ export class SubmitCustomerBilling {
             return { success: false, message: `Validation failed: ${isValid}` };
         }
 
+
+        let  updatedBillingData :CustomerInitResponse = this.payload
+
+        if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
+            updatedBillingData.cart = checkoutResult.data.packageTestList;
+        }
+
+
         const conn = await this.connection;
         const trx = await conn.transaction();
         // Generate billing ID inside transaction
@@ -94,7 +102,12 @@ export class SubmitCustomerBilling {
             trx
         );
 
-        console.log("Generated Billing ID:", billingID);
+        await SubmitCustomerBilling.processTestCartWithoutRecalculation(
+            updatedBillingData,
+            billingID,
+            updatedBillingData.taxValue,
+            trx
+        );
 
     }
 
@@ -198,7 +211,7 @@ export class SubmitCustomerBilling {
 
         const result = await Promise.all(
             billingData.cart.map(async (item: BillingTestItem) => {
-const subtotal = item.subtotal || item.discountedValue || item.actualPrice;
+
                 return {
                     billingid: billingID,
                     trackId: item.testid,
@@ -210,16 +223,16 @@ const subtotal = item.subtotal || item.discountedValue || item.actualPrice;
                     organizationId,
                     registrationType,
                     branchid: billingData.samplingCenter,
-                    isoutsourced: item.isOutsourced === true || item.isoutsourced === 1 ? 1 : 0,
+                    isoutsourced: item.isoutsourced === 1 ? 1 : 0,
                     outsourceid: item.outsourceid || null,
                     serviceAddedOn: new Date(),
                     taxList: typeof taxList === "string" ? taxList : null,
                     taxValue,
-                    amountIncurredDueTax: amountIncurredDueTax,
+                    amountIncurredDueTax: item.amountIncurredDueTax,
                     taxIncluded: billingData.taxIncluded,
-                    discount: totalDiscount,
-                    totalcost: item.actualPrice,
-                    totalpayable: item.discountedValue,
+                    discount: item.discount,
+                    totalcost: item.totalcost,
+                    totalpayable: item.discountedValue || item.totalpayable,
                     isNHIS: billingData.billingSource === 4 ? 1 : 0,
                     isPHIS: billingData.billingSource === 3 ? 1 : 0,
                     insuranceid: insuranceId,
@@ -228,33 +241,13 @@ const subtotal = item.subtotal || item.discountedValue || item.actualPrice;
                     nightAdjustmentMode: item.nightAdjustmentMode,
                     nightAdjustmentValue: item.nightAdjustmentValue || 0,
                     isPackageUsed: billingData.isPackageUsed ? 1 : 0,
-                    packageid: billingData.packageid|| null
+                    packageid: billingData.packageid || null
                 }
             })
         );
+
+        console.log(result)
         return result;
     }
 }
 
-export interface BillingTestItem {
-    actualPrice: number;
-    amountIncurredDueTax: number;
-    concessionMode: "absolute" | "percentage" | string;
-    concessionValue: number | string;
-    discount: number;
-    discountedValue: number;
-    hasNightAdjustment: boolean;
-    id: number;
-    isoutsourced: number;
-    name: string;
-    nightAdjustmentEndTime: string;
-    nightAdjustmentMode: "percentage" | "absolute" | string;
-    nightAdjustmentStartTime: string;
-    nightAdjustmentValue: number;
-    originalPrice: number;
-    price: number;
-    pricingType: string;
-    subtotal: number;
-    testid: number;
-    outsourceid?: number | null;
-}

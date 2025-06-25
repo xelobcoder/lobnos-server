@@ -211,7 +211,6 @@ export const verifyAndLoadPackagesHandler = async (request: Request<{}, {}, Pack
           const { entityId, entitytype, categorytrackid } = request.body;
           const result = await Packages.getPackagesForEntity({ tenantId, entityId, entitytype, categorytrackid });
           response.send(result)
-          return response.status(400).send({ error: "Invalid request parameters" });
      } catch (error) {
           console.log(error)
           responseError(response, error);
