@@ -58,6 +58,8 @@ class PrimeBillingEnterprise {
     async applyDiscountsToTests(tests, type) {
         return tests.map(test => {
             var _a;
+            if (!test.discountedValue || test.discountedValue === 0)
+                return test;
             const discount = test.discount || 0;
             const base = type === 'test' ? test.actualPrice : ((_a = test.servicePrice) !== null && _a !== void 0 ? _a : 0);
             const discountedValue = base - discount;
@@ -71,18 +73,26 @@ class PrimeBillingEnterprise {
             return items;
         if (promo.type === 'percentage') {
             return items.map(item => {
+                if (!item.discountedValue || item.discountedValue === 0) {
+                    return Object.assign({}, item);
+                }
                 const base = item.discountedValue || 0;
                 const share = Number(((base * promo.value) / 100).toFixed(2));
                 return Object.assign(Object.assign({}, item), { promoDiscount: share, discountedValue: Number((base - share).toFixed(2)), discount: Number(((item.discount || 0) + share).toFixed(2)) });
             });
         }
         else if (promo.type === 'flat') {
+            const validItems = items.filter(item => item.discountedValue && item.discountedValue !== 0);
             const totalPromoDiscount = Number(promo.value);
-            const perItem = Number((totalPromoDiscount / items.length).toFixed(2));
+            const perItem = validItems.length > 0 ? Number((totalPromoDiscount / validItems.length).toFixed(2)) : 0;
             let distributed = 0;
             return items.map((item, idx) => {
+                if (!item.discountedValue || item.discountedValue === 0) {
+                    return Object.assign({}, item);
+                }
                 const base = item.discountedValue || 0;
-                const share = idx === items.length - 1
+                const validIdx = validItems.indexOf(item);
+                const share = validIdx === validItems.length - 1
                     ? Number((totalPromoDiscount - distributed).toFixed(2))
                     : perItem;
                 distributed += share;
@@ -149,6 +159,9 @@ class PrimeBillingEnterprise {
     }
     static applyDiscountsToTests(tests) {
         return tests.map(test => {
+            if (!test.discountedValue || test.discountedValue === 0) {
+                return Object.assign({}, test);
+            }
             const discount = test.discount || 0;
             const base = test.discountedValue;
             const discountedValue = base - discount;

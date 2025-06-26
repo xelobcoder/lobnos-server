@@ -64,6 +64,7 @@ export class PrimeBillingEnterprise {
 	}
 	async applyDiscountsToTests(tests: any[], type: 'test' | 'services') {
 		return tests.map(test => {
+			if (!test.discountedValue || test.discountedValue === 0) return test;
 			const discount = test.discount || 0;
 			const base = type === 'test' ? test.actualPrice : (test.servicePrice ?? 0);
 			const discountedValue = base - discount;
@@ -76,6 +77,9 @@ export class PrimeBillingEnterprise {
 		if (items.length === 0) return items;
 		if (promo.type === 'percentage') {
 			return items.map(item => {
+				if (!item.discountedValue || item.discountedValue === 0) {
+					return { ...item };
+				}
 				const base = item.discountedValue || 0;
 				const share = Number(((base * promo.value) / 100).toFixed(2));
 				return {
@@ -86,12 +90,17 @@ export class PrimeBillingEnterprise {
 				};
 			});
 		} else if (promo.type === 'flat') {
+			const validItems = items.filter(item => item.discountedValue && item.discountedValue !== 0);
 			const totalPromoDiscount = Number(promo.value);
-			const perItem = Number((totalPromoDiscount / items.length).toFixed(2));
+			const perItem = validItems.length > 0 ? Number((totalPromoDiscount / validItems.length).toFixed(2)) : 0;
 			let distributed = 0;
 			return items.map((item, idx) => {
+				if (!item.discountedValue || item.discountedValue === 0) {
+					return { ...item };
+				}
 				const base = item.discountedValue || 0;
-				const share = idx === items.length - 1
+				const validIdx = validItems.indexOf(item);
+				const share = validIdx === validItems.length - 1
 					? Number((totalPromoDiscount - distributed).toFixed(2))
 					: perItem;
 				distributed += share;
@@ -159,6 +168,9 @@ export class PrimeBillingEnterprise {
 
 	static applyDiscountsToTests<T extends { servicePrice?: number; discountedValue?: number; discount?: number; price?: number }>(tests: T[]): T[] {
 		return tests.map(test => {
+			if (!test.discountedValue || test.discountedValue === 0) {
+				return { ...test };
+			}
 			const discount = test.discount || 0;
 			const base = test.discountedValue;
 			const discountedValue = base - discount;
