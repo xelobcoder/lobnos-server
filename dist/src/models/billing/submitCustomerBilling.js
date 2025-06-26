@@ -47,12 +47,10 @@ class SubmitCustomerBilling {
                 entitytype,
                 tenantId
             });
-            console.log(checkoutResult);
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
-                return { success: false, message: `Checkout validation failed: ${checkoutResult}` };
+                return { status: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
             const data = checkoutResult.data;
-            // console.log("Checkout data:", data);
             const summaryFields = [
                 'subtotal',
                 'totaldiscount',
@@ -64,7 +62,7 @@ class SubmitCustomerBilling {
                 if (typeof data[field] === 'number' &&
                     typeof this.payload[field] === 'number' &&
                     Math.abs(data[field] - this.payload[field]) > 0.01) {
-                    return { success: false, message: `Submitted ${field} (${this.payload[field]}) does not match recalculated value (${data[field]}).` };
+                    return { status: false, message: `Submitted ${field} (${this.payload[field]}) does not match recalculated value (${data[field]}).` };
                 }
             }
             let updatedBillingData = this.payload;
@@ -93,8 +91,8 @@ class SubmitCustomerBilling {
                 const testPayableAmount = data.testPayableAmount || 0;
                 const totaldiscount = data.totaldiscount || 0;
                 const totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
-                const totalOutstanding = data.outstanding || 0;
-                const balance = data.paid - this.payload.paid;
+                const totalOutstanding = amountPayable - this.payload.paid;
+                const balance = this.payload.paid > totalAmountPayable ? 0 : totalAmountPayable - this.payload.paid;
                 const updateData = {
                     totalTransactionCost: totalcost,
                     totalcost: totalcost,
@@ -112,6 +110,7 @@ class SubmitCustomerBilling {
                     promoMethod: data.promoMethod || promoMethod,
                     promoCodeId: data.promoCodeId || promoCode,
                 };
+                // throw new Error("Unable to update billing record");
                 const result = await trx("billing")
                     .where("billingid", billingID)
                     .update({
@@ -133,15 +132,14 @@ class SubmitCustomerBilling {
                     promoMethod: updateData.promoMethod,
                     promoCodeId: updateData.promoCodeId,
                 });
-                console.log("Billing update result:", result);
                 if (!result)
                     throw new Error("unable to update billing record");
-                if (data.isPromo && data.promdo && data.promo.id) {
+                if (data.isPromo && data.promoCode && data.promoDetails.id) {
                     const promoRepo = new PrimeBillingPromoCodeRepo_1.PrimeBillingPromoCodeRepo(this.tenantId);
-                    await promoRepo.incrementUsage(data.promo.id, trx);
+                    await promoRepo.incrementUsage(data.promoDetails.id, trx);
                 }
                 const paymentsArr = Array.isArray(this.payload.payments) ? this.payload.payments : [];
-                if (paymentsArr.length > 0) {
+                if (Array.isArray(paymentsArr) && paymentsArr.length > 0) {
                     for (const payment of paymentsArr) {
                         const paymentMode = payment.mode;
                         const paymentAmount = payment.amount;
@@ -152,19 +150,13 @@ class SubmitCustomerBilling {
                         await billing_shared_1.BillingSharedRepo.insertBillHistory(trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
-                else {
-                    if (!this.payload.employeeid) {
-                        throw new Error("Missing employeeid in billing data.");
-                    }
-                    await billing_shared_1.BillingSharedRepo.insertBillHistory(trx, billingID, null, this.payload.paid, this.payload.employeeid, "credit");
-                }
                 await trx.commit();
             }
-            return { success: true, message: "Billing submitted successfully", billingid: billingID };
+            return { status: true, message: "Billing submitted successfully", billingid: billingID };
         }
         catch (error) {
             console.log("Error in submitCustomerBilling:", error);
-            return { success: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
+            return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
         }
     }
     static async validateBillingRequestBody(billingData, tenantId) {
@@ -211,7 +203,6 @@ class SubmitCustomerBilling {
         let registrationType = "self";
         if (billingData.billingSource > 1 && billingData.entityId) {
             entityId = parseInt(billingData.entityId.toString());
-            console.log("Entity ID:", entityId);
             switch (billingData.billingSource) {
                 case 2:
                     entityType = "organization";
@@ -273,7 +264,6 @@ class SubmitCustomerBilling {
                 packageid: billingData.packageid || null
             };
         }));
-        console.log(result);
         return result;
     }
     static async processNonTestServices(billingData, servicesProvided, billingID, taxValue, taxList) {

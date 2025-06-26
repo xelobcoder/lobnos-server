@@ -29,8 +29,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         let previousBilling = null;
         let previousServices = null;
         if (billingid) {
-            const conn = this.connection;
-            previousBilling = await conn('billing').where('billingid', billingid).first();
+            const conn = await this.connection;
+            previousBilling = await this.previousBillingSummary(billingid);
             previousServices = await conn('dboservices').where('billingid', billingid).select();
         }
         const totalOutstanding = await this.getCustomerOutstandingDebt(patientId);

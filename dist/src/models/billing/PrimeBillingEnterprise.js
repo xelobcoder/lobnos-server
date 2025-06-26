@@ -38,12 +38,13 @@ class PrimeBillingEnterprise {
             return errorMsg;
         return null;
     }
-    async validateNoOutstandingDebt(patientId, errorMsg = 'Outstanding debt found') {
+    async previousBillingSummary(billingId) {
         const conn = await (0, KnexConnections_1.default)(this.tenantId);
-        const result = await conn("billing").where("patientid", patientId).sum("outstanding as totalOutstanding").first();
-        if ((result === null || result === void 0 ? void 0 : result.totalOutstanding) && Number(result.totalOutstanding) > 0)
-            return errorMsg;
-        return null;
+        const result = await conn("billing")
+            .where("billingid", billingId)
+            .select("*")
+            .first();
+        return result || null;
     }
     async getReferralByCode(referalCode) {
         return await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).findByCode(parseInt(referalCode.toString(), 10));

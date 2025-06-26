@@ -42,12 +42,13 @@ export class PrimeBillingEnterprise {
 		if (!sessionExists) return errorMsg;
 		return null;
 	}
-
-	async validateNoOutstandingDebt(patientId: number, errorMsg = 'Outstanding debt found') {
+	async previousBillingSummary(billingId: number) {
 		const conn = await KnexConnection(this.tenantId);
-		const result = await conn("billing").where("patientid", patientId).sum("outstanding as totalOutstanding").first();
-		if (result?.totalOutstanding && Number(result.totalOutstanding) > 0) return errorMsg;
-		return null;
+		const result = await conn("billing")
+			.where("billingid", billingId)
+			.select("*")
+			.first();
+		return result || null;
 	}
 
 	async getReferralByCode(referalCode: number) {
@@ -269,7 +270,7 @@ export class PrimeBillingEnterprise {
 		recalculatedCart: any[];
 		recalculatedServicesList: any[];
 	}) {
-		
+
 		if (!Array.isArray(recalculatedCart) && !Array.isArray(recalculatedServicesList)) {
 			return { subtotal: 0, totaldiscount: 0, totalAmountIncurredDueTax: 0, totalServiceAmount: 0, totalpayable: 0 };
 		}

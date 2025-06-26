@@ -13,7 +13,7 @@ const resultSettings_1 = __importDefault(require("../../models/application/appse
 const appset_1 = __importDefault(require("./../../models/application/appsettings/appset"));
 const helper_1 = require("../../hooks/helper");
 const initCustomerBilling_1 = require("../../models/billing/initCustomerBilling");
-const submitCustomerBilling_1 = require("../../models/billing/submitCustomerBilling");
+const billing_new_client_multi_1 = require("../../models/billing/billing-new-client-multi");
 const customerBillingCheckout_1 = require("../../models/billing/customerBillingCheckout");
 const appsettings = new appset_1.default();
 const tax = new Tax_1.default(null);
@@ -430,7 +430,7 @@ const submitBillingHandler = async (req, res) => {
         // legacy/optional fields for compatibility
         patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList, entityId, } = req.body;
         // Use the SubmitCustomerBilling class and call .submit()
-        const result = await new submitCustomerBilling_1.SubmitCustomerBilling({
+        const result = await new billing_new_client_multi_1.SubmitCustomerBilling({
             tenantId,
             amountPayable,
             cart,
@@ -439,7 +439,7 @@ const submitBillingHandler = async (req, res) => {
             paid,
             status,
             isConditionsUnderstood,
-            patientId: patientid !== null && patientid !== void 0 ? patientid : patientId, // Fix: use patientId as required by method
+            patientId: patientid !== null && patientid !== void 0 ? patientid : patientId,
             employeeid,
             isPackageUsed,
             hasNightAdjustment,

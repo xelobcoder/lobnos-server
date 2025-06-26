@@ -44,8 +44,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           let previousBilling = null;
           let previousServices = null;
           if (billingid) {
-               const conn = this.connection;
-               previousBilling = await conn('billing').where('billingid', billingid).first();
+               const conn = await this.connection;
+               previousBilling = await this.previousBillingSummary(billingid);
                previousServices = await conn('dboservices').where('billingid', billingid).select();
           }
 
@@ -193,6 +193,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           if (billingsettings && billingsettings.hasNightAdjustment) {
                recalculatedCart = PrimeBillingEnterprise.applyNightAdjustmentsToTests(recalculatedCart, billingsettings, 'test');
           }
+
           if (isPromo && promoValid && promoCode && promoDetails) {
                recalculatedCart = PrimeBillingEnterprise.applyPromoToItems(recalculatedCart, { type: promoDetails.discount_type, value: promoDetails.discount_value });
           } else {

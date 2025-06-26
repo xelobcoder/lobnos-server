@@ -11,7 +11,7 @@ import { responseError, customError } from "../../hooks/helper";
 import { ApplicationBillSettings } from "../../models/application/appsettings/Type";
 import { CustomerBillingInit } from "../../models/billing/initCustomerBilling";
 import { EntityType } from "../../models/billing/billing_shared_types";
-import { SubmitCustomerBilling } from "../../models/billing/submitCustomerBilling";
+import { SubmitCustomerBilling } from "../../models/billing/billing-new-client-multi";
 import { CustomerBillingCheckout } from "../../models/billing/customerBillingCheckout";
 
 
@@ -492,7 +492,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			paid,
 			status,
 			isConditionsUnderstood,
-			patientId: patientid ?? patientId, // Fix: use patientId as required by method
+			patientId: patientid ?? patientId, 
 			employeeid,
 			isPackageUsed,
 			hasNightAdjustment,

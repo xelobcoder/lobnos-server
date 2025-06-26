@@ -46,15 +46,18 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
             return billingTypes_1.BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
         if (params.branchid === undefined || params.branchid === null)
             return billingTypes_1.BillingModuleCodes.BRANCH_ID_NOT_PROVIDED;
-        const [sessionExists, hasDebt, appsettings, taxation, previousRecordsSummary, paymentModes] = await Promise.all([
+        const [sessionExists, hasDebt, appsettings, taxation, paymentModes] = await Promise.all([
             this.hasActiveSession(params.branchid),
             this.hasOutstandingDebt(params.patientId),
             new appset_1.default().getAllAppSettings(this.tenantId),
             new appset_1.default().getAppBillSettings(this.tenantId),
-            this.getPreviousRecordsSummary(params.patientId),
             this.getPaymentModes()
         ]);
         // if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
+        let previousRecordsSummary = null;
+        if (params.billingid) {
+            previousRecordsSummary = this.previousBillingSummary(params.billingid);
+        }
         if (hasDebt)
             return billingTypes_1.BillingModuleCodes.MODULE_DEBT;
         if (!appsettings)
@@ -204,10 +207,6 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
             defaultCustomerInitData.registrationType = "self";
         }
         defaultCustomerInitData.paymentModes = paymentModes;
-    }
-    async getPreviousRecordsSummary(patientId) {
-        const conn = await (0, KnexConnections_1.default)(this.tenantId);
-        return await conn('billing').where('patientid', patientId).orderBy('billingid', 'desc').first();
     }
     async getPaymentModes() {
         const conn = await (0, KnexConnections_1.default)(this.tenantId);
