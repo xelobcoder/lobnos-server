@@ -411,6 +411,8 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			branchid,
 			billingSource,
 			referalCode,
+			entityid,
+			entitytype,
 			promoCode,
 			isPromo,
 			isPackageUsed,
@@ -425,6 +427,8 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			paymentDetails,
 			branchid,
 			billingSource,
+			entitytype,
+			entityid,
 			referalCode,
 			promoCode,
 			isPromo,
@@ -473,7 +477,9 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			referalCode,
 			promoCode,
 			packageid,
-			servicesList
+			servicesList,
+			entityId,
+
 		} = req.body;
 
 		// Use the SubmitCustomerBilling class and call .submit()
@@ -491,6 +497,8 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			isPackageUsed,
 			hasNightAdjustment,
 			samplingCenter,
+			entityId: entityId ? parseInt(entityId.toString(), 10) : undefined,
+			entityid: entityId ? parseInt(entityId.toString(), 10) : undefined,
 			payments,
 			isPromo,
 			promoMethod,

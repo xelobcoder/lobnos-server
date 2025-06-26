@@ -27,7 +27,8 @@ class PrimeBillingEnterprise {
         return (result === null || result === void 0 ? void 0 : result.totalOutstanding) || 0;
     }
     async hasOutstandingDebt(patientId) {
-        return await this.getCustomerOutstandingDebt(patientId) > 0;
+        const outstandingAmount = this.getCustomerOutstandingDebt(patientId);
+        return parseFloat(outstandingAmount.toString()) > 0;
     }
     async validateActiveSession(branchid, errorMsg = 'No active session') {
         const sessionRepo = new SalesSessionRepo_1.SalesSessionRepo(this.tenantId);
@@ -147,7 +148,6 @@ class PrimeBillingEnterprise {
     }
     static applyDiscountsToTests(tests) {
         return tests.map(test => {
-            console.log("Applying discount to test:", test);
             const discount = test.discount || 0;
             const base = test.discountedValue;
             const discountedValue = base - discount;
@@ -192,8 +192,16 @@ class PrimeBillingEnterprise {
     static reformatServicesList(servicesList, isNightTime, taxList, taxValue) {
         if (!Array.isArray(servicesList))
             return [];
-        return servicesList.map(service => (Object.assign(Object.assign({}, service), { id: service.serviceid, name: service.serviceName, price: service.servicePrice, originalPrice: service.servicePrice, totalpayable: service.servicePrice, totalcost: service.servicePrice, discountedValue: service.servicePrice, actualPrice: service.servicePrice, concessionMode: "absolute", concessionValue: 0, discount: 0, hasNightAdjustment: false, nightAdjustmentEndTime: '', nightAdjustmentMode: 'none', nightAdjustmentStartTime: '', nightAdjustmentValue: 0, isoutsourced: 0, amountIncurredDueTax: 0, isNightTime: isNightTime, pricingType: 'service', trackId: service.keyid, taxList,
-            taxValue })));
+        return servicesList.map(service => {
+            const base = Object.assign(Object.assign({}, service), { id: service.serviceid, name: service.serviceName, price: service.servicePrice, originalPrice: service.servicePrice, totalpayable: service.servicePrice, totalcost: service.servicePrice, discountedValue: service.servicePrice, actualPrice: service.servicePrice, concessionMode: "absolute", concessionValue: 0, discount: 0, isoutsourced: 0, amountIncurredDueTax: 0, isNightTime: isNightTime, trackId: service.keyid, taxList,
+                taxValue });
+            if (isNightTime && service.billingsettings && service.billingsettings.hasNightAdjustment) {
+                return Object.assign(Object.assign({}, base), { hasNightAdjustment: isNightTime, nightAdjustmentValue: Number(service.billingsettings.nightAdjustmentValue), nightAdjustmentMode: service.billingsettings.nightAdjustmentMode, nightAdjustmentStartTime: service.billingsettings.startTime, nightAdjustmentEndTime: service.billingsettings.endTime });
+            }
+            else {
+                return Object.assign(Object.assign({}, base), { hasNightAdjustment: false });
+            }
+        });
     }
     static calculateBillingTotals({ usedPackage, recalculatedPackageList, recalculatedCart, recalculatedServicesList }) {
         let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0;
@@ -223,7 +231,15 @@ class PrimeBillingEnterprise {
     static addNightAdjustmentInfo(items, billingsettings) {
         if (!Array.isArray(items))
             return items;
-        return items.map(item => (Object.assign(Object.assign({}, item), { hasNightAdjustment: !!(billingsettings && billingsettings.hasNightAdjustment), nightAdjustmentValue: billingsettings && billingsettings.hasNightAdjustment ? Number(billingsettings.nightAdjustmentValue) : undefined, nightAdjustmentMode: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.nightAdjustmentMode : undefined, nightAdjustmentStartTime: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.startTime : undefined, nightAdjustmentEndTime: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.endTime : undefined })));
+        const isNightTime = PrimeBillingEnterprise.isNightTime(billingsettings);
+        return items.map(item => {
+            if (billingsettings && billingsettings.hasNightAdjustment) {
+                return Object.assign(Object.assign({}, item), { hasNightAdjustment: isNightTime, nightAdjustmentValue: Number(billingsettings.nightAdjustmentValue), nightAdjustmentMode: billingsettings.nightAdjustmentMode, nightAdjustmentStartTime: billingsettings.startTime, nightAdjustmentEndTime: billingsettings.endTime, isNightTime: isNightTime });
+            }
+            else {
+                return Object.assign(Object.assign({}, item), { hasNightAdjustment: false });
+            }
+        });
     }
     async handleServices(defaultCustomerInitData, appsettings, taxation, includeServices) {
         if (!includeServices)
@@ -255,7 +271,7 @@ class PrimeBillingEnterprise {
         }
         return servicesList;
     }
-    static async recalculateServicesList({ billing, servicesList, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation }) {
+    static async recalculateServicesList({ billing, servicesList, billingsettings, isPromo, promoValid, promoCode, entitytype, entityid, promoDetails, includeTax, taxation }) {
         if (!servicesList || !Array.isArray(servicesList) || servicesList.length === 0)
             return [];
         const selectedServiceIds = servicesList.map((item) => { var _a; return (_a = item.id) !== null && _a !== void 0 ? _a : item.keyid; });
@@ -264,13 +280,29 @@ class PrimeBillingEnterprise {
             return [];
         let recalculatedServicesList = allServices
             .filter((service) => { var _a; return selectedServiceIds.includes((_a = service.id) !== null && _a !== void 0 ? _a : service.keyid); })
-            .map((service) => (Object.assign(Object.assign({}, service), { discountedValue: service.servicePrice, discount: service.discount || 0, amountIncurredDueTax: 0, totalcost: null, totalpayable: null, promoDiscount: 0, isNightTime: false })));
+            .map((service) => {
+            const price = service.servicePrice || 0;
+            const discount = service.discount || 0;
+            const promoDiscount = 0; // will be set later if promo is applied
+            const amountIncurredDueTax = 0; // will be set later if tax is applied
+            const totalcost = price; // will be updated if tax is applied
+            const totalpayable = price - discount; // will be updated if promo/tax is applied
+            return Object.assign(Object.assign({}, service), { discountedValue: price, discount,
+                amountIncurredDueTax,
+                totalcost,
+                totalpayable,
+                promoDiscount,
+                entityid,
+                entitytype });
+        });
         if (billingsettings && billingsettings.hasNightAdjustment) {
             recalculatedServicesList = PrimeBillingEnterprise.applyNightAdjustmentsToTests(recalculatedServicesList, billingsettings, 'services');
         }
-        recalculatedServicesList = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedServicesList);
         if (isPromo && promoValid && promoCode && promoDetails) {
             recalculatedServicesList = PrimeBillingEnterprise.applyPromoToItems(recalculatedServicesList, { type: promoDetails.discount_type, value: promoDetails.discount_value });
+        }
+        else {
+            recalculatedServicesList = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedServicesList);
         }
         if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
             recalculatedServicesList = PrimeBillingEnterprise.applyTaxToTests(recalculatedServicesList, taxation.taxValue);

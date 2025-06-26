@@ -57,13 +57,14 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
           const [sessionExists, hasDebt, appsettings, taxation, previousRecordsSummary, paymentModes] = await Promise.all([
                this.hasActiveSession(params.branchid),
-               this.getCustomerOutstandingDebt(params.patientId),
+               this.hasOutstandingDebt(params.patientId),
                new ApplicationSettings().getAllAppSettings(this.tenantId),
                new ApplicationSettings().getAppBillSettings(this.tenantId),
                this.getPreviousRecordsSummary(params.patientId),
                this.getPaymentModes()
           ]);
-
+          
+          if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
           if (hasDebt) return BillingModuleCodes.MODULE_DEBT;
           if (!appsettings) return [];
           if (params.billingid !== undefined && (typeof params.billingid !== 'number' || isNaN(params.billingid))) return BillingModuleCodes.MODULE_NO_VALID_BILLING_ID;
@@ -151,9 +152,14 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           } else {
                ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);
           }
-          defaultCustomerInitData.testList = PrimeBillingEnterprise.applyDiscountsToTests(ApplicableTest);
+          if (defaultCustomerInitData.promoCode && defaultCustomerInitData.promoCode.value && defaultCustomerInitData.promoCode.type) {
+               // Only apply promo, not regular discounts
+               ApplicableTest = PrimeBillingEnterprise.applyPromoToItems(ApplicableTest, defaultCustomerInitData.promoCode);
+          } else {
+               ApplicableTest = PrimeBillingEnterprise.applyDiscountsToTests(ApplicableTest);
+          }
           if (appsettings.billingsettings && appsettings.billingsettings.hasNightAdjustment && !isPackageUsed) {
-               defaultCustomerInitData.testList = PrimeBillingEnterprise.applyNightAdjustmentsToTests(defaultCustomerInitData.testList, appsettings.billingsettings, 'test');
+               ApplicableTest = PrimeBillingEnterprise.applyNightAdjustmentsToTests(ApplicableTest, appsettings.billingsettings, 'test');
                defaultCustomerInitData.hasNightAdjustment = true;
                defaultCustomerInitData.nightAdjustmentValue = appsettings.billingsettings.nightAdjustmentValue ? Number(appsettings.billingsettings.nightAdjustmentValue) : undefined;
                defaultCustomerInitData.nightAdjustmentMode = appsettings.billingsettings.nightAdjustmentMode;
@@ -161,10 +167,11 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                defaultCustomerInitData.endTime = appsettings.billingsettings.endTime;
           }
           if (appsettings.includeTax && appsettings.includeTax === 1 && taxation && taxation.taxValue > 0) {
-               defaultCustomerInitData.testList = PrimeBillingEnterprise.applyTaxToTests(defaultCustomerInitData.testList, taxation.taxValue);
+               ApplicableTest = PrimeBillingEnterprise.applyTaxToTests(ApplicableTest, taxation.taxValue);
                defaultCustomerInitData.taxIncluded = true;
                taxation.taxValue = taxation.taxValue || 0;
           }
+          defaultCustomerInitData.testList = ApplicableTest;
      }
 
      public async handleServices(defaultCustomerInitData: any, appsettings: any, taxation: any, includeServices: boolean) {

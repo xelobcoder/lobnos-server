@@ -31,7 +31,8 @@ export class PrimeBillingEnterprise {
 	}
 
 	async hasOutstandingDebt(patientId: number): Promise<boolean> {
-		return await this.getCustomerOutstandingDebt(patientId) > 0;
+		const outstandingAmount =  this.getCustomerOutstandingDebt(patientId) ;
+		return parseFloat(outstandingAmount.toString()) > 0;
 	}
 
 	async validateActiveSession(branchid: number, errorMsg = 'No active session') {
@@ -157,7 +158,6 @@ export class PrimeBillingEnterprise {
 
 	static applyDiscountsToTests<T extends { servicePrice?: number; discountedValue?: number; discount?: number; price?: number }>(tests: T[]): T[] {
 		return tests.map(test => {
-			console.log("Applying discount to test:", test);
 			const discount = test.discount || 0;
 			const base = test.discountedValue;
 			const discountedValue = base - discount;
@@ -219,32 +219,43 @@ export class PrimeBillingEnterprise {
 	}
 	static reformatServicesList(servicesList: any[], isNightTime: boolean, taxList: string, taxValue: number): any[] {
 		if (!Array.isArray(servicesList)) return [];
-		return servicesList.map(service => ({
-			...service,
-			id: service.serviceid,
-			name: service.serviceName,
-			price: service.servicePrice,
-			originalPrice: service.servicePrice,
-			totalpayable: service.servicePrice,
-			totalcost: service.servicePrice,
-			discountedValue: service.servicePrice,
-			actualPrice: service.servicePrice,
-			concessionMode: "absolute",
-			concessionValue: 0,
-			discount: 0,
-			hasNightAdjustment: false,
-			nightAdjustmentEndTime: '',
-			nightAdjustmentMode: 'none',
-			nightAdjustmentStartTime: '',
-			nightAdjustmentValue: 0,
-			isoutsourced: 0,
-			amountIncurredDueTax: 0,
-			isNightTime: isNightTime,
-			pricingType: 'service',
-			trackId: service.keyid,
-			taxList,
-			taxValue
-		}));
+		return servicesList.map(service => {
+			const base = {
+				...service,
+				id: service.serviceid,
+				name: service.serviceName,
+				price: service.servicePrice,
+				originalPrice: service.servicePrice,
+				totalpayable: service.servicePrice,
+				totalcost: service.servicePrice,
+				discountedValue: service.servicePrice,
+				actualPrice: service.servicePrice,
+				concessionMode: "absolute",
+				concessionValue: 0,
+				discount: 0,
+				isoutsourced: 0,
+				amountIncurredDueTax: 0,
+				isNightTime: isNightTime,
+				trackId: service.keyid,
+				taxList,
+				taxValue
+			};
+			if (isNightTime && service.billingsettings && service.billingsettings.hasNightAdjustment) {
+				return {
+					...base,
+					hasNightAdjustment: isNightTime,
+					nightAdjustmentValue: Number(service.billingsettings.nightAdjustmentValue),
+					nightAdjustmentMode: service.billingsettings.nightAdjustmentMode,
+					nightAdjustmentStartTime: service.billingsettings.startTime,
+					nightAdjustmentEndTime: service.billingsettings.endTime
+				};
+			} else {
+				return {
+					...base,
+					hasNightAdjustment: false
+				};
+			}
+		});
 	}
 
 	static calculateBillingTotals({
@@ -284,14 +295,25 @@ export class PrimeBillingEnterprise {
 
 	static addNightAdjustmentInfo(items: any[], billingsettings: any): any[] {
 		if (!Array.isArray(items)) return items;
-		return items.map(item => ({
-			...item,
-			hasNightAdjustment: !!(billingsettings && billingsettings.hasNightAdjustment),
-			nightAdjustmentValue: billingsettings && billingsettings.hasNightAdjustment ? Number(billingsettings.nightAdjustmentValue) : undefined,
-			nightAdjustmentMode: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.nightAdjustmentMode : undefined,
-			nightAdjustmentStartTime: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.startTime : undefined,
-			nightAdjustmentEndTime: billingsettings && billingsettings.hasNightAdjustment ? billingsettings.endTime : undefined
-		}));
+		const isNightTime = PrimeBillingEnterprise.isNightTime(billingsettings);
+		return items.map(item => {
+			if (billingsettings && billingsettings.hasNightAdjustment) {
+				return {
+					...item,
+					hasNightAdjustment: isNightTime,
+					nightAdjustmentValue: Number(billingsettings.nightAdjustmentValue),
+					nightAdjustmentMode: billingsettings.nightAdjustmentMode,
+					nightAdjustmentStartTime: billingsettings.startTime,
+					nightAdjustmentEndTime: billingsettings.endTime,
+					isNightTime: isNightTime
+				};
+			} else {
+				return {
+					...item,
+					hasNightAdjustment: false
+				};
+			}
+		});
 	}
 
 	async handleServices(defaultCustomerInitData: any, appsettings: any, taxation: any, includeServices: boolean) {
@@ -333,6 +355,8 @@ export class PrimeBillingEnterprise {
 		isPromo,
 		promoValid,
 		promoCode,
+		entitytype,
+		entityid,
 		promoDetails,
 		includeTax,
 		taxation
@@ -340,26 +364,37 @@ export class PrimeBillingEnterprise {
 		if (!servicesList || !Array.isArray(servicesList) || servicesList.length === 0) return [];
 		const selectedServiceIds = servicesList.map((item: any) => item.id ?? item.keyid);
 		const allServices = await billing.getAllServices();
+
 		if (!Array.isArray(allServices) || allServices.length === 0) return [];
 		let recalculatedServicesList = allServices
 			.filter((service: any) => selectedServiceIds.includes(service.id ?? service.keyid))
-			.map((service: any) => ({
-				...service,
-				discountedValue: service.servicePrice,
-				discount: service.discount || 0,
-				amountIncurredDueTax: 0,
-				totalcost: null,
-				totalpayable: null,
-				promoDiscount: 0,
-				isNightTime: false
-			}));
+			.map((service: any) => {
+				const price = service.servicePrice || 0;
+				const discount = service.discount || 0;
+				const promoDiscount = 0; // will be set later if promo is applied
+				const amountIncurredDueTax = 0; // will be set later if tax is applied
+				const totalcost = price; // will be updated if tax is applied
+				const totalpayable = price - discount; // will be updated if promo/tax is applied
+				return {
+					...service,
+					discountedValue: price,
+					discount,
+					amountIncurredDueTax,
+					totalcost,
+					totalpayable,
+					promoDiscount,
+					entityid,
+					entitytype,
+				};
+			});
 
 		if (billingsettings && billingsettings.hasNightAdjustment) {
 			recalculatedServicesList = PrimeBillingEnterprise.applyNightAdjustmentsToTests(recalculatedServicesList, billingsettings, 'services');
 		}
-		recalculatedServicesList = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedServicesList);
 		if (isPromo && promoValid && promoCode && promoDetails) {
 			recalculatedServicesList = PrimeBillingEnterprise.applyPromoToItems(recalculatedServicesList, { type: promoDetails.discount_type, value: promoDetails.discount_value });
+		} else {
+			recalculatedServicesList = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedServicesList);
 		}
 		if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
 			recalculatedServicesList = PrimeBillingEnterprise.applyTaxToTests(recalculatedServicesList, taxation.taxValue);

@@ -529,7 +529,7 @@ class BillingSharedRepo {
                 });
                 if (outcome && item[5] != 5 && item[1]) {
                     try {
-                        await this.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                        await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
                     }
                     catch (err) {
                         throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);

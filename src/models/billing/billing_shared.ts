@@ -458,8 +458,8 @@ export class BillingSharedRepo {
           return result;
      }
 
-     
-    
+
+
      static async processNonTestServices(
           billingData: MultiTBillingDataShared,
           servicesProvided: servicesProvided & {
@@ -539,7 +539,7 @@ export class BillingSharedRepo {
      }
 
 
-     public async mapAndInsertServices(tenantId: number, allEntries: ServiceEntry[], billingid: number, trx?: any) {
+     public async mapAndInsertServices(tenantId: number, allEntries: any[], billingid: number, trx?: any) {
           try {
                const servicesMap = allEntries.map((service) => {
                     return [
@@ -574,7 +574,6 @@ export class BillingSharedRepo {
                          service.packageid
                     ];
                });
-
                const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
                return loadAllServices;
           } catch (err) {
@@ -623,7 +622,7 @@ export class BillingSharedRepo {
 
                     if (outcome && item[5] != 5 && item[1]) {
                          try {
-                              await this.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                              await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
                          } catch (err) {
                               throw new Error(billErrors.unableToLoadTestAscension);
                          }

@@ -389,7 +389,7 @@ const checkoutBillingHandler = async (req, res) => {
         const tenantId = parseInt(req.query.tenantId, 10);
         if (!tenantId)
             return res.status(400).json({ success: false, message: 'Missing tenantId' });
-        const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid } = req.body;
+        const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, entityid, entitytype, promoCode, isPromo, isPackageUsed, packageid } = req.body;
         const result = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
             patientId,
             billingid,
@@ -398,6 +398,8 @@ const checkoutBillingHandler = async (req, res) => {
             paymentDetails,
             branchid,
             billingSource,
+            entitytype,
+            entityid,
             referalCode,
             promoCode,
             isPromo,
@@ -426,7 +428,7 @@ const submitBillingHandler = async (req, res) => {
         // Destructure all possible fields from the payload
         const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, promoMethod, 
         // legacy/optional fields for compatibility
-        patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList } = req.body;
+        patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList, entityId, } = req.body;
         // Use the SubmitCustomerBilling class and call .submit()
         const result = await new submitCustomerBilling_1.SubmitCustomerBilling({
             tenantId,
@@ -442,6 +444,8 @@ const submitBillingHandler = async (req, res) => {
             isPackageUsed,
             hasNightAdjustment,
             samplingCenter,
+            entityId: entityId ? parseInt(entityId.toString(), 10) : undefined,
+            entityid: entityId ? parseInt(entityId.toString(), 10) : undefined,
             payments,
             isPromo,
             promoMethod,

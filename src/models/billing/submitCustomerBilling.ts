@@ -4,6 +4,7 @@ import { BillErrors, MultiTBillingDataShared } from "./billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry } from "./billingclientTypes";
 import { BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { CustomerBillingCheckout } from "./customerBillingCheckout";
+import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 
 export class SubmitCustomerBilling {
     private payload: any;
@@ -16,144 +17,207 @@ export class SubmitCustomerBilling {
     }
 
     async submit(): Promise<{ success: boolean; message: string; billingid?: number }> {
-        const {
-            tenantId,
-            patientId,
-            billingid,
-            cart,
-            servicesProvided,
-            paymentDetails,
-            branchid,
-            billingSource,
-            referalCode,
-            promoCode,
-            isPromo,
-            isPackageUsed,
-            packageid,
-            amountPayable,
-            employeeid,
-            samplingCenter,
-            payments,
-            status,
-            isConditionsUnderstood,
-            hasNightAdjustment,
-            promoMethod,
-            ...rest
-        } = this.payload;
+        try {
+            const {
+                tenantId,
+                patientId,
+                billingid,
+                cart,
+                servicesProvided,
+                paymentDetails,
+                branchid,
+                billingSource,
+                referalCode,
+                promoCode,
+                isPromo,
+                isPackageUsed,
+                packageid,
+                amountPayable,
+                employeeid,
+                samplingCenter,
+                payments,
+                status,
+                isConditionsUnderstood,
+                hasNightAdjustment,
+                promoMethod,
+                ...rest
+            } = this.payload;
 
-        // Use checkout, not init
-        const checkoutResult = await CustomerBillingCheckout.checkoutCustomerBilling({
-            patientId,
-            billingid,
-            cart,
-            servicesList: servicesProvided,
-            paymentDetails,
-            branchid,
-            billingSource,
-            referalCode,
-            promoCode,
-            isPromo,
-            isPackageUsed,
-            packageid,
-            tenantId
-        });
-        if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
-            return { success: false, message: `Checkout validation failed: ${checkoutResult}` };
-        }
-        const data = checkoutResult.data;
-        const summaryFields = [
-            'subtotal',
-            'totaldiscount',
-            'totalAmountIncurredDueTax',
-            'totalServiceAmount',
-            'amountPayable',
-        ];
-        for (const field of summaryFields) {
-            if (
-                typeof data[field] === 'number' &&
-                typeof this.payload[field] === 'number' &&
-                Math.abs(data[field] - this.payload[field]) > 0.01
-            ) {
-                return { success: false, message: `Submitted ${field} (${this.payload[field]}) does not match recalculated value (${data[field]}).` };
+            const checkoutResult = await CustomerBillingCheckout.checkoutCustomerBilling({
+                patientId,
+                billingid,
+                cart,
+                servicesList: servicesProvided,
+                paymentDetails,
+                branchid,
+                billingSource,
+                referalCode,
+                promoCode,
+                isPromo,
+                isPackageUsed,
+                packageid,
+                tenantId
+            });
+            if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
+                return { success: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
-        }
+            const data = checkoutResult.data;
 
-        let updatedBillingData: CustomerInitResponse = this.payload;
-
-        if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
-            updatedBillingData.cart = data.packageTestList;
-        }
-
-        const conn = await this.connection;
-        const trx = await conn.transaction();
-        const billingID = await BillingSharedRepo.generateBillingID(
-            this.payload.patientid,
-            this.tenantId,
-            trx
-        );
-
-        await SubmitCustomerBilling.processTestCartWithoutRecalculation(
-            updatedBillingData,
-            billingID,
-            updatedBillingData.taxValue,
-            trx
-        );
-
-
-        const testResult = await BillingSharedRepo.processTestCart(
-            this.tenantId,
-            updatedBillingData as unknown as MultiTBillingDataShared,
-            billingID,
-            updatedBillingData.taxValue,
-            updatedBillingData.taxList,
-            trx
-        );
-
-
-        // Insert non-test services
-        const Multi = new BillingSharedRepo();
-        const serviceEntries = await Multi.mapAndInsertServices(this.tenantId, updatedBillingData.cart, billingID, trx);
-
-        // Combine test results and service entries
-
-        const allEntries = [...testResult, ...serviceEntries];
-
-        if (allEntries.length > 0) {
-            const loadAllServices = await new BillingSharedRepo()
-                .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
-
-            if (loadAllServices.length > 0) {
-                throw new Error(BillErrors.UnableToLoadServices);
+            const summaryFields = [
+                'subtotal',
+                'totaldiscount',
+                'totalAmountIncurredDueTax',
+                'totalServiceAmount',
+                'amountPayable',
+            ];
+            for (const field of summaryFields) {
+                if (
+                    typeof data[field] === 'number' &&
+                    typeof this.payload[field] === 'number' &&
+                    Math.abs(data[field] - this.payload[field]) > 0.01
+                ) {
+                    return { success: false, message: `Submitted ${field} (${this.payload[field]}) does not match recalculated value (${data[field]}).` };
+                }
             }
 
-            const totalcost = updatedBillingData.totalcost;
-            const totalservicesAmount = updatedBillingData.totalServiceAmountPayable;
-            const totalAmountPayable = updatedBillingData.amountPayable;
-            const testPayableAmount = updatedBillingData.testPayableAmount || 0;
-            const totaldiscount = data.totaldiscount || 0;
-            const totalAmountIncurredDueTax = data.totalAmountIncurredDueTax || 0;
-            const totalOutstanding = updatedBillingData.outstanding || 0;
-            const balance = updatedBillingData.paid - this.payload.paid;
-            console.log("Total Cost:", totalcost);
+            let updatedBillingData: CustomerInitResponse = this.payload;
 
-            const updateData = {
-                totalTransactionCost: totalcost,
-                totalcost: totalcost,
-                totalServiceAmountPayable: totalservicesAmount,
-                amountPayable: totalAmountPayable,
-                testPayableAmount: testPayableAmount,
-                totaldiscount: totaldiscount,
-                totalAmountIncurredDueTax: totalAmountIncurredDueTax,
-                outstanding: totalOutstanding,
-                paid: updatedBillingData.paid,
-                balance: balance,
-                totalrefunded: 0,
-                isPromo: updatedBillingData.isPromo || false,
-                promoValue: promoCode ? updatedBillingData.promoValue : 0,
-                promoMethod: promoMethod,
-                promoCodeId: promoCode,
+            if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
+                updatedBillingData.cart = data.packageTestList;
             }
 
+            const conn = await this.connection;
+            const trx = await conn.transaction();
+            const billingID = await BillingSharedRepo.generateBillingID(
+                this.payload.patientid,
+                this.tenantId,
+                trx
+            );
+
+            const taxValue = updatedBillingData.taxValue || 0;
+            const taxList = updatedBillingData.taxList || null;
+            const taxIncluded = updatedBillingData.taxIncluded || false;
+
+            const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(
+                updatedBillingData,
+                billingID, taxValue, taxIncluded, taxList);
+
+            const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(
+                updatedBillingData as unknown as MultiTBillingDataShared,
+                updatedBillingData.servicesProvided,
+                billingID,
+                taxValue,
+                taxList
+            );
+
+            const allEntries = [...processNonTestServices, ...processTestCart];
+            const Multi = new BillingSharedRepo();
+
+            if (allEntries.length > 0) {
+                const loadAllServices = await Multi
+                    .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
+
+                if (loadAllServices.length > 0) {
+                    throw new Error(BillErrors.UnableToLoadServices);
+                }
+
+
+                const totalcost = data.totalcost;
+                const totalservicesAmount = data.totalServiceAmountPayable;
+                const totalAmountPayable = data.amountPayable;
+                const testPayableAmount = data.testPayableAmount || 0;
+                const totaldiscount = data.totaldiscount || 0;
+                const totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
+                const totalOutstanding = data.outstanding || 0;
+                const balance = data.paid - this.payload.paid;
+
+
+                const updateData = {
+                    totalTransactionCost: totalcost,
+                    totalcost: totalcost,
+                    totalServiceAmountPayable: totalservicesAmount,
+                    amountPayable: totalAmountPayable,
+                    testPayableAmount: testPayableAmount,
+                    totaldiscount: totaldiscount,
+                    totalAmountIncurredDueTax: totalAmountIncurredDueTax,
+                    outstanding: totalOutstanding,
+                    paid: updatedBillingData.paid,
+                    balance: balance,
+                    totalrefunded: 0,
+                    isPromo: data.isPromo || false,
+                    promoValue: data.promoValue || 0,
+                    promoMethod: data.promoMethod || promoMethod,
+                    promoCodeId: data.promoCodeId || promoCode,
+                }
+
+                const result = await trx("billing")
+                    .where("billingid", billingID)
+                    .update({
+                        billingid: billingID,
+                        patientid: updatedBillingData.patientId,
+                        totalcost: updateData.totalcost,
+                        totalTransactionCost: updateData.totalTransactionCost,
+                        totalrefunded: updateData.totalrefunded,
+                        discount: updateData.totaldiscount,
+                        paid: this.payload.paid,
+                        payable: updateData.amountPayable,
+                        outstanding: updateData.outstanding,
+                        balance: updateData.balance,
+                        clientstatus: status || "normal",
+                        amountIncurredDueTax: updateData.totalAmountIncurredDueTax,
+                        branchid: updatedBillingData.branchid,
+                        isPromo: updateData.isPromo,
+                        promoValue: updateData.promoValue,
+                        promoMethod: updateData.promoMethod,
+                        promoCodeId: updateData.promoCodeId,
+                    });
+
+                    console.log("Billing update result:", result);
+
+                if (!result) throw new Error("unable to update billing record");
+
+                if (data.isPromo && data.promdo && data.promo.id) {
+                    const promoRepo = new PrimeBillingPromoCodeRepo(this.tenantId);
+                    await promoRepo.incrementUsage(data.promo.id, trx);
+                }
+
+                    const paymentsArr = Array.isArray(this.payload.payments) ? this.payload.payments : [];
+                    if (paymentsArr.length > 0) {
+                        for (const payment of paymentsArr) {
+                            const paymentMode = payment.mode;
+                            const paymentAmount = payment.amount;
+                            const employeeId = payment.employeeid || this.payload.employeeid;
+                            if (!paymentMode || !employeeId) {
+                                throw new Error("Missing mode or employeeid in payment record.");
+                            }
+                            await BillingSharedRepo.insertBillHistory(
+                                trx,
+                                billingID,
+                                paymentMode,
+                                paymentAmount,
+                                employeeId,
+                                "credit"
+                            );
+                        }
+                    } else {
+                        if (!this.payload.employeeid) {
+                            throw new Error("Missing employeeid in billing data.");
+                        }
+                        await BillingSharedRepo.insertBillHistory(
+                            trx,
+                            billingID,
+                            null,
+                            this.payload.paid,
+                            this.payload.employeeid,
+                            "credit"
+                        );
+                    }
+                    await trx.commit();
+            }
+            return { success: true, message: "Billing submitted successfully", billingid: billingID };
+        } catch (error: any) {
+            console.log("Error in submitCustomerBilling:", error);
+            return { success: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
         }
     }
     static async validateBillingRequestBody(billingData: any, tenantId: number): Promise<true | string> {
@@ -208,7 +272,6 @@ export class SubmitCustomerBilling {
             }
         }
 
-     
         return true;
     }
 
@@ -216,7 +279,8 @@ export class SubmitCustomerBilling {
         billingData: any,
         billingID: number,
         taxValue: number,
-        taxList: any,
+        taxIncluded: boolean,
+        taxList: any = null
     ): Promise<any[]> {
         let entityType: string = "general";
         let entityId: number = 0;
@@ -226,6 +290,7 @@ export class SubmitCustomerBilling {
         let registrationType: string = "self";
         if (billingData.billingSource > 1 && billingData.entityId) {
             entityId = parseInt(billingData.entityId.toString());
+            console.log("Entity ID:", entityId);
             switch (billingData.billingSource) {
                 case 2:
                     entityType = "organization";
@@ -259,7 +324,7 @@ export class SubmitCustomerBilling {
                 return {
                     billingid: billingID,
                     trackId: item.testid,
-                    cost: item.cost,
+                    cost: item.actualPrice,
                     employeeid: billingData.employeeid,
                     serviceCategory: serviceCategory[billingData.billingSource],
                     categoryTrackId: billingData.billingSource,
@@ -273,7 +338,7 @@ export class SubmitCustomerBilling {
                     taxList: typeof taxList === "string" ? taxList : null,
                     taxValue,
                     amountIncurredDueTax: item.amountIncurredDueTax,
-                    taxIncluded: billingData.taxIncluded,
+                    taxIncluded: taxIncluded == true ? 1 : 0,
                     discount: item.discount,
                     totalcost: item.totalcost,
                     totalpayable: item.totalpayable,
@@ -293,8 +358,6 @@ export class SubmitCustomerBilling {
         console.log(result);
         return result;
     }
-
-
 
     static async processNonTestServices(
         billingData: MultiTBillingDataShared,
@@ -319,38 +382,42 @@ export class SubmitCustomerBilling {
         let organizationId = null;
         let clinicianId = null;
         let insuranceId = null;
+        let registrationType = "self";
 
         const entityId = billingData.entityId ? parseInt(billingData.entityId.toString()) : null;
 
         switch (billingData.billingSource) {
             case 2:
                 organizationId = entityId;
+                registrationType = "organization";
                 break;
             case 3:
             case 4:
                 insuranceId = entityId;
+                registrationType = "insurance";
                 break;
             case 6:
                 clinicianId = entityId;
+                registrationType = "clinician";
                 break;
         }
-        const { employeeid, samplingCenter, taxIncluded, type, billingSource, isPackageUsed } = billingData;
+
+        const { employeeid, branchid, taxIncluded, billingSource, isPackageUsed } = billingData;
 
         return await Promise.all(
             servicesProvided
                 .map(async (item: any) => {
-                    console.log(item)
                     return {
                         billingid: billingID,
                         trackId: item.keyid,
-                        cost: item.cost,
+                        cost: item.servicePrice,
                         employeeid,
                         serviceCategory: serviceCategory[5],
                         categoryTrackId: 5,
                         clinicianId,
                         organizationId,
-                        registrationType: type,
-                        branchid: samplingCenter,
+                        registrationType,
+                        branchid,
                         isoutsourced: 0,
                         outsourceid: 0,
                         serviceAddedOn: new Date(),
@@ -360,12 +427,12 @@ export class SubmitCustomerBilling {
                         taxIncluded,
                         discount: item.discount,
                         totalcost: item.totalcost,
-                        totalpayable: item.discountedValue,
+                        totalpayable: item.totalpayable,
                         isNHIS: billingSource === 4 ? 1 : 0,
                         isPHIS: billingSource === 3 ? 1 : 0,
                         insuranceid: insuranceId || null,
                         claimCode: null,
-                        hasNightAdjustment: item.hasNightAdjustment,
+                        hasNightAdjustment: item.isNightTime,
                         nightAdjustmentMode: item.nightAdjustmentMode,
                         nightAdjustmentValue: item.nightAdjustmentValue,
                         isPackageUsed: isPackageUsed ? 1 : 0,
