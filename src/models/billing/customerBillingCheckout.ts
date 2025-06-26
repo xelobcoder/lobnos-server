@@ -3,7 +3,7 @@ import { ApplicationSettingsData, AppSetting } from "../application/appsettings/
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
-import { Console } from "winston/lib/winston/transports";
+;
 
 class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
      static instance: CustomerBillingCheckoutSingleton;
@@ -77,9 +77,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
 
           if (isPackageUsed && packageid) {
                const pkgResult = await PackageBillingHelper.handlePackageCheckout({
-                    tenantId: tenantId,
-                    packageid,
-                    cart
+                    tenantId,
+                    packageid   
                });
                if (!pkgResult.success) return { success: false, message: pkgResult.message };
                recalculatedPackageList = pkgResult.recalculatedPackageList || [];
@@ -99,12 +98,13 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                includeTax,
                taxation,
                entityid,
-               entitytype     
+               entitytype
           });
 
           const {
                subtotal,
                totaldiscount,
+               totalpayable,
                totalAmountIncurredDueTax,
                totalServiceAmount
           } = PrimeBillingEnterprise.calculateBillingTotals({
@@ -114,19 +114,15 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                recalculatedServicesList
           });
 
-          if (isPromo && promoValid && promoCode && promoDetails) {
-               promoDiscount = PrimeBillingEnterprise.calculatePromoDiscount(subtotal, promoDetails);
-          }
 
           const toFixed2 = (num: number) => Number(num.toFixed(2));
-
           const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
-          // amountPayable should be the sum of all items' totalpayable (cart + servicesList)
           const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
           const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
-          const amountPayable = toFixed2(totalTestAmountPayable + totalServiceAmountPayable);
-          const balance = toFixed2(amountPayable - paid);
-          
+          const amountPayable = toFixed2(totalpayable)
+          const outstanding = toFixed2(amountPayable - paid);
+          const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
+
           if (balance < 0) {
                return { success: false, message: 'Paid amount exceeds total payable amount', data: { balance } };
           }
@@ -141,6 +137,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
                     totalServiceAmount: toFixed2(totalServiceAmount),
                     amountPayable,
+                    outstanding,
                     totalTestAmountPayable,
                     totalServiceAmountPayable,
                     paid,
@@ -159,7 +156,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     taxIncluded,
                     taxList,
                     entitytype,
-                    entityId:entityid,
+                    entityId: entityid,
                     entityid,
                     previousBilling,
                     previousServices
@@ -168,6 +165,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
      }
      private async getRecalculatedCart(cart: any[], referalCode: any, billingsettings: any, isPromo: boolean, promoValid: boolean, promoCode: string, promoDetails: any, includeTax: any, taxation: any, entitytype?: any, entityId?: any): Promise<any[]> {
           const selectedTestIds = cart.map((item: any) => item.testid);
+
           let allTests: any[] = [];
           if (selectedTestIds.length > 0) {
                let entityType: EntityType = entitytype || ('general' as EntityType);

@@ -37,6 +37,9 @@ export class SubmitCustomerBilling {
                 samplingCenter,
                 payments,
                 status,
+                entitytype,
+                entityId,
+                entityid,
                 isConditionsUnderstood,
                 hasNightAdjustment,
                 promoMethod,
@@ -56,13 +59,16 @@ export class SubmitCustomerBilling {
                 isPromo,
                 isPackageUsed,
                 packageid,
+                entityid,
+                entitytype,
                 tenantId
             });
+            console.log(checkoutResult)
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { success: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
             const data = checkoutResult.data;
-
+            // console.log("Checkout data:", data);
             const summaryFields = [
                 'subtotal',
                 'totaldiscount',
@@ -172,7 +178,7 @@ export class SubmitCustomerBilling {
                         promoCodeId: updateData.promoCodeId,
                     });
 
-                    console.log("Billing update result:", result);
+                console.log("Billing update result:", result);
 
                 if (!result) throw new Error("unable to update billing record");
 
@@ -181,38 +187,38 @@ export class SubmitCustomerBilling {
                     await promoRepo.incrementUsage(data.promo.id, trx);
                 }
 
-                    const paymentsArr = Array.isArray(this.payload.payments) ? this.payload.payments : [];
-                    if (paymentsArr.length > 0) {
-                        for (const payment of paymentsArr) {
-                            const paymentMode = payment.mode;
-                            const paymentAmount = payment.amount;
-                            const employeeId = payment.employeeid || this.payload.employeeid;
-                            if (!paymentMode || !employeeId) {
-                                throw new Error("Missing mode or employeeid in payment record.");
-                            }
-                            await BillingSharedRepo.insertBillHistory(
-                                trx,
-                                billingID,
-                                paymentMode,
-                                paymentAmount,
-                                employeeId,
-                                "credit"
-                            );
-                        }
-                    } else {
-                        if (!this.payload.employeeid) {
-                            throw new Error("Missing employeeid in billing data.");
+                const paymentsArr = Array.isArray(this.payload.payments) ? this.payload.payments : [];
+                if (paymentsArr.length > 0) {
+                    for (const payment of paymentsArr) {
+                        const paymentMode = payment.mode;
+                        const paymentAmount = payment.amount;
+                        const employeeId = payment.employeeid || this.payload.employeeid;
+                        if (!paymentMode || !employeeId) {
+                            throw new Error("Missing mode or employeeid in payment record.");
                         }
                         await BillingSharedRepo.insertBillHistory(
                             trx,
                             billingID,
-                            null,
-                            this.payload.paid,
-                            this.payload.employeeid,
+                            paymentMode,
+                            paymentAmount,
+                            employeeId,
                             "credit"
                         );
                     }
-                    await trx.commit();
+                } else {
+                    if (!this.payload.employeeid) {
+                        throw new Error("Missing employeeid in billing data.");
+                    }
+                    await BillingSharedRepo.insertBillHistory(
+                        trx,
+                        billingID,
+                        null,
+                        this.payload.paid,
+                        this.payload.employeeid,
+                        "credit"
+                    );
+                }
+                await trx.commit();
             }
             return { success: true, message: "Billing submitted successfully", billingid: billingID };
         } catch (error: any) {

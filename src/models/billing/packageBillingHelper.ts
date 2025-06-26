@@ -9,7 +9,6 @@ export class PackageBillingHelper extends PrimeBillingEnterprise {
      }: {
           tenantId: number;
           packageid: number;
-          cart: any[];
      }): Promise<BillingTestItem[] | null> {
           const isPackageValid = await Packages.verifyPackageId(tenantId, packageid);
           if (!isPackageValid) return null;
@@ -54,6 +53,7 @@ export class PackageBillingHelper extends PrimeBillingEnterprise {
           totaldiscount: number;
           totalAmountIncurredDueTax: number;
           totalServiceAmount: number;
+          totalpayable: number;
      } {
           let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0;
           if (usedPackage) {
@@ -76,44 +76,22 @@ export class PackageBillingHelper extends PrimeBillingEnterprise {
                     totalServiceAmount += item.discountedValue || item.price || item.servicePrice || 0;
                });
           }
-          return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount };
+          return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount, totalpayable: subtotal };
      }
 
      static async handlePackageCheckout({
           tenantId,
           packageid,
-          cart
      }: {
           tenantId: number;
           packageid: number;
-          cart: any[];
-     }): Promise<{ success: boolean; message?: string; recalculatedPackageList?: any[] }> {
-          const isPackageValid = await Packages.verifyPackageId(tenantId, packageid);
-          if (!isPackageValid) return { success: false, message: 'Invalid package provided' };
-          const allPackageTests = await Packages.getPackageTests(tenantId, packageid);
-          if (!Array.isArray(allPackageTests) || allPackageTests.length === 0) {
-               return { success: false, message: 'No tests found for package' };
-          }
-          const selectedTestIds = cart.map(item => item.testid);
-          let recalculatedPackageList = allPackageTests
-               .filter(test => selectedTestIds.includes(test.test_id))
-               .map(test => ({
-                    ...test,
-                    price: test.price,
-                    discount: test.discount || 0,
-                    testid: test.test_id
-               }));
-          recalculatedPackageList = PackageBillingHelper.applyDiscountsToTests(recalculatedPackageList);
-          recalculatedPackageList = recalculatedPackageList.map(item => ({
-               ...item,
-               hasNightAdjustment: false,
-               isNightTime: false,
-               amountIncurredDueTax: 0,
-               totalcost: item.discountedValue,
-               totalpayable: item.discountedValue,
-               cost: item.discountedValue,
-          }));
-          return { success: true, recalculatedPackageList };
+     }): Promise<any> {
+          const reformattedTest = await PackageBillingHelper.getFormattedPackageTestList({
+               tenantId,
+               packageid,
+          });
+          if (!reformattedTest || !Array.isArray(reformattedTest)) return { error: 'INVALID_PACKAGE_PROVIDED' };
+          return { success: true, recalculatedPackageList: reformattedTest };
      }
 
      static async handlePackageInit({
@@ -134,7 +112,6 @@ export class PackageBillingHelper extends PrimeBillingEnterprise {
           const reformattedTest = await PackageBillingHelper.getFormattedPackageTestList({
                tenantId,
                packageid,
-               cart: []
           });
           if (!reformattedTest) return { error: 'INVALID_PACKAGE_PROVIDED' };
           const constants = await getConstantCustomerInitData(patientId, billingid);
@@ -153,9 +130,4 @@ export class PackageBillingHelper extends PrimeBillingEnterprise {
                taxList: null
           };
      }
-
-     /**
-      * Calculate the discounted value for a package test based on concession mode and value.
-      */
-
 }

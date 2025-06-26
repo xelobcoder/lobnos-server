@@ -41,29 +41,21 @@ class PackageBillingHelper extends PrimeBillingEnterprise_1.PrimeBillingEnterpri
                 totalServiceAmount += item.discountedValue || item.price || item.servicePrice || 0;
             });
         }
-        return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount };
+        return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount, totalpayable: subtotal };
     }
-    static async handlePackageCheckout({ tenantId, packageid, cart }) {
-        const isPackageValid = await Billlingpackages_1.Packages.verifyPackageId(tenantId, packageid);
-        if (!isPackageValid)
-            return { success: false, message: 'Invalid package provided' };
-        const allPackageTests = await Billlingpackages_1.Packages.getPackageTests(tenantId, packageid);
-        if (!Array.isArray(allPackageTests) || allPackageTests.length === 0) {
-            return { success: false, message: 'No tests found for package' };
-        }
-        const selectedTestIds = cart.map(item => item.testid);
-        let recalculatedPackageList = allPackageTests
-            .filter(test => selectedTestIds.includes(test.test_id))
-            .map(test => (Object.assign(Object.assign({}, test), { price: test.price, discount: test.discount || 0, testid: test.test_id })));
-        recalculatedPackageList = PackageBillingHelper.applyDiscountsToTests(recalculatedPackageList);
-        recalculatedPackageList = recalculatedPackageList.map(item => (Object.assign(Object.assign({}, item), { hasNightAdjustment: false, isNightTime: false, amountIncurredDueTax: 0, totalcost: item.discountedValue, totalpayable: item.discountedValue, cost: item.discountedValue })));
-        return { success: true, recalculatedPackageList };
+    static async handlePackageCheckout({ tenantId, packageid, }) {
+        const reformattedTest = await PackageBillingHelper.getFormattedPackageTestList({
+            tenantId,
+            packageid,
+        });
+        if (!reformattedTest || !Array.isArray(reformattedTest))
+            return { error: 'INVALID_PACKAGE_PROVIDED' };
+        return { success: true, recalculatedPackageList: reformattedTest };
     }
     static async handlePackageInit({ tenantId, packageid, patientId, billingid, defaultCustomerInitData, getConstantCustomerInitData }) {
         const reformattedTest = await PackageBillingHelper.getFormattedPackageTestList({
             tenantId,
             packageid,
-            cart: []
         });
         if (!reformattedTest)
             return { error: 'INVALID_PACKAGE_PROVIDED' };

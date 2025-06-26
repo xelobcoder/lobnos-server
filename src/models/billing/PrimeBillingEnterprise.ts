@@ -31,7 +31,7 @@ export class PrimeBillingEnterprise {
 	}
 
 	async hasOutstandingDebt(patientId: number): Promise<boolean> {
-		const outstandingAmount =  this.getCustomerOutstandingDebt(patientId) ;
+		const outstandingAmount = this.getCustomerOutstandingDebt(patientId);
 		return parseFloat(outstandingAmount.toString()) > 0;
 	}
 
@@ -269,28 +269,35 @@ export class PrimeBillingEnterprise {
 		recalculatedCart: any[];
 		recalculatedServicesList: any[];
 	}) {
-		let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0;
+		
+		if (!Array.isArray(recalculatedCart) && !Array.isArray(recalculatedServicesList)) {
+			return { subtotal: 0, totaldiscount: 0, totalAmountIncurredDueTax: 0, totalServiceAmount: 0, totalpayable: 0 };
+		}
+		let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0, totalpayable = 0;
 		if (usedPackage) {
 			recalculatedPackageList.forEach(item => {
 				subtotal += item.discountedValue;
-				totaldiscount += item.discount || 0;
+				totaldiscount += item.discount;
+				totalpayable += item.totalpayable;
 			});
 		} else {
 			recalculatedCart.forEach(item => {
-				subtotal += item.discountedValue || item.servicePrice || 0;
-				totaldiscount += item.discount || 0;
-				totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
+				subtotal += item.discountedValue
+				totaldiscount += item.discount;
+				totalpayable += item.totalpayable;
+				totalAmountIncurredDueTax += item.amountIncurredDueTax;
 			});
 		}
 		if (recalculatedServicesList && Array.isArray(recalculatedServicesList)) {
 			recalculatedServicesList.forEach(item => {
-				subtotal += item.discountedValue || item.servicePrice || 0;
-				totaldiscount += item.discount || 0;
-				totalAmountIncurredDueTax += item.amountIncurredDueTax || 0;
-				totalServiceAmount += item.discountedValue || item.price || item.servicePrice || 0;
+				subtotal += item.discountedValue
+				totaldiscount += item.discount;
+				totalpayable += item.totalpayable;
+				totalAmountIncurredDueTax += item.amountIncurredDueTax;
+				totalServiceAmount += item.discountedValue
 			});
 		}
-		return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount };
+		return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount, totalpayable };
 	}
 
 	static addNightAdjustmentInfo(items: any[], billingsettings: any): any[] {
@@ -371,10 +378,10 @@ export class PrimeBillingEnterprise {
 			.map((service: any) => {
 				const price = service.servicePrice || 0;
 				const discount = service.discount || 0;
-				const promoDiscount = 0; // will be set later if promo is applied
-				const amountIncurredDueTax = 0; // will be set later if tax is applied
-				const totalcost = price; // will be updated if tax is applied
-				const totalpayable = price - discount; // will be updated if promo/tax is applied
+				const promoDiscount = 0;
+				const amountIncurredDueTax = 0;
+				const totalcost = price;
+				const totalpayable = price - discount;
 				return {
 					...service,
 					discountedValue: price,

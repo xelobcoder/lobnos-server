@@ -4,6 +4,7 @@ exports.CustomerBillingCheckout = void 0;
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
 const packageBillingHelper_1 = require("./packageBillingHelper");
 const PrimeBillingEnterprise_1 = require("./PrimeBillingEnterprise");
+;
 class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBillingEnterprise {
     constructor(tenantId) {
         super(tenantId);
@@ -57,9 +58,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         }
         if (isPackageUsed && packageid) {
             const pkgResult = await packageBillingHelper_1.PackageBillingHelper.handlePackageCheckout({
-                tenantId: tenantId,
-                packageid,
-                cart
+                tenantId,
+                packageid
             });
             if (!pkgResult.success)
                 return { success: false, message: pkgResult.message };
@@ -82,22 +82,19 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             entityid,
             entitytype
         });
-        const { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount } = PrimeBillingEnterprise_1.PrimeBillingEnterprise.calculateBillingTotals({
+        const { subtotal, totaldiscount, totalpayable, totalAmountIncurredDueTax, totalServiceAmount } = PrimeBillingEnterprise_1.PrimeBillingEnterprise.calculateBillingTotals({
             usedPackage,
             recalculatedPackageList,
             recalculatedCart,
             recalculatedServicesList
         });
-        if (isPromo && promoValid && promoCode && promoDetails) {
-            promoDiscount = PrimeBillingEnterprise_1.PrimeBillingEnterprise.calculatePromoDiscount(subtotal, promoDetails);
-        }
         const toFixed2 = (num) => Number(num.toFixed(2));
         const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
-        // amountPayable should be the sum of all items' totalpayable (cart + servicesList)
         const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
         const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
-        const amountPayable = toFixed2(totalTestAmountPayable + totalServiceAmountPayable);
-        const balance = toFixed2(amountPayable - paid);
+        const amountPayable = toFixed2(totalpayable);
+        const outstanding = toFixed2(amountPayable - paid);
+        const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
         if (balance < 0) {
             return { success: false, message: 'Paid amount exceeds total payable amount', data: { balance } };
         }
@@ -111,6 +108,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                 totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
                 totalServiceAmount: toFixed2(totalServiceAmount),
                 amountPayable,
+                outstanding,
                 totalTestAmountPayable,
                 totalServiceAmountPayable,
                 paid,

@@ -54,8 +54,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
             this.getPreviousRecordsSummary(params.patientId),
             this.getPaymentModes()
         ]);
-        if (!sessionExists)
-            return billingTypes_1.BillingModuleCodes.MODULE_NO_SESSION;
+        // if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
         if (hasDebt)
             return billingTypes_1.BillingModuleCodes.MODULE_DEBT;
         if (!appsettings)

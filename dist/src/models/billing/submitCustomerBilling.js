@@ -29,7 +29,7 @@ class SubmitCustomerBilling {
     }
     async submit() {
         try {
-            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
+            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, entitytype, entityId, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "entitytype", "entityId", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -43,12 +43,16 @@ class SubmitCustomerBilling {
                 isPromo,
                 isPackageUsed,
                 packageid,
+                entityid,
+                entitytype,
                 tenantId
             });
+            console.log(checkoutResult);
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { success: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
             const data = checkoutResult.data;
+            // console.log("Checkout data:", data);
             const summaryFields = [
                 'subtotal',
                 'totaldiscount',

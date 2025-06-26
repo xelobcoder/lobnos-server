@@ -50,6 +50,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                     CART_AND_SERVICES_EMPTY: "Cart and servicesList are both empty"
                }
           });
+
           if (validationError) return validationError;
           if (!params.patientId) return BillingModuleCodes.MODULE_NO_PATIENT_ID;
           if (params.billingSource === undefined || params.billingSource === null) return BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
@@ -63,8 +64,8 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                this.getPreviousRecordsSummary(params.patientId),
                this.getPaymentModes()
           ]);
-          
-          if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
+
+          // if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
           if (hasDebt) return BillingModuleCodes.MODULE_DEBT;
           if (!appsettings) return [];
           if (params.billingid !== undefined && (typeof params.billingid !== 'number' || isNaN(params.billingid))) return BillingModuleCodes.MODULE_NO_VALID_BILLING_ID;
@@ -171,6 +172,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                defaultCustomerInitData.taxIncluded = true;
                taxation.taxValue = taxation.taxValue || 0;
           }
+
           defaultCustomerInitData.testList = ApplicableTest;
      }
 
