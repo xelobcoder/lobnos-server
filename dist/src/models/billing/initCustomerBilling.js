@@ -117,6 +117,9 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
             entityId: params.entityId,
             entityType: params.entityType,
             referalCode: params.referalCode,
+            totalcost: 0,
+            totalServiceAmountPayable: 0,
+            amountPayable: 0,
         };
     }
     async handleReferralCode(defaultCustomerInitData) {

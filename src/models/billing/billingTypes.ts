@@ -17,7 +17,7 @@ export const BillingModuleCodes = {
 export interface CustomerInitResponse {
      testList: BillingTestItem[];
      previousRecords: any[];
-       packageTestList: BillingTestItem[];
+     packageTestList: BillingTestItem[];
      previousRecordsSummary: any | null;
      refundList: any[];
      previousPaymentHistory?: any[];
@@ -48,6 +48,15 @@ export interface CustomerInitResponse {
      entityType?: any;
      patientId: number;
      isPackageUsed?: boolean;
+     totalcost: number;
+     totalServiceAmountPayable: number;
+     amountPayable: number;
+     testPayableAmount?: number;
+     outstanding?: number;
+     isPromo?: boolean;
+     promoValue?: number;
+     promoMethod?: string;
+     promoCodeId?: string;
 }
 
 export interface BillingTestItem {
@@ -70,6 +79,7 @@ export interface BillingTestItem {
      originalPrice: number;
      price: number;
      pricingType: string;
+     cost?: number;
      subtotal: number;
      testid: number;
      outsourceid?: number | null;

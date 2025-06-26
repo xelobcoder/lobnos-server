@@ -19,7 +19,7 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const billing_shared_1 = require("./billing_shared");
 const billing_shared_types_1 = require("./billing_shared_types");
 const billingclientTypes_1 = require("./billingclientTypes");
-const initCustomerBilling_1 = require("./initCustomerBilling");
+const customerBillingCheckout_1 = require("./customerBillingCheckout");
 class SubmitCustomerBilling {
     constructor(payload, tenantId) {
         this.payload = payload;
@@ -28,23 +28,26 @@ class SubmitCustomerBilling {
     }
     async submit() {
         const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
-        const billingInit = initCustomerBilling_1.CustomerBillingInit.getInstance(tenantId);
-        const checkoutResult = await billingInit.init({
-            entityId: null,
-            entityType: null,
+        // Use checkout, not init
+        const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
             patientId,
             billingid,
-            isPackageUsed,
-            packageid,
-            includeServices: true,
+            cart,
+            servicesList: servicesProvided,
+            paymentDetails,
             branchid,
             billingSource,
-            referalCode
+            referalCode,
+            promoCode,
+            isPromo,
+            isPackageUsed,
+            packageid,
+            tenantId
         });
         if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
             return { success: false, message: `Checkout validation failed: ${checkoutResult}` };
         }
-        const data = checkoutResult;
+        const data = checkoutResult.data;
         const summaryFields = [
             'subtotal',
             'totaldiscount',
@@ -58,10 +61,6 @@ class SubmitCustomerBilling {
                 Math.abs(data[field] - this.payload[field]) > 0.01) {
                 return { success: false, message: `Submitted ${field} (${this.payload[field]}) does not match recalculated value (${data[field]}).` };
             }
-        }
-        const isValid = await SubmitCustomerBilling.validateBillingRequestBody(this.payload, tenantId);
-        if (isValid !== true) {
-            return { success: false, message: `Validation failed: ${isValid}` };
         }
         let updatedBillingData = this.payload;
         if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
@@ -83,24 +82,32 @@ class SubmitCustomerBilling {
             if (loadAllServices.length > 0) {
                 throw new Error(billing_shared_types_1.BillErrors.UnableToLoadServices);
             }
-            console.log("All services loaded successfully", allEntries.length);
-            const totaldiscount = checkoutResult.totaldiscount || 0;
-            const totalAmountIncurredDueTax = checkoutResult.totalAmountIncurredDueTax || 0;
+            const totalcost = updatedBillingData.totalcost;
+            const totalservicesAmount = updatedBillingData.totalServiceAmountPayable;
+            const totalAmountPayable = updatedBillingData.amountPayable;
+            const testPayableAmount = updatedBillingData.testPayableAmount || 0;
+            const totaldiscount = data.totaldiscount || 0;
+            const totalAmountIncurredDueTax = data.totalAmountIncurredDueTax || 0;
             const totalOutstanding = updatedBillingData.outstanding || 0;
-            // const updateData = {
-            //     totalTransactionCost: billing_final_values.totalcost,
-            //     totalcost: billing_final_values.totalcost,
-            //     paid: billingData.paid,
-            //     payable: payableAfterPromo,
-            //     discount: billing_final_values.totalDiscount,
-            //     amountIncurredDueTax: billing_final_values.amountIncurredDueTax,
-            //     outstanding: Number((payableAfterPromo - billingData.paid).toFixed(2)),
-            //     totalrefunded: 0,
-            //     isPromo: billingData.isPromo || false,
-            //     promoValue: promoValue,
-            //     promoMethod: promoMethod,
-            //     promoCodeId: promoCodeId,
-            // }
+            const balance = updatedBillingData.paid - this.payload.paid;
+            console.log("Total Cost:", totalcost);
+            const updateData = {
+                totalTransactionCost: totalcost,
+                totalcost: totalcost,
+                totalServiceAmountPayable: totalservicesAmount,
+                amountPayable: totalAmountPayable,
+                testPayableAmount: testPayableAmount,
+                totaldiscount: totaldiscount,
+                totalAmountIncurredDueTax: totalAmountIncurredDueTax,
+                outstanding: totalOutstanding,
+                paid: updatedBillingData.paid,
+                balance: balance,
+                totalrefunded: 0,
+                isPromo: updatedBillingData.isPromo || false,
+                promoValue: promoCode ? updatedBillingData.promoValue : 0,
+                promoMethod: promoMethod,
+                promoCodeId: promoCode,
+            };
         }
     }
     static async validateBillingRequestBody(billingData, tenantId) {
@@ -231,6 +238,7 @@ class SubmitCustomerBilling {
         const { employeeid, samplingCenter, taxIncluded, type, billingSource, isPackageUsed } = billingData;
         return await Promise.all(servicesProvided
             .map(async (item) => {
+            console.log(item);
             return {
                 billingid: billingID,
                 trackId: item.keyid,

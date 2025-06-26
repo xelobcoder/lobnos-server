@@ -105,32 +105,34 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                promoDiscount = PrimeBillingEnterprise.calculatePromoDiscount(subtotal, promoDetails);
           }
 
-          const paid = paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0;
-          const amountPayable = subtotal + totalAmountIncurredDueTax;
-          const balance = amountPayable - paid;
+          const toFixed2 = (num: number) => Number(num.toFixed(2));
 
-          const totalcost = subtotal + totalServiceAmount;
-          const totalTestAmountPayable = subtotal + totalAmountIncurredDueTax;
-          const totalServiceAmountPayable = totalServiceAmount;
+          const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
+          const amountPayable = toFixed2(subtotal + totalAmountIncurredDueTax);
+          const balance = toFixed2(amountPayable - paid);
+
+          const totalcost = toFixed2(subtotal + totalServiceAmount);
+          const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
+          const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
 
           return {
                success: true,
                message: 'Checkout recalculation successful. No payment has been received yet.',
                data: {
-                    subtotal,
+                    subtotal: toFixed2(subtotal),
                     totalcost,
-                    totaldiscount,
-                    totalAmountIncurredDueTax,
-                    totalServiceAmount,
+                    totaldiscount: toFixed2(totaldiscount),
+                    totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
+                    totalServiceAmount: toFixed2(totalServiceAmount),
                     amountPayable,
                     totalTestAmountPayable,
                     totalServiceAmountPayable,
                     paid,
                     balance,
-                    cart: recalculatedCart,
-                    servicesList: recalculatedServicesList,
+                    cart: recalculatedCart.map(item => ({ ...item, totalpayable: toFixed2(item.totalpayable), totalcost: toFixed2(item.totalcost), discountedValue: toFixed2(item.discountedValue), amountIncurredDueTax: toFixed2(item.amountIncurredDueTax), price: toFixed2(item.price), actualPrice: toFixed2(item.actualPrice), originalPrice: toFixed2(item.originalPrice) })),
+                    servicesList: recalculatedServicesList.map(item => ({ ...item, totalpayable: toFixed2(item.totalpayable), totalcost: toFixed2(item.totalcost), discountedValue: toFixed2(item.discountedValue), amountIncurredDueTax: toFixed2(item.amountIncurredDueTax), servicePrice: toFixed2(item.servicePrice) })),
                     promoCode: promoCode || undefined,
-                    promoDiscount,
+                    promoDiscount: toFixed2(promoDiscount),
                     isPromo: !!isPromo,
                     isPackageUsed: !!isPackageUsed,
                     packageid: packageid || undefined,
