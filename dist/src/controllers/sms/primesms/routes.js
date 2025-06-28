@@ -25,7 +25,7 @@ const PrimeSmsEventsRepo_1 = require("../../../models/application/sms/repositori
 const PrimeSmsEventTemplatesRepo_1 = require("../../../models/application/sms/repositories/PrimeSmsEventTemplatesRepo");
 // Static tenantId for now; replace with dynamic value or middleware if needed
 const tenantId = 1;
-const smsJobsService = new SmsJobsService_1.SmsJobsService(new PrimeSmsJobsRepo_1.PrimeSmsJobsRepo(tenantId));
+const smsJobsService = new SmsJobsService_1.SmsJobsService(new PrimeSmsJobsRepo_1.PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo_1.PrimeSmsJobRecipientsRepo(tenantId));
 const smsTemplatesService = new SmsTemplatesService_1.SmsTemplatesService(new PrimeSmsTemplatesRepo_1.PrimeSmsTemplatesRepo(tenantId));
 const smsJobRecipientsService = new SmsJobRecipientsService_1.SmsJobRecipientsService(new PrimeSmsJobRecipientsRepo_1.PrimeSmsJobRecipientsRepo(tenantId));
 const smsCategoryMappingsService = new SmsCategoryMappingsService_1.SmsCategoryMappingsService(new PrimeSmsCategoryMappingsRepo_1.PrimeSmsCategoryMappingsRepo(tenantId));

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-export const CreateSmsJobSchema = z.object({
+
+export const BaseSmsJobSchema = z.object({
      templateId: z.number().optional(),
      customBody: z.string().optional(), // <-- allow custom message
      category: z.enum(['patient', 'clinician', 'organization']),
@@ -10,9 +11,13 @@ export const CreateSmsJobSchema = z.object({
      scheduledAt: z.string().datetime().optional(),
      status: z.enum(['pending', 'processing', 'sent', 'partialfailed', 'failed']).optional(),
      createdBy: z.number(),
-}).refine(data => data.templateId || data.customBody, {
+});
+
+export const CreateSmsJobSchema = BaseSmsJobSchema.refine(data => data.templateId || data.customBody, {
      message: 'Either templateId or customBody is required',
      path: ['templateId', 'customBody'],
 });
+
+export const PartialSmsJobSchema = BaseSmsJobSchema.partial();
 
 export type CreateSmsJobDto = z.infer<typeof CreateSmsJobSchema>;

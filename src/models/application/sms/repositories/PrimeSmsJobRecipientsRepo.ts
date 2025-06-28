@@ -46,11 +46,11 @@ export class PrimeSmsJobRecipientsRepo {
      }
 
      async bulkInsert(jobid: number, recipients: Omit<PrimeSmsJobRecipient, 'jobid'>[], trx: any): Promise<number[]> {
-          const connection =  trx || await this.connection;
-          const rows = recipients.map(r => ({ ...r, jobid }));
-          console.log('Inserting rows:', rows);
+          const connection =  await trx || this.connection;
+          const rows = recipients.map(r => {
+               return { ...r, jobid }
+          });
           const ids = await connection(this.tablename).insert(rows).returning('recid');
-          // return Array.isArray(ids) ? ids.map((id: any) => (typeof id === 'object' ? id.recid : id)) : [];
-          return ids;
+          return Array.isArray(ids) ? ids.map((id: any) => (typeof id === 'object' ? id.recid : id)) : [];
      }
 }

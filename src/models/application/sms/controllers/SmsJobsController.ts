@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { CreateSmsJobSchema } from '../../../../models/application/sms/dtos/CreateSmsJobDto';
+import { CreateSmsJobSchema, PartialSmsJobSchema } from '../../../../models/application/sms/dtos/CreateSmsJobDto';
 import { SmsJobsService } from '../../../../models/application/sms/services/SmsJobsService';
 
 export class SmsJobsController {
@@ -8,7 +8,8 @@ export class SmsJobsController {
      async create(req: Request, res: Response) {
           try {
                const dto = CreateSmsJobSchema.parse(req.body);
-               const jobId = await this.jobsService.createJob(dto);
+               const tenantId = parseInt(req.query.tenantId as string)
+               const jobId = await this.jobsService.createJob(dto, tenantId);
                res.status(201).json({ jobId });
           } catch (err) {
                res.status(400).json({ error: err });
@@ -23,8 +24,7 @@ export class SmsJobsController {
 
      async update(req: Request, res: Response) {
           try {
-               const partialSchema = CreateSmsJobSchema.partial();
-               const dto = partialSchema.parse(req.body);
+               const dto = PartialSmsJobSchema.parse(req.body);
                const updated = await this.jobsService.updateJob(Number(req.params.id), dto);
                res.json({ updated });
           } catch (err) {

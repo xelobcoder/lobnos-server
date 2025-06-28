@@ -9,7 +9,8 @@ class SmsJobsController {
     async create(req, res) {
         try {
             const dto = CreateSmsJobDto_1.CreateSmsJobSchema.parse(req.body);
-            const jobId = await this.jobsService.createJob(dto);
+            const tenantId = parseInt(req.query.tenantId);
+            const jobId = await this.jobsService.createJob(dto, tenantId);
             res.status(201).json({ jobId });
         }
         catch (err) {
@@ -24,8 +25,7 @@ class SmsJobsController {
     }
     async update(req, res) {
         try {
-            const partialSchema = CreateSmsJobDto_1.CreateSmsJobSchema.partial();
-            const dto = partialSchema.parse(req.body);
+            const dto = CreateSmsJobDto_1.PartialSmsJobSchema.parse(req.body);
             const updated = await this.jobsService.updateJob(Number(req.params.id), dto);
             res.json({ updated });
         }

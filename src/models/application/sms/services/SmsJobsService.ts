@@ -1,7 +1,9 @@
+
 import { PrimeSmsJobsRepo } from '../repositories/PrimeSmsJobsRepo';
 import { PrimeSmsJobRecipientsRepo } from '../repositories/PrimeSmsJobRecipientsRepo';
 import { CreateSmsJobDto } from '../dtos/CreateSmsJobDto';
 import KnexConnection from '../../../../database/KnexConnections';
+import { SmsMessageParser } from '../PrimeSms/SmsMessageParser';
 
 function mapJobDtoToDb(dto: any) {
      return {
@@ -26,8 +28,6 @@ export class SmsJobsService {
      async createJob(dto: CreateSmsJobDto, tenantId: number) {
           try {
                // 1. Create the job
-               console.log(dto);
-               console.log(mapJobDtoToDb(dto));
                const transaction = await KnexConnection(tenantId);
                const trx = await transaction.transaction();
                const jobId = await this.jobsRepo.create(mapJobDtoToDb(dto), trx);
@@ -37,17 +37,39 @@ export class SmsJobsService {
                     const targets = Array.isArray(dto.targetIds) ? dto.targetIds : [dto.targetIds];
                     // Validate phone numbers (simple E.164 regex, can be improved)
                     const validPhone = (phone: string) => /^\+?\d{7,15}$/.test(phone);
-                    const recipients = targets
-                         .filter((target: any) => target.phone && validPhone(target.phone))
-                         .map((target: any) => ({
-                              phonee164: target.phone,
-                              personalizedbody: '',
-                              refid: target.id
-                         }));
+                    let recipients = await Promise.all(
+                         targets
+                              .filter((target: any) => target.phone && validPhone(target.phone))
+                              .map(async (target: any) => {
+                                   // Use template or customBody for parsing
+                                   let template = dto.customBody || '';
+                                   // If you want to support templateId, you would fetch the template here
+                                   // For now, just use customBody
+                                   const personalizedbody = await new SmsMessageParser(tenantId, dto.category, target.refid).humanizeTemplate({
+                                        ...target,
+                                        templateid: dto.templateId,
+                                   })
+                                   return {
+                                        phonee164: target.phone,
+                                        personalizedbody,
+                                        refid: target.refid
+                                   };
+                              })
+                    );
+                    console.log(recipients);
+
                     if (recipients.length !== targets.length) {
                          throw new Error('One or more recipient phone numbers are invalid.');
                     }
+                    this.jobRecipientsRepo = this.jobRecipientsRepo || new PrimeSmsJobRecipientsRepo(tenantId);
+                    if (!this.jobRecipientsRepo) {
+                         throw new Error('jobRecipientsRepo is not initialized. Please ensure you pass it to the SmsJobsService constructor.');
+                    }
                     await this.jobRecipientsRepo.bulkInsert(jobId, recipients, trx);
+                    await trx.commit();
+               } else if (dto.recipientScope === 'all') {
+                    // For 'all', we assume targetIds is not used and no recipients are created
+                    await trx.commit();
                }
                return jobId;
           } catch (error) {

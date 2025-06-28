@@ -27,7 +27,10 @@ import { PrimeSmsEventTemplatesRepo } from '../../../models/application/sms/repo
 // Static tenantId for now; replace with dynamic value or middleware if needed
 const tenantId = 1;
 
-const smsJobsService = new SmsJobsService(new PrimeSmsJobsRepo(tenantId));
+const smsJobsService = new SmsJobsService(
+	new PrimeSmsJobsRepo(tenantId),
+	new PrimeSmsJobRecipientsRepo(tenantId)
+);
 const smsTemplatesService = new SmsTemplatesService(new PrimeSmsTemplatesRepo(tenantId));
 const smsJobRecipientsService = new SmsJobRecipientsService(new PrimeSmsJobRecipientsRepo(tenantId));
 const smsCategoryMappingsService = new SmsCategoryMappingsService(new PrimeSmsCategoryMappingsRepo(tenantId));
