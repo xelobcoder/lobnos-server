@@ -50,6 +50,9 @@ import { PanelRunner } from "./migrations/data/SeedTestPanels/panelRunner";
 import EventsExecutor from "./models/application/sms/events/EventsExecutor";
 import ExpenseAuditLog from "./models/Expenses/ExpenseAuditLog";
 import ExpensesAnalytics from "./models/analytics/ExpensesAnalytics/Expenses-Analytics";
+import smsPrimeRouter from './models/application/sms/controllers/routes';
+
+
 
 const app = express();
 const port = process.env.NODE_ENV === "development"
@@ -99,6 +102,7 @@ app.use(PatientAnalytics);
 app.use(ExpensesAnalyticsRouter);
 app.use(qualityControlRoutes);
 app.use(AdvancedBillingRouter);
+app.use(smsPrimeRouter);
 
 
 app.get("/", (req: Request, res: Response) => {
@@ -151,7 +155,7 @@ app.listen(5000, async (err?: Error) => {
 		// const testClient = new TestHL7Client('localhost', 6668);
 		// testClient.connect();
 
-	
+
 		console.log(`connected to port 5000`);
 	} catch (err) {
 		console.log(err)
