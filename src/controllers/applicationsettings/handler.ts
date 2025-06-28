@@ -469,7 +469,6 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			payments,
 			isPromo,
 			promoMethod,
-			// legacy/optional fields for compatibility
 			patientId,
 			billingid,
 			paymentDetails,
@@ -482,7 +481,6 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 
 		} = req.body;
 
-		// Use the SubmitCustomerBilling class and call .submit()
 		const result = await new SubmitCustomerBilling({
 			tenantId,
 			amountPayable,

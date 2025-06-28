@@ -426,10 +426,7 @@ const submitBillingHandler = async (req, res) => {
         if (!tenantId)
             return res.status(400).json({ success: false, message: 'Missing tenantId' });
         // Destructure all possible fields from the payload
-        const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, promoMethod, 
-        // legacy/optional fields for compatibility
-        patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList, entityId, } = req.body;
-        // Use the SubmitCustomerBilling class and call .submit()
+        const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, promoMethod, patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList, entityId, } = req.body;
         const result = await new billing_new_client_multi_1.SubmitCustomerBilling({
             tenantId,
             amountPayable,
