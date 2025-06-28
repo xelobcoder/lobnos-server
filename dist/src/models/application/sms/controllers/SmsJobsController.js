@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SmsJobsController = void 0;
-const CreateSmsJobDto_1 = require("../dtos/CreateSmsJobDto");
+const CreateSmsJobDto_1 = require("../../../../models/application/sms/dtos/CreateSmsJobDto");
 class SmsJobsController {
     constructor(jobsService) {
         this.jobsService = jobsService;

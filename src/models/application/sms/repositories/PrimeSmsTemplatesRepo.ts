@@ -43,4 +43,16 @@ export class PrimeSmsTemplatesRepo {
           const connection = await this.connection;
           return await connection(this.tablename).where({ templateid }).del();
      }
+
+     async findAllPaginated(page: number, count: number): Promise<{ templates: PrimeSmsTemplate[]; total: number }> {
+          const connection = await this.connection;
+          const totalResult = await connection(this.tablename).count('* as count');
+          const templates = await connection(this.tablename)
+               .leftJoin('roles', 'primesmstemplates.createdby', 'roles.employeeid')
+               .select("primesmstemplates.*", "roles.username as createdbyname")
+               .offset((page - 1) * count)
+               .limit(count);
+          const total = Number((totalResult[0] && (totalResult[0].count || totalResult[0]['count'])) || 0);
+          return { templates, total };
+     }
 }

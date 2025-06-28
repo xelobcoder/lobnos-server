@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SmsEventsController = void 0;
-const CreateSmsEventDto_1 = require("../dtos/CreateSmsEventDto");
+const CreateSmsEventDto_1 = require("../../../../models/application/sms/dtos/CreateSmsEventDto");
 class SmsEventsController {
     constructor(eventsService) {
         this.eventsService = eventsService;

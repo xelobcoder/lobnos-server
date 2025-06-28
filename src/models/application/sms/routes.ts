@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { PrimeSmsControllerInstances } from './controllers/index';
+import type { PrimeSmsControllerInstances } from '../../../controllers/sms/primesms/index';
 
 // Pass controller INSTANCES, not classes, to this function!
 export function getPrimeSmsRoutes(controllers: PrimeSmsControllerInstances) {

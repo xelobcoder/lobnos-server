@@ -41,7 +41,7 @@ const route_18 = __importDefault(require("./controllers/billing/AdvancedBillingS
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
-const routes_6 = __importDefault(require("./models/application/sms/controllers/routes"));
+const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT

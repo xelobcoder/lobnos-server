@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { CreateSmsTemplateSchema } from '../dtos/CreateSmsTemplateDto';
-import { SmsTemplatesService } from '../services/SmsTemplatesService';
+import { CreateSmsTemplateSchema } from '../../../../models/application/sms/dtos/CreateSmsTemplateDto';
+import { SmsTemplatesService } from '../../../../models/application/sms/services/SmsTemplatesService';
 
 export class SmsTemplatesController {
      constructor(private templatesService: SmsTemplatesService) { }

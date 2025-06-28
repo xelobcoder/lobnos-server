@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SmsCategoryMappingsController = void 0;
-const CreateSmsCategoryMappingDto_1 = require("../dtos/CreateSmsCategoryMappingDto");
+const CreateSmsCategoryMappingDto_1 = require("../../../../models/application/sms/dtos/CreateSmsCategoryMappingDto");
 class SmsCategoryMappingsController {
     constructor(mappingsService) {
         this.mappingsService = mappingsService;

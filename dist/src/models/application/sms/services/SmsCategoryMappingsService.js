@@ -30,5 +30,8 @@ class SmsCategoryMappingsService {
     async getAllMappings() {
         return this.mappingsRepo.findAll();
     }
+    async getCategoriesWithPlaceholders() {
+        return this.mappingsRepo.getCategoriesWithPlaceholders();
+    }
 }
 exports.SmsCategoryMappingsService = SmsCategoryMappingsService;

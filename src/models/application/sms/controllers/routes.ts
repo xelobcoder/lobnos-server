@@ -7,21 +7,21 @@ import { SmsCategoryMappingsController } from './SmsCategoryMappingsController';
 import { SmsPlaceholderRulesController } from './SmsPlaceholderRulesController';
 import { SmsEventsController } from './SmsEventsController';
 import { SmsEventTemplatesController } from './SmsEventTemplatesController';
-import { SmsJobsService } from '../services/SmsJobsService';
-import { SmsTemplatesService } from '../services/SmsTemplatesService';
-import { SmsJobRecipientsService } from '../services/SmsJobRecipientsService';
-import { SmsCategoryMappingsService } from '../services/SmsCategoryMappingsService';
-import { SmsPlaceholderRulesService } from '../services/SmsPlaceholderRulesService';
-import { SmsEventsService } from '../services/SmsEventsService';
-import { SmsEventTemplatesService } from '../services/SmsEventTemplatesService';
+import { SmsJobsService } from '../../../../models/application/sms/services/SmsJobsService';
+import { SmsTemplatesService } from '../../../../models/application/sms/services/SmsTemplatesService';
+import { SmsJobRecipientsService } from '../../../../models/application/sms/services/SmsJobRecipientsService';
+import { SmsCategoryMappingsService } from '../../../../models/application/sms/services/SmsCategoryMappingsService';
+import { SmsPlaceholderRulesService } from '../../../../models/application/sms/services/SmsPlaceholderRulesService';
+import { SmsEventsService } from '../../../../models/application/sms/services/SmsEventsService';
+import { SmsEventTemplatesService } from '../../../../models/application/sms/services/SmsEventTemplatesService';
 import { handleOverLoad } from '../../../../hooks/helper';
-import { PrimeSmsJobsRepo } from '../repositories/PrimeSmsJobsRepo';
-import { PrimeSmsTemplatesRepo } from '../repositories/PrimeSmsTemplatesRepo';
-import { PrimeSmsJobRecipientsRepo } from '../repositories/PrimeSmsJobRecipientsRepo';
-import { PrimeSmsCategoryMappingsRepo } from '../repositories/PrimeSmsCategoryMappingsRepo';
-import { PrimeSmsPlaceholderRulesRepo } from '../repositories/PrimeSmsPlaceholderRulesRepo';
-import { PrimeSmsEventsRepo } from '../repositories/PrimeSmsEventsRepo';
-import { PrimeSmsEventTemplatesRepo } from '../repositories/PrimeSmsEventTemplatesRepo';
+import { PrimeSmsJobsRepo } from '../../../../models/application/sms/repositories/PrimeSmsJobsRepo';
+import { PrimeSmsTemplatesRepo } from '../../../../models/application/sms/repositories/PrimeSmsTemplatesRepo';
+import { PrimeSmsJobRecipientsRepo } from '../../../../models/application/sms/repositories/PrimeSmsJobRecipientsRepo';
+import { PrimeSmsCategoryMappingsRepo } from '../../../../models/application/sms/repositories/PrimeSmsCategoryMappingsRepo';
+import { PrimeSmsPlaceholderRulesRepo } from '../../../../models/application/sms/repositories/PrimeSmsPlaceholderRulesRepo';
+import { PrimeSmsEventsRepo } from '../../../../models/application/sms/repositories/PrimeSmsEventsRepo';
+import { PrimeSmsEventTemplatesRepo } from '../../../../models/application/sms/repositories/PrimeSmsEventTemplatesRepo';
 
 
 // Static tenantId for now; replace with dynamic value or middleware if needed

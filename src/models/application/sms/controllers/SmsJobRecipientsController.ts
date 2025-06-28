@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { CreateSmsJobRecipientSchema } from '../dtos/CreateSmsJobRecipientDto';
-import { SmsJobRecipientsService } from '../services/SmsJobRecipientsService';
+import { CreateSmsJobRecipientSchema } from '../../../../models/application/sms/dtos/CreateSmsJobRecipientDto';
+import { SmsJobRecipientsService } from '../../../../models/application/sms/services/SmsJobRecipientsService';
 
 export class SmsJobRecipientsController {
      constructor(private recipientsService: SmsJobRecipientsService) { }

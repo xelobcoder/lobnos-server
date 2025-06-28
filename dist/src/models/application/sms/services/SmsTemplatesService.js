@@ -28,5 +28,8 @@ class SmsTemplatesService {
     async getAllTemplates() {
         return this.templatesRepo.findAll();
     }
+    async getAllTemplatesPaginated(page, count) {
+        return this.templatesRepo.findAllPaginated(page, count);
+    }
 }
 exports.SmsTemplatesService = SmsTemplatesService;

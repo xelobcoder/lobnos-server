@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { CreateSmsCategoryMappingSchema } from '../dtos/CreateSmsCategoryMappingDto';
-import { SmsCategoryMappingsService } from '../services/SmsCategoryMappingsService';
+import { CreateSmsCategoryMappingSchema } from '../../../../models/application/sms/dtos/CreateSmsCategoryMappingDto';
+import { SmsCategoryMappingsService } from '../../../../models/application/sms/services/SmsCategoryMappingsService';
 
 export class SmsCategoryMappingsController {
      constructor(private mappingsService: SmsCategoryMappingsService) { }

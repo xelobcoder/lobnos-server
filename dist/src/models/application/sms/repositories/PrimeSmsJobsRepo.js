@@ -11,8 +11,8 @@ class PrimeSmsJobsRepo {
         this.tablename = "primesmsjobs";
         this.connection = (0, KnexConnections_1.default)(tenantId);
     }
-    async create(data) {
-        const connection = await this.connection;
+    async create(data, trx) {
+        const connection = await trx || this.connection;
         const [id] = await connection(this.tablename).insert(data).returning('jobid');
         return id;
     }
@@ -32,6 +32,16 @@ class PrimeSmsJobsRepo {
     async delete(jobid) {
         const connection = await this.connection;
         return await connection(this.tablename).where({ jobid }).del();
+    }
+    async findAllPaginated(page, count) {
+        const connection = await this.connection;
+        const totalResult = await connection(this.tablename).count('* as count');
+        const jobs = await connection(this.tablename)
+            .select()
+            .offset((page - 1) * count)
+            .limit(count);
+        const total = Number((totalResult[0] && (totalResult[0].count || totalResult[0]['count'])) || 0);
+        return { jobs, total };
     }
 }
 exports.PrimeSmsJobsRepo = PrimeSmsJobsRepo;

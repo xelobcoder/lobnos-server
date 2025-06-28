@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { CreateSmsEventSchema } from '../dtos/CreateSmsEventDto';
-import { SmsEventsService } from '../services/SmsEventsService';
+import { CreateSmsEventSchema } from '../../../../models/application/sms/dtos/CreateSmsEventDto';
+import { SmsEventsService } from '../../../../models/application/sms/services/SmsEventsService';
 
 export class SmsEventsController {
      constructor(private eventsService: SmsEventsService) { }

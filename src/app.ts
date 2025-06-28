@@ -50,7 +50,7 @@ import { PanelRunner } from "./migrations/data/SeedTestPanels/panelRunner";
 import EventsExecutor from "./models/application/sms/events/EventsExecutor";
 import ExpenseAuditLog from "./models/Expenses/ExpenseAuditLog";
 import ExpensesAnalytics from "./models/analytics/ExpensesAnalytics/Expenses-Analytics";
-import smsPrimeRouter from './models/application/sms/controllers/routes';
+import smsPrimeRouter from './controllers/sms/primesms/routes';
 
 
 

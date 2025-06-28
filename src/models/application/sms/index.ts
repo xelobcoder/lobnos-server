@@ -1,11 +1,11 @@
 
-export { default as buildPrimeSmsRouter } from './controllers/routes';
-export * from './controllers/SmsJobsController';
-export * from './controllers/SmsTemplatesController';
-export * from './controllers/SmsJobRecipientsController';
-export * from './controllers/SmsCategoryMappingsController';
-export * from './controllers/SmsPlaceholderRulesController';
-export * from './controllers/SmsEventsController';
-export * from './controllers/SmsEventTemplatesController';
-export * from './controllers/index';
+export { default as buildPrimeSmsRouter } from '../../../controllers/sms/primesms/routes';
+export * from '../../../controllers/sms/primesms/SmsJobsController';
+export * from '../../../controllers/sms/primesms/SmsTemplatesController';
+export * from '../../../controllers/sms/primesms/SmsJobRecipientsController';
+export * from '../../../controllers/sms/primesms/SmsCategoryMappingsController';
+export * from '../../../controllers/sms/primesms/SmsPlaceholderRulesController';
+export * from '../../../controllers/sms/primesms/SmsEventsController';
+export * from '../../../controllers/sms/primesms/SmsEventTemplatesController';
+export * from '../../../controllers/sms/primesms/index';
 

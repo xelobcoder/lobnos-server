@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { CreateSmsEventTemplateSchema } from '../dtos/CreateSmsEventTemplateDto';
-import { SmsEventTemplatesService } from '../services/SmsEventTemplatesService';
+import { CreateSmsEventTemplateSchema } from '../../../../models/application/sms/dtos/CreateSmsEventTemplateDto';
+import { SmsEventTemplatesService } from '../../../../models/application/sms/services/SmsEventTemplatesService';
 
 export class SmsEventTemplatesController {
      constructor(private eventTemplatesService: SmsEventTemplatesService) { }

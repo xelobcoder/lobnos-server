@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SmsPlaceholderRulesController = void 0;
-const CreateSmsPlaceholderRuleDto_1 = require("../dtos/CreateSmsPlaceholderRuleDto");
+const CreateSmsPlaceholderRuleDto_1 = require("../../../../models/application/sms/dtos/CreateSmsPlaceholderRuleDto");
 class SmsPlaceholderRulesController {
     constructor(rulesService) {
         this.rulesService = rulesService;

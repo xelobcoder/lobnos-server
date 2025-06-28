@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { CreateSmsPlaceholderRuleSchema } from '../dtos/CreateSmsPlaceholderRuleDto';
-import { SmsPlaceholderRulesService } from '../services/SmsPlaceholderRulesService';
+import { CreateSmsPlaceholderRuleSchema } from '../../../../models/application/sms/dtos/CreateSmsPlaceholderRuleDto';
+import { SmsPlaceholderRulesService } from '../../../../models/application/sms/services/SmsPlaceholderRulesService';
 
 export class SmsPlaceholderRulesController {
      constructor(private rulesService: SmsPlaceholderRulesService) { }

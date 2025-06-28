@@ -32,4 +32,8 @@ export class SmsTemplatesService {
      async getAllTemplates() {
           return this.templatesRepo.findAll();
      }
+
+     async getAllTemplatesPaginated(page: number, count: number) {
+          return this.templatesRepo.findAllPaginated(page, count);
+     }
 }
