@@ -43,5 +43,13 @@ class PrimeSmsJobsRepo {
         const total = Number((totalResult[0] && (totalResult[0].count || totalResult[0]['count'])) || 0);
         return { jobs, total };
     }
+    async findAllDueScheduledJobs(now) {
+        const connection = await this.connection;
+        return await connection(this.tablename)
+            .where('sendtype', 'scheduled')
+            .andWhere('status', 'pending')
+            .andWhere('scheduledat', '<=', now)
+            .select();
+    }
 }
 exports.PrimeSmsJobsRepo = PrimeSmsJobsRepo;

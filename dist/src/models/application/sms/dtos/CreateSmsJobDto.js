@@ -9,7 +9,15 @@ exports.BaseSmsJobSchema = zod_1.z.object({
     recipientScope: zod_1.z.enum(['single', 'multiple', 'all']),
     targetIds: zod_1.z.any().optional(),
     sendType: zod_1.z.enum(['immediate', 'scheduled']),
-    scheduledAt: zod_1.z.string().datetime().optional(),
+    scheduledAt: zod_1.z.preprocess((val) => {
+        if (typeof val === 'number')
+            return new Date(val).toISOString();
+        if (val instanceof Date)
+            return val.toISOString();
+        if (typeof val === 'string' && !isNaN(Date.parse(val)))
+            return new Date(val).toISOString();
+        return val;
+    }, zod_1.z.string().datetime()).optional(),
     status: zod_1.z.enum(['pending', 'processing', 'sent', 'partialfailed', 'failed']).optional(),
     createdBy: zod_1.z.number(),
 });
