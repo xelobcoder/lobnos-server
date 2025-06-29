@@ -41,5 +41,17 @@ class PrimeSmsJobRecipientsRepo {
         const ids = await connection(this.tablename).insert(rows).returning('recid');
         return Array.isArray(ids) ? ids.map((id) => (typeof id === 'object' ? id.recid : id)) : [];
     }
+    async updateDeliveryStatusByPhone(jobid, phonee164, status, arkeselId) {
+        const connection = await this.connection;
+        const updateData = {
+            deliverystatus: status,
+            sentat: new Date(),
+        };
+        if (arkeselId)
+            updateData.messageid = arkeselId;
+        return await connection(this.tablename)
+            .where({ jobid, phonee164 })
+            .update(updateData);
+    }
 }
 exports.PrimeSmsJobRecipientsRepo = PrimeSmsJobRecipientsRepo;

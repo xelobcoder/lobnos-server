@@ -26,12 +26,12 @@ interface PhoneValidationResult {
 
 export class SmsService {
     private readonly config: SmsConfig;
-    
+
     constructor(apiKey?: string) {
         this.config = {
-            apiKey: apiKey || process.env.ARKESEL_SMS_API_KEY || '',
-            defaultSender: process.env.SMS_DEFAULT_SENDER || 'Vitalscan',
-            baseUrl: 'https://sms.arkesel.com'
+            apiKey: apiKey || process.env.ARKESEL_SMS_API_KEY,
+            defaultSender: process.env.SMS_DEFAULT_SENDER,
+            baseUrl: process.env.ARKESEL_BASE_URL
         };
 
         if (!this.config.apiKey) {
@@ -47,13 +47,14 @@ export class SmsService {
             };
 
             const response = await fetch(
-                `${this.config.baseUrl}${endpoint}`, 
+                `${this.config.baseUrl}${endpoint}`,
                 {
                     method,
                     headers,
                     body: method !== 'GET' && data ? JSON.stringify(data) : undefined,
                 }
             );
+
 
             if (!response.ok) {
                 throw new Error(`SMS API error: ${response.status} ${response.statusText}`);
@@ -69,10 +70,10 @@ export class SmsService {
 
     private validatePhoneNumber(phone: string): PhoneValidationResult {
         if (!phone) {
-            return { 
-                isValid: false, 
-                formattedNumber: null, 
-                error: 'Phone number is required' 
+            return {
+                isValid: false,
+                formattedNumber: null,
+                error: 'Phone number is required'
             };
         }
 
@@ -132,8 +133,8 @@ export class SmsService {
     }
 
     async sendSms(
-        recipients: string[], 
-        message: string, 
+        recipients: string[],
+        message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
         if (!recipients.length || !message.trim()) {
@@ -163,8 +164,8 @@ export class SmsService {
     }
 
     async sendSingleSms(
-        to: string, 
-        message: string, 
+        to: string,
+        message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
         if (!to || !message.trim()) {
@@ -189,18 +190,18 @@ export class SmsService {
 
     // Convenience methods
     async scheduleSms(
-        recipients: string[], 
-        message: string, 
-        scheduledDate: string, 
+        recipients: string[],
+        message: string,
+        scheduledDate: string,
         sender?: string
     ): Promise<SmsResponse> {
         return this.sendSms(recipients, message, { scheduledDate, sender });
     }
 
     async sendSmsWithWebhook(
-        recipients: string[], 
-        message: string, 
-        callbackUrl: string, 
+        recipients: string[],
+        message: string,
+        callbackUrl: string,
         sender?: string
     ): Promise<SmsResponse> {
         return this.sendSms(recipients, message, { callbackUrl, sender });

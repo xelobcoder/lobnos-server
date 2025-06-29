@@ -4,9 +4,9 @@ exports.SmsService = void 0;
 class SmsService {
     constructor(apiKey) {
         this.config = {
-            apiKey: apiKey || process.env.ARKESEL_SMS_API_KEY || '',
-            defaultSender: process.env.SMS_DEFAULT_SENDER || 'Vitalscan',
-            baseUrl: 'https://sms.arkesel.com'
+            apiKey: apiKey || process.env.ARKESEL_SMS_API_KEY,
+            defaultSender: process.env.SMS_DEFAULT_SENDER,
+            baseUrl: process.env.ARKESEL_BASE_URL
         };
         if (!this.config.apiKey) {
             throw new Error('SMS API key is required');

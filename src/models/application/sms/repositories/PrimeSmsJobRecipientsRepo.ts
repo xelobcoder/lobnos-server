@@ -8,6 +8,7 @@ export interface PrimeSmsJobRecipient {
      deliverystatus?: 'queued' | 'sent' | 'failed' | 'retrying';
      sentat?: Date;
      errorcode?: string;
+     messageid?: string | null;
 }
 
 export class PrimeSmsJobRecipientsRepo {
@@ -46,11 +47,28 @@ export class PrimeSmsJobRecipientsRepo {
      }
 
      async bulkInsert(jobid: number, recipients: Omit<PrimeSmsJobRecipient, 'jobid'>[], trx: any): Promise<number[]> {
-          const connection =  await trx || this.connection;
+          const connection = await trx || this.connection;
           const rows = recipients.map(r => {
                return { ...r, jobid }
           });
           const ids = await connection(this.tablename).insert(rows).returning('recid');
           return Array.isArray(ids) ? ids.map((id: any) => (typeof id === 'object' ? id.recid : id)) : [];
+     }
+
+     async updateDeliveryStatusByPhone(
+          jobid: number,
+          phonee164: string,
+          status: 'queued' | 'sent' | 'failed' | 'retrying',
+          arkeselId?: string | null
+     ): Promise<number> {
+          const connection = await this.connection;
+          const updateData: Partial<PrimeSmsJobRecipient> = {
+               deliverystatus: status,
+               sentat: new Date(),
+          };
+          if (arkeselId) updateData.messageid = arkeselId;
+          return await connection(this.tablename)
+               .where({ jobid, phonee164 })
+               .update(updateData);
      }
 }

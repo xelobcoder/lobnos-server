@@ -20,7 +20,8 @@ class SmsMessageParser {
     static parse(template, data) {
         if (!template || typeof template !== 'string')
             return '';
-        return template.replace(/{{\s*(\w+)\s*}}/g, (match, key) => {
+        return template.replace(/{{\s*(\w+)\s*}}|{\s*(\w+)\s*}/g, (match, key1, key2) => {
+            const key = key1 || key2;
             return key in data ? String(data[key]) : '';
         });
     }
@@ -34,17 +35,17 @@ class SmsMessageParser {
     async loadClinicianData(clinicianId) {
         return await new clinicianClass_1.default().getClinicianBasicInfo(this.tenantId, clinicianId);
     }
-    loadCategoryData() {
+    async loadCategoryData() {
         let datasource = {};
         switch (this.category) {
             case 'clinician':
-                datasource = this.loadClinicianData(this.targetId);
+                datasource = await this.loadClinicianData(this.targetId);
                 break;
             case 'patient':
-                datasource = this.loadPatientData(this.targetId);
+                datasource = await this.loadPatientData(this.targetId);
                 break;
             case 'organization':
-                datasource = this.loadOrganizationData(this.targetId);
+                datasource = await this.loadOrganizationData(this.targetId);
                 break;
             default:
                 throw new Error(`Unknown category: ${this.category}`);
@@ -59,17 +60,14 @@ class SmsMessageParser {
     }
     async humanizeTemplate(jobId) {
         const job = typeof jobId === 'number' ? await new PrimeSmsJobsRepo_1.PrimeSmsJobsRepo(this.tenantId).findById(jobId) : jobId;
-        if (!job) {
+        if (!job)
             throw new Error(`Job with ID ${jobId} not found`);
-        }
         const { templateid } = jobId;
-        if (!templateid) {
+        if (!templateid)
             throw new Error(`Job with ID ${jobId} does not have a template associated`);
-        }
         const template = await new PrimeSmsTemplatesRepo_1.PrimeSmsTemplatesRepo(this.tenantId).findById(templateid);
-        if (!template) {
+        if (!template)
             throw new Error(`Template with ID ${templateid} not found`);
-        }
         const { category } = template;
         if (!category || category !== this.category) {
             throw new Error(`Template category ${category} does not match job category ${this.category}`);

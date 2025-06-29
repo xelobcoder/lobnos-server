@@ -21,7 +21,8 @@ export class SmsMessageParser {
 	}
 	static parse(template: string, data: Record<string, any>): string {
 		if (!template || typeof template !== 'string') return '';
-		return template.replace(/{{\s*(\w+)\s*}}/g, (match, key) => {
+		return template.replace(/{{\s*(\w+)\s*}}|{\s*(\w+)\s*}/g, (match, key1, key2) => {
+			const key = key1 || key2;
 			return key in data ? String(data[key]) : '';
 		});
 	}
@@ -31,7 +32,7 @@ export class SmsMessageParser {
 	}
 
 	private async loadPatientData(patientId: number): Promise<NewRegistration> {
-		console.log( await new Registration().getPatientBasicData(this.tenantId, patientId))
+		console.log(await new Registration().getPatientBasicData(this.tenantId, patientId))
 		return await new Registration().getPatientBasicData(this.tenantId, patientId);
 	}
 
@@ -39,17 +40,17 @@ export class SmsMessageParser {
 		return await new ClinicianClass().getClinicianBasicInfo(this.tenantId, clinicianId);
 	}
 
-	private loadCategoryData(): Promise<NewRegistration | PrimeLimsTableclinicianbasicinfo[] | Organization[]> {
+	private async loadCategoryData(): Promise<NewRegistration | PrimeLimsTableclinicianbasicinfo[] | Organization[]> {
 		let datasource = {}
 		switch (this.category) {
 			case 'clinician':
-				datasource = this.loadClinicianData(this.targetId);
+				datasource = await this.loadClinicianData(this.targetId);
 				break
 			case 'patient':
-				datasource = this.loadPatientData(this.targetId);
+				datasource = await this.loadPatientData(this.targetId);
 				break;
 			case 'organization':
-				datasource = this.loadOrganizationData(this.targetId);
+				datasource = await this.loadOrganizationData(this.targetId);
 				break;
 			default:
 				throw new Error(`Unknown category: ${this.category}`);
@@ -67,19 +68,13 @@ export class SmsMessageParser {
 
 	public async humanizeTemplate(jobId: number | Partial<PrimeSmsJob>): Promise<string> {
 		const job = typeof jobId === 'number' ? await new PrimeSmsJobsRepo(this.tenantId).findById(jobId) : jobId;
-		if (!job) {
-			throw new Error(`Job with ID ${jobId} not found`);
-		}
-		const { templateid } = jobId as PrimeSmsJob;
 
-		if (!templateid) {
-			throw new Error(`Job with ID ${jobId} does not have a template associated`);
-		}
+		if (!job) throw new Error(`Job with ID ${jobId} not found`);
+		const { templateid } = jobId as PrimeSmsJob;
+		if (!templateid) throw new Error(`Job with ID ${jobId} does not have a template associated`);
 
 		const template: PrimeSmsTemplate | null = await new PrimeSmsTemplatesRepo(this.tenantId).findById(templateid);
-		if (!template) {
-			throw new Error(`Template with ID ${templateid} not found`);
-		}
+		if (!template) throw new Error(`Template with ID ${templateid} not found`);
 		const { category } = template;
 
 		if (!category || category !== this.category) {
