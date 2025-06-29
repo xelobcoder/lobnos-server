@@ -77,7 +77,7 @@ export class SmsService {
         let formattedNumber: string | null = null
         if (digits.length === 9) {
             formattedNumber = '0' + digits
-        } else if (digits.startsWith('255') && digits.length === 12) {
+        } else if (digits.startsWith('233') && digits.length === 12) {
             formattedNumber = '0' + digits.slice(3)
         } else if (digits.length === 10) {
             formattedNumber = digits.startsWith('0') ? digits : '0' + digits

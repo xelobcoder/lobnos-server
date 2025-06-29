@@ -256,7 +256,6 @@ export class SmsJobsService {
                                    recipient.personalizedbody,
                                    scheduledat?.toISOString() || '',
                               );
-                              console.log('Scheduled SMS status:', status);
                               if (status.status === 'success') {
                                    const deliveryStatus = await this.jobRecipientsRepo.update(recipient.recid, {
                                         deliverystatus: 'sent',

@@ -235,7 +235,6 @@ class SmsJobsService {
                 for (const recipient of recipients) {
                     if (recipient.personalizedbody) {
                         const status = await new Arkesel_1.SmsService().scheduleSms([recipient.phonee164], recipient.personalizedbody, (scheduledat === null || scheduledat === void 0 ? void 0 : scheduledat.toISOString()) || '');
-                        console.log('Scheduled SMS status:', status);
                         if (status.status === 'success') {
                             const deliveryStatus = await this.jobRecipientsRepo.update(recipient.recid, {
                                 deliverystatus: 'sent',

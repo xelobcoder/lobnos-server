@@ -45,22 +45,26 @@ class PrimeSmsAnalyticsController {
             return res.status(400).json({ success: false, error: 'Missing tenantId' });
         }
         const tenantId = Number(req.query.tenantId);
+        const from = req.query.from ? String(req.query.from) : undefined;
+        const to = req.query.to ? String(req.query.to) : undefined;
         const days = req.query.days ? Number(req.query.days) : 30;
         const analytics = new PrimeSmsAnalytics_1.PrimeSmsAnalytics(tenantId);
-        analytics.getJobTrendsByDay(days)
+        analytics.getJobTrendsByDay(days, from, to)
             .then(data => res.json({ success: true, data }))
-            .catch(() => res.status(500).json({ success: false, error: 'Failed to fetch job trends by day' }));
+            .catch((err) => res.status(500).json({ success: false, error: err.message || 'Failed to fetch job trends by day' }));
     }
     getDeliveryTrendsByDay(req, res) {
         if (!req.query.tenantId) {
             return res.status(400).json({ success: false, error: 'Missing tenantId' });
         }
         const tenantId = Number(req.query.tenantId);
+        const from = req.query.from ? String(req.query.from) : undefined;
+        const to = req.query.to ? String(req.query.to) : undefined;
         const days = req.query.days ? Number(req.query.days) : 30;
         const analytics = new PrimeSmsAnalytics_1.PrimeSmsAnalytics(tenantId);
-        analytics.getDeliveryTrendsByDay(days)
+        analytics.getDeliveryTrendsByDay(days, from, to)
             .then(data => res.json({ success: true, data }))
-            .catch(() => res.status(500).json({ success: false, error: 'Failed to fetch delivery trends by day' }));
+            .catch((err) => res.status(500).json({ success: false, error: err.message || 'Failed to fetch delivery trends by day' }));
     }
 }
 exports.PrimeSmsAnalyticsController = PrimeSmsAnalyticsController;

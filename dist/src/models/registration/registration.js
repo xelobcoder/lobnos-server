@@ -54,7 +54,6 @@ class Registration {
     }
     static async addPersonalInformation(tenantId, records) {
         const generatedId = await this.generatePatientFullUniqueId(tenantId);
-        console.log(generatedId);
         if (generatedId) {
             const { firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
             const values = [
@@ -129,7 +128,6 @@ class Registration {
             return result;
         }
         catch (err) {
-            console.log(err);
             return [];
         }
     }

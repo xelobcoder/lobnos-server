@@ -29,7 +29,7 @@ export default class Registration {
 		const lastId = lastPatient ? lastPatient.patientid + 1 : 1;
 		const paddedId = String(lastId).padStart(6, "0");
 		const codeValues = await ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(tenantId);
-		console.log(codeValues,lastId)
+		console.log(codeValues, lastId)
 		if (!codeValues) return null;
 		return `${codeValues.region}-${paddedId}-${codeValues.district}`;
 	}
@@ -59,7 +59,6 @@ export default class Registration {
 
 	public static async addPersonalInformation(tenantId: number, records: NewRegistration): Promise<registrationOutcome | void> {
 		const generatedId = await this.generatePatientFullUniqueId(tenantId);
-		console.log(generatedId)
 		if (generatedId) {
 			const {
 				firstname,
@@ -151,7 +150,6 @@ export default class Registration {
 			let result = await promisifyQuery(tenantId, query, values);
 			return result;
 		} catch (err) {
-			console.log(err);
 			return [];
 		}
 	}

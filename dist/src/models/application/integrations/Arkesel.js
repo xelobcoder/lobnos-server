@@ -49,7 +49,7 @@ class SmsService {
         if (digits.length === 9) {
             formattedNumber = '0' + digits;
         }
-        else if (digits.startsWith('255') && digits.length === 12) {
+        else if (digits.startsWith('233') && digits.length === 12) {
             formattedNumber = '0' + digits.slice(3);
         }
         else if (digits.length === 10) {

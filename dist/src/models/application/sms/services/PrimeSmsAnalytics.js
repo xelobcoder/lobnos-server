@@ -78,13 +78,19 @@ class PrimeSmsAnalytics {
             throw error;
         }
     }
-    async getJobTrendsByDay(days = 30) {
+    async getJobTrendsByDay(days = 30, from, to) {
         try {
             const connection = await this.connection;
-            const rows = await connection(this.primejobs)
+            let query = connection(this.primejobs)
                 .select(connection.raw('DATE(createdat) as day, status'))
-                .count('* as count')
-                .where('createdat', '>=', connection.raw(`CURDATE() - INTERVAL ? DAY`, [days]))
+                .count('* as count');
+            if (from && to) {
+                query = query.whereBetween('createdat', [from, to]);
+            }
+            else {
+                query = query.where('createdat', '>=', connection.raw(`CURDATE() - INTERVAL ? DAY`, [days]));
+            }
+            const rows = await query
                 .groupByRaw('DATE(createdat), status')
                 .orderBy('day', 'asc');
             const result = {};
@@ -99,13 +105,19 @@ class PrimeSmsAnalytics {
             throw error;
         }
     }
-    async getDeliveryTrendsByDay(days = 30) {
+    async getDeliveryTrendsByDay(days = 30, from, to) {
         try {
             const connection = await this.connection;
-            const rows = await connection(this.primejobrecipients)
+            let query = connection(this.primejobrecipients)
                 .select(connection.raw('DATE(createdat) as day, deliverystatus'))
-                .count('* as count')
-                .where('createdat', '>=', connection.raw(`CURDATE() - INTERVAL ? DAY`, [days]))
+                .count('* as count');
+            if (from && to) {
+                query = query.whereBetween('createdat', [from, to]);
+            }
+            else {
+                query = query.where('createdat', '>=', connection.raw(`CURDATE() - INTERVAL ? DAY`, [days]));
+            }
+            const rows = await query
                 .groupByRaw('DATE(createdat), deliverystatus')
                 .orderBy('day', 'asc');
             const result = {};
