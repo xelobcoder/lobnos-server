@@ -38,7 +38,10 @@ class SmsJobRecipientsController {
         res.json({ deleted });
     }
     async getAllByJob(req, res) {
-        const recipients = await this.recipientsService.getAllByJob(Number(req.params.jobId));
+        const jobId = Number(req.params.jobId);
+        const page = req.query.page ? Number(req.query.page) : 1;
+        const count = req.query.count ? Number(req.query.count) : 20;
+        const recipients = await this.recipientsService.getAllByJob(jobId, page, count);
         res.json(recipients);
     }
 }

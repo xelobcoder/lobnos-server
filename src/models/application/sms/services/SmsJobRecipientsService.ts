@@ -31,7 +31,7 @@ export class SmsJobRecipientsService {
           return this.recipientsRepo.delete(id);
      }
 
-     async getAllByJob(jobId: number) {
-          return this.recipientsRepo.findAllByJob(jobId);
+     async getAllByJob(jobId: number, page: number = 1, count: number = 20) {
+          return this.recipientsRepo.findAllByJobPaginated(jobId, page, count);
      }
 }

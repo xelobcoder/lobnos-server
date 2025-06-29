@@ -27,8 +27,8 @@ class SmsJobRecipientsService {
     async deleteRecipient(id) {
         return this.recipientsRepo.delete(id);
     }
-    async getAllByJob(jobId) {
-        return this.recipientsRepo.findAllByJob(jobId);
+    async getAllByJob(jobId, page = 1, count = 20) {
+        return this.recipientsRepo.findAllByJobPaginated(jobId, page, count);
     }
 }
 exports.SmsJobRecipientsService = SmsJobRecipientsService;

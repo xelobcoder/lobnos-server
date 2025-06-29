@@ -37,7 +37,8 @@ class PrimeSmsJobsRepo {
         const connection = await this.connection;
         const totalResult = await connection(this.tablename).count('* as count');
         const jobs = await connection(this.tablename)
-            .select()
+            .leftJoin('roles', 'primesmsjobs.createdby', 'roles.employeeid')
+            .select('primesmsjobs.*', 'roles.username as createdbyusername')
             .offset((page - 1) * count)
             .limit(count);
         const total = Number((totalResult[0] && (totalResult[0].count || totalResult[0]['count'])) || 0);

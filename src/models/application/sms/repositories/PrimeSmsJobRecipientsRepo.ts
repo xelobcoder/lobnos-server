@@ -36,6 +36,15 @@ export class PrimeSmsJobRecipientsRepo {
           return await connection(this.tablename).where({ jobid }).select();
      }
 
+     async findAllByJobPaginated(jobid: number, page: number = 1, count: number = 20): Promise<PrimeSmsJobRecipient[]> {
+          const connection = await this.connection;
+          return await connection(this.tablename)
+               .where({ jobid })
+               .limit(count)
+               .offset((page - 1) * count)
+               .select();
+     }
+
      async update(recid: number, data: Partial<PrimeSmsJobRecipient>): Promise<number> {
           const connection = await this.connection;
           return await connection(this.tablename).where({ recid }).update(data);

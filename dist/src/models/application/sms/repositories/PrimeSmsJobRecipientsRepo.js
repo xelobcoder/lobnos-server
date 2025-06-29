@@ -25,6 +25,14 @@ class PrimeSmsJobRecipientsRepo {
         const connection = await this.connection;
         return await connection(this.tablename).where({ jobid }).select();
     }
+    async findAllByJobPaginated(jobid, page = 1, count = 20) {
+        const connection = await this.connection;
+        return await connection(this.tablename)
+            .where({ jobid })
+            .limit(count)
+            .offset((page - 1) * count)
+            .select();
+    }
     async update(recid, data) {
         const connection = await this.connection;
         return await connection(this.tablename).where({ recid }).update(data);
