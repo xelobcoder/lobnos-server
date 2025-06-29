@@ -28,11 +28,13 @@ class SmsJobsService {
     }
     async createJob(dto, tenantId) {
         try {
+            // 1. Create the job
             const transaction = await (0, KnexConnections_1.default)(tenantId);
             const trx = await transaction.transaction();
             const jobId = await this.jobsRepo.create(mapJobDtoToDb(dto), trx);
             if (dto.recipientScope !== 'all' && dto.targetIds) {
                 const targets = Array.isArray(dto.targetIds) ? dto.targetIds : [dto.targetIds];
+                // Validate phone numbers (simple E.164 regex, can be improved)
                 const validPhone = (phone) => /^\+?\d{7,15}$/.test(phone);
                 let recipients = await Promise.all(targets
                     .filter((target) => target.phone && validPhone(target.phone))
@@ -56,11 +58,13 @@ class SmsJobsService {
                 this.processJobData(jobId);
             }
             else if (dto.recipientScope === 'all') {
+                // For 'all', we assume targetIds is not used and no recipients are created
                 await trx.commit();
             }
             return jobId;
         }
         catch (error) {
+            console.error('Error creating SMS job:', error);
             throw new Error('Failed to create SMS job. Please try again later.');
         }
     }
@@ -78,116 +82,116 @@ class SmsJobsService {
     }
     async processJobData(jobid) {
         const job = await this.jobsRepo.findById(jobid);
-        if (!job) {
-            return;
-        }
+        if (!job)
+            throw new Error(`Job with ID ${jobid} not found`);
         const { templateid, custombody, recipientscope, sendtype, scheduledat, status } = job;
-        if (sendtype === 'scheduled' && scheduledat) {
-            await this.processScheduledJob(job);
+        if (status === "sent" || status === "processing")
+            return;
+        const recipients = await this.jobRecipientsRepo.findAllByJob(jobid);
+        const isScheduled = sendtype === 'scheduled' && scheduledat;
+        const hasCustomBody = !templateid && custombody !== null && custombody !== undefined;
+        if (recipientscope === 'all') {
+            await this.processBatchJob(job);
             return;
         }
-        if (sendtype === 'immediate' && status !== 'pending') {
+        if (isScheduled) {
+            try {
+                await this.processScheduledJobs(jobid, hasCustomBody, recipients, custombody, scheduledat);
+            }
+            catch (err) {
+                await this.jobsRepo.update(jobid, { status: 'failed' });
+                console.error('Job processing failed:', jobid, err);
+            }
+            return;
+        }
+        if (sendtype === "immediate" && status !== 'pending') {
             const hasTemplate = templateid !== null && templateid !== undefined;
-            const hasCustomBody = custombody !== null && custombody !== undefined;
-            if (!hasTemplate && !hasCustomBody) {
+            const hasCustomBodyImmediate = custombody !== null && custombody !== undefined;
+            if (!hasTemplate && !hasCustomBodyImmediate) {
+                console.error('Job has no template or custom body:', jobid);
                 return;
             }
         }
-        const recipients = await this.jobRecipientsRepo.findAllByJob(jobid);
-        if (job.recipientscope === 'all') {
-            await this.processBatchJob(job);
-        }
-        else {
-            await this.processSingleOrMultipleJob(job, recipients);
-        }
-    }
-    async processScheduledJob(job) {
-        const { jobid, templateid, custombody, scheduledat } = job;
-        const recipients = await this.jobRecipientsRepo.findAllByJob(jobid);
-        const smsService = new Arkesel_1.SmsService();
-        const numbers = recipients.map(r => r.phonee164);
-        let message;
-        if (custombody) {
-            message = custombody;
-        }
-        else if (templateid && recipients.length === 1) {
-            message = recipients[0].personalizedbody;
-        }
-        else {
-            return;
-        }
-        try {
-            const result = await smsService.scheduleSms(numbers, message, scheduledat.toISOString());
-            if (result.status === 'success') {
-                for (const recipient of recipients) {
-                    await this.jobRecipientsRepo.update(recipient.recid, {
-                        deliverystatus: 'queued'
-                    });
-                }
-                await this.jobsRepo.update(job.jobid, { status: 'processing' });
-            }
-        }
-        catch (err) { }
+        await this.processSingleOrMultipleJob(job, recipients);
     }
     async processSingleOrMultipleJob(job, recipients) {
         const smsService = new Arkesel_1.SmsService();
-        const isScheduled = job.sendtype === 'scheduled' && job.scheduledat;
-        const sendOrSchedule = async (phones, message, scheduledAt) => {
-            if (isScheduled && scheduledAt) {
-                return await smsService.scheduleSms(phones, message, scheduledAt.toISOString());
-            }
-            else {
-                return await smsService.sendSms(phones, message);
-            }
-        };
-        const updateRecipient = async (recipient, status, messageid) => {
-            await this.jobRecipientsRepo.update(recipient.recid, {
-                deliverystatus: status,
-                messageid: messageid
-            });
-        };
-        const updateJobStatus = async (status) => {
-            await this.jobsRepo.update(job.jobid, { status });
-        };
         if (recipients.length === 1) {
+            // Single recipient
             const recipient = recipients[0];
-            let message = job.custombody || recipient.personalizedbody;
-            try {
-                const result = await sendOrSchedule([recipient.phonee164], message, job.scheduledat);
-                if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
-                    await updateRecipient(recipient, isScheduled ? 'queued' : 'sent', result.data[0].id);
-                    await updateJobStatus(isScheduled ? 'processing' : 'sent');
+            if (!job.templateid && job.custombody) {
+                try {
+                    const result = await smsService.sendSms([recipient.phonee164], job.custombody);
+                    if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
+                        await this.jobRecipientsRepo.update(recipient.recid, {
+                            deliverystatus: 'sent',
+                            messageid: result.data[0].id
+                        });
+                        // Update job status to sent
+                        await this.jobsRepo.update(job.jobid, { status: 'sent' });
+                    }
+                }
+                catch (err) {
+                    console.error('Error sending single SMS:', err);
                 }
             }
-            catch (err) { }
+            else if (job.templateid) {
+                try {
+                    const result = await smsService.sendSms([recipient.phonee164], recipient.personalizedbody);
+                    //
+                    if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
+                        await this.jobRecipientsRepo.update(recipient.recid, {
+                            deliverystatus: 'sent',
+                            messageid: result.data[0].id
+                        });
+                        // Update job status to sent
+                        await this.jobsRepo.update(job.jobid, { status: 'sent' });
+                    }
+                }
+                catch (err) {
+                    console.error('Error sending single SMS (template):', err);
+                }
+            }
         }
         else if (recipients.length > 1) {
-            if (job.custombody) {
+            // Multiple recipients
+            if (!job.templateid && job.custombody) {
                 try {
                     const numbers = recipients.map(r => r.phonee164);
-                    const result = await sendOrSchedule(numbers, job.custombody, job.scheduledat);
+                    const result = await smsService.sendSms(numbers, job.custombody);
+                    //
                     if (result.status === 'success' && Array.isArray(result.data)) {
+                        // Map phone to message id
                         let allSent = true;
                         for (const recipient of recipients) {
                             const sentInfo = result.data.find((d) => d.recipient === recipient.phonee164.replace(/^\+/, ''));
-                            await updateRecipient(recipient, isScheduled ? 'queued' : 'sent', sentInfo ? sentInfo.id : null);
+                            const updateResult = await this.jobRecipientsRepo.update(recipient.recid, {
+                                deliverystatus: 'sent',
+                                messageid: sentInfo ? sentInfo.id : null
+                            });
                             if (!sentInfo)
                                 allSent = false;
                         }
                         if (allSent) {
-                            await updateJobStatus(isScheduled ? 'processing' : 'sent');
+                            await this.jobsRepo.update(job.jobid, { status: 'sent' });
                         }
                     }
                 }
-                catch (err) { }
+                catch (err) {
+                    console.error('Error sending bulk SMS (custom body):', err);
+                }
             }
             else if (job.templateid) {
                 let allSent = true;
                 for (const recipient of recipients) {
                     try {
-                        const result = await sendOrSchedule([recipient.phonee164], recipient.personalizedbody, job.scheduledat);
+                        const result = await smsService.sendSms([recipient.phonee164], recipient.personalizedbody);
+                        //
                         if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
-                            await updateRecipient(recipient, isScheduled ? 'queued' : 'sent', result.data[0].id);
+                            await this.jobRecipientsRepo.update(recipient.recid, {
+                                deliverystatus: 'sent',
+                                messageid: result.data[0].id
+                            });
                         }
                         else {
                             allSent = false;
@@ -195,23 +199,63 @@ class SmsJobsService {
                     }
                     catch (err) {
                         allSent = false;
+                        console.error('Error sending personalized SMS:', err);
                     }
                 }
                 if (allSent) {
-                    await updateJobStatus(isScheduled ? 'processing' : 'sent');
+                    await this.jobsRepo.update(job.jobid, { status: 'sent' });
                 }
             }
         }
     }
     async processBatchJob(job) {
-        return;
+        //
     }
-    async processDueScheduledJobs() {
-        const now = new Date();
-        const dueJobs = await this.jobsRepo.findAllDueScheduledJobs(now);
-        for (const job of dueJobs) {
-            const recipients = await this.jobRecipientsRepo.findAllByJob(job.jobid);
-            await this.processSingleOrMultipleJob(job, recipients);
+    async processScheduledJobs(jobid, hasCustomBody, recipients, custombody, scheduledat) {
+        try {
+            if (hasCustomBody && custombody) {
+                const status = await new Arkesel_1.SmsService().scheduleSms(recipients.map(r => r.phonee164), custombody, (scheduledat === null || scheduledat === void 0 ? void 0 : scheduledat.toISOString()) || '');
+                console.log('Scheduled SMS status:', status);
+                if (status.status === 'success' && Array.isArray(status.data)) {
+                    for (let i = 0; i < recipients.length; i++) {
+                        const deliveryStatus = await this.jobRecipientsRepo.update(recipients[i].recid, {
+                            deliverystatus: 'sent',
+                            messageid: null
+                        });
+                        console.log('Delivery status updated:', deliveryStatus);
+                    }
+                    if (recipients.length > 0) {
+                        await this.jobsRepo.update(jobid, { status: 'sent' });
+                    }
+                }
+                return status;
+            }
+            else {
+                let allSent = true;
+                for (const recipient of recipients) {
+                    if (recipient.personalizedbody) {
+                        const status = await new Arkesel_1.SmsService().scheduleSms([recipient.phonee164], recipient.personalizedbody, (scheduledat === null || scheduledat === void 0 ? void 0 : scheduledat.toISOString()) || '');
+                        console.log('Scheduled SMS status:', status);
+                        if (status.status === 'success') {
+                            const deliveryStatus = await this.jobRecipientsRepo.update(recipient.recid, {
+                                deliverystatus: 'sent',
+                                messageid: null
+                            });
+                            console.log('Delivery status updated:', deliveryStatus);
+                        }
+                        else {
+                            allSent = false;
+                        }
+                    }
+                }
+                if (allSent && recipients.length > 0) {
+                    await this.jobsRepo.update(jobid, { status: 'sent' });
+                }
+            }
+        }
+        catch (error) {
+            console.error('Error processing scheduled jobs:', error);
+            throw new Error('Failed to process scheduled jobs. Please try again later.');
         }
     }
 }

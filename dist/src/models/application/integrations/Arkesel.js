@@ -26,8 +26,7 @@ class SmsService {
             if (!response.ok) {
                 throw new Error(`SMS API error: ${response.status} ${response.statusText}`);
             }
-            const result = await response.json();
-            return result;
+            return await response.json();
         }
         catch (error) {
             console.error('SMS service error:', error);
@@ -42,13 +41,10 @@ class SmsService {
                 error: 'Phone number is required'
             };
         }
-        // Remove all non-digit characters
         let digits = phone.replace(/\D/g, '');
-        // Handle numbers starting with 00
         if (digits.startsWith('00')) {
             digits = digits.slice(2);
         }
-        // Handle different formats
         let formattedNumber = null;
         if (digits.length === 9) {
             formattedNumber = '0' + digits;
@@ -92,7 +88,6 @@ class SmsService {
         if (!recipients.length || !message.trim()) {
             throw new Error('Recipients and message are required');
         }
-        // Validate all numbers first
         const { validNumbers, invalidNumbers } = this.validateRecipients(recipients);
         if (invalidNumbers.length > 0) {
             console.warn('Invalid phone numbers detected:', invalidNumbers);
@@ -120,9 +115,30 @@ class SmsService {
         });
         return this.sendRequest(`/sms/api?${queryParams}`, 'GET');
     }
-    // Convenience methods
+    formatScheduledDate(date) {
+        let d;
+        if (typeof date === 'string') {
+            d = new Date(date);
+        }
+        else {
+            d = date;
+        }
+        const pad = (n) => n < 10 ? '0' + n : n;
+        const year = d.getFullYear();
+        const month = pad(d.getMonth() + 1);
+        const day = pad(d.getDate());
+        let hour = d.getHours();
+        const minute = pad(d.getMinutes());
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        hour = hour % 12;
+        if (hour === 0)
+            hour = 12;
+        const hourStr = pad(hour);
+        return `${year}-${month}-${day} ${hourStr}:${minute} ${ampm}`;
+    }
     async scheduleSms(recipients, message, scheduledDate, sender) {
-        return this.sendSms(recipients, message, { scheduledDate, sender });
+        const formattedDate = this.formatScheduledDate(scheduledDate);
+        return await this.sendSms(recipients, message, { scheduledDate: formattedDate, sender });
     }
     async sendSmsWithWebhook(recipients, message, callbackUrl, sender) {
         return this.sendSms(recipients, message, { callbackUrl, sender });

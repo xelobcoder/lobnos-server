@@ -17,7 +17,6 @@ interface SmsSendOptions {
     scheduledDate?: string;
 }
 
-// Add new interfaces for validation
 interface PhoneValidationResult {
     isValid: boolean;
     formattedNumber: string | null;
@@ -44,8 +43,7 @@ export class SmsService {
             const headers: HeadersInit = {
                 'Content-Type': 'application/json',
                 'api-key': this.config.apiKey
-            };
-
+            }
             const response = await fetch(
                 `${this.config.baseUrl}${endpoint}`,
                 {
@@ -53,18 +51,14 @@ export class SmsService {
                     headers,
                     body: method !== 'GET' && data ? JSON.stringify(data) : undefined,
                 }
-            );
-
-
+            )
             if (!response.ok) {
-                throw new Error(`SMS API error: ${response.status} ${response.statusText}`);
+                throw new Error(`SMS API error: ${response.status} ${response.statusText}`)
             }
-
-            const result = await response.json();
-            return result;
+            return await response.json()
         } catch (error) {
-            console.error('SMS service error:', error);
-            throw new Error(error instanceof Error ? error.message : 'Unknown SMS service error');
+            console.error('SMS service error:', error)
+            throw new Error(error instanceof Error ? error.message : 'Unknown SMS service error')
         }
     }
 
@@ -74,62 +68,51 @@ export class SmsService {
                 isValid: false,
                 formattedNumber: null,
                 error: 'Phone number is required'
-            };
+            }
         }
-
-        // Remove all non-digit characters
-        let digits = phone.replace(/\D/g, '');
-
-        // Handle numbers starting with 00
+        let digits = phone.replace(/\D/g, '')
         if (digits.startsWith('00')) {
-            digits = digits.slice(2);
+            digits = digits.slice(2)
         }
-
-        // Handle different formats
-        let formattedNumber: string | null = null;
-
+        let formattedNumber: string | null = null
         if (digits.length === 9) {
-            formattedNumber = '0' + digits;
+            formattedNumber = '0' + digits
         } else if (digits.startsWith('255') && digits.length === 12) {
-            formattedNumber = '0' + digits.slice(3);
+            formattedNumber = '0' + digits.slice(3)
         } else if (digits.length === 10) {
-            formattedNumber = digits.startsWith('0') ? digits : '0' + digits;
+            formattedNumber = digits.startsWith('0') ? digits : '0' + digits
         }
-
         if (!formattedNumber || !/^0\d{9}$/.test(formattedNumber)) {
             return {
                 isValid: false,
                 formattedNumber: null,
                 error: 'Invalid phone number format'
-            };
+            }
         }
-
         return {
             isValid: true,
             formattedNumber
-        };
+        }
     }
 
     private validateRecipients(recipients: string[]): {
         validNumbers: string[];
         invalidNumbers: Array<{ number: string; error: string }>;
     } {
-        const validNumbers: string[] = [];
-        const invalidNumbers: Array<{ number: string; error: string }> = [];
-
+        const validNumbers: string[] = []
+        const invalidNumbers: Array<{ number: string; error: string }> = []
         recipients.forEach(number => {
-            const validation = this.validatePhoneNumber(number);
+            const validation = this.validatePhoneNumber(number)
             if (validation.isValid && validation.formattedNumber) {
-                validNumbers.push(validation.formattedNumber);
+                validNumbers.push(validation.formattedNumber)
             } else {
                 invalidNumbers.push({
                     number,
                     error: validation.error || 'Invalid number'
-                });
+                })
             }
-        });
-
-        return { validNumbers, invalidNumbers };
+        })
+        return { validNumbers, invalidNumbers }
     }
 
     async sendSms(
@@ -138,29 +121,23 @@ export class SmsService {
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
         if (!recipients.length || !message.trim()) {
-            throw new Error('Recipients and message are required');
+            throw new Error('Recipients and message are required')
         }
-
-        // Validate all numbers first
-        const { validNumbers, invalidNumbers } = this.validateRecipients(recipients);
-
+        const { validNumbers, invalidNumbers } = this.validateRecipients(recipients)
         if (invalidNumbers.length > 0) {
-            console.warn('Invalid phone numbers detected:', invalidNumbers);
+            console.warn('Invalid phone numbers detected:', invalidNumbers)
         }
-
         if (validNumbers.length === 0) {
-            throw new Error('No valid phone numbers provided');
+            throw new Error('No valid phone numbers provided')
         }
-
         const data = {
             sender: options.sender || this.config.defaultSender,
             message: message.trim(),
             recipients: validNumbers,
             ...(options.callbackUrl && { callback_url: options.callbackUrl }),
             ...(options.scheduledDate && { scheduled_date: options.scheduledDate })
-        };
-
-        return this.sendRequest('/api/v2/sms/send', 'POST', data);
+        }
+        return this.sendRequest('/api/v2/sms/send', 'POST', data)
     }
 
     async sendSingleSms(
@@ -169,33 +146,50 @@ export class SmsService {
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
         if (!to || !message.trim()) {
-            throw new Error('Recipient and message are required');
+            throw new Error('Recipient and message are required')
         }
-
-        const validation = this.validatePhoneNumber(to);
+        const validation = this.validatePhoneNumber(to)
         if (!validation.isValid) {
-            throw new Error(`Invalid phone number: ${validation.error}`);
+            throw new Error(`Invalid phone number: ${validation.error}`)
         }
-
         const queryParams = new URLSearchParams({
             action: 'send-sms',
             api_key: this.config.apiKey,
             to: validation.formattedNumber!,
             sms: message.trim(),
             sender: options.sender || this.config.defaultSender
-        });
-
-        return this.sendRequest(`/sms/api?${queryParams}`, 'GET');
+        })
+        return this.sendRequest(`/sms/api?${queryParams}`, 'GET')
     }
 
-    // Convenience methods
+    private formatScheduledDate(date: string | Date): string {
+        let d: Date
+        if (typeof date === 'string') {
+            d = new Date(date)
+        } else {
+            d = date
+        }
+        const pad = (n: number) => n < 10 ? '0' + n : n
+        const year = d.getFullYear()
+        const month = pad(d.getMonth() + 1)
+        const day = pad(d.getDate())
+        let hour = d.getHours()
+        const minute = pad(d.getMinutes())
+        const ampm = hour >= 12 ? 'PM' : 'AM'
+        hour = hour % 12
+        if (hour === 0) hour = 12
+        const hourStr = pad(hour)
+        return `${year}-${month}-${day} ${hourStr}:${minute} ${ampm}`
+    }
+
     async scheduleSms(
         recipients: string[],
         message: string,
-        scheduledDate: string,
+        scheduledDate: string | Date,
         sender?: string
     ): Promise<SmsResponse> {
-        return this.sendSms(recipients, message, { scheduledDate, sender });
+        const formattedDate = this.formatScheduledDate(scheduledDate)
+       return await this.sendSms(recipients, message, { scheduledDate: formattedDate, sender })
     }
 
     async sendSmsWithWebhook(
