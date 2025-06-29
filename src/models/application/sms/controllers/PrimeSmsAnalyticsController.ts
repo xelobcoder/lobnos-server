@@ -4,9 +4,6 @@ import { PrimeSmsAnalytics } from '../services/PrimeSmsAnalytics';
 
 export class PrimeSmsAnalyticsController {
     getJobStatusCounts(req: Request, res: Response) {
-        if (!req.query.tenantId) {
-            return res.status(400).json({ success: false, error: 'Missing tenantId' });
-        }
         const tenantId = Number(req.query.tenantId);
         const analytics = new PrimeSmsAnalytics(tenantId);
         analytics.getJobStatusCounts()

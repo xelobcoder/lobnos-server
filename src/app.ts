@@ -51,6 +51,7 @@ import EventsExecutor from "./models/application/sms/events/EventsExecutor";
 import ExpenseAuditLog from "./models/Expenses/ExpenseAuditLog";
 import ExpensesAnalytics from "./models/analytics/ExpensesAnalytics/Expenses-Analytics";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
+import smsAnalytics from './controllers/analytics/sms-analytics/route';
 
 
 
@@ -67,6 +68,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // app.use(checkTokenExists);
 app.use(ValidateTenancyAgreement)
+app.use(smsAnalytics);
 app.use(SecurityRouter);
 app.use(BillingRouter);
 app.use(sampleContainerRouter);
@@ -103,6 +105,7 @@ app.use(ExpensesAnalyticsRouter);
 app.use(qualityControlRoutes);
 app.use(AdvancedBillingRouter);
 app.use(smsPrimeRouter);
+
 
 
 app.get("/", (req: Request, res: Response) => {

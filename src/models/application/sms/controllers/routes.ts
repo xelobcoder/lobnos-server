@@ -6,7 +6,7 @@ import { SmsJobRecipientsController } from './SmsJobRecipientsController';
 import { SmsCategoryMappingsController } from './SmsCategoryMappingsController';
 import { SmsPlaceholderRulesController } from './SmsPlaceholderRulesController';
 import { SmsEventsController } from './SmsEventsController';
-import { SmsEventTemplatesController } from './SmsEventTemplatesController';
+import { SmsEventTemplatesController } from '../../../../controllers/analytics/sms-analytics/SmsEventTemplatesController';
 import { SmsJobsService } from '../../../../models/application/sms/services/SmsJobsService';
 import { SmsTemplatesService } from '../../../../models/application/sms/services/SmsTemplatesService';
 import { SmsJobRecipientsService } from '../../../../models/application/sms/services/SmsJobRecipientsService';
@@ -51,15 +51,6 @@ const smsEventTemplatesController = new SmsEventTemplatesController(smsEventTemp
 const primeSmsAnalyticsController = new PrimeSmsAnalyticsController();
 
 const router = Router();
-
-// Analytics Endpoints
-router.get('/api/v1/prime/sms/sms-analytics/job-status-counts', handleOverLoad(primeSmsAnalyticsController.getJobStatusCounts.bind(primeSmsAnalyticsController)));
-router.get('/api/v1/prime/sms/sms-analytics/recipient-delivery-counts', handleOverLoad(primeSmsAnalyticsController.getRecipientDeliveryCounts.bind(primeSmsAnalyticsController)));
-router.get('/api/v1/prime/sms/sms-analytics/totals', handleOverLoad(primeSmsAnalyticsController.getTotals.bind(primeSmsAnalyticsController)));
-// Advanced analytics
-router.get('/api/v1/prime/sms-analytics/job-counts-by-category', handleOverLoad(primeSmsAnalyticsController.getJobCountsByCategory.bind(primeSmsAnalyticsController)));
-router.get('/api/v1/prime/sms-analytics/job-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getJobTrendsByDay.bind(primeSmsAnalyticsController)));
-router.get('/api/v1/prime/sms-analytics/delivery-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getDeliveryTrendsByDay.bind(primeSmsAnalyticsController)));
 
 // Jobs
 router.post('/api/v1/prime/sms-jobs', handleOverLoad(smsJobsController.create.bind(smsJobsController)));
