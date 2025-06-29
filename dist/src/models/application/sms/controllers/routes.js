@@ -23,9 +23,10 @@ const PrimeSmsCategoryMappingsRepo_1 = require("../../../../models/application/s
 const PrimeSmsPlaceholderRulesRepo_1 = require("../../../../models/application/sms/repositories/PrimeSmsPlaceholderRulesRepo");
 const PrimeSmsEventsRepo_1 = require("../../../../models/application/sms/repositories/PrimeSmsEventsRepo");
 const PrimeSmsEventTemplatesRepo_1 = require("../../../../models/application/sms/repositories/PrimeSmsEventTemplatesRepo");
+const PrimeSmsAnalyticsController_1 = require("./PrimeSmsAnalyticsController");
 // Static tenantId for now; replace with dynamic value or middleware if needed
 const tenantId = 1;
-const smsJobsService = new SmsJobsService_1.SmsJobsService(new PrimeSmsJobsRepo_1.PrimeSmsJobsRepo(tenantId));
+const smsJobsService = new SmsJobsService_1.SmsJobsService(new PrimeSmsJobsRepo_1.PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo_1.PrimeSmsJobRecipientsRepo(tenantId));
 const smsTemplatesService = new SmsTemplatesService_1.SmsTemplatesService(new PrimeSmsTemplatesRepo_1.PrimeSmsTemplatesRepo(tenantId));
 const smsJobRecipientsService = new SmsJobRecipientsService_1.SmsJobRecipientsService(new PrimeSmsJobRecipientsRepo_1.PrimeSmsJobRecipientsRepo(tenantId));
 const smsCategoryMappingsService = new SmsCategoryMappingsService_1.SmsCategoryMappingsService(new PrimeSmsCategoryMappingsRepo_1.PrimeSmsCategoryMappingsRepo(tenantId));
@@ -39,7 +40,16 @@ const smsCategoryMappingsController = new SmsCategoryMappingsController_1.SmsCat
 const smsPlaceholderRulesController = new SmsPlaceholderRulesController_1.SmsPlaceholderRulesController(smsPlaceholderRulesService);
 const smsEventsController = new SmsEventsController_1.SmsEventsController(smsEventsService);
 const smsEventTemplatesController = new SmsEventTemplatesController_1.SmsEventTemplatesController(smsEventTemplatesService);
+const primeSmsAnalyticsController = new PrimeSmsAnalyticsController_1.PrimeSmsAnalyticsController();
 const router = (0, express_1.Router)();
+// Analytics Endpoints
+router.get('/api/v1/prime/sms-analytics/job-status-counts', (0, helper_1.handleOverLoad)(primeSmsAnalyticsController.getJobStatusCounts.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/recipient-delivery-counts', (0, helper_1.handleOverLoad)(primeSmsAnalyticsController.getRecipientDeliveryCounts.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/totals', (0, helper_1.handleOverLoad)(primeSmsAnalyticsController.getTotals.bind(primeSmsAnalyticsController)));
+// Advanced analytics
+router.get('/api/v1/prime/sms-analytics/job-counts-by-category', (0, helper_1.handleOverLoad)(primeSmsAnalyticsController.getJobCountsByCategory.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/job-trends-by-day', (0, helper_1.handleOverLoad)(primeSmsAnalyticsController.getJobTrendsByDay.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/delivery-trends-by-day', (0, helper_1.handleOverLoad)(primeSmsAnalyticsController.getDeliveryTrendsByDay.bind(primeSmsAnalyticsController)));
 // Jobs
 router.post('/api/v1/prime/sms-jobs', (0, helper_1.handleOverLoad)(smsJobsController.create.bind(smsJobsController)));
 router.get('/api/v1/prime/sms-jobs/:id', (0, helper_1.handleOverLoad)(smsJobsController.getById.bind(smsJobsController)));

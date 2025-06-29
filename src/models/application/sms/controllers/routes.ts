@@ -14,6 +14,7 @@ import { SmsCategoryMappingsService } from '../../../../models/application/sms/s
 import { SmsPlaceholderRulesService } from '../../../../models/application/sms/services/SmsPlaceholderRulesService';
 import { SmsEventsService } from '../../../../models/application/sms/services/SmsEventsService';
 import { SmsEventTemplatesService } from '../../../../models/application/sms/services/SmsEventTemplatesService';
+
 import { handleOverLoad } from '../../../../hooks/helper';
 import { PrimeSmsJobsRepo } from '../../../../models/application/sms/repositories/PrimeSmsJobsRepo';
 import { PrimeSmsTemplatesRepo } from '../../../../models/application/sms/repositories/PrimeSmsTemplatesRepo';
@@ -22,12 +23,16 @@ import { PrimeSmsCategoryMappingsRepo } from '../../../../models/application/sms
 import { PrimeSmsPlaceholderRulesRepo } from '../../../../models/application/sms/repositories/PrimeSmsPlaceholderRulesRepo';
 import { PrimeSmsEventsRepo } from '../../../../models/application/sms/repositories/PrimeSmsEventsRepo';
 import { PrimeSmsEventTemplatesRepo } from '../../../../models/application/sms/repositories/PrimeSmsEventTemplatesRepo';
+import { PrimeSmsAnalyticsController } from './PrimeSmsAnalyticsController';
 
 
 // Static tenantId for now; replace with dynamic value or middleware if needed
 const tenantId = 1;
 
-const smsJobsService = new SmsJobsService(new PrimeSmsJobsRepo(tenantId));
+const smsJobsService = new SmsJobsService(
+     new PrimeSmsJobsRepo(tenantId),
+     new PrimeSmsJobRecipientsRepo(tenantId)
+);
 const smsTemplatesService = new SmsTemplatesService(new PrimeSmsTemplatesRepo(tenantId));
 const smsJobRecipientsService = new SmsJobRecipientsService(new PrimeSmsJobRecipientsRepo(tenantId));
 const smsCategoryMappingsService = new SmsCategoryMappingsService(new PrimeSmsCategoryMappingsRepo(tenantId));
@@ -43,7 +48,18 @@ const smsPlaceholderRulesController = new SmsPlaceholderRulesController(smsPlace
 const smsEventsController = new SmsEventsController(smsEventsService);
 const smsEventTemplatesController = new SmsEventTemplatesController(smsEventTemplatesService);
 
+const primeSmsAnalyticsController = new PrimeSmsAnalyticsController();
+
 const router = Router();
+
+// Analytics Endpoints
+router.get('/api/v1/prime/sms-analytics/job-status-counts', handleOverLoad(primeSmsAnalyticsController.getJobStatusCounts.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/recipient-delivery-counts', handleOverLoad(primeSmsAnalyticsController.getRecipientDeliveryCounts.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/totals', handleOverLoad(primeSmsAnalyticsController.getTotals.bind(primeSmsAnalyticsController)));
+// Advanced analytics
+router.get('/api/v1/prime/sms-analytics/job-counts-by-category', handleOverLoad(primeSmsAnalyticsController.getJobCountsByCategory.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/job-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getJobTrendsByDay.bind(primeSmsAnalyticsController)));
+router.get('/api/v1/prime/sms-analytics/delivery-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getDeliveryTrendsByDay.bind(primeSmsAnalyticsController)));
 
 // Jobs
 router.post('/api/v1/prime/sms-jobs', handleOverLoad(smsJobsController.create.bind(smsJobsController)));
