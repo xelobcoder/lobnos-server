@@ -29,8 +29,11 @@ class SmsService {
             return await response.json();
         }
         catch (error) {
-            console.error('SMS service error:', error);
-            throw new Error(error instanceof Error ? error.message : 'Unknown SMS service error');
+            return {
+                status: 'error',
+                code: 500,
+                message: error instanceof Error ? error.message : 'Unknown error occurred',
+            };
         }
     }
     validatePhoneNumber(phone) {
@@ -85,7 +88,8 @@ class SmsService {
         return { validNumbers, invalidNumbers };
     }
     async sendSms(recipients, message, options = {}) {
-        if (!recipients.length || !message.trim()) {
+        console.log('Sending SMS to:', recipients, 'Message:', message, 'Options:', options);
+        if (!recipients.length || !message || !message.trim()) {
             throw new Error('Recipients and message are required');
         }
         const { validNumbers, invalidNumbers } = this.validateRecipients(recipients);

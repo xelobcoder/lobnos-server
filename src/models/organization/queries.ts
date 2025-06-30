@@ -36,7 +36,7 @@ export const q_update_org_basic_info = `UPDATE organization
                   type= ?
               WHERE id = ?;
               `
-
+export const paginated_org_data = `SELECT * FROM organization LIMIT ? OFFSET ?`;
 
 export const q_create_an_organization = `INSERT INTO organization (name, location, street, mobile, address, website, email, gpsmapping, region,type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?,?)`
 
@@ -112,3 +112,7 @@ ON DUPLICATE KEY UPDATE
 
 
 export const q_load_from_organizationalBilling_Table = `SELECT * FROM organizationalBillingtable WHERE organizationid = ?`
+
+
+
+export const q_organization_total_count = `SELECT COUNT(*) AS total FROM organization`;

@@ -5,7 +5,7 @@ import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
 import { OperationsFailures } from "../operations/types";
-import { q_filter_patient_using_billingid_query, q_filter_patients, q_new_registation, q_patient_data, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information } from "./queries";
+import { q_filter_patient_using_billingid_query, q_filter_patients, q_new_registation, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
 import { addressInformation, NewRegistration, PatientRecords, registrationOutcome } from "./types";
 
 export default class Registration {
@@ -18,6 +18,19 @@ export default class Registration {
 		const information: PrimeLimsTablenew_patients | null = await new TiifuWorkingClass("new_patients").findOne(tenantId, "patientid", patientid);
 		if (!information) return null;
 		return information.patientid;
+
+	}
+
+	static patientsInformationBatch(tenantId: number, page: number, count: number): Promise<PrimeLimsTablenew_patients[]> {
+		return promisifyQuery(tenantId, q_patient_info_pagination, [count, page]);
+	}
+
+	static async getTotalPatients(tenantId: number): Promise<number> {
+		const totalPatients = await promisifyQuery(tenantId, q_totalpatientcountQuery);
+		if (totalPatients.length > 0) {
+			return totalPatients[0].total;
+		}
+		return 0;
 	}
 
 	static async generatePatientFullUniqueId(tenantId: number) {

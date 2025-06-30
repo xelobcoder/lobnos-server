@@ -1,0 +1,48 @@
+[2025-06-30T08:14:33.033Z] Error sending personalized SMS: Error: SMS API error: 422 Unprocessable Content
+    at SmsService.sendRequest (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:33:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SmsJobsService.processSingleOrMultipleJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:282:40)
+    at async SmsJobsService.processBatchJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:382:17)
+    at async SmsJobsService.createJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:66:17)
+    at async SmsJobsController.create (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\SmsJobsController.js:24:27)
+    at async C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\hooks\helper.js:183:13
+[2025-06-30T08:14:33.433Z] Error sending personalized SMS: Error: SMS API error: 422 Unprocessable Content
+    at SmsService.sendRequest (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:33:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SmsJobsService.processSingleOrMultipleJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:282:40)
+    at async SmsJobsService.processBatchJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:382:17)
+    at async SmsJobsService.createJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:66:17)
+    at async SmsJobsController.create (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\SmsJobsController.js:24:27)
+    at async C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\hooks\helper.js:183:13
+[2025-06-30T08:14:33.784Z] Error sending personalized SMS: Error: SMS API error: 422 Unprocessable Content
+    at SmsService.sendRequest (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:33:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SmsJobsService.processSingleOrMultipleJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:282:40)
+    at async SmsJobsService.processBatchJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:382:17)
+    at async SmsJobsService.createJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:66:17)
+    at async SmsJobsController.create (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\SmsJobsController.js:24:27)
+    at async C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\hooks\helper.js:183:13
+[2025-06-30T08:15:56.058Z] Error sending personalized SMS: Error: SMS API error: 422 Unprocessable Content
+    at SmsService.sendRequest (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:33:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SmsJobsService.processSingleOrMultipleJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:282:40)
+    at async SmsJobsService.processBatchJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:382:17)
+    at async SmsJobsService.createJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:66:17)
+    at async SmsJobsController.create (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\SmsJobsController.js:24:27)
+    at async C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\hooks\helper.js:183:13
+[2025-06-30T08:15:56.412Z] Error sending personalized SMS: Error: SMS API error: 422 Unprocessable Content
+    at SmsService.sendRequest (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:33:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SmsJobsService.processSingleOrMultipleJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:282:40)
+    at async SmsJobsService.processBatchJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:382:17)
+    at async SmsJobsService.createJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:66:17)
+    at async SmsJobsController.create (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\SmsJobsController.js:24:27)
+    at async C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\hooks\helper.js:183:13
+[2025-06-30T08:15:56.786Z] Error sending personalized SMS: Error: SMS API error: 422 Unprocessable Content
+    at SmsService.sendRequest (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:33:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async SmsJobsService.processSingleOrMultipleJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:282:40)
+    at async SmsJobsService.processBatchJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:382:17)
+    at async SmsJobsService.createJob (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:66:17)
+    at async SmsJobsController.create (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\SmsJobsController.js:24:27)
+    at async C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\hooks\helper.js:183:13

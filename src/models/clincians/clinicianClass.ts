@@ -26,6 +26,10 @@ export default class ClinicianClass {
 		return await promisifyQuery(tenantId, SQLQueries.getClinicianBasicInfo, [clinicianid]);
 	}
 
+	public async getClinicianBatch(tenantId: number, page: number, count: number): Promise<PrimeLimsTableclinicianbasicinfo[]> {
+		return await promisifyQuery(tenantId, SQLQueries.getClinicianBatch, [count,page]);
+	}
+
 	public async putCliniciansBasic(tenantId: number,
 		records: Partial<PrimeLimsTableclinicianbasicinfo>): Promise<string | boolean> {
 		const { name, phone, email, location, address, occupation, id } = records;
@@ -55,6 +59,14 @@ export default class ClinicianClass {
 		const isUpdated = await promisifyQuery(tenantId, SQLQueries.updateClinicianBasicInfo, values);
 
 		return rowAffected(isUpdated);
+	}
+
+	static async getTotalClinicians(tenantId: number): Promise<number> {
+		const result = await promisifyQuery(tenantId, SQLQueries.getTotalClinicians);
+		if (result.length > 0) {
+			return result[0].total;
+		}
+		return 0;
 	}
 
 	public async deleteClinicians(tenantId: number, id: number): Promise<boolean | string> {

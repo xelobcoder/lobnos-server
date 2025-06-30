@@ -11,10 +11,26 @@ class PrimeSmsJobRecipientsRepo {
         this.tablename = "primesmsjobrecipients";
         this.connection = (0, KnexConnections_1.default)(tenantId);
     }
+    async findByJobAndRefids(jobid, refids) {
+        if (!refids || refids.length === 0)
+            return [];
+        const connection = await this.connection;
+        return await connection(this.tablename)
+            .where({ jobid })
+            .whereIn('refid', refids)
+            .select();
+    }
+    async findOneByJobRefid(jobid, refid) {
+        const connection = await this.connection;
+        const result = await connection(this.tablename)
+            .where({ jobid, refid })
+            .first();
+        return result || null;
+    }
     async create(data) {
         const connection = await this.connection;
-        const [id] = await connection(this.tablename).insert(data).returning('recid');
-        return id;
+        await connection(this.tablename).insert(data);
+        return null;
     }
     async findById(recid) {
         const connection = await this.connection;
@@ -46,8 +62,8 @@ class PrimeSmsJobRecipientsRepo {
         const rows = recipients.map(r => {
             return Object.assign(Object.assign({}, r), { jobid });
         });
-        const ids = await connection(this.tablename).insert(rows).returning('recid');
-        return Array.isArray(ids) ? ids.map((id) => (typeof id === 'object' ? id.recid : id)) : [];
+        await connection(this.tablename).insert(rows);
+        return [];
     }
     async updateDeliveryStatusByPhone(jobid, phonee164, status, arkeselId) {
         const connection = await this.connection;

@@ -92,6 +92,9 @@ class Organization {
         const q_packets = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_org_basic_info, values);
         return (0, helper_1.rowAffected)(q_packets);
     }
+    static async paginatedOrganizationInformation(tenantId, page, count) {
+        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.paginated_org_data, [count, page]);
+    }
     async updateOrganizationalContactInfo(tenantId, requestBody) {
         const { name, email, mobile, organizationid } = requestBody;
         if (!this.organizationId)
@@ -103,7 +106,7 @@ class Organization {
     async updateOrganizationPayment(tenantId, requestBody) {
         if (!this.organizationId)
             throw new Error("organizational id required");
-        const { bankname, momoname, branch, module, commission, organizationid, id, account, accountname, momo } = requestBody;
+        const { bankname, momoname, branch, module, commission, account, accountname, momo } = requestBody;
         const values = [branch, commission, account, bankname, module, momoname, accountname, momo, this.organizationId];
         let result = (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_updateOrg_payment_info, values));
         return result;
@@ -175,6 +178,13 @@ class Organization {
         let result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.DAILYSALESQUERY, [this.organizationId]);
         result = await Promise.all(result.map(async (a) => await this.calculateRate(tenantId, [a])));
         return result;
+    }
+    static async getOrganizationTotalCount(tenantId) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_organization_total_count);
+        if (result.length > 0) {
+            return result[0].total;
+        }
+        return 0;
     }
     async organizationAccountInfo(tenantId) {
         if (!this.organizationId)

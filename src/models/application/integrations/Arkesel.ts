@@ -57,8 +57,11 @@ export class SmsService {
             }
             return await response.json()
         } catch (error) {
-            console.error('SMS service error:', error)
-            throw new Error(error instanceof Error ? error.message : 'Unknown SMS service error')
+            return {
+                status: 'error',
+                code: 500,
+                message: error instanceof Error ? error.message : 'Unknown error occurred',
+            }
         }
     }
 
@@ -120,7 +123,8 @@ export class SmsService {
         message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
-        if (!recipients.length || !message.trim()) {
+        console.log('Sending SMS to:', recipients, 'Message:', message, 'Options:', options)
+        if (!recipients.length || !message || !message.trim()) {
             throw new Error('Recipients and message are required')
         }
         const { validNumbers, invalidNumbers } = this.validateRecipients(recipients)
@@ -189,7 +193,7 @@ export class SmsService {
         sender?: string
     ): Promise<SmsResponse> {
         const formattedDate = this.formatScheduledDate(scheduledDate)
-       return await this.sendSms(recipients, message, { scheduledDate: formattedDate, sender })
+        return await this.sendSms(recipients, message, { scheduledDate: formattedDate, sender })
     }
 
     async sendSmsWithWebhook(

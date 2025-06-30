@@ -19,6 +19,16 @@ class Registration {
             return null;
         return information.patientid;
     }
+    static patientsInformationBatch(tenantId, page, count) {
+        return (0, helper_1.promisifyQuery)(tenantId, queries_1.q_patient_info_pagination, [count, page]);
+    }
+    static async getTotalPatients(tenantId) {
+        const totalPatients = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_totalpatientcountQuery);
+        if (totalPatients.length > 0) {
+            return totalPatients[0].total;
+        }
+        return 0;
+    }
     static async generatePatientFullUniqueId(tenantId) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const lastPatient = await connection("new_patients")

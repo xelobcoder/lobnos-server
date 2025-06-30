@@ -22,6 +22,9 @@ class ClinicianClass {
     async getClinicianBasicInfo(tenantId, clinicianid) {
         return await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getClinicianBasicInfo, [clinicianid]);
     }
+    async getClinicianBatch(tenantId, page, count) {
+        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getClinicianBatch, [count, page]);
+    }
     async putCliniciansBasic(tenantId, records) {
         const { name, phone, email, location, address, occupation, id } = records;
         const isPhoneValid = TiifuWorkingClass_1.TiifuWorkingClass.isNumberPhoneNumber(phone);
@@ -43,6 +46,13 @@ class ClinicianClass {
         const values = [name, phone, email, location, address, occupation, id];
         const isUpdated = await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.updateClinicianBasicInfo, values);
         return (0, helper_1.rowAffected)(isUpdated);
+    }
+    static async getTotalClinicians(tenantId) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getTotalClinicians);
+        if (result.length > 0) {
+            return result[0].total;
+        }
+        return 0;
     }
     async deleteClinicians(tenantId, id) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.deleteClinicianById, [id]);

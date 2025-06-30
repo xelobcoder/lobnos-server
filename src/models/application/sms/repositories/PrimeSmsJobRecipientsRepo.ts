@@ -1,3 +1,4 @@
+
 import KnexConnection from "../../../../database/KnexConnections";
 
 export interface PrimeSmsJobRecipient {
@@ -8,6 +9,7 @@ export interface PrimeSmsJobRecipient {
      deliverystatus?: 'queued' | 'sent' | 'failed' | 'retrying';
      sentat?: Date;
      errorcode?: string;
+     refid: number;
      messageid?: string | null;
 }
 
@@ -19,10 +21,27 @@ export class PrimeSmsJobRecipientsRepo {
           this.connection = KnexConnection(tenantId);
      }
 
+     async findByJobAndRefids(jobid: number, refids: (number | string)[]): Promise<PrimeSmsJobRecipient[]> {
+          if (!refids || refids.length === 0) return [];
+          const connection = await this.connection;
+          return await connection(this.tablename)
+               .where({ jobid })
+               .whereIn('refid', refids)
+               .select();
+     }
+
+     async findOneByJobRefid(jobid: number, refid: number | string): Promise<PrimeSmsJobRecipient | null> {
+          const connection = await this.connection;
+          const result = await connection(this.tablename)
+               .where({ jobid, refid })
+               .first();
+          return result || null;
+     }
+
      async create(data: PrimeSmsJobRecipient): Promise<number> {
           const connection = await this.connection;
-          const [id] = await connection(this.tablename).insert(data).returning('recid');
-          return id;
+          await connection(this.tablename).insert(data);
+          return null;
      }
 
      async findById(recid: number): Promise<PrimeSmsJobRecipient | null> {
@@ -60,8 +79,8 @@ export class PrimeSmsJobRecipientsRepo {
           const rows = recipients.map(r => {
                return { ...r, jobid }
           });
-          const ids = await connection(this.tablename).insert(rows).returning('recid');
-          return Array.isArray(ids) ? ids.map((id: any) => (typeof id === 'object' ? id.recid : id)) : [];
+          await connection(this.tablename).insert(rows);
+          return [];
      }
 
      async updateDeliveryStatusByPhone(
@@ -79,5 +98,6 @@ export class PrimeSmsJobRecipientsRepo {
           return await connection(this.tablename)
                .where({ jobid, phonee164 })
                .update(updateData);
+
      }
 }

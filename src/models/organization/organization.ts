@@ -1,3 +1,4 @@
+import { PrimeLimsTableorganization } from "../../database/DatabaseTableSchema";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import User from "../../LobnosAuth/user";
 import { newOrganization, OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "./OrgaInterfac";
@@ -16,7 +17,9 @@ import {
 	q_org_contact,
 	q_updateOrg_payment_info,
 	q_top_performance_organization,
-	q_organizationid_is_valid
+	q_organizationid_is_valid,
+	q_organization_total_count,
+	paginated_org_data
 } from "./queries";
 
 interface OrganizationInfo {
@@ -118,6 +121,10 @@ class Organization {
 		return rowAffected(q_packets);
 	}
 
+	static async paginatedOrganizationInformation(tenantId: number, page: number, count: number): Promise<PrimeLimsTableorganization[]> {
+		return await promisifyQuery(tenantId, paginated_org_data, [count,page])
+	}
+
 	async updateOrganizationalContactInfo(tenantId: number, requestBody: OrgContactInfo) {
 		const { name, email, mobile, organizationid } = requestBody;
 		if (!this.organizationId) return false;
@@ -128,7 +135,7 @@ class Organization {
 
 	async updateOrganizationPayment(tenantId: number, requestBody) {
 		if (!this.organizationId) throw new Error("organizational id required");
-		const { bankname, momoname, branch, module, commission, organizationid, id, account, accountname, momo } = requestBody;
+		const { bankname, momoname, branch, module, commission, account, accountname, momo } = requestBody;
 		const values = [branch, commission, account, bankname, module, momoname, accountname, momo, this.organizationId];
 		let result = rowAffected(await promisifyQuery(tenantId, q_updateOrg_payment_info, values));
 		return result;
@@ -209,6 +216,13 @@ class Organization {
 		let result = await promisifyQuery(tenantId, DAILYSALESQUERY, [this.organizationId]);
 		result = await Promise.all(result.map(async (a: any) => await this.calculateRate(tenantId, [a])));
 		return result;
+	}
+	static async getOrganizationTotalCount(tenantId: number): Promise<number> {
+		const result = await promisifyQuery(tenantId, q_organization_total_count);
+		if (result.length > 0) {
+			return result[0].total;
+		}
+		return 0;
 	}
 
 	private async organizationAccountInfo(tenantId: number): Promise<OrganizationInfo[]> {

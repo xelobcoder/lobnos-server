@@ -1,7 +1,7 @@
 // SmsMessageParser.ts
 // Utility class for parsing and personalizing SMS message templates
 
-import { PrimeLimsTableclinicianbasicinfo } from "../../../../database/DatabaseTableSchema";
+import { PrimeLimsTableclinicianbasicinfo, PrimeLimsTablenew_patients, PrimeLimsTableorganization } from "../../../../database/DatabaseTableSchema";
 import ClinicianClass from "../../../clincians/clinicianClass";
 import Organization from "../../../organization/organization";
 import Registration from "../../../registration/registration";
@@ -9,6 +9,7 @@ import { NewRegistration } from "../../../registration/types";
 import { PrimeSmsJob, PrimeSmsJobsRepo } from "../repositories/PrimeSmsJobsRepo";
 import { PrimeSmsTemplate, PrimeSmsTemplatesRepo } from "../repositories/PrimeSmsTemplatesRepo";
 import { SmsJobsService } from "../services/SmsJobsService";
+import { Logger } from '../services/Logger';
 
 export class SmsMessageParser {
 	tenantId: number;
@@ -32,12 +33,73 @@ export class SmsMessageParser {
 	}
 
 	private async loadPatientData(patientId: number): Promise<NewRegistration> {
-		console.log(await new Registration().getPatientBasicData(this.tenantId, patientId))
-		return await new Registration().getPatientBasicData(this.tenantId, patientId);
+		try {
+			const data = await new Registration().getPatientBasicData(this.tenantId, patientId);
+			Logger.info('Loaded patient data: ' + JSON.stringify(data));
+			return data;
+		} catch (err) {
+			Logger.error('Error loading patient data for patientId ' + patientId, err);
+			throw err;
+		}
 	}
 
 	private async loadClinicianData(clinicianId: number): Promise<PrimeLimsTableclinicianbasicinfo[]> {
 		return await new ClinicianClass().getClinicianBasicInfo(this.tenantId, clinicianId);
+	}
+
+	private reformatData(
+		data: PrimeLimsTablenew_patients[] | PrimeLimsTableclinicianbasicinfo[] | PrimeLimsTableorganization[],
+		mobiletarget: string
+	):
+		(Partial<PrimeLimsTableorganization> & { phonee164: string })[] |
+		(Partial<PrimeLimsTablenew_patients> & { phonee164: string })[] |
+		(Partial<PrimeLimsTableclinicianbasicinfo> & { phonee164: string })[] {
+		if (Array.isArray(data) && data.length > 0) {
+			return data.map((item: PrimeLimsTablenew_patients | PrimeLimsTableclinicianbasicinfo | PrimeLimsTableorganization) => ({ ...item, phonee164: item[mobiletarget] }));
+		}
+		return [];
+	}
+
+
+	public async loadBatchData(
+		start: number,
+		end: number
+	): Promise<
+		(Partial<PrimeLimsTableorganization> & { phonee164: string })[] |
+		(Partial<PrimeLimsTablenew_patients> & { phonee164: string })[] |
+		(Partial<PrimeLimsTableclinicianbasicinfo> & { phonee164: string })[]
+	> {
+		switch (this.category) {
+			case 'clinician':
+				const clinicians = await new ClinicianClass().getClinicianBatch(this.tenantId, start, end);
+				return this.reformatData(clinicians, 'phone');
+			case 'patient':
+				const patients = await Registration.patientsInformationBatch(this.tenantId, start, end) as PrimeLimsTablenew_patients[];
+				return this.reformatData(patients, 'mobile_number');
+			case 'organization':
+				const organizations = await Organization.paginatedOrganizationInformation(this.tenantId, start, end);
+				return this.reformatData(organizations, 'phone');
+			default:
+				throw new Error(`Unknown category: ${this.category}`);
+		}
+	}
+
+	private getCategoryTotalCount(): Promise<number> {
+		switch (this.category) {
+			case 'clinician':
+				return ClinicianClass.getTotalClinicians(this.tenantId);
+			case 'patient':
+				return Registration.getTotalPatients(this.tenantId);
+			case 'organization':
+				return Organization.getOrganizationTotalCount(this.tenantId);
+			default:
+				throw new Error(`Unknown category: ${this.category}`);
+		}
+	}
+
+
+	public getTotalCount(): Promise<number> {
+		return this.getCategoryTotalCount();
 	}
 
 	private async loadCategoryData(): Promise<NewRegistration | PrimeLimsTableclinicianbasicinfo[] | Organization[]> {

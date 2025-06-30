@@ -11,6 +11,7 @@ const organization_1 = __importDefault(require("../../../organization/organizati
 const registration_1 = __importDefault(require("../../../registration/registration"));
 const PrimeSmsJobsRepo_1 = require("../repositories/PrimeSmsJobsRepo");
 const PrimeSmsTemplatesRepo_1 = require("../repositories/PrimeSmsTemplatesRepo");
+const Logger_1 = require("../services/Logger");
 class SmsMessageParser {
     constructor(tenantId, category, targetId) {
         this.tenantId = tenantId;
@@ -29,11 +30,54 @@ class SmsMessageParser {
         return await new organization_1.default(organizationId).getOrganizationBasic(this.tenantId);
     }
     async loadPatientData(patientId) {
-        console.log(await new registration_1.default().getPatientBasicData(this.tenantId, patientId));
-        return await new registration_1.default().getPatientBasicData(this.tenantId, patientId);
+        try {
+            const data = await new registration_1.default().getPatientBasicData(this.tenantId, patientId);
+            Logger_1.Logger.info('Loaded patient data: ' + JSON.stringify(data));
+            return data;
+        }
+        catch (err) {
+            Logger_1.Logger.error('Error loading patient data for patientId ' + patientId, err);
+            throw err;
+        }
     }
     async loadClinicianData(clinicianId) {
         return await new clinicianClass_1.default().getClinicianBasicInfo(this.tenantId, clinicianId);
+    }
+    reformatData(data, mobiletarget) {
+        if (Array.isArray(data) && data.length > 0) {
+            return data.map((item) => (Object.assign(Object.assign({}, item), { phonee164: item[mobiletarget] })));
+        }
+        return [];
+    }
+    async loadBatchData(start, end) {
+        switch (this.category) {
+            case 'clinician':
+                const clinicians = await new clinicianClass_1.default().getClinicianBatch(this.tenantId, start, end);
+                return this.reformatData(clinicians, 'phone');
+            case 'patient':
+                const patients = await registration_1.default.patientsInformationBatch(this.tenantId, start, end);
+                return this.reformatData(patients, 'mobile_number');
+            case 'organization':
+                const organizations = await organization_1.default.paginatedOrganizationInformation(this.tenantId, start, end);
+                return this.reformatData(organizations, 'phone');
+            default:
+                throw new Error(`Unknown category: ${this.category}`);
+        }
+    }
+    getCategoryTotalCount() {
+        switch (this.category) {
+            case 'clinician':
+                return clinicianClass_1.default.getTotalClinicians(this.tenantId);
+            case 'patient':
+                return registration_1.default.getTotalPatients(this.tenantId);
+            case 'organization':
+                return organization_1.default.getOrganizationTotalCount(this.tenantId);
+            default:
+                throw new Error(`Unknown category: ${this.category}`);
+        }
+    }
+    getTotalCount() {
+        return this.getCategoryTotalCount();
     }
     async loadCategoryData() {
         let datasource = {};
