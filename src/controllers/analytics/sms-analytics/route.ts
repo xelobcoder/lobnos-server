@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { handleOverLoad } from '../../../hooks/helper';
-import { PrimeSmsAnalyticsController } from '../../../models/application/sms/controllers/PrimeSmsAnalyticsController';
-import { retryFailedTransactionHandler } from '../../../models/application/sms/controllers/RetryFailedSms';
+import { PrimeSmsAnalyticsController } from '../../sms/primesms/controllers/PrimeSmsAnalyticsController';
+import { retryFailedTransactionHandler } from '../../sms/primesms/RetryFailedSms';
 
 const router = Router();
 

@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const helper_1 = require("../../../hooks/helper");
-const PrimeSmsAnalyticsController_1 = require("../../../models/application/sms/controllers/PrimeSmsAnalyticsController");
-const RetryFailedSms_1 = require("../../../models/application/sms/controllers/RetryFailedSms");
+const PrimeSmsAnalyticsController_1 = require("../../sms/primesms/controllers/PrimeSmsAnalyticsController");
+const RetryFailedSms_1 = require("../../sms/primesms/RetryFailedSms");
 const router = (0, express_1.Router)();
 const primeSmsAnalyticsController = new PrimeSmsAnalyticsController_1.PrimeSmsAnalyticsController();
 router.get(`/api/v1/prime/sms/failed/transaction/retry/:jobid/:refid`, RetryFailedSms_1.retryFailedTransactionHandler);

@@ -1,6 +1,5 @@
-
+import { PrimeSmsAnalytics } from "../../../models/application/sms/services/PrimeSmsAnalytics";
 import { Request, Response } from 'express';
-import { PrimeSmsAnalytics } from '../services/PrimeSmsAnalytics';
 
 export class PrimeSmsAnalyticsController {
      getJobStatusCounts(req: Request, res: Response) {

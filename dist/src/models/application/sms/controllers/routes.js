@@ -7,7 +7,6 @@ const SmsJobRecipientsController_1 = require("./SmsJobRecipientsController");
 const SmsCategoryMappingsController_1 = require("./SmsCategoryMappingsController");
 const SmsPlaceholderRulesController_1 = require("./SmsPlaceholderRulesController");
 const SmsEventsController_1 = require("./SmsEventsController");
-const SmsEventTemplatesController_1 = require("../../../../controllers/analytics/sms-analytics/SmsEventTemplatesController");
 const SmsJobsService_1 = require("../../../../models/application/sms/services/SmsJobsService");
 const SmsTemplatesService_1 = require("../../../../models/application/sms/services/SmsTemplatesService");
 const SmsJobRecipientsService_1 = require("../../../../models/application/sms/services/SmsJobRecipientsService");
@@ -24,6 +23,7 @@ const PrimeSmsPlaceholderRulesRepo_1 = require("../../../../models/application/s
 const PrimeSmsEventsRepo_1 = require("../../../../models/application/sms/repositories/PrimeSmsEventsRepo");
 const PrimeSmsEventTemplatesRepo_1 = require("../../../../models/application/sms/repositories/PrimeSmsEventTemplatesRepo");
 const PrimeSmsAnalyticsController_1 = require("./PrimeSmsAnalyticsController");
+const SmsEventTemplatesController_1 = require("../../../../controllers/sms/primesms/SmsEventTemplatesController");
 // Static tenantId for now; replace with dynamic value or middleware if needed
 const tenantId = 1;
 const smsJobsService = new SmsJobsService_1.SmsJobsService(new PrimeSmsJobsRepo_1.PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo_1.PrimeSmsJobRecipientsRepo(tenantId));

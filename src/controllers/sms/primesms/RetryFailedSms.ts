@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
-import { SmsJobsService } from '../services/SmsJobsService';
-import { PrimeSmsJobsRepo } from '../repositories/PrimeSmsJobsRepo';
-import { PrimeSmsJobRecipientsRepo } from '../repositories/PrimeSmsJobRecipientsRepo';
+import { SmsJobsService } from '../../../models/application/sms/services/SmsJobsService';
+import { PrimeSmsJobsRepo } from '../../../models/application/sms/repositories/PrimeSmsJobsRepo';
+import { PrimeSmsJobRecipientsRepo } from '../../../models/application/sms/repositories/PrimeSmsJobRecipientsRepo';
 
 
 
@@ -19,7 +19,7 @@ export async function retryFailedTransactionHandler(req: Request, res: Response)
           const jobsRepo = new PrimeSmsJobsRepo(tenantId);
           const jobRecipientsRepo = new PrimeSmsJobRecipientsRepo(tenantId);
           const result = await new SmsJobsService(jobsRepo, jobRecipientsRepo).retryFailedTransaction(tenantId, jobid, refid);
-          res.status(200).json({status: result.status === "success" ? 'success' : 'failed', message: result.message  || 'Transaction retry initiated.'});
+          res.status(200).json({ status: result.status === "success" ? 'success' : 'failed', message: result.message || 'Transaction retry initiated.' });
      } catch (err) {
           res.status(400).json({ error: err.message });
      }

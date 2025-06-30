@@ -210,3 +210,26 @@
     at SmsJobsService.retryFailedTransaction (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:591:45)
     at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
     at async retryFailedTransactionHandler (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\controllers\RetryFailedSms.js:19:24)
+[2025-06-30T18:54:42.833Z] Retry failed (exception): Error: No valid phone numbers provided
+    at SmsService.sendSms (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:103:19)
+    at SmsJobsService.retryFailedTransaction (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:591:45)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async retryFailedTransactionHandler (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\RetryFailedSms.js:19:24)
+[2025-06-30T18:54:44.536Z] Retry failed (exception): Error: No valid phone numbers provided
+    at SmsService.sendSms (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:103:19)
+    at SmsJobsService.retryFailedTransaction (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:591:45)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async retryFailedTransactionHandler (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\RetryFailedSms.js:19:24)
+[2025-06-30T18:54:46.944Z] Retry failed (API error): "Request failed with status 422: Unprocessable Content"
+[2025-06-30T18:54:48.574Z] Retry failed (API error): "Request failed with status 422: Unprocessable Content"
+[2025-06-30T18:54:56.445Z] Retry failed (exception): Error: No valid phone numbers provided
+    at SmsService.sendSms (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:103:19)
+    at SmsJobsService.retryFailedTransaction (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:591:45)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async retryFailedTransactionHandler (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\RetryFailedSms.js:19:24)
+[2025-06-30T18:54:58.563Z] Retry failed (API error): "Request failed with status 422: Unprocessable Content"
+[2025-06-30T18:55:04.020Z] Retry failed (exception): Error: No valid phone numbers provided
+    at SmsService.sendSms (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\integrations\Arkesel.js:103:19)
+    at SmsJobsService.retryFailedTransaction (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\models\application\sms\services\SmsJobsService.js:591:45)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async retryFailedTransactionHandler (C:\Programming\PLS-DIFFERENT-VERSIONS\LobnosProfessionalVersion\lobnos-server\dist\src\controllers\sms\primesms\RetryFailedSms.js:19:24)
