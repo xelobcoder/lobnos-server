@@ -17,8 +17,3 @@ class SMSPrimeEvents extends smsClass_1.PrimeSmsServices {
     }
 }
 exports.default = SMSPrimeEvents;
-// new SMSPrimeEvents("birthday", null, null)
-//      .birthdayEvent()
-//      .then(
-//           (value) => console.log(value))
-//      .catch((err) => console.log(err))

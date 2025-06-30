@@ -20,13 +20,3 @@ export default class SMSPrimeEvents extends PrimeSmsServices {
           console.log(clients)
      }
 }
-
-
-
-
-// new SMSPrimeEvents("birthday", null, null)
-//      .birthdayEvent()
-//      .then(
-//           (value) => console.log(value))
-//      .catch((err) => console.log(err))
-

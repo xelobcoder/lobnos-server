@@ -1,89 +1,89 @@
-import { z } from "zod";
-import KnexConnection from "../../../../database/KnexConnections";
+import KnexConnection from '../../../../database/KnexConnections';
 
 export interface Event {
-     id?: number;
-     name: string;
-     attachedscheduler: number;
-     messageheader?: string;
-     activated?: boolean;
+     code: string;
+     description: string;
+     category: 'patient' | 'clinician' | 'organization';
+     defaultContent: string;
+     placeholders: string[];
 }
 
-const EventSchema = z.object({
-     id: z.number().optional(),
-     name: z.string().min(1),
-     attachedscheduler: z.number(),
-     messageheader: z.string().optional(),
-     activated: z.boolean().optional(),
-});
-
-export class EventsRepository {
-     private tenantId: number
-     private tablename: string
-     private connection
-     constructor(tenantId: number) {
-          this.tenantId = tenantId;
-          this.tablename = "smsevents"
-          this.connection = KnexConnection(tenantId);
+export const EVENTS: Event[] = [
+     {
+          code: 'PATIENT_REGISTRATION_SMS',
+          description: 'Patient registration SMS event',
+          category: 'patient',
+          defaultContent: 'Dear {{firstname}} {{middlename}} {{lastname}}, you have been registered at {{companyname}} as {{designation}}.',
+          placeholders: ['firstname', 'middlename', 'lastname', 'companyname', 'designation']
+     },
+     {
+          code: 'PATIENT_BILLING_SMS',
+          description: 'Patient billing SMS event',
+          category: 'patient',
+          defaultContent: 'Dear {{firstname}} {{middlename}} {{lastname}}, your bill (ID: {{billingid}}) of {{totalpayable}} has been generated on {{billedon}}. Paid: {{paid}}. Please contact {{companyname}} for details.',
+          placeholders: ['firstname', 'middlename', 'lastname', 'companyname', 'designation', 'totalpayable', 'paid', 'billingid', 'billedon']
+     },
+     {
+          code: 'PATIENT_RESULT_READY',
+          description: 'Patient result ready event',
+          category: 'patient',
+          defaultContent: 'Dear {{firstname}} {{middlename}} {{lastname}}, your test results are ready at {{companyname}}. Please visit or contact us for more information.',
+          placeholders: ['firstname', 'middlename', 'lastname', 'companyname', 'designation', 'totalpayable', 'paid', 'billingid', 'billedon']
+     },
+     {
+          code: 'SAMPLE_REJECTION_SMS',
+          description: 'Sample rejection SMS event',
+          category: 'patient',
+          defaultContent: 'Dear {{firstname}} {{middlename}} {{lastname}}, your sample for {{testname}} was rejected at {{companyname}}. Reason: {{rejectionreason}}.',
+          placeholders: ['testname', 'companyname', 'rejectionreason']
+     },
+     {
+          code: 'CRITICAL_VALUES_SMS',
+          description: 'Critical values SMS event',
+          category: 'patient',
+          defaultContent: 'Dear {{firstname}} {{middlename}} {{lastname}}, your recent test at {{companyname}} has a critical result. Please contact us immediately.',
+          placeholders: ['firstname', 'middlename', 'lastname', 'companyname', 'designation']
+     },
+     {
+          code: 'CLINICIAN_NOTIFICATION_SMS',
+          description: 'Clinician notification SMS event',
+          category: 'clinician',
+          defaultContent: 'Dear Dr. {{clinicianName}}, a new result for {{firstname}} {{middlename}} {{lastname}} is available in your portal.',
+          placeholders: ['clinicianName', 'firstname', 'middlename', 'lastname']
+     },
+     {
+          code: 'ORGANIZATION_ALERT_SMS',
+          description: 'Organization alert SMS event',
+          category: 'organization',
+          defaultContent: 'Attention: Organization {{name}} (ID: {{id}}, Referral: {{referralcode}}) has a new alert.',
+          placeholders: ['name', 'id', 'referralcode']
+     },
+     {
+          code: 'BIRTHDAY_SMS',
+          description: 'Birthday greeting SMS event',
+          category: 'patient',
+          defaultContent: 'Happy Birthday {{designation}}! {{firstname}} {{lastname}}  Wishing you a wonderful year ahead from all of us at {{companyname}}.',
+          placeholders: ['firstname', 'lastname', 'designation', 'companyname']
+     },
+     {
+          code: 'HOLIDAY_GREETING_SMS',
+          description: 'Holiday greeting SMS event',
+          category: 'patient',
+          defaultContent: 'Season’s greetings, {{firstname}}! Enjoy your holiday. - {{companyname}}',
+          placeholders: ['firstname', 'companyname']
      }
+];
 
-     async create(event: Event): Promise<number> {
-          EventSchema.parse(event);
-          const conn = await this.connection;
-          const [id] = await conn(this.tablename).insert(event).returning("id");
-          return typeof id === "object" ? id.id : id;
-     }
+export function findEventByCode(code: string): Event | undefined {
+     return EVENTS.find(e => e.code === code);
+}
 
-     async findById(id: number): Promise<Event | undefined> {
-          const conn = await this.connection
-          return await conn(this.tablename).where({ id }).first();
-     }
+export function isEventValid(code: string): boolean {
+     return !!findEventByCode(code);
+}
 
-     async findAll(): Promise<Event[]> {
-          const conn = await this.connection
-          return await conn(this.tablename).select("*");
-     }
-
-     async update(id: number, updates: Partial<Event>): Promise<number> {
-          EventSchema.partial().parse(updates);
-          const conn = await this.connection
-          return await conn(this.tablename).where({ id }).update(updates);
-     }
-
-     async delete(id: number): Promise<number> {
-          const conn = await this.connection
-          return await conn(this.tablename).where({ id }).del();
-     }
-
-     async updateByName(name: string, event: Event): Promise<number> {
-          const conn = await this.connection
-          const result = await conn(this.tablename)
-               .where("name", name)
-               .update({
-                    attachedscheduler: event.attachedscheduler,
-                    messageheader: event.messageheader,
-                    activated: event.activated,
-               });
-          return result;
-     }
-
-     async findByName(name: string): Promise<Event | undefined> {
-          const conn = await this.connection;
-          return await conn(this.tablename)
-               .where("name", name)
-               .first();
-     }
-
-
-     async isEventValid(eventname: Event['name']): Promise<boolean> {
-          const event = await this.findByName(eventname);
-          if (!event) {
-               return false;
-          }
-          if (!event.attachedscheduler || !event.messageheader) {
-               return false;
-          }
-          return true;
-     }
-
+export async function setEventActiveStatus(tenantId: number, code: string, active: boolean): Promise<boolean> {
+     const conn = await KnexConnection(tenantId);
+     const result = await conn('primesmsevents').where({ code }).update({ active });
+     return result > 0;
 }

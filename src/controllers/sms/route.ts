@@ -1,41 +1,20 @@
-import { Router } from 'express';
-import { SmsTemplateController } from './handlers';
-import * as  SmsEventsHandlers from './SmsEventsHandlers';
-import { handleOverLoad } from '../../hooks/helper';
+// Activate or deactivate an event
 
+import { Router } from 'express';
+import { handleOverLoad } from '../../hooks/helper';
 const router = Router();
 
-router.post('/api/v1/sms/sms-templates', SmsTemplateController.handleCreateNewSmsTemplate);
-router.get('/api/v1/sms/sms-templates', SmsTemplateController.handleReadSmsTemplateById);
-router.get('/api/v1/sms/sms-templates/all', handleOverLoad(SmsTemplateController.handleReadAllSmsTemplates));
-router.put('/api/v1/sms/sms-templates', SmsTemplateController.handleUpdateSmsTemplateById);
-router.delete('/api/v1/sms/sms-templates', handleOverLoad(SmsTemplateController.handleDeleteSmsTemplateById));
-router.post('/api/v1/sms/schedule/message', SmsTemplateController.createNewSmsMessage);
-router.get("/api/v1/sms/scheduled/messages", SmsTemplateController.getMessages);
-router.get("/api/v1/sms/scheduled/messages/unsent", SmsTemplateController.sendScheduledMessageReachedAndUnsentHandler);
-
-router.get("/api/v1/sms/scheduled/messages/recipient", SmsTemplateController.getMessageRecipients);
-// SMS Events routes
-router.post("/api/v1/sms/events", handleOverLoad(SmsEventsHandlers.createEvent));
-router.get("/api/v1/sms/events", SmsEventsHandlers.getAllEvents);
-router.get("/api/v1/sms/events/:id", SmsEventsHandlers.getEventById);
-router.put("/api/v1/sms/events/:id", SmsEventsHandlers.updateEvent);
-router.delete("/api/v1/sms/events/:id", SmsEventsHandlers.deleteEvent);
-
-// SMS Birthday routes
-import express from 'express';
-import { BirthdayHandlers } from '../../controllers/sms/BirthdayHandlers';
 
 
-router.get(
-    '/api/v1/birthday-events/today',
-    BirthdayHandlers.getTodaysBirthdays
-);
+import { PrimesmsEventsController } from './PrimesmsEventsController';
+import { BirthdayHandlers } from './BirthdayHandlers';
 
-router.get(
-    '/api/v1/upcoming-birthdays',
-    BirthdayHandlers.getUpcomingBirthdays
-);
+// Load all SMS events
+router.get('/api/v1/sms/events', PrimesmsEventsController.getAllEvents);
+router.get('/api/v1/sms/events/:id/toggle', handleOverLoad(PrimesmsEventsController.setActiveStatus));
+router.put('/api/v1/sms/events/:code/template', handleOverLoad(PrimesmsEventsController.updateTemplate));
+router.get('/api/v1/birthday-events/today', BirthdayHandlers.getTodaysBirthdays);
+router.get('/api/v1/upcoming-birthdays', BirthdayHandlers.getUpcomingBirthdays);
 
 
 
