@@ -53,7 +53,11 @@ export class SmsService {
                 }
             )
             if (!response.ok) {
-                throw new Error(`SMS API error: ${response.status} ${response.statusText}`)
+                return {
+                    status: 'error',
+                    code: response.status,
+                    message: `Request failed with status ${response.status}: ${response.statusText}`,
+                }
             }
             return await response.json()
         } catch (error) {
@@ -123,7 +127,6 @@ export class SmsService {
         message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
-        console.log('Sending SMS to:', recipients, 'Message:', message, 'Options:', options)
         if (!recipients.length || !message || !message.trim()) {
             throw new Error('Recipients and message are required')
         }

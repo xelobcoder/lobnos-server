@@ -24,7 +24,11 @@ class SmsService {
                 body: method !== 'GET' && data ? JSON.stringify(data) : undefined,
             });
             if (!response.ok) {
-                throw new Error(`SMS API error: ${response.status} ${response.statusText}`);
+                return {
+                    status: 'error',
+                    code: response.status,
+                    message: `Request failed with status ${response.status}: ${response.statusText}`,
+                };
             }
             return await response.json();
         }
@@ -88,7 +92,6 @@ class SmsService {
         return { validNumbers, invalidNumbers };
     }
     async sendSms(recipients, message, options = {}) {
-        console.log('Sending SMS to:', recipients, 'Message:', message, 'Options:', options);
         if (!recipients.length || !message || !message.trim()) {
             throw new Error('Recipients and message are required');
         }

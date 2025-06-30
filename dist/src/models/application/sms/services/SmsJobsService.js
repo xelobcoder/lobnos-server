@@ -63,7 +63,7 @@ class SmsJobsService {
                 await trx.commit();
                 // 1. load the batch job
                 const info = await this.jobsRepo.findById(jobId);
-                await this.processBatchJob(3, info);
+                this.processBatchJob(3, info);
             }
             return jobId;
         }
@@ -134,13 +134,15 @@ class SmsJobsService {
                                 personalizedbody: job.custombody,
                                 deliverystatus: 'sent',
                                 messageid: result.data[0].id,
-                                refid: recipient.id || recipient.refid
+                                refid: recipient.id || recipient.refid,
+                                sentat: new Date()
                             });
                         }
                         else {
                             await this.jobRecipientsRepo.update(recipient.recid, {
                                 deliverystatus: 'sent',
-                                messageid: result.data[0].id
+                                messageid: result.data[0].id,
+                                sentat: new Date()
                             });
                         }
                         // Update job status to sent
@@ -156,14 +158,16 @@ class SmsJobsService {
                                 deliverystatus: 'failed',
                                 messageid: null,
                                 refid: recipient.id || recipient.refid,
-                                errorcode: result.message
+                                errorcode: result.message,
+                                sentat: new Date()
                             });
                         }
                         else if (recipient.recid !== undefined && recipient.recid !== null) {
                             await this.jobRecipientsRepo.update(recipient.recid, {
                                 deliverystatus: 'failed',
                                 messageid: null,
-                                errorcode: result.message
+                                errorcode: result.message,
+                                sentat: new Date()
                             });
                         }
                     }
@@ -327,14 +331,16 @@ class SmsJobsService {
                                 deliverystatus: 'failed',
                                 messageid: null,
                                 refid: recipient.id || recipient.refid,
-                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err)
+                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err),
+                                sentat: new Date()
                             });
                         }
                         else if (recipient.recid !== undefined && recipient.recid !== null) {
                             await this.jobRecipientsRepo.update(recipient.recid, {
                                 deliverystatus: 'failed',
                                 messageid: null,
-                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err)
+                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err),
+                                sentat: new Date()
                             });
                         }
                     }
@@ -345,6 +351,7 @@ class SmsJobsService {
                 for (const recipient of recipients) {
                     try {
                         const result = await smsService.sendSms([recipient.phonee164], recipient.personalizedbody);
+                        console.log('Result', result);
                         if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
                             if (isAll) {
                                 await this.jobRecipientsRepo.create({
@@ -353,13 +360,15 @@ class SmsJobsService {
                                     personalizedbody: recipient.personalizedbody,
                                     deliverystatus: 'sent',
                                     messageid: result.data[0].id,
-                                    refid: recipient.id || recipient.refid
+                                    refid: recipient.id || recipient.refid,
+                                    sentat: new Date()
                                 });
                             }
                             else {
                                 await this.jobRecipientsRepo.update(recipient.recid, {
                                     deliverystatus: 'sent',
-                                    messageid: result.data[0].id
+                                    messageid: result.data[0].id,
+                                    sentat: new Date()
                                 });
                             }
                         }
@@ -374,14 +383,16 @@ class SmsJobsService {
                                     deliverystatus: 'failed',
                                     messageid: null,
                                     refid: recipient.id || recipient.refid,
-                                    errorcode: result.message
+                                    errorcode: result.message,
+                                    sentat: new Date()
                                 });
                             }
                             else if (recipient.recid !== undefined && recipient.recid !== null) {
                                 await this.jobRecipientsRepo.update(recipient.recid, {
                                     deliverystatus: 'failed',
                                     messageid: null,
-                                    errorcode: result.message
+                                    errorcode: result.message,
+                                    sentat: new Date()
                                 });
                             }
                         }
@@ -390,6 +401,7 @@ class SmsJobsService {
                         }
                     }
                     catch (err) {
+                        console.log(err);
                         allSent = false;
                         Logger_1.Logger.error('Error sending personalized SMS (exception):', err);
                         if (isAll) {
@@ -400,14 +412,16 @@ class SmsJobsService {
                                 deliverystatus: 'failed',
                                 messageid: null,
                                 refid: recipient.id || recipient.refid,
-                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err)
+                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err),
+                                sentat: new Date()
                             });
                         }
                         else if (recipient.recid !== undefined && recipient.recid !== null) {
                             await this.jobRecipientsRepo.update(recipient.recid, {
                                 deliverystatus: 'failed',
                                 messageid: null,
-                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err)
+                                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err),
+                                sentat: new Date()
                             });
                         }
                     }
@@ -435,7 +449,10 @@ class SmsJobsService {
                 const batch = Array.isArray(data) ? data : [data];
                 const batchIds = batch.map((recipient) => recipient.id || recipient.refid);
                 const alreadySent = await this.jobRecipientsRepo.findByJobAndRefids(job.jobid, batchIds);
-                const alreadySentRefIds = new Set(alreadySent.map(r => r.refid));
+                // Only consider as already sent if deliverystatus is 'sent'
+                const alreadySentRefIds = new Set(alreadySent
+                    .filter(r => r.deliverystatus === 'sent')
+                    .map(r => r.refid));
                 const recipients = batch.filter((recipient) => !alreadySentRefIds.has(recipient.id || recipient.refid));
                 if (recipients.length === 0) {
                     offset += batchSize;
@@ -460,7 +477,6 @@ class SmsJobsService {
                         recipients[i].personalizedbody = personalizedBody;
                     }
                 }
-                Logger_1.Logger.info('Recipients to process: ' + recipients.length + ' at offset: ' + offset + ' ' + JSON.stringify(recipients));
                 if (isScheduled) {
                     await this.processScheduledJobs(job.jobid, hasCustomBody, recipients, job.custombody, job.scheduledat, true);
                     offset += recipients.length;
@@ -541,6 +557,64 @@ class SmsJobsService {
         catch (error) {
             Logger_1.Logger.error('Error processing scheduled jobs:', error);
             throw new Error('Failed to process scheduled jobs. Please try again later.');
+        }
+    }
+    async retry(tenantId, jobid, refid) {
+        const job = await this.jobsRepo.findById(jobid);
+        if (!job)
+            throw new Error(`Job with ID ${jobid} not found`);
+        const recipients = await this.jobRecipientsRepo.findByJobAndRefids(jobid, [refid]);
+        if (!recipients || recipients.length === 0)
+            throw new Error(`Recipient with refid ${refid} not found for job ${jobid}`);
+        const recipient = recipients[0];
+        if (recipient.deliverystatus === 'sent') {
+            throw new Error('Recipient has already been sent SMS. Retry not allowed.');
+        }
+        let personalizedBody = recipient.personalizedbody;
+        if (!personalizedBody) {
+            if (job.templateid) {
+                const template = await new PrimeSmsTemplatesRepo_1.PrimeSmsTemplatesRepo(tenantId).findById(job.templateid);
+                if (!template)
+                    throw new Error(`Template with ID ${job.templateid} not found`);
+                personalizedBody = SmsMessageParser_1.SmsMessageParser.parse(template.body, recipient);
+            }
+            else if (job.custombody) {
+                personalizedBody = job.custombody;
+            }
+            else {
+                throw new Error('No message body available for retry.');
+            }
+        }
+        // Send SMS
+        const smsService = new Arkesel_1.SmsService();
+        try {
+            const result = await smsService.sendSms([recipient.phonee164], personalizedBody);
+            if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
+                await this.jobRecipientsRepo.update(recipient.recid, {
+                    deliverystatus: 'sent',
+                    messageid: result.data[0].id,
+                    sentat: new Date(),
+                    errorcode: null
+                });
+            }
+            else if (result.status === 'error') {
+                Logger_1.Logger.error('Retry failed (API error):', result.message);
+                await this.jobRecipientsRepo.update(recipient.recid, {
+                    deliverystatus: 'failed',
+                    messageid: null,
+                    errorcode: result.message,
+                    sentat: new Date()
+                });
+            }
+        }
+        catch (err) {
+            Logger_1.Logger.error('Retry failed (exception):', err);
+            await this.jobRecipientsRepo.update(recipient.recid, {
+                deliverystatus: 'failed',
+                messageid: null,
+                errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err),
+                sentat: new Date()
+            });
         }
     }
 }
