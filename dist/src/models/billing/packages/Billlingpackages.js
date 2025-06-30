@@ -106,6 +106,18 @@ class Packages {
             return [];
         }
     }
+    static updatePackageTest(tenantId, id, updates) {
+        return (0, KnexConnections_1.default)(tenantId).then(connection => {
+            return connection('package_tests')
+                .where({ id })
+                .update(Object.assign(Object.assign({}, updates), { updated_at: connection.fn.now() }));
+        });
+    }
+    static deletePackageTest(tenantId, id) {
+        return (0, KnexConnections_1.default)(tenantId).then(connection => {
+            return connection('package_tests').where({ id }).del();
+        });
+    }
     static async updateClinicianPackage(tenantId, id, updates) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         return await connection('clinician_packages').where({ id }).update(updates);

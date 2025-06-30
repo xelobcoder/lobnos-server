@@ -1,6 +1,6 @@
 import KnexConnection from "../../database/KnexConnections";
 import { BillingSharedRepo } from "./billing_shared";
-import { MultiTBillingDataShared } from "./billing_shared_types";
+import { MultiTBillingDataShared } from "./multi/billing_shared_types";
 
 export class BillingUpdateRepo {
     static async updateBillingTransaction(
@@ -102,7 +102,7 @@ export class BillingUpdateRepo {
                 testDbEntries,
                 billingData.paid
             );
-            
+
             const updateData = {
                 totalTransactionCost: billingFinalValues.totalcost,
                 totalcost: billingFinalValues.totalcost,

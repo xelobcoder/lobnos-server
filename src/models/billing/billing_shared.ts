@@ -2,9 +2,8 @@ import KnexConnection from "../../database/KnexConnections";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { rowAffected } from "../../hooks/helper";
 import BillingStrategy from "../clincians/billingstrategy";
-import { BillErrors, MultiTBillingDataShared, MultiTestServicesProvided, MultiTestBillingCartType, EntityType } from "./billing_shared_types";
+import { BillErrors, MultiTBillingDataShared, MultiTestServicesProvided, MultiTestBillingCartType, EntityType } from "./multi/billing_shared_types";
 import { billErrors, BillingValidationResult, serviceCategory, ServiceEntry, servicesProvided, TestCart } from "./billingclientTypes";
-import PartitionManager from "./partitioning";
 import { AddtoTestAscenstionQuery } from "./queries";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 
@@ -646,7 +645,6 @@ export class BillingSharedRepo {
                console.log(err)
                if (err && err.code && err.errno == 1526 && err.code == 'ER_NO_PARTITION_FOR_GIVEN_VALUE'.trim()) {
                     const currentYear = new Date().getFullYear();
-                    await new PartitionManager("test_ascension", "asc").addYearPartition(tenantId, currentYear);
                }
                return false;
           }

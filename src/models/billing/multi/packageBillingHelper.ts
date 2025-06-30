@@ -1,4 +1,4 @@
-import { Packages } from "./packages/Billlingpackages";
+import { Packages } from "../packages/Billlingpackages";
 import { BillingTestItem } from "./billingTypes";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
 

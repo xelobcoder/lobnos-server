@@ -10,8 +10,8 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const billingstrategy_1 = __importDefault(require("../clincians/billingstrategy"));
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
 const ReferralCodingRepo_1 = require("../referral/repositories/ReferralCodingRepo");
-const billingTypes_1 = require("./billingTypes");
-const packageBillingHelper_1 = require("./packageBillingHelper");
+const billingTypes_1 = require("./multi/billingTypes");
+const packageBillingHelper_1 = require("./multi/packageBillingHelper");
 const PrimeBillingEnterprise_1 = require("./PrimeBillingEnterprise");
 class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBillingEnterprise {
     constructor(tenantId) {

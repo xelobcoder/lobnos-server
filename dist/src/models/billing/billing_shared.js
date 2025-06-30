@@ -8,9 +8,8 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const helper_1 = require("../../hooks/helper");
 const billingstrategy_1 = __importDefault(require("../clincians/billingstrategy"));
-const billing_shared_types_1 = require("./billing_shared_types");
+const billing_shared_types_1 = require("./multi/billing_shared_types");
 const billingclientTypes_1 = require("./billingclientTypes");
-const partitioning_1 = __importDefault(require("./partitioning"));
 const queries_1 = require("./queries");
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
 class BillingSharedRepo {
@@ -555,7 +554,6 @@ class BillingSharedRepo {
             console.log(err);
             if (err && err.code && err.errno == 1526 && err.code == 'ER_NO_PARTITION_FOR_GIVEN_VALUE'.trim()) {
                 const currentYear = new Date().getFullYear();
-                await new partitioning_1.default("test_ascension", "asc").addYearPartition(tenantId, currentYear);
             }
             return false;
         }

@@ -1,6 +1,6 @@
 import { Knex } from "knex";
 import { SalesSessionRepo } from "./repositories/SalesSessionRepo";
-import { BillErrors, MultiTBillingDataShared } from "./billing_shared_types";
+import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
 import { BillingSharedRepo } from "./billing_shared";
 import KnexConnection from "../../database/KnexConnections";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";

@@ -1,10 +1,10 @@
-import { SalesSessionRepo } from "./repositories/SalesSessionRepo";
+import { SalesSessionRepo } from "../repositories/SalesSessionRepo";
 import { BillErrors, EntityType } from "./billing_shared_types";
-import KnexConnection from "../../database/KnexConnections";
-import BillingStrategy from "../clincians/billingstrategy";
-import ApplicationSettings from "../application/appsettings/appset";
-import { PrimeLimsTablebilling, PrimeLimsTabledboservices } from "../../database/DatabaseTableSchema";
-import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
+import KnexConnection from "../../../database/KnexConnections";
+import BillingStrategy from "../../clincians/billingstrategy";
+import ApplicationSettings from "../../application/appsettings/appset";
+import { PrimeLimsTablebilling, PrimeLimsTabledboservices } from "../../../database/DatabaseTableSchema";
+import { ReferralCodingRepo } from "../../referral/repositories/ReferralCodingRepo";
 import { BillingModuleCodes, BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
@@ -65,7 +65,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           ]);
 
           // if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
-          
+
           let previousRecordsSummary = null;
           if (params.billingid) {
                previousRecordsSummary = this.previousBillingSummary(params.billingid)

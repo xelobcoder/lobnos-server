@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import User from '../../LobnosAuth/user'
 import logger from "../../hooks/logger";
 import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, userLogin, activateAUser, getPermissions, updateUserPermission, UserRequest } from "../../LobnosAuth/createAccount";
-import { customError, promisifyQuery, responseError } from "../../hooks/helper";
+import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
 import { OperationsFailures } from "../../models/operations/types";
 
 export const getLogins = async (request: Request<{}, {}, {}, { count: number, page: number, name: string, email: string, role: string, tenantId: string }>, response: Response) => {
@@ -17,46 +17,51 @@ export const getLogins = async (request: Request<{}, {}, {}, { count: number, pa
 };
 
 export const getUser = async (req: Request, res: Response) => {
-	getAUser(req, res);
+	getAUser(req as UserRequest, res);
 };
 
 export const createAccount = async (req: Request, res: Response) => {
-    try {
-        const { name, password, role, email, branch } = req.body;
-	   console.log(req.body)
-        if (!name || !role || !password || !email || !branch) {
-            return customError("Missing required parameters", 400, res);
-        }
+	try {
+		const { name, password, role, email, branch } = req.body;
+		console.log(req.body)
+		if (!name || !role || !password || !email || !branch) {
+			return customError("Missing required parameters", 400, res);
+		}
 
-        const result = await createNewAccount(req as unknown as UserRequest);
-        res.send({ 
-            status: "success", 
-            message: "User created successfully",
-            data: result,
-            statusCode: 200
-        });
-    } catch (error) {
-        logger.error(error);
-        responseError(res);
-    }
+		const result = await createNewAccount(req as unknown as UserRequest);
+		res.send({
+			status: "success",
+			message: "User created successfully",
+			data: result,
+			statusCode: 200
+		});
+	} catch (error) {
+		logger.error(error);
+		responseError(res);
+	}
 };
 
-export const deleteAccountHandler = async (req: Request, res: Response) => {
-	deleteAccount(req, res);
-};
+export const deleteAccountHandler = handleOverLoad(deleteAccount);
 
 export const updateBasicInfo = async (req: Request, res: Response) => {
-	updateUserBasicInfo(req, res);
+	const userReq: UserRequest = {
+		...req,
+		query: {
+			...req.query,
+			tenantId: req.query.tenantId as string
+		}
+	} as UserRequest;
+	updateUserBasicInfo(userReq, res);
 };
 
 export const authenticateUser = async (request: Request, response: Response) => {
 	const { email, password } = request.body;
 	if (!email || !password) return customError(OperationsFailures.invalidResponseBodyParams, 400, response);
-	userLogin(request, response);
+	userLogin(request as UserRequest, response);
 };
 
 export const activateUser = async (req: Request, res: Response) => {
-	activateAUser(req, res);
+	activateAUser(req as UserRequest, res);
 };
 
 export const getUserPermissions = async (req: Request<{}, {}, {}, { permissions: number | string, tenantId: string }>, res: Response) => {
@@ -70,7 +75,7 @@ export const getUserPermissions = async (req: Request<{}, {}, {}, { permissions:
 };
 
 export const updatePermissions = async (req: Request, res: Response) => {
-	updateUserPermission(req, res);
+	updateUserPermission(req as UserRequest, res);
 };
 
 export const authenticateClinician = async (req: Request, res: Response) => {

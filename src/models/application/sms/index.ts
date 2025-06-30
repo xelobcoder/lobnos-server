@@ -7,5 +7,4 @@ export * from '../../../controllers/sms/primesms/SmsCategoryMappingsController';
 export * from '../../../controllers/sms/primesms/SmsPlaceholderRulesController';
 export * from '../../../controllers/sms/primesms/SmsEventsController';
 export * from '../../../controllers/sms/primesms/SmsEventTemplatesController';
-export * from '../../../controllers/sms/primesms/index';
 

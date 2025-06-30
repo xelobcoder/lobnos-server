@@ -1,11 +1,11 @@
-import KnexConnection from "../../database/KnexConnections";
-import ApplicationSettings from "../application/appsettings/appset";
-import { ApplicationSettingsData, AppSetting, billingsettings } from "../application/appsettings/Type";
-import BillingStrategy from "../clincians/billingstrategy";
-import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
-import Services from "../services/services";
+import KnexConnection from "../../../database/KnexConnections";
+import ApplicationSettings from "../../application/appsettings/appset";
+import { ApplicationSettingsData, AppSetting, billingsettings } from "../../application/appsettings/Type";
+import BillingStrategy from "../../clincians/billingstrategy";
+import { ReferralCodingRepo } from "../../referral/repositories/ReferralCodingRepo";
+import Services from "../../services/services";
 import { EntityType } from "./billing_shared_types";
-import { SalesSessionRepo } from "./repositories/SalesSessionRepo";
+import { SalesSessionRepo } from "../repositories/SalesSessionRepo";
 
 export class PrimeBillingEnterprise {
 	protected tenantId: number;

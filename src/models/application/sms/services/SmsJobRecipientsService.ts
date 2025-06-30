@@ -9,6 +9,7 @@ function mapJobRecipientDtoToDb(dto: any) {
           deliverystatus: dto.deliveryStatus,
           sentat: dto.sentAt,
           errorcode: dto.errorCode,
+          refid: dto.refId ?? dto.refid, 
      };
 }
 

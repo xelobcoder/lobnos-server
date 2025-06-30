@@ -44,12 +44,10 @@ const createAccount = async (req, res) => {
     }
 };
 exports.createAccount = createAccount;
-const deleteAccountHandler = async (req, res) => {
-    (0, createAccount_1.deleteAccount)(req, res);
-};
-exports.deleteAccountHandler = deleteAccountHandler;
+exports.deleteAccountHandler = (0, helper_1.handleOverLoad)(createAccount_1.deleteAccount);
 const updateBasicInfo = async (req, res) => {
-    (0, createAccount_1.updateUserBasicInfo)(req, res);
+    const userReq = Object.assign(Object.assign({}, req), { query: Object.assign(Object.assign({}, req.query), { tenantId: req.query.tenantId }) });
+    (0, createAccount_1.updateUserBasicInfo)(userReq, res);
 };
 exports.updateBasicInfo = updateBasicInfo;
 const authenticateUser = async (request, response) => {

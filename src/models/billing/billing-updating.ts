@@ -2,7 +2,7 @@ import KnexConnection from "../../database/KnexConnections";
 import { BillingUpdateRepo } from "./billing_update";
 import { BillingSharedRepo } from "./billing_shared";
 import { CustomerBillingCheckout } from "./customerBillingCheckout";
-import { MultiTBillingDataShared } from "./billing_shared_types";
+import { MultiTBillingDataShared } from "./multi/billing_shared_types";
 import { servicesProvided } from "./billingclientTypes";
 
 export class BillingUpdatingService {
@@ -48,7 +48,7 @@ export class BillingUpdatingService {
 
             // 3. Remove deleted tests/services
             if (testsToRemove.length > 0) {
-                await trx("dboservices").where("billingid", billingID).whereIn("trackId", testsToRemove).andWhere(function() { this.whereNull("serviceCategory").orWhereNot("serviceCategory", "SERVICES"); }).del();
+                await trx("dboservices").where("billingid", billingID).whereIn("trackId", testsToRemove).andWhere(function () { this.whereNull("serviceCategory").orWhereNot("serviceCategory", "SERVICES"); }).del();
             }
             if (servicesToRemove.length > 0) {
                 await trx("dboservices").where("billingid", billingID).whereIn("trackId", servicesToRemove).andWhere("serviceCategory", "SERVICES").del();
@@ -100,7 +100,7 @@ export class BillingUpdatingService {
             const allDbEntries = await trx("dboservices").where("billingid", billingID);
             const testDbEntries = allDbEntries.filter((e: any) => !e.serviceCategory || e.serviceCategory !== "SERVICES");
             const serviceDbEntries = allDbEntries.filter((e: any) => e.serviceCategory === "SERVICES");
-     
+
 
             // 6. Update billing record
             const updateData = {

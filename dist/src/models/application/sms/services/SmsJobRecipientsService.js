@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SmsJobRecipientsService = void 0;
 function mapJobRecipientDtoToDb(dto) {
+    var _a;
     return {
         jobid: dto.jobId,
         phonee164: dto.phoneE164,
@@ -9,6 +10,7 @@ function mapJobRecipientDtoToDb(dto) {
         deliverystatus: dto.deliveryStatus,
         sentat: dto.sentAt,
         errorcode: dto.errorCode,
+        refid: (_a = dto.refId) !== null && _a !== void 0 ? _a : dto.refid,
     };
 }
 class SmsJobRecipientsService {

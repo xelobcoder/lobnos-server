@@ -1,9 +1,10 @@
+import { ApplicationSettingsData, AppSetting } from "../../application/appsettings/Type";
+import { PrimeBillingPromoCodeRepo } from "../repositories/PrimeBillingPromoCodeRepo";
 import { EntityType } from "./billing_shared_types";
-import { ApplicationSettingsData, AppSetting } from "../application/appsettings/Type";
-import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
-;
+
+
 
 class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
      static instance: CustomerBillingCheckoutSingleton;
@@ -61,7 +62,6 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           let usedPackage = false;
           let taxIncluded = false;
           let taxList: any = undefined;
-          let taxValue: number | undefined = undefined;
 
           let promoDiscount = 0;
           let promoValid = false;
@@ -78,7 +78,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           if (isPackageUsed && packageid) {
                const pkgResult = await PackageBillingHelper.handlePackageCheckout({
                     tenantId,
-                    packageid   
+                    packageid
                });
                if (!pkgResult.success) return { success: false, message: pkgResult.message };
                recalculatedPackageList = pkgResult.recalculatedPackageList || [];

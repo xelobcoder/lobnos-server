@@ -27,4 +27,3 @@ __exportStar(require("../../../controllers/sms/primesms/SmsCategoryMappingsContr
 __exportStar(require("../../../controllers/sms/primesms/SmsPlaceholderRulesController"), exports);
 __exportStar(require("../../../controllers/sms/primesms/SmsEventsController"), exports);
 __exportStar(require("../../../controllers/sms/primesms/SmsEventTemplatesController"), exports);
-__exportStar(require("../../../controllers/sms/primesms/index"), exports);

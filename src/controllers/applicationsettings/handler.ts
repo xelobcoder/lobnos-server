@@ -9,8 +9,8 @@ import { OperationsFailures } from "../../models/operations/types";
 import ApplicationSettings from "./../../models/application/appsettings/appset";
 import { responseError, customError } from "../../hooks/helper";
 import { ApplicationBillSettings } from "../../models/application/appsettings/Type";
-import { CustomerBillingInit } from "../../models/billing/initCustomerBilling";
-import { EntityType } from "../../models/billing/billing_shared_types";
+import { CustomerBillingInit } from "../../models/billing/multi/initCustomerBilling";
+import { EntityType } from "../../models/billing/multi/billing_shared_types";
 import { SubmitCustomerBilling } from "../../models/billing/billing-new-client-multi";
 import { CustomerBillingCheckout } from "../../models/billing/customerBillingCheckout";
 
@@ -490,7 +490,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			paid,
 			status,
 			isConditionsUnderstood,
-			patientId: patientid ?? patientId, 
+			patientId: patientid ?? patientId,
 			employeeid,
 			isPackageUsed,
 			hasNightAdjustment,

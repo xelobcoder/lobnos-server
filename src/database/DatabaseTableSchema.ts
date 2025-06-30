@@ -382,7 +382,7 @@ export type PrimeLimsTabledaily_test_transaction_snap_shot = {
   total_amount?: number ;
 };
 
-export type PrimeLimsTabledbo.systemsecurity = {
+export type PrimeLimsTabledbosystemsecurity = {
   id: number;
   computerName: string;
   computerDrive: string;

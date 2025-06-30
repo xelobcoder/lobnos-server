@@ -158,6 +158,23 @@ export class Packages {
           }
      }
 
+     static updatePackageTest(tenantId: number, id: number, updates: UpdatePayload): Promise<number> {
+          return KnexConnection(tenantId).then(connection => {
+               return connection('package_tests')
+                    .where({ id })
+                    .update({
+                         ...updates,
+                         updated_at: connection.fn.now(),
+                    });
+          });
+     }
+
+     static deletePackageTest(tenantId: number, id: number): Promise<number> {
+          return KnexConnection(tenantId).then(connection => {
+               return connection('package_tests').where({ id }).del();
+          });
+     }
+
      static async updateClinicianPackage(tenantId: number, id: number, updates: UpdatePayload): Promise<number> {
           const connection = await KnexConnection(tenantId);
           return await connection('clinician_packages').where({ id }).update(updates);
@@ -381,7 +398,7 @@ export class Packages {
 
 
      static async verifyPackageId(tenantId: number, packageId: number): Promise<boolean> {
-         const packageNonReserve = await  this.getPackagesByIds(tenantId, [packageId]);
-           return packageNonReserve && packageNonReserve.length > 0;
+          const packageNonReserve = await this.getPackagesByIds(tenantId, [packageId]);
+          return packageNonReserve && packageNonReserve.length > 0;
      }
 }

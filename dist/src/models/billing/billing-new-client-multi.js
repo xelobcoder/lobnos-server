@@ -17,7 +17,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubmitCustomerBilling = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const billing_shared_1 = require("./billing_shared");
-const billing_shared_types_1 = require("./billing_shared_types");
+const billing_shared_types_1 = require("./multi/billing_shared_types");
 const billingclientTypes_1 = require("./billingclientTypes");
 const customerBillingCheckout_1 = require("./customerBillingCheckout");
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");

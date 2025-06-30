@@ -1,8 +1,8 @@
 import KnexConnection from "../../database/KnexConnections";
 import { BillingSharedRepo } from "./billing_shared";
-import { BillErrors, MultiTBillingDataShared } from "./billing_shared_types";
+import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry } from "./billingclientTypes";
-import { BillingTestItem, CustomerInitResponse } from "./billingTypes";
+import { BillingTestItem, CustomerInitResponse } from "./multi/billingTypes";
 import { CustomerBillingCheckout } from "./customerBillingCheckout";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 
@@ -178,7 +178,7 @@ export class SubmitCustomerBilling {
                         promoCodeId: updateData.promoCodeId,
                     });
 
-           
+
 
                 if (!result) throw new Error("unable to update billing record");
                 if (data.isPromo && data.promoCode && data.promoDetails.id) {

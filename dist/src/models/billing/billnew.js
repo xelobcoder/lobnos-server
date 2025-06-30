@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.MultiBillingRepo = void 0;
 const SalesSessionRepo_1 = require("./repositories/SalesSessionRepo");
-const billing_shared_types_1 = require("./billing_shared_types");
+const billing_shared_types_1 = require("./multi/billing_shared_types");
 const billing_shared_1 = require("./billing_shared");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
