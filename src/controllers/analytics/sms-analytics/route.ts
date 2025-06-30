@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { handleOverLoad } from '../../../hooks/helper';
 import { PrimeSmsAnalyticsController } from '../../../models/application/sms/controllers/PrimeSmsAnalyticsController';
+import { retryFailedTransactionHandler } from '../../../models/application/sms/controllers/RetryFailedSms';
 
 const router = Router();
 
 const primeSmsAnalyticsController = new PrimeSmsAnalyticsController();
 
-
-// Analytics Endpoints (corrected to match /api/v1/prime/sms-analytics/...)
+router.get(`/api/v1/prime/sms/failed/transaction/retry/:jobid/:refid`, retryFailedTransactionHandler);
 router.get('/api/v1/prime/sms-analytics/job-status-counts', handleOverLoad(primeSmsAnalyticsController.getJobStatusCounts.bind(primeSmsAnalyticsController)));
 router.get('/api/v1/prime/sms-analytics/recipient-delivery-counts', handleOverLoad(primeSmsAnalyticsController.getRecipientDeliveryCounts.bind(primeSmsAnalyticsController)));
 router.get('/api/v1/prime/sms-analytics/totals', handleOverLoad(primeSmsAnalyticsController.getTotals.bind(primeSmsAnalyticsController)));

@@ -581,14 +581,14 @@ export class SmsJobsService {
 		}
 	}
 
-	public async retry(tenantId: number, jobid: number, refid: string | number): Promise<void> {
+	public async retryFailedTransaction(tenantId: number, jobid: number, refid: string | number): Promise<{ status: string; message: string }> {
 		const job = await this.jobsRepo.findById(jobid);
-		if (!job) throw new Error(`Job with ID ${jobid} not found`);
+		if (!job) return { status: 'error', message: `Job with ID ${jobid} not found` };
 		const recipients = await this.jobRecipientsRepo.findByJobAndRefids(jobid, [refid]);
-		if (!recipients || recipients.length === 0) throw new Error(`Recipient with refid ${refid} not found for job ${jobid}`);
+		if (!recipients || recipients.length === 0) return { status: 'error', message: `Recipient with refid ${refid} not found for job ${jobid}` };
 		const recipient = recipients[0];
 		if (recipient.deliverystatus === 'sent') {
-			throw new Error('Recipient has already been sent SMS. Retry not allowed.');
+			return { status: 'error', message: 'Recipient has already been sent SMS. Retry not allowed.' };
 		}
 
 		let personalizedBody = recipient.personalizedbody;
@@ -632,6 +632,7 @@ export class SmsJobsService {
 				errorcode: err?.message || String(err),
 				sentat: new Date()
 			});
+			return { status: 'error', message: 'Failed to retry sending SMS. Please try again later.' };
 		}
 	}
 }

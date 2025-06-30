@@ -559,16 +559,16 @@ class SmsJobsService {
             throw new Error('Failed to process scheduled jobs. Please try again later.');
         }
     }
-    async retry(tenantId, jobid, refid) {
+    async retryFailedTransaction(tenantId, jobid, refid) {
         const job = await this.jobsRepo.findById(jobid);
         if (!job)
-            throw new Error(`Job with ID ${jobid} not found`);
+            return { status: 'error', message: `Job with ID ${jobid} not found` };
         const recipients = await this.jobRecipientsRepo.findByJobAndRefids(jobid, [refid]);
         if (!recipients || recipients.length === 0)
-            throw new Error(`Recipient with refid ${refid} not found for job ${jobid}`);
+            return { status: 'error', message: `Recipient with refid ${refid} not found for job ${jobid}` };
         const recipient = recipients[0];
         if (recipient.deliverystatus === 'sent') {
-            throw new Error('Recipient has already been sent SMS. Retry not allowed.');
+            return { status: 'error', message: 'Recipient has already been sent SMS. Retry not allowed.' };
         }
         let personalizedBody = recipient.personalizedbody;
         if (!personalizedBody) {
@@ -615,6 +615,7 @@ class SmsJobsService {
                 errorcode: (err === null || err === void 0 ? void 0 : err.message) || String(err),
                 sentat: new Date()
             });
+            return { status: 'error', message: 'Failed to retry sending SMS. Please try again later.' };
         }
     }
 }

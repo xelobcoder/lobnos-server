@@ -72,6 +72,7 @@ router.put('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(smsJobRecipien
 router.delete('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(smsJobRecipientsController.delete.bind(smsJobRecipientsController)));
 router.get('/api/v1/prime/sms-job-recipients/by-job/:jobId', handleOverLoad(smsJobRecipientsController.getAllByJob.bind(smsJobRecipientsController)));
 
+
 // Category Mappings
 router.post('/api/v1/prime/sms-category-mappings', handleOverLoad(smsCategoryMappingsController.create.bind(smsCategoryMappingsController)));
 router.get('/api/v1/prime/sms-category-mappings/:id', handleOverLoad(smsCategoryMappingsController.getById.bind(smsCategoryMappingsController)));
