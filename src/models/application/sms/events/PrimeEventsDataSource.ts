@@ -5,7 +5,7 @@ import Registration from "../../../registration/registration";
 import { getAllCompanyProfiles } from "../../../settings/companyProfile";
 import { SmsService } from "../../integrations/Arkesel";
 import { SmsMessageParser } from "../PrimeSms/SmsMessageParser";
-import { PrimesmsEvent, PrimesmsEventsRepository } from "./PrimesmsEventsRepository";
+import { PrimesmsEventsRepository } from "./PrimesmsEventsRepository";
 
 export class PrimeEventsSMSDataSource {
 
@@ -18,6 +18,11 @@ export class PrimeEventsSMSDataSource {
           this.repo = new PrimesmsEventsRepository(tenantId);
      }
 
+     async isEventActive(eventCode: string): Promise<boolean> {
+          const event = await this.repo.findByCode(eventCode);
+          if (!event || typeof (event as any).active === 'undefined') return false;
+          return (event as any).active === 1 || (event as any).active === true;
+     }
 
 
      async sendSMSMessage(smsconstent: string, phonee164: string, eventCode?: string, refId?: string | number) {
@@ -95,6 +100,8 @@ export class PrimeEventsSMSDataSource {
      }
 
      async paymentConfirmationEvent(tenantId: number, billingid: number): Promise<{ smsconstent: string, phonee164: string } | undefined> {
+          const isActive = await this.isEventActive('PAYMENT_CONFIRMATION_SMS');
+          if (!isActive) return;
           const query = `
             SELECT b.*, p.*
             FROM billing b
@@ -139,6 +146,9 @@ export class PrimeEventsSMSDataSource {
      }
 
      async patientRegistrationEvent(tenantId: number, patientid: number): Promise<{ smsconstent: string, phonee164: string } | undefined> {
+          const isActive = await this.isEventActive('PATIENT_REGISTRATION_SMS');
+          if (!isActive) return;
+          // Get patient basic data
           const data = await new Registration().getPatientBasicData(tenantId, patientid);
           const event = await this.repo.findByCode('PATIENT_REGISTRATION_SMS');
           if (!data || !event) return;
@@ -154,12 +164,16 @@ export class PrimeEventsSMSDataSource {
 
 
      async patientTransactionEventData(tenantId: number, billingid: number): Promise<{ smsconstent: string, phonee164: string } | undefined> {
+          const isActive = await this.isEventActive('PATIENT_BILLING_SMS');
+          if (!isActive) return;
+
           const query = `
                SELECT b.*,p.*
                FROM billing b
                JOIN new_patients p ON b.patientid = p.patientid
                WHERE b.billingid = ?
           `;
+
           const connection = await KnexConnection(tenantId);
           const [result] = await connection.raw(query, [billingid]);
           if (!result || !result[0]) return;
@@ -172,6 +186,8 @@ export class PrimeEventsSMSDataSource {
 
 
      async testAscensionEventDataAllDone(tenantId: number, billingid: number): Promise<{ smsconstent: string, phonee164: string } | undefined> {
+          const isActive = await this.isEventActive('PATIENT_RESULT_READY');
+          if (!isActive) return;
           // Get count of unapproved ascensions
           const query_verified = `
              SELECT COUNT(*) AS counter FROM test_ascension AS ta 
@@ -208,6 +224,9 @@ export class PrimeEventsSMSDataSource {
 
 
      async sampleRejectionEvent(tenantId: number, ascensionid: number): Promise<{ smsconstent: string, phonee164: string } | undefined> {
+          const isActive = await this.isEventActive('SAMPLE_REJECTION_SMS');
+          if (!isActive) return;
+
           const event = await this.repo.findByCode('SAMPLE_REJECTION_SMS');
           const connection = await KnexConnection(tenantId)
           let sample = await connection('samplestatus')
@@ -218,6 +237,7 @@ export class PrimeEventsSMSDataSource {
                .where({ ascensionid })
                .select('samplestatus.*', 'test_panels.name as testname', 'test_ascension.*', 'billing.*', 'new_patients.*')
                .first();
+
           if (!sample || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, sample, event.content);
           const phonee164 = sample.mobile_number ? sample.mobile_number.replace(/^\+/, '') : '';
@@ -227,6 +247,9 @@ export class PrimeEventsSMSDataSource {
 
 
      async clinicianRegistrationEvent(tenantId: number, clinicianid: number): Promise<{ smsconstent: string, phonee164: string } | undefined> {
+          const isActive = await this.isEventActive('CLINICIAN_REGISTRATION_SMS');
+          if (!isActive) return;
+
           const data = await new ClinicianClass().getClinicianBasicInfo(tenantId, clinicianid);
           const event = await this.repo.findByCode('CLINICIAN_REGISTRATION_SMS');
           if (!data || !Array.isArray(data) || data.length === 0 || !event) return;
@@ -238,6 +261,9 @@ export class PrimeEventsSMSDataSource {
 
 
      async organizationRegistrationEvent(tenantId: number, organizationid: number): Promise<{ smsconstent: string, phonee164: string } | undefined> {
+          const isActive = await this.isEventActive('ORGANIZATION_REGISTRATION_SMS');
+          if (!isActive) return;
+
           const data = await new Organization(organizationid).getOrganizationBasic(tenantId);
           const event = await this.repo.findByCode('ORGANIZATION_REGISTRATION_SMS');
           if (!data || !Array.isArray(data) || data.length === 0 || !event) return;

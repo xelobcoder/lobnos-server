@@ -40,6 +40,12 @@ class PrimeEventsSMSDataSource {
         this.tenantId = tenantId;
         this.repo = new PrimesmsEventsRepository_1.PrimesmsEventsRepository(tenantId);
     }
+    async isEventActive(eventCode) {
+        const event = await this.repo.findByCode(eventCode);
+        if (!event || typeof event.active === 'undefined')
+            return false;
+        return event.active === 1 || event.active === true;
+    }
     async sendSMSMessage(smsconstent, phonee164, eventCode, refId) {
         const sms = await new Arkesel_1.SmsService().sendSms([phonee164], smsconstent);
         console.log('SMS sent:', sms);
@@ -103,6 +109,9 @@ class PrimeEventsSMSDataSource {
         });
     }
     async paymentConfirmationEvent(tenantId, billingid) {
+        const isActive = await this.isEventActive('PAYMENT_CONFIRMATION_SMS');
+        if (!isActive)
+            return;
         const query = `
             SELECT b.*, p.*
             FROM billing b
@@ -145,6 +154,10 @@ class PrimeEventsSMSDataSource {
         return SmsMessageParser_1.SmsMessageParser.parse(event, merged);
     }
     async patientRegistrationEvent(tenantId, patientid) {
+        const isActive = await this.isEventActive('PATIENT_REGISTRATION_SMS');
+        if (!isActive)
+            return;
+        // Get patient basic data
         const data = await new registration_1.default().getPatientBasicData(tenantId, patientid);
         const event = await this.repo.findByCode('PATIENT_REGISTRATION_SMS');
         if (!data || !event)
@@ -163,6 +176,9 @@ class PrimeEventsSMSDataSource {
         await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_REGISTRATION_SMS', patientid);
     }
     async patientTransactionEventData(tenantId, billingid) {
+        const isActive = await this.isEventActive('PATIENT_BILLING_SMS');
+        if (!isActive)
+            return;
         const query = `
                SELECT b.*,p.*
                FROM billing b
@@ -182,6 +198,9 @@ class PrimeEventsSMSDataSource {
     }
     async testAscensionEventDataAllDone(tenantId, billingid) {
         var _a;
+        const isActive = await this.isEventActive('PATIENT_RESULT_READY');
+        if (!isActive)
+            return;
         // Get count of unapproved ascensions
         const query_verified = `
              SELECT COUNT(*) AS counter FROM test_ascension AS ta 
@@ -214,6 +233,9 @@ class PrimeEventsSMSDataSource {
         await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_RESULT_READY', data.patientid);
     }
     async sampleRejectionEvent(tenantId, ascensionid) {
+        const isActive = await this.isEventActive('SAMPLE_REJECTION_SMS');
+        if (!isActive)
+            return;
         const event = await this.repo.findByCode('SAMPLE_REJECTION_SMS');
         const connection = await (0, KnexConnections_1.default)(tenantId);
         let sample = await connection('samplestatus')
@@ -231,6 +253,9 @@ class PrimeEventsSMSDataSource {
         await this.sendSMSMessage(parsedContent, phonee164, 'SAMPLE_REJECTION_SMS', sample.patientid);
     }
     async clinicianRegistrationEvent(tenantId, clinicianid) {
+        const isActive = await this.isEventActive('CLINICIAN_REGISTRATION_SMS');
+        if (!isActive)
+            return;
         const data = await new clinicianClass_1.default().getClinicianBasicInfo(tenantId, clinicianid);
         const event = await this.repo.findByCode('CLINICIAN_REGISTRATION_SMS');
         if (!data || !Array.isArray(data) || data.length === 0 || !event)
@@ -240,6 +265,9 @@ class PrimeEventsSMSDataSource {
         await this.sendSMSMessage(parsedContent, phonee164, 'CLINICIAN_REGISTRATION_SMS', clinicianid);
     }
     async organizationRegistrationEvent(tenantId, organizationid) {
+        const isActive = await this.isEventActive('ORGANIZATION_REGISTRATION_SMS');
+        if (!isActive)
+            return;
         const data = await new organization_1.default(organizationid).getOrganizationBasic(tenantId);
         const event = await this.repo.findByCode('ORGANIZATION_REGISTRATION_SMS');
         if (!data || !Array.isArray(data) || data.length === 0 || !event)
