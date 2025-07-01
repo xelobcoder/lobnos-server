@@ -1,10 +1,13 @@
 import KnexConnection from "../../../../database/KnexConnections";
+import ClinicianClass from "../../../clincians/clinicianClass";
+import Organization from "../../../organization/organization";
 import Registration from "../../../registration/registration";
 import { getAllCompanyProfiles } from "../../../settings/companyProfile";
 import { SmsMessageParser } from "../PrimeSms/SmsMessageParser";
 import { PrimesmsEvent, PrimesmsEventsRepository } from "./PrimesmsEventsRepository";
 
 export class PrimeEventsSMSDataSource {
+   
      private tenantId: number;
      private repo: PrimesmsEventsRepository;
      private parser: any;
@@ -13,6 +16,44 @@ export class PrimeEventsSMSDataSource {
           this.tenantId = tenantId;
           this.repo = new PrimesmsEventsRepository(tenantId);
      }
+    async paymentConfirmationEvent(tenantId: number, billingid: number) {
+        // Get billing and patient info
+        const query = `
+            SELECT b.*, p.*
+            FROM billing b
+            JOIN new_patients p ON b.patientid = p.patientid
+            WHERE b.billingid = ?
+        `;
+        const connection = await KnexConnection(tenantId);
+        const [result] = await connection.raw(query, [billingid]);
+        if (!result || !result[0]) return;
+
+        // Fetch billing history (hx)
+        const hxQuery = `
+            SELECT * FROM billinghx  AS bhx
+            INNER JOIN paymentmodes  ON bhx.PaymentMode = paymentmodes.KeyID
+            WHERE billingid = ? ORDER BY bhx.KeyID DESC`;
+        let billinghx = [];
+        try {
+            const [hxResult] = await connection.raw(hxQuery, [billingid]);
+            billinghx = Array.isArray(hxResult) ? hxResult : [];
+        } catch (e) {
+            // If billinghx table or data is missing, ignore
+        }
+
+        // String together payment mode and amount from billinghx
+        let paymentSummary = '';
+        if (billinghx.length > 0) {
+            paymentSummary = billinghx.map(hx => `${hx.PaymentMode}: ${hx.Amount}`).join(', ');
+        }
+
+        const data = { ...result[0], paymentSummary };
+        const event = await this.repo.findByCode('PAYMENT_CONFIRMATION_SMS');
+        if (!event) return;
+        const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
+        // Append payment summary to the parsed content
+        return parsedContent + (paymentSummary ? `\n\nPayment(s): ${paymentSummary}` : '');
+    }
 
      async parsedEventTemplate(tenantId: number, data: Object, event: string) {
           const companyInfo = await getAllCompanyProfiles(tenantId);
@@ -85,5 +126,21 @@ export class PrimeEventsSMSDataSource {
                .first();
           if (!sample || !event) return;
           return this.parsedEventTemplate(tenantId, sample, event.content);
+     }
+
+
+     async clinicianRegistrationEvent(tenantId: number, clinicianid: number) {
+          const data = await new ClinicianClass().getClinicianBasicInfo(tenantId, clinicianid);
+          const event = await this.repo.findByCode('CLINICIAN_REGISTRATION_SMS');
+          if (!data || !Array.isArray(data) || data.length === 0 || !event) return;
+          return this.parsedEventTemplate(tenantId, data[0], event.content);
+     }
+
+
+     async organizationRegistrationEvent(tenantId: number, organizationid: number) {
+          const data = await new Organization(organizationid).getOrganizationBasic(tenantId);
+          const event = await this.repo.findByCode('ORGANIZATION_REGISTRATION_SMS');
+          if (!data || !Array.isArray(data) || data.length === 0 || !event) return;
+          return this.parsedEventTemplate(tenantId, data[0], event.content);
      }
 }

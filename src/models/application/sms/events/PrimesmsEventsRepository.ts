@@ -2,17 +2,19 @@
 
 
 
+
 import KnexConnection from '../../../../database/KnexConnections';
 import { EVENTS, Event } from './EventsRepository';
 
-export interface PrimesmsEvent {
-	eventid?: number;
-	code: string;
-	description?: string;
-	category: 'patient' | 'clinician' | 'organization';
-	content: string;
-	active?: boolean;
-	createdat?: Date | string;
+	export interface PrimesmsEvent {
+		eventid?: number;
+		code: string;
+		description?: string;
+		category: 'patient' | 'clinician' | 'organization';
+		content: string;
+		active?: boolean;
+		createdat?: Date | string;
+		placeholders?: string[];
 }
 
 
@@ -26,10 +28,29 @@ export class PrimesmsEventsRepository {
 		this.connection = KnexConnection(tenantId);
 	}
 
-	async findByCode(code: string): Promise<PrimesmsEvent | undefined> {
-		const conn = await this.connection;
-		return await conn(this.tablename).where({ code }).first();
+async findByCode(code: string): Promise<PrimesmsEvent | undefined> {
+	const conn = await this.connection;
+	const row = await conn(this.tablename).where({ code }).first();
+	if (!row) return undefined;
+	let placeholders: string[] = [];
+	if (row.placeholders) {
+		try {
+			placeholders = JSON.parse(row.placeholders);
+		} catch (e) {
+			placeholders = [];
+		}
 	}
+	return {
+		eventid: row.eventid,
+		code: row.code,
+		description: row.description,
+		category: row.category,
+		content: row.content,
+		active: row.active,
+		createdat: row.createdat,
+		placeholders
+	};
+}
 
 	async setActiveByCode(code: string, active: boolean): Promise<void> {
 		const conn = await this.connection;
@@ -61,22 +82,43 @@ export class PrimesmsEventsRepository {
 	}
 
 
-	async getAll(): Promise<PrimesmsEvent[]> {
-		const conn = await this.connection;
-		let events = await conn(this.tablename).select('*');
-		if (!events || events.length === 0) {
-			const toInsert = EVENTS.map(e => ({
-				code: e.code,
-				description: e.description,
-				category: e.category,
-				content: e.defaultContent,
-				active: true
-			}));
-			await conn(this.tablename).insert(toInsert);
-			events = await conn(this.tablename).select('*');
-		}
-		return events;
+async getAll(): Promise<PrimesmsEvent[]> {
+	const conn = await this.connection;
+	let events = await conn(this.tablename).select('*');
+	if (!events || events.length === 0) {
+		const toInsert = EVENTS.map(e => ({
+			code: e.code,
+			description: e.description,
+			category: e.category,
+			content: e.defaultContent,
+			active: true,
+			placeholders: JSON.stringify(e.placeholders)
+		}));
+		await conn(this.tablename).insert(toInsert);
+		events = await conn(this.tablename).select('*');
 	}
+	// Parse placeholders for all events
+	return events.map(row => {
+		let placeholders: string[] = [];
+		if (row.placeholders) {
+			try {
+				placeholders = JSON.parse(row.placeholders);
+			} catch (e) {
+				placeholders = [];
+			}
+		}
+		return {
+			eventid: row.eventid,
+			code: row.code,
+			description: row.description,
+			category: row.category,
+			content: row.content,
+			active: row.active,
+			createdat: row.createdat,
+			placeholders
+		};
+	});
+}
 
 	async updateTemplate(code: string, content: string): Promise<boolean> {
 		const conn = await this.connection;

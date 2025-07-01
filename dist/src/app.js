@@ -118,8 +118,10 @@ app.listen(5000, async (err) => {
         // new BillingMultiSteps(3,32,2).processTransaction().then((id) => {
         // 	console.log(id)
         // 	})
-        const d = await new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(3).sampleRejectionEvent(3, 337);
+        const d = await new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(3).organizationRegistrationEvent(3, 1);
         console.log(d);
+        const e = await new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(3).paymentConfirmationEvent(3, 324);
+        console.log(e);
         // const deviceManager = new DeviceManager();
         // await deviceManager.initialize();
         // // Wait for server to be fully initialized

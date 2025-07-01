@@ -149,8 +149,10 @@ app.listen(5000, async (err?: Error) => {
 		// 	console.log(id)
 		// 	})
 
-		const d = await new PrimeEventsSMSDataSource(3).sampleRejectionEvent(3,337)
+		const d = await new PrimeEventsSMSDataSource(3).organizationRegistrationEvent(3, 1);
 		console.log(d)
+		const e = await new PrimeEventsSMSDataSource(3).paymentConfirmationEvent(3, 324	);
+		console.log(e)
 		// const deviceManager = new DeviceManager();
 		// await deviceManager.initialize();
 

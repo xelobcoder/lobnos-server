@@ -14,7 +14,28 @@ class PrimesmsEventsRepository {
     }
     async findByCode(code) {
         const conn = await this.connection;
-        return await conn(this.tablename).where({ code }).first();
+        const row = await conn(this.tablename).where({ code }).first();
+        if (!row)
+            return undefined;
+        let placeholders = [];
+        if (row.placeholders) {
+            try {
+                placeholders = JSON.parse(row.placeholders);
+            }
+            catch (e) {
+                placeholders = [];
+            }
+        }
+        return {
+            eventid: row.eventid,
+            code: row.code,
+            description: row.description,
+            category: row.category,
+            content: row.content,
+            active: row.active,
+            createdat: row.createdat,
+            placeholders
+        };
     }
     async setActiveByCode(code, active) {
         const conn = await this.connection;
@@ -51,12 +72,34 @@ class PrimesmsEventsRepository {
                 description: e.description,
                 category: e.category,
                 content: e.defaultContent,
-                active: true
+                active: true,
+                placeholders: JSON.stringify(e.placeholders)
             }));
             await conn(this.tablename).insert(toInsert);
             events = await conn(this.tablename).select('*');
         }
-        return events;
+        // Parse placeholders for all events
+        return events.map(row => {
+            let placeholders = [];
+            if (row.placeholders) {
+                try {
+                    placeholders = JSON.parse(row.placeholders);
+                }
+                catch (e) {
+                    placeholders = [];
+                }
+            }
+            return {
+                eventid: row.eventid,
+                code: row.code,
+                description: row.description,
+                category: row.category,
+                content: row.content,
+                active: row.active,
+                createdat: row.createdat,
+                placeholders
+            };
+        });
     }
     async updateTemplate(code, content) {
         const conn = await this.connection;

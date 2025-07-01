@@ -7,6 +7,19 @@ exports.setEventActiveStatus = exports.isEventValid = exports.findEventByCode = 
 const KnexConnections_1 = __importDefault(require("../../../../database/KnexConnections"));
 exports.EVENTS = [
     {
+        code: 'PAYMENT_CONFIRMATION_SMS',
+        description: 'Payment confirmation SMS event',
+        category: 'patient',
+        defaultContent: 'Dear {{designation}} {{firstname}} {{middlename}} {{lastname}},\n\nWe have received your payment of {{amount}} for bill ID {{billingid}} on {{payment_date}}.\n\nThank you for choosing {{companyname}}.\n\nBest regards,\n{{companyname}} Team',
+        placeholders: [
+            'billingid', 'patientid', 'totalTransactionCost', 'totalcost', 'paid', 'payable', 'totalrefunded', 'discount', 'outstanding', 'balance', 'billedon',
+            'clientstatus', 'year', 'month', 'day', 'amountIncurredDueTax', 'lastupdated', 'branchid', 'isPromo', 'promoValue', 'promoMethod', 'promoCodeId', 'status',
+            'relatedBillingId', 'fullpatientid', 'designation', 'firstname', 'email', 'dob', 'age', 'gender', 'marital_status', 'mobile_number', 'agetype', 'occupation',
+            'date', 'activation_status', 'lastname', 'middlename', 'organization', 'contactpointer', 'whatAppcontact', 'name', 'motto', 'phonenumber', 'address',
+            'website', 'street', 'alternativenumber', 'companyname', 'amount', 'payment_date', 'payment_method'
+        ]
+    },
+    {
         code: 'PATIENT_REGISTRATION_SMS',
         description: 'Patient registration SMS event',
         category: 'patient',
@@ -66,32 +79,46 @@ exports.EVENTS = [
         placeholders: ['firstname', 'middlename', 'lastname', 'companyname', 'designation']
     },
     {
-        code: 'CLINICIAN_NOTIFICATION_SMS',
-        description: 'Clinician notification SMS event',
+        code: 'CLINICIAN_REGISTRATION_SMS',
+        description: 'Clinician registration SMS event',
         category: 'clinician',
-        defaultContent: 'Dear Dr. {{clinicianName}}, a new result for {{firstname}} {{middlename}} {{lastname}} is available in your portal.',
-        placeholders: ['clinicianName', 'firstname', 'middlename', 'lastname']
+        defaultContent: 'Dear Dr. {{name}},\n\nWelcome to {{companyname}}! Your registration has been successfully completed.\n\nIf you have any questions or need assistance, please contact us at {{companyphonenumber}} or visit us at {{companyaddress}}.\n\nBest regards,\n{{companyname}} Team',
+        placeholders: [
+            'id', 'name', 'location', 'address', 'occupation', 'organization', 'updated_on', 'created_on', 'phone', 'email', 'identifier',
+            'companyname', 'companyphonenumber', 'companyaddress'
+        ]
     },
     {
-        code: 'ORGANIZATION_ALERT_SMS',
-        description: 'Organization alert SMS event',
+        code: 'ORGANIZATION_REGISTRATION_SMS',
+        description: 'Organization registration SMS event',
         category: 'organization',
-        defaultContent: 'Attention: Organization {{name}} (ID: {{id}}, Referral: {{referralcode}}) has a new alert.',
-        placeholders: ['name', 'id', 'referralcode']
+        defaultContent: 'Dear {{name}},\n\nWelcome to {{companyname}}! Your organization registration has been successfully completed.\n\nIf you have any questions or need assistance, please contact us at {{companyphonenumber}} or visit us at {{companyaddress}}.\n\nBest regards,\n{{companyname}} Team',
+        placeholders: [
+            'id', 'name', 'location', 'street', 'mobile', 'address', 'email', 'region', 'gpsmapping', 'website', 'type',
+            'companyname', 'companyphonenumber', 'companyaddress', 'referralcode', 'status'
+        ]
     },
     {
         code: 'BIRTHDAY_SMS',
         description: 'Birthday greeting SMS event',
         category: 'patient',
         defaultContent: 'Happy Birthday {{designation}}! {{firstname}} {{lastname}}  Wishing you a wonderful year ahead from all of us at {{companyname}}.',
-        placeholders: ['firstname', 'lastname', 'designation', 'companyname']
+        placeholders: [
+            'patientid', 'fullpatientid', 'designation', 'firstname', 'email', 'dob', 'age', 'gender', 'marital_status', 'mobile_number', 'agetype', 'occupation',
+            'date', 'activation_status', 'lastname', 'middlename', 'organization', 'contactpointer', 'whatAppcontact', 'name', 'motto', 'phonenumber', 'address',
+            'website', 'street', 'alternativenumber', 'companyname'
+        ]
     },
     {
         code: 'HOLIDAY_GREETING_SMS',
         description: 'Holiday greeting SMS event',
         category: 'patient',
-        defaultContent: 'Season’s greetings, {{firstname}}! Enjoy your holiday. - {{companyname}}',
-        placeholders: ['firstname', 'companyname']
+        defaultContent: 'Season’s greetings, {{designation}} {{firstname}} {{lastname}}! Enjoy your holiday. - {{companyname}}',
+        placeholders: [
+            'patientid', 'fullpatientid', 'designation', 'firstname', 'email', 'dob', 'age', 'gender', 'marital_status', 'mobile_number', 'agetype', 'occupation',
+            'date', 'activation_status', 'lastname', 'middlename', 'organization', 'contactpointer', 'whatAppcontact', 'name', 'motto', 'phonenumber', 'address',
+            'website', 'street', 'alternativenumber', 'companyname'
+        ]
     }
 ];
 function findEventByCode(code) {
