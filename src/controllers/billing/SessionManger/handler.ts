@@ -66,6 +66,7 @@ export const hasSalesSessionAvailableHandler = async function (request: Request<
      try {
           const { tenantId, branchid, sessiondate } = request.query;
           const parsedTenantId = parseInt(tenantId.toString());
+         
           if (!sessiondate) {
                customError(OperationsFailures.invalidResquestQuery + " sale session not provided", 404, response);
           } else {

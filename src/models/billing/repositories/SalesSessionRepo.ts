@@ -49,12 +49,10 @@ export class SalesSessionRepo {
           try {
                const { sessiondate, branchid } = sessionData;
                const canCreate = await this.canCreateSession(sessiondate, branchid);
- 
-               if (!canCreate) {
-                   return OperationsFailures.cannotCreateSessionForDate;
-               }
- 
+
+               if (!canCreate)  return OperationsFailures.cannotCreateSessionForDate;
                const conn = await this.connection;
+
                const result = await conn('salessessionmanager').insert(sessionData);
                return result[0] ? true : false;
           } catch (error) {
@@ -106,7 +104,6 @@ export class SalesSessionRepo {
      async findSessionsByDateRange(startDate: Date, endDate: Date, branchId?: number): Promise<SalesSession[]> {
           try {
                const conn = await this.connection;
-               console.log(startDate, endDate, branchId);
 
                let query = conn('salessessionmanager')
                     .where(conn.raw('DATE(sessiondate)'), '>=', startDate.toISOString().split('T')[0])

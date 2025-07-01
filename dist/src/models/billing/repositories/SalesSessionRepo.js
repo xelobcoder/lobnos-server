@@ -29,9 +29,8 @@ class SalesSessionRepo {
         try {
             const { sessiondate, branchid } = sessionData;
             const canCreate = await this.canCreateSession(sessiondate, branchid);
-            if (!canCreate) {
+            if (!canCreate)
                 return "Cannot create a session for the provided date. A session already exists for this date." /* OperationsFailures.cannotCreateSessionForDate */;
-            }
             const conn = await this.connection;
             const result = await conn('salessessionmanager').insert(sessionData);
             return result[0] ? true : false;
@@ -84,7 +83,6 @@ class SalesSessionRepo {
     async findSessionsByDateRange(startDate, endDate, branchId) {
         try {
             const conn = await this.connection;
-            console.log(startDate, endDate, branchId);
             let query = conn('salessessionmanager')
                 .where(conn.raw('DATE(sessiondate)'), '>=', startDate.toISOString().split('T')[0])
                 .where(conn.raw('DATE(sessiondate)'), '<=', endDate.toISOString().split('T')[0])
