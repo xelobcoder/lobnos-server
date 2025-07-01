@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { handleOverLoad } from '../../../hooks/helper';
-import { PrimeSmsAnalyticsController } from '../../sms/primesms/controllers/PrimeSmsAnalyticsController';
 import { retryFailedTransactionHandler } from '../../sms/primesms/RetryFailedSms';
+import { PrimeSmsAnalyticsController } from '../../sms/primesms/PrimeSmsAnalyticsController';
+import { sendEventSmsPaymentHandler } from '../../sms/primesms/SmsEventsTriggersHandler';
 
 const router = Router();
 
@@ -16,4 +17,8 @@ router.get('/api/v1/prime/sms-analytics/job-counts-by-category', handleOverLoad(
 router.get('/api/v1/prime/sms-analytics/job-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getJobTrendsByDay.bind(primeSmsAnalyticsController)));
 router.get('/api/v1/prime/sms-analytics/delivery-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getDeliveryTrendsByDay.bind(primeSmsAnalyticsController)));
 
+
+
+// use sms events here
+router.get('/api/v1/sms/events/trigger/payment-made', handleOverLoad(sendEventSmsPaymentHandler));
 export default router;
