@@ -33,14 +33,7 @@ export class SmsMessageParser {
 	}
 
 	private async loadPatientData(patientId: number): Promise<NewRegistration> {
-		try {
-			const data = await new Registration().getPatientBasicData(this.tenantId, patientId);
-			Logger.info('Loaded patient data: ' + JSON.stringify(data));
-			return data;
-		} catch (err) {
-			Logger.error('Error loading patient data for patientId ' + patientId, err);
-			throw err;
-		}
+		return await new Registration().getPatientBasicData(this.tenantId, patientId);
 	}
 
 	private async loadClinicianData(clinicianId: number): Promise<PrimeLimsTableclinicianbasicinfo[]> {

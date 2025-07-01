@@ -78,7 +78,6 @@ export class PrimesmsEventsRepository {
 		return events;
 	}
 
-	// Update the SMS template/content for an event
 	async updateTemplate(code: string, content: string): Promise<boolean> {
 		const conn = await this.connection;
 		const result = await conn(this.tablename).where({ code }).update({ content });
@@ -90,3 +89,6 @@ export class PrimesmsEventsRepository {
 		return await conn(this.tablename).where({ eventid: Number(eventid) }).update({ active });
 	}
 }
+
+
+

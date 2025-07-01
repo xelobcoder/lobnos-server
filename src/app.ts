@@ -38,7 +38,6 @@ import AdvancedBillingRouter from './controllers/billing/AdvancedBillingStrategy
 
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
-import { PrimeSmsServices } from "./models/application/sms/smsClass";
 import { TenancyRepository } from "./models/Tenancy/tenancyRepo";
 import { primeTenancyConnector } from "./models/Tenancy/tenantConnections";
 import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
@@ -47,11 +46,12 @@ import { createSchema } from "./database/createTableSchema";
 import { configuration } from "./hooks/configuration";
 import PartitionManager from "./models/billing/partitioning";
 import { PanelRunner } from "./migrations/data/SeedTestPanels/panelRunner";
-import EventsExecutor from "./models/application/sms/events/EventsExecutor";
 import ExpenseAuditLog from "./models/Expenses/ExpenseAuditLog";
 import ExpensesAnalytics from "./models/analytics/ExpensesAnalytics/Expenses-Analytics";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
+import { PrimeEventsSMSDataSource } from "./models/application/sms/events/PrimeEventsDataSource";
+import { EVENTS } from "./models/application/sms/events/EventsRepository";
 
 
 
@@ -148,6 +148,9 @@ app.listen(5000, async (err?: Error) => {
 		// new BillingMultiSteps(3,32,2).processTransaction().then((id) => {
 		// 	console.log(id)
 		// 	})
+
+		const d = await new PrimeEventsSMSDataSource(3).sampleRejectionEvent(3,337)
+		console.log(d)
 		// const deviceManager = new DeviceManager();
 		// await deviceManager.initialize();
 

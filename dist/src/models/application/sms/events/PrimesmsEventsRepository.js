@@ -58,7 +58,6 @@ class PrimesmsEventsRepository {
         }
         return events;
     }
-    // Update the SMS template/content for an event
     async updateTemplate(code, content) {
         const conn = await this.connection;
         const result = await conn(this.tablename).where({ code }).update({ content });

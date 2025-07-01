@@ -11,7 +11,6 @@ const organization_1 = __importDefault(require("../../../organization/organizati
 const registration_1 = __importDefault(require("../../../registration/registration"));
 const PrimeSmsJobsRepo_1 = require("../repositories/PrimeSmsJobsRepo");
 const PrimeSmsTemplatesRepo_1 = require("../repositories/PrimeSmsTemplatesRepo");
-const Logger_1 = require("../services/Logger");
 class SmsMessageParser {
     constructor(tenantId, category, targetId) {
         this.tenantId = tenantId;
@@ -30,15 +29,7 @@ class SmsMessageParser {
         return await new organization_1.default(organizationId).getOrganizationBasic(this.tenantId);
     }
     async loadPatientData(patientId) {
-        try {
-            const data = await new registration_1.default().getPatientBasicData(this.tenantId, patientId);
-            Logger_1.Logger.info('Loaded patient data: ' + JSON.stringify(data));
-            return data;
-        }
-        catch (err) {
-            Logger_1.Logger.error('Error loading patient data for patientId ' + patientId, err);
-            throw err;
-        }
+        return await new registration_1.default().getPatientBasicData(this.tenantId, patientId);
     }
     async loadClinicianData(clinicianId) {
         return await new clinicianClass_1.default().getClinicianBasicInfo(this.tenantId, clinicianId);

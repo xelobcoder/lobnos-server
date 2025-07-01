@@ -43,6 +43,7 @@ const patient_analytics_route_1 = __importDefault(require("./controllers/analyti
 const validateTenancy_1 = require("./middleware/validateTenancy");
 const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const route_19 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
+const PrimeEventsDataSource_1 = require("./models/application/sms/events/PrimeEventsDataSource");
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -117,6 +118,8 @@ app.listen(5000, async (err) => {
         // new BillingMultiSteps(3,32,2).processTransaction().then((id) => {
         // 	console.log(id)
         // 	})
+        const d = await new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(3).sampleRejectionEvent(3, 337);
+        console.log(d);
         // const deviceManager = new DeviceManager();
         // await deviceManager.initialize();
         // // Wait for server to be fully initialized
