@@ -42,7 +42,6 @@ export default class Registration {
 		const lastId = lastPatient ? lastPatient.patientid + 1 : 1;
 		const paddedId = String(lastId).padStart(6, "0");
 		const codeValues = await ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(tenantId);
-		console.log(codeValues, lastId)
 		if (!codeValues) return null;
 		return `${codeValues.region}-${paddedId}-${codeValues.district}`;
 	}
@@ -70,44 +69,70 @@ export default class Registration {
 		return rows.length > 0 ? rows[0] : null;
 	}
 
-	public static async addPersonalInformation(tenantId: number, records: NewRegistration): Promise<registrationOutcome | void> {
-		const generatedId = await this.generatePatientFullUniqueId(tenantId);
-		if (generatedId) {
-			const {
-				firstname,
-				lastname,
-				middlename,
-				age,
-				ageType,
-				gender,
-				email,
-				mobile,
-				days,
-				months,
-				maritalstatus,
-				occupation,
-				patientOrganization,
-				years,
-				mobileownership = "self",
-			} = records;
-			const values = [
-				firstname,
-				lastname,
-				middlename,
-				email,
-				age,
-				ageType,
-				`${years}-${months}-${days}`,
-				maritalstatus,
-				mobile,
-				occupation,
-				gender,
-				patientOrganization,
-				generatedId,
-				mobileownership,
-			];
-			const result = await promisifyQuery(tenantId, q_new_registation, values);
-			return result.insertId;
+	public static async addPersonalInformation(tenantId: number, records: NewRegistration): Promise<registrationOutcome | void | string> {
+		try {
+			const generatedId = await this.generatePatientFullUniqueId(tenantId);
+			if (generatedId) {
+				const {
+					firstname,
+					lastname,
+					middlename,
+					age,
+					ageType,
+					gender,
+					email,
+					mobile,
+					days,
+					months,
+					maritalstatus,
+					occupation,
+					patientOrganization,
+					years,
+					mobileownership = "self",
+				} = records;
+
+				// Enforce only one 'self' per mobile_number
+				let mobileStr: string | undefined = undefined;
+				if (mobile) {
+					if (typeof mobile === 'string') {
+						mobileStr = String(mobile).trim();
+					} else if (typeof mobile === 'number' && !isNaN(mobile)) {
+						mobileStr = mobile.toString();
+					}
+				}
+				if (mobileownership === 'self' && mobileStr && mobileStr.length > 0) {
+					const existingSelf = await promisifyQuery(
+						tenantId,
+						`SELECT patientid FROM new_patients WHERE mobile_number = ? AND contactpointer = 'self'`,
+						[mobileStr]
+					);
+					if (existingSelf && existingSelf.length > 0) {
+						return 'A primary (self) contact already exists for this mobile number.';
+					}
+				}
+
+				const values = [
+					firstname,
+					lastname,
+					middlename,
+					email,
+					age,
+					ageType,
+					`${years}-${months}-${days}`,
+					maritalstatus,
+					mobile,
+					occupation,
+					gender,
+					patientOrganization,
+					generatedId,
+					mobileownership,
+				];
+				const result = await promisifyQuery(tenantId, q_new_registation, values);
+				return result.insertId;
+			}
+		} catch (error) {
+			logger.error("Error in adding personal information:", error);
+			return OperationsFailures.internalServerError;
 		}
 	}
 
@@ -241,30 +266,52 @@ export default class Registration {
 		}
 	}
 
-	static async isClientSame(tenantId: number, clientdata: NewRegistration) {
+
+	static async isClientSame(tenantId: number, clientdata: NewRegistration): Promise<boolean> {
 		try {
+			if (!clientdata || (typeof clientdata !== 'object')) {
+				logger.error('isClientSame: Invalid clientdata');
+				return false;
+			}
 			const { mobile, mobileownership, email } = clientdata;
-			const verifyOwnerShip = (result: any[]) => {
-				if (result.length > 0) {
-					if (mobileownership == 'relative') {
-						return false;
-					} else {
-						return true;
-					}
-				} else {
-					return false;
+
+			const verifyOwnerShip = (result: any[]): boolean => {
+				if (result && result.length > 0) {
+					return mobileownership !== 'relative';
 				}
+				return false;
 			};
-			if (mobile && mobile.toString().length > 0) {
-				const result = await promisifyQuery(tenantId, `SELECT mobile_number AS mobile FROM new_patients WHERE mobile_number = ?`, [parseInt(mobile.toString())]);
+
+			if (mobile) {
+				let mobileStr: string | undefined = undefined;
+				if (typeof mobile === 'string') {
+					mobileStr = String(mobile).trim();
+				} else if (typeof mobile === 'number' && !isNaN(mobile)) {
+					mobileStr = mobile.toString();
+				}
+				if (mobileStr && mobileStr.length > 0 && /^\d{9,15}$/.test(mobileStr)) {
+					const result = await promisifyQuery(
+						tenantId,
+						`SELECT mobile_number AS mobile FROM new_patients WHERE mobile_number = ? AND contactpointer = 'self'`,
+						[mobileStr]
+					);
+					return verifyOwnerShip(result);
+				}
+			}
+
+			if (email && typeof email === 'string' && email.trim().length > 0 && email.includes("@")) {
+				const result = await promisifyQuery(
+					tenantId,
+					`SELECT email FROM new_patients WHERE email = ?`,
+					[email.trim()]
+				);
 				return verifyOwnerShip(result);
 			}
-			if (email && email.toString().length > 0 && email.includes("@")) {
-				const result = await promisifyQuery(tenantId, `SELECT email FROM new_patients WHERE email = ?`, [email]);
-				return verifyOwnerShip(result);
-			}
+
+			return false;
 		} catch (err) {
-			logger.error(err);
+			logger.error('isClientSame error:', err);
+			return false;
 		}
 	}
 
@@ -283,12 +330,15 @@ export default class Registration {
 				return;
 			}
 			const insertId = await this.addPersonalInformation(tenantId, data);
-
-			response.status(200).send({
+			return insertId ? response.status(200).send({
 				status: "success",
 				message: "New patient added successfully",
 				patientid: insertId,
-			});
+			}) :
+				response.status(400).send({
+					status: "error",
+					message: "Failed to add new patient. Please try again.",
+				});
 		} catch (error) {
 			console.log(error)
 			response.status(500).send({

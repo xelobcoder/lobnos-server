@@ -46,7 +46,6 @@ export default class ApplicationSettings {
 
 	public static async getLabRegionalAndDistrictCodeAbbreviations(tenantId: number): Promise<{ region: string, district: string } | null> {
 		const codeValues = await this.getLabRegionalAndDistrictCode(tenantId);
-
 		if (!codeValues) return null;
 		const connection = await KnexConnection(tenantId)
 		const result: PrimeLimsTableregions & PrimeLimsTabledistricts = await connection("districts")

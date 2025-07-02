@@ -56,7 +56,8 @@ export class PrimeSmsJobsRepo {
 		.leftJoin('roles', 'primesmsjobs.createdby', 'roles.employeeid')
 			.select('primesmsjobs.*', 'roles.username as createdbyusername')
 			.offset((page - 1) * count)
-			.limit(count);
+			.limit(count)
+			.orderBy('primesmsjobs.createdat', 'desc');
 		const total = Number((totalResult[0] && (totalResult[0].count || totalResult[0]['count'])) || 0);
 		return { jobs, total };
 	}
