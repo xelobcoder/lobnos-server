@@ -4,6 +4,7 @@ import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
+import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
 import { OperationsFailures } from "../operations/types";
 import { q_filter_patient_using_billingid_query, q_filter_patients, q_new_registation, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
 import { addressInformation, NewRegistration, PatientRecords, registrationOutcome } from "./types";
@@ -74,6 +75,7 @@ export default class Registration {
 			const generatedId = await this.generatePatientFullUniqueId(tenantId);
 			if (generatedId) {
 				const {
+					designation,
 					firstname,
 					lastname,
 					middlename,
@@ -126,6 +128,7 @@ export default class Registration {
 					patientOrganization,
 					generatedId,
 					mobileownership,
+					designation
 				];
 				const result = await promisifyQuery(tenantId, q_new_registation, values);
 				return result.insertId;
@@ -330,15 +333,22 @@ export default class Registration {
 				return;
 			}
 			const insertId = await this.addPersonalInformation(tenantId, data);
-			return insertId ? response.status(200).send({
-				status: "success",
-				message: "New patient added successfully",
-				patientid: insertId,
-			}) :
+
+			if (insertId) {
+				response.status(200).send({
+					status: "success",
+					message: "New patient added successfully",
+					patientid: insertId,
+				});
+				new PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()));
+			}
+			else {
 				response.status(400).send({
 					status: "error",
 					message: "Failed to add new patient. Please try again.",
 				});
+			}
+
 		} catch (error) {
 			console.log(error)
 			response.status(500).send({

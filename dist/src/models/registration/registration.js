@@ -8,6 +8,7 @@ const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const helper_1 = require("../../hooks/helper");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
+const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDataSource");
 const queries_1 = require("./queries");
 class Registration {
     static async getPatientID(tenantId, patientid) {
@@ -65,7 +66,7 @@ class Registration {
         try {
             const generatedId = await this.generatePatientFullUniqueId(tenantId);
             if (generatedId) {
-                const { firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
+                const { designation, firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
                 // Enforce only one 'self' per mobile_number
                 let mobileStr = undefined;
                 if (mobile) {
@@ -97,6 +98,7 @@ class Registration {
                     patientOrganization,
                     generatedId,
                     mobileownership,
+                    designation
                 ];
                 const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_new_registation, values);
                 return result.insertId;
@@ -269,15 +271,20 @@ class Registration {
                 return;
             }
             const insertId = await this.addPersonalInformation(tenantId, data);
-            return insertId ? response.status(200).send({
-                status: "success",
-                message: "New patient added successfully",
-                patientid: insertId,
-            }) :
+            if (insertId) {
+                response.status(200).send({
+                    status: "success",
+                    message: "New patient added successfully",
+                    patientid: insertId,
+                });
+                new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()));
+            }
+            else {
                 response.status(400).send({
                     status: "error",
                     message: "Failed to add new patient. Please try again.",
                 });
+            }
         }
         catch (error) {
             console.log(error);

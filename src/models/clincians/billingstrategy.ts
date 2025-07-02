@@ -1,6 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import InsuranceClass from '../insurance/Insurance';
-import { CustomTest} from '../resultentry/customTestEntry';
+import { CustomTest } from '../resultentry/customTestEntry';
 import ClinicianClass from './clinicianClass';
 import {
      EntityType,
@@ -861,7 +861,7 @@ export default class BillingStrategy {
      ): Promise<number> {
           // Helper to get the default price from test_panels
           const getDefaultPrice = async (): Promise<number> => {
-               const connection =  trx || await KnexConnection(tenantId);
+               const connection = trx || await KnexConnection(tenantId);
                const test = await connection('test_panels').where({ id: testId }).first();
                if (!test) throw new Error("Test not found");
                return test.price;

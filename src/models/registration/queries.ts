@@ -1,5 +1,6 @@
-export const q_new_registation = `INSERT INTO new_patients (firstname, lastname, middlename, email, age, agetype, dob, marital_status, mobile_number, occupation, gender, organization,fullpatientid,contactpointer)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+export const q_new_registation = `INSERT INTO new_patients (firstname, lastname, middlename, email, age, agetype, dob, marital_status,
+ mobile_number, occupation, gender, organization,fullpatientid,contactpointer,designation)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 export const q_patient_data = "SELECT * FROM new_patients WHERE patientid = ?";
 

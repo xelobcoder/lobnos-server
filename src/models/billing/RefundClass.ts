@@ -1,3 +1,10 @@
+/**
+ * RefundClass.ts
+ *
+ * Handles all refund-related operations for billing and services, including initiation, verification,
+ * witness management, approval, and cash-out processing. Integrates with billing, services, and user modules.
+ * All methods are static and designed for transactional and role-based workflows.
+ */
 import { q_initiate_refund_first_witness } from './queries';
 import { TiifuWorkingClass } from '../../database/TiifuWorkingClass';
 import User from '../../LobnosAuth/user';
@@ -31,7 +38,19 @@ type combinedType = dbReturned & witnessedType;
 
 type withnessUpdatedType = combinedType & { canwitness: boolean; canEdit: boolean };
 
+/**
+ * Refund class provides static methods for managing service and billing refunds,
+ * including witness assignment, approval, and cash-out logic.
+ */
 export class Refund {
+    /**
+     * Initiates a refund process for a specific service by creating a refund record and assigning the first witness.
+     * @param tenantId - Tenant identifier
+     * @param employeeid - Employee initiating the refund
+     * @param serviceid - Service to refund
+     * @param purpose - Reason for refund
+     * @returns {Promise<boolean>} - True if successful, false otherwise
+     */
     static async initiateRefundofServices(
         tenantId: number,
         employeeid: number,
@@ -48,6 +67,13 @@ export class Refund {
         return rowAffected(result);
     }
 
+    /**
+     * Checks if a given employee has already been assigned as a witness for a refund.
+     * @param tenantId - Tenant identifier
+     * @param trackId - Service or refund track ID
+     * @param employeeid - Employee to check
+     * @returns {Promise<boolean>} - True if already a witness, false otherwise
+     */
     private static async hasWitnessRefund(
         tenantId: number,
         trackId: number,
@@ -62,6 +88,13 @@ export class Refund {
         return result[0]['count'] > 0
     }
 
+    /**
+     * Retrieves refund details for a specific service and processes them based on user role.
+     * @param tenantId - Tenant identifier
+     * @param serviceid - Service ID
+     * @param employeeid - Employee requesting details
+     * @returns {Promise<any>} - Processed refund details or access failure
+     */
     static async getAserviceRefundDetails(tenantId: number, serviceid: number, employeeid: number) {
         const result = await promisifyQuery(tenantId, q_get_a_service_refund_details, [serviceid]);
 
@@ -77,6 +110,15 @@ export class Refund {
     }
 
 
+    /**
+     * Retrieves all refunds with pagination, filtered by status and user role.
+     * @param tenantId - Tenant identifier
+     * @param status - Refund status ('completed' | 'pending')
+     * @param count - Number of records per page
+     * @param page - Page number
+     * @param employeeid - Employee requesting the data
+     * @returns {Promise<any>} - Paginated and processed refund data
+     */
     public static async getAllRefundsWithPagination(
         tenantId: number,
         status: 'completed' | 'pending',
@@ -99,18 +141,26 @@ export class Refund {
                 : q_refund_get_all_refunds_status_pending;
         }
 
-
-
         let result: dbReturned[] | combinedType[] = await paginationQuery({ count, page }, query, values, tenantId);
 
         let outcome = await Refund.refundItemProcessed(tenantId, result, user, employeeid, role, status)
         return outcome
     }
+    /**
+     * Processes refund items by mapping them to witness and response structures based on user role and status.
+     * @param tenantId - Tenant identifier
+     * @param result - Refund data array
+     * @param user - User instance
+     * @param employeeid - Employee ID
+     * @param role - User role
+     * @param status - Refund status
+     * @returns {Promise<any>} - Processed refund items
+     */
     private static async refundItemProcessed(tenantId: number, result: dbReturned[] | combinedType[], user: User, employeeid: number, role: string, status: string) {
         if (result.length > 0) {
             result = await Promise.all(
                 result.map(async (item: withnessUpdatedType) => {
-                    return await Refund.serviceDifferentiatedToWithness(tenantId,item, user, employeeid, role, status);
+                    return await Refund.serviceDifferentiatedToWithness(tenantId, item, user, employeeid, role, status);
                 })
             );
         }
@@ -121,6 +171,14 @@ export class Refund {
         )
     }
 
+    /**
+     * Prepares refund service items for API response, including witness and admin-specific fields.
+     * @param tenantId - Tenant identifier
+     * @param result - Refund data array
+     * @param accessoriesBillingInformation - Billing instance
+     * @param role - User role
+     * @returns {Promise<any[]>} - Array of formatted refund items
+     */
     private static prepareServiceItemForResponseBulk(tenantId: number, result: dbReturned[] | combinedType[], accessoriesBillingInformation: Billing, role: string): Promise<{ refundid: number; serviceid: number; serviceCategory: string; witnesses: withnessUpdatedType; cost: number; amountIncurredDueTax: number; billedby: string; serviceName: string; billingid: number; canwitness: boolean; canEdit: boolean; isRefundApproved: number; } | { isRefundCompleted: number; refundid: number; serviceid: number; serviceCategory: string; witnesses: withnessUpdatedType; cost: number; amountIncurredDueTax: number; billedby: string; serviceName: string; billingid: number; canwitness: boolean; canEdit: boolean; isRefundApproved: number; }>[] {
         return result.map(async (item: combinedType & { witnesses: withnessUpdatedType; billedby: string; canwitness: boolean; canEdit: boolean; }) => {
             const responseData = await Refund.prepareResponseData(tenantId, accessoriesBillingInformation, item);
@@ -132,6 +190,13 @@ export class Refund {
         });
     }
 
+    /**
+     * Prepares a single refund service item for API response, including service name and witness info.
+     * @param tenantId - Tenant identifier
+     * @param accessoriesBillingInformation - Billing instance
+     * @param item - Refund/service/billing/witness data
+     * @returns {Promise<any>} - Formatted refund item
+     */
     private static async prepareResponseData(tenantId: number, accessoriesBillingInformation: Billing, item: PrimeLimsTabledbobillingrefundtable & PrimeLimsTabledboservices & PrimeLimsTablebilling[] & witnessedType & { witnesses: withnessUpdatedType; billedby: string; canwitness: boolean; canEdit: boolean; }) {
         let serviceName: string = '';
         const accessories = await accessoriesBillingInformation.diffentiateBilledToIndividualServices(tenantId, [item]);
@@ -156,6 +221,16 @@ export class Refund {
         return responseData;
     }
 
+    /**
+     * Maps a refund service item to its witness structure and sets edit/witness permissions based on role and status.
+     * @param tenantId - Tenant identifier
+     * @param item - Refund item
+     * @param user - User instance
+     * @param employeeid - Employee ID
+     * @param role - User role
+     * @param status - Refund status
+     * @returns {Promise<any>} - Refund item with witness info
+     */
     private static async serviceDifferentiatedToWithness(tenantId: number, item: withnessUpdatedType, user: User, employeeid: number, role: string, status: string) {
         let witnesses: witnessedType[] = await Refund.getWithnessFromServiceItem(tenantId, item, user, employeeid);
         item.canEdit = false;
@@ -167,6 +242,14 @@ export class Refund {
         return { ...item, witnesses };
     }
 
+    /**
+     * Processes witness and edit permissions for non-admin users on a refund item.
+     * @param witnesses - Array of witness info
+     * @param employeeid - Employee ID
+     * @param status - Refund status
+     * @param item - Refund item
+     * @returns {witnessedType[]} - Filtered witness info
+     */
     private static processNonAdminServiceItem(witnesses: witnessedType[], employeeid: number, status: string, item: withnessUpdatedType) {
         if (witnesses.length > 0 && witnesses.length <= 3) {
             const hasWitnessBefore = witnesses.map((_witness) => _witness.employeeid).includes(parseInt(employeeid.toString()));
@@ -202,6 +285,14 @@ export class Refund {
         return witnesses;
     }
 
+    /**
+     * Retrieves witness information for a refund service item, including user details for each witness slot.
+     * @param tenantId - Tenant identifier
+     * @param item - Refund item
+     * @param user - User instance
+     * @param employeeid - Employee ID
+     * @returns {Promise<witnessedType[]>} - Array of witness info
+     */
     private static async getWithnessFromServiceItem(tenantId: number, item: withnessUpdatedType, user: User, employeeid: number) {
         const { firstWitness, secondWitness, thirdWitness } = item;
         let witnesses: witnessedType[] = [];
@@ -268,15 +359,9 @@ export class Refund {
         reason: string;
     }): Promise<boolean | string> {
         const { serviceid, employeeid, witnesStatus, reason } = data;
-
-        const hasWitnessBefore = await this.hasWitnessRefund(tenantId, serviceid, employeeid);
-
+        const hasWitnessBefore = await this.hasWitnessRefund(tenantId, serviceid, employeeid)
         if (hasWitnessBefore) return OperationsFailures.resourceExist
-
-        if (witnesStatus) {
-            return await this.updateWitnessStatus(tenantId, witnesStatus, serviceid, employeeid, reason)
-        }
-
+        if (witnesStatus) return await this.updateWitnessStatus(tenantId, witnesStatus, serviceid, employeeid, reason)
         return false;
     }
 
@@ -291,7 +376,6 @@ export class Refund {
             .replace('{withness}', witness)
             .replace('{date}', `${witness}Date`)
             .replace('{withness}', witness);
-
         const result = await promisifyQuery(tenantId, query, [employeeid, reason, serviceid]);
         return rowAffected(result);
     }
