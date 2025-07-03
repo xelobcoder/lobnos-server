@@ -1001,15 +1001,11 @@ export class Billing {
 	): Promise<boolean> {
 		try {
 			const { billingid, refundAmount } = records;
-
 			const isBillingIdValid: boolean = await Billing.checkValidityOfBillingid(tenantId, billingid);
-
 			if (!isBillingIdValid) return false;
 
 			const previousBillingRecord: PrimeLimsTablebilling[] = await new Billing(null).getTransactionBillData(tenantId, billingid);
-
 			if (previousBillingRecord.length === 0) return false;
-
 			let { paid, payable, totalcost, totalrefunded, totalTransactionCost, discount, amountIncurredDueTax } = previousBillingRecord[0]
 
 			const serviceInformation: PrimeLimsTabledboservices = await new TiifuWorkingClass("dboservices").findOne(tenantId, "serviceid", records.serviceid);

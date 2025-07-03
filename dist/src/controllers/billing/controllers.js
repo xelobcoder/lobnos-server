@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleEmailReceiptSending = exports.handleMultiUpdateBilling = exports.handleMultiNewBilling = exports.handleNewBilling = void 0;
+exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleEmailReceiptSending = exports.handleMultiUpdateBilling = exports.handleMultiNewBilling = exports.handleNewBilling = void 0;
 const helper_1 = require("../../hooks/helper");
 const billing_1 = require("../../models/billing/billing");
 const billingclientTypes_1 = require("../../models/billing/billingclientTypes");
@@ -12,6 +12,8 @@ const trycatch_1 = require("../../models/generics/trycatch");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const billnew_1 = require("../../models/billing/billnew");
 const billing_update_1 = require("../../models/billing/billing_update");
+const WriteOff_1 = require("../../models/billing/WriteOff");
+const PrimeBillingEnterprise_1 = require("../../models/billing/multi/PrimeBillingEnterprise");
 async function handleNewBilling(request, response) {
     async function validate() {
         const { patientid } = request.body;
@@ -175,7 +177,7 @@ async function updateBilledTransaction(request, response) {
 }
 exports.updateBilledTransaction = updateBilledTransaction;
 async function getAlRefundsPaginationHandler(request, response) {
-    const { page = 10, count = 1, status, employeeid } = request.query;
+    const { page = 10, count = 1, status, employeeid, orderDirection } = request.query;
     const parsedPage = parseInt(page.toString());
     const parsedCount = parseInt(count.toString());
     if (!status || !["pending", "completed"].includes(status)) {
@@ -183,7 +185,7 @@ async function getAlRefundsPaginationHandler(request, response) {
     }
     try {
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
-        const result = await RefundClass_1.Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, employeeid);
+        const result = await RefundClass_1.Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, orderDirection, employeeid);
         response.send({ result });
     }
     catch (err) {
@@ -193,6 +195,7 @@ async function getAlRefundsPaginationHandler(request, response) {
 exports.getAlRefundsPaginationHandler = getAlRefundsPaginationHandler;
 async function updateWitnessWitnessNote(request, response) {
     try {
+        const tenantId = parseInt(request.query.tenantId.toString(), 10);
         const { witnesses, serviceid } = request.body;
         if (witnesses.length === 0) {
             return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */ + " witnesses not added", 404, response);
@@ -200,8 +203,9 @@ async function updateWitnessWitnessNote(request, response) {
         const witnessData = witnesses[0];
         const { employeeid, message, witness } = witnessData;
         if (!["firstWitness", "secondWitness", "thirdWitness"].includes(witness)) {
-            const tenantId = parseInt(request.query.tenantId.toString(), 10);
-            const addNewWitness = await RefundClass_1.Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, message);
+            const parseEmployeeid = parseInt(employeeid.toString());
+            const parseServicedId = parseInt(serviceid.toString());
+            const addNewWitness = await RefundClass_1.Refund.requestForServicesAsRefundWitness(tenantId, parseEmployeeid, parseServicedId, message);
             let Responsemessage = "";
             if (typeof addNewWitness == "string") {
                 if (addNewWitness === "This resource already exist" /* OperationsFailures.resourceExist */) {
@@ -213,7 +217,6 @@ async function updateWitnessWitnessNote(request, response) {
             }
             return response.send({ status: typeof addNewWitness == "string" ? false : addNewWitness, message: Responsemessage });
         }
-        const tenantId = parseInt(request.query.tenantId.toString(), 10);
         const updateMessage = await RefundClass_1.Refund.updateWitnessStatus(tenantId, witness, serviceid, employeeid, message);
         return response.send({ status: updateMessage });
     }
@@ -229,6 +232,9 @@ async function approveRequestForRefund(request, response) {
         const parsedApproveStatement = parseInt(isApprove);
         if (isNaN(parsedApproveStatement)) {
             return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */ + ' invalid approval status proved', 404, response);
+        }
+        if (!serviceid || !employeeid || isNaN(serviceid) || isNaN(employeeid)) {
+            return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */ + ' serviceid and employeeid must be numbers', 404, response);
         }
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
         const isAprovalSuccess = await RefundClass_1.Refund.approveRequestedRefund(tenantId, serviceid, employeeid, parsedApproveStatement);
@@ -304,19 +310,15 @@ exports.getTransactionBillDataHandler = getTransactionBillDataHandler;
 async function refundAllTransactionHandler(request, response) {
     const { billingid, employeeid, selectedPaymentMode } = request.params;
     const isAllNumber = !isNaN(billingid) && !isNaN(employeeid) && !isNaN(selectedPaymentMode);
-    if (!billingid || !selectedPaymentMode || !employeeid || !isAllNumber) {
+    if (!billingid || !selectedPaymentMode || !employeeid || !isAllNumber)
         return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
-    }
+    const tenantId = parseInt(request.query.tenantId.toString());
     try {
-        const tenantId = parseInt(request.query.tenantId.toString(), 10);
-        const isRefundComplete = await RefundClass_1.Refund.refundAllItemsOfTransaction(tenantId, billingid, employeeid, selectedPaymentMode);
-        if (typeof isRefundComplete == "string") {
-            return (0, helper_1.customError)(isRefundComplete, 404, response);
-        }
-        if (!isRefundComplete) {
-            return (0, helper_1.customError)("refund failed", 400, response);
-        }
-        return response.status(200).json({ status: true, message: "Refund processed successfully" });
+        const isBillLocked = await PrimeBillingEnterprise_1.PrimeBillingEnterprise.isBillingLocked(tenantId, billingid);
+        if (isBillLocked)
+            return (0, helper_1.customError)("Billing is  locked, cannot proceed with refund", 400, response);
+        const isRefunded = await WriteOff_1.WriteOff.refundCompletelyTransaction(tenantId, employeeid, billingid, selectedPaymentMode);
+        response.send({ status: isRefunded });
     }
     catch (error) {
         console.error("Error processing refund:", error);
@@ -341,3 +343,22 @@ async function getServiceRefundItem(request, response) {
     }
 }
 exports.getServiceRefundItem = getServiceRefundItem;
+async function WriteOffTransaction(request, response) {
+    try {
+        const { tenantId } = request.query;
+        const tenantIdP = parseInt(tenantId.toString());
+        const { billingid, reason, employeeid } = request.body;
+        if (!billingid || !reason || !employeeid)
+            return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
+        const result = await WriteOff_1.WriteOff.writeOffTransaction(tenantIdP, billingid, reason, employeeid);
+        if (typeof result === "string")
+            return response.send({ status: false, message: result });
+        if (!result)
+            return (0, helper_1.customError)("Resource not found." /* OperationsFailures.notFound */, 404, response);
+        response.send({ status: true });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+}
+exports.WriteOffTransaction = WriteOffTransaction;

@@ -92,8 +92,9 @@ INNER JOIN
 WHERE
     rf.isRefundInitiated = 1
     AND rf.isRefundCompleted = 0
+    AND rf.isRefundMatterClosed = 0
 ORDER BY
-    rf.isRefundInitiated ASC
+    rf.refundid {orderDirection}
 LIMIT ? OFFSET ?;
 `;
 
@@ -102,7 +103,8 @@ SELECT
     rf.*,
     ss.*,
     CONCAT(np.firstname, " ", np.middlename, " ", np.lastname) AS fullname,
-    rr.username AS billedby
+    rr.username AS billedby,
+    refundedbyrole.username AS refundedBy
 FROM
     dbobillingrefundtable AS rf
 INNER JOIN
@@ -117,11 +119,15 @@ INNER JOIN
 INNER JOIN
     roles AS rr
     ON rr.employeeid = ss.employeeid
+LEFT JOIN
+    roles AS refundedbyrole
+    ON refundedbyrole.employeeid = rf.refundedBy
 WHERE
     rf.isRefundInitiated = 1
     AND rf.isRefundCompleted = 1
+    AND rf.isRefundMatterClosed = 1
 ORDER BY
-    rf.isRefundCompleted ASC
+    rf.refundid {orderDirection}
 LIMIT ? OFFSET ?;
 `;
 
@@ -150,7 +156,7 @@ WHERE
     AND rf.isRefundCompleted = 1
     AND (firstWitness = ? OR secondWitness = ? OR thirdWitness  = ?)
 ORDER BY
-    rf.isRefundCompleted ASC
+    rf.refundid {orderDirection}
 LIMIT ? OFFSET ?;
 `;
 
@@ -166,4 +172,4 @@ UPDATE dbobillingrefundtable SET isRefundCompleted = 1 , refundedBy = ?, amountR
 
 
 
-export const q_service_refundable_amount_exceeded = `SELECT ss.totalcost,tt.amountRefunded FROM dboservices  AS ss INNER JOIN  dbobillingrefundtable  AS tt on tt.serviceid = ss.serviceid WHERE ss.serviceid = ? `
+export const q_service_refundable_amount_exceeded = `SELECT ss.totalcost,ss.totalpayable,tt.amountRefunded FROM dboservices  AS ss INNER JOIN  dbobillingrefundtable  AS tt on tt.serviceid = ss.serviceid WHERE ss.serviceid = ? `

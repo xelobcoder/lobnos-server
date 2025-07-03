@@ -18,6 +18,7 @@ const queries_2 = require("../services/queries");
 const billing_1 = require("./billing");
 const helper_1 = require("../../hooks/helper");
 const services_1 = require("../services/services");
+const PrimeBillingEnterprise_1 = require("./multi/PrimeBillingEnterprise");
 /**
  * Refund class provides static methods for managing service and billing refunds,
  * including witness assignment, approval, and cash-out logic.
@@ -85,7 +86,7 @@ class Refund {
      * @param employeeid - Employee requesting the data
      * @returns {Promise<any>} - Paginated and processed refund data
      */
-    static async getAllRefundsWithPagination(tenantId, status, count = 10, page = 1, employeeid) {
+    static async getAllRefundsWithPagination(tenantId, status, count = 10, page = 1, orderDirection = 'ASC', employeeid) {
         const user = new user_1.default(null, null, null, null, null);
         const role = await user.getUserRole(employeeid, tenantId);
         let values = [];
@@ -101,6 +102,8 @@ class Refund {
                 ? queries_2.q_refund_get_all_refunds_status_completed
                 : queries_2.q_refund_get_all_refunds_status_pending;
         }
+        const safeOrder = orderDirection === 'DESC' ? 'DESC' : 'ASC';
+        query = query.replace('{orderDirection}', safeOrder);
         let result = await (0, helper_1.paginationQuery)({ count, page }, query, values, tenantId);
         let outcome = await Refund.refundItemProcessed(tenantId, result, user, employeeid, role, status);
         return outcome;
@@ -162,7 +165,10 @@ class Refund {
             cost: item.cost,
             amountIncurredDueTax: item.amountIncurredDueTax,
             billedby: item.billedby,
+            refundedby: item.refundedBy || null,
+            approvalDate: item.approvalDate || null,
             serviceName,
+            amountRefunded: item.amountRefunded || null,
             billingid: item.billingid,
             canwitness: item.canwitness,
             canEdit: item.canEdit,
@@ -328,7 +334,7 @@ class Refund {
             return " You do not have the permission to be a third witness" /* OperationsFailures.nopermissiontobethirdwitness */;
         }
         if (role === 'admin') {
-            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [employeeid, serviceid]);
+            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [1, employeeid, serviceid]);
             return (0, helper_1.rowAffected)(result);
         }
         return await this.updateWitnessOfRefund(tenantId, {
@@ -340,6 +346,12 @@ class Refund {
     }
     static async approveRequestedRefund(tenantId, serviceid, employeeid, isApprove) {
         try {
+            const billingData = await new TiifuWorkingClass_1.TiifuWorkingClass("dboservices").findOne(tenantId, "serviceid", serviceid);
+            if (!billingData)
+                return "Resource not found." /* OperationsFailures.notFound */;
+            const isbillingLocked = await PrimeBillingEnterprise_1.PrimeBillingEnterprise.isBillingLocked(tenantId, billingData.billingid);
+            if (isbillingLocked)
+                return "Billing is locked , hence action cannot be carried out" /* OperationsFailures.billingLocked */;
             const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [isApprove, employeeid, serviceid]);
             return (0, helper_1.rowAffected)(result);
         }
@@ -357,11 +369,10 @@ class Refund {
     }
     static async amountRefundableExceeded(tenantId, serviceId) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_service_refundable_amount_exceeded, [serviceId]);
-        if (result.length > 0) {
-            const { totalcost, amountRefunded } = result[0];
-            return amountRefunded > 0 && totalcost > 0 && amountRefunded >= totalcost;
-        }
-        return null;
+        if (!result || !Array.isArray(result))
+            return null;
+        const { totalcost, amountRefunded } = result[0];
+        return amountRefunded > 0 && totalcost > 0 && amountRefunded >= totalcost ? true : false;
     }
     static async issueOutCashOutOfRefund(tenantId, records) {
         const { serviceid, employeeid, refundAmount, selectedPaymentMode, billingid } = records;
@@ -453,7 +464,14 @@ class Refund {
                 return issueOutCash;
             }
         }));
-        return updatedValues.some((item) => item !== false);
+        const isAllRefunded = updatedValues.some((item) => item !== false);
+        // if all is refunded , we lock billing table and update islockedstatus
+        if (isAllRefunded) {
+            const lockBilling = await PrimeBillingEnterprise_1.PrimeBillingEnterprise.lockBillingRecord(tenantId, billingid, 'voided');
+            if (!lockBilling)
+                return "Resource not found." /* OperationsFailures.notFound */;
+            return true;
+        }
     }
 }
 exports.Refund = Refund;

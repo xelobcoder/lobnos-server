@@ -37,6 +37,8 @@ export const handleAuthenticationEmployee = async (
                return response.status(403).json({ status: "error", message: OperationsFailures.dontHaveAccessPermission });
           }
 
+          (request.query as any).employeeid = parseInt(employeeid.toString());
+
           next();
      } catch (error) {
           return response.status(500).json({ status: "error", message: OperationsFailures.internalServerError });

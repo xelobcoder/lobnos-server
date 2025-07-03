@@ -29,6 +29,7 @@ const handleAuthenticationEmployee = async (request, response, next) => {
         if (role !== "admin") {
             return response.status(403).json({ status: "error", message: "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */ });
         }
+        request.query.employeeid = parseInt(employeeid.toString());
         next();
     }
     catch (error) {

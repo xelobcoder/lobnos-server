@@ -19,6 +19,7 @@ export const enum OperationsFailures {
   queryExecutionFailed = 'Query execution failed.',
   NothaveDifferentPriceList="Different Pricing not selected",
   EmptyTestList="Empty TestList Provided",
+  billingLocked = 'Billing is locked , hence action cannot be carried out',
   notFound = 'Resource not found.',
   inActiveBillingSession = 'No active billing session found for the current date.',
   unauthorized = 'Unauthorized access.',

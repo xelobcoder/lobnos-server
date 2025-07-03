@@ -28,6 +28,7 @@ import { Billing } from './billing';
 import { UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType, Witness } from '../../controllers/billing/sales/type';
 import { promisifyQuery, rowAffected, paginationQuery } from '../../hooks/helper';
 import { Services } from '../services/services';
+import { PrimeBillingEnterprise } from './multi/PrimeBillingEnterprise';
 
 
 type dbReturned = PrimeLimsTabledbobillingrefundtable & PrimeLimsTabledboservices & PrimeLimsTablebilling[];
@@ -124,6 +125,7 @@ export class Refund {
         status: 'completed' | 'pending',
         count: number = 10,
         page: number = 1,
+        orderDirection: 'ASC' | 'DESC' = 'ASC',
         employeeid: number
     ) {
         const user = new User(null, null, null, null, null);
@@ -140,6 +142,9 @@ export class Refund {
                 ? q_refund_get_all_refunds_status_completed
                 : q_refund_get_all_refunds_status_pending;
         }
+
+        const safeOrder = orderDirection === 'DESC' ? 'DESC' : 'ASC';
+        query = query.replace('{orderDirection}', safeOrder);
 
         let result: dbReturned[] | combinedType[] = await paginationQuery({ count, page }, query, values, tenantId);
 
@@ -166,9 +171,7 @@ export class Refund {
         }
 
         const accessoriesBillingInformation = new Billing(null);
-        return await Promise.all(
-            Refund.prepareServiceItemForResponseBulk(tenantId, result, accessoriesBillingInformation, role)
-        )
+        return await Promise.all(Refund.prepareServiceItemForResponseBulk(tenantId, result, accessoriesBillingInformation, role))
     }
 
     /**
@@ -212,7 +215,10 @@ export class Refund {
             cost: item.cost,
             amountIncurredDueTax: item.amountIncurredDueTax,
             billedby: item.billedby,
+            refundedby: item.refundedBy || null,
+            approvalDate: item.approvalDate || null,
             serviceName,
+            amountRefunded: item.amountRefunded || null,
             billingid: item.billingid,
             canwitness: item.canwitness,
             canEdit: item.canEdit,
@@ -399,12 +405,13 @@ export class Refund {
         if (!role) return false;
 
         const withnessStatus = await this.withnessStatus(tenantId, serviceid);
+
         if (role !== 'admin' && withnessStatus && withnessStatus === 'allWitnessesAssigned') {
             return OperationsFailures.nopermissiontobethirdwitness;
         }
 
         if (role === 'admin') {
-            const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [employeeid, serviceid]);
+            const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [1, employeeid, serviceid]);
             return rowAffected(result);
         }
 
@@ -417,8 +424,15 @@ export class Refund {
         });
     }
 
+
+
     static async approveRequestedRefund(tenantId: number, serviceid: number, employeeid: number, isApprove: number) {
         try {
+
+            const billingData: PrimeLimsTabledboservices = await new TiifuWorkingClass("dboservices").findOne(tenantId, "serviceid", serviceid);
+            if (!billingData) return OperationsFailures.notFound;
+            const isbillingLocked = await PrimeBillingEnterprise.isBillingLocked(tenantId, billingData.billingid);
+            if (isbillingLocked) return OperationsFailures.billingLocked;
             const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [isApprove, employeeid, serviceid]);
             return rowAffected(result);
         } catch (err) {
@@ -436,24 +450,20 @@ export class Refund {
         return result.length > 0;
     }
 
-    private static async amountRefundableExceeded(tenantId, serviceId: number): Promise<boolean | null> {
+    private static async amountRefundableExceeded(tenantId: number, serviceId: number): Promise<boolean | null> {
         const result: (PrimeLimsTabledboservices & PrimeLimsTabledbobillingrefundtable)[] = await promisifyQuery(tenantId, q_service_refundable_amount_exceeded, [serviceId]);
-        if (result.length > 0) {
-            const { totalcost, amountRefunded } = result[0];
-            return amountRefunded > 0 && totalcost > 0 && amountRefunded >= totalcost
-        }
-        return null
+        if (!result || !Array.isArray(result)) return null;
+        const { totalcost, amountRefunded } = result[0];
+        return amountRefunded > 0 && totalcost > 0 && amountRefunded >= totalcost ? true : false;
     }
 
     static async issueOutCashOutOfRefund(tenantId: number, records: updateRefundCashRequestBodyType) {
         const { serviceid, employeeid, refundAmount, selectedPaymentMode, billingid } = records;
         try {
             const isApproved = await this.isServiceRefundApproved(tenantId, serviceid);
-
             if (!isApproved) return OperationsFailures.notapproved;
 
             const isRefundAmmountExceeded = await this.amountRefundableExceeded(tenantId, serviceid);
-
             if (isRefundAmmountExceeded === null) return OperationsFailures.notFound;
             if (isRefundAmmountExceeded === true) return OperationsFailures.refundAmmountExceeded;
 
@@ -548,7 +558,14 @@ export class Refund {
                 return issueOutCash;
             }
         }));
-        return updatedValues.some((item) => item !== false);
+
+        const isAllRefunded = updatedValues.some((item) => item !== false);
+        // if all is refunded , we lock billing table and update islockedstatus
+        if (isAllRefunded) {
+            const lockBilling = await PrimeBillingEnterprise.lockBillingRecord(tenantId, billingid, 'voided');
+            if (!lockBilling) return OperationsFailures.notFound;
+            return true;
+        }
     }
 }
 

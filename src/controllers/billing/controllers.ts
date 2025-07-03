@@ -9,6 +9,8 @@ import { RefundRequestBodyParams, UpdatePreviousWitnessNoteBodyParams, updateRef
 import logger from "../../hooks/logger";
 import { MultiBillingRepo } from "../../models/billing/billnew";
 import { BillingUpdateRepo } from "../../models/billing/billing_update";
+import { WriteOff } from "../../models/billing/WriteOff";
+import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingEnterprise";
 
 export async function handleNewBilling(request: Request, response: Response) {
 	async function validate() {
@@ -183,10 +185,11 @@ export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {},
 	status: "completed" | "pending",
 	count: string,
 	page: string,
+	orderDirection: 'ASC' | 'DESC',
 	tenantId: string,
 	employeeid: number
 }>, response: Response) {
-	const { page = 10, count = 1, status, employeeid } = request.query;
+	const { page = 10, count = 1, status, employeeid, orderDirection } = request.query;
 	const parsedPage = parseInt(page.toString());
 	const parsedCount = parseInt(count.toString());
 
@@ -196,10 +199,9 @@ export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {},
 
 	try {
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-		const result = await Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, employeeid);
+		const result = await Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, orderDirection, employeeid);
 		response.send({ result })
-	}
-	catch (err) {
+	} catch (err) {
 		responseError(response);
 	}
 }
@@ -208,6 +210,7 @@ export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {},
 
 export async function updateWitnessWitnessNote(request: Request<{}, {}, UpdatePreviousWitnessNoteBodyParams>, response: Response) {
 	try {
+		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
 		const { witnesses, serviceid } = request.body;
 
 		if (witnesses.length === 0) {
@@ -218,8 +221,9 @@ export async function updateWitnessWitnessNote(request: Request<{}, {}, UpdatePr
 		const { employeeid, message, witness } = witnessData;
 
 		if (!["firstWitness", "secondWitness", "thirdWitness"].includes(witness)) {
-			const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-			const addNewWitness = await Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, message);
+			const parseEmployeeid = parseInt(employeeid.toString());
+			const parseServicedId = parseInt(serviceid.toString());
+			const addNewWitness = await Refund.requestForServicesAsRefundWitness(tenantId, parseEmployeeid, parseServicedId, message);
 
 			let Responsemessage = "";
 
@@ -234,7 +238,7 @@ export async function updateWitnessWitnessNote(request: Request<{}, {}, UpdatePr
 			}
 			return response.send({ status: typeof addNewWitness == "string" ? false : addNewWitness, message: Responsemessage });
 		}
-		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
+
 		const updateMessage = await Refund.updateWitnessStatus(tenantId, witness, serviceid, employeeid, message)
 		return response.send({ status: updateMessage })
 	} catch (err) {
@@ -252,10 +256,11 @@ export async function approveRequestForRefund(request: Request<{}, {}, { service
 		if (isNaN(parsedApproveStatement)) {
 			return customError(OperationsFailures.invalidResponseBodyParams + ' invalid approval status proved', 404, response);
 		}
+		if (!serviceid || !employeeid || isNaN(serviceid) || isNaN(employeeid)) {
+			return customError(OperationsFailures.invalidResponseBodyParams + ' serviceid and employeeid must be numbers', 404, response);
+		}
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-
 		const isAprovalSuccess = await Refund.approveRequestedRefund(tenantId, serviceid, employeeid, parsedApproveStatement);
-
 		response.send({ status: isAprovalSuccess });
 	} catch (err) {
 		responseError(response);
@@ -335,26 +340,16 @@ export async function getTransactionBillDataHandler(request: Request<{}, {}, {},
 
 export async function refundAllTransactionHandler(request: Request<{ selectedPaymentMode: number, billingid: number, employeeid: number }>, response: Response) {
 	const { billingid, employeeid, selectedPaymentMode } = request.params
-
 	const isAllNumber = !isNaN(billingid) && !isNaN(employeeid) && !isNaN(selectedPaymentMode);
 
-	if (!billingid || !selectedPaymentMode || !employeeid || !isAllNumber) {
-		return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
-	}
-
+	if (!billingid || !selectedPaymentMode || !employeeid || !isAllNumber) return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+	const tenantId = parseInt(request.query.tenantId.toString());
 	try {
-		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-		const isRefundComplete = await Refund.refundAllItemsOfTransaction(tenantId, billingid, employeeid, selectedPaymentMode);
+		const isBillLocked = await PrimeBillingEnterprise.isBillingLocked(tenantId, billingid);
+		if (isBillLocked) return customError("Billing is  locked, cannot proceed with refund", 400, response);
 
-		if (typeof isRefundComplete == "string") {
-			return customError(isRefundComplete, 404, response);
-		}
-
-		if (!isRefundComplete) {
-			return customError("refund failed", 400, response);
-		}
-
-		return response.status(200).json({ status: true, message: "Refund processed successfully" });
+		const isRefunded = await WriteOff.refundCompletelyTransaction(tenantId, employeeid, billingid, selectedPaymentMode);
+		response.send({ status: isRefunded })
 	} catch (error) {
 		console.error("Error processing refund:", error);
 		return customError(OperationsFailures.internalServerError, 500, response);
@@ -374,6 +369,24 @@ export async function getServiceRefundItem(request: Request<{}, {}, {}, { servic
 		response.send({ result: refundData });
 	} catch (err) {
 		console.log(err)
+		responseError(response);
+	}
+}
+
+
+export async function WriteOffTransaction(request: Request, response: Response) {
+	try {
+		const { tenantId } = request.query;
+		const tenantIdP = parseInt(tenantId.toString());
+		const { billingid, reason, employeeid } = request.body;
+
+		if (!billingid || !reason || !employeeid) return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid, reason, employeeid);
+
+		if (typeof result === "string") return response.send({ status: false, message: result });
+		if (!result) return customError(OperationsFailures.notFound, 404, response);
+		response.send({ status: true });
+	} catch (err) {
 		responseError(response);
 	}
 }

@@ -329,5 +329,21 @@ class PrimeBillingEnterprise {
         }
         return PrimeBillingEnterprise.addNightAdjustmentInfo(recalculatedServicesList, billingsettings);
     }
+    static async lockBillingRecord(tenantId, billingid, status) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        return await connection('billing')
+            .where({ billingid })
+            .update({ islocked: 1, status: status })
+            .then(result => result > 0)
+            .catch(() => false);
+    }
+    static async isBillingLocked(tenantId, billingid) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection('billing')
+            .where({ billingid })
+            .select('islocked')
+            .first();
+        return result && parseInt(result.islocked) === 1;
+    }
 }
 exports.PrimeBillingEnterprise = PrimeBillingEnterprise;

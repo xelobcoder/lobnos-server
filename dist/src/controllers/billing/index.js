@@ -31,7 +31,8 @@ router.post("/api/v1/billing/previous/refund/update/cashout", controllers_1.requ
 router.get("/api/v1/billing/previous/refund/update/verification/cashout", controllers_1.verificationBeforeCashoutHandler);
 router.get("/api/v1/billing/filtering/service/refund", controllers_1.getServiceRefundItem);
 router.get("/api/v1/billing/previous/transaction/data", controllers_1.getTransactionBillDataHandler);
-router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode", handlerAscensionBillingCheck_1.handleAuthenticationEmployee, controllers_1.refundAllTransactionHandler);
+router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode", handlerAscensionBillingCheck_1.handleAuthenticationEmployee, (0, helper_1.handleOverLoad)(validateTenancy_1.isAuthorizedRoleAdmin), controllers_1.refundAllTransactionHandler);
+router.post('/api/v1/billing/write-off/transaction', validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.WriteOffTransaction);
 // Services Routes
 router.post("/api/v1/billing/services", servicesHandler_1.createServicesHandler);
 router.put("/api/v1/billing/services", servicesHandler_1.updateServicesHandler);

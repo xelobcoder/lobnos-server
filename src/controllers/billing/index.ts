@@ -16,7 +16,8 @@ import {
     handleEmailReceiptSending,
     refundAllTransactionHandler,
     handleMultiNewBilling,
-    handleMultiUpdateBilling
+    handleMultiUpdateBilling,
+    WriteOffTransaction
 } from "./controllers";
 import {
     createServicesHandler,
@@ -61,7 +62,11 @@ router.get("/api/v1/billing/filtering/service/refund", getServiceRefundItem);
 router.get("/api/v1/billing/previous/transaction/data", getTransactionBillDataHandler);
 router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode",
     handleAuthenticationEmployee as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, {}, {}, { tenantId: string; }>,
+    handleOverLoad(isAuthorizedRoleAdmin),
     refundAllTransactionHandler as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
+router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, WriteOffTransaction as RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>);
+
+
 
 // Services Routes
 router.post("/api/v1/billing/services", createServicesHandler);
