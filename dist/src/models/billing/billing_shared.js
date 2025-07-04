@@ -127,6 +127,20 @@ class BillingSharedRepo {
         const bill = await db("billing").where("billingid", billingid).first();
         return !!bill;
     }
+    static async getOriginalBillingData(billingid, tenantId) {
+        const db = await (0, KnexConnections_1.default)(tenantId);
+        return await db("billing").where("billingid", billingid).first();
+    }
+    static async canAdjustBilling(billingid, tenantId) {
+        const originalBilling = await this.getOriginalBillingData(billingid, tenantId);
+        if (!originalBilling) {
+            return { status: false, message: "Original billing not found." };
+        }
+        if (['voided', 'written-off', 'corrected'].includes(originalBilling.status)) {
+            return { status: false, message: `Cannot adjust billing with status: ${originalBilling.status}` };
+        }
+        return { status: true };
+    }
     static applyPromoCodeToAmount(totalpayable, promoMethod, promoValue) {
         let promoAmount = 0;
         if (promoMethod === 'flat') {

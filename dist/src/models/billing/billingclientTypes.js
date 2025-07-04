@@ -36,4 +36,5 @@ var billErrors;
     billErrors["unableToLoadServices"] = "Error Loading Services Provided";
     billErrors["unableToLoadTestAscension"] = "Error Adding data to Test Ascension ";
     billErrors["noDebtToClear"] = "No debts found for the patient";
+    billErrors["NoValidBilling"] = "No valid billing ID provided";
 })(billErrors || (exports.billErrors = billErrors = {}));

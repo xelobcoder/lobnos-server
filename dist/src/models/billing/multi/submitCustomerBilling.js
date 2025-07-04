@@ -47,6 +47,7 @@ class SubmitCustomerBilling {
                 entitytype,
                 tenantId
             });
+            console.log("Checkout Result:", checkoutResult, this.payload);
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
@@ -160,7 +161,7 @@ class SubmitCustomerBilling {
         }
     }
     static async validateBillingRequestBody(billingData, tenantId) {
-        const { cart, servicesProvided, employeeid, paymentmode, branchid, isPromo, promo, billingSource, patientId, entityId, amountPayable, paid, payments } = billingData;
+        const { cart, servicesProvided, employeeid, branchid, isPromo, promo, patientId, amountPayable, paid, payments } = billingData;
         if (!Array.isArray(cart) || !Array.isArray(servicesProvided)) {
             return "Cart and servicesProvided must be arrays.";
         }

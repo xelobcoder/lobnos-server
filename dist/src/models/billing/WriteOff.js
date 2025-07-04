@@ -13,17 +13,18 @@ class WriteOff {
             const billingResult = await (0, helper_1.promisifyQuery)(tenantId, billingQuery, [billingid]);
             if (!billingResult || billingResult.length === 0)
                 return "Resource not found." /* OperationsFailures.notFound */;
-            const { writeOff, paid, payable, islocked } = billingResult[0];
+            const { adjustmentType, isAdjustment, paid, payable, islocked } = billingResult[0];
             if (islocked == 1)
                 return 'Transaction is locked. Cannot write off.';
-            if (writeOff == 1)
+            if (isAdjustment == 1 && adjustmentType === 'written-off')
                 return 'Transaction already written off. No further adjustments allowed.';
-            if (writeOff == 0) {
+            if (isAdjustment == 0) {
                 if (payable > paid) {
                     const outstanding = payable - paid;
                     const status = 'written-off';
-                    const updateQuery = `UPDATE billing SET writeOff = 1,status = ?, writeOffReason = ?,islocked =1,
-                          writeOffBy = ?, writeOffDate = NOW(), outstanding = ? WHERE billingid = ?`;
+                    const updateQuery = `UPDATE billing 
+                         SET isAdjustment = 1,status = ?, adjustmentReason = ?,islocked =1,
+                         adjustedBy = ?, adjustmentdate = NOW(),adjustmentType=written-off,  outstanding = ? WHERE billingid = ?`;
                     const result = await (0, helper_1.promisifyQuery)(tenantId, updateQuery, [status, reason, employeeid, outstanding, billingid]);
                     if ((0, helper_1.rowAffected)(result))
                         return true;
@@ -45,7 +46,7 @@ class WriteOff {
         const result = await (0, helper_1.promisifyQuery)(tenantId, query, [billingid]);
         return Array.isArray(result) && result.length > 0 && result[0].isWriteOff === 1;
     }
-    static async refundCompletelyTransaction(tenantId, employeeid, billingid, paymentmode) {
+    static async refundCompletelyTransaction(tenantId, employeeid, billingid, paymentmode, message) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const trx = await connection.transaction();
         try {
@@ -69,6 +70,7 @@ class WriteOff {
                     isRefunded: 1,
                     discount: 0,
                 });
+                const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date().toISOString()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
                 await trx('dbobillingrefundtable')
                     .where('serviceid', service.serviceid)
                     .update({
@@ -77,7 +79,18 @@ class WriteOff {
                     isRefundApproved: 1,
                     refundedBy: employeeid,
                     amountRefunded: service.totalpayable,
-                    isRefundMatterClosed: 1
+                    isRefundMatterClosed: 1,
+                    firstWitness: employeeid,
+                    secondWitness: employeeid,
+                    thirdWitness: employeeid,
+                    firstWitnessPurpose: comprehensiveMessage,
+                    initiatedBy: employeeid,
+                    approvalDate: null,
+                    secondWitnessPurpose: comprehensiveMessage,
+                    thirdWitnessPurpose: comprehensiveMessage,
+                    firstWitnessDate: new Date(),
+                    secondWitnessDate: new Date(),
+                    thirdWitnessDate: new Date()
                 });
             }
             const totalRefunded = await trx('billing').where({ billingid }).select('paid').first();
@@ -92,7 +105,13 @@ class WriteOff {
                 discount: 0,
                 totalrefunded: totalRefunded.paid,
                 balance: 0.0,
-                islocked: 1
+                amountIncurredDueTax: 0,
+                islocked: 1,
+                adjustedBy: employeeid,
+                isAdjustment: 1,
+                adjustmentType: 'voided',
+                adjustmentReason: 'Transaction voided and refunded by admin.',
+                adjustmentdate: new Date()
             });
             await trx.raw('INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)', [billingid, paymentmode, totalRefunded.paid, employeeid, 'debit']);
             await trx.commit();

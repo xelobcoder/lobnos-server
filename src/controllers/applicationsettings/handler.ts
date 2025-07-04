@@ -478,7 +478,10 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			packageid,
 			servicesList,
 			entityId,
-
+			additionalinformation,
+			isAdjustment,
+			adjustmentType,
+			adjustmentReason
 		} = req.body;
 
 		const result = await new SubmitCustomerBilling({
@@ -489,6 +492,10 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			billingSource,
 			paid,
 			status,
+			additionalinformation,
+			isAdjustment,
+			adjustmentType,
+			adjustmentReason,
 			isConditionsUnderstood,
 			patientId: patientid ?? patientId,
 			employeeid,

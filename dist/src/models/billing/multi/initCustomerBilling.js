@@ -13,6 +13,7 @@ const ReferralCodingRepo_1 = require("../../referral/repositories/ReferralCoding
 const billingTypes_1 = require("./billingTypes");
 const packageBillingHelper_1 = require("./packageBillingHelper");
 const PrimeBillingEnterprise_1 = require("./PrimeBillingEnterprise");
+const billing_1 = require("../billing");
 class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBillingEnterprise {
     constructor(tenantId) {
         super(tenantId);
@@ -53,17 +54,22 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
             new appset_1.default().getAppBillSettings(this.tenantId),
             this.getPaymentModes()
         ]);
-        // if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
+        if (!sessionExists)
+            return billingTypes_1.BillingModuleCodes.MODULE_NO_SESSION;
         let previousRecordsSummary = null;
-        if (params.billingid) {
+        if (params.billingid)
             previousRecordsSummary = this.previousBillingSummary(params.billingid);
-        }
         if (hasDebt)
             return billingTypes_1.BillingModuleCodes.MODULE_DEBT;
         if (!appsettings)
             return [];
         if (params.billingid !== undefined && (typeof params.billingid !== 'number' || isNaN(params.billingid)))
             return billingTypes_1.BillingModuleCodes.MODULE_NO_VALID_BILLING_ID;
+        if (params.billingid && params.billingid <= 0)
+            return billingTypes_1.BillingModuleCodes.MODULE_NO_VALID_BILLING_ID;
+        if (params.billingid && !(await billing_1.Billing.checkValidityOfBillingid(this.tenantId, params.billingid))) {
+            return billingTypes_1.BillingModuleCodes.MODULE_NO_VALID_BILLING;
+        }
         if (params.isPackageUsed && !params.packageid)
             return billingTypes_1.BillingModuleCodes.NO_PACKAGE_ID_SPECIFIED;
         let defaultCustomerInitData = this.getDefaultCustomerInitData(params, previousRecordsSummary);

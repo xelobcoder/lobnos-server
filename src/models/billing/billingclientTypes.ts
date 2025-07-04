@@ -202,7 +202,8 @@ export enum billErrors {
   unableToUpdateBilling = "Error Updating Billing Information",
   unableToLoadServices = "Error Loading Services Provided",
   unableToLoadTestAscension = "Error Adding data to Test Ascension ",
-  noDebtToClear = "No debts found for the patient"
+  noDebtToClear = "No debts found for the patient",
+  NoValidBilling = "No valid billing ID provided",
 }
 
 export type Pagination = {

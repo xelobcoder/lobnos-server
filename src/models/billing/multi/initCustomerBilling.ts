@@ -8,6 +8,8 @@ import { ReferralCodingRepo } from "../../referral/repositories/ReferralCodingRe
 import { BillingModuleCodes, BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
+import { Billing } from "../billing";
+import { Console } from "winston/lib/winston/transports";
 
 class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
      static instance: CustomerBillingInitSingleton;
@@ -64,17 +66,21 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                this.getPaymentModes()
           ]);
 
-          // if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
+          if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
 
           let previousRecordsSummary = null;
-          if (params.billingid) {
-               previousRecordsSummary = this.previousBillingSummary(params.billingid)
-          }
+          if (params.billingid) previousRecordsSummary = this.previousBillingSummary(params.billingid)
 
           if (hasDebt) return BillingModuleCodes.MODULE_DEBT;
           if (!appsettings) return [];
           if (params.billingid !== undefined && (typeof params.billingid !== 'number' || isNaN(params.billingid))) return BillingModuleCodes.MODULE_NO_VALID_BILLING_ID;
+          if (params.billingid && params.billingid <= 0) return BillingModuleCodes.MODULE_NO_VALID_BILLING_ID;
+
+          if (params.billingid && !(await Billing.checkValidityOfBillingid(this.tenantId, params.billingid))) {
+               return BillingModuleCodes.MODULE_NO_VALID_BILLING;
+          }
           if (params.isPackageUsed && !params.packageid) return BillingModuleCodes.NO_PACKAGE_ID_SPECIFIED;
+
 
           let defaultCustomerInitData = this.getDefaultCustomerInitData(params, previousRecordsSummary);
 

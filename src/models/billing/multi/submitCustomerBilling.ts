@@ -64,6 +64,8 @@ export class SubmitCustomerBilling {
                 tenantId
             });
 
+            console.log("Checkout Result:", checkoutResult, this.payload);
+
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
@@ -221,13 +223,10 @@ export class SubmitCustomerBilling {
             cart,
             servicesProvided,
             employeeid,
-            paymentmode,
             branchid,
             isPromo,
             promo,
-            billingSource,
             patientId,
-            entityId,
             amountPayable,
             paid,
             payments

@@ -10,6 +10,7 @@ export const BillingModuleCodes = {
      NO_PACKAGE_ID_SPECIFIED: 'no package id specified',
      INVALID_PACKAGE_PROVIDED: 'invalid package provided',
      BRANCH_ID_NOT_PROVIDED: 'branch id not provided',
+     MODULE_NO_VALID_BILLING: 'Invalid Billing ID provided',
 } as const;
 
 

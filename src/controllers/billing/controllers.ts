@@ -344,11 +344,12 @@ export async function refundAllTransactionHandler(request: Request<{ selectedPay
 
 	if (!billingid || !selectedPaymentMode || !employeeid || !isAllNumber) return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
 	const tenantId = parseInt(request.query.tenantId.toString());
+	const reason = request.query.reason || "No reason provided";
 	try {
 		const isBillLocked = await PrimeBillingEnterprise.isBillingLocked(tenantId, billingid);
 		if (isBillLocked) return customError("Billing is  locked, cannot proceed with refund", 400, response);
 
-		const isRefunded = await WriteOff.refundCompletelyTransaction(tenantId, employeeid, billingid, selectedPaymentMode);
+		const isRefunded = await WriteOff.refundCompletelyTransaction(tenantId, employeeid, billingid, selectedPaymentMode, reason.toString() || undefined);
 		response.send({ status: isRefunded })
 	} catch (error) {
 		console.error("Error processing refund:", error);

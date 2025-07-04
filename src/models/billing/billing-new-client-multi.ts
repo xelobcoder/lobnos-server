@@ -3,8 +3,8 @@ import { BillingSharedRepo } from "./billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry } from "./billingclientTypes";
 import { BillingTestItem, CustomerInitResponse } from "./multi/billingTypes";
-import { CustomerBillingCheckout } from "./customerBillingCheckout";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
+import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
 
 export class SubmitCustomerBilling {
     private payload: any;
@@ -64,6 +64,21 @@ export class SubmitCustomerBilling {
                 tenantId
             });
 
+            let hasRelatedBilling = false;
+            if (this.payload.billingid) {
+                const isBillingIdValid = await BillingSharedRepo.checkValidityOfBillingID(this.payload.billingid, this.tenantId);
+                if (!isBillingIdValid) return { status: false, message: billErrors.NoValidBilling };
+                hasRelatedBilling = true;
+            }
+
+
+            if (hasRelatedBilling) {
+                const canAdjust = await BillingSharedRepo.canAdjustBilling(this.payload.billingid, this.tenantId);
+                if (!canAdjust.status) {
+                    return { status: false, message: canAdjust.message };
+                }
+            }
+
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
@@ -75,12 +90,9 @@ export class SubmitCustomerBilling {
                 'totalServiceAmount',
                 'amountPayable',
             ];
+
             for (const field of summaryFields) {
-                if (
-                    typeof data[field] === 'number' &&
-                    typeof this.payload[field] === 'number' &&
-                    Math.abs(data[field] - this.payload[field]) > 0.01
-                ) {
+                if (typeof data[field] === 'number' && typeof this.payload[field] === 'number' && Math.abs(data[field] - this.payload[field]) > 0.01) {
                     return { status: false, message: `Submitted ${field} (${this.payload[field]}) does not match recalculated value (${data[field]}).` };
                 }
             }
@@ -153,13 +165,40 @@ export class SubmitCustomerBilling {
                     promoValue: data.promoValue || 0,
                     promoMethod: data.promoMethod || promoMethod,
                     promoCodeId: data.promoCodeId || promoCode,
+
+                }
+
+                //  if has Related billing, adjustment = 1 , adjustment type = corrected , we need to update the related billing record as adjustmentType corrected
+                const { adjustmentType, isAdjustment, adjustmentReason } = this.payload;
+
+                if (isAdjustment && adjustmentType === "corrected" && this.payload.billingid) {
+                    // update the old billing recorded as billing adjustment
+                    await trx("billing")
+                        .where({ billingid: this.payload.billingid })
+                        .update({
+                            adjustmentType: "corrected",
+                            adjustmentReason,
+                            adjustedBy: employeeid || this.payload.employeeid,
+                            adjustmentdate: new Date(),
+                            isAdjustment: 1,
+                            islocked: 1,
+                        });
+
+                    // we need to update the dboservics registered under same billingid as adjusted 
+                    await trx("dboservices")
+                        .where({ billingid: this.payload.billingid })
+                        .update({
+                            isAdjustment: 1,
+                            isCorrected: 1,
+                            relatedBillingid: parseInt(this.payload.billingid),
+                            isLocked: 1,
+                        });
+                    // update the current current billing paid to match and adjust the balance , the outstanding and other financials information
                 }
 
                 // throw new Error("Unable to update billing record");
                 const result = await trx("billing")
-                    .where("billingid", billingID)
                     .update({
-                        billingid: billingID,
                         patientid: updatedBillingData.patientId,
                         totalcost: updateData.totalcost,
                         totalTransactionCost: updateData.totalTransactionCost,
@@ -170,13 +209,21 @@ export class SubmitCustomerBilling {
                         outstanding: updateData.outstanding,
                         balance: updateData.balance,
                         clientstatus: status || "normal",
+                        status: totalOutstanding == 0 ? "paid" : "pending",
                         amountIncurredDueTax: updateData.totalAmountIncurredDueTax,
                         branchid: updatedBillingData.branchid,
                         isPromo: updateData.isPromo,
                         promoValue: updateData.promoValue,
+                        additionalinformation: this.payload.additioninformation || null,
                         promoMethod: updateData.promoMethod,
                         promoCodeId: updateData.promoCodeId,
-                    });
+                        isAdjustment: hasRelatedBilling ? 1 : 0,
+                        adjustmentType: hasRelatedBilling ? "addition" : null,
+                        adjustedBy: hasRelatedBilling ? employeeid || this.payload.employeeid : null,
+                        adjustmentdate: hasRelatedBilling ? new Date() : null,
+                        adjustmentReason: hasRelatedBilling ? 'New Billing service added' : null,
+                        relatedBillingId: hasRelatedBilling ? parseInt(this.payload.billingid) : null,
+                    }).where({ billingid: billingID });
 
 
 
@@ -207,6 +254,7 @@ export class SubmitCustomerBilling {
                         );
                     }
                 }
+
 
                 await trx.commit();
             }
