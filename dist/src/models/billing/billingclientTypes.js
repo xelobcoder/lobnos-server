@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.billErrors = exports.ClientPlsServiceLifecycle = exports.Client_PLS_Lifecycle = exports.serviceCategory = void 0;
+exports.billErrors = exports.ValidationError = exports.ClientPlsServiceLifecycle = exports.Client_PLS_Lifecycle = exports.serviceCategory = void 0;
 exports.serviceCategory = {
     1: 'GENERAL',
     2: 'ORGANIZATION',
@@ -26,6 +26,18 @@ exports.ClientPlsServiceLifecycle = {
     2: "PROGRESSING",
     0: "UNINITIATED"
 };
+var ValidationError;
+(function (ValidationError) {
+    ValidationError["CartAndServicesNotArrays"] = "Cart and servicesProvided must be arrays.";
+    ValidationError["CartAndServicesEmpty"] = "Both cart and servicesProvided cannot be empty.";
+    ValidationError["InvalidEmployeeId"] = "Invalid or missing employeeid.";
+    ValidationError["InvalidBranchId"] = "Missing or invalid samplingCenter (branch id).";
+    ValidationError["InvalidAmounts"] = "Amount payable and paid must be numbers.";
+    ValidationError["InvalidPatientId"] = "Missing or invalid patientId.";
+    ValidationError["PatientDoesNotExist"] = "Patient does not exist.";
+    ValidationError["PromoCodeRequired"] = "Promo code is required when isPromo is true.";
+    ValidationError["InvalidPaymentMode"] = "Invalid payment mode in payments array.";
+})(ValidationError || (exports.ValidationError = ValidationError = {}));
 var billErrors;
 (function (billErrors) {
     billErrors["already"] = "client billed on same day. Kindly check the billing history to update billing";

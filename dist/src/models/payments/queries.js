@@ -4,20 +4,14 @@ exports.queries = void 0;
 exports.queries = {
     getClientTransactionInformation: `
     SELECT 
-      np.patientid,
-      CONCAT(np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
-      np.email,
-      CONCAT(0,np.mobile_number) AS mobileNumber,
-      b.billingid,
-      b.outstanding,
-      b.totalRefunded,
-      b.discount,
-      b.paid,
-      b.payable,
-      np.fullpatientid,
-      DATE(b.billedon) as date
-    FROM new_patients AS np
-    INNER JOIN billing as b ON np.patientid = b.patientid
+  np.patientid,
+  np.fullpatientid,
+  CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
+  np.email,
+  CONCAT('0', np.mobile_number) AS mobileNumber,
+  b.*
+FROM new_patients AS np
+INNER JOIN billing AS b ON np.patientid = b.patientid
   `,
     getClientFullOutstanding: `
     SELECT SUM(paid) AS paid, SUM(payable) AS total 

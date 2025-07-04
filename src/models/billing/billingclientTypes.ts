@@ -191,7 +191,17 @@ export type TBillingData = {
   employeeid: number;
 };
 
-
+export enum ValidationError {
+  CartAndServicesNotArrays = "Cart and servicesProvided must be arrays.",
+  CartAndServicesEmpty = "Both cart and servicesProvided cannot be empty.",
+  InvalidEmployeeId = "Invalid or missing employeeid.",
+  InvalidBranchId = "Missing or invalid samplingCenter (branch id).",
+  InvalidAmounts = "Amount payable and paid must be numbers.",
+  InvalidPatientId = "Missing or invalid patientId.",
+  PatientDoesNotExist = "Patient does not exist.",
+  PromoCodeRequired = "Promo code is required when isPromo is true.",
+  InvalidPaymentMode = "Invalid payment mode in payments array."
+}
 
 
 export enum billErrors {

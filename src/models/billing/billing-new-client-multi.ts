@@ -1,7 +1,7 @@
 import KnexConnection from "../../database/KnexConnections";
 import { BillingSharedRepo } from "./billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
-import { billErrors, serviceCategory, ServiceEntry } from "./billingclientTypes";
+import { billErrors, serviceCategory, ServiceEntry, ValidationError } from "./billingclientTypes";
 import { BillingTestItem, CustomerInitResponse } from "./multi/billingTypes";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
@@ -30,6 +30,7 @@ export class SubmitCustomerBilling {
                 referalCode,
                 promoCode,
                 isPromo,
+                writeOffOutstanding,
                 isPackageUsed,
                 packageid,
                 amountPayable,
@@ -168,11 +169,9 @@ export class SubmitCustomerBilling {
 
                 }
 
-                //  if has Related billing, adjustment = 1 , adjustment type = corrected , we need to update the related billing record as adjustmentType corrected
                 const { adjustmentType, isAdjustment, adjustmentReason } = this.payload;
 
                 if (isAdjustment && adjustmentType === "corrected" && this.payload.billingid) {
-                    // update the old billing recorded as billing adjustment
                     await trx("billing")
                         .where({ billingid: this.payload.billingid })
                         .update({
@@ -184,7 +183,6 @@ export class SubmitCustomerBilling {
                             islocked: 1,
                         });
 
-                    // we need to update the dboservics registered under same billingid as adjusted 
                     await trx("dboservices")
                         .where({ billingid: this.payload.billingid })
                         .update({
@@ -193,10 +191,8 @@ export class SubmitCustomerBilling {
                             relatedBillingid: parseInt(this.payload.billingid),
                             isLocked: 1,
                         });
-                    // update the current current billing paid to match and adjust the balance , the outstanding and other financials information
                 }
 
-                // throw new Error("Unable to update billing record");
                 const result = await trx("billing")
                     .update({
                         patientid: updatedBillingData.patientId,
@@ -260,7 +256,7 @@ export class SubmitCustomerBilling {
             }
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         } catch (error: any) {
-            console.log("Error in submitCustomerBilling:", error);
+
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
         }
     }
@@ -269,53 +265,46 @@ export class SubmitCustomerBilling {
             cart,
             servicesProvided,
             employeeid,
-            paymentmode,
             branchid,
             isPromo,
             promo,
-            billingSource,
             patientId,
-            entityId,
             amountPayable,
             paid,
             payments
         } = billingData;
 
         if (!Array.isArray(cart) || !Array.isArray(servicesProvided)) {
-            return "Cart and servicesProvided must be arrays.";
+            return ValidationError.CartAndServicesNotArrays;
         }
         if (cart.length === 0 && servicesProvided.length === 0) {
-            return "Both cart and servicesProvided cannot be empty.";
+            return ValidationError.CartAndServicesEmpty;
         }
         if (!employeeid || typeof employeeid !== "number") {
-            return "Invalid or missing employeeid.";
+            return ValidationError.InvalidEmployeeId;
         }
-
         if (!branchid || typeof branchid !== "number") {
-            return "Missing or invalid samplingCenter (branch id).";
+            return ValidationError.InvalidBranchId;
         }
         if (typeof amountPayable !== "number" || typeof paid !== "number") {
-            return "Amount payable and paid must be numbers.";
+            return ValidationError.InvalidAmounts;
         }
         if (!patientId || typeof patientId !== "number") {
-            return "Missing or invalid patientId.";
+            return ValidationError.InvalidPatientId;
         }
         if (!(await BillingSharedRepo.checkPatientIdExist(patientId, tenantId))) {
-            return "Patient does not exist.";
+            return ValidationError.PatientDoesNotExist;
         }
-
         if (isPromo && (!promo || !promo.code)) {
-            return "Promo code is required when isPromo is true.";
+            return ValidationError.PromoCodeRequired;
         }
-
         if (payments && Array.isArray(payments)) {
             for (const payment of payments) {
                 if (!payment.mode || !(await BillingSharedRepo.validatePaymentModeId(parseInt(payment.mode.toString(), 10), tenantId))) {
-                    return "Invalid payment mode in payments array.";
+                    return ValidationError.InvalidPaymentMode;
                 }
             }
         }
-
         return true;
     }
 

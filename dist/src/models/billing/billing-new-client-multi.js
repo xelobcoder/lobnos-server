@@ -29,7 +29,7 @@ class SubmitCustomerBilling {
     }
     async submit() {
         try {
-            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, entitytype, entityId, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "entitytype", "entityId", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
+            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, entitytype, entityId, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "entitytype", "entityId", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -121,10 +121,8 @@ class SubmitCustomerBilling {
                     promoMethod: data.promoMethod || promoMethod,
                     promoCodeId: data.promoCodeId || promoCode,
                 };
-                //  if has Related billing, adjustment = 1 , adjustment type = corrected , we need to update the related billing record as adjustmentType corrected
                 const { adjustmentType, isAdjustment, adjustmentReason } = this.payload;
                 if (isAdjustment && adjustmentType === "corrected" && this.payload.billingid) {
-                    // update the old billing recorded as billing adjustment
                     await trx("billing")
                         .where({ billingid: this.payload.billingid })
                         .update({
@@ -135,7 +133,6 @@ class SubmitCustomerBilling {
                         isAdjustment: 1,
                         islocked: 1,
                     });
-                    // we need to update the dboservics registered under same billingid as adjusted 
                     await trx("dboservices")
                         .where({ billingid: this.payload.billingid })
                         .update({
@@ -144,9 +141,7 @@ class SubmitCustomerBilling {
                         relatedBillingid: parseInt(this.payload.billingid),
                         isLocked: 1,
                     });
-                    // update the current current billing paid to match and adjust the balance , the outstanding and other financials information
                 }
-                // throw new Error("Unable to update billing record");
                 const result = await trx("billing")
                     .update({
                     patientid: updatedBillingData.patientId,
@@ -197,40 +192,39 @@ class SubmitCustomerBilling {
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         }
         catch (error) {
-            console.log("Error in submitCustomerBilling:", error);
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
         }
     }
     static async validateBillingRequestBody(billingData, tenantId) {
-        const { cart, servicesProvided, employeeid, paymentmode, branchid, isPromo, promo, billingSource, patientId, entityId, amountPayable, paid, payments } = billingData;
+        const { cart, servicesProvided, employeeid, branchid, isPromo, promo, patientId, amountPayable, paid, payments } = billingData;
         if (!Array.isArray(cart) || !Array.isArray(servicesProvided)) {
-            return "Cart and servicesProvided must be arrays.";
+            return billingclientTypes_1.ValidationError.CartAndServicesNotArrays;
         }
         if (cart.length === 0 && servicesProvided.length === 0) {
-            return "Both cart and servicesProvided cannot be empty.";
+            return billingclientTypes_1.ValidationError.CartAndServicesEmpty;
         }
         if (!employeeid || typeof employeeid !== "number") {
-            return "Invalid or missing employeeid.";
+            return billingclientTypes_1.ValidationError.InvalidEmployeeId;
         }
         if (!branchid || typeof branchid !== "number") {
-            return "Missing or invalid samplingCenter (branch id).";
+            return billingclientTypes_1.ValidationError.InvalidBranchId;
         }
         if (typeof amountPayable !== "number" || typeof paid !== "number") {
-            return "Amount payable and paid must be numbers.";
+            return billingclientTypes_1.ValidationError.InvalidAmounts;
         }
         if (!patientId || typeof patientId !== "number") {
-            return "Missing or invalid patientId.";
+            return billingclientTypes_1.ValidationError.InvalidPatientId;
         }
         if (!(await billing_shared_1.BillingSharedRepo.checkPatientIdExist(patientId, tenantId))) {
-            return "Patient does not exist.";
+            return billingclientTypes_1.ValidationError.PatientDoesNotExist;
         }
         if (isPromo && (!promo || !promo.code)) {
-            return "Promo code is required when isPromo is true.";
+            return billingclientTypes_1.ValidationError.PromoCodeRequired;
         }
         if (payments && Array.isArray(payments)) {
             for (const payment of payments) {
                 if (!payment.mode || !(await billing_shared_1.BillingSharedRepo.validatePaymentModeId(parseInt(payment.mode.toString(), 10), tenantId))) {
-                    return "Invalid payment mode in payments array.";
+                    return billingclientTypes_1.ValidationError.InvalidPaymentMode;
                 }
             }
         }
