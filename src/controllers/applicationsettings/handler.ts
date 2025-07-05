@@ -480,6 +480,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			entityId,
 			additionalinformation,
 			isAdjustment,
+			writeOffOutstanding,
 			adjustmentType,
 			adjustmentReason
 		} = req.body;
@@ -500,6 +501,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			patientId: patientid ?? patientId,
 			employeeid,
 			isPackageUsed,
+			writeOffOutstanding,
 			hasNightAdjustment,
 			samplingCenter,
 			entityId: entityId ? parseInt(entityId.toString(), 10) : undefined,

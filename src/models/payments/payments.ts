@@ -42,7 +42,7 @@ class Payment {
 					values.push(to);
 				}
 			}
-			modelQuery += from || patientid ? ` ORDER BY b.billingid ASC LIMIT ? OFFSET ? ` : ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `;
+			modelQuery += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? ` 
 			const result = await paginationQuery({ count, page }, modelQuery, values, tenantId);
 			const summary = await this.summaryRangeOfDates(tenantId, from, to, branchid);
 			return { data: result, summary } as { data: TransactionData[], summary: any }

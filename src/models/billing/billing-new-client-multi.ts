@@ -5,6 +5,7 @@ import { billErrors, serviceCategory, ServiceEntry, ValidationError } from "./bi
 import { BillingTestItem, CustomerInitResponse } from "./multi/billingTypes";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
+import { calculateCorrectionalAdjustment } from "./correctionalUtil";
 
 export class SubmitCustomerBilling {
     private payload: any;
@@ -36,6 +37,7 @@ export class SubmitCustomerBilling {
                 amountPayable,
                 employeeid,
                 samplingCenter,
+                isAdjustment, adjustmentdate, adjustmentType, adjustmentReason,
                 payments,
                 status,
                 entitytype,
@@ -64,6 +66,40 @@ export class SubmitCustomerBilling {
                 entitytype,
                 tenantId
             });
+
+
+            if (checkoutResult.success == false) {
+                return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
+            }
+
+            let previousBillingSummary = null;
+            const excessAction = this.payload.excessAction;
+
+
+            let currentAmountPayable = 0;
+            let previousPaidAmount = 0;
+            let outstandingBtnPreviousPaidAndCurenntPayable = 0;
+            let isExcessAmount = false;
+            let currentPaymentMade = 0;
+            let totalPaymentMade = 0;
+
+            if (this.payload.billingid && isAdjustment == 1 && adjustmentType === "correction" && checkoutResult) {
+                previousBillingSummary = checkoutResult.data.previousBilling;
+                const { newPayments, totalPaid, currentPayable, outstandingToWriteOff, isExcess, previousPaid } = calculateCorrectionalAdjustment({
+                    previousRecordsSummary: previousBillingSummary,
+                    amountPayable: checkoutResult.data.amountPayable, payments: this.payload.payments
+                })
+
+                totalPaymentMade = totalPaid;
+                currentAmountPayable = currentPayable;
+                totalPaymentMade = totalPaid;
+                previousPaidAmount = previousPaid
+                isExcessAmount = isExcess;
+                outstandingBtnPreviousPaidAndCurenntPayable = outstandingToWriteOff;
+                currentPaymentMade = newPayments;
+            }
+
+
 
             let hasRelatedBilling = false;
             if (this.payload.billingid) {
@@ -139,15 +175,42 @@ export class SubmitCustomerBilling {
                     throw new Error(BillErrors.UnableToLoadServices);
                 }
 
+                let totalcost = 0;
+                let totalservicesAmount = 0;
+                let totalAmountPayable = 0;
+                let testPayableAmount = 0;
+                let totaldiscount = 0;
+                let totalAmountIncurredDueTax = 0;
+                let totalOutstanding = 0;
+                let balance = 0;
+                let writeOffAmount = 0;
+                let overallPaymentsMade = updatedBillingData.paid;
+                let status = 'pending';
 
-                const totalcost = data.totalcost;
-                const totalservicesAmount = data.totalServiceAmountPayable;
-                const totalAmountPayable = data.amountPayable;
-                const testPayableAmount = data.testPayableAmount || 0;
-                const totaldiscount = data.totaldiscount || 0;
-                const totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
-                const totalOutstanding = amountPayable - this.payload.paid;
-                const balance = this.payload.paid > totalAmountPayable ? 0 : totalAmountPayable - this.payload.paid;
+
+                testPayableAmount = data.testPayableAmount || 0;
+                totalcost = data.totalcost;
+                totalservicesAmount = data.totalServiceAmountPayable;
+                totaldiscount = data.totaldiscount || 0;
+                totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
+
+
+                if (this.payload.isAdjustment == 1 && this.payload.adjustmentType === "correction") {
+                    totalAmountPayable = Number(currentAmountPayable.toFixed(2));
+                    if (isExcessAmount && this.payload.writeOffOutstanding) {
+                        totalOutstanding = 0;
+                        writeOffAmount = Number(outstandingBtnPreviousPaidAndCurenntPayable.toFixed(2));
+                    } else {
+                        totalOutstanding = Number(outstandingBtnPreviousPaidAndCurenntPayable.toFixed(2));
+                        writeOffAmount = 0;
+                    }
+                    overallPaymentsMade = totalPaymentMade;
+                    balance = totalPaymentMade > totalAmountPayable ? 0 : Number((totalAmountPayable - totalPaymentMade).toFixed(2));
+                } else {
+                    totalAmountPayable = Number(data.amountPayable ? Number(data.amountPayable).toFixed(2) : 0);
+                    totalOutstanding = Number((amountPayable - this.payload.paid).toFixed(2));
+                    balance = this.payload.paid > totalAmountPayable ? 0 : Number((totalAmountPayable - this.payload.paid).toFixed(2));
+                }
 
 
                 const updateData = {
@@ -159,23 +222,23 @@ export class SubmitCustomerBilling {
                     totaldiscount: totaldiscount,
                     totalAmountIncurredDueTax: totalAmountIncurredDueTax,
                     outstanding: totalOutstanding,
-                    paid: updatedBillingData.paid,
+                    paid: overallPaymentsMade,
                     balance: balance,
+                    status,
                     totalrefunded: 0,
                     isPromo: data.isPromo || false,
                     promoValue: data.promoValue || 0,
                     promoMethod: data.promoMethod || promoMethod,
                     promoCodeId: data.promoCodeId || promoCode,
-
                 }
 
                 const { adjustmentType, isAdjustment, adjustmentReason } = this.payload;
 
-                if (isAdjustment && adjustmentType === "corrected" && this.payload.billingid) {
+                if (isAdjustment && adjustmentType === "correction" && this.payload.billingid) {
                     await trx("billing")
                         .where({ billingid: this.payload.billingid })
                         .update({
-                            adjustmentType: "corrected",
+                            adjustmentType: "correction",
                             adjustmentReason,
                             adjustedBy: employeeid || this.payload.employeeid,
                             adjustmentdate: new Date(),
@@ -219,6 +282,7 @@ export class SubmitCustomerBilling {
                         adjustmentdate: hasRelatedBilling ? new Date() : null,
                         adjustmentReason: hasRelatedBilling ? 'New Billing service added' : null,
                         relatedBillingId: hasRelatedBilling ? parseInt(this.payload.billingid) : null,
+                        writeoff: writeOffOutstanding ? writeOffAmount : 0,
                     }).where({ billingid: billingID });
 
 
@@ -252,7 +316,7 @@ export class SubmitCustomerBilling {
                 }
 
 
-                await trx.commit();
+                // await trx.commit();
             }
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         } catch (error: any) {

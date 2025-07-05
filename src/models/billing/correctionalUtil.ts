@@ -9,31 +9,29 @@ export interface CorrectionalAdjustmentResult {
      isExcess: boolean;
 }
 
-export function calculateCorrectionalAdjustment(billingdata, writeOffOutstanding: boolean): CorrectionalAdjustmentResult {
-     const previousPaid = Number(billingdata.previousRecordsSummary?.paid) || 0;
-     const currentPayable = Number(billingdata.amountPayable) || 0;
-     const newPayments = Array.isArray(billingdata.payments)
-          ? billingdata.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0)
-          : 0;
-     const totalPaid = previousPaid + newPayments;
-     let outstandingToWriteOff = 0;
-     let isExcess = false;
+export function calculateCorrectionalAdjustment(billingdata): CorrectionalAdjustmentResult {
+    const previousPaid = Number(Number(billingdata.previousRecordsSummary?.paid || 0).toFixed(2));
+    const currentPayable = Number(Number(billingdata.amountPayable || 0).toFixed(2));
+    const newPayments = Array.isArray(billingdata.payments)
+        ? Number(billingdata.payments.reduce((sum, p) => sum + Number(p.amount || 0), 0).toFixed(2))
+        : 0;
+    const totalPaid = Number((previousPaid + newPayments).toFixed(2));
+    let outstandingToWriteOff = 0;
+    let isExcess = false;
 
-     if (totalPaid > currentPayable) {
-          outstandingToWriteOff = totalPaid - currentPayable;
-          isExcess = true;
-          
-     } else if (totalPaid < currentPayable) {
-          outstandingToWriteOff = currentPayable - totalPaid;
-     }
+    if (totalPaid > currentPayable) {
+        outstandingToWriteOff = Number((totalPaid - currentPayable).toFixed(2));
+        isExcess = true;
+    } else if (totalPaid < currentPayable) {
+        outstandingToWriteOff = Number((currentPayable - totalPaid).toFixed(2));
+    }
 
-
-     return {
-          previousPaid,
-          newPayments,
-          totalPaid,
-          currentPayable,
-          outstandingToWriteOff,
-          isExcess
-     };
+    return {
+        previousPaid,
+        newPayments,
+        totalPaid,
+        currentPayable,
+        outstandingToWriteOff,
+        isExcess
+    };
 }
