@@ -5,6 +5,7 @@ import { billErrors, serviceCategory, ServiceEntry } from "../billingclientTypes
 import { BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { CustomerBillingCheckout } from "./customerBillingCheckout";
 import { PrimeBillingPromoCodeRepo } from "../repositories/PrimeBillingPromoCodeRepo";
+import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
 
 export class SubmitCustomerBilling {
     private payload: any;
@@ -63,8 +64,6 @@ export class SubmitCustomerBilling {
                 entitytype,
                 tenantId
             });
-
-            console.log("Checkout Result:", checkoutResult, this.payload);
 
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult}` };
@@ -210,7 +209,7 @@ export class SubmitCustomerBilling {
                     }
                 }
 
-                await trx.commit();
+                // await trx.commit();
             }
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         } catch (error: any) {

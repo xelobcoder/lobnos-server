@@ -468,6 +468,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			samplingCenter,
 			payments,
 			isPromo,
+			isPayAll,
 			promoMethod,
 			patientId,
 			billingid,
@@ -513,6 +514,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			paymentDetails,
 			branchid,
 			referalCode,
+			isPayAll,
 			promoCode,
 			packageid,
 			servicesList

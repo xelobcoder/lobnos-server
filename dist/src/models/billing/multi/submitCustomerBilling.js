@@ -47,7 +47,6 @@ class SubmitCustomerBilling {
                 entitytype,
                 tenantId
             });
-            console.log("Checkout Result:", checkoutResult, this.payload);
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
@@ -151,7 +150,7 @@ class SubmitCustomerBilling {
                         await billing_shared_1.BillingSharedRepo.insertBillHistory(trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
-                await trx.commit();
+                // await trx.commit();
             }
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         }

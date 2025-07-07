@@ -6,8 +6,34 @@ import { BillingTestItem, CustomerInitResponse } from "./multi/billingTypes";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
 import { calculateCorrectionalAdjustment } from "./correctionalUtil";
+import { PrimeBillingEnterprise } from "./multi/PrimeBillingEnterprise";
+import { EntityType } from "../clincians/c.dev.type";
 
 export class SubmitCustomerBilling {
+
+    static getPaidAmountAndStatus(item: { paidamount?: any, paymentstatus?: string, totalpayable?: number }): { paidamount: number, paymentstatus: string } {
+        const paidamount = (typeof item.paidamount !== 'undefined' && !isNaN(item.paidamount) && typeof parseFloat(item.paidamount.toString()) === 'number')
+            ? Number(item.paidamount)
+            : 0;
+        let paymentstatus: string;
+        if (item.paymentstatus) {
+            paymentstatus = item.paymentstatus;
+        } else if (typeof item.paidamount !== 'undefined' && !isNaN(item.paidamount) && typeof parseFloat(item.paidamount.toString()) === 'number') {
+            const paidVal = Number(item.paidamount);
+            if (typeof item.totalpayable === 'number' && paidVal === item.totalpayable) {
+                paymentstatus = 'paid';
+            } else if (paidVal > 0) {
+                paymentstatus = 'partial';
+            } else {
+                paymentstatus = 'pending';
+            }
+        } else {
+            paymentstatus = 'pending';
+        }
+        return { paidamount, paymentstatus };
+    }
+
+
     private payload: any;
     private tenantId: number;
     private connection: any;
@@ -15,6 +41,12 @@ export class SubmitCustomerBilling {
         this.payload = payload;
         this.tenantId = tenantId;
         this.connection = KnexConnection(this.tenantId);
+    }
+
+    async adjustmentCorrectionDetermination(billingid: number, currentEntity: {entity_type:EntityType, entityid:number}): Promise<void> { 
+        // 1. using the billingid we will load and get the entity information 
+        // 2. use the services and test and use the current entity information and compute the necessary adjustments
+        // 3. compare the two and forward the details to the frontend
     }
 
     async submit(): Promise<{ status: boolean; message: string; billingid?: number }> {
@@ -42,6 +74,7 @@ export class SubmitCustomerBilling {
                 status,
                 entitytype,
                 entityId,
+                isPayAll,
                 entityid,
                 isConditionsUnderstood,
                 hasNightAdjustment,
@@ -68,12 +101,12 @@ export class SubmitCustomerBilling {
             });
 
 
+
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
             }
 
             let previousBillingSummary = null;
-            const excessAction = this.payload.excessAction;
 
 
             let currentAmountPayable = 0;
@@ -83,8 +116,15 @@ export class SubmitCustomerBilling {
             let currentPaymentMade = 0;
             let totalPaymentMade = 0;
 
-            if (this.payload.billingid && isAdjustment == 1 && adjustmentType === "correction" && checkoutResult) {
-                previousBillingSummary = checkoutResult.data.previousBilling;
+
+
+            if (this.payload.billingid && isAdjustment == 1 && adjustmentType === "correction" && checkoutResult.data && checkoutResult.data.previousBilling) {
+                if (checkoutResult.data && checkoutResult.data.previousBilling) {
+                    const billingid = this.payload.billingid;
+                    const isLastInCorrectionOrder = await new PrimeBillingEnterprise(this.tenantId).checkIfCurrentLastInCorrectionOrder(billingid);
+                    if (!isLastInCorrectionOrder) return { status: false, message: "This billing record is not the last in the correction order. Please check and try again. Please use the correction flow." };
+                }
+
                 const { newPayments, totalPaid, currentPayable, outstandingToWriteOff, isExcess, previousPaid } = calculateCorrectionalAdjustment({
                     previousRecordsSummary: previousBillingSummary,
                     amountPayable: checkoutResult.data.amountPayable, payments: this.payload.payments
@@ -158,7 +198,11 @@ export class SubmitCustomerBilling {
 
             const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(
                 updatedBillingData as unknown as MultiTBillingDataShared,
-                updatedBillingData.servicesProvided,
+                (updatedBillingData.servicesProvided || []).map(service => ({
+                    ...service,
+                    amountPaid: typeof service.amountPaid === 'number' ? service.amountPaid : 0,
+                    status: service.status || 'pending'
+                })),
                 billingID,
                 taxValue,
                 taxList
@@ -233,6 +277,7 @@ export class SubmitCustomerBilling {
                 }
 
                 const { adjustmentType, isAdjustment, adjustmentReason } = this.payload;
+
 
                 if (isAdjustment && adjustmentType === "correction" && this.payload.billingid) {
                     await trx("billing")
@@ -316,11 +361,10 @@ export class SubmitCustomerBilling {
                 }
 
 
-                // await trx.commit();
+                await trx.commit();
             }
-            return { status: true, message: "Billing submitted successfully", billingid: billingID };
+            return { status: true, message: "Order submitted successfully", billingid: billingID };
         } catch (error: any) {
-
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
         }
     }
@@ -417,6 +461,8 @@ export class SubmitCustomerBilling {
 
         const result = await Promise.all(
             billingData.cart.map(async (item: BillingTestItem) => {
+                const { paidamount, paymentstatus } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
+
                 return {
                     billingid: billingID,
                     trackId: item.testid,
@@ -446,7 +492,9 @@ export class SubmitCustomerBilling {
                     nightAdjustmentMode: item.nightAdjustmentMode,
                     nightAdjustmentValue: item.nightAdjustmentValue || 0,
                     isPackageUsed: billingData.isPackageUsed ? 1 : 0,
-                    packageid: billingData.packageid || null
+                    packageid: billingData.packageid || null,
+                    paidamount,
+                    paymentstatus: paymentstatus,
                 };
             })
         );
@@ -502,6 +550,8 @@ export class SubmitCustomerBilling {
         return await Promise.all(
             servicesProvided
                 .map(async (item: any) => {
+                    const { paidamount, paymentstatus } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
+
                     return {
                         billingid: billingID,
                         trackId: item.keyid,
@@ -532,6 +582,8 @@ export class SubmitCustomerBilling {
                         nightAdjustmentValue: item.nightAdjustmentValue,
                         isPackageUsed: isPackageUsed ? 1 : 0,
                         packageid: item.packageid || null,
+                        paymentstatus: paymentstatus,
+                        paidamount: paidamount
                     };
                 })
         );

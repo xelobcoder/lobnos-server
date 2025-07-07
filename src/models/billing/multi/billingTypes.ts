@@ -62,11 +62,14 @@ export interface CustomerInitResponse {
 
 export interface BillingTestItem {
      actualPrice: number;
+     paidamount: number;
+     status?: string;
      amountIncurredDueTax: number;
      concessionMode: "absolute" | "percentage" | string;
      concessionValue: number | string;
      discount: number;
      discountedValue: number;
+     paymentstatus: 'pending' | 'partial' | 'paid' | string;
      hasNightAdjustment: boolean;
      id: number;
      isoutsourced: number;

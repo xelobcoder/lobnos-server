@@ -587,7 +587,9 @@ export class BillingSharedRepo {
                          service.nightAdjustmentMode,
                          service.nightAdjustmentValue,
                          service.isPackageUsed,
-                         service.packageid
+                         service.packageid,
+                         service.paymentstatus,
+                         service.paidamount
                     ];
                });
                const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
@@ -603,7 +605,9 @@ export class BillingSharedRepo {
 
           for (const item of services) {
                try {
-                    const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
+                    const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment,
+                         nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid, paymentstatus, paidamount] = item;
+
                     const outcome = await queryRunner("dboservices").insert({
                          billingid,
                          trackId,
@@ -633,7 +637,9 @@ export class BillingSharedRepo {
                          nightAdjustmentMode,
                          nightAdjustmentValue,
                          isPackageUsed,
-                         packageid
+                         packageid,
+                         paymentstatus,
+                         paidamount
                     });
 
                     if (outcome && item[5] != 5 && item[1]) {

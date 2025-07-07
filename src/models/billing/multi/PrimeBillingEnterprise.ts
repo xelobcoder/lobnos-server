@@ -16,6 +16,25 @@ export class PrimeBillingEnterprise {
 		this.connection = KnexConnection(this.tenantId);
 	}
 
+
+	static comparePaidAmountToServicesAndCart(
+		paidAmount: number,
+		services: { paidamount?: number }[] = [],
+		cart: { paidamount?: number }[] = []
+	) {
+		const totalServicePaid = services.reduce((sum, s) => sum + (typeof s.paidamount === 'number' ? s.paidamount : 0), 0);
+		const totalCartPaid = cart.reduce((sum, c) => sum + (typeof c.paidamount === 'number' ? c.paidamount : 0), 0);
+		const totalPaid = totalServicePaid + totalCartPaid;
+		const diff = Number((paidAmount - totalPaid).toFixed(2));
+		return {
+			equal: Math.abs(diff) < 0.01,
+			totalServicePaid,
+			totalCartPaid,
+			totalPaid,
+			diff
+		};
+	}
+
 	async getAppSettings(): Promise<ApplicationSettingsData | null> {
 		return await new ApplicationSettings().getAllAppSettings(this.tenantId);
 	}
@@ -28,6 +47,18 @@ export class PrimeBillingEnterprise {
 		const conn = await KnexConnection(this.tenantId);
 		const result = await conn("billing").where("patientid", patientId).sum("outstanding as totalOutstanding").first();
 		return result?.totalOutstanding || 0;
+	}
+
+	async checkIfCurrentLastInCorrectionOrder(billingid: number): Promise<boolean> {
+		if (!billingid) return false;
+		const conn = await KnexConnection(this.tenantId);
+		const result = await conn("billing")
+			.where("relatedBillingId", billingid)
+			.select("billingid")
+			.orderBy("billingid", "desc")
+			.first();
+		if (!result) return true;
+		return result.billingid === billingid
 	}
 
 	async hasOutstandingDebt(patientId: number): Promise<boolean> {
