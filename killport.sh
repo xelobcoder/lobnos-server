@@ -5,7 +5,7 @@
 echo "Finding process using port 5000..."
 
 # Find the PID of the process using port 5000 (properly formatted)
-PID=$(netstat -ano | grep ':9000 ' | grep 'LISTENING' | awk '{print $5}' | head -1 | tr -d '\r\n')
+PID=$(netstat -ano | grep ':5000 ' | grep 'LISTENING' | awk '{print $5}' | head -1 | tr -d '\r\n')
 
 if [ -z "$PID" ]; then
   echo "No process found running on port 5000"

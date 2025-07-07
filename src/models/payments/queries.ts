@@ -32,6 +32,7 @@ INNER JOIN billing AS b ON np.patientid = b.patientid
     FROM billing 
     WHERE patientid = ?
     AND outstanding > 0
+     AND (adjustmentType IS NULL OR adjustmentType != 'voided')
   `,
   updateSingleTransactionDebt: `
     UPDATE billing 

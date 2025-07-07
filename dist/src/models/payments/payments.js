@@ -3,11 +3,70 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+/*
+ * Payment logic for handling debt clearing, partial and full payments, and atomic updates to dboservices.
+ * - Ensures all dboservices are updated correctly for both full and partial payments.
+ * - Free services (totalpayable = 0) are always marked as paid.
+ * - All payment and service updates are transaction-safe.
+ */
 const queries_1 = require("./queries");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const helper_1 = require("../../hooks/helper");
 const billingclientTypes_1 = require("../billing/billingclientTypes");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 class Payment {
+    async handlePartialDebtClear(debts, amount, trx, tenantId, pymode, employeeid) {
+        let balance = amount;
+        for (const item of debts) {
+            if (balance <= 0)
+                break;
+            const { outstanding, paid, payable, discount, billingid } = item;
+            let paymentForThisBill = Math.min(balance, outstanding);
+            // Update billing debt as before
+            const paidAmount = parseFloat(paid.toString()) + paymentForThisBill;
+            const newOutstanding = parseFloat(payable.toString()) - (parseFloat(discount.toString()) + parseFloat(paid.toString()) + paymentForThisBill);
+            await this.updateSingleTransactionDebt(tenantId, billingid, paidAmount, newOutstanding, trx);
+            await this.updateTransactionHx(tenantId, billingid, pymode, paymentForThisBill, employeeid, trx);
+            // --- Update dboservices for this billingid ---
+            await this.applyPartialPaymentToServices(trx, billingid, paymentForThisBill);
+            balance -= paymentForThisBill;
+        }
+    }
+    async applyPartialPaymentToServices(trx, billingid, paymentAmount) {
+        if (paymentAmount <= 0)
+            return;
+        const services = await trx('dboservices')
+            .where({ billingid })
+            .orderBy('serviceid', 'asc');
+        let remaining = paymentAmount;
+        for (const service of services) {
+            const totalpayable = parseFloat(service.totalpayable || 0);
+            const paidamount = parseFloat(service.paidamount || 0);
+            if (totalpayable === 0) {
+                await trx('dboservices')
+                    .where({ serviceid: service.serviceid })
+                    .update({
+                    paidamount: 0,
+                    paymentstatus: 'paid'
+                });
+                continue;
+            }
+            if (remaining <= 0)
+                break;
+            const toPay = Math.min(totalpayable - paidamount, remaining);
+            if (toPay > 0) {
+                const newPaid = paidamount + toPay;
+                const newStatus = newPaid >= totalpayable ? 'paid' : 'partial';
+                await trx('dboservices')
+                    .where({ serviceid: service.serviceid })
+                    .update({
+                    paidamount: newPaid,
+                    paymentstatus: newStatus
+                });
+                remaining -= toPay;
+            }
+        }
+    }
     constructor(patientid) {
         this.getClientTransactionInformation = async (tenantId, records) => {
             try {
@@ -71,64 +130,72 @@ class Payment {
             return (0, helper_1.promisifyQuery)(tenantId, modelQuery, [patientid]);
         };
         this.allClientDebtTransactions = async (tenantId, patientid) => {
-            if (!patientid) {
+            if (!patientid)
                 throw new Error("patientid is required");
-            }
             const modelQuery = queries_1.queries.allClientDebtTransactions;
             return (0, helper_1.promisifyQuery)(tenantId, modelQuery, [patientid]);
         };
-        this.updateSingleTransactionDebt = async (tenantId, billingid, paid, outstanding) => {
+        this.updateSingleTransactionDebt = async (tenantId, billingid, paid, outstanding, trx) => {
             try {
-                return (0, helper_1.promisifyQuery)(tenantId, queries_1.queries.updateSingleTransactionDebt, [paid, outstanding, billingid]);
+                if (trx) {
+                    return trx.raw(queries_1.queries.updateSingleTransactionDebt, [paid, outstanding, billingid]);
+                }
+                else {
+                    return (0, helper_1.promisifyQuery)(tenantId, queries_1.queries.updateSingleTransactionDebt, [paid, outstanding, billingid]);
+                }
             }
             catch (err) {
                 return err;
             }
         };
-        this.updateTransactionHx = async (tenantId, billingid, payment, amount, employeeid) => {
+        this.updateTransactionHx = async (tenantId, billingid, payment, amount, employeeid, trx) => {
             const model = queries_1.queries.updateTransactionHx;
-            return (0, helper_1.promisifyQuery)(tenantId, model, [billingid, payment, amount, employeeid]);
+            if (trx) {
+                return trx.raw(model, [billingid, payment, amount, employeeid]);
+            }
+            else {
+                return (0, helper_1.promisifyQuery)(tenantId, model, [billingid, payment, amount, employeeid]);
+            }
         };
         this.clearClientDebtBulk = async (tenantId, patientid, amount, pymode, employeeid) => {
+            const conn = await (0, KnexConnections_1.default)(tenantId);
+            const trx = await conn.transaction();
             try {
-                if (!patientid) {
+                if (!patientid)
                     throw new Error("patientid is required");
-                }
                 const debts = await this.allClientDebtTransactions(tenantId, patientid);
                 if (debts.length === 0) {
+                    await trx.rollback();
                     return billingclientTypes_1.billErrors.noDebtToClear;
                 }
                 const totalDebt = debts.reduce((total, item) => total + item.outstanding, 0);
                 if (totalDebt === amount) {
-                    const result = await Promise.all(debts.map(async (item) => {
+                    let allSucceeded = true;
+                    for (const item of debts) {
                         const { outstanding, payable, billingid } = item;
-                        const dd = (0, helper_1.rowAffected)(await this.updateSingleTransactionDebt(tenantId, billingid, payable, 0));
-                        const tt = (0, helper_1.rowAffected)(await this.updateTransactionHx(tenantId, billingid, pymode, outstanding, employeeid));
-                        return dd && tt;
-                    }));
-                    return !result.some((a) => !a);
-                }
-                let balance = amount;
-                for (const item of debts) {
-                    if (balance <= 0)
-                        break;
-                    const { outstanding, paid, payable, discount, billingid } = item;
-                    if (outstanding > balance) {
-                        const paidAmount = parseFloat(paid.toString()) + balance;
-                        const newOutstanding = parseFloat(payable.toString()) - (parseFloat(discount.toString()) + parseFloat(paid.toString()) + parseFloat(balance.toString()));
-                        await this.updateSingleTransactionDebt(tenantId, billingid, paidAmount, newOutstanding);
-                        await this.updateTransactionHx(tenantId, billingid, pymode, balance, employeeid);
-                        balance = 0;
+                        const dd = (0, helper_1.rowAffected)(await this.updateSingleTransactionDebt(tenantId, billingid, payable, 0, trx));
+                        const tt = (0, helper_1.rowAffected)(await this.updateTransactionHx(tenantId, billingid, pymode, outstanding, employeeid, trx));
+                        await this.markAllServicesPaidForBilling(trx, billingid);
+                        if (!dd || !tt) {
+                            allSucceeded = false;
+                            break;
+                        }
+                    }
+                    if (allSucceeded) {
+                        await trx.commit();
+                        return true;
                     }
                     else {
-                        await this.updateSingleTransactionDebt(tenantId, billingid, payable, 0);
-                        await this.updateTransactionHx(tenantId, billingid, pymode, outstanding, employeeid);
-                        balance -= outstanding;
+                        await trx.rollback();
+                        return false;
                     }
                 }
+                await this.handlePartialDebtClear(debts, amount, trx, tenantId, pymode, employeeid);
+                await trx.commit();
                 return true;
             }
             catch (err) {
+                await trx.rollback();
                 throw new Error(err);
             }
         };
@@ -223,6 +290,20 @@ class Payment {
             }
         };
         this.patientid = patientid;
+    }
+    async markAllServicesPaidForBilling(trx, billingid) {
+        const services = await trx('dboservices')
+            .where({ billingid })
+            .whereIn('paymentstatus', ['pending', 'partial']);
+        for (const service of services) {
+            const totalpayable = parseFloat(service.totalpayable || 0);
+            await trx('dboservices')
+                .where({ serviceid: service.serviceid })
+                .update({
+                paidamount: totalpayable,
+                paymentstatus: 'paid'
+            });
+        }
     }
 }
 exports.default = Payment;
