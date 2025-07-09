@@ -34,6 +34,7 @@ import ExpensesAnalyticsRouter from './controllers/analytics/Expenses-analytics/
 import { DeviceManager } from './services/medical-devices/DeviceManager';
 import { TestHL7Client } from './services/medical-devices/TestHL7Client';
 import qualityControlRoutes from './controllers/QualityControl/qualityControlRoutes';
+import ExcelParser from './controllers/utilities/excelparserHandler';
 
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
@@ -103,6 +104,7 @@ app.use(PatientAnalytics);
 app.use(ExpensesAnalyticsRouter);
 app.use(qualityControlRoutes);
 app.use(smsPrimeRouter);
+app.use(ExcelParser);
 
 
 

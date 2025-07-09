@@ -37,6 +37,7 @@ const uploadController_1 = __importDefault(require("./controllers/uploads/upload
 const routes_5 = __importDefault(require("./controllers/registration/patient/routes"));
 const expenses_analytics_route_1 = __importDefault(require("./controllers/analytics/Expenses-analytics/expenses-analytics-route"));
 const qualityControlRoutes_1 = __importDefault(require("./controllers/QualityControl/qualityControlRoutes"));
+const excelparserHandler_1 = __importDefault(require("./controllers/utilities/excelparserHandler"));
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
@@ -88,6 +89,7 @@ app.use(patient_analytics_route_1.default);
 app.use(expenses_analytics_route_1.default);
 app.use(qualityControlRoutes_1.default);
 app.use(routes_6.default);
+app.use(excelparserHandler_1.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
