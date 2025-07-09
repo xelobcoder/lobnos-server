@@ -179,7 +179,6 @@ const getTestPanelCreationRule = async (req, res) => {
         res.send(rule);
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(res);
     }
 };

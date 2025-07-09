@@ -15,58 +15,6 @@ const helper_1 = require("../../hooks/helper");
 const billingclientTypes_1 = require("../billing/billingclientTypes");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 class Payment {
-    async handlePartialDebtClear(debts, amount, trx, tenantId, pymode, employeeid) {
-        let balance = amount;
-        for (const item of debts) {
-            if (balance <= 0)
-                break;
-            const { outstanding, paid, payable, discount, billingid } = item;
-            let paymentForThisBill = Math.min(balance, outstanding);
-            // Update billing debt as before
-            const paidAmount = parseFloat(paid.toString()) + paymentForThisBill;
-            const newOutstanding = parseFloat(payable.toString()) - (parseFloat(discount.toString()) + parseFloat(paid.toString()) + paymentForThisBill);
-            await this.updateSingleTransactionDebt(tenantId, billingid, paidAmount, newOutstanding, trx);
-            await this.updateTransactionHx(tenantId, billingid, pymode, paymentForThisBill, employeeid, trx);
-            // --- Update dboservices for this billingid ---
-            await this.applyPartialPaymentToServices(trx, billingid, paymentForThisBill);
-            balance -= paymentForThisBill;
-        }
-    }
-    async applyPartialPaymentToServices(trx, billingid, paymentAmount) {
-        if (paymentAmount <= 0)
-            return;
-        const services = await trx('dboservices')
-            .where({ billingid })
-            .orderBy('serviceid', 'asc');
-        let remaining = paymentAmount;
-        for (const service of services) {
-            const totalpayable = parseFloat(service.totalpayable || 0);
-            const paidamount = parseFloat(service.paidamount || 0);
-            if (totalpayable === 0) {
-                await trx('dboservices')
-                    .where({ serviceid: service.serviceid })
-                    .update({
-                    paidamount: 0,
-                    paymentstatus: 'paid'
-                });
-                continue;
-            }
-            if (remaining <= 0)
-                break;
-            const toPay = Math.min(totalpayable - paidamount, remaining);
-            if (toPay > 0) {
-                const newPaid = paidamount + toPay;
-                const newStatus = newPaid >= totalpayable ? 'paid' : 'partial';
-                await trx('dboservices')
-                    .where({ serviceid: service.serviceid })
-                    .update({
-                    paidamount: newPaid,
-                    paymentstatus: newStatus
-                });
-                remaining -= toPay;
-            }
-        }
-    }
     constructor(patientid) {
         this.getClientTransactionInformation = async (tenantId, records) => {
             try {
@@ -290,6 +238,58 @@ class Payment {
             }
         };
         this.patientid = patientid;
+    }
+    async handlePartialDebtClear(debts, amount, trx, tenantId, pymode, employeeid) {
+        let balance = amount;
+        for (const item of debts) {
+            if (balance <= 0)
+                break;
+            const { outstanding, paid, payable, discount, billingid } = item;
+            let paymentForThisBill = Math.min(balance, outstanding);
+            // Update billing debt as before
+            const paidAmount = parseFloat(paid.toString()) + paymentForThisBill;
+            const newOutstanding = parseFloat(payable.toString()) - (parseFloat(discount.toString()) + parseFloat(paid.toString()) + paymentForThisBill);
+            await this.updateSingleTransactionDebt(tenantId, billingid, paidAmount, newOutstanding, trx);
+            await this.updateTransactionHx(tenantId, billingid, pymode, paymentForThisBill, employeeid, trx);
+            // --- Update dboservices for this billingid ---
+            await this.applyPartialPaymentToServices(trx, billingid, paymentForThisBill);
+            balance -= paymentForThisBill;
+        }
+    }
+    async applyPartialPaymentToServices(trx, billingid, paymentAmount) {
+        if (paymentAmount <= 0)
+            return;
+        const services = await trx('dboservices')
+            .where({ billingid })
+            .orderBy('serviceid', 'asc');
+        let remaining = paymentAmount;
+        for (const service of services) {
+            const totalpayable = parseFloat(service.totalpayable || 0);
+            const paidamount = parseFloat(service.paidamount || 0);
+            if (totalpayable === 0) {
+                await trx('dboservices')
+                    .where({ serviceid: service.serviceid })
+                    .update({
+                    paidamount: 0,
+                    paymentstatus: 'paid'
+                });
+                continue;
+            }
+            if (remaining <= 0)
+                break;
+            const toPay = Math.min(totalpayable - paidamount, remaining);
+            if (toPay > 0) {
+                const newPaid = paidamount + toPay;
+                const newStatus = newPaid >= totalpayable ? 'paid' : 'partial';
+                await trx('dboservices')
+                    .where({ serviceid: service.serviceid })
+                    .update({
+                    paidamount: newPaid,
+                    paymentstatus: newStatus
+                });
+                remaining -= toPay;
+            }
+        }
     }
     async markAllServicesPaidForBilling(trx, billingid) {
         const services = await trx('dboservices')

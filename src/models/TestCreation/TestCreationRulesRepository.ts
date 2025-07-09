@@ -19,7 +19,7 @@ export interface TestCreationRule {
      undercategory?: boolean;
      categoryid?: number;
      valueAlert?: string;
-     hasGenderVariation:boolean;
+     hasGenderVariation: boolean;
      alert?: string;
 }
 
@@ -39,7 +39,7 @@ class TestCreationRulesRepository {
                     .select('id', 'name');
 
                const newRuleNames = rulesData.map(rule => rule.name);
-               const rulesToDelete = existingRules.filter(rule => 
+               const rulesToDelete = existingRules.filter(rule =>
                     !newRuleNames.includes(rule.name)
                );
 
@@ -120,7 +120,7 @@ class TestCreationRulesRepository {
                const conn = await this.connection;
                const result = await conn('testcreationrules')
                     .where({ testid: testId, id: ruleId })
-                    .first(); 
+                    .first();
                return result;
           } catch (error) {
                console.error('Test creation rule find by test and id error:', error);

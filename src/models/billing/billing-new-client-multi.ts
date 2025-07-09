@@ -43,10 +43,12 @@ export class SubmitCustomerBilling {
         this.connection = KnexConnection(this.tenantId);
     }
 
-    async adjustmentCorrectionDetermination(billingid: number, currentEntity: {entity_type:EntityType, entityid:number}): Promise<void> { 
+    async adjustmentCorrectionDetermination(billingid: number, currentEntity: { entity_type: EntityType, entityid: number }): Promise<void> {
         // 1. using the billingid we will load and get the entity information 
         // 2. use the services and test and use the current entity information and compute the necessary adjustments
         // 3. compare the two and forward the details to the frontend
+     
+
     }
 
     async submit(): Promise<{ status: boolean; message: string; billingid?: number }> {
@@ -105,41 +107,7 @@ export class SubmitCustomerBilling {
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
             }
-
-            let previousBillingSummary = null;
-
-
-            let currentAmountPayable = 0;
-            let previousPaidAmount = 0;
-            let outstandingBtnPreviousPaidAndCurenntPayable = 0;
-            let isExcessAmount = false;
-            let currentPaymentMade = 0;
-            let totalPaymentMade = 0;
-
-
-
-            if (this.payload.billingid && isAdjustment == 1 && adjustmentType === "correction" && checkoutResult.data && checkoutResult.data.previousBilling) {
-                if (checkoutResult.data && checkoutResult.data.previousBilling) {
-                    const billingid = this.payload.billingid;
-                    const isLastInCorrectionOrder = await new PrimeBillingEnterprise(this.tenantId).checkIfCurrentLastInCorrectionOrder(billingid);
-                    if (!isLastInCorrectionOrder) return { status: false, message: "This billing record is not the last in the correction order. Please check and try again. Please use the correction flow." };
-                }
-
-                const { newPayments, totalPaid, currentPayable, outstandingToWriteOff, isExcess, previousPaid } = calculateCorrectionalAdjustment({
-                    previousRecordsSummary: previousBillingSummary,
-                    amountPayable: checkoutResult.data.amountPayable, payments: this.payload.payments
-                })
-
-                totalPaymentMade = totalPaid;
-                currentAmountPayable = currentPayable;
-                totalPaymentMade = totalPaid;
-                previousPaidAmount = previousPaid
-                isExcessAmount = isExcess;
-                outstandingBtnPreviousPaidAndCurenntPayable = outstandingToWriteOff;
-                currentPaymentMade = newPayments;
-            }
-
-
+          
 
             let hasRelatedBilling = false;
             if (this.payload.billingid) {
@@ -239,22 +207,6 @@ export class SubmitCustomerBilling {
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
 
 
-                if (this.payload.isAdjustment == 1 && this.payload.adjustmentType === "correction") {
-                    totalAmountPayable = Number(currentAmountPayable.toFixed(2));
-                    if (isExcessAmount && this.payload.writeOffOutstanding) {
-                        totalOutstanding = 0;
-                        writeOffAmount = Number(outstandingBtnPreviousPaidAndCurenntPayable.toFixed(2));
-                    } else {
-                        totalOutstanding = Number(outstandingBtnPreviousPaidAndCurenntPayable.toFixed(2));
-                        writeOffAmount = 0;
-                    }
-                    overallPaymentsMade = totalPaymentMade;
-                    balance = totalPaymentMade > totalAmountPayable ? 0 : Number((totalAmountPayable - totalPaymentMade).toFixed(2));
-                } else {
-                    totalAmountPayable = Number(data.amountPayable ? Number(data.amountPayable).toFixed(2) : 0);
-                    totalOutstanding = Number((amountPayable - this.payload.paid).toFixed(2));
-                    balance = this.payload.paid > totalAmountPayable ? 0 : Number((totalAmountPayable - this.payload.paid).toFixed(2));
-                }
 
 
                 const updateData = {

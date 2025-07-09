@@ -150,7 +150,7 @@ class SubmitCustomerBilling {
                         await billing_shared_1.BillingSharedRepo.insertBillHistory(trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
-                // await trx.commit();
+                await trx.commit();
             }
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         }

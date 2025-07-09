@@ -164,7 +164,6 @@ export const getTestPanelCreationRule = async (req: Request, res: Response) => {
           const rule: any[] = await new TestCreationRulesRepository(tenantId).findByTestId(parsedTestId);
           res.send(rule);
      } catch (err) {
-          console.log(err)
           responseError(res);
      }
 };

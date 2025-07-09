@@ -64,6 +64,7 @@ const getPreviousResultEntryRecordsIfAny = async function (request, response) {
             if (typeof records !== "string") {
                 let result = records === null || records === void 0 ? void 0 : records.result;
                 const decryptedResult = await (0, resultEncryptionReferer_1.default)(result, "decryption");
+                console.log(decryptedResult, 'decryptedResult');
                 if (decryptedResult != undefined) {
                     const { resources } = decryptedResult;
                     if (resources && Array.isArray(resources) && resources.length > 0) {

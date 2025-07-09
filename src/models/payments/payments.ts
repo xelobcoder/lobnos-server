@@ -13,6 +13,11 @@ import { billErrors } from "../billing/billingclientTypes";
 import KnexConnection from "../../database/KnexConnections";
 
 class Payment {
+	private patientid: number;
+	constructor(patientid: number) {
+		this.patientid = patientid;
+	}
+
 	private async handlePartialDebtClear(
 		debts: ClientDebtTransaction[],
 		amount: number,
@@ -69,11 +74,6 @@ class Payment {
 				remaining -= toPay;
 			}
 		}
-	}
-	private patientid: number;
-
-	constructor(patientid: number) {
-		this.patientid = patientid;
 	}
 
 	private async markAllServicesPaidForBilling(trx: any, billingid: number) {

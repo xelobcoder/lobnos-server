@@ -37,12 +37,11 @@ const uploadController_1 = __importDefault(require("./controllers/uploads/upload
 const routes_5 = __importDefault(require("./controllers/registration/patient/routes"));
 const expenses_analytics_route_1 = __importDefault(require("./controllers/analytics/Expenses-analytics/expenses-analytics-route"));
 const qualityControlRoutes_1 = __importDefault(require("./controllers/QualityControl/qualityControlRoutes"));
-const route_18 = __importDefault(require("./controllers/billing/AdvancedBillingStrategy/route"));
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
 const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
-const route_19 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
+const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -53,7 +52,7 @@ app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 // app.use(checkTokenExists);
 app.use(validateTenancy_1.ValidateTenancyAgreement);
-app.use(route_19.default);
+app.use(route_18.default);
 app.use(route_16.default);
 app.use(index_1.default);
 app.use(sampleContainerRoutes_1.default);
@@ -88,7 +87,6 @@ app.use(routes_5.default);
 app.use(patient_analytics_route_1.default);
 app.use(expenses_analytics_route_1.default);
 app.use(qualityControlRoutes_1.default);
-app.use(route_18.default);
 app.use(routes_6.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });

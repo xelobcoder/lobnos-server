@@ -50,8 +50,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                previousServices = await conn('dboservices').where('billingid', billingid).select();
           }
 
-          // const totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
-          // if (totalOutstanding > 0) return { success: false, message: 'Outstanding debt found' };
+          const totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
+          if (totalOutstanding > 0) return { success: false, message: 'Outstanding debt found' };
 
           const appsettings: ApplicationSettingsData | null = await this.getAppSettings();
           const { includeTax, billingsettings } = appsettings || {};

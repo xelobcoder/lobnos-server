@@ -47,6 +47,7 @@ export class SubmitCustomerBilling {
                 ...rest
             } = this.payload;
 
+
             const checkoutResult = await CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -209,7 +210,7 @@ export class SubmitCustomerBilling {
                     }
                 }
 
-                // await trx.commit();
+                await trx.commit();
             }
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         } catch (error: any) {

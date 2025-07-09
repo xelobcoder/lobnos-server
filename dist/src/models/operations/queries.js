@@ -1,6 +1,56 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.q_get_test_conditions = exports.q_test_definition_conditions = exports.q_test_multi_delete_testCondition = exports.q_test_multi_update_testCondition = exports.q_test_multi_read_testCondition = exports.q_test_multi_delete_testConditionDefinition = exports.q_test_multi_update_testConditionDefinition = exports.q_test_multi_read_testConditionDefinition = exports.q_test_multi_create_testConditionDefinition = exports.q_get_date_for_tat_analysis = exports.q_update_general_ascension_test_edit_count = exports.q_transaction_ascension_phelobotomy_details = exports.q_pending_sample_uncollected = exports.q_ascension_find_id = exports.q_get_stages_column_dual = exports.q_update_ascension_result_entry_state = exports.q_update_ascension_processing_state = exports.q_update_ascension_collection_state = exports.q_get_pending_ascension_cases = exports.delete_test_ascension_billed = exports.q_update_test_ascesion_ready = exports.q_update_test_ascesion_processing = exports.q_update_test_ascesion_collection = exports.q_get_all_test_preview = exports.q_get_all_entered_result = exports.q_ultrasound_processed_list = exports.q_ultrasound_waitingList = exports.q_get_all_result_entry_partitioning_ultrasound = exports.q_get_all_result_entry_partitioning = exports.q_get_all_test_ready_for_various_stages_ultrasound = exports.q_get_all_test_ready_for_various_stages = exports.OperationsStages = exports.q_get_all_result_entry_ultrasound_base = exports.q_get_all_result_entry_base = exports.q_log_result_entry = exports.q_qualifiedToProcessByDepartment = exports.q_billing_test_collection = exports.q_entered_result_part = exports.q_approved_samples = exports.q_checkbillingid = void 0;
+exports.q_get_test_conditions = exports.q_test_definition_conditions = exports.q_test_multi_delete_testCondition = exports.q_test_multi_update_testCondition = exports.q_test_multi_read_testCondition = exports.q_test_multi_delete_testConditionDefinition = exports.q_test_multi_update_testConditionDefinition = exports.q_test_multi_read_testConditionDefinition = exports.q_test_multi_create_testConditionDefinition = exports.q_get_date_for_tat_analysis = exports.q_update_general_ascension_test_edit_count = exports.q_transaction_ascension_phelobotomy_details = exports.q_pending_sample_uncollected = exports.q_ascension_find_id = exports.q_get_stages_column_dual = exports.q_update_ascension_result_entry_state = exports.q_update_ascension_processing_state = exports.q_update_ascension_collection_state = exports.q_get_pending_ascension_cases = exports.delete_test_ascension_billed = exports.q_update_test_ascesion_ready = exports.q_update_test_ascesion_processing = exports.q_update_test_ascesion_collection = exports.q_get_all_test_preview = exports.q_get_all_entered_result = exports.q_ultrasound_processed_list = exports.q_ultrasound_waitingList = exports.q_get_all_result_entry_partitioning_ultrasound = exports.q_get_all_result_entry_partitioning = exports.q_get_all_test_ready_for_various_stages_ultrasound = exports.q_get_all_test_ready_for_various_stages = exports.OperationsStages = exports.q_get_all_result_entry_ultrasound_base = exports.q_get_all_result_entry_base = exports.q_log_result_entry = exports.q_qualifiedToProcessByDepartment = exports.q_billing_test_collection = exports.q_entered_result_part = exports.q_approved_samples = exports.q_checkbillingid = exports.q_upsert_tat_analysis_archive = exports.q_get_ascension_ids_for_tat_archive = exports.q_get_tat_analysis_archive_by_date = void 0;
+// Query to fetch TAT analysis archive by date range
+exports.q_get_tat_analysis_archive_by_date = `
+  SELECT * FROM tat_analysis_archive
+  WHERE computed_date BETWEEN ? AND ?
+  ORDER BY computed_date DESC, ascensionid DESC
+`;
+exports.q_get_ascension_ids_for_tat_archive = `
+  SELECT ta.id
+  FROM test_ascension AS ta
+  INNER JOIN dboservices AS ss ON ss.serviceid = ta.serviceid
+  INNER JOIN billing AS bb ON bb.billingid = ss.billingid
+  WHERE ta.collectionStartDate IS NOT NULL
+    AND ta.collectionEndDate IS NOT NULL
+    AND ta.processingStartDate IS NOT NULL
+    AND ta.processingEndDate IS NOT NULL
+    AND ta.resultEntryStart IS NOT NULL
+    AND ta.resultEntryEnd IS NOT NULL
+    AND bb.billedon IS NOT NULL
+    AND DATE(ta.resultEntryEnd) = CURDATE() - INTERVAL 1 DAY
+  ORDER BY ta.id ASC
+`;
+// Upsert TAT analysis archive (for use in TurnAroundTime.ts)
+exports.q_upsert_tat_analysis_archive = `
+  INSERT INTO tat_analysis_archive (
+    ascensionid, billedon, test, setTat, setPreTat, setProcessingTat, setPostTat,
+    collectionStartDate, collectionEndDate, processingStartDate, processingEndDate,
+    resultEntryStart, resultEntryEnd, preTAT, processingTAT, postTAT, totalTAT,
+    preTatMinutes, processingTatMinutes, postTatMinutes, totalTatMinutes,
+    preTatExceededBy, processingTatExceededBy, postTatExceededBy, totalTatExceededBy,
+    preTATExceeded, processingTATExceeded, postTATExceeded, tatExceeded,
+    tatConsistencyWarning, patientName, computed_date, locked
+  ) VALUES (
+    ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?
+  )
+  ON DUPLICATE KEY UPDATE
+    billedon=VALUES(billedon), test=VALUES(test), setTat=VALUES(setTat), setPreTat=VALUES(setPreTat),
+    setProcessingTat=VALUES(setProcessingTat), setPostTat=VALUES(setPostTat),
+    collectionStartDate=VALUES(collectionStartDate), collectionEndDate=VALUES(collectionEndDate),
+    processingStartDate=VALUES(processingStartDate), processingEndDate=VALUES(processingEndDate),
+    resultEntryStart=VALUES(resultEntryStart), resultEntryEnd=VALUES(resultEntryEnd),
+    preTAT=VALUES(preTAT), processingTAT=VALUES(processingTAT), postTAT=VALUES(postTAT), totalTAT=VALUES(totalTAT),
+    preTatMinutes=VALUES(preTatMinutes), processingTatMinutes=VALUES(processingTatMinutes),
+    postTatMinutes=VALUES(postTatMinutes), totalTatMinutes=VALUES(totalTatMinutes),
+    preTatExceededBy=VALUES(preTatExceededBy), processingTatExceededBy=VALUES(processingTatExceededBy),
+    postTatExceededBy=VALUES(postTatExceededBy), totalTatExceededBy=VALUES(totalTatExceededBy),
+    preTATExceeded=VALUES(preTATExceeded), processingTATExceeded=VALUES(processingTATExceeded),
+    postTATExceeded=VALUES(postTATExceeded), tatExceeded=VALUES(tatExceeded),
+    tatConsistencyWarning=VALUES(tatConsistencyWarning), patientName=VALUES(patientName),
+    locked=VALUES(locked)
+`;
 exports.q_checkbillingid = "SELECT * FROM billing WHERE billingid = ?";
 exports.q_approved_samples = "SELECT * FROM samplestatus WHERE billingid = ? AND approvalstatus= 1";
 exports.q_entered_result_part = `SELECT ta.testid,
@@ -125,12 +175,12 @@ const q_get_all_test_ready_for_various_stages = function (currentQuery, stage) {
         case OperationsStages.VALIDATION:
             query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
      AND d.department <> 'ultrasound'
-			`;
+      `;
             return query;
         case OperationsStages.VALIDATED:
             query += `AND ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 1
      AND d.department <> 'ultrasound'
-			`;
+      `;
             return query;
         default:
             return null;
@@ -142,11 +192,11 @@ const q_get_all_test_ready_for_various_stages_ultrasound = function (currentQuer
     switch (stage) {
         case OperationsStages.ULTRASOUND_UNCOMPLETED:
             query += ` AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL) 
-			`;
+      `;
             return query;
         case OperationsStages.ULTRASOUND_COMPLETED:
             query += `AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL )
-			`;
+      `;
             return query;
         default:
             return null;
@@ -349,19 +399,20 @@ exports.q_get_date_for_tat_analysis = `SELECT
           ta.*, 
           ss.*,
           tp.name AS testname,
-td.pre_tat,
-td.tat,
-td.post_Tat,
-          bb.*, 
+          td.pre_tat,
+          td.tat,
+          td.post_Tat,
+          bb.billedon, 
           ta.id AS ascensionid, 
           np.* 
-FROM test_ascension AS ta
-INNER JOIN dboservices AS ss ON ss.serviceid = ta.serviceid
-INNER JOIN billing AS bb ON bb.billingid = ss.billingid
-INNER JOIN new_patients AS np ON np.patientid = bb.patientid
-INNER JOIN test_panels AS tp ON tp.id = ta.testid
-INNER JOIN testdetails AS td ON td.testid = tp.id
-LIMIT ? OFFSET ?`;
+      FROM test_ascension AS ta
+      INNER JOIN dboservices AS ss ON ss.serviceid = ta.serviceid
+      INNER JOIN billing AS bb ON bb.billingid = ss.billingid
+      INNER JOIN new_patients AS np ON np.patientid = bb.patientid
+      INNER JOIN test_panels AS tp ON tp.id = ta.testid
+      INNER JOIN testdetails AS td ON td.testid = tp.id
+      INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
+      WHERE `;
 exports.q_test_multi_create_testConditionDefinition = "INSERT INTO testConditionDefinitions (conditionName, testId) VALUES (?, ?)";
 exports.q_test_multi_read_testConditionDefinition = "SELECT * FROM testConditionDefinitions WHERE id = ?";
 exports.q_test_multi_update_testConditionDefinition = "UPDATE testConditionDefinitions SET conditionName = ?, testId = ? WHERE id = ?";

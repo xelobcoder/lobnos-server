@@ -56,7 +56,6 @@ export const resultEntry = async (req: IRequest, response: IResponse): Promise<v
 export const getPreviousResultEntryRecordsIfAny = async function (request: IRequest, response: IResponse) {
 	try {
 		const { csvid, ptid, testid, target = '70,50', tenantId } = request.query;
-
 		if (!csvid || !ptid) return customError("required params are missing", 400, response)
 		const parsedTestId = parseInt(testid.toString());
 		const rule = new Creator(parsedTestId);
@@ -70,6 +69,7 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: IRequ
 			if (typeof records !== "string") {
 				let result = records?.result;
 				const decryptedResult = await resultEncrptionReferer(result as any, "decryption");
+				console.log(decryptedResult, 'decryptedResult')
 				if (decryptedResult != undefined) {
 					const { resources } = decryptedResult;
 					if (resources && Array.isArray(resources) && resources.length > 0) {
@@ -100,9 +100,9 @@ export const getResultCommentsHandler = async function (request: IRequest, respo
 		}
 
 		const tenantIdP = parseInt(tenantId.toString())
-
 		const parsedTestid = parseInt(testid.toString());
 		const creator = new Creator(parsedTestid);
+
 		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid as string, ptid as string, '70,50');
 		const parsedBillingid = parseInt(billingid.toString());
 		const comments = await creator.getCustomCommentsRecords(tenantIdP, parsedBillingid, parsedTestid);
@@ -340,7 +340,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 						dataset.literatureReview = literatureReview.literature
 					}
 
-					const records = await new  Creator(testid).resultPresentationView(tenantIdP, testid,billingid,patientid) as previewReportView
+					const records = await new Creator(testid).resultPresentationView(tenantIdP, testid, billingid, patientid) as previewReportView
 
 
 					if (records != null && typeof records != "string") {
