@@ -18,10 +18,42 @@ export class ReferralCodingRepo {
           this.connection = KnexConnection(tenantId);
      }
 
-     async create(data: Omit<ReferralCoding, 'id'>): Promise<number> {
+     async generateCode(entity_type: EntityType): Promise<string> {
           try {
                const conn = await this.connection;
-               const [id] = await conn('referralcoding').insert(data);
+               const existingCodes = await conn('referralcoding')
+                    .where({ entity_type })
+                    .select('code');
+
+               let prefix = 'A';
+               if (entity_type === 'insurance') prefix = 'I';
+               else if (entity_type === 'clinician') prefix = 'C';
+               else if (entity_type === 'organization') prefix = 'O';
+
+               let maxNum = 0;
+               for (const row of existingCodes) {
+                    const match = new RegExp(`^${prefix}(\\d{3})$`).exec(row.code);
+                    if (match) {
+                         const num = parseInt(match[1], 10);
+                         if (num > maxNum) maxNum = num;
+                    }
+               }
+
+               const nextNum = maxNum + 1;
+               const code = `${prefix}${nextNum.toString().padStart(3, '0')}`;
+               return code;
+          } catch (error) {
+               console.error('ReferralCoding generateCode error:', error);
+               throw error;
+          }
+     }
+
+     async create(data: Omit<ReferralCoding, 'id'>, trx?: any): Promise<number> {
+          try {
+               const conn = trx || await this.connection;
+               const code = await this.generateCode(data.entity_type);
+               const insertData = { ...data, code };
+               const [id] = await conn('referralcoding').insert(insertData);
                return id;
           } catch (error) {
                console.error('ReferralCoding create error:', error);
@@ -53,7 +85,7 @@ export class ReferralCodingRepo {
           try {
                const conn = await this.connection;
                const result = await conn('referralcoding').where({ code });
-               return result.length > 0 ? result[0]: null;
+               return result.length > 0 ? result[0] : null;
           } catch (error) {
                console.error('ReferralCoding findByCode error:', error);
                throw error;

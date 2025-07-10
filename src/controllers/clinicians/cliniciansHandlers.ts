@@ -1,4 +1,4 @@
-import { Request, response, Response } from "express";
+import { NextFunction, Request, response, Response } from "express";
 import Registration from "../../models/registration/registration";
 import { Clinician } from "../../models/clincians/types";
 import { responseError, customError } from "../../hooks/helper";
@@ -9,13 +9,37 @@ import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSc
 export async function getCliniciansHandler(request: Request, response: Response): Promise<Response> {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString())
-		const cliniciansList: Clinician[] = await new ClinicianClass().getClinicians(tenantId,request.query);
+		const cliniciansList: Clinician[] = await new ClinicianClass().getClinicians(tenantId, request.query);
 		return response.send({ statusCode: 200, status: "success", result: cliniciansList });
 	} catch (err) {
 		console.log(err);
 		responseError(response);
 	}
 }
+
+export const bulkInsertCliniciansHandler = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseFloat(req.query.tenantId as string);
+		const clinicians = req.body.data as Array<Partial<PrimeLimsTableclinicianbasicinfo>>;
+		if (!Array.isArray(clinicians) || clinicians.length === 0) {
+			return res.status(400).json({ success: false, message: "No clinicians provided" });
+		}
+		const clinicianClass = new ClinicianClass();
+		const results = await clinicianClass.insertCliniciansBulk(tenantId, clinicians);
+		const successCount = results.filter(r => typeof r === 'number').length;
+		const failCount = results.length - successCount;
+		return res.status(200).json({
+			success: failCount === 0,
+			partialSuccess: failCount > 0 && successCount > 0,
+			total: results.length,
+			successCount,
+			failCount,
+			results
+		});
+	} catch (error) {
+		return res.status(500).json({ success: false, message: "Bulk insert failed", error: error?.message || error });
+	}
+};
 
 export async function getSingleClinicianHandler(req: Request, res: Response) {
 	const { id } = req.query as { id?: string };
@@ -27,8 +51,6 @@ export async function getSingleClinicianHandler(req: Request, res: Response) {
 	const tenantId = parseInt(req.query.tenantId.toString())
 
 	try {
-		// Fetch clinician data using the provided ID
-		
 		const result = await new ClinicianClass().getSingleClinician(tenantId, parseInt(id));
 
 		if (result) {
@@ -108,7 +130,7 @@ export async function deleteCliniciansHandler(request: Request, response: Respon
 
 export async function postCliniciansHandler(req: Request, res: Response): Promise<void> {
 	try {
-		const outcome = await new ClinicianClass().postClinicianBasicInfo(req, res);
+		const outcome = await new ClinicianClass().postClinicianBasicInfo({ ...req.body, tenantId: req.query.tenantId });
 		if (typeof outcome !== "number" || typeof outcome === "string") {
 			return customError(outcome, 404, res);
 		}
@@ -116,6 +138,21 @@ export async function postCliniciansHandler(req: Request, res: Response): Promis
 	} catch (err) {
 		customError("Something wrong ocured", 500, res);
 	}
+}
+
+
+export async function verifyClinicianPhoneNumberAndEmailMiddleware(request: Request, response: Response, next: NextFunction) {
+	const phone = request.body.phone;
+	const email = request.body.email;
+	const TenantId = request.query.tenantId;
+	if (!phone) return customError("Phone number and email required", 401, response);
+	const tenantIdP = parseInt(TenantId.toString());
+	const clinicianClass = new ClinicianClass();
+	const result = await clinicianClass.verifyClinicianPhoneNumberAndEmail(tenantIdP, email, phone);
+	if (result !== true) {
+		return customError(result, 401, response);
+	}
+	next();
 }
 
 

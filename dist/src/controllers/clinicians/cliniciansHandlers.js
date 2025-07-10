@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.postProcessedOrderHandler = exports.getTemporaryOrdersProcessingHandler = exports.getTemporaryOrdersHandler = exports.postTemporaryOrderHandler = exports.getBillingTestBasedByClinicianHandler = exports.getClinicianResultHandler = exports.filterClinicianHandler = exports.postCliniciansHandler = exports.deleteCliniciansHandler = exports.putCliniciansHandler = exports.getSingleClinicianHandler = exports.getCliniciansHandler = void 0;
+exports.postProcessedOrderHandler = exports.getTemporaryOrdersProcessingHandler = exports.getTemporaryOrdersHandler = exports.postTemporaryOrderHandler = exports.getBillingTestBasedByClinicianHandler = exports.getClinicianResultHandler = exports.filterClinicianHandler = exports.verifyClinicianPhoneNumberAndEmailMiddleware = exports.postCliniciansHandler = exports.deleteCliniciansHandler = exports.putCliniciansHandler = exports.getSingleClinicianHandler = exports.bulkInsertCliniciansHandler = exports.getCliniciansHandler = void 0;
 const express_1 = require("express");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
 const helper_1 = require("../../hooks/helper");
@@ -21,6 +21,31 @@ async function getCliniciansHandler(request, response) {
     }
 }
 exports.getCliniciansHandler = getCliniciansHandler;
+const bulkInsertCliniciansHandler = async (req, res) => {
+    try {
+        const tenantId = parseFloat(req.query.tenantId);
+        const clinicians = req.body.data;
+        if (!Array.isArray(clinicians) || clinicians.length === 0) {
+            return res.status(400).json({ success: false, message: "No clinicians provided" });
+        }
+        const clinicianClass = new clinicianClass_1.default();
+        const results = await clinicianClass.insertCliniciansBulk(tenantId, clinicians);
+        const successCount = results.filter(r => typeof r === 'number').length;
+        const failCount = results.length - successCount;
+        return res.status(200).json({
+            success: failCount === 0,
+            partialSuccess: failCount > 0 && successCount > 0,
+            total: results.length,
+            successCount,
+            failCount,
+            results
+        });
+    }
+    catch (error) {
+        return res.status(500).json({ success: false, message: "Bulk insert failed", error: (error === null || error === void 0 ? void 0 : error.message) || error });
+    }
+};
+exports.bulkInsertCliniciansHandler = bulkInsertCliniciansHandler;
 async function getSingleClinicianHandler(req, res) {
     const { id } = req.query;
     if (!id) {
@@ -28,7 +53,6 @@ async function getSingleClinicianHandler(req, res) {
     }
     const tenantId = parseInt(req.query.tenantId.toString());
     try {
-        // Fetch clinician data using the provided ID
         const result = await new clinicianClass_1.default().getSingleClinician(tenantId, parseInt(id));
         if (result) {
             return res.send({
@@ -111,7 +135,7 @@ async function deleteCliniciansHandler(request, response) {
 exports.deleteCliniciansHandler = deleteCliniciansHandler;
 async function postCliniciansHandler(req, res) {
     try {
-        const outcome = await new clinicianClass_1.default().postClinicianBasicInfo(req, res);
+        const outcome = await new clinicianClass_1.default().postClinicianBasicInfo(Object.assign(Object.assign({}, req.body), { tenantId: req.query.tenantId }));
         if (typeof outcome !== "number" || typeof outcome === "string") {
             return (0, helper_1.customError)(outcome, 404, res);
         }
@@ -122,6 +146,21 @@ async function postCliniciansHandler(req, res) {
     }
 }
 exports.postCliniciansHandler = postCliniciansHandler;
+async function verifyClinicianPhoneNumberAndEmailMiddleware(request, response, next) {
+    const phone = request.body.phone;
+    const email = request.body.email;
+    const TenantId = request.query.tenantId;
+    if (!phone)
+        return (0, helper_1.customError)("Phone number and email required", 401, response);
+    const tenantIdP = parseInt(TenantId.toString());
+    const clinicianClass = new clinicianClass_1.default();
+    const result = await clinicianClass.verifyClinicianPhoneNumberAndEmail(tenantIdP, email, phone);
+    if (result !== true) {
+        return (0, helper_1.customError)(result, 401, response);
+    }
+    next();
+}
+exports.verifyClinicianPhoneNumberAndEmailMiddleware = verifyClinicianPhoneNumberAndEmailMiddleware;
 async function filterClinicianHandler(req, res) {
     const { data } = req.body;
     if (!data) {

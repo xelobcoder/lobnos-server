@@ -1,6 +1,10 @@
+
 import { PrimeLimsTableorganization } from "../../database/DatabaseTableSchema";
+import KnexConnection from "../../database/KnexConnections";
+import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import User from "../../LobnosAuth/user";
+import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
 import { newOrganization, OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "./OrgaInterfac";
 import {
 	MONTHLYSALESQUERY,
@@ -55,6 +59,77 @@ class Organization {
 		return rows.length > 0;
 	}
 
+
+	async insertOrganizationsBulk(tenantId: number, organizations: Array<OrganizationRequestBody>): Promise<Array<number | string>> {
+		const results: Array<number | string> = [];
+		for (const org of organizations) {
+			const { name, location, street, mobile, address, website, email, gpsMapping, region, type } = org;
+			try {
+				const has_organization = await this.hasOrganization(tenantId, name);
+				if (has_organization) {
+					results.push(`Duplicate: ${name}`);
+					continue;
+				}
+
+				const validPhone = TiifuWorkingClass.isNumberPhoneNumber(mobile);
+				const isValidEmail = TiifuWorkingClass.isEmailValidEmail(email);
+
+				if (!validPhone) {
+					results.push(`Invalid phone number: ${mobile}`);
+					continue;
+				}
+
+				if (email && !isValidEmail) {
+					results.push(`Invalid email address: ${email}`);
+					continue;
+				}
+
+				const values = [
+					name ?? "",
+					location ?? "",
+					street ?? "",
+					mobile ?? "",
+					address ?? "",
+					website ?? "",
+					email ?? "",
+					gpsMapping ?? "",
+					region ?? "",
+					type ?? ""
+				];
+
+				if (!name) {
+					results.push(`Missing required field: name`);
+					continue;
+				}
+				const connection = await KnexConnection(tenantId);
+				const trx = await connection.transaction();
+				try {
+					const [result] = await trx.raw(q_create_an_organization, values);
+					const insertId = result?.insertId || result?.[0]?.insertId;
+					if (insertId !== 0 && insertId !== undefined) {
+						const referralRepo = new ReferralCodingRepo(tenantId);
+						await referralRepo.create({ entity_id: insertId, entity_type: 'organization', code: 0 }, trx);
+						await trx.commit();
+						results.push(insertId);
+					} else {
+						await trx.rollback();
+						results.push(`Insert failed: ${name}`);
+					}
+				} catch (err) {
+					await trx.rollback();
+					if (err && err.sqlState === '23000' && err.sqlMessage && err.sqlMessage.includes('Duplicate entry')) {
+						results.push(`Duplicate entry error: ${err.sqlMessage}`);
+						continue;
+					}
+					results.push(`Error: ${err?.message || err}`);
+				}
+			} catch (err) {
+				results.push(`Error: ${err?.message || err}`);
+			}
+		}
+		return results;
+	}
+
 	async deleteOrganization(tenantId: number, employeeid: number, isPasswordConfirmed: false) {
 		if (!this.organizationId || !employeeid || !isPasswordConfirmed)
 			throw new Error("invalid arguments provided");
@@ -76,8 +151,26 @@ class Organization {
 		const has_organization = await this.hasOrganization(tenantId, name);
 		if (has_organization) return OperationsStatus.exist;
 		const values = [name, location, street, mobile, address, website, email, gpsMapping, region, type];
-		const result = await promisifyQuery(tenantId, q_create_an_organization, values);
-		return rowAffected(result);
+
+		const connection = await KnexConnection(tenantId);
+		const trx = await connection.transaction();
+		try {
+			const [result] = await trx.raw(q_create_an_organization, values);
+			const insertId = result?.insertId || result?.[0]?.insertId;
+			if (insertId !== 0 && insertId !== undefined) {
+				const referralRepo = new ReferralCodingRepo(tenantId);
+				await referralRepo.create({ entity_id: insertId, entity_type: 'organization', code: 0 }, trx);
+				await trx.commit();
+				return rowAffected(result);
+			} else {
+				await trx.rollback();
+				return "Adding new organization failed";
+			}
+		} catch (err) {
+			await trx.rollback();
+			console.error("Error adding new organization:", err);
+			return "Error adding new organization";
+		}
 	}
 
 	public async getOrganizationWithDetails(tenantId: number, params: searchQueryParams) {
@@ -122,7 +215,7 @@ class Organization {
 	}
 
 	static async paginatedOrganizationInformation(tenantId: number, page: number, count: number): Promise<PrimeLimsTableorganization[]> {
-		return await promisifyQuery(tenantId, paginated_org_data, [count,page])
+		return await promisifyQuery(tenantId, paginated_org_data, [count, page])
 	}
 
 	async updateOrganizationalContactInfo(tenantId: number, requestBody: OrgContactInfo) {
@@ -261,9 +354,9 @@ class Organization {
 			q_query += ` WHERE ${conditions.join(' AND ')}`;
 		}
 		q_query += `
-    GROUP BY o.id, o.name
-    ORDER BY TotalSales DESC
-    LIMIT ?
+	GROUP BY o.id, o.name
+	ORDER BY TotalSales DESC
+	LIMIT ?
   `;
 		parameters.push(count);
 		let result = await promisifyQuery(tenantId, q_query, parameters);

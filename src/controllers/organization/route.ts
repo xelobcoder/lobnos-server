@@ -6,7 +6,7 @@ import {
      updateTestPanelOutsourcingInformation, getTestOutSourcingOrganizations
 } from "./outsourceHandlers"
 import { organizationImageUpload } from './uploadImages'
-import { createAOrganization, createOrganizationPricingHandler, dailyOrganizationCommission, deleteOrganization, generateMonthlySalesReport, getOrganizationCommissionByMonth, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationWithDetails, getTopPerformance, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
+import { bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler, dailyOrganizationCommission, deleteOrganization, generateMonthlySalesReport, getOrganizationCommissionByMonth, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationWithDetails, getTopPerformance, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
 import { handleOverLoad } from '../../hooks/helper';
 
 
@@ -30,8 +30,9 @@ router.put("/api/v1/organization/update/payment", updateOrganizationPayment);
 router.post("/api/v1/new/organization/images", upload);
 router.delete("/api/v1/organization", deleteOrganization);
 router.post(`/api/v1/organization/profile/image`, organizationImageUpload, uploadOrganizationProfilePicture);
-router.post("/api/v1/organization/billing/test",handleOverLoad( createOrganizationPricingHandler))
+router.post("/api/v1/organization/billing/test", handleOverLoad(createOrganizationPricingHandler))
 router.get("/api/v1/organization/billing/test", getOrganizationPricingHandler)
+router.post('/api/v1/organization/bulk/registration', handleOverLoad(bulkInsertOrganizationsHandler))
 
 
 
@@ -50,7 +51,7 @@ router.get("/api/v1/outsourcing/organization/check/test", checkIsServiceRendered
 router.put('/api/v1/outsourcing/organization/testpanel/outsourceinfo/update', updateTestPanelOutsourcingInformation)
 router.get('/api/v1/outsourcing/organization/testpanel/outsourceinfo', getTestOutSourcingOrganizations)
 router.get('/api/v1/outsourced/testpanel/:stage?', getOutsourcedTestBasedStageHandler)
-router.post("/api/v1/outsourced/testpanel/resolve",handleOverLoad( updateToResolveOutsourcedHandler))
+router.post("/api/v1/outsourced/testpanel/resolve", handleOverLoad(updateToResolveOutsourcedHandler))
 
 
 export default router

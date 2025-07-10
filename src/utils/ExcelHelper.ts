@@ -66,7 +66,7 @@ export class ExcelHelper {
 					{ field: 'name', required: true },
 					{ field: 'location', required: false },
 					{ field: 'street', required: false },
-					{ field: 'mobile', required: true },
+					{ field: 'mobile', required: false },
 					{ field: 'address', required: false },
 					{ field: 'email', required: false },
 					{ field: 'region', required: false },

@@ -8,7 +8,7 @@ router.get("/api/v1/clinicians", handleOverLoad(clinicianHandlers.getCliniciansH
 router.get("/api/v1/clinicians/getclinician", handleOverLoad(clinicianHandlers.getSingleClinicianHandler));
 router.put("/api/v1/clinicians", clinicianHandlers.putCliniciansHandler);
 router.delete("/api/v1/clinicians", clinicianHandlers.deleteCliniciansHandler);
-router.post("/api/v1/clinicians", clinicianHandlers.postCliniciansHandler);
+router.post("/api/v1/clinicians", handleOverLoad(clinicianHandlers.verifyClinicianPhoneNumberAndEmailMiddleware), clinicianHandlers.postCliniciansHandler);
 router.post("/api/v1/client/filter/clinician", clinicianHandlers.filterClinicianHandler);
 router.get("/api/v1/clinician/resultsets", clinicianHandlers.getClinicianResultHandler);
 router.get("/api/v1/clinician/resultsets/billingid", clinicianHandlers.getBillingTestBasedByClinicianHandler);
@@ -16,6 +16,7 @@ router.post("/api/v1/orders/temporary", clinicianHandlers.postTemporaryOrderHand
 router.get("/api/v1/orders/temporary", clinicianHandlers.getTemporaryOrdersHandler);
 router.get("/api/v1/orders/temporary/processing", clinicianHandlers.getTemporaryOrdersProcessingHandler);
 router.post("/api/v1/orders/processed", clinicianHandlers.postProcessedOrderHandler);
+router.post('/api/v1/clinicians/bulk', handleOverLoad(clinicianHandlers.bulkInsertCliniciansHandler));
 
 
 

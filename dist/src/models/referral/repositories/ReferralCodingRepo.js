@@ -10,10 +10,43 @@ class ReferralCodingRepo {
         this.tenantId = tenantId;
         this.connection = (0, KnexConnections_1.default)(tenantId);
     }
-    async create(data) {
+    async generateCode(entity_type) {
         try {
             const conn = await this.connection;
-            const [id] = await conn('referralcoding').insert(data);
+            const existingCodes = await conn('referralcoding')
+                .where({ entity_type })
+                .select('code');
+            let prefix = 'A';
+            if (entity_type === 'insurance')
+                prefix = 'I';
+            else if (entity_type === 'clinician')
+                prefix = 'C';
+            else if (entity_type === 'organization')
+                prefix = 'O';
+            let maxNum = 0;
+            for (const row of existingCodes) {
+                const match = new RegExp(`^${prefix}(\\d{3})$`).exec(row.code);
+                if (match) {
+                    const num = parseInt(match[1], 10);
+                    if (num > maxNum)
+                        maxNum = num;
+                }
+            }
+            const nextNum = maxNum + 1;
+            const code = `${prefix}${nextNum.toString().padStart(3, '0')}`;
+            return code;
+        }
+        catch (error) {
+            console.error('ReferralCoding generateCode error:', error);
+            throw error;
+        }
+    }
+    async create(data, trx) {
+        try {
+            const conn = trx || await this.connection;
+            const code = await this.generateCode(data.entity_type);
+            const insertData = Object.assign(Object.assign({}, data), { code });
+            const [id] = await conn('referralcoding').insert(insertData);
             return id;
         }
         catch (error) {

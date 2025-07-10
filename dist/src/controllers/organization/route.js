@@ -29,6 +29,7 @@ router.delete("/api/v1/organization", handlers_1.deleteOrganization);
 router.post(`/api/v1/organization/profile/image`, uploadImages_1.organizationImageUpload, handlers_1.uploadOrganizationProfilePicture);
 router.post("/api/v1/organization/billing/test", (0, helper_1.handleOverLoad)(handlers_1.createOrganizationPricingHandler));
 router.get("/api/v1/organization/billing/test", handlers_1.getOrganizationPricingHandler);
+router.post('/api/v1/organization/bulk/registration', (0, helper_1.handleOverLoad)(handlers_1.bulkInsertOrganizationsHandler));
 // ROUTES FOR OUTSOURCING ORGANIZATIONS
 router.post("/api/v1/outsourcing/organization", outsourceHandlers_1.createOrganizationOutSource);
 router.put("/api/v1/outsourcing/organization/services", outsourceHandlers_1.updateOrganizationOutSourceServices);

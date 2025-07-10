@@ -8,8 +8,38 @@ import { paginationQuery, promisifyQuery, rowAffected } from "../../hooks/helper
 import { OperationsFailures } from "../operations/types";
 import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSchema";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
+import KnexConnection from "../../database/KnexConnections";
 
 export default class ClinicianClass {
+
+	public async insertCliniciansBulk(tenantId: number, clinicians: Array<Partial<PrimeLimsTableclinicianbasicinfo>>): Promise<Array<number | string>> {
+		const results: Array<number | string> = [];
+		for (const record of clinicians) {
+			const { name, phone, email, location, address, occupation, organization } = record;
+			if (!name || !phone) {
+				results.push("Missing required fields: name or phone");
+				continue;
+			}
+			try {
+				const values = [name, phone, email ? email : null, location, address, occupation, organization];
+				const result = await promisifyQuery(tenantId, SQLQueries.insertClinicianBasicInfo, values);
+				const { insertId } = result;
+				if (insertId !== 0) {
+					results.push(insertId);
+				} else {
+					results.push("Insert failed");
+				}
+			} catch (err) {
+				if (err && err.sqlState === '23000' && err.sqlMessage && err.sqlMessage.includes('Duplicate entry')) {
+					results.push("Duplicate entry error: " + err.sqlMessage);
+					continue;
+				}
+				results.push("Error: " + (err?.message || err));
+			}
+		}
+		return results;
+	}
 	public async getClinicians(tenantId: number, pagination: ConvertKeysToNumbers<PaginationType> | null): Promise<Clinician[]> {
 		const { count = 10, page = 1, role } = pagination;
 		if (role && role.toString().trim() === "admin") {
@@ -27,7 +57,7 @@ export default class ClinicianClass {
 	}
 
 	public async getClinicianBatch(tenantId: number, page: number, count: number): Promise<PrimeLimsTableclinicianbasicinfo[]> {
-		return await promisifyQuery(tenantId, SQLQueries.getClinicianBatch, [count,page]);
+		return await promisifyQuery(tenantId, SQLQueries.getClinicianBatch, [count, page]);
 	}
 
 	public async putCliniciansBasic(tenantId: number,
@@ -49,7 +79,6 @@ export default class ClinicianClass {
 
 			if (oldPhone != phone) {
 				const isClinicianExist = await this.isClinicianExist(tenantId, email, phone.toString());
-
 				if (isClinicianExist) return OperationsFailures.resourceExist;
 			}
 		}
@@ -80,39 +109,32 @@ export default class ClinicianClass {
 		return matched.length > 0 ? true : false;
 	}
 
-	public async postClinicianBasicInfo(req: Request, res: Response): Promise<string | number> {
-		const TenantId = req.query.tenantId;
-		const { id, name, phone, email, location, address, occupation, organization } = req.body;
-
-		if (!phone) return "Phone number and email required";
-
-		const isPhoneValid = TiifuWorkingClass.isNumberPhoneNumber(phone);
-		const isEmailValid = TiifuWorkingClass.isEmailValidEmail(email);
-
-		if (!isPhoneValid) return OperationsFailures.invalidPhoneNumber;
-		if (email && !isEmailValid) return OperationsFailures.invalidEmail;
-
-		const tenantIdP = parseInt(TenantId.toString());
-
-		const isClinicianExist = await this.isClinicianExist(tenantIdP, email, phone);
-
-		if (isClinicianExist) return OperationsFailures.resourceExist + " " + "Email or phone number is already registered with a clinician";
+	public async postClinicianBasicInfo(reqbody: any): Promise<string | number> {
+		const tenantIdP = parseFloat(reqbody.tenantId.toString());
+		const { name, phone, email, location, address, occupation, organization } = reqbody;
 
 		const values = [name, phone, email ? email : null, location, address, occupation, organization];
+		const connection = await KnexConnection(tenantIdP);
+		const trx = await connection.transaction();
 
 		try {
-			const result = await promisifyQuery(tenantIdP, SQLQueries.insertClinicianBasicInfo, values);
-			const { insertId } = result;
-
-			if (insertId !== 0) {
+			const [result] = await trx.raw(SQLQueries.insertClinicianBasicInfo, values);
+			const insertId = result?.insertId || result?.[0]?.insertId;
+			if (insertId !== 0 && insertId !== undefined) {
 				const random = require("crypto").randomBytes(5).toString("hex");
 				const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
-				await promisifyQuery(tenantIdP, tempCredentials, [random]);
+				await trx.raw(tempCredentials, [random]);
+				const referralRepo = new ReferralCodingRepo(tenantIdP);
+				await referralRepo.create({ entity_id: insertId, entity_type: 'clinician', code: 0 }, trx);
+				await trx.commit();
 				return insertId;
+			} else {
+				await trx.rollback();
+				return "Adding new clinician failed";
 			}
-			return "Adding new clinician failed";
 		} catch (err) {
-			console.log(err);
+			await trx.rollback();
+			console.error("Error adding new clinician:", err);
 			return "Error adding new clinician";
 		}
 	}
@@ -148,6 +170,20 @@ export default class ClinicianClass {
 		const query = SQLQueries.getBillingTestBasedByClinician;
 		const result = await promisifyQuery(tenantId, query, [clinicianid, billingid]);
 		return result;
+	}
+
+	public async verifyClinicianPhoneNumberAndEmail(tenantId: number, email: string, phone: string) {
+		const isPhoneValid = TiifuWorkingClass.isNumberPhoneNumber(phone);
+		const isEmailValid = TiifuWorkingClass.isEmailValidEmail(email);
+
+		if (!isPhoneValid) return OperationsFailures.invalidPhoneNumber;
+		if (email && !isEmailValid) return OperationsFailures.invalidEmail;
+
+		const isClinicianExist = await this.isClinicianExist(tenantId, email, phone);
+		if (isClinicianExist) {
+			return OperationsFailures.resourceExist + " Email or phone number is already registered with a clinician";
+		}
+		return true;
 	}
 }
 

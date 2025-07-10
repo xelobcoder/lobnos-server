@@ -32,7 +32,7 @@ router.get("/api/v1/clinicians", (0, helper_1.handleOverLoad)(clinicianHandlers.
 router.get("/api/v1/clinicians/getclinician", (0, helper_1.handleOverLoad)(clinicianHandlers.getSingleClinicianHandler));
 router.put("/api/v1/clinicians", clinicianHandlers.putCliniciansHandler);
 router.delete("/api/v1/clinicians", clinicianHandlers.deleteCliniciansHandler);
-router.post("/api/v1/clinicians", clinicianHandlers.postCliniciansHandler);
+router.post("/api/v1/clinicians", (0, helper_1.handleOverLoad)(clinicianHandlers.verifyClinicianPhoneNumberAndEmailMiddleware), clinicianHandlers.postCliniciansHandler);
 router.post("/api/v1/client/filter/clinician", clinicianHandlers.filterClinicianHandler);
 router.get("/api/v1/clinician/resultsets", clinicianHandlers.getClinicianResultHandler);
 router.get("/api/v1/clinician/resultsets/billingid", clinicianHandlers.getBillingTestBasedByClinicianHandler);
@@ -40,6 +40,7 @@ router.post("/api/v1/orders/temporary", clinicianHandlers.postTemporaryOrderHand
 router.get("/api/v1/orders/temporary", clinicianHandlers.getTemporaryOrdersHandler);
 router.get("/api/v1/orders/temporary/processing", clinicianHandlers.getTemporaryOrdersProcessingHandler);
 router.post("/api/v1/orders/processed", clinicianHandlers.postProcessedOrderHandler);
+router.post('/api/v1/clinicians/bulk', (0, helper_1.handleOverLoad)(clinicianHandlers.bulkInsertCliniciansHandler));
 const billingStrategyHandler_1 = require("./billingStrategyHandler");
 router.get('/api/v1/billing/testpanel/strategies/panels/:entityType/:associatedid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getProvidentialBillingHandler));
 router.post('/api/v1/billing/strategies', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.createBillingStrategy));
