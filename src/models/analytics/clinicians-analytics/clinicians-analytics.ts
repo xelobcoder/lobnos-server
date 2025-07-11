@@ -1,4 +1,5 @@
 import { paginationQuery, promisifyQuery } from "../../../hooks/helper";
+import ClinicianClass from "../../clincians/clinicianClass";
 import {
      q_can_overallTotals,
      q_can_monthlyTotals,
@@ -22,7 +23,26 @@ import {
      q_can_topOutsourcedTests
 } from "./clinicians-analtyics-qs";
 
+
+type monthly_case_summary_rate = {
+     period: string;
+     total_clinician_cases: number;
+     clinicians_total_cases: number;
+     clinicians_revenue_generated: string;
+     clinician_revenue_generated: string;
+}
+
 class ClinicianAnalytics {
+
+     private static percentage_of_revenue_by_clinician(clinician_total_payable: number, total_payable: number) {
+          if (!total_payable || total_payable === 0) return "0.00";
+          return ((clinician_total_payable / total_payable) * 100).toFixed(2);
+     }
+
+     private static async getClinicianInfo(tenantId: number, clinicianId: number) {
+          return await new ClinicianClass().getClinicianBasicInfo(tenantId, clinicianId);
+     }
+
      public static async getOverallTotal(tenantId: number, clinicianId: number) {
           return await promisifyQuery(tenantId, q_can_overallTotals, [clinicianId]);
      }
@@ -40,7 +60,22 @@ class ClinicianAnalytics {
      }
 
      public static async getCaseSummaryMonthly(tenantId: number, clinicianId: number, year: number) {
-          return await promisifyQuery(tenantId, q_can_caseSummaryMonthly, [clinicianId, clinicianId, year]);
+
+
+          const clinicianDetails = await this.getClinicianInfo(tenantId, clinicianId);
+          const monthlyCaseSummary = await promisifyQuery(tenantId, q_can_caseSummaryMonthly, [clinicianId, clinicianId, year]);
+          return {
+               clinicianDetails,
+               monthlyCaseSummary: monthlyCaseSummary.map((item: monthly_case_summary_rate) => {
+                    return {
+                         ...item,
+                         percentage_revenue: this.percentage_of_revenue_by_clinician(
+                              Number(item.clinician_revenue_generated),
+                              Number(item.clinicians_revenue_generated)
+                         )
+                    };
+               })
+          }
      }
 
      public static async getCaseSummaryYearly(tenantId: number, clinicianId: number) {
@@ -48,7 +83,20 @@ class ClinicianAnalytics {
      }
 
      public static async getCaseSummaryDailyRecent(tenantId: number, clinicianId: number, year: number) {
-          return await promisifyQuery(tenantId, q_can_caseSummaryDailyRecent, [clinicianId, clinicianId, year]);
+          const clinicianDetails = await this.getClinicianInfo(tenantId, clinicianId);
+          const dailyCaseSummary = await promisifyQuery(tenantId, q_can_caseSummaryDailyRecent, [clinicianId, clinicianId, year]);
+          return {
+               clinicianDetails,
+               dailyCaseSummary: dailyCaseSummary.map((item: any) => {
+                    return {
+                         ...item,
+                         percentage_revenue: this.percentage_of_revenue_by_clinician(
+                              Number(item.clinician_total_payable || item.clinician_revenue_generated),
+                              Number(item.total_payable || item.clinicians_revenue_generated)
+                         )
+                    };
+               })
+          }
      }
 
      public static async getCaseSummaryDailyAll(tenantId: number, clinicianId: number) {

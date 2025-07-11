@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.q_can_topOutsourcedTests = exports.q_can_monthlyTestBreakdown = exports.q_can_yearlyGrowthStats = exports.q_can_casesByOutsourced = exports.q_can_casesByShift = exports.q_can_paymentTypeSummary = exports.q_can_clinicianRevenueVsTotal = exports.q_can_casesByDayOfWeek = exports.q_can_yearlyCaseComparison = exports.q_can_yearlyCaseChange = exports.q_can_monthlyCaseChange = exports.q_can_dailyCaseChange = exports.q_can_caseSummaryDailyAll = exports.q_can_caseSummaryDailyRecent = exports.q_can_caseSummaryYearly = exports.q_can_caseSummaryMonthly = exports.q_can_caseSummaryOverall = exports.q_can_yearlyTotals = exports.q_can_monthlyTotals = exports.q_can_overallTotals = void 0;
+exports.q_can_overallChange = exports.q_can_caseSummaryDaily = exports.q_can_topOutsourcedTests = exports.q_can_monthlyTestBreakdown = exports.q_can_yearlyGrowthStats = exports.q_can_casesByOutsourced = exports.q_can_casesByShift = exports.q_can_paymentTypeSummary = exports.q_can_clinicianRevenueVsTotal = exports.q_can_casesByDayOfWeek = exports.q_can_yearlyCaseComparison = exports.q_can_yearlyCaseChange = exports.q_can_monthlyCaseChange = exports.q_can_dailyCaseChange = exports.q_can_caseSummaryDailyAll = exports.q_can_caseSummaryDailyRecent = exports.q_can_caseSummaryYearly = exports.q_can_caseSummaryMonthly = exports.q_can_caseSummaryOverall = exports.q_can_yearlyTotals = exports.q_can_monthlyTotals = exports.q_can_overallTotals = void 0;
 exports.q_can_overallTotals = `
 SELECT COUNT(*) AS total_rows, SUM(cost) AS total_cost, SUM(totalpayable)AS payable, SUM(amountIncurredDueTax) AS amountIncurredDueTax
 FROM \`dboservices\` AS RF
@@ -35,30 +35,45 @@ exports.q_can_caseSummaryOverall = `
 SELECT 
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases
+    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases,
+    SUM(CASE WHEN clinicianId = ? THEN cost END) AS clinician_total_cost,
+    SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS clinician_total_payable,
+    SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS clinician_total_tax,
+    SUM(cost) AS total_cost,
+    SUM(totalpayable) AS total_payable,
+    SUM(amountIncurredDueTax) AS total_tax,
+    (SUM(CASE WHEN clinicianId = ? THEN totalpayable END) / NULLIF(SUM(totalpayable), 0)) * 100 AS percentage_revenue
 FROM \`dboservices\`;
 `;
 exports.q_can_caseSummaryMonthly = `
-SELECT 
-    YEAR(serviceAddedOn) AS year,
-    MONTH(serviceAddedOn) AS month,
-    COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
-    COUNT(*) AS total_cases,
-    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases
-FROM \`dboservices\`
-WHERE YEAR(serviceAddedOn) = ?
-GROUP BY YEAR(serviceAddedOn), MONTH(serviceAddedOn)
-ORDER BY YEAR(serviceAddedOn), MONTH(serviceAddedOn);
+    SELECT 
+        DATE_FORMAT(serviceAddedOn, '%Y-%m') AS period,
+        COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS total_clinician_cases,
+        COUNT(*) AS clinicians_total_cases,
+        SUM(totalpayable) AS clinicians_revenue_generated,
+        SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated
+    FROM dboservices
+    WHERE  YEAR(serviceAddedOn) = ? 
+    AND serviceAddedOn IS NOT NULL AND clinicianId IS NOT NULL
+    GROUP BY DATE_FORMAT(serviceAddedOn, '%Y-%m')
+    ORDER BY period; 
 `;
 exports.q_can_caseSummaryYearly = `
 SELECT 
-    YEAR(serviceAddedOn) AS year,
+    YEAR(createdAt) AS year,
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases
+    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases,
+    SUM(CASE WHEN clinicianId = ? THEN cost END) AS clinician_total_cost,
+    SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS clinician_total_payable,
+    SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS clinician_total_tax,
+    SUM(cost) AS total_cost,
+    SUM(totalpayable) AS total_payable,
+    SUM(amountIncurredDueTax) AS total_tax,
+    (SUM(CASE WHEN clinicianId = ? THEN totalpayable END) / NULLIF(SUM(totalpayable), 0)) * 100 AS percentage_revenue
 FROM \`dboservices\`
-GROUP BY YEAR(serviceAddedOn)
-ORDER BY YEAR(serviceAddedOn);
+WHERE YEAR(createdAt) = YEAR(?)
+GROUP BY YEAR(createdAt);
 `;
 exports.q_can_caseSummaryDailyRecent = `
 SELECT 
@@ -66,11 +81,13 @@ SELECT
     YEAR(serviceAddedOn) AS year,
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases
-FROM \`dboservices\`
-WHERE YEAR(serviceAddedOn) = ?
+    SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
+    SUM(totalpayable) AS clinicians_revenue_generated
+FROM dboservices
+WHERE YEAR(serviceAddedOn) = ? AND clinicianId IS NOT NULL
 GROUP BY YEAR(serviceAddedOn), DATE(serviceAddedOn)
 ORDER BY DATE(serviceAddedOn);
+
 `;
 exports.q_can_caseSummaryDailyAll = `
 SELECT 
@@ -86,89 +103,103 @@ exports.q_can_dailyCaseChange = `
 WITH DailyCases AS (
     SELECT 
         DATE(serviceAddedOn) AS date,
-        COUNT(*) AS clinician_cases
-    FROM \`dboservices\`
-    WHERE clinicianId = ?
+        COUNT(*) AS clinician_cases,
+        SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
+        SUM(totalpayable) AS clinicians_revenue_generated
+    FROM dboservices
     GROUP BY DATE(serviceAddedOn)
 ),
 DailyChange AS (
     SELECT 
         date,
         clinician_cases,
+        clinician_revenue_generated,
+        clinicians_revenue_generated,
         LAG(clinician_cases) OVER (ORDER BY date) AS previous_day_cases,
-        ( (clinician_cases - LAG(clinician_cases) OVER (ORDER BY date)) / 
-            NULLIF(LAG(clinician_cases) OVER (ORDER BY date), 0) ) * 100 AS percentage_change
+        LAG(clinician_revenue_generated) OVER (ORDER BY date) AS previous_day_revenue,
+        ((clinician_cases - LAG(clinician_cases) OVER (ORDER BY date)) / NULLIF(LAG(clinician_cases) OVER (ORDER BY date), 0)) * 100 AS percentage_change,
+        ((clinician_revenue_generated - LAG(clinician_revenue_generated) OVER (ORDER BY date)) / NULLIF(LAG(clinician_revenue_generated) OVER (ORDER BY date), 0)) * 100 AS percentage_revenue_change
     FROM DailyCases
 )
 SELECT 
     date, 
     clinician_cases, 
+    clinician_revenue_generated,
+    clinicians_revenue_generated,
     previous_day_cases, 
-    COALESCE(percentage_change, 0) AS percentage_change
+    previous_day_revenue,
+    COALESCE(percentage_change, 0) AS percentage_change,
+    COALESCE(percentage_revenue_change, 0) AS percentage_revenue_change
 FROM DailyChange
 ORDER BY date
-LIMIT ? OFFSET ?;
+LIMIT ? OFFSET ?
+
 `;
 exports.q_can_monthlyCaseChange = `
-WITH MonthlyCases AS (
+WITH MonthlyCases AS(
     SELECT 
         YEAR(serviceAddedOn) AS year,
-        MONTH(serviceAddedOn) AS month,
-        COUNT(*) AS clinician_cases
-    FROM \`dboservices\`
-    WHERE clinicianId = ?
+    MONTH(serviceAddedOn) AS month,
+    COUNT(*) AS clinician_cases,
+    SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated
+    FROM dboservices
     GROUP BY YEAR(serviceAddedOn), MONTH(serviceAddedOn)
 ),
-MonthlyChange AS (
-    SELECT 
+    MonthlyChange AS(
+        SELECT 
         year,
         month,
         clinician_cases,
-        LAG(clinician_cases) OVER (ORDER BY year, month) AS previous_month_cases,
-        ( (clinician_cases - LAG(clinician_cases) OVER (ORDER BY year, month)) / 
-            NULLIF(LAG(clinician_cases) OVER (ORDER BY year, month), 0) ) * 100 AS percentage_change
+        clinician_revenue_generated,
+        LAG(clinician_cases) OVER(ORDER BY year, month) AS previous_month_cases,
+        LAG(clinician_revenue_generated) OVER(ORDER BY year, month) AS previous_month_revenue,
+        ((clinician_cases - LAG(clinician_cases) OVER(ORDER BY year, month)) / NULLIF(LAG(clinician_cases) OVER(ORDER BY year, month), 0)) * 100 AS percentage_change,
+            ((clinician_revenue_generated - LAG(clinician_revenue_generated) OVER(ORDER BY year, month)) / NULLIF(LAG(clinician_revenue_generated) OVER (ORDER BY year, month), 0)) * 100 AS percentage_revenue_change
     FROM MonthlyCases
 )
-SELECT 
-    year, 
-    month, 
-    clinician_cases, 
-    previous_month_cases, 
-    COALESCE(percentage_change, 0) AS percentage_change
+SELECT
+year,
+    month,
+    clinician_cases,
+    clinician_revenue_generated,
+    previous_month_cases,
+    previous_month_revenue,
+    COALESCE(percentage_change, 0) AS percentage_change,
+        COALESCE(percentage_revenue_change, 0) AS percentage_revenue_change
 FROM MonthlyChange
 ORDER BY year, month;
 `;
 exports.q_can_yearlyCaseChange = `
-WITH YearlyCases AS (
+WITH YearlyCases AS(
     SELECT 
         YEAR(serviceAddedOn) AS year,
-        COUNT(*) AS clinician_cases
-    FROM \`dboservices\`
+    COUNT(*) AS clinician_cases
+    FROM dboservices
     WHERE clinicianId = ?
     GROUP BY YEAR(serviceAddedOn)
 ),
-YearlyChange AS (
-    SELECT 
+    YearlyChange AS(
+        SELECT 
         year,
         clinician_cases,
-        LAG(clinician_cases) OVER (ORDER BY year) AS previous_year_cases,
-        ( (clinician_cases - LAG(clinician_cases) OVER (ORDER BY year)) / 
-            NULLIF(LAG(clinician_cases) OVER (ORDER BY year), 0) ) * 100 AS percentage_change
+        LAG(clinician_cases) OVER(ORDER BY year) AS previous_year_cases,
+        ((clinician_cases - LAG(clinician_cases) OVER(ORDER BY year)) /
+        NULLIF(LAG(clinician_cases) OVER(ORDER BY year), 0) ) * 100 AS percentage_change
     FROM YearlyCases
 )
-SELECT 
-    year, 
-    clinician_cases, 
-    previous_year_cases, 
+SELECT
+year,
+    clinician_cases,
+    previous_year_cases,
     COALESCE(percentage_change, 0) AS percentage_change
 FROM YearlyChange
 ORDER BY year;
 `;
 exports.q_can_yearlyCaseComparison = `
-WITH YearlyCases AS (
+WITH YearlyCases AS(
     SELECT 
         YEAR(serviceAddedOn) AS year,
-        COUNT(*) AS clinician_cases
+    COUNT(*) AS clinician_cases
     FROM \`dboservices\`
     WHERE clinicianId = ?
     GROUP BY YEAR(serviceAddedOn)
@@ -284,7 +315,13 @@ SELECT
     tp.id AS testid,
     YEAR(ss.serviceAddedOn) AS year,
     MONTH(ss.serviceAddedOn) AS month,
-    COUNT(DISTINCT ss.trackId) AS total_tests
+    COUNT(DISTINCT ss.trackId) AS total_tests,
+    SUM(ss.cost) AS total_cost,
+    SUM(ss.totalpayable) AS total_payable,
+    SUM(ss.amountIncurredDueTax) AS total_tax,
+    SUM(ss.discount) AS total_discount,
+    COUNT(CASE WHEN ss.hasNightAdjustment = 1 THEN 1 END) as night_adjustments_count,
+    SUM(CASE WHEN ss.hasNightAdjustment = 1 THEN ss.nightAdjustmentValue ELSE 0 END) as total_night_adjustment
 FROM dboservices AS ss 
 INNER JOIN test_panels AS tp ON tp.id = ss.trackId
 WHERE ss.clinicianId = ?
@@ -302,4 +339,71 @@ WHERE ss.clinicianId = ? AND ss.isoutsourced = 1
 GROUP BY tp.name, ss.trackId
 ORDER BY outsourced_test_count DESC
 LIMIT 5;
+`;
+exports.q_can_caseSummaryDaily = `
+SELECT 
+    DATE(createdAt) AS date,
+    COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
+    COUNT(*) AS total_cases,
+    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases,
+    SUM(CASE WHEN clinicianId = ? THEN cost END) AS clinician_total_cost,
+    SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS clinician_total_payable,
+    SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS clinician_total_tax,
+    SUM(cost) AS total_cost,
+    SUM(totalpayable) AS total_payable,
+    SUM(amountIncurredDueTax) AS total_tax,
+    (SUM(CASE WHEN clinicianId = ? THEN totalpayable END) / NULLIF(SUM(totalpayable), 0)) * 100 AS percentage_revenue
+FROM \`dboservices\`
+WHERE DATE(createdAt) = DATE(?)
+GROUP BY DATE(createdAt);
+`;
+exports.q_can_overallChange = `
+WITH previous AS (
+    SELECT 
+        COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS prev_clinician_cases,
+        COUNT(*) AS prev_total_cases,
+        SUM(CASE WHEN clinicianId = ? THEN cost END) AS prev_clinician_cost,
+        SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS prev_clinician_payable,
+        SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS prev_clinician_tax,
+        SUM(cost) AS prev_total_cost,
+        SUM(totalpayable) AS prev_total_payable,
+        SUM(amountIncurredDueTax) AS prev_total_tax
+    FROM \`dboservices\`
+    WHERE createdAt < ?
+),
+current AS (
+    SELECT 
+        COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS curr_clinician_cases,
+        COUNT(*) AS curr_total_cases,
+        SUM(CASE WHEN clinicianId = ? THEN cost END) AS curr_clinician_cost,
+        SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS curr_clinician_payable,
+        SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS curr_clinician_tax,
+        SUM(cost) AS curr_total_cost,
+        SUM(totalpayable) AS curr_total_payable,
+        SUM(amountIncurredDueTax) AS curr_total_tax
+    FROM \`dboservices\`
+    WHERE createdAt >= ?
+)
+SELECT 
+    curr_clinician_cases - prev_clinician_cases AS clinician_cases_change,
+    curr_total_cases - prev_total_cases AS total_cases_change,
+    curr_clinician_cost - prev_clinician_cost AS clinician_cost_change,
+    curr_clinician_payable - prev_clinician_payable AS clinician_payable_change,
+    curr_clinician_tax - prev_clinician_tax AS clinician_tax_change,
+    curr_total_cost - prev_total_cost AS total_cost_change,
+    curr_total_payable - prev_total_payable AS total_payable_change,
+    curr_total_tax - prev_total_tax AS total_tax_change,
+    CASE 
+        WHEN prev_clinician_cases = 0 THEN 100
+        ELSE ((curr_clinician_cases - prev_clinician_cases) / prev_clinician_cases) * 100 
+    END AS clinician_cases_change_percentage,
+    CASE 
+        WHEN prev_total_cases = 0 THEN 100
+        ELSE ((curr_total_cases - prev_total_cases) / prev_total_cases) * 100 
+    END AS total_cases_change_percentage,
+    CASE 
+        WHEN prev_clinician_payable = 0 THEN 100
+        ELSE ((curr_clinician_payable - prev_clinician_payable) / prev_clinician_payable) * 100 
+    END AS clinician_revenue_change_percentage
+FROM previous, current;
 `;

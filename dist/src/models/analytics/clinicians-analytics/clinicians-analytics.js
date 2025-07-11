@@ -1,8 +1,20 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../../hooks/helper");
+const clinicianClass_1 = __importDefault(require("../../clincians/clinicianClass"));
 const clinicians_analtyics_qs_1 = require("./clinicians-analtyics-qs");
 class ClinicianAnalytics {
+    static percentage_of_revenue_by_clinician(clinician_total_payable, total_payable) {
+        if (!total_payable || total_payable === 0)
+            return "0.00";
+        return ((clinician_total_payable / total_payable) * 100).toFixed(2);
+    }
+    static async getClinicianInfo(tenantId, clinicianId) {
+        return await new clinicianClass_1.default().getClinicianBasicInfo(tenantId, clinicianId);
+    }
     static async getOverallTotal(tenantId, clinicianId) {
         return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_overallTotals, [clinicianId]);
     }
@@ -16,13 +28,27 @@ class ClinicianAnalytics {
         return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryOverall, [clinicianId, clinicianId]);
     }
     static async getCaseSummaryMonthly(tenantId, clinicianId, year) {
-        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryMonthly, [clinicianId, clinicianId, year]);
+        const clinicianDetails = await this.getClinicianInfo(tenantId, clinicianId);
+        const monthlyCaseSummary = await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryMonthly, [clinicianId, clinicianId, year]);
+        return {
+            clinicianDetails,
+            monthlyCaseSummary: monthlyCaseSummary.map((item) => {
+                return Object.assign(Object.assign({}, item), { percentage_revenue: this.percentage_of_revenue_by_clinician(Number(item.clinician_revenue_generated), Number(item.clinicians_revenue_generated)) });
+            })
+        };
     }
     static async getCaseSummaryYearly(tenantId, clinicianId) {
         return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryYearly, [clinicianId, clinicianId]);
     }
     static async getCaseSummaryDailyRecent(tenantId, clinicianId, year) {
-        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryDailyRecent, [clinicianId, clinicianId, year]);
+        const clinicianDetails = await this.getClinicianInfo(tenantId, clinicianId);
+        const dailyCaseSummary = await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryDailyRecent, [clinicianId, clinicianId, year]);
+        return {
+            clinicianDetails,
+            dailyCaseSummary: dailyCaseSummary.map((item) => {
+                return Object.assign(Object.assign({}, item), { percentage_revenue: this.percentage_of_revenue_by_clinician(Number(item.clinician_total_payable || item.clinician_revenue_generated), Number(item.total_payable || item.clinicians_revenue_generated)) });
+            })
+        };
     }
     static async getCaseSummaryDailyAll(tenantId, clinicianId) {
         return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryDailyAll, [clinicianId, clinicianId]);
