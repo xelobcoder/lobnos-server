@@ -107,6 +107,7 @@ class ExpensesAnalyticsController {
         this.getDailyExpenseSummaryExpensesHandler = async (req, res) => {
             try {
                 const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+                console.log("Expenses Analytics:", expensesAnalytics);
                 if (!expensesAnalytics)
                     return;
                 const data = await expensesAnalytics.getDailyExpenseSummaryExpenses();
@@ -235,7 +236,6 @@ class ExpensesAnalyticsController {
     }
     evaluateQueryParams(query, response) {
         const { branchid, employeeid, tenantId, expensesId, startDate, endDate } = query;
-        console.log(query, 'AMMM');
         if (!branchid || !tenantId) {
             return (0, helper_1.customError)("Branch ID and Tenant ID are required.", 400, response);
         }

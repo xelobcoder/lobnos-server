@@ -12,7 +12,8 @@ import { ApplicationBillSettings } from "../../models/application/appsettings/Ty
 import { CustomerBillingInit } from "../../models/billing/multi/initCustomerBilling";
 import { EntityType } from "../../models/billing/multi/billing_shared_types";
 import { SubmitCustomerBilling } from "../../models/billing/billing-new-client-multi";
-import { CustomerBillingCheckout } from "../../models/billing/customerBillingCheckout";
+import { CustomerBillingCheckout } from "../../models/billing/multi/customerBillingCheckout";
+
 
 
 

@@ -43,6 +43,6 @@ exports.queries = {
     INNER JOIN roles AS rl ON rl.employeeid = ll.employeeid
   `,
     getDboSystemSecurity: `
-    SELECT * FROM dbo.systemsecurity
+    SELECT * FROM dbosystemsecurity
   `,
 };

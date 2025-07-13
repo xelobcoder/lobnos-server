@@ -3,12 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.generateNewExpense = void 0;
+exports.getAllExpenseMerchants = exports.updateExpenseMerchant = exports.createExpenseMerchant = exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.generateNewExpense = void 0;
 const ExpenseService_1 = __importDefault(require("../../models/Expenses/ExpenseService"));
 const node_path_1 = __importDefault(require("node:path"));
 const helper_1 = require("../../hooks/helper");
 const queries_1 = require("../../models/Expenses/queries");
 const ExpenseAuditLog_1 = __importDefault(require("../../models/Expenses/ExpenseAuditLog"));
+const expenseMerchants_1 = __importDefault(require("../../models/Expenses/expenseMerchants"));
+const logger_1 = __importDefault(require("../../hooks/logger"));
 const initializeExpense = (requestQuery) => {
     const { employeeid, branchid, tenantId, expenseId } = requestQuery;
     const pTenantId = parseInt(tenantId.toString());
@@ -167,9 +169,9 @@ const deleteReceiptsList = async (req, res) => {
 exports.deleteReceiptsList = deleteReceiptsList;
 const updateExpenseDecision = async (req, res) => {
     try {
-        const { expenseid, employeeid, status, information } = req.body;
-        const { tenantId, branchid } = req.query;
-        if (!employeeid || !branchid || !tenantId || !expenseid) {
+        const { expenseid, employeeid, status, information, branchid } = req.body;
+        const { tenantId } = req.query;
+        if (!employeeid || !branchid || !expenseid || !status) {
             return (0, helper_1.customError)("Missing required decision parameters", 400, res);
         }
         const expenses = initializeExpense({
@@ -256,3 +258,55 @@ const getAllExpenseCategory = async (req, res) => {
     }
 };
 exports.getAllExpenseCategory = getAllExpenseCategory;
+const createExpenseMerchant = async (req, res) => {
+    try {
+        const { employeeid, branchid, tenantId, name, email, phone, address, website, notes } = req.body;
+        if (!employeeid || !branchid || !name) {
+            return (0, helper_1.customError)("employeeid, branchid, name, and address are required", 400, res);
+        }
+        const repo = new expenseMerchants_1.default(employeeid);
+        const existing = await repo.findByMerchantName(name);
+        if (existing) {
+            return res.send({ message: "Merchant already exists", statusCode: 200, status: "success" });
+        }
+        const merchantData = { name, email, phone, address, website, notes, created_by: employeeid };
+        const created = await repo.create(merchantData);
+        res.send({ message: "Merchant created successfully", statusCode: 200, status: "success", merchant: created });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.createExpenseMerchant = createExpenseMerchant;
+const updateExpenseMerchant = async (req, res) => {
+    try {
+        const { name, employeeid, branchid, id } = req.body;
+        const { tenantId } = req.query;
+        if (!employeeid || !branchid || !name || !id)
+            return (0, helper_1.customError)("Required update parameters missing", 404, res);
+        const repo = await new expenseMerchants_1.default(parseInt(tenantId.toString())).update(req.body);
+        if (!repo)
+            return (0, helper_1.customError)("Merchant not found", 404, res);
+        res.send({ status: "success", message: "Merchant updated successfully" });
+    }
+    catch (err) {
+        logger_1.default.log(err);
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.updateExpenseMerchant = updateExpenseMerchant;
+const getAllExpenseMerchants = async (req, res) => {
+    try {
+        const { tenantId, employeeid, branchid, page, count } = req.query;
+        if (!employeeid || !branchid)
+            return (0, helper_1.customError)("Required query parameters missing", 404, res);
+        const repo = new expenseMerchants_1.default(tenantId);
+        const result = await repo.findAll(parseInt(count), parseInt(page));
+        res.send(result);
+    }
+    catch (err) {
+        console.log(err);
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.getAllExpenseMerchants = getAllExpenseMerchants;

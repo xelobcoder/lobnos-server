@@ -1,33 +1,33 @@
 export const queries = {
-  insertLoginHistory: `
+	insertLoginHistory: `
     INSERT INTO loginlogs (employeeid, loginSessionId, logoutTime, browserInformation)
     VALUES (?, ?, ?, ?)
   `,
-  getCurrentUserLoginSessions: `
+	getCurrentUserLoginSessions: `
     SELECT * FROM sessionTracker
     WHERE logoutTime > ? AND employeeid = ?
   `,
-  getCurrentUserLoginSessionsWithDetails: `
+	getCurrentUserLoginSessionsWithDetails: `
     SELECT * FROM sessionTracker AS st
     INNER JOIN loginLogs AS ll ON ll.employeeid = st.employeeid
     WHERE st.logoutTime > ? AND st.employeeid = ? AND ll.loggedout = 0
   `,
-  destroyUserSessionsSelect: `
+	destroyUserSessionsSelect: `
     SELECT * FROM sessionTracker WHERE employeeid = ?
   `,
-  destroyUserSessionsDelete: `
+	destroyUserSessionsDelete: `
     DELETE FROM sessionTracker WHERE employeeid = ?
   `,
-  updateLoginLogs: `
+	updateLoginLogs: `
     UPDATE loginlogs SET loggedout = 1, actualLogout = ? WHERE keyid = ?
   `,
-  getEmployeeLoginHistory: `
+	getEmployeeLoginHistory: `
     SELECT * FROM loginlogs WHERE employeeid = ? OFFSET ? LIMIT ?
   `,
-  getEmployeeLastLoginSession: `
+	getEmployeeLastLoginSession: `
     SELECT * FROM loginlogs WHERE employeeid = ? ORDER BY id DESC
   `,
-  getGeneralLoginHistory: `
+	getGeneralLoginHistory: `
     SELECT 
       ll.browserInformation,
       ll.employeeid,
@@ -39,7 +39,7 @@ export const queries = {
     FROM loginlogs AS ll
     INNER JOIN roles AS rl ON rl.employeeid = ll.employeeid
   `,
-  getDboSystemSecurity: `
-    SELECT * FROM dbo.systemsecurity
+	getDboSystemSecurity: `
+    SELECT * FROM dbosystemsecurity
   `,
 };

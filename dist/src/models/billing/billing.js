@@ -9,7 +9,6 @@ const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const helper_1 = require("../../hooks/helper");
 const testpanelList_1 = require("../../testpanel/testpanelList");
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
-const billingstrategy_1 = __importDefault(require("../clincians/billingstrategy"));
 const invoice_1 = require("../invoice/invoice");
 const ascension_1 = require("../operations/ascension");
 const organization_1 = __importDefault(require("../organization/organization"));
@@ -235,16 +234,18 @@ class Billing {
                 price = await this.getTestOrganizationPriceValue(tenantId, organizationId, trackId, price);
             }
             if (categoryTrackId === 3) {
-                const { discountedValue, isoutsourced } = await new billingstrategy_1.default().getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId);
-                price = discountedValue;
-                isOutsourced = isoutsourced == 1;
+                // const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId) as unknown as {
+                // 	discountedValue: number, isoutsourced:number
+                // }
+                // price = discountedValue;
+                // isOutsourced = isoutsourced == 1;
             }
             if (categoryTrackId === 6) {
-                const { discountedValue, isoutsourced } = await new billingstrategy_1.default().getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
-                if (discountedValue >= 0) {
-                    price = discountedValue;
-                    isOutsourced = isoutsourced == 1;
-                }
+                // const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
+                // if (discountedValue >= 0) {
+                // 	price = discountedValue;
+                // 	isOutsourced = isoutsourced == 1;
+                // }
             }
             let parsedDiscount = discount ? discount : 0;
             return {

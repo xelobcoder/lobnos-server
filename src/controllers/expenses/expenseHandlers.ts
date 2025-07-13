@@ -5,6 +5,8 @@ import { customError, responseError } from "../../hooks/helper";
 import { RECEIPTS_PATH } from "../../models/Expenses/queries";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import ExpenseAuditLog from "../../models/Expenses/ExpenseAuditLog";
+import expenseMerchants, { ExpenseMerchant } from "../../models/Expenses/expenseMerchants";
+import logger from "../../hooks/logger";
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -189,10 +191,10 @@ export const deleteReceiptsList = async (req: Request, res: Response) => {
 
 export const updateExpenseDecision = async (req: Request, res: Response) => {
 	try {
-		const { expenseid, employeeid, status, information } = req.body;
-		const { tenantId, branchid } = req.query;
+		const { expenseid, employeeid, status, information, branchid } = req.body;
+		const { tenantId } = req.query;
 
-		if (!employeeid || !branchid || !tenantId || !expenseid) {
+		if (!employeeid || !branchid || !expenseid || !status) {
 			return customError("Missing required decision parameters", 400, res);
 		}
 
@@ -291,6 +293,58 @@ export const getAllExpenseCategory = async (req: Request, res: Response) => {
 		const result = await expenses.getAllExpenseCategory();
 		res.send(result);
 	} catch (err) {
+		responseError(res);
+	}
+};
+
+
+
+export const createExpenseMerchant = async (req: Request, res: Response) => {
+	try {
+		const { employeeid, branchid, tenantId, name, email, phone, address, website, notes } = req.body;
+		if (!employeeid || !branchid || !name) {
+			return customError("employeeid, branchid, name, and address are required", 400, res);
+		}
+		const repo = new expenseMerchants(employeeid)
+		const existing = await repo.findByMerchantName(name);
+		if (existing) {
+			return res.send({ message: "Merchant already exists", statusCode: 200, status: "success" });
+		}
+		const merchantData: ExpenseMerchant = { name, email, phone, address, website, notes, created_by: employeeid };
+		const created = await repo.create(merchantData);
+		res.send({ message: "Merchant created successfully", statusCode: 200, status: "success", merchant: created });
+	} catch (err) {
+		responseError(res);
+	}
+};
+
+
+export const updateExpenseMerchant = async (req: Request, res: Response) => {
+	try {
+		const { name, employeeid, branchid, id } = req.body;
+		const { tenantId } = req.query;
+		if (!employeeid || !branchid || !name || !id) return customError("Required update parameters missing", 404, res);
+		const repo = await new expenseMerchants(parseInt(tenantId.toString())).update(req.body);
+
+		if (!repo) return customError("Merchant not found", 404, res);
+		res.send({ status: "success", message: "Merchant updated successfully" });
+
+	} catch (err) {
+		logger.log(err);
+		responseError(res);
+	}
+};
+
+
+export const getAllExpenseMerchants = async (req: Request, res: Response) => {
+	try {
+		const { tenantId, employeeid, branchid, page, count } = req.query;
+		if (!employeeid || !branchid) return customError("Required query parameters missing", 404, res);
+		const repo = new expenseMerchants(tenantId as unknown as number);
+		const result = await repo.findAll(parseInt(count as string), parseInt(page as string));
+		res.send(result);
+	} catch (err) {
+		console.log(err);
 		responseError(res);
 	}
 };

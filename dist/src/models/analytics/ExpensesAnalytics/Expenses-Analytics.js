@@ -38,7 +38,7 @@ class ExpensesAnalytics {
         return Array.isArray(result) && result.length > 0 ? result[0] : [];
     }
     async getDailyExpenseSummaryExpenses() {
-        const result = await (0, helper_1.promisifyQuery)(this.tenantId, `CALL DailyExpenseSummaryExpenses(?)`, [this.branchid]);
+        const result = await (0, helper_1.promisifyQuery)(this.tenantId, `CALL DailyExpenseSummaryExpenses(?,?,?)`, [this.branchid, this.startdate, this.enddate]);
         return Array.isArray(result) && result.length > 0 ? result[0] : [];
     }
     async getWeeklyExpenseSummaryExpenses() {

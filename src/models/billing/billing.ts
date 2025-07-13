@@ -1,3 +1,4 @@
+// This is th old billing class and would be deprecated in the endin of 2025
 import { updateRefundCashRequestBodyType } from "../../controllers/billing/sales/type";
 import { PrimeLimsTablebilling, PrimeLimsTablebillinghx, PrimeLimsTabledboservices, PrimeLimsTablepaymentmodes } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
@@ -329,18 +330,20 @@ export class Billing {
 			}
 
 			if (categoryTrackId === 3) {
-				const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId);
-				price = discountedValue;
-				isOutsourced = isoutsourced == 1;
+				// const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, insuranceId, 'phis', trackId) as unknown as {
+				// 	discountedValue: number, isoutsourced:number
+				// }
+				// price = discountedValue;
+				// isOutsourced = isoutsourced == 1;
 			}
 
 			if (categoryTrackId === 6) {
-				const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
+				// const { discountedValue, isoutsourced } = await new ClinicianBillingStrategy().getStrategySingleTestValue(tenantId, clinicianId, 'clinicians', trackId);
 
-				if (discountedValue >= 0) {
-					price = discountedValue;
-					isOutsourced = isoutsourced == 1;
-				}
+				// if (discountedValue >= 0) {
+				// 	price = discountedValue;
+				// 	isOutsourced = isoutsourced == 1;
+				// }
 			}
 
 			let parsedDiscount = discount ? discount : 0;

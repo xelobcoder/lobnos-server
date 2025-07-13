@@ -18,7 +18,6 @@ interface ExpenseRequestQuery {
 export default class ExpensesAnalyticsController {
      evaluateQueryParams(query: ExpenseRequestQuery, response: Response) {
           const { branchid, employeeid, tenantId, expensesId, startDate, endDate } = query;
-          console.log(query, 'AMMM');
           if (!branchid || !tenantId) {
                return customError("Branch ID and Tenant ID are required.", 400, response);
           }
@@ -134,6 +133,7 @@ export default class ExpensesAnalyticsController {
      getDailyExpenseSummaryExpensesHandler = async (req: Request<{}, {}, {}, ExpenseRequestQuery>, res: Response) => {
           try {
                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+               console.log("Expenses Analytics:", expensesAnalytics);
                if (!expensesAnalytics) return;
                const data = await expensesAnalytics.getDailyExpenseSummaryExpenses();
                res.status(200).json(data);

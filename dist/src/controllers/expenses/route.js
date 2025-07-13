@@ -19,6 +19,11 @@ const storage = multer_1.default.diskStorage({
     },
 });
 const upload = (0, multer_1.default)({ storage: storage });
+// Expense Merchants routes
+router.post("/api/v1/expense/merchant", (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpenseMerchant));
+router.put("/api/v1/expense/merchant", (0, helper_1.handleOverLoad)(expenseHandlers_1.updateExpenseMerchant));
+router.get("/api/v1/expense/merchants", (0, helper_1.handleOverLoad)(expenseHandlers_1.getAllExpenseMerchants));
+// ...existing expense routes...
 router.post("/api/v1/expenses", expenseHandlers_1.generateNewExpense);
 router.put('/api/v1/expenses', (0, helper_1.handleOverLoad)(expenseHandlers_1.updateExpenseRecord));
 router.get("/api/v1/expenses/records", expenseHandlers_1.getExpensesRecord);

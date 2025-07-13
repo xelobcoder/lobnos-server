@@ -15,14 +15,18 @@ import {
   getAllExpenseCategory,
   updateExpenseRecord,
   getExpenseLog,
+  createExpenseMerchant,
+  updateExpenseMerchant,
+  getAllExpenseMerchants,
+
 } from "./expenseHandlers";
 import { handleOverLoad } from "../../hooks/helper";
 
 const router = express.Router();
-const RECEIPTS_PATH ="/../../../../public/uploads/expenses/receipts"
+const RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts"
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    cb(null, path.join(__dirname,RECEIPTS_PATH));
+    cb(null, path.join(__dirname, RECEIPTS_PATH));
   },
   filename: function (req, file, cb) {
     cb(null, req.query.id + "-" + Date.now() + path.extname(file.originalname));
@@ -31,6 +35,13 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
+
+// Expense Merchants routes
+router.post("/api/v1/expense/merchant", handleOverLoad(createExpenseMerchant));
+router.put("/api/v1/expense/merchant", handleOverLoad(updateExpenseMerchant));
+router.get("/api/v1/expense/merchants", handleOverLoad(getAllExpenseMerchants));
+
+// ...existing expense routes...
 router.post("/api/v1/expenses", generateNewExpense);
 router.put('/api/v1/expenses', handleOverLoad(updateExpenseRecord));
 router.get("/api/v1/expenses/records", getExpensesRecord);
