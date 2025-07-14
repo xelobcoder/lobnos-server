@@ -353,7 +353,8 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 			packageid,
 			patientId,
 			billingid,
-			branchid
+			branchid,
+			ispricingcheckout,
 		} = req.query;
 
 		const parsePatientId = parseInt(patientId as string, 10);
@@ -366,6 +367,7 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 				? isPackageUsed === "true" || isPackageUsed === "1"
 				: !!isPackageUsed;
 		const billingSource = req.query.billingSource ? parseInt(req.query.billingSource as string, 10) : undefined;
+		const pricingcheckout =  ispricingcheckout ? ispricingcheckout === "true" : false;
 
 		const parsed = {
 			entityId: parseEntityId,
@@ -377,6 +379,7 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 			includeServices: req.query.includeServices ? req.query.includeServices === "true" : false,
 			branchid: parseBranchId,
 			billingSource: billingSource,
+			pricingcheckout,
 			referalCode: req.query.referalCode ? parseInt(req.query.referalCode as string, 10) : undefined
 		};
 
@@ -413,6 +416,7 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			billingSource,
 			referalCode,
 			entityid,
+			ispricingcheckout,
 			entitytype,
 			promoCode,
 			isPromo,
@@ -429,6 +433,7 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			branchid,
 			billingSource,
 			entitytype,
+			ispricingcheckout,
 			entityid,
 			referalCode,
 			promoCode,

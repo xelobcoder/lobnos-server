@@ -18,8 +18,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         const billing = CustomerBillingCheckoutSingleton.getInstance(params.tenantId);
         return billing.handleCheckout(params);
     }
-    async handleCheckout({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, entitytype, entityid, tenantId }) {
-        if (!patientId)
+    async handleCheckout({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, ispricingcheckout, isPromo, isPackageUsed, packageid, entitytype, entityid, tenantId }) {
+        if (!patientId && !ispricingcheckout)
             return { success: false, message: 'No patientId provided' };
         if (branchid === undefined || branchid === null)
             return { success: false, message: 'No branchid provided' };
@@ -126,6 +126,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                 taxList,
                 entitytype,
                 entityId: entityid,
+                ispricingcheckout,
                 entityid,
                 previousBilling,
                 previousServices
@@ -180,6 +181,10 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             promo: promoResult.promo || null,
             reason: promoResult.reason
         };
+    }
+    refererCorrectionAdjustment(tenantId, billingid, employeeid, entity_type, entity_id) {
+        // Implementation here
+        return Promise.resolve(true); // Placeholder for actual implementation
     }
 }
 exports.CustomerBillingCheckout = CustomerBillingCheckoutSingleton;

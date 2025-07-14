@@ -220,8 +220,8 @@ class PrimeBillingEnterprise {
         }
         return price;
     }
-    static validateBillingInput({ patientId, branchid, billingSource, errorCodes }) {
-        if (!patientId)
+    static validateBillingInput({ patientId, branchid, billingSource, errorCodes, pricingcheckout }) {
+        if (!patientId && !pricingcheckout)
             return errorCodes.NO_PATIENT_ID;
         if (branchid === undefined || branchid === null)
             return errorCodes.NO_BRANCH_ID;

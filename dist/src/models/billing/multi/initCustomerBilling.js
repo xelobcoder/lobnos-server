@@ -37,11 +37,12 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
                 NO_BRANCH_ID: billingTypes_1.BillingModuleCodes.BRANCH_ID_NOT_PROVIDED,
                 NO_BILLING_SOURCE: billingTypes_1.BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED,
                 CART_AND_SERVICES_EMPTY: "Cart and servicesList are both empty"
-            }
+            },
+            pricingcheckout: params.pricingcheckout
         });
         if (validationError)
             return validationError;
-        if (!params.patientId)
+        if (params.pricingcheckout === false && !params.patientId)
             return billingTypes_1.BillingModuleCodes.MODULE_NO_PATIENT_ID;
         if (params.billingSource === undefined || params.billingSource === null)
             return billingTypes_1.BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
@@ -54,7 +55,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
             new appset_1.default().getAppBillSettings(this.tenantId),
             this.getPaymentModes()
         ]);
-        if (!sessionExists)
+        if (!sessionExists && !params.pricingcheckout)
             return billingTypes_1.BillingModuleCodes.MODULE_NO_SESSION;
         let previousRecordsSummary = null;
         if (params.billingid)

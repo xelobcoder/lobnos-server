@@ -111,9 +111,6 @@ export const getDuplicateRecordsHandler = async (req: Request, res: Response): P
      }
 };
 
-
-
-
 export const getDashboardsHandler = async (req: Request, res: Response): Promise<void> => {
      try {
           const { tenantId } = req.query;

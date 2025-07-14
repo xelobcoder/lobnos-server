@@ -36,6 +36,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           packageid?: number;
           includeServices?: boolean;
           branchid: number;
+          pricingcheckout?: boolean;
           billingSource: number;
           referalCode: number | undefined;
      }): Promise<CustomerInitResponse | string | []> {
@@ -50,11 +51,13 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                     NO_BRANCH_ID: BillingModuleCodes.BRANCH_ID_NOT_PROVIDED,
                     NO_BILLING_SOURCE: BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED,
                     CART_AND_SERVICES_EMPTY: "Cart and servicesList are both empty"
-               }
+               },
+               pricingcheckout: params.pricingcheckout
           });
 
+
           if (validationError) return validationError;
-          if (!params.patientId) return BillingModuleCodes.MODULE_NO_PATIENT_ID;
+          if (params.pricingcheckout  === false && !params.patientId) return BillingModuleCodes.MODULE_NO_PATIENT_ID;
           if (params.billingSource === undefined || params.billingSource === null) return BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
           if (params.branchid === undefined || params.branchid === null) return BillingModuleCodes.BRANCH_ID_NOT_PROVIDED;
 
@@ -66,7 +69,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                this.getPaymentModes()
           ]);
 
-          if (!sessionExists) return BillingModuleCodes.MODULE_NO_SESSION;
+          if (!sessionExists && !params.pricingcheckout) return BillingModuleCodes.MODULE_NO_SESSION;
 
           let previousRecordsSummary = null;
           if (params.billingid) previousRecordsSummary = this.previousBillingSummary(params.billingid)

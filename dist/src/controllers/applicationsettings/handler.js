@@ -344,7 +344,7 @@ exports.getCategoryColumns = getCategoryColumns;
 const initializeBillingHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
-        const { entityId, entityType, isPackageUsed, packageid, patientId, billingid, branchid } = req.query;
+        const { entityId, entityType, isPackageUsed, packageid, patientId, billingid, branchid, ispricingcheckout, } = req.query;
         const parsePatientId = parseInt(patientId, 10);
         const parseBillingId = billingid ? parseInt(billingid, 10) : undefined;
         const parseBranchId = branchid ? parseInt(branchid, 10) : undefined;
@@ -354,6 +354,7 @@ const initializeBillingHandler = async (req, res) => {
             ? isPackageUsed === "true" || isPackageUsed === "1"
             : !!isPackageUsed;
         const billingSource = req.query.billingSource ? parseInt(req.query.billingSource, 10) : undefined;
+        const pricingcheckout = ispricingcheckout ? ispricingcheckout === "true" : false;
         const parsed = {
             entityId: parseEntityId,
             entityType: entityType,
@@ -364,6 +365,7 @@ const initializeBillingHandler = async (req, res) => {
             includeServices: req.query.includeServices ? req.query.includeServices === "true" : false,
             branchid: parseBranchId,
             billingSource: billingSource,
+            pricingcheckout,
             referalCode: req.query.referalCode ? parseInt(req.query.referalCode, 10) : undefined
         };
         const billingInit = initCustomerBilling_1.CustomerBillingInit.getInstance(tenantId);
@@ -389,7 +391,7 @@ const checkoutBillingHandler = async (req, res) => {
         const tenantId = parseInt(req.query.tenantId, 10);
         if (!tenantId)
             return res.status(400).json({ success: false, message: 'Missing tenantId' });
-        const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, entityid, entitytype, promoCode, isPromo, isPackageUsed, packageid } = req.body;
+        const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, entityid, ispricingcheckout, entitytype, promoCode, isPromo, isPackageUsed, packageid } = req.body;
         const result = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
             patientId,
             billingid,
@@ -399,6 +401,7 @@ const checkoutBillingHandler = async (req, res) => {
             branchid,
             billingSource,
             entitytype,
+            ispricingcheckout,
             entityid,
             referalCode,
             promoCode,

@@ -344,6 +344,12 @@ class Refund {
             reason,
         });
     }
+    async isAmountRefundedOut(tenantId, serviceid) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.hasAmountRefunded, [serviceid]);
+        if (!result || !Array.isArray(result))
+            return null;
+        return result[0].count > 0;
+    }
     static async approveRequestedRefund(tenantId, serviceid, employeeid, isApprove) {
         try {
             const billingData = await new TiifuWorkingClass_1.TiifuWorkingClass("dboservices").findOne(tenantId, "serviceid", serviceid);
@@ -352,6 +358,9 @@ class Refund {
             const isbillingLocked = await PrimeBillingEnterprise_1.PrimeBillingEnterprise.isBillingLocked(tenantId, billingData.billingid);
             if (isbillingLocked)
                 return "Billing is locked , hence action cannot be carried out" /* OperationsFailures.billingLocked */;
+            const isRefundCompleted = await this.isServiceRefundConcluded(tenantId, serviceid);
+            if (isRefundCompleted)
+                return "Refund already concluded for this service" /* OperationsFailures.refundAlreadyConcluded */;
             const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [isApprove, employeeid, serviceid]);
             return (0, helper_1.rowAffected)(result);
         }

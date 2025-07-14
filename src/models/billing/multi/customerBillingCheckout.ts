@@ -31,6 +31,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           billingSource,
           referalCode,
           promoCode,
+          ispricingcheckout,
           isPromo,
           isPackageUsed,
           packageid,
@@ -38,7 +39,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           entityid,
           tenantId
      }: any): Promise<{ success: boolean; message: string; data?: any }> {
-          if (!patientId) return { success: false, message: 'No patientId provided' };
+          if (!patientId && !ispricingcheckout) return { success: false, message: 'No patientId provided' };
           if (branchid === undefined || branchid === null) return { success: false, message: 'No branchid provided' };
           if (billingSource === undefined || billingSource === null) return { success: false, message: 'No billingSource provided' };
 
@@ -157,6 +158,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     taxList,
                     entitytype,
                     entityId: entityid,
+                    ispricingcheckout,
                     entityid,
                     previousBilling,
                     previousServices
@@ -217,6 +219,12 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                reason: promoResult.reason
           };
      }
+
+
+     refererCorrectionAdjustment(tenantId: number, billingid: number, employeeid: number, entity_type:number, entity_id:number): Promise<boolean> {
+          // Implementation here
+          return Promise.resolve(true); // Placeholder for actual implementation
+     }
 }
 
-export const CustomerBillingCheckout = CustomerBillingCheckoutSingleton;
+     export const CustomerBillingCheckout = CustomerBillingCheckoutSingleton;

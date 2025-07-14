@@ -242,7 +242,8 @@ export class PrimeBillingEnterprise {
 		patientId,
 		branchid,
 		billingSource,
-		errorCodes
+		errorCodes,
+		pricingcheckout
 	}: {
 		patientId: number | undefined;
 		branchid: number | undefined;
@@ -255,8 +256,9 @@ export class PrimeBillingEnterprise {
 			NO_BILLING_SOURCE: string;
 			CART_AND_SERVICES_EMPTY: string;
 		};
+		pricingcheckout?: boolean;
 	}) {
-		if (!patientId) return errorCodes.NO_PATIENT_ID;
+		if (!patientId && !pricingcheckout) return errorCodes.NO_PATIENT_ID;
 		if (branchid === undefined || branchid === null) return errorCodes.NO_BRANCH_ID;
 		if (billingSource === undefined || billingSource === null) return errorCodes.NO_BILLING_SOURCE;
 		return null;

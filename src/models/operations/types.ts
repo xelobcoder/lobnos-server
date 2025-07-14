@@ -6,7 +6,7 @@ export const enum OperationsFailures {
   TestExist = "Test With Such Name Already Exist",
   sameTestNameProvided = "Same Test Name provided for update",
   applicableTestNotFound = "applicableTest Not found or has invalid content",
-  applicableOrganizationNotFound = "applicableOrganization Not found or has invalid content" ,
+  applicableOrganizationNotFound = "applicableOrganization Not found or has invalid content",
   invalidTestLength = "invalid test length provided",
   noArgumentsProvided = "No Arguments Provided",
   invalidResponseBodyParams = 'Invalid response body parameters.',
@@ -17,8 +17,9 @@ export const enum OperationsFailures {
   billingStrategyNotFoundForEntity = 'Billing strategy not found for the given entity.',
   billingStrategyExpired = 'Billing strategy has expired.',
   queryExecutionFailed = 'Query execution failed.',
-  NothaveDifferentPriceList="Different Pricing not selected",
-  EmptyTestList="Empty TestList Provided",
+  NothaveDifferentPriceList = "Different Pricing not selected",
+  refundAlreadyConcluded = "Refund already concluded for this service",
+  EmptyTestList = "Empty TestList Provided",
   billingLocked = 'Billing is locked , hence action cannot be carried out',
   notFound = 'Resource not found.',
   inActiveBillingSession = 'No active billing session found for the current date.',
@@ -27,8 +28,8 @@ export const enum OperationsFailures {
   dontHavePermission = "You do not have permission to delete this resources",
   dontHaveAccessPermission = "You do not have permission to access this resources",
   invalidRequestBodyType = "The type of request body is invalid",
-  sessionNotFound= "No active sales session found for the current date.",
-  cannotCreateSessionForDate= "Cannot create a session for the provided date. A session already exists for this date.",
+  sessionNotFound = "No active sales session found for the current date.",
+  cannotCreateSessionForDate = "Cannot create a session for the provided date. A session already exists for this date.",
   allRequestedServicesAlreadyExistForThisTransaction = "All requested services already exist for this transaction",
   someRequestedServicesAlreadyExistForThisTransaction = "some requested services already exist for this transaction, please kindly check the previous billing of this transaction",
   resourceExist = "This resource already exist",
@@ -108,7 +109,7 @@ export interface OperationsFilterResultEntry {
   departmentid?: number | string;
   testid?: number;
   status?: string;
-  tenantId:string;
+  tenantId: string;
   billingid?: number;
   branchid: number;
   from?: string;
