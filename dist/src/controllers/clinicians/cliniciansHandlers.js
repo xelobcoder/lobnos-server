@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.postProcessedOrderHandler = exports.getTemporaryOrdersProcessingHandler = exports.getTemporaryOrdersHandler = exports.postTemporaryOrderHandler = exports.getBillingTestBasedByClinicianHandler = exports.getClinicianResultHandler = exports.filterClinicianHandler = exports.verifyClinicianPhoneNumberAndEmailMiddleware = exports.postCliniciansHandler = exports.deleteCliniciansHandler = exports.putCliniciansHandler = exports.getSingleClinicianHandler = exports.bulkInsertCliniciansHandler = exports.getCliniciansHandler = void 0;
+exports.getAllCliniciansHandler = exports.postProcessedOrderHandler = exports.getTemporaryOrdersProcessingHandler = exports.getTemporaryOrdersHandler = exports.postTemporaryOrderHandler = exports.getBillingTestBasedByClinicianHandler = exports.getClinicianResultHandler = exports.filterClinicianHandler = exports.verifyClinicianPhoneNumberAndEmailMiddleware = exports.postCliniciansHandler = exports.deleteCliniciansHandler = exports.putCliniciansHandler = exports.getSingleClinicianHandler = exports.bulkInsertCliniciansHandler = exports.getCliniciansHandler = void 0;
 const express_1 = require("express");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
 const helper_1 = require("../../hooks/helper");
@@ -304,3 +304,16 @@ async function postProcessedOrderHandler(req, res) {
     }
 }
 exports.postProcessedOrderHandler = postProcessedOrderHandler;
+async function getAllCliniciansHandler(req, res) {
+    var _a;
+    try {
+        const tenantId = parseInt(((_a = req.query.tenantId) === null || _a === void 0 ? void 0 : _a.toString()) || '0');
+        const cliniciansList = await clinicianClass_1.default.getAllClinicians(tenantId);
+        res.status(200).json({ statusCode: 200, status: "success", result: cliniciansList });
+    }
+    catch (err) {
+        logger_1.default.error(err);
+        (0, helper_1.responseError)(res);
+    }
+}
+exports.getAllCliniciansHandler = getAllCliniciansHandler;

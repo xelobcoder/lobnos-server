@@ -16,6 +16,9 @@ router.post("/api/v1/orders/temporary", clinicianHandlers.postTemporaryOrderHand
 router.get("/api/v1/orders/temporary", clinicianHandlers.getTemporaryOrdersHandler);
 router.get("/api/v1/orders/temporary/processing", clinicianHandlers.getTemporaryOrdersProcessingHandler);
 router.post("/api/v1/orders/processed", clinicianHandlers.postProcessedOrderHandler);
+
+// Route to load all clinicians
+router.get('/api/v1/clinicians/all', handleOverLoad(clinicianHandlers.getAllCliniciansHandler));
 router.post('/api/v1/clinicians/bulk', handleOverLoad(clinicianHandlers.bulkInsertCliniciansHandler));
 
 

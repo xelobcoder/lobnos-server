@@ -50,6 +50,9 @@ class ClinicianClass {
                 await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getAllClinicians);
         }
     }
+    static getAllClinicians(tenantId) {
+        return (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getAllClinicians);
+    }
     async getClinicianBasicInfo(tenantId, clinicianid) {
         return await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getClinicianBasicInfo, [clinicianid]);
     }

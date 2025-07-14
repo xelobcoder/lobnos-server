@@ -40,6 +40,8 @@ router.post("/api/v1/orders/temporary", clinicianHandlers.postTemporaryOrderHand
 router.get("/api/v1/orders/temporary", clinicianHandlers.getTemporaryOrdersHandler);
 router.get("/api/v1/orders/temporary/processing", clinicianHandlers.getTemporaryOrdersProcessingHandler);
 router.post("/api/v1/orders/processed", clinicianHandlers.postProcessedOrderHandler);
+// Route to load all clinicians
+router.get('/api/v1/clinicians/all', (0, helper_1.handleOverLoad)(clinicianHandlers.getAllCliniciansHandler));
 router.post('/api/v1/clinicians/bulk', (0, helper_1.handleOverLoad)(clinicianHandlers.bulkInsertCliniciansHandler));
 const billingStrategyHandler_1 = require("./billingStrategyHandler");
 router.get('/api/v1/billing/testpanel/strategies/panels/:entityType/:associatedid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getProvidentialBillingHandler));

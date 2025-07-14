@@ -52,6 +52,10 @@ export default class ClinicianClass {
 		}
 	}
 
+	public static getAllClinicians(tenantId: number) {
+		return promisifyQuery(tenantId, SQLQueries.getAllClinicians);
+	}
+
 	public async getClinicianBasicInfo(tenantId: number, clinicianid: number): Promise<PrimeLimsTableclinicianbasicinfo[]> {
 		return await promisifyQuery(tenantId, SQLQueries.getClinicianBasicInfo, [clinicianid]);
 	}

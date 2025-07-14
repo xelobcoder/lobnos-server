@@ -319,3 +319,14 @@ export async function postProcessedOrderHandler(req: Request, res: Response): Pr
 		customError(err?.message || err, 500, res);
 	}
 }
+
+export async function getAllCliniciansHandler(req: Request, res: Response): Promise<void> {
+	try {
+		const tenantId = parseInt(req.query.tenantId?.toString() || '0');
+		const cliniciansList: Clinician[] = await ClinicianClass.getAllClinicians(tenantId);
+		res.status(200).json({ statusCode: 200, status: "success", result: cliniciansList });
+	} catch (err) {
+		logger.error(err);
+		responseError(res);
+	}
+}
