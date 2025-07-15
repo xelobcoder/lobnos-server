@@ -1,6 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerBillingCheckout = void 0;
+const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
+const billing_1 = require("../billing");
+const billingclientTypes_1 = require("../billingclientTypes");
 const PrimeBillingPromoCodeRepo_1 = require("../repositories/PrimeBillingPromoCodeRepo");
 const packageBillingHelper_1 = require("./packageBillingHelper");
 const PrimeBillingEnterprise_1 = require("./PrimeBillingEnterprise");
@@ -182,9 +188,77 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             reason: promoResult.reason
         };
     }
-    refererCorrectionAdjustment(tenantId, billingid, employeeid, entity_type, entity_id) {
-        // Implementation here
-        return Promise.resolve(true); // Placeholder for actual implementation
+    static determineBillingSourceUsingEntityType(entity_type) {
+        switch (entity_type) {
+            case 'general':
+                return 1;
+            case 'clinician':
+                return 6;
+            case 'organization':
+                return 2;
+            case 'phis':
+                return 3;
+            case 'insurance':
+                return 4;
+            default:
+                return null;
+        }
+    }
+    static async correctRefererErrorPostRegistration(tenantId, employeeId, entity_type, entity_id, billingid, branchid) {
+        if (!entity_type || !entity_id)
+            return { success: false, message: 'No entity_type or entity_id provided' };
+        if (billingid === undefined || billingid === null)
+            return { success: false, message: 'No billingid provided' };
+        const isBillingIdValid = await billing_1.Billing.checkValidityOfBillingid(tenantId, billingid);
+        if (!isBillingIdValid)
+            return { success: false, message: 'Invalid billingid provided' };
+        if (branchid === undefined || branchid === null)
+            return { success: false, message: 'No branchid provided' };
+        const billingSource = this.determineBillingSourceUsingEntityType(entity_type);
+        if (billingSource === undefined || billingSource === null)
+            return { success: false, message: 'No billingSource provided' };
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const transaction = await conn.transaction();
+        try {
+            const transactionServices = await transaction('dboservices')
+                .where('billingid', billingid);
+            if (transactionServices.length === 0) {
+                await transaction.rollback();
+                return { success: false, message: 'No services found for the provided billingid' };
+            }
+            for (const service of transactionServices) {
+                await transaction('dboservices')
+                    .where('billingid', service.serviceid)
+                    .update({
+                    serviceCategory: billingclientTypes_1.serviceCategory[billingSource],
+                    trackid: entity_id,
+                    clinicianId: billingSource === 6 ? entity_id : null,
+                    organizationId: billingSource === 2 ? entity_id : null,
+                    categoryTrackId: entity_id,
+                    isNHIS: billingSource === 4 ? 1 : 0,
+                    isPHIS: billingSource === 3 ? 1 : 0,
+                    insuranceid: billingSource === 4 || billingSource === 3 ? entity_id : null,
+                    isLocked: 1,
+                    isCorrected: 1,
+                });
+            }
+            await transaction('billing')
+                .where('billingid', billingid)
+                .update({
+                adjustmentType: 'referer-error',
+                adjustmentReason: 'Referer error correction',
+                adjustmentdate: new Date(),
+                isAdjustment: 1,
+                islocked: 1,
+                adjustedBy: employeeId,
+            });
+            await transaction.commit();
+            return { success: true, message: 'Referer error correction successful', data: { billingid, billingSource } };
+        }
+        catch (error) {
+            await transaction.rollback();
+            return { success: false, message: error.message || 'Transaction failed' };
+        }
     }
 }
 exports.CustomerBillingCheckout = CustomerBillingCheckoutSingleton;

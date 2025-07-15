@@ -27,4 +27,6 @@ router.get(`${baseUrl}/test-breakdown/:clinicianId`, clinicianAnalyticsHandlers.
 router.get(`${baseUrl}/top-outsourced/:clinicianId`, clinicianAnalyticsHandlers.getTopOutsourcedTests.bind(clinicianAnalyticsHandlers));
 router.get(`${baseUrl}/dashboard/:clinicianId`, clinicianAnalyticsHandlers.getAllAnalytics.bind(clinicianAnalyticsHandlers));
 router.get(`${baseUrl}/endpoints`, clinicianAnalyticsHandlers.getEndpoints.bind(clinicianAnalyticsHandlers));
+router.get(`${baseUrl}/commissions/range`, clinicianAnalyticsHandlers.getCliniciansCommissionbyDate.bind(clinicianAnalyticsHandlers));
+router.get(`${baseUrl}/commissions/range/single/:clinicianId`, clinicianAnalyticsHandlers.getClinicianCommissionHandler.bind(clinicianAnalyticsHandlers));
 exports.default = router;

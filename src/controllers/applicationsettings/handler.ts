@@ -367,7 +367,7 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 				? isPackageUsed === "true" || isPackageUsed === "1"
 				: !!isPackageUsed;
 		const billingSource = req.query.billingSource ? parseInt(req.query.billingSource as string, 10) : undefined;
-		const pricingcheckout =  ispricingcheckout ? ispricingcheckout === "true" : false;
+		const pricingcheckout = ispricingcheckout ? ispricingcheckout === "true" : false;
 
 		const parsed = {
 			entityId: parseEntityId,
@@ -458,7 +458,6 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 		const tenantId = parseInt(req.query.tenantId as string, 10);
 		if (!tenantId) return res.status(400).json({ success: false, message: 'Missing tenantId' });
 
-		// Destructure all possible fields from the payload
 		const {
 			amountPayable,
 			cart,
@@ -526,6 +525,33 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			servicesList
 		}, tenantId).submit();
 		res.send(result)
+	} catch (err) {
+		console.error(err);
+		responseError(res, err);
+	}
+};
+
+
+export const correctRefererErrorPostRegistrationHandler = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as string, 10);
+		const { entity_type, entity_id, branchid, billingid, employeeId } = req.body;
+		if (!entity_type || !entity_id || !employeeId || !billingid || !branchid) {
+			return res.status(400).json({ success: false, message: 'Missing entity_type or entity_id or employeeId or billingid or branchid' });
+		}
+
+		const isvalid_entity_id = !isNaN(parseInt(entity_id.toString(), 10));
+		if (!isvalid_entity_id) {
+			return res.status(400).json({ success: false, message: 'Invalid entity_id' });
+		}
+		const pEmployeeId = parseInt(employeeId.toString(), 10);
+		const result = await CustomerBillingCheckout.correctRefererErrorPostRegistration(tenantId, pEmployeeId, entity_type, parseInt(entity_id.toString(), 10), billingid, branchid);
+
+		if (typeof result === 'string') {
+			return res.status(400).json({ success: false, message: result });
+		}
+
+		res.send(result);
 	} catch (err) {
 		console.error(err);
 		responseError(res, err);

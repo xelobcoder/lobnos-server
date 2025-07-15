@@ -135,9 +135,9 @@ export class SubmitCustomerBilling {
                 const testPayableAmount = data.testPayableAmount || 0;
                 const totaldiscount = data.totaldiscount || 0;
                 const totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
-                const totalOutstanding = amountPayable - this.payload.paid;
-                const balance = this.payload.paid > totalAmountPayable ? 0 : totalAmountPayable - this.payload.paid;
-
+                const totalOutstanding = amountPayable > this.payload.paid ? amountPayable - this.payload.paid : 0;
+                const balance = totalOutstanding > 0 ? 0 : this.payload.paid - totalAmountPayable;
+console.log('outstanding:', totalOutstanding, 'balance:', balance, 'amountPayable:', amountPayable, 'paid:', this.payload.paid, 'totalAmountPayable:', totalAmountPayable);
 
                 const updateData = {
                     totalTransactionCost: totalcost,

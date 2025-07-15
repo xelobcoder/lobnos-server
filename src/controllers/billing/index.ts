@@ -33,7 +33,7 @@ import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { handleOverLoad } from "../../hooks/helper";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
 import { PrimeBillingPromoCodeController } from "./PrimePromoCode";
-import { checkoutBillingHandler, initializeBillingHandler, submitBillingHandler } from "../applicationsettings/handler";
+import { checkoutBillingHandler, correctRefererErrorPostRegistrationHandler, initializeBillingHandler, submitBillingHandler } from "../applicationsettings/handler";
 
 
 
@@ -65,7 +65,7 @@ router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selected
     handleOverLoad(isAuthorizedRoleAdmin),
     refundAllTransactionHandler as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
 router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, WriteOffTransaction as RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>);
-
+router.post('/api/v1/billing/correction/source', handleOverLoad(correctRefererErrorPostRegistrationHandler));
 
 
 // Services Routes

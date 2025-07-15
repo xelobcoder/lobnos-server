@@ -134,6 +134,7 @@ const handleSalesSummaryDailyBreakDown = async function (request, response) {
         response.send(responseData);
     }
     catch (error) {
+        console.log(error);
         response.status(500).json({
             error: "Failed to retrieve function keys",
             details: error.message

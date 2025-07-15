@@ -102,4 +102,15 @@ router.get(
      clinicianAnalyticsHandlers.getEndpoints.bind(clinicianAnalyticsHandlers)
 );
 
+
+router.get(
+     `${baseUrl}/commissions/range`,
+     clinicianAnalyticsHandlers.getCliniciansCommissionbyDate.bind(clinicianAnalyticsHandlers)
+);
+
+
+router.get(
+     `${baseUrl}/commissions/range/single/:clinicianId`,
+     clinicianAnalyticsHandlers.getClinicianCommissionHandler.bind(clinicianAnalyticsHandlers)
+);
 export default router;

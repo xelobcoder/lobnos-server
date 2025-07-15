@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import ClinicianAnalytics from '../../../models/analytics/clinicians-analytics/clinicians-analytics';
+import { customError } from '../../../hooks/helper';
 
 interface BaseAnalyticsRequest extends Request {
      params: {
@@ -369,6 +370,41 @@ export default class ClinicianAnalyticsHandlers {
           return this.handleRequest(res, async () => {
                const clinicianId = this.validateClinicianId(req.params.clinicianId);
                return await ClinicianAnalytics.getMonthlyTestBreakdown(parseInt(tenantId), clinicianId);
+          });
+     }
+
+     public async getCliniciansCommissionbyDate(request: Request, response: Response) {
+          const { tenantId, startDate, endDate } = request.query;
+          if (!startDate || !endDate) {
+               return response.status(400).json({
+                    success: false,
+                    error: "Start date and end date are required"
+               });
+          }
+          const result = await ClinicianAnalytics.getClinicianCommissionByDate(parseInt(tenantId.toString()), startDate as string, endDate as string);
+          response.status(200).json({
+               success: true,
+               data: result
+          });
+     }
+
+     public  async getClinicianCommissionHandler(request: Request, response: Response) {
+          const { tenantId, clinicianId, startDate, endDate } = request.query;
+          if (!startDate || !endDate) {
+               return response.status(400).json({
+                    success: false,
+                    error: "Start date and end date are required"
+               });
+          }
+
+          if (clinicianId === undefined || clinicianId === null) {
+               return customError('Clinician ID is required', 400, response);
+          }
+
+          const result = await ClinicianAnalytics.getClinicianCommission(parseInt(tenantId.toString()), parseInt(clinicianId.toString()), startDate as string, endDate as string);
+          response.status(200).json({
+               success: true,
+               data: result
           });
      }
 

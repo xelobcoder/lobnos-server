@@ -436,3 +436,13 @@ SELECT
     END AS clinician_revenue_change_percentage
 FROM previous, current;
 `;
+
+export const q_get_clinician_commission = `
+CALL cl_get_single_clinician_commission(?, ?, ?)`;
+
+
+export const q_get_clinicians_commission_by_date = `
+CALL cl_get_clinician_commission(?, ?)`;
+
+
+

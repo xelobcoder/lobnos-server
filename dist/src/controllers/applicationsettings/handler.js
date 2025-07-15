@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.submitBillingHandler = exports.checkoutBillingHandler = exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
+exports.correctRefererErrorPostRegistrationHandler = exports.submitBillingHandler = exports.checkoutBillingHandler = exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
@@ -428,7 +428,6 @@ const submitBillingHandler = async (req, res) => {
         const tenantId = parseInt(req.query.tenantId, 10);
         if (!tenantId)
             return res.status(400).json({ success: false, message: 'Missing tenantId' });
-        // Destructure all possible fields from the payload
         const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, isPayAll, promoMethod, patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList, entityId, additionalinformation, isAdjustment, writeOffOutstanding, adjustmentType, adjustmentReason } = req.body;
         const result = await new billing_new_client_multi_1.SubmitCustomerBilling({
             tenantId,
@@ -471,3 +470,27 @@ const submitBillingHandler = async (req, res) => {
     }
 };
 exports.submitBillingHandler = submitBillingHandler;
+const correctRefererErrorPostRegistrationHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const { entity_type, entity_id, branchid, billingid, employeeId } = req.body;
+        if (!entity_type || !entity_id || !employeeId || !billingid || !branchid) {
+            return res.status(400).json({ success: false, message: 'Missing entity_type or entity_id or employeeId or billingid or branchid' });
+        }
+        const isvalid_entity_id = !isNaN(parseInt(entity_id.toString(), 10));
+        if (!isvalid_entity_id) {
+            return res.status(400).json({ success: false, message: 'Invalid entity_id' });
+        }
+        const pEmployeeId = parseInt(employeeId.toString(), 10);
+        const result = await customerBillingCheckout_1.CustomerBillingCheckout.correctRefererErrorPostRegistration(tenantId, pEmployeeId, entity_type, parseInt(entity_id.toString(), 10), billingid, branchid);
+        if (typeof result === 'string') {
+            return res.status(400).json({ success: false, message: result });
+        }
+        res.send(result);
+    }
+    catch (err) {
+        console.error(err);
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.correctRefererErrorPostRegistrationHandler = correctRefererErrorPostRegistrationHandler;

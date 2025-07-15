@@ -139,12 +139,14 @@ class SubmitCustomerBilling {
                 let balance = 0;
                 let writeOffAmount = 0;
                 let overallPaymentsMade = updatedBillingData.paid;
-                let status = 'pending';
+                let status = this.payload.paid == amountPayable ? "paid" : this.payload.paid > 0 ? "partial" : "pending";
                 testPayableAmount = data.testPayableAmount || 0;
                 totalcost = data.totalcost;
                 totalservicesAmount = data.totalServiceAmountPayable;
                 totaldiscount = data.totaldiscount || 0;
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
+                totalOutstanding = Math.max(amountPayable - updatedBillingData.paid, 0);
+                balance = totalOutstanding > 0 ? 0 : updatedBillingData.paid - totalAmountPayable;
                 const updateData = {
                     totalTransactionCost: totalcost,
                     totalcost: totalcost,
@@ -196,7 +198,7 @@ class SubmitCustomerBilling {
                     outstanding: updateData.outstanding,
                     balance: updateData.balance,
                     clientstatus: status || "normal",
-                    status: totalOutstanding == 0 ? "paid" : "pending",
+                    status,
                     amountIncurredDueTax: updateData.totalAmountIncurredDueTax,
                     branchid: updatedBillingData.branchid,
                     isPromo: updateData.isPromo,
