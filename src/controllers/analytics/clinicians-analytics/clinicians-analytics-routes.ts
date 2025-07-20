@@ -110,7 +110,7 @@ router.get(
 
 
 router.get(
-     `${baseUrl}/commissions/range/single/:clinicianId`,
+     `${baseUrl}/commissions/range/single`,
      clinicianAnalyticsHandlers.getClinicianCommissionHandler.bind(clinicianAnalyticsHandlers)
 );
 export default router;

@@ -128,11 +128,11 @@ async function monthlyApprovalRateHandler(request, response) {
 exports.monthlyApprovalRateHandler = monthlyApprovalRateHandler;
 async function PendingTestAscensionHandler(request, response) {
     try {
-        const { tenantId, count = 10, page = 1 } = request.query;
+        const { tenantId, count = 10, page = 1, start_date, end_date } = request.query;
         const parsedCount = parseInt(count.toString());
         const parsedPage = parseInt(page.toString());
         const tenantIdP = parseInt(tenantId.toString());
-        const pending = await ascension_1.TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage);
+        const pending = await ascension_1.TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date, end_date);
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });
     }
     catch (err) {
@@ -147,6 +147,7 @@ async function TransactionTestAscensionHandler(request, response) {
         const parsedBillingid = parseInt(billingid.toString());
         const tenantIdP = parseInt(tenantId.toString());
         const transactions = await ascension_1.TestAscension.getTransactionAscentionTestDetails(tenantIdP, parsedBillingid);
+        console.log(transactions);
         response.send({ tenantId, message: 'success', statusCode: 200, result: transactions, status: 'success' });
     }
     catch (err) {

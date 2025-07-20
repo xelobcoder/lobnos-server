@@ -50,3 +50,6 @@ export const isExpenseExistQuery = "SELECT * FROM `dboexpensecategory` WHERE cat
 export const createExpenseCategoryQuery = "INSERT INTO `dboexpensecategory` (category, employeeid) VALUES (?, ?)";
 
 export const updateExpenseCategoryQuery = "UPDATE `dboexpensecategory` SET category = ? WHERE id = ?";
+
+
+export const expense_between_dates_query = `SELECT * FROM expensesrecord WHERE createdon BETWEEN ? AND ? ORDER BY createdon ASC`;

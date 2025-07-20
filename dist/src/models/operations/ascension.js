@@ -83,8 +83,15 @@ class TestAscension extends operations_1.default {
             return billingclientTypes_1.Client_PLS_Lifecycle[2];
         return billingclientTypes_1.Client_PLS_Lifecycle[1];
     }
-    static async getPendingSampleUncollected(tenantId, count, page) {
-        return await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_pending_sample_uncollected, [], tenantId);
+    static async getPendingSampleUncollected(tenantId, count, page, start_date, end_date) {
+        let query = queries_1.q_pending_sample_uncollected;
+        if (start_date && end_date) {
+            query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+        }
+        query += ` ORDER BY b.billingid ASC 
+          LIMIT ? OFFSET ?`;
+        console.log(query);
+        return await (0, helper_1.paginationQuery)({ count, page }, query, [start_date, end_date], tenantId);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {
         return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_transaction_ascension_phelobotomy_details, [billingid]);

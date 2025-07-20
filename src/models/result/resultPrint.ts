@@ -297,22 +297,30 @@ class ResultPrint implements IResultPrint {
 			const previewReportContent: previewReportView | [] | string = await new Creator(testid).resultPresentationView(tenantId, testid, billingid, patientid);
 			if (Array.isArray(previewReportContent) || typeof previewReportContent == "string") return null;
 			let resultRequiringDecryption = previewReportContent['result'];
-			if (resultRequiringDecryption && Array.isArray(resultRequiringDecryption) && resultRequiringDecryption.length > 0) {
-				const decryptedResult = await resultEncrptionReferer(resultRequiringDecryption as any, "decryption");
-				if (decryptedResult.resources && Array.isArray(decryptedResult.resources) && decryptedResult.resources.length > 0) {
-					previewReportContent['result'] = resultRequiringDecryption.map((item: CreationRule, index: number) => {
-						const matched = decryptedResult.resources.find((field) => field.fieldid == item.fieldid);
-						return matched ? { ...item, ...matched } : item;
-					})
-				}
-			} else {
-				throw new Error("Decrypting Result Failed");
-			}
-
-			return previewReportContent;
+			previewReportContent['result'] = await ResultPrint.decryptResultArray(resultRequiringDecryption); return previewReportContent;
 		} catch (err) {
 			throw err;
 		}
+	}
+
+	/**
+	 * Decrypts an array of result data using resultEncrptionReferer
+	 * @param resultArray The array of result data to decrypt
+	 * @returns The decrypted result array
+	 */
+	public static  async decryptResultArray(resultArray: any): Promise<any> {
+		if (resultArray && Array.isArray(resultArray) && resultArray.length > 0) {
+			const decryptedResult = await resultEncrptionReferer(resultArray as any, "decryption");
+			if (decryptedResult.resources && Array.isArray(decryptedResult.resources) && decryptedResult.resources.length > 0) {
+				return resultArray.map((item: CreationRule) => {
+					const matched = decryptedResult.resources.find((field) => field.fieldid == item.fieldid);
+					return matched ? { ...item, ...matched } : item;
+				});
+			} else {
+				throw new Error("Decrypting Result Failed");
+			}
+		}
+		return resultArray;
 	}
 
 	async getTransactionApprovedTest(tenantId: number, billingid: number): Promise<[] | { name: string, testid: number }[]> {

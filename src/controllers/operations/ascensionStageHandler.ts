@@ -17,7 +17,6 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 		const parsedEmployeeId = parseInt(employeeid.toString());
 		const tenantIdP = parseInt(tenantId.toString());
 
-
 		if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP))) {
 			return response.send({ status: false, message: OperationsFailures.dontHaveAccessPermission });
 		}
@@ -29,7 +28,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 		const queryParams = createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound });
 
 		let list = await Operations.getAscensionBasedOnStage(tenantIdP, queryParams);
-		
+
 		if (operationsStaging === 'VALIDATION' && Array.isArray(list)) {
 			list = await filterApprovedAscensionList(list, parsedEmployeeId, tenantIdP);
 		}
@@ -37,7 +36,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 
 		if (operationsStaging === "VALIDATED" && Array.isArray(list)) {
 			list = await Promise.all(list.map(async (item, index) => {
-				return await validatedResultEmployeeGetter(item,tenantIdP);
+				return await validatedResultEmployeeGetter(item, tenantIdP);
 			}))
 		}
 		response.send(list);
@@ -46,7 +45,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 	}
 }
 
-async function validatedResultEmployeeGetter(item: any,tenantId:number) {
+async function validatedResultEmployeeGetter(item: any, tenantId: number) {
 	const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid } = item;
 
 	const validators = await new TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);

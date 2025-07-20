@@ -34,19 +34,17 @@ export class TestApprovalClass extends Operations {
 			const minListUnverified = Array.isArray(approvedDetails) ? [...approvedDetails, approvedBy] : [approvedDetails, approvedBy];
 
 			const isMinimumApprovalReached = await ResultSettings.isApprovalLimitReached(tenantId, minListUnverified, null, 'minimum');
-
+console.log(isMinimumApprovalReached, 'isMinimumApprovalReached');
 			const _approvalState = isMinimumApprovalReached == true ? 1 : 0;
 
 			if (!canStaffApproveResult) return OperationsFailures.dontHaveAccessPermission;
-
 			if (isMaximumApprovalReached) return OperationsFailures.maximumResultValidation;
 
 			if (Array.isArray(approvedDetails) && approvedDetails.length == 0) {
-
 				return await updateQueryExecutor(approvedBy.toString(), _approvalState, ascensionid, tenantId);
 			} else if (typeof approvedDetails === "number") {
 
-				if (approvedDetails == approvedBy) {
+				if (approvedDetails === approvedBy) {
 					return OperationsFailures.resourceExist + " .Resource was already validated by the current user";
 				}
 

@@ -131,7 +131,7 @@ class SubmitCustomerBilling {
                 }
                 let totalcost = 0;
                 let totalservicesAmount = 0;
-                let totalAmountPayable = 0;
+                let totalAmountPayable = checkoutResult.data.amountPayable || 0;
                 let testPayableAmount = 0;
                 let totaldiscount = 0;
                 let totalAmountIncurredDueTax = 0;

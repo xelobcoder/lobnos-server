@@ -263,5 +263,10 @@ class Expenses {
         }
         return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, queries_1.updateExpenseCategoryQuery, [category, editid]));
     }
+    static async getExpensesByCreatedOnRange(tenantId, from, to) {
+        if (!from || !to)
+            throw new Error('Both from and to timestamps are required');
+        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.expense_between_dates_query, [from, to]);
+    }
 }
 exports.default = Expenses;

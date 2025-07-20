@@ -1,3 +1,4 @@
+
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import { readdir, unlink } from 'fs/promises';
@@ -7,6 +8,7 @@ import {
      calculateYearlyExpenseQuery,
      calCurrentMonthExpenseQuery,
      createExpenseCategoryQuery,
+     expense_between_dates_query,
      generateNewExpenseQuery,
      getAllExpenseCategoryQuery,
      getExpenseImageListQuery,
@@ -35,6 +37,7 @@ export default class Expenses implements IExpenseRepository {
           this.tenantId = tenantId
           this.expenseId = expenseId;
      }
+
 
      isExpenseApproved(): Promise<boolean> {
           return
@@ -157,11 +160,11 @@ export default class Expenses implements IExpenseRepository {
 
      public async updateExpenseRecord(expenseData: PrimeLimsTableexpensesrecord) {
           try {
-               
+
                const isValidExpenseRecord = await this.isExpenseRecordAvailable();
-               
+
                if (!isValidExpenseRecord) return OperationsFailures.unfoundID;
-               
+
                const {
                     id,
                     name,
@@ -211,7 +214,7 @@ export default class Expenses implements IExpenseRepository {
           const status = await Promise.all(
                data.map(async (item) => {
                     try {
-                         const filepath = path.join(__dirname,'../../../../',`/public/uploads/expenses/receipts/${item}`)
+                         const filepath = path.join(__dirname, '../../../../', `/public/uploads/expenses/receipts/${item}`)
                          await unlink(filepath);
                          return true;
                     } catch {
@@ -339,4 +342,11 @@ export default class Expenses implements IExpenseRepository {
           }
           return rowAffected(await promisifyQuery(tenantId, updateExpenseCategoryQuery, [category, editid]));
      }
+
+
+     public static async getExpensesByCreatedOnRange(tenantId: number, from: string | Date, to: string | Date): Promise<PrimeLimsTableexpensesrecord[] | []> {
+          if (!from || !to) throw new Error('Both from and to timestamps are required');
+          return await promisifyQuery(tenantId, expense_between_dates_query, [from, to]);
+     }
+
 }

@@ -116,9 +116,9 @@ exports.q_get_all_result_entry_base = `
   INNER JOIN departments AS d ON d.id = tp.category
   INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
-   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
+  INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
   WHERE ss.approvalstatus = 1
-      AND ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL
+      AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL)
 `;
 exports.q_get_all_result_entry_ultrasound_base = `
   SELECT DISTINCT
@@ -178,8 +178,8 @@ const q_get_all_test_ready_for_various_stages = function (currentQuery, stage) {
       `;
             return query;
         case OperationsStages.VALIDATED:
-            query += `AND ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 1
-     AND d.department <> 'ultrasound'
+            query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL ) AND  dta.isapproved = 1
+     AND d.department <> 'ultrasound' 
       `;
             return query;
         default:
@@ -366,13 +366,14 @@ exports.q_pending_sample_uncollected = `
       p.mobile_number AS mobilenumber,
       b.billingid AS billingid,
       b.billedon AS date,
-      b.clientstatus 
+      b.clientstatus,
+      ts.collectionStartDate,
+      ts.collectionEndDate
     FROM new_patients AS p
     INNER JOIN billing AS b ON p.patientid = b.patientid
     INNER JOIN test_ascension AS ts ON b.billingid = ts.billingid
-    WHERE (ts.collectionStartDate IS NULL OR ts.collectionEndDate IS NULL)
-    ORDER BY b.billingid ASC 
-    LIMIT ? OFFSET ?`;
+    WHERE (ts.collectionEndDate IS NULL OR ts.collectionStartDate IS NULL)
+`;
 exports.q_transaction_ascension_phelobotomy_details = `
   SELECT DISTINCT
       t.id,
@@ -390,7 +391,7 @@ exports.q_transaction_ascension_phelobotomy_details = `
       st.name AS sampletype
   FROM test_ascension AS t
   INNER JOIN test_panels AS p ON t.testid = p.id
-  INNER JOIN samplestatus AS s ON s.ascensionid = t.id
+  LEFT JOIN samplestatus AS s ON s.ascensionid = t.id
   INNER JOIN sampletype AS st ON st.id = p.sample
   WHERE t.billingid = ? AND (t.collectionStartDate IS NULL OR t.collectionEndDate IS NULL)
   `;

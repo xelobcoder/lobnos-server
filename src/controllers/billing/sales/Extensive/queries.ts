@@ -1,5 +1,11 @@
 export const QUERY_DAILY_CEO_SNAPSHOT = `CALL bl_get_billing_analytics_summary(?, ?)`;
 
+export const query_daily_unique_clients_summary = `CALL pt_unique_registered_clients(?, ?)`;
+
+export const ss_service_status_counts = `CALL ss_service_status_counts(?, ?)`;
+
+export const ORGANIZATIONCOMMISSIONS = ` CALL org_service_commissions (?, ?)`;
+
 export const QUERY_NIGHT_ADJUSTMENT_IMPACT = `
  CALL bl_get_night_adjustment_summary(?, ?)
 `;
@@ -28,3 +34,5 @@ export const QUERY_EMPLOYEES_COLLECTED_CASH = `
 export const CLINCIAN_SALES_PAYMENT = `
 CALL 	bl_clinician_daily_sales_summary(?, ?)
 `
+
+

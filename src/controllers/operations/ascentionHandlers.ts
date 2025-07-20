@@ -121,14 +121,14 @@ export async function monthlyApprovalRateHandler(request: Request, response: Res
 
 export async function PendingTestAscensionHandler(request: Request, response: Response) {
     try {
-        const { tenantId, count = 10, page = 1 } = request.query;
+        const { tenantId, count = 10, page = 1, start_date, end_date } = request.query;
         const parsedCount = parseInt(count.toString());
         const parsedPage = parseInt(page.toString());
         const tenantIdP = parseInt(tenantId.toString());
-        const pending = await TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage);
+        const pending = await TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string);
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });
     } catch (err) {
-        console.log(err) 
+        console.log(err);
         responseError(response);
     }
 }
@@ -139,6 +139,7 @@ export async function TransactionTestAscensionHandler(request: Request, response
         const parsedBillingid = parseInt(billingid.toString());
         const tenantIdP = parseInt(tenantId.toString());
         const transactions = await TestAscension.getTransactionAscentionTestDetails(tenantIdP, parsedBillingid);
+        console.log(transactions)
         response.send({ tenantId, message: 'success', statusCode: 200, result: transactions, status: 'success' });
     } catch (err) {
         responseError(response);
@@ -197,7 +198,7 @@ export async function getTransactionAscentionTestQualifiedForResultEntryHandler(
             return customError("billingid or branchid not included in request.query", 400, response);
         }
 
-        const { billingid, patientid } =  new Creator(null).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), target.toString());
+        const { billingid, patientid } = new Creator(null).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), target.toString());
 
         const tenantIdP = parseInt(tenantId.toString());
         const List = await TestAscension.getTransactionTestsQualifiedForResultEntry(

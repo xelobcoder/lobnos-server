@@ -1,8 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.hasSalesSessionAvailableHandler = exports.handleEndSalesSession = exports.getSalesSessionList = exports.handleCreateNewSalesSesion = void 0;
+exports.getSessionFinancialSummaryHandler = exports.hasSalesSessionAvailableHandler = exports.handleEndSalesSession = exports.getSalesSessionList = exports.handleCreateNewSalesSesion = void 0;
 const SalesSessionRepo_1 = require("../../../models/billing/repositories/SalesSessionRepo");
 const helper_1 = require("../../../hooks/helper");
+const salesSessionService_1 = __importDefault(require("../../../models/billing/repositories/salesSessionService"));
 const handleCreateNewSalesSesion = async function (request, response) {
     try {
         const { tenantId } = request.query;
@@ -66,3 +70,16 @@ const hasSalesSessionAvailableHandler = async function (request, response) {
     }
 };
 exports.hasSalesSessionAvailableHandler = hasSalesSessionAvailableHandler;
+const getSessionFinancialSummaryHandler = async function (request, response) {
+    try {
+        const { sessionid } = request.params;
+        const { tenantId } = request.query;
+        const parsedTenantId = parseInt(tenantId.toString());
+        const result = await salesSessionService_1.default.getSessionFinancialSummary(parsedTenantId, parseInt(sessionid));
+        return response.send({ sessionid, result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err === null || err === void 0 ? void 0 : err.message);
+    }
+};
+exports.getSessionFinancialSummaryHandler = getSessionFinancialSummaryHandler;

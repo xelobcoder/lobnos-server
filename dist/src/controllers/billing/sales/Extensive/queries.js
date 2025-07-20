@@ -1,7 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.CLINCIAN_SALES_PAYMENT = exports.QUERY_EMPLOYEES_COLLECTED_CASH = exports.QUERY_BREAK_DOWN_PAYMENT_MODES = exports.QUERY_MISMATCHED_PAYMENT_HISTORY = exports.QUERY_TOP_PERFORMING_BRANCHES = exports.QUERY_TEST_TRANSACTION_SNAPSHOT = exports.QUERY_NIGHT_ADJUSTMENT_IMPACT = exports.QUERY_DAILY_CEO_SNAPSHOT = void 0;
+exports.CLINCIAN_SALES_PAYMENT = exports.QUERY_EMPLOYEES_COLLECTED_CASH = exports.QUERY_BREAK_DOWN_PAYMENT_MODES = exports.QUERY_MISMATCHED_PAYMENT_HISTORY = exports.QUERY_TOP_PERFORMING_BRANCHES = exports.QUERY_TEST_TRANSACTION_SNAPSHOT = exports.QUERY_NIGHT_ADJUSTMENT_IMPACT = exports.ORGANIZATIONCOMMISSIONS = exports.ss_service_status_counts = exports.query_daily_unique_clients_summary = exports.QUERY_DAILY_CEO_SNAPSHOT = void 0;
 exports.QUERY_DAILY_CEO_SNAPSHOT = `CALL bl_get_billing_analytics_summary(?, ?)`;
+exports.query_daily_unique_clients_summary = `CALL pt_unique_registered_clients(?, ?)`;
+exports.ss_service_status_counts = `CALL ss_service_status_counts(?, ?)`;
+exports.ORGANIZATIONCOMMISSIONS = ` CALL org_service_commissions (?, ?)`;
 exports.QUERY_NIGHT_ADJUSTMENT_IMPACT = `
  CALL bl_get_night_adjustment_summary(?, ?)
 `;

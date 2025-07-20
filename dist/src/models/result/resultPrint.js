@@ -264,23 +264,32 @@ class ResultPrint {
             if (Array.isArray(previewReportContent) || typeof previewReportContent == "string")
                 return null;
             let resultRequiringDecryption = previewReportContent['result'];
-            if (resultRequiringDecryption && Array.isArray(resultRequiringDecryption) && resultRequiringDecryption.length > 0) {
-                const decryptedResult = await (0, resultEncryptionReferer_1.default)(resultRequiringDecryption, "decryption");
-                if (decryptedResult.resources && Array.isArray(decryptedResult.resources) && decryptedResult.resources.length > 0) {
-                    previewReportContent['result'] = resultRequiringDecryption.map((item, index) => {
-                        const matched = decryptedResult.resources.find((field) => field.fieldid == item.fieldid);
-                        return matched ? Object.assign(Object.assign({}, item), matched) : item;
-                    });
-                }
-            }
-            else {
-                throw new Error("Decrypting Result Failed");
-            }
+            previewReportContent['result'] = await ResultPrint.decryptResultArray(resultRequiringDecryption);
             return previewReportContent;
         }
         catch (err) {
             throw err;
         }
+    }
+    /**
+     * Decrypts an array of result data using resultEncrptionReferer
+     * @param resultArray The array of result data to decrypt
+     * @returns The decrypted result array
+     */
+    static async decryptResultArray(resultArray) {
+        if (resultArray && Array.isArray(resultArray) && resultArray.length > 0) {
+            const decryptedResult = await (0, resultEncryptionReferer_1.default)(resultArray, "decryption");
+            if (decryptedResult.resources && Array.isArray(decryptedResult.resources) && decryptedResult.resources.length > 0) {
+                return resultArray.map((item) => {
+                    const matched = decryptedResult.resources.find((field) => field.fieldid == item.fieldid);
+                    return matched ? Object.assign(Object.assign({}, item), matched) : item;
+                });
+            }
+            else {
+                throw new Error("Decrypting Result Failed");
+            }
+        }
+        return resultArray;
     }
     async getTransactionApprovedTest(tenantId, billingid) {
         try {

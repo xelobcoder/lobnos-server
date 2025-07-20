@@ -22,6 +22,7 @@ class TestApprovalClass extends operations_1.default {
             const isMaximumApprovalReached = await resultSettings_1.default.isApprovalLimitReached(tenantId, approvedDetails, null, "maximum");
             const minListUnverified = Array.isArray(approvedDetails) ? [...approvedDetails, approvedBy] : [approvedDetails, approvedBy];
             const isMinimumApprovalReached = await resultSettings_1.default.isApprovalLimitReached(tenantId, minListUnverified, null, 'minimum');
+            console.log(isMinimumApprovalReached, 'isMinimumApprovalReached');
             const _approvalState = isMinimumApprovalReached == true ? 1 : 0;
             if (!canStaffApproveResult)
                 return "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */;
@@ -31,7 +32,7 @@ class TestApprovalClass extends operations_1.default {
                 return await updateQueryExecutor(approvedBy.toString(), _approvalState, ascensionid, tenantId);
             }
             else if (typeof approvedDetails === "number") {
-                if (approvedDetails == approvedBy) {
+                if (approvedDetails === approvedBy) {
                     return "This resource already exist" /* OperationsFailures.resourceExist */ + " .Resource was already validated by the current user";
                 }
                 const newApproved = [approvedDetails, approvedBy].join(",");

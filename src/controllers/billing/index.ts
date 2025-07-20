@@ -28,7 +28,7 @@ import {
 } from "./servicesHandler";
 import { handleAuthenticationEmployee } from "../../middleware/redis/handlerAscensionBillingCheck";
 import { getPatientTransactions, getPatientTransactionDetails } from "./BillingHandler";
-import { getSalesSessionList, handleCreateNewSalesSesion, handleEndSalesSession, hasSalesSessionAvailableHandler } from "./SessionManger/handler";
+import { getSalesSessionList, getSessionFinancialSummaryHandler, handleCreateNewSalesSesion, handleEndSalesSession, hasSalesSessionAvailableHandler } from "./SessionManger/handler";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { handleOverLoad } from "../../hooks/helper";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
@@ -91,6 +91,7 @@ router.post("/api/v1/billing/sales/session/create", handleOverLoad(handleCreateN
 router.get("/api/v1/billing/sales/session/list", getSalesSessionList);
 router.put("/api/v1/billing/sales/session/endsession", handleEndSalesSession);
 router.get('/api/v1/billing/sales/session/verify/session', hasSalesSessionAvailableHandler)
+router.get(`/api/v1/billing/load/session/:sessionid/summary`,handleOverLoad(getSessionFinancialSummaryHandler))
 
 
 

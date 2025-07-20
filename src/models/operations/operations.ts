@@ -15,6 +15,7 @@ import {
 	q_get_all_result_entry_partitioning_ultrasound,
 	q_ultrasound_processed_list,
 	q_ultrasound_waitingList,
+	OperationsStages,
 } from "./queries";
 import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterResultEntry, ProcessedScan, resultQuery } from "./types";
 import PartitionManager from "../billing/partitioning";
@@ -92,7 +93,7 @@ export default class Operations {
 		const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid, branchid } = requestQuery;
 
 		try {
-			var { conditions, finalQuery }: { conditions: (string | Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery(tenantId, { from, to, stage: null, searchString: null, isUltrasound: false });
+			var { conditions, finalQuery }: { conditions: (string | Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false });
 
 			if (fullname) {
 				conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
@@ -135,7 +136,7 @@ export default class Operations {
 		}
 	}
 
-	private static async generateAscensionQuery(tenantId: number, queryParams: ascensionStageRequestQueryTypes)
+	private static async generateAscensionQuery(queryParams: ascensionStageRequestQueryTypes)
 		: Promise<{ conditions: (string | Date)[]; finalQuery: string; }> {
 		const { from, to, searchString, isUltrasound, stage } = queryParams
 		const startDate = new Date(from) || new Date()
@@ -150,9 +151,39 @@ export default class Operations {
 				finalQuery = q_get_all_test_ready_for_various_stages_ultrasound(finalQuery, stage);
 			}
 
-			finalQuery = finalQuery + ` AND ascension_date BETWEEN  ? AND ? `;
+			finalQuery = finalQuery + ` AND (ascension_date BETWEEN ? AND ? `;
 			conditions.push(startDate);
 			conditions.push(enddate);
+
+			if (stage == OperationsStages.PROCESSING) {
+				finalQuery += ` OR ta.processingStartDate BETWEEN ? AND ?) `;
+				conditions.push(startDate);
+				conditions.push(enddate);
+			} else if (stage == OperationsStages.COMPLETED || stage == OperationsStages.VALIDATION) {
+				finalQuery += ` OR ta.resultEntryStart BETWEEN ? AND ? OR ta.resultEntryEnd BETWEEN ? AND ?) `;
+				conditions.push(startDate);
+				conditions.push(enddate);
+				conditions.push(startDate);
+				conditions.push(enddate);
+			} else if (stage == OperationsStages.VALIDATED) {
+				finalQuery += ` OR ta.collectionStartDate BETWEEN ? AND ? OR ta.collectionEndDate BETWEEN ? AND ? OR ta.processingStartDate BETWEEN ? AND ? OR ta.resultEntryStart BETWEEN ? AND ? OR ta.resultEntryEnd BETWEEN ? AND ? OR dta.lastupdatedon BETWEEN ? AND ?) `;
+				conditions.push(startDate);
+				conditions.push(enddate);
+				conditions.push(startDate);
+				conditions.push(enddate);
+				conditions.push(startDate);
+				conditions.push(enddate);
+				conditions.push(startDate);
+				conditions.push(enddate);
+				conditions.push(startDate);
+				conditions.push(enddate);
+				conditions.push(startDate);
+				conditions.push(enddate);
+			} else {
+				finalQuery += `) `;
+			}
+
+			console.log("Final Query: ", finalQuery);
 
 			if (searchString) {
 				finalQuery += ` AND (CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ? 
@@ -257,7 +288,7 @@ export default class Operations {
 			let conditionValues = [];
 
 			if (_dateFrom && _dateEnd) {
-				const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery(tenantId, { from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
+				const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({ from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
 				query = finalQuery;
 				conditionValues = conditionx;
 			}

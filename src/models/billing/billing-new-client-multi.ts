@@ -47,7 +47,7 @@ export class SubmitCustomerBilling {
         // 1. using the billingid we will load and get the entity information 
         // 2. use the services and test and use the current entity information and compute the necessary adjustments
         // 3. compare the two and forward the details to the frontend
-     
+
 
     }
 
@@ -107,7 +107,7 @@ export class SubmitCustomerBilling {
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
             }
-          
+
 
             let hasRelatedBilling = false;
             if (this.payload.billingid) {
@@ -189,7 +189,7 @@ export class SubmitCustomerBilling {
 
                 let totalcost = 0;
                 let totalservicesAmount = 0;
-                let totalAmountPayable = 0;
+                let totalAmountPayable = checkoutResult.data.amountPayable || 0;
                 let testPayableAmount = 0;
                 let totaldiscount = 0;
                 let totalAmountIncurredDueTax = 0;

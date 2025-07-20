@@ -20,6 +20,7 @@ import fs from 'fs'
 import path from 'path'
 import Core from "../../EmailServices/core";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
+import { string } from "zod";
 
 // export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -180,12 +181,15 @@ export const getResultPrintoutHandler = async (request: Request<
 		csvid: string,
 		ptid: string,
 		target: string,
-		tenantId: string
+		tenantId: string,
+		isBrowserPrintout?: number | string
 	}
 >, response: Response) => {
 	try {
-		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId } = request.query;
+		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, isBrowserPrintout } = request.query;
+		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
+
 		if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
 		const numAscensionId = parseInt(ascensionId.toString());
 		const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId, "minimum");
@@ -239,7 +243,11 @@ export const getResultPrintoutHandler = async (request: Request<
 			dataset.literatureReview = literatureReview.literature
 		}
 
-		const records = await new Creator(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid)
+		let records = await new Creator(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid);
+
+		if (browserMode && typeof records == "string") {
+			records = await ResultPrint.decryptResultArray(records);
+		}
 
 		if (records != null && typeof records != "string" && !Array.isArray(records)) {
 			const { result, testname, hasDrugs } = records;

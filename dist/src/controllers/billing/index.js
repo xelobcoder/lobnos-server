@@ -50,6 +50,7 @@ router.post("/api/v1/billing/sales/session/create", (0, helper_1.handleOverLoad)
 router.get("/api/v1/billing/sales/session/list", handler_1.getSalesSessionList);
 router.put("/api/v1/billing/sales/session/endsession", handler_1.handleEndSalesSession);
 router.get('/api/v1/billing/sales/session/verify/session', handler_1.hasSalesSessionAvailableHandler);
+router.get(`/api/v1/billing/load/session/:sessionid/summary`, (0, helper_1.handleOverLoad)(handler_1.getSessionFinancialSummaryHandler));
 // campaigns 
 router.post("/api/v1/campaigns", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.create));
 router.get("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.findById));

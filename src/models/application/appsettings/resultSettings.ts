@@ -81,7 +81,8 @@ class ResultSettings extends ApplicationSettings {
 
 		if (!recordApproval) return false;
 		const { maxvalidation, minvalidation } = recordApproval;
-
+		console.log(maxvalidation, minvalidation, 'max and min validation,', currentLen >= parseInt(maxvalidation.toString()),
+			currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0);
 		if (type === 'maximum') return currentLen >= parseInt(maxvalidation.toString())
 		if (type === 'minimum') return currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0
 		return false;

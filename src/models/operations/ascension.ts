@@ -100,8 +100,17 @@ export class TestAscension extends Operations {
 		return Client_PLS_Lifecycle[1]
 	}
 
-	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number): Promise<any[]> {
-		return await paginationQuery({ count, page }, q_pending_sample_uncollected, [], tenantId);
+	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number, start_date: Date | string, end_date: Date | string): Promise<any[]> {
+		let query = q_pending_sample_uncollected;
+		if (start_date && end_date) {
+			query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+		}
+		query += ` ORDER BY b.billingid ASC 
+          LIMIT ? OFFSET ?`;
+		console.log(
+			query
+		)
+		return await paginationQuery({ count, page }, query, [start_date, end_date], tenantId);
 	}
 
 	public static async getTransactionAscentionTestDetails(tenantId: number, billingid: number): Promise<any> {

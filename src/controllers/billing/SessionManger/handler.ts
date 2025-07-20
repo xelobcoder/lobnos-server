@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { SalesSessionRepo } from "../../../models/billing/repositories/SalesSessionRepo";
 import { customError, responseError } from "../../../hooks/helper";
 import { OperationsFailures } from "../../../models/operations/types";
+import SalesSessionServices from "../../../models/billing/repositories/salesSessionService";
 
 
 
@@ -66,7 +67,7 @@ export const hasSalesSessionAvailableHandler = async function (request: Request<
      try {
           const { tenantId, branchid, sessiondate } = request.query;
           const parsedTenantId = parseInt(tenantId.toString());
-         
+
           if (!sessiondate) {
                customError(OperationsFailures.invalidResquestQuery + " sale session not provided", 404, response);
           } else {
@@ -75,5 +76,18 @@ export const hasSalesSessionAvailableHandler = async function (request: Request<
           }
      } catch (err) {
           responseError(response);
+     }
+}
+
+export const getSessionFinancialSummaryHandler = async function (request: Request<{ sessionid: string }, {}, {}, { tenantId: string }>, response: Response) {
+     try {
+          const { sessionid } = request.params;
+          const { tenantId } = request.query;
+          const parsedTenantId = parseInt(tenantId.toString());
+          const result = await SalesSessionServices.getSessionFinancialSummary(parsedTenantId, parseInt(sessionid));
+          return response.send({ sessionid, result })
+
+     } catch (err) {
+          responseError(response, err?.message);
      }
 }
