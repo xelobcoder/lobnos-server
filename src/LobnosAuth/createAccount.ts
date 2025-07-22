@@ -5,19 +5,32 @@ import { OperationsFailures } from "../models/operations/types";
 import Security from "../models/security/securityClass";
 import { PrimeLimsTableroles } from "../database/DatabaseTableSchema";
 import logger from "../hooks/logger";
+import RolesRepository from "../models/settings/users/RolesRepository";
+import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 
 export interface UserRequest extends Request {
      body: {
           name?: string;
           password?: string;
+          cpassword?: string;
           role?: string;
           email?: string;
           branch?: string;
           id?: string;
-          tenantId: string,
+          tenantId: string;
           currentv?: string;
           employeeid?: string;
           browserInformation?: string;
+          mobile?: string;
+          altMobile?: string;
+          alternativeMobile?: string;
+          dob?: string;
+          pin?: string | number;
+          permissions?: any;
+          startDate?: string;
+          accessLevel?: string;
+          department?: string;
+          address?: string;
      };
      query: {
           name?: string;
@@ -29,24 +42,73 @@ export interface UserRequest extends Request {
      };
 }
 
-const createNewAccount = async (req: UserRequest): Promise<{ userId: number }> => {
-    const { name, password, role, email, branch } = req.body;
-    
-    const user = new User(name, password, role, email, parseInt(branch.toString()));
-    const tenantId = parseInt(req.query.tenantId);
-    
-    if (await user.checkUserExistUsingEmail(tenantId)) {
-        throw new Error("User already exists");
-    }
 
-    const hashedPassword = await user.hashPassword();
-    const insertResult = await user.insertionOne(name, hashedPassword, tenantId);
-    
-    if (!insertResult) {
-        throw new Error("Failed to create user");
-    }
 
-    return { userId: insertResult.insertId };
+export interface NewAccountRequest {
+     body: {
+          name: string;
+          email: string;
+          mobile: string;
+          password: string;
+          cpassword: string;
+          role: "scientist" | "sonographer" | "admin" | "manager" | "phelobotomist",
+          branch: string;
+          pin: string;
+          altMobile: string;
+          dob: string;
+          startDate: string;
+          accessLevel: string;
+          department: string;
+          employeeId: string;
+          address: string;
+     },
+     query: {
+          tenantId: string;
+     },
+}
+
+const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: number }> => {
+     try {
+          const { name, password, role, email, branch } = req.body;
+
+          const tenantId = parseInt(req.query.tenantId);
+          const user = new RolesRepository(tenantId);
+
+          const userExistsUsingEmail = await user.getRoleByEmail(email);
+          if (userExistsUsingEmail) throw new Error(OperationsFailures.resourceExist + ".User already exists");
+
+          const correctEmailFormat = TiifuWorkingClass.isEmailValidEmail(email);
+          if (!correctEmailFormat) throw new Error(OperationsFailures.invalidEmailFormat);
+
+          // phone number verification and validation
+          const isPhoneNumberValid = TiifuWorkingClass.isNumberPhoneNumber(req.body.mobile);
+          if (!isPhoneNumberValid) throw new Error(OperationsFailures.invalidPhoneNumber);
+          const isMobileNumberExist = await user.verifyMobileNumber(req.body.mobile);
+          if (isMobileNumberExist) throw new Error(OperationsFailures.resourceExist + ".Mobile number already exists");
+
+          const hashedPassword = await user.hashPassword(password);
+
+          const insertResult = await user.createRole({
+               username: name,
+               password: hashedPassword,
+               role,
+               email,
+               branch: parseInt(branch),
+               emailAuthenticated: "false",
+               mobile: req.body.mobile || "",
+               alternativeMobile: req.body.altMobile || null,
+               dob: req.body.dob || null,
+               updated_on: new Date().toISOString(),
+               date_created: new Date().toISOString(),
+               activation: 1,
+               pin: req.body.pin ? parseInt(req.body.pin) : 0,
+          });
+
+          return { userId: insertResult };
+     } catch (error) {
+          logger.error(error);
+          throw new Error(error?.message || error || "Error creating user account");
+     }
 };
 
 const userLogin = async (req: UserRequest, res: Response) => {
@@ -301,3 +363,5 @@ export {
      getPermissions,
      updateUserPermission,
 };
+
+

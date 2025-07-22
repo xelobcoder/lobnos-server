@@ -29,21 +29,27 @@ router.put('/api/v1/branches/activation', async (request: Request<{}, {}, { id: 
 		const { id, status } = request.body;
 		if (!id || isNaN(parseInt(id.toString()))
 			|| !status
-			|| ['true', 'false', false, true].includes(status) === false) {
+			|| ['true', 'false', false, true, 'deactivate', 'activate'].includes(status) === false) {
 			return customError(
 				HTTPSTATUSERRORS.HTTP_400_BAD_REQUEST + " " + OperationsFailures.invalidResponseBodyParams,
 				400,
 				response
 			);
 		}
+
+		const statusBoolean = status === 'true' || status === true || status === 'activate' ? 1 : 0;
 		const Id = parseInt(id.toString());
-		const _status = Boolean(status).valueOf();
-		const activationStatus = await Branch.activateDeactivateBranch(tenantId, Id, _status);
-		response.send({
-			message: activationStatus === "activate" ? "Activation successful" : "Deactivation successful",
-			status: "success"
-		});
+		const activationStatus = await Branch.activateDeactivateBranch(tenantId, Id, statusBoolean);
+		if (activationStatus) {
+			response.send({
+				message: statusBoolean ? "Activation successful" : "Deactivation successful",
+				status: "success"
+			});
+		} else {
+			return customError(`Branch with ID ${Id} not found or activation failed`, 404, response);
+		}
 	} catch (err) {
+		console.log(err)
 		responseError(response);
 	}
 });

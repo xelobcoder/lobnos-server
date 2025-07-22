@@ -75,7 +75,7 @@ export default class Operations {
 			values.push(count);
 			values.push(page - 1 * count);
 			queryString += ` AND ta.collection = 'true' AND ta.ready='false' AND d.department <> 'ultrasound' 
-      GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT ? OFFSET ?`;
+	  GROUP BY np.patientid ORDER BY b.billingid ASC LIMIT ? OFFSET ?`;
 			return await promisifyQuery(tenantId, queryString, values);
 		} catch (error) {
 			throw error;
@@ -151,22 +151,22 @@ export default class Operations {
 				finalQuery = q_get_all_test_ready_for_various_stages_ultrasound(finalQuery, stage);
 			}
 
-			finalQuery = finalQuery + ` AND (ascension_date BETWEEN ? AND ? `;
+			finalQuery = finalQuery + ` AND (ascension_date >= ? AND ascension_date <= ? `;
 			conditions.push(startDate);
 			conditions.push(enddate);
 
 			if (stage == OperationsStages.PROCESSING) {
-				finalQuery += ` OR ta.processingStartDate BETWEEN ? AND ?) `;
+				finalQuery += ` OR (ta.processingStartDate >= ? AND ta.processingStartDate <= ?)) `;
 				conditions.push(startDate);
 				conditions.push(enddate);
 			} else if (stage == OperationsStages.COMPLETED || stage == OperationsStages.VALIDATION) {
-				finalQuery += ` OR ta.resultEntryStart BETWEEN ? AND ? OR ta.resultEntryEnd BETWEEN ? AND ?) `;
+				finalQuery += ` OR (ta.resultEntryStart >= ? AND ta.resultEntryStart <= ?) OR (ta.resultEntryEnd >= ? AND ta.resultEntryEnd <= ?)) `;
 				conditions.push(startDate);
 				conditions.push(enddate);
 				conditions.push(startDate);
 				conditions.push(enddate);
 			} else if (stage == OperationsStages.VALIDATED) {
-				finalQuery += ` OR ta.collectionStartDate BETWEEN ? AND ? OR ta.collectionEndDate BETWEEN ? AND ? OR ta.processingStartDate BETWEEN ? AND ? OR ta.resultEntryStart BETWEEN ? AND ? OR ta.resultEntryEnd BETWEEN ? AND ? OR dta.lastupdatedon BETWEEN ? AND ?) `;
+				finalQuery += ` OR ta.collectionStartDate >= ? AND <= ? OR ta.collectionEndDate  >= ? AND <= ? OR ta.processingStartDate  >= ? AND <= ? OR ta.resultEntryStart  >= ? AND <= ? OR ta.resultEntryEnd  >= ? AND <= ? OR dta.lastupdatedon >= ? AND <= ?) `;
 				conditions.push(startDate);
 				conditions.push(enddate);
 				conditions.push(startDate);

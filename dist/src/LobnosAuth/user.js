@@ -45,7 +45,7 @@ class User {
         this.branch = branch || null;
     }
     async checkUserExistUsingEmail(tenantId) {
-        return await new TiifuWorkingClass_1.TiifuWorkingClass("role").findOne(tenantId, "emails", this.email) ? true : false;
+        return await new TiifuWorkingClass_1.TiifuWorkingClass("roles").findOne(tenantId, "email", this.email) ? true : false;
     }
     async hashPassword() {
         const salt = await bcrypt_1.default.genSalt(10);

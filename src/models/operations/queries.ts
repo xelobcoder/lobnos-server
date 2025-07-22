@@ -120,7 +120,7 @@ export const q_get_all_result_entry_base: string = `
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
-  INNER JOIN departments AS d ON d.id = tp.category
+  LEFT JOIN departments AS d ON d.id = tp.category
   INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
@@ -370,23 +370,9 @@ export const q_update_test_ascesion_ready = ` UPDATE test_ascension SET ready = 
 
 
 export const delete_test_ascension_billed = `DELETE FROM test_ascension WHERE billingid = ?`;
-
-
-
-// phelobotomy Analytics
-
 export const q_get_pending_ascension_cases = `SELECT COUNT(*) AS pendingcases FROM test_ascension WHERE collection = 'false' AND ascension_date = CURRENT_DATE`;
-
-
-
-
-
-// test ascension
-
 export const q_update_ascension_collection_state = `UPDATE test_ascension SET {stage} = ?,sampleCollectedBy = ? WHERE id = ?`
-
 export const q_update_ascension_processing_state = `UPDATE test_ascension SET {stage} = ?, sampleProcessedBy = ? WHERE id = ?`
-
 export const q_update_ascension_result_entry_state = `UPDATE test_ascension SET {stage} = ?, resultEnteredBy = ? WHERE id = ?`
 
 
@@ -414,7 +400,7 @@ export const q_pending_sample_uncollected: string = `
 
 
 export const q_transaction_ascension_phelobotomy_details: string = `
-  SELECT DISTINCT
+  SELECT 
       t.id,
       t.testid,
       t.billingid,
@@ -431,7 +417,7 @@ export const q_transaction_ascension_phelobotomy_details: string = `
   FROM test_ascension AS t
   INNER JOIN test_panels AS p ON t.testid = p.id
   LEFT JOIN samplestatus AS s ON s.ascensionid = t.id
-  INNER JOIN sampletype AS st ON st.id = p.sample
+  LEFT  JOIN sampletype AS st ON st.id = p.sample
   WHERE t.billingid = ? AND (t.collectionStartDate IS NULL OR t.collectionEndDate IS NULL)
   `
 

@@ -8,6 +8,7 @@ const ExpenseService_1 = __importDefault(require("../../Expenses/ExpenseService"
 const SalesSessionRepo_1 = require("./SalesSessionRepo");
 class SalesSessionServices {
     static async getSessionFinancialSummary(tenantId, sessionId) {
+        var _a;
         const session = await new SalesSessionRepo_1.SalesSessionRepo(tenantId).findById(sessionId);
         if (!session)
             return "sale session not found" /* OperationsFailures.billingSessionNotFound */;
@@ -44,7 +45,7 @@ class SalesSessionServices {
         const totalpayable = parseFloat(totalPayable[0][0]['totalpayable']) || 0;
         const totaloutstanding = parseFloat(totalPayable[0][0]['totalOutstanding']) || 0;
         const totalbalance = parseFloat(totalPayable[0][0]['totalbalance']) || 0;
-        const expectedAmount = totalpayable - totalExpense + totaloutstanding;
+        const expectedAmount = totalpayable - (totalExpense) + parseFloat(((_a = session === null || session === void 0 ? void 0 : session.openingamount) !== null && _a !== void 0 ? _a : '0').toString());
         return {
             sessionId,
             sessionDate: session.sessiondate,

@@ -35,8 +35,15 @@ class SampleHandler extends ascension_1.TestAscension {
         }
         return true;
     }
-    static async getPendingUnvalidatedSamples(tenantId, pagination) {
-        return await (0, helper_1.paginationQuery)(pagination, queries_2.q_get_pending_collected_but_unvalidated_samples, [], tenantId);
+    static async getPendingUnvalidatedSamples(tenantId, pagination, startdate, enddate) {
+        let query = queries_2.q_get_pending_collected_but_unvalidated_samples;
+        const params = [];
+        if (startdate && enddate) {
+            query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+            params.push(startdate, enddate);
+        }
+        query += ` GROUP BY b.billingid,ta.id ORDER BY b.billingid ASC LIMIT ? OFFSET ? `;
+        return await (0, helper_1.paginationQuery)(pagination, query, params, tenantId);
     }
     static async getRejectedCollectedSample(tenantId, pagination) {
         return await (0, helper_1.paginationQuery)(pagination, queries_2.q_get_rejected_collected_samples, [], tenantId);

@@ -239,8 +239,15 @@ export async function getPendingUnvalidatedSamplesHandler(request: Request, resp
         const count = parseInt(request.query.count.toString()) || 10;
         const page = parseInt(request.query.page.toString()) || 1;
         const tenantIdP = parseInt(request.query.tenantId.toString());
+        const { startDate, endDate } = request.query;
 
-        const List = await SampleHandler.getPendingUnvalidatedSamples(tenantIdP, { count, page });
+        const List = await SampleHandler.getPendingUnvalidatedSamples(
+            tenantIdP,
+            { count, page },
+            startDate as Date | string,
+            endDate as Date | string
+        );
+        
         response.send({ result: List, statusCode: 200, status: "success" });
     } catch (err) {
         responseError(response);

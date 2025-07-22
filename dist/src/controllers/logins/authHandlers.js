@@ -26,7 +26,6 @@ exports.getUser = getUser;
 const createAccount = async (req, res) => {
     try {
         const { name, password, role, email, branch } = req.body;
-        console.log(req.body);
         if (!name || !role || !password || !email || !branch) {
             return (0, helper_1.customError)("Missing required parameters", 400, res);
         }
@@ -40,7 +39,8 @@ const createAccount = async (req, res) => {
     }
     catch (error) {
         logger_1.default.error(error);
-        (0, helper_1.responseError)(res);
+        console.error('EM:', error.message);
+        (0, helper_1.customError)((error === null || error === void 0 ? void 0 : error.message) || "Error creating user account", 500, res);
     }
 };
 exports.createAccount = createAccount;

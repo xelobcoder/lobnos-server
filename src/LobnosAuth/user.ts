@@ -27,7 +27,7 @@ class User {
 	}
 
 	public async checkUserExistUsingEmail(tenantId: number): Promise<boolean> {
-		return await new TiifuWorkingClass("role").findOne(tenantId, "emails", this.email) ? true : false;
+		return await new TiifuWorkingClass("roles").findOne(tenantId, "email", this.email) ? true : false;
 	}
 
 	public async hashPassword(): Promise<string> {

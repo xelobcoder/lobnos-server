@@ -3,17 +3,46 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const bcrypt_1 = __importDefault(require("bcrypt"));
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
+const logger_1 = __importDefault(require("../../../hooks/logger"));
 class RolesRepository {
     constructor(tenantId) {
         this.tablename = 'roles';
         this.connection = (0, KnexConnections_1.default)(tenantId);
         this.tablename = "roles";
     }
+    async hashPassword(password) {
+        const salt = await bcrypt_1.default.genSalt(10);
+        const hashed = await bcrypt_1.default.hash(password, salt);
+        return hashed;
+    }
+    async isPasswordSame(password, hashpassword) {
+        return await bcrypt_1.default.compare(password, hashpassword);
+    }
     async createRole(roleData) {
-        const connection = await this.connection;
-        const result = await connection(this.tablename).insert(roleData).returning('id');
-        return result[0];
+        try {
+            const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist'];
+            if (!roleData.username || typeof roleData.username !== 'string')
+                throw new Error('Invalid username');
+            if (!allowedRoles.includes(roleData.role))
+                throw new Error('Invalid role');
+            if (!roleData.password || typeof roleData.password !== 'string')
+                throw new Error('Invalid password');
+            if (!roleData.email || typeof roleData.email !== 'string')
+                throw new Error('Invalid email');
+            if (typeof roleData.pin !== 'number' || roleData.pin.toString().length !== 4)
+                throw new Error('Invalid pin');
+            if (!roleData.mobile || typeof roleData.mobile !== 'string' || roleData.mobile.length < 7)
+                throw new Error('Invalid mobile');
+            const connection = await this.connection;
+            const result = await connection(this.tablename).insert(roleData).returning('employeeid');
+            return result[0];
+        }
+        catch (error) {
+            logger_1.default.log(error);
+            throw new Error('Failed to create role: ' + error.message);
+        }
     }
     async getRoleById(employeeId) {
         const connection = await this.connection;
@@ -23,6 +52,11 @@ class RolesRepository {
     async getRoleByEmail(email) {
         const connection = await this.connection;
         const result = await connection(this.tablename).where({ email: email }).first();
+        return result;
+    }
+    async verifyMobileNumber(mobile) {
+        const connection = await this.connection;
+        const result = await connection(this.tablename).where({ mobile }).first();
         return result;
     }
     async isRoleValid(expectedRole, employeeId) {
@@ -47,7 +81,8 @@ class RolesRepository {
     }
     async getEmployeeRole(employeeId) {
         const employee = await this.getRoleById(employeeId);
-        return employee && employee.role;
+        const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist'];
+        return employee && allowedRoles.includes(employee.role) ? employee.role : undefined;
     }
     async validatePin(employeeId, pin) {
         const employee = await this.getRoleById(employeeId);

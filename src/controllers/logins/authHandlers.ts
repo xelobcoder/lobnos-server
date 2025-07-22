@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import User from '../../LobnosAuth/user'
 import logger from "../../hooks/logger";
-import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, userLogin, activateAUser, getPermissions, updateUserPermission, UserRequest } from "../../LobnosAuth/createAccount";
+import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, userLogin, activateAUser, getPermissions, updateUserPermission, UserRequest, NewAccountRequest } from "../../LobnosAuth/createAccount";
 import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
 import { OperationsFailures } from "../../models/operations/types";
 
@@ -23,12 +23,11 @@ export const getUser = async (req: Request, res: Response) => {
 export const createAccount = async (req: Request, res: Response) => {
 	try {
 		const { name, password, role, email, branch } = req.body;
-		console.log(req.body)
 		if (!name || !role || !password || !email || !branch) {
 			return customError("Missing required parameters", 400, res);
 		}
 
-		const result = await createNewAccount(req as unknown as UserRequest);
+		const result = await createNewAccount(req as unknown as NewAccountRequest);
 		res.send({
 			status: "success",
 			message: "User created successfully",
@@ -37,7 +36,8 @@ export const createAccount = async (req: Request, res: Response) => {
 		});
 	} catch (error) {
 		logger.error(error);
-		responseError(res);
+		console.error('EM:', error.message);
+		customError(error?.message || "Error creating user account", 500, res);
 	}
 };
 

@@ -113,7 +113,7 @@ exports.q_get_all_result_entry_base = `
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
-  INNER JOIN departments AS d ON d.id = tp.category
+  LEFT JOIN departments AS d ON d.id = tp.category
   INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
@@ -349,9 +349,7 @@ exports.q_update_test_ascesion_processing = `
           `;
 exports.q_update_test_ascesion_ready = ` UPDATE test_ascension SET ready = true , ready_date = NOW() WHERE ascensionid = ?`;
 exports.delete_test_ascension_billed = `DELETE FROM test_ascension WHERE billingid = ?`;
-// phelobotomy Analytics
 exports.q_get_pending_ascension_cases = `SELECT COUNT(*) AS pendingcases FROM test_ascension WHERE collection = 'false' AND ascension_date = CURRENT_DATE`;
-// test ascension
 exports.q_update_ascension_collection_state = `UPDATE test_ascension SET {stage} = ?,sampleCollectedBy = ? WHERE id = ?`;
 exports.q_update_ascension_processing_state = `UPDATE test_ascension SET {stage} = ?, sampleProcessedBy = ? WHERE id = ?`;
 exports.q_update_ascension_result_entry_state = `UPDATE test_ascension SET {stage} = ?, resultEnteredBy = ? WHERE id = ?`;
@@ -375,7 +373,7 @@ exports.q_pending_sample_uncollected = `
     WHERE (ts.collectionEndDate IS NULL OR ts.collectionStartDate IS NULL)
 `;
 exports.q_transaction_ascension_phelobotomy_details = `
-  SELECT DISTINCT
+  SELECT 
       t.id,
       t.testid,
       t.billingid,
@@ -392,7 +390,7 @@ exports.q_transaction_ascension_phelobotomy_details = `
   FROM test_ascension AS t
   INNER JOIN test_panels AS p ON t.testid = p.id
   LEFT JOIN samplestatus AS s ON s.ascensionid = t.id
-  INNER JOIN sampletype AS st ON st.id = p.sample
+  LEFT  JOIN sampletype AS st ON st.id = p.sample
   WHERE t.billingid = ? AND (t.collectionStartDate IS NULL OR t.collectionEndDate IS NULL)
   `;
 exports.q_update_general_ascension_test_edit_count = "UPDATE dbogeneraltesteditcount SET counter = ? WHERE ascensionid = ? AND billingid = ?";

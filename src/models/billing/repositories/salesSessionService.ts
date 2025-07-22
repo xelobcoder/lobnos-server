@@ -1,4 +1,4 @@
-import { PrimeLimsTableexpensesrecord } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTableexpensesrecord, PrimeLimsTablesalessessionmanager } from "../../../database/DatabaseTableSchema";
 import KnexConnection from "../../../database/KnexConnections";
 import Expenses from "../../Expenses/ExpenseService";
 import { OperationsFailures } from "../../operations/types";
@@ -6,7 +6,7 @@ import { SalesSessionRepo } from "./SalesSessionRepo";
 
 export default class SalesSessionServices {
      public static async getSessionFinancialSummary(tenantId: number, sessionId: number) {
-          const session = await new SalesSessionRepo(tenantId).findById(sessionId);
+          const session : PrimeLimsTablesalessessionmanager | null = await new SalesSessionRepo(tenantId).findById(sessionId);
           if (!session) return OperationsFailures.billingSessionNotFound;
           const isSessionEnded = session.sessionendedon !== null;
           if (isSessionEnded) return OperationsFailures.billingSessionAlreadyEnded
@@ -53,7 +53,7 @@ export default class SalesSessionServices {
           const totalpayable = parseFloat(totalPayable[0][0]['totalpayable']) || 0;
           const totaloutstanding = parseFloat(totalPayable[0][0]['totalOutstanding']) || 0;
           const totalbalance = parseFloat(totalPayable[0][0]['totalbalance']) || 0;
-          const expectedAmount = totalpayable - totalExpense + totaloutstanding;
+          const expectedAmount = totalpayable - (totalExpense) + parseFloat((session?.openingamount ?? '0').toString());
 
           return {
                sessionId,

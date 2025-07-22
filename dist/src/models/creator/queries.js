@@ -18,7 +18,7 @@ exports.q_get_all_test_qualified_to_for_result_entry_on_test = `SELECT
        WHERE dbs.billingid = ? AND dbs.branchid = ? AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL AND processingStartDate IS NOT NULL AND processingEndDate IS NOT NULL)
 `;
 exports.q_get_pending_collected_but_unvalidated_samples = `
-     SELECT DISTINCT
+        SELECT DISTINCT
           b.patientid,
           b.billingid,
           b.billedon AS date,
@@ -27,8 +27,8 @@ exports.q_get_pending_collected_but_unvalidated_samples = `
         INNER JOIN  new_patients as np ON np.patientid = b.patientid
         INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
         INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-        WHERE ss.approvalstatus IS NULL AND ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL
-          GROUP BY b.billingid,ta.id ORDER BY b.billingid ASC LIMIT ? OFFSET ? 
+        WHERE ss.approvalstatus IS NULL AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL)
+          
 `;
 exports.q_get_rejected_collected_samples = `
      SELECT DISTINCT

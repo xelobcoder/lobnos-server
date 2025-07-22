@@ -51,6 +51,8 @@ class Creator {
                 this.getPreviousRecords(tenantId, testid, billingid, patientid),
                 new TestCreationRulesRepository_1.default(tenantId).findByTestId(testid)
             ]);
+            console.log(previousRecords, 'previousRecords');
+            console.log(creationRules, 'creationRules');
             if (previousRecords.length === 0)
                 return creationRules;
             if (previousRecords.length > 0 && creationRules.length > 0) {

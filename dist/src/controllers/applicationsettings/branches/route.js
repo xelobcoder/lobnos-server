@@ -25,18 +25,24 @@ router.put('/api/v1/branches/activation', async (request, response) => {
         const { id, status } = request.body;
         if (!id || isNaN(parseInt(id.toString()))
             || !status
-            || ['true', 'false', false, true].includes(status) === false) {
+            || ['true', 'false', false, true, 'deactivate', 'activate'].includes(status) === false) {
             return (0, helper_1.customError)("400 Bad Request" /* HTTPSTATUSERRORS.HTTP_400_BAD_REQUEST */ + " " + "Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 400, response);
         }
+        const statusBoolean = status === 'true' || status === true || status === 'activate' ? 1 : 0;
         const Id = parseInt(id.toString());
-        const _status = Boolean(status).valueOf();
-        const activationStatus = await branches_1.default.activateDeactivateBranch(tenantId, Id, _status);
-        response.send({
-            message: activationStatus === "activate" ? "Activation successful" : "Deactivation successful",
-            status: "success"
-        });
+        const activationStatus = await branches_1.default.activateDeactivateBranch(tenantId, Id, statusBoolean);
+        if (activationStatus) {
+            response.send({
+                message: statusBoolean ? "Activation successful" : "Deactivation successful",
+                status: "success"
+            });
+        }
+        else {
+            return (0, helper_1.customError)(`Branch with ID ${Id} not found or activation failed`, 404, response);
+        }
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(response);
     }
 });

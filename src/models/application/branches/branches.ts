@@ -16,15 +16,16 @@ class Branch extends ApplicationSettings {
      }
 
      static async editBranch(tenantId: number, branchid: number, name: string, contact: string, address: string, email: string, managerid: number) {
-          return await promisifyQuery(tenantId, q_branches_update_single, [name, contact, address, email, managerid, branchid]);
+          return  rowAffected(await promisifyQuery(tenantId, q_branches_update_single, [name, contact, address, email, managerid, branchid]));
      }
 
      static async deleteBranch(tenantId: number, branchid: string | number) {
           return await promisifyQuery(tenantId, q_branches_delete_single, [branchid]);
      }
 
-     static async activateDeactivateBranch(tenantId: number, id: number, status: boolean) {
-          return await promisifyQuery(tenantId, q_update_activation, [id, `${status}`]);
+     static async activateDeactivateBranch(tenantId: number, id: number, status: number) {
+          const result = await promisifyQuery(tenantId, q_update_activation, [status, id]);
+          return rowAffected(result);
      }
 
      static async find(tenantId: number, branchid: number) {

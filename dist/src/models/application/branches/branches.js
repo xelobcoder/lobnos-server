@@ -17,13 +17,14 @@ class Branch extends appset_1.default {
         return await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_branches_get_single, [], tenantId);
     }
     static async editBranch(tenantId, branchid, name, contact, address, email, managerid) {
-        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_branches_update_single, [name, contact, address, email, managerid, branchid]);
+        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_branches_update_single, [name, contact, address, email, managerid, branchid]));
     }
     static async deleteBranch(tenantId, branchid) {
         return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_branches_delete_single, [branchid]);
     }
     static async activateDeactivateBranch(tenantId, id, status) {
-        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_activation, [id, `${status}`]);
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_activation, [status, id]);
+        return (0, helper_1.rowAffected)(result);
     }
     static async find(tenantId, branchid) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.g_get_branch, [branchid]);

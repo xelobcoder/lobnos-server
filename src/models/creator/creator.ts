@@ -61,7 +61,8 @@ export default class Creator {
 				this.getPreviousRecords(tenantId, testid, billingid, patientid),
 				new TestCreationRulesRepository(tenantId).findByTestId(testid)
 			]);
-
+			console.log(previousRecords, 'previousRecords')
+			console.log(creationRules, 'creationRules')
 			if (previousRecords.length === 0) return creationRules;
 			if (previousRecords.length > 0 && creationRules.length > 0) {
 				const mappings = previousRecords.map(item => {
@@ -275,7 +276,7 @@ export default class Creator {
 			const insertAll = await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;
-					const isCreateRecord =await shouldCreateRecord(tenantId, item.field, ascensionid)
+					const isCreateRecord = await shouldCreateRecord(tenantId, item.field, ascensionid)
 					if (isCreateRecord) {
 						const values = [item.field, billingid, patientid, item.value, employeeid, item?.entrymode || "manual", originalvalue, item.fieldid, testid, ascensionid];
 						if (isScan) {
@@ -358,25 +359,25 @@ export default class Creator {
 
 
 	public static async createUltrasoundTemplate(tenantId: number, template: ultrasoundTemplate) {
-	try {
-		const { fields } = template;
-		const templateId = await this.createUltrasoundScanTemplateMapper(tenantId, template);
+		try {
+			const { fields } = template;
+			const templateId = await this.createUltrasoundScanTemplateMapper(tenantId, template);
 
-		if (typeof templateId !== "number") return false;
+			if (typeof templateId !== "number") return false;
 
-		if (Array.isArray(fields) && fields.length > 0) {
-			for (let i = 0; i < fields.length; i++) {
-				const { name, value, id } = fields[i];
-				await promisifyQuery(tenantId, q_insert_ultrasound_template, [templateId, name, value, id]);
+			if (Array.isArray(fields) && fields.length > 0) {
+				for (let i = 0; i < fields.length; i++) {
+					const { name, value, id } = fields[i];
+					await promisifyQuery(tenantId, q_insert_ultrasound_template, [templateId, name, value, id]);
+				}
 			}
-		}
 
-		return true;
-	} catch (error) {
-		console.error("Error creating ultrasound template:", error);
-		return false;
+			return true;
+		} catch (error) {
+			console.error("Error creating ultrasound template:", error);
+			return false;
+		}
 	}
-}
 
 
 
@@ -499,7 +500,7 @@ interface ultrasoundTemplateMapper {
 }
 
 interface ultrasoundTemplate extends ultrasoundTemplateMapper {
-	fields: { name?: string, value: string, field?: string, id:number }[]
+	fields: { name?: string, value: string, field?: string, id: number }[]
 }
 
 

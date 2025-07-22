@@ -9,19 +9,48 @@ const express_1 = require("express");
 const helper_1 = require("../hooks/helper");
 const securityClass_1 = __importDefault(require("../models/security/securityClass"));
 const logger_1 = __importDefault(require("../hooks/logger"));
+const RolesRepository_1 = __importDefault(require("../models/settings/users/RolesRepository"));
+const TiifuWorkingClass_1 = require("../database/TiifuWorkingClass");
 const createNewAccount = async (req) => {
-    const { name, password, role, email, branch } = req.body;
-    const user = new user_1.default(name, password, role, email, parseInt(branch.toString()));
-    const tenantId = parseInt(req.query.tenantId);
-    if (await user.checkUserExistUsingEmail(tenantId)) {
-        throw new Error("User already exists");
+    try {
+        const { name, password, role, email, branch } = req.body;
+        const tenantId = parseInt(req.query.tenantId);
+        const user = new RolesRepository_1.default(tenantId);
+        const userExistsUsingEmail = await user.getRoleByEmail(email);
+        if (userExistsUsingEmail)
+            throw new Error("This resource already exist" /* OperationsFailures.resourceExist */ + ".User already exists");
+        const correctEmailFormat = TiifuWorkingClass_1.TiifuWorkingClass.isEmailValidEmail(email);
+        if (!correctEmailFormat)
+            throw new Error("Invalid email format provided." /* OperationsFailures.invalidEmailFormat */);
+        // phone number verification and validation
+        const isPhoneNumberValid = TiifuWorkingClass_1.TiifuWorkingClass.isNumberPhoneNumber(req.body.mobile);
+        if (!isPhoneNumberValid)
+            throw new Error("Valid phone number required" /* OperationsFailures.invalidPhoneNumber */);
+        const isMobileNumberExist = await user.verifyMobileNumber(req.body.mobile);
+        if (isMobileNumberExist)
+            throw new Error("This resource already exist" /* OperationsFailures.resourceExist */ + ".Mobile number already exists");
+        const hashedPassword = await user.hashPassword(password);
+        const insertResult = await user.createRole({
+            username: name,
+            password: hashedPassword,
+            role,
+            email,
+            branch: parseInt(branch),
+            emailAuthenticated: "false",
+            mobile: req.body.mobile || "",
+            alternativeMobile: req.body.altMobile || null,
+            dob: req.body.dob || null,
+            updated_on: new Date().toISOString(),
+            date_created: new Date().toISOString(),
+            activation: 1,
+            pin: req.body.pin ? parseInt(req.body.pin) : 0,
+        });
+        return { userId: insertResult };
     }
-    const hashedPassword = await user.hashPassword();
-    const insertResult = await user.insertionOne(name, hashedPassword, tenantId);
-    if (!insertResult) {
-        throw new Error("Failed to create user");
+    catch (error) {
+        logger_1.default.error(error);
+        throw new Error((error === null || error === void 0 ? void 0 : error.message) || error || "Error creating user account");
     }
-    return { userId: insertResult.insertId };
 };
 exports.createNewAccount = createNewAccount;
 const userLogin = async (req, res) => {
