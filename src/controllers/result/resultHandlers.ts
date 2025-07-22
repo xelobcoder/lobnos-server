@@ -69,7 +69,6 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: IRequ
 			if (typeof records !== "string") {
 				let result = records?.result;
 				const decryptedResult = await resultEncrptionReferer(result as any, "decryption");
-				console.log("decryptedResult", decryptedResult,records,billingid,parsedTestId,billingid,patientid)
 				if (decryptedResult != undefined) {
 					const { resources } = decryptedResult;
 					if (resources && Array.isArray(resources) && resources.length > 0) {
