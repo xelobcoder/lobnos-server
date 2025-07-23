@@ -19,10 +19,9 @@ class TestApprovalClass extends operations_1.default {
         if (ascensionid && approvedBy) {
             const approvedDetails = await new TestApprovalClass(ascensionid).getAscensionApprovedList(tenantId);
             const canStaffApproveResult = await resultSettings_1.default.canStaffApproveResult(tenantId, approvedBy);
-            const isMaximumApprovalReached = await resultSettings_1.default.isApprovalLimitReached(tenantId, approvedDetails, null, "maximum");
+            const isMaximumApprovalReached = await resultSettings_1.default.isApprovalLimitReached(tenantId, approvedDetails, ascensionid, "maximum");
             const minListUnverified = Array.isArray(approvedDetails) ? [...approvedDetails, approvedBy] : [approvedDetails, approvedBy];
-            const isMinimumApprovalReached = await resultSettings_1.default.isApprovalLimitReached(tenantId, minListUnverified, null, 'minimum');
-            console.log(isMinimumApprovalReached, 'isMinimumApprovalReached');
+            const isMinimumApprovalReached = await resultSettings_1.default.isApprovalLimitReached(tenantId, minListUnverified, ascensionid, 'minimum');
             const _approvalState = isMinimumApprovalReached == true ? 1 : 0;
             if (!canStaffApproveResult)
                 return "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */;

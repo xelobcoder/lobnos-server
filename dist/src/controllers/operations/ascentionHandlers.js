@@ -232,9 +232,10 @@ async function getPendingUnvalidatedSamplesHandler(request, response) {
     try {
         const count = parseInt(request.query.count.toString()) || 10;
         const page = parseInt(request.query.page.toString()) || 1;
+        const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
         const tenantIdP = parseInt(request.query.tenantId.toString());
         const { startDate, endDate } = request.query;
-        const List = await sampleClass_1.SampleHandler.getPendingUnvalidatedSamples(tenantIdP, { count, page }, startDate, endDate);
+        const List = await sampleClass_1.SampleHandler.getPendingUnvalidatedSamples(tenantIdP, { count, page }, startDate, endDate, sortby);
         response.send({ result: List, statusCode: 200, status: "success" });
     }
     catch (err) {

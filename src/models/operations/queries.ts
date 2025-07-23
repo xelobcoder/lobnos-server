@@ -100,6 +100,7 @@ export const q_get_all_result_entry_base: string = `
             ta.processingEndDate,
             ta.resultEntryStart,
             ta.resultEntryEnd,
+            ds.paymentstatus,
             b.billedon AS billing_date,
             d.department,
             ta.id AS ascensionid,
@@ -162,56 +163,56 @@ export const q_get_all_result_entry_ultrasound_base: string = `
 `;
 
 export enum OperationsStages {
-  PROCESSING = "PROCESSING",
-  COMPLETED = "COMPLETED",
-  VALIDATION = "VALIDATION",
-  ULTRASOUND_UNCOMPLETED = "ULTRASOUND_UNCOMPLETED",
-  ULTRASOUND_COMPLETED = "ULTRASOUND_COMPLETED",
-  VALIDATED = 'VALIDATED'
+	PROCESSING = "PROCESSING",
+	COMPLETED = "COMPLETED",
+	VALIDATION = "VALIDATION",
+	ULTRASOUND_UNCOMPLETED = "ULTRASOUND_UNCOMPLETED",
+	ULTRASOUND_COMPLETED = "ULTRASOUND_COMPLETED",
+	VALIDATED = 'VALIDATED'
 }
 
 export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string) {
-  let query = currentQuery;
-  switch (stage) {
-    case OperationsStages.PROCESSING:
-      query += ` AND (ta.processingStartDate IS NULL OR  ta.processingEndDATE IS NULL) AND  d.department <> 'ultrasound'`;
-      return query;
-    case OperationsStages.COMPLETED:
-      query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL)
+	let query = currentQuery;
+	switch (stage) {
+		case OperationsStages.PROCESSING:
+			query += ` AND (ta.processingStartDate IS NULL OR  ta.processingEndDATE IS NULL) AND  d.department <> 'ultrasound'`;
+			return query;
+		case OperationsStages.COMPLETED:
+			query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL)
      AND d.department <> 'ultrasound'`
-      return query;
-    case OperationsStages.VALIDATION:
-      query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
+			return query;
+		case OperationsStages.VALIDATION:
+			query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
      AND d.department <> 'ultrasound'
       `
-      return query;
-    case OperationsStages.VALIDATED:
-      query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL ) AND  dta.isapproved = 1
+			return query;
+		case OperationsStages.VALIDATED:
+			query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL ) AND  dta.isapproved = 1
      AND d.department <> 'ultrasound' 
       `
-      return query;
-    default:
-      return null
-  }
+			return query;
+		default:
+			return null
+	}
 
 
 }
 
 
 export const q_get_all_test_ready_for_various_stages_ultrasound = function (currentQuery: string, stage: string) {
-  let query = currentQuery;
-  switch (stage) {
-    case OperationsStages.ULTRASOUND_UNCOMPLETED:
-      query += ` AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL) 
+	let query = currentQuery;
+	switch (stage) {
+		case OperationsStages.ULTRASOUND_UNCOMPLETED:
+			query += ` AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL) 
       `
-      return query;
-    case OperationsStages.ULTRASOUND_COMPLETED:
-      query += `AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL )
+			return query;
+		case OperationsStages.ULTRASOUND_COMPLETED:
+			query += `AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL )
       `
-      return query;
-    default:
-      return null
-  }
+			return query;
+		default:
+			return null
+	}
 }
 
 export const q_get_all_result_entry_partitioning = `SELECT DISTINCT

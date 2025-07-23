@@ -38,14 +38,14 @@ class ResultSettings extends ApplicationSettings {
 	}
 
 
-	public static async updateResultEntrySettings(tenantId, resultEntrySettings: ResultEntrySettings): Promise<boolean> {
+	public static async updateResultEntrySettings(tenantId: number, resultEntrySettings: ResultEntrySettings): Promise<boolean> {
 		if (typeof resultEntrySettings != 'object') return false;
 		let parsedJson = JSON.stringify(resultEntrySettings);
 		const result = await promisifyQuery(tenantId, q_update_result_entry_settings, [parsedJson]);
 		return rowAffected(result);
 	}
 
-	public static async getResultEntrySettings(tenantId): Promise<boolean | null | ResultEntrySettings> {
+	public static async getResultEntrySettings(tenantId: number): Promise<boolean | null | ResultEntrySettings> {
 		const result = await promisifyQuery(tenantId, q_get_result_entry_settings);
 		if (result.length === 0) return null
 		let data = result[0]['resultsEntrySettings'];
@@ -78,11 +78,11 @@ class ResultSettings extends ApplicationSettings {
 		const connection = await KnexConnection(tenantId);
 		const recordApproval = await connection('dbotestresultapproval')
 			.where({ ascensionid: ascensionId }).first();
-
 		if (!recordApproval) return false;
+
 		const { maxvalidation, minvalidation } = recordApproval;
-		console.log(maxvalidation, minvalidation, 'max and min validation,', currentLen >= parseInt(maxvalidation.toString()),
-			currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0);
+
+		currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0;
 		if (type === 'maximum') return currentLen >= parseInt(maxvalidation.toString())
 		if (type === 'minimum') return currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0
 		return false;

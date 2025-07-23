@@ -93,6 +93,7 @@ exports.q_get_all_result_entry_base = `
             ta.processingEndDate,
             ta.resultEntryStart,
             ta.resultEntryEnd,
+            ds.paymentstatus,
             b.billedon AS billing_date,
             d.department,
             ta.id AS ascensionid,

@@ -11,9 +11,8 @@ const user_1 = __importDefault(require("../../LobnosAuth/user"));
 async function ascensionStagingHandler(request, response) {
     try {
         const { operationsStaging, dateFrom, dateEnd, searchString, page, count, isUltrasound, employeeid, tenantId } = request.query;
-        if (!employeeid) {
+        if (!employeeid)
             return response.send({ status: false, message: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */, action: 'Include employeeid in the query' });
-        }
         const parsedEmployeeId = parseInt(employeeid.toString());
         const tenantIdP = parseInt(tenantId.toString());
         if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP))) {
@@ -22,7 +21,7 @@ async function ascensionStagingHandler(request, response) {
         if (operationsStaging === "VALIDATION" && !(await canValidateResults(parsedEmployeeId, tenantIdP))) {
             return response.send({ status: false, message: `${"You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */}. To validate Result` });
         }
-        const queryParams = createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound });
+        const queryParams = createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound, sortby: request.query.sortby });
         let list = await operations_1.default.getAscensionBasedOnStage(tenantIdP, queryParams);
         if (operationsStaging === 'VALIDATION' && Array.isArray(list)) {
             list = await filterApprovedAscensionList(list, parsedEmployeeId, tenantIdP);
@@ -40,9 +39,9 @@ async function ascensionStagingHandler(request, response) {
 }
 exports.ascensionStagingHandler = ascensionStagingHandler;
 async function validatedResultEmployeeGetter(item, tenantId) {
-    const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid } = item;
+    const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus } = item;
     const validators = await new testApprovalClass_1.TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
-    return { department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id, ascensionid, fullpatientid };
+    return { department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id, ascensionid, fullpatientid, paymentstatus };
 }
 async function isScientistOrAdmin(employeeId, tenantId) {
     return await new user_1.default(null, null, null, null, null).getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
@@ -53,7 +52,7 @@ async function canValidateResults(employeeId, tenantId) {
         Array.isArray(validationSettings.staffQualifiedToValidationResult) &&
         validationSettings.staffQualifiedToValidationResult.includes(employeeId));
 }
-function createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound }) {
+function createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound, sortby }) {
     return {
         _dateFrom: dateFrom.toString(),
         _dateEnd: dateEnd.toString(),
@@ -61,7 +60,8 @@ function createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString,
         searchString: searchString.toString(),
         count: parseInt(count.toString()),
         page: parseInt(page.toString()),
-        isUltrasound: isUltrasound === "true"
+        isUltrasound: isUltrasound === "true",
+        sortby: sortby || "DESC"
     };
 }
 async function filterApprovedAscensionList(list, employeeId, tenantId) {

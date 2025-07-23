@@ -29,6 +29,8 @@ export const q_get_pending_collected_but_unvalidated_samples = `
         SELECT DISTINCT
           b.patientid,
           b.billingid,
+          ta.id AS ascensionid,
+          ta.testid,
           b.billedon AS date,
           CONCAT(np.firstname, ' ', np.lastname, ' ', np.middlename) AS fullname
         FROM billing AS b

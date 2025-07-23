@@ -184,7 +184,7 @@ export const getResultPrintoutHandler = async (request: Request<
 >, response: Response) => {
 	try {
 		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, isBrowserPrintout } = request.query;
-		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == "true" ? true : false;
+		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
 
 		if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
@@ -240,10 +240,10 @@ export const getResultPrintoutHandler = async (request: Request<
 			dataset.literatureReview = literatureReview.literature
 		}
 
-		let records = await new Creator(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid);
+		let records = await new Creator(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid) as previewReportView;
 
-		if (browserMode && typeof records == "string") {
-			records = await ResultPrint.decryptResultArray(records);
+		if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
+			records.result = await ResultPrint.decryptResultArray(records.result);
 		}
 
 		if (records != null && typeof records != "string" && !Array.isArray(records)) {

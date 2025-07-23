@@ -156,7 +156,7 @@ exports.resultEntryDrugsHandler = resultEntryDrugsHandler;
 const getResultPrintoutHandler = async (request, response) => {
     try {
         const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, isBrowserPrintout } = request.query;
-        const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == "true" ? true : false;
+        const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
         const tenantIdP = parseInt(tenantId.toString());
         if (!ascensionId)
             return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + ". ascensionid not provided", 404, response);
@@ -203,8 +203,8 @@ const getResultPrintoutHandler = async (request, response) => {
             dataset.literatureReview = literatureReview.literature;
         }
         let records = await new creator_1.default(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid);
-        if (browserMode && typeof records == "string") {
-            records = await resultPrint_1.default.decryptResultArray(records);
+        if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
+            records.result = await resultPrint_1.default.decryptResultArray(records.result);
         }
         if (records != null && typeof records != "string" && !Array.isArray(records)) {
             const { result, testname, hasDrugs } = records;

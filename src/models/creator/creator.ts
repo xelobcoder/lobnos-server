@@ -61,8 +61,7 @@ export default class Creator {
 				this.getPreviousRecords(tenantId, testid, billingid, patientid),
 				new TestCreationRulesRepository(tenantId).findByTestId(testid)
 			]);
-			console.log(previousRecords, 'previousRecords')
-			console.log(creationRules, 'creationRules')
+
 			if (previousRecords.length === 0) return creationRules;
 			if (previousRecords.length > 0 && creationRules.length > 0) {
 				const mappings = previousRecords.map(item => {
@@ -181,7 +180,8 @@ export default class Creator {
 
 		if (result && Array.isArray(result) && result.length > 0) {
 			let resultOmissionMaleFemale = result.map((item: CreationRule, index: number) => {
-				const { female, male, isValueTracked, type, valueAlert, plain, useplain, alert, constraint,
+				index === 2 && console.log(item, 'item')
+				const { female, male, isValueTracked, type, valueAlert, useplain, alert, constraint,
 					...rest } = item;
 				return rest;
 			})

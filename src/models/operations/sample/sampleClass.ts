@@ -42,15 +42,17 @@ export class SampleHandler extends TestAscension {
 		return true;
 	}
 
-	public static async getPendingUnvalidatedSamples(tenantId: number, pagination: { count: number, page: number }, startdate: Date | string, enddate: Date | string) {
+	public static async getPendingUnvalidatedSamples(tenantId: number, pagination: { count: number, page: number },
+		startdate: Date | string, enddate: Date | string, sortby: 'DESC' | 'ASC' = 'ASC') {
 		let query = q_get_pending_collected_but_unvalidated_samples;
 		const params: (Date | string)[] = [];
 
 		if (startdate && enddate) {
-			query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+			query += ` AND (DATE(b.billedon) >= ? AND DATE(b.billedon) <= ?) `;
 			params.push(startdate, enddate);
 		}
-		query += ` GROUP BY b.billingid,ta.id ORDER BY b.billingid ASC LIMIT ? OFFSET ? `;
+		query += ' GROUP BY b.billingid ORDER BY b.billedon ${sortby} LIMIT ? OFFSET ? ';
+		query = query.replace('${sortby}', sortby);
 		return await paginationQuery(pagination, query, params, tenantId);
 	}
 

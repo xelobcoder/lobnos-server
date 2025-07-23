@@ -51,8 +51,6 @@ class Creator {
                 this.getPreviousRecords(tenantId, testid, billingid, patientid),
                 new TestCreationRulesRepository_1.default(tenantId).findByTestId(testid)
             ]);
-            console.log(previousRecords, 'previousRecords');
-            console.log(creationRules, 'creationRules');
             if (previousRecords.length === 0)
                 return creationRules;
             if (previousRecords.length > 0 && creationRules.length > 0) {
@@ -164,7 +162,8 @@ class Creator {
         const { result, hasDrugs, testname } = resultDataset;
         if (result && Array.isArray(result) && result.length > 0) {
             let resultOmissionMaleFemale = result.map((item, index) => {
-                const { female, male, isValueTracked, type, valueAlert, plain, useplain, alert, constraint } = item, rest = __rest(item, ["female", "male", "isValueTracked", "type", "valueAlert", "plain", "useplain", "alert", "constraint"]);
+                index === 2 && console.log(item, 'item');
+                const { female, male, isValueTracked, type, valueAlert, useplain, alert, constraint } = item, rest = __rest(item, ["female", "male", "isValueTracked", "type", "valueAlert", "useplain", "alert", "constraint"]);
                 return rest;
             });
             return {

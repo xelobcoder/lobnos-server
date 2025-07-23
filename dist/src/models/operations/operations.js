@@ -127,40 +127,9 @@ class Operations {
             else {
                 finalQuery = (0, queries_1.q_get_all_test_ready_for_various_stages_ultrasound)(finalQuery, stage);
             }
-            finalQuery = finalQuery + ` AND (ascension_date >= ? AND ascension_date <= ? `;
+            finalQuery = finalQuery + ` AND DATE(ascension_date) >= ? AND DATE(ascension_date ) <= ? `;
             conditions.push(startDate);
             conditions.push(enddate);
-            if (stage == queries_1.OperationsStages.PROCESSING) {
-                finalQuery += ` OR (ta.processingStartDate >= ? AND ta.processingStartDate <= ?)) `;
-                conditions.push(startDate);
-                conditions.push(enddate);
-            }
-            else if (stage == queries_1.OperationsStages.COMPLETED || stage == queries_1.OperationsStages.VALIDATION) {
-                finalQuery += ` OR (ta.resultEntryStart >= ? AND ta.resultEntryStart <= ?) OR (ta.resultEntryEnd >= ? AND ta.resultEntryEnd <= ?)) `;
-                conditions.push(startDate);
-                conditions.push(enddate);
-                conditions.push(startDate);
-                conditions.push(enddate);
-            }
-            else if (stage == queries_1.OperationsStages.VALIDATED) {
-                finalQuery += ` OR ta.collectionStartDate >= ? AND <= ? OR ta.collectionEndDate  >= ? AND <= ? OR ta.processingStartDate  >= ? AND <= ? OR ta.resultEntryStart  >= ? AND <= ? OR ta.resultEntryEnd  >= ? AND <= ? OR dta.lastupdatedon >= ? AND <= ?) `;
-                conditions.push(startDate);
-                conditions.push(enddate);
-                conditions.push(startDate);
-                conditions.push(enddate);
-                conditions.push(startDate);
-                conditions.push(enddate);
-                conditions.push(startDate);
-                conditions.push(enddate);
-                conditions.push(startDate);
-                conditions.push(enddate);
-                conditions.push(startDate);
-                conditions.push(enddate);
-            }
-            else {
-                finalQuery += `) `;
-            }
-            console.log("Final Query: ", finalQuery);
             if (searchString) {
                 finalQuery += ` AND (CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ? 
 				OR np.patientid LIKE ? 
@@ -234,17 +203,18 @@ class Operations {
     }
     static async getAscensionBasedOnStage(tenantId, queryParams) {
         try {
-            const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound } = queryParams;
+            const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound, sortby } = queryParams;
             let query;
             let conditionValues = [];
             if (_dateFrom && _dateEnd) {
-                const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({ from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
+                const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({ sortby, from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
                 query = finalQuery;
                 conditionValues = conditionx;
             }
             if (query == null)
                 return null;
-            query += ` GROUP BY ta.id ORDER BY ta.id DESC LIMIT ? OFFSET ? `;
+            query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;
+            query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
             return await (0, helper_1.paginationQuery)({ count, page }, query, conditionValues, tenantId);
         }
         catch (err) {

@@ -1,5 +1,4 @@
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 export interface IEmployee {
 	employeeid?: number;
 	username: string;

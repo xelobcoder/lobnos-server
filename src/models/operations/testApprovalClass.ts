@@ -29,12 +29,11 @@ export class TestApprovalClass extends Operations {
 
 			const canStaffApproveResult = await ResultSettings.canStaffApproveResult(tenantId, approvedBy);
 
-			const isMaximumApprovalReached = await ResultSettings.isApprovalLimitReached(tenantId, approvedDetails, null, "maximum");
+			const isMaximumApprovalReached = await ResultSettings.isApprovalLimitReached(tenantId, approvedDetails, ascensionid, "maximum");
 
 			const minListUnverified = Array.isArray(approvedDetails) ? [...approvedDetails, approvedBy] : [approvedDetails, approvedBy];
 
-			const isMinimumApprovalReached = await ResultSettings.isApprovalLimitReached(tenantId, minListUnverified, null, 'minimum');
-console.log(isMinimumApprovalReached, 'isMinimumApprovalReached');
+			const isMinimumApprovalReached = await ResultSettings.isApprovalLimitReached(tenantId, minListUnverified, ascensionid, 'minimum');
 			const _approvalState = isMinimumApprovalReached == true ? 1 : 0;
 
 			if (!canStaffApproveResult) return OperationsFailures.dontHaveAccessPermission;
