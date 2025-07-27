@@ -16,6 +16,7 @@ export interface TestCreationRule {
      lowerlimit?: string;
      category?: string;
      options?: string;
+     fieldid?: number;
      undercategory?: boolean;
      categoryid?: number;
      valueAlert?: string;

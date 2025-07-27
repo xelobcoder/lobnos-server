@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import AuthenticationRepository from '../../models/settings/users/AuthenticationRepository';
 import TokenValidator from '../../models/settings/users/TokenValidator';
 import RolesRepository from '../../models/settings/users/RolesRepository';
+import { customError } from '../../hooks/helper';
 
 export class AuthController {
     private authRepo: AuthenticationRepository;
@@ -27,8 +28,8 @@ export class AuthController {
             const { email, password } = req.body;
             const tokens = await this.authRepo.login(email, password);
             if (!tokens) {
-                const message ='Invalid email or password'
-                res.status(401).json({ status:false, error: message });
+                const message = 'Invalid email or password'
+                res.status(401).json({ status: false, error: message });
                 return;
             }
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);
@@ -54,5 +55,30 @@ export class AuthController {
         }
 
         res.status(200).json({ message: 'Token is valid' });
+    }
+
+    async validateUserPinProvided(req: Request<{}, {}, {}, { employeeid: string | number, tenantId: number, pin: string | number }>, res: Response) {
+        try {
+            const { employeeid, pin, tenantId } = req.query;
+            if (!employeeid || !pin) {
+                return customError('employeeid and pin are required', 400, res);
+            }
+
+            const pEmployeeid = parseInt(employeeid.toString());
+            const pPin = parseInt(pin.toString());
+            if (isNaN(pEmployeeid) || isNaN(pPin)) {
+                return customError('employeeid and pin must be numbers', 400, res);
+            }
+
+            const rolesRepo = await new RolesRepository(tenantId).validatePin(pEmployeeid, pPin);
+            if (rolesRepo) {
+                res.status(200).json({ status: true, message: 'Pin is valid' });
+            } else {
+                res.status(401).json({ status: false, message: 'Invalid pin' });
+            }
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ status: false, message: 'Internal server error' });
+        }
     }
 }

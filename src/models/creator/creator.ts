@@ -28,6 +28,7 @@ import { CreationRule, resultEntryTemplateView, previewReportView, resultEntryTy
 import resultEncrptionReferer from "./resultEncryptionReferer";
 import TestCreationRulesRepository, { TestCreationRule } from "../TestCreation/TestCreationRulesRepository";
 import { CriticalValueEvaluator } from './CriticalValueEvaluator';
+import TestDetailCategory from "../operations/testFieldsCategoryClass";
 
 export default class Creator {
 	testid: number;
@@ -62,7 +63,12 @@ export default class Creator {
 				new TestCreationRulesRepository(tenantId).findByTestId(testid)
 			]);
 
-			if (previousRecords.length === 0) return creationRules;
+			if (previousRecords.length === 0) {
+				return creationRules.map(item => {
+					item.fieldid = item.id;
+					return item;
+				});
+			}
 			if (previousRecords.length > 0 && creationRules.length > 0) {
 				const mappings = previousRecords.map(item => {
 					const matchingRule = creationRules.find(rule => rule.id === item.fieldid);
@@ -123,9 +129,9 @@ export default class Creator {
 			const testname = await testpanel.getTestUsingTestid(tenantId, testid);
 			if (!testname) return OperationsFailures.unfoundID;
 			let previousRecords = await this.getPreviousRecordsOrCreationRule(tenantId, testid, parsedBillingid, parsedPatientid);
-			if (previousRecords.length === 0) return { result: [], testname: null, hasDrugs: false };
+			if (previousRecords.length === 0) return { result: [], testname: null, hasDrugs: false, testInfo: null };
 			hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
-			return { result: previousRecords, testname, hasDrugs }
+			return { result: previousRecords, testname, hasDrugs, testInfo: null };
 		} catch (err) {
 			throw err;
 		}
@@ -134,14 +140,14 @@ export default class Creator {
 	async getCustomPreviousRecords(tenantId: number, testid: number, billingid: number, patientid: number): Promise<resultEntryTemplateView | string> {
 		try {
 			let hasDrugs = false;
-
 			const parsedBillingid = parseInt(billingid.toString());
 			const parsedPatientid = parseInt(patientid.toString());
-			const testname = await testpanel.getTestUsingTestid(tenantId, testid);
+			const testInfo = await testpanel.getTestInfo(tenantId, testid);
+			const testname = testInfo.name;
 			if (!testname) return OperationsFailures.unfoundID;
 
 			let previousRecords = await this.getPreviousRecordsWithTestRuleMapped(tenantId, testid, parsedBillingid, parsedPatientid);
-			if (!Array.isArray(previousRecords) || previousRecords.length === 0) return { result: [], testname: null, hasDrugs: false };
+			if (!Array.isArray(previousRecords) || previousRecords.length === 0) return { result: [], testname: null, hasDrugs: false, testInfo: null };
 
 			const testDetails = await testpanel.getTestDetails(tenantId, testid);
 			hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
@@ -167,7 +173,9 @@ export default class Creator {
 				});
 			}
 
-			return { testname, result: previousRecords, hasDrugs }
+			const testdetailcategory = await TestDetailCategory.getByTestId(tenantId, testid);
+
+			return { testname, result: previousRecords, hasDrugs, testInfo ,testdetailcategory}
 		} catch (err) {
 			throw err;
 		}
@@ -176,11 +184,10 @@ export default class Creator {
 	async resultPresentationView(tenantId: number, testid: number, billingid: number, patientid: number): Promise<previewReportView | [] | string> {
 		const resultDataset = await this.getCustomPreviousRecords(tenantId, testid, billingid, patientid);
 		if (typeof resultDataset == "string") return resultDataset
-		const { result, hasDrugs, testname } = resultDataset
+		const { result, hasDrugs, testname,testInfo,testdetailcategory } = resultDataset
 
 		if (result && Array.isArray(result) && result.length > 0) {
 			let resultOmissionMaleFemale = result.map((item: CreationRule, index: number) => {
-				index === 2 && console.log(item, 'item')
 				const { female, male, isValueTracked, type, valueAlert, useplain, alert, constraint,
 					...rest } = item;
 				return rest;
@@ -188,7 +195,9 @@ export default class Creator {
 			return {
 				result: resultOmissionMaleFemale,
 				hasDrugs,
-				testname
+				testname,
+				testInfo,
+				testdetailcategory: testdetailcategory || null
 			};
 		}
 		return []
@@ -261,41 +270,38 @@ export default class Creator {
 			return OperationsFailures.invalidRequestBodyType;
 		}
 
-		const shouldCreateRecord = async function (tenantId: number, field: string, ascensionId: number) {
-			const records = await promisifyQuery(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND field = ?`, [
-				ascensionId, field
-			]);
+		const shouldCreateRecord = async function (tenantId: number, fieldid: number, ascensionId: number, testid: number): Promise<boolean> {
+			const records = await promisifyQuery(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
+				ascensionId, testid, fieldid]);
 			return Array.isArray(records) && records.length === 0;
 		};
 
 
 
 
-		const insertUpdate = async function (tenantId: number, fields: any[]) {
+		const insertUpdate = async function (tenantId: number, fields: any[], testid: number) {
 			const { resources } = await resultEncrptionReferer(fields);
 			const insertAll = await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;
-					const isCreateRecord = await shouldCreateRecord(tenantId, item.field, ascensionid)
+					const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
 					if (isCreateRecord) {
 						const values = [item.field, billingid, patientid, item.value, employeeid, item?.entrymode || "manual", originalvalue, item.fieldid, testid, ascensionid];
-						if (isScan) {
-							await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
-						}
-
+						if (isScan) await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
 						const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid) 
 						VALUES(?,?,?,?,?,?,?,?,?,?)`;
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(await promisifyQuery(tenantId, query, values));
 					} else {
-						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,fieldid = ? WHERE ascensionid = ? AND field = ?`;
+						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? WHERE ascensionid = ? AND fieldid = ?`;
 
-						const result = await promisifyQuery(tenantId, updateRecords, [item.value, employeeid, item?.entrymode, originalvalue, item.fieldid, ascensionid, item.field, testid]);
+						const result = await promisifyQuery(tenantId, updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, ascensionid, item.fieldid, testid]);
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(result);
 					}
 				})
 			);
+
 
 
 			const isAllInserted = insertAll.some((a, i) => a == false);
@@ -333,7 +339,7 @@ export default class Creator {
 			await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
 		}
 		const criticalcallout = await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
-		return !isScan ? await insertUpdate(tenantId, fields) : await insertUpdate(tenantId, criticalcallout);
+		return !isScan ? await insertUpdate(tenantId, fields, testid) : await insertUpdate(tenantId, criticalcallout, testid);
 
 	}
 

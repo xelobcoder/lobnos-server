@@ -11,6 +11,7 @@ const router = express_1.default.Router();
 const authController = new authController_1.AuthController();
 router.post('/api/v1/prime/login', (req, res) => authController.login(req, res));
 router.get('/api/v1/prime/validate-token', validateTenancy_1.checkTokenExists, (req, res) => authController.validateToken(req, res));
+router.get('/api/v1/prime/validate-user-pin', (req, res) => authController.validateUserPinProvided(req, res));
 router.get("/api/v1/security/getloggedsessions", handlers_1.getLoggedSessions);
 router.get("/api/v1/security/getloggedsessions/update", handlers_1.updateLoggedSessions);
 router.get("/api/v1/security/user/logout", handlers_1.logoutUser);

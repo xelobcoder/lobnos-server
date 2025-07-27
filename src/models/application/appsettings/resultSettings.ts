@@ -24,12 +24,41 @@ interface ResultEntrySettings {
 }
 
 
-export type resultDisplaySettings = {
-	letterHeading: number,
-	literatureReview: number,
-	DepartmentEntry: number,
-	passwordonResult: number,
-	samplingInformation: number
+export interface ApplicationResultSettings{
+     fontfamily: string;
+     testnameColor: string;
+     testnameBackgroundColor: string;
+     testnameFontSize: number;
+     mainReportHeaderBgColor: string;
+     testTableHeaderBackgroundColor: string;
+     comments: {
+          fontFamily: string;
+     },
+     testTableHeaderTextColor: string;
+     mainReportHeaderColor: string;
+     testTableHeaderFontSize: number;
+     companyInfo: {
+          namefontsize: number;
+          color: string;
+     };
+     testBody: {
+          fontSize: number;
+          fontFamily: string;
+          color: string;
+          highlightFlags: boolean;
+          hightFlagColor: string;
+          hasColorsForFlags: boolean;
+          lowFlagColor: string;
+          boldenParameter: boolean;
+          boldenValue: boolean;
+          boldenUnits: boolean;
+     };
+     includeSignature: boolean;
+     includeLimitations: boolean;
+     limitations: string;
+     showEndOfResult: boolean;
+     template: number;
+     includeBarcode?: boolean;
 }
 
 class ResultSettings extends ApplicationSettings {
@@ -116,7 +145,7 @@ class ResultSettings extends ApplicationSettings {
 
 
 
-	async getResultSettings(tenantId: number): Promise<resultDisplaySettings | boolean> {
+	async getResultSettings(tenantId: number): Promise<ApplicationResultSettings | boolean> {
 		try {
 			let result = await promisifyQuery(tenantId, GET_RESULT_SETTINGS);
 			return result.length > 0 ? JSON.parse(result[0]["resultsettings"]) : false;
@@ -145,14 +174,14 @@ class ResultSettings extends ApplicationSettings {
 			if (result.length === 0) {
 				const insert = await promisifyQuery(tenantId, INSERT_RESULT_SETTINGS, [jsonify]);
 				if (rowAffected(insert)) {
-					response.send({ status: "success", message: "update successful" });
+					response.send({ status: "success", message: "Results settings updated successfully" });
 				} else {
 					response.send({ status: "error", message: "update failed" });
 				}
 			} else {
 				const update = await promisifyQuery(tenantId, UPDATE_RESULT_SETTINGS, [jsonify]);
 				if (rowAffected(update)) {
-					response.send({ status: "success", message: "update successful" });
+					response.send({ status: "success", message: "Results settings updated successfullyl" });
 				} else {
 					response.send({ status: "error", message: "update failed" });
 				}

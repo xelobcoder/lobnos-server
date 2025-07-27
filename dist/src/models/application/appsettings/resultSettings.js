@@ -102,7 +102,7 @@ class ResultSettings extends appset_1.default {
             if (result.length === 0) {
                 const insert = await (0, helper_1.promisifyQuery)(tenantId, queries_1.INSERT_RESULT_SETTINGS, [jsonify]);
                 if ((0, helper_1.rowAffected)(insert)) {
-                    response.send({ status: "success", message: "update successful" });
+                    response.send({ status: "success", message: "Results settings updated successfully" });
                 }
                 else {
                     response.send({ status: "error", message: "update failed" });
@@ -111,7 +111,7 @@ class ResultSettings extends appset_1.default {
             else {
                 const update = await (0, helper_1.promisifyQuery)(tenantId, queries_1.UPDATE_RESULT_SETTINGS, [jsonify]);
                 if ((0, helper_1.rowAffected)(update)) {
-                    response.send({ status: "success", message: "update successful" });
+                    response.send({ status: "success", message: "Results settings updated successfullyl" });
                 }
                 else {
                     response.send({ status: "error", message: "update failed" });

@@ -2,7 +2,7 @@ import { IRequest, IResponse } from "./types";
 import { Request, Response } from "express";
 import { TrackValuesAlertClass } from "../../models/creator/TrackValuesAlertClass";
 import { OperationsFailures, validatorsFinalFormatType } from "../../models/operations/types";
-import ResultSettings, { resultDisplaySettings } from "../../models/application/appsettings/resultSettings";
+import ResultSettings, { ApplicationResultSettings } from "../../models/application/appsettings/resultSettings";
 import { companyInfo, getAllCompanyProfiles } from "../../models/settings/companyProfile";
 import Registration from "../../models/registration/registration";
 import { NewRegistration } from "../../models/registration/types";
@@ -15,12 +15,15 @@ import TestLiteratureSetup from "../../testpanel/literature";
 import resultEncrptionReferer from "../../models/creator/resultEncryptionReferer";
 import Creator from "../../models/creator/creator";
 import { Billing } from "../../models/billing/billing";
-import { PrimeLimsTabletest_ascension } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTabletest_ascension, PrimeLimsTabletest_panels } from "../../database/DatabaseTableSchema";
 import fs from 'fs'
 import path from 'path'
 import Core from "../../EmailServices/core";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 import { string } from "zod";
+import { testAscensionTableTypes } from "../../models/billing/billingclientTypes";
+import RolesRepository from "../../models/settings/users/RolesRepository";
+import { TestDetailCategoryType } from "../../models/operations/testFieldsCategoryClass";
 
 // export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -213,8 +216,11 @@ export const getResultPrintoutHandler = async (request: Request<
 			lastupdatedon: null,
 			logourl: '',
 			enteredOn: null,
+			samplingInformation: null,
 			resultentry: null,
-			literatureReview: null
+			literatureReview: null,
+			testInfo: null,
+			testdetailcategory: null,
 		};
 
 		const resultsettings = await new ResultSettings(null).getResultSettings(tenantIdP);
@@ -247,15 +253,22 @@ export const getResultPrintoutHandler = async (request: Request<
 		}
 
 		if (records != null && typeof records != "string" && !Array.isArray(records)) {
-			const { result, testname, hasDrugs } = records;
+			const { result, testname, hasDrugs,testInfo,testdetailcategory } = records;
 			dataset.records = result;
 			dataset.testname = testname
 			dataset.hasDrugs = hasDrugs
+			dataset.testInfo = testInfo || null
+			dataset.testdetailcategory = testdetailcategory || null
 		}
 
 		if (dataset.hasDrugs == true) {
 			const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, numAscensionId, parsedTestId);
 			dataset.drugList = drugList as [];
+		}
+
+		let samplingInformation = await TestAscension.findAscension(tenantIdP, numAscensionId);
+		if (samplingInformation != null) {
+			dataset.samplingInformation = samplingInformation;
 		}
 
 
@@ -279,29 +292,24 @@ export const getResultPrintoutHandler = async (request: Request<
 
 
 
-export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {}, { csvid: string, ptid: string, target: string, isUltrasoundInclusive: boolean, tenantId: string }>, response: Response) => {
+export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {}, { csvid: string, ptid: string, target: string, employeeid: number | string, isBrowserPrintout: number | string, isUltrasoundInclusive: boolean, tenantId: string }>, response: Response) => {
 	try {
-		const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId } = request.query;
-
+		const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId, isBrowserPrintout, employeeid } = request.query;
+		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
+		const pEmployeeId = parseInt(employeeid.toString());
+		if (!employeeid || isNaN(pEmployeeId)) return customError("User Not recognized", 404, response);
 
 		let creator = new Creator(null);
 
 		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
 
 		if (patientid && billingid) {
-			const isvalidBillingid
-				= await Billing.checkValidityOfBillingid(tenantIdP, billingid);
-
-			if (!isvalidBillingid) {
-				return response.send({ status: false, message: OperationsFailures.notFound })
-			}
-
+			const isvalidBillingid = await Billing.checkValidityOfBillingid(tenantIdP, billingid);
+			if (!isvalidBillingid) return response.send({ status: false, message: OperationsFailures.notFound });
 			const billingAscensions = await TestAscension.findAllBillingAssociatedTestAscensions(tenantIdP, billingid, false) as PrimeLimsTabletest_ascension[] | []
 
-			if (billingAscensions.length === 0) {
-				return response.send({ status: false, message: 'No result Associated with billingid' })
-			}
+			if (billingAscensions.length === 0) return response.send({ status: false, message: 'No result Associated with billingid' })
 
 			let qualifiedForPrintOut: { ascensionid: number, testid: number }[] = await Promise.all(
 				billingAscensions.map(async (ascensionItem: PrimeLimsTabletest_ascension, index: number) => {
@@ -316,6 +324,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 			if (qualifiedForPrintOut.length > 0) {
 				const finalResult = {
 					test: null,
+					generalValidation: null,
 					resultsettings: null,
 					companyInfo: null,
 					patientInformation: null,
@@ -337,6 +346,8 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 						lastupdatedon: '',
 						resultentry: '',
 						comments: '',
+						testInfo: null,
+						testdetailcategory: null,
 					};
 
 					const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
@@ -349,10 +360,15 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 
 					if (records != null && typeof records != "string") {
-						const { result, testname, hasDrugs } = records;
+						const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
 						dataset.records = result;
+						if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
+							dataset.records = await ResultPrint.decryptResultArray(records.result);
+						}
 						dataset.testname = testname
 						dataset.hasDrugs = hasDrugs
+						dataset.testInfo = testInfo || null
+						dataset.testdetailcategory = testdetailcategory || null
 					}
 
 					if (dataset.hasDrugs == true) {
@@ -400,6 +416,17 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 				finalResult.logourl = `http://localhost:${process.env.NODE_ENV === "development"
 					? process.env.DEVELOPMENT_PORT
 					: process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`
+
+				if (employeeid) {
+					const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
+					const { employeeid, username, role, mobile } = employeedata;
+					finalResult.generalValidation = {
+						employeeid,
+						username,
+						role,
+						mobile
+					}
+				}
 				return response.send(finalResult)
 			}
 		}
@@ -414,7 +441,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 
 export type resultPrintOutDataset = {
-	resultsettings: null | resultDisplaySettings,
+	resultsettings: null | ApplicationResultSettings,
 	companyInfo: null | companyInfo,
 	patientInformation: NewRegistration | null,
 	hasDrugs: boolean,
@@ -427,9 +454,18 @@ export type resultPrintOutDataset = {
 	drugList?: [],
 	lastupdatedon: Date | string
 	resultentry: string
+	testdetailcategory: null | TestDetailCategoryType[],
+	testInfo: null | PrimeLimsTabletest_panels,
 	enteredOn: Date | string
 	billingid: number
-	patientid: number
+	samplingInformation: null | testAscensionTableTypes,
+	patientid: number,
+	generalValidation?: {
+		employeeid: number,
+		username: string,
+		role: string,
+		mobile: string
+	}
 }
 
 

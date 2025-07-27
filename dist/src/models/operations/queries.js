@@ -111,11 +111,11 @@ exports.q_get_all_result_entry_base = `
     (SELECT name FROM clinicianbasicinfo WHERE id = ds.clinicianId)
   END AS clinicianName
   FROM dboServices AS ds
+  INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
   LEFT JOIN departments AS d ON d.id = tp.category
-  INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
   WHERE ss.approvalstatus = 1
@@ -167,20 +167,20 @@ const q_get_all_test_ready_for_various_stages = function (currentQuery, stage) {
     let query = currentQuery;
     switch (stage) {
         case OperationsStages.PROCESSING:
-            query += ` AND (ta.processingStartDate IS NULL OR  ta.processingEndDATE IS NULL) AND  d.department <> 'ultrasound'`;
+            query += ` AND (ta.processingEndDate IS NULL OR ta.processingStartDate IS NULL) AND  (d.department <> 'ultrasound' OR d.department IS NULL)`;
             return query;
         case OperationsStages.COMPLETED:
             query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL)
-     AND d.department <> 'ultrasound'`;
+AND (d.department <> 'ultrasound' OR d.department IS NULL)`;
             return query;
         case OperationsStages.VALIDATION:
             query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
-     AND d.department <> 'ultrasound'
+AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `;
             return query;
         case OperationsStages.VALIDATED:
             query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL ) AND  dta.isapproved = 1
-     AND d.department <> 'ultrasound' 
+     AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `;
             return query;
         default:

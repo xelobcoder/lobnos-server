@@ -23,6 +23,7 @@ const helper_1 = require("../../hooks/helper");
 const resultEncryptionReferer_1 = __importDefault(require("./resultEncryptionReferer"));
 const TestCreationRulesRepository_1 = __importDefault(require("../TestCreation/TestCreationRulesRepository"));
 const CriticalValueEvaluator_1 = require("./CriticalValueEvaluator");
+const testFieldsCategoryClass_1 = __importDefault(require("../operations/testFieldsCategoryClass"));
 class Creator {
     constructor(testid) {
         this.testid = testid;
@@ -51,8 +52,12 @@ class Creator {
                 this.getPreviousRecords(tenantId, testid, billingid, patientid),
                 new TestCreationRulesRepository_1.default(tenantId).findByTestId(testid)
             ]);
-            if (previousRecords.length === 0)
-                return creationRules;
+            if (previousRecords.length === 0) {
+                return creationRules.map(item => {
+                    item.fieldid = item.id;
+                    return item;
+                });
+            }
             if (previousRecords.length > 0 && creationRules.length > 0) {
                 const mappings = previousRecords.map(item => {
                     const matchingRule = creationRules.find(rule => rule.id === item.fieldid);
@@ -109,9 +114,9 @@ class Creator {
                 return "such id not found" /* OperationsFailures.unfoundID */;
             let previousRecords = await this.getPreviousRecordsOrCreationRule(tenantId, testid, parsedBillingid, parsedPatientid);
             if (previousRecords.length === 0)
-                return { result: [], testname: null, hasDrugs: false };
+                return { result: [], testname: null, hasDrugs: false, testInfo: null };
             hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
-            return { result: previousRecords, testname, hasDrugs };
+            return { result: previousRecords, testname, hasDrugs, testInfo: null };
         }
         catch (err) {
             throw err;
@@ -122,12 +127,13 @@ class Creator {
             let hasDrugs = false;
             const parsedBillingid = parseInt(billingid.toString());
             const parsedPatientid = parseInt(patientid.toString());
-            const testname = await testpanelList_1.testpanel.getTestUsingTestid(tenantId, testid);
+            const testInfo = await testpanelList_1.testpanel.getTestInfo(tenantId, testid);
+            const testname = testInfo.name;
             if (!testname)
                 return "such id not found" /* OperationsFailures.unfoundID */;
             let previousRecords = await this.getPreviousRecordsWithTestRuleMapped(tenantId, testid, parsedBillingid, parsedPatientid);
             if (!Array.isArray(previousRecords) || previousRecords.length === 0)
-                return { result: [], testname: null, hasDrugs: false };
+                return { result: [], testname: null, hasDrugs: false, testInfo: null };
             const testDetails = await testpanelList_1.testpanel.getTestDetails(tenantId, testid);
             hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
             const hasGenderVariation = testDetails ? testDetails['hasGenderVariation'] : false;
@@ -149,7 +155,8 @@ class Creator {
                     return obj;
                 });
             }
-            return { testname, result: previousRecords, hasDrugs };
+            const testdetailcategory = await testFieldsCategoryClass_1.default.getByTestId(tenantId, testid);
+            return { testname, result: previousRecords, hasDrugs, testInfo, testdetailcategory };
         }
         catch (err) {
             throw err;
@@ -159,17 +166,18 @@ class Creator {
         const resultDataset = await this.getCustomPreviousRecords(tenantId, testid, billingid, patientid);
         if (typeof resultDataset == "string")
             return resultDataset;
-        const { result, hasDrugs, testname } = resultDataset;
+        const { result, hasDrugs, testname, testInfo, testdetailcategory } = resultDataset;
         if (result && Array.isArray(result) && result.length > 0) {
             let resultOmissionMaleFemale = result.map((item, index) => {
-                index === 2 && console.log(item, 'item');
                 const { female, male, isValueTracked, type, valueAlert, useplain, alert, constraint } = item, rest = __rest(item, ["female", "male", "isValueTracked", "type", "valueAlert", "useplain", "alert", "constraint"]);
                 return rest;
             });
             return {
                 result: resultOmissionMaleFemale,
                 hasDrugs,
-                testname
+                testname,
+                testInfo,
+                testdetailcategory: testdetailcategory || null
             };
         }
         return [];
@@ -230,30 +238,29 @@ class Creator {
         if (typeof billingid != "number" || typeof patientid != "number") {
             return "The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */;
         }
-        const shouldCreateRecord = async function (tenantId, field, ascensionId) {
-            const records = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND field = ?`, [
-                ascensionId, field
+        const shouldCreateRecord = async function (tenantId, fieldid, ascensionId, testid) {
+            const records = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
+                ascensionId, testid, fieldid
             ]);
             return Array.isArray(records) && records.length === 0;
         };
-        const insertUpdate = async function (tenantId, fields) {
+        const insertUpdate = async function (tenantId, fields, testid) {
             const { resources } = await (0, resultEncryptionReferer_1.default)(fields);
             const insertAll = await Promise.all(resources.map(async (item, index) => {
                 const originalvalue = item.originalvalue;
-                const isCreateRecord = await shouldCreateRecord(tenantId, item.field, ascensionid);
+                const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
                 if (isCreateRecord) {
                     const values = [item.field, billingid, patientid, item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.fieldid, testid, ascensionid];
-                    if (isScan) {
+                    if (isScan)
                         await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
-                    }
                     const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid) 
 						VALUES(?,?,?,?,?,?,?,?,?,?)`;
                     await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
                     return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
                 }
                 else {
-                    const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,fieldid = ? WHERE ascensionid = ? AND field = ?`;
-                    const result = await (0, helper_1.promisifyQuery)(tenantId, updateRecords, [item.value, employeeid, item === null || item === void 0 ? void 0 : item.entrymode, originalvalue, item.fieldid, ascensionid, item.field, testid]);
+                    const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? WHERE ascensionid = ? AND fieldid = ?`;
+                    const result = await (0, helper_1.promisifyQuery)(tenantId, updateRecords, [item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.field, ascensionid, item.fieldid, testid]);
                     await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
                     return (0, helper_1.rowAffected)(result);
                 }
@@ -286,7 +293,7 @@ class Creator {
             await ascension_1.TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
         }
         const criticalcallout = await CriticalValueEvaluator_1.CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
-        return !isScan ? await insertUpdate(tenantId, fields) : await insertUpdate(tenantId, criticalcallout);
+        return !isScan ? await insertUpdate(tenantId, fields, testid) : await insertUpdate(tenantId, criticalcallout, testid);
     }
     static async logCriticalValue(tenantId, testid, billingid, statement, employeeid) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.insert_critical_value_alert, [billingid, testid, statement, employeeid]);

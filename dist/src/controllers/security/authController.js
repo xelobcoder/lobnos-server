@@ -7,6 +7,7 @@ exports.AuthController = void 0;
 const AuthenticationRepository_1 = __importDefault(require("../../models/settings/users/AuthenticationRepository"));
 const TokenValidator_1 = __importDefault(require("../../models/settings/users/TokenValidator"));
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
+const helper_1 = require("../../hooks/helper");
 class AuthController {
     constructor() {
         this.tokenValidator = new TokenValidator_1.default();
@@ -51,6 +52,30 @@ class AuthController {
             return;
         }
         res.status(200).json({ message: 'Token is valid' });
+    }
+    async validateUserPinProvided(req, res) {
+        try {
+            const { employeeid, pin, tenantId } = req.query;
+            if (!employeeid || !pin) {
+                return (0, helper_1.customError)('employeeid and pin are required', 400, res);
+            }
+            const pEmployeeid = parseInt(employeeid.toString());
+            const pPin = parseInt(pin.toString());
+            if (isNaN(pEmployeeid) || isNaN(pPin)) {
+                return (0, helper_1.customError)('employeeid and pin must be numbers', 400, res);
+            }
+            const rolesRepo = await new RolesRepository_1.default(tenantId).validatePin(pEmployeeid, pPin);
+            if (rolesRepo) {
+                res.status(200).json({ status: true, message: 'Pin is valid' });
+            }
+            else {
+                res.status(401).json({ status: false, message: 'Invalid pin' });
+            }
+        }
+        catch (error) {
+            console.error(error);
+            res.status(500).json({ status: false, message: 'Internal server error' });
+        }
     }
 }
 exports.AuthController = AuthController;

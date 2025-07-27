@@ -19,6 +19,7 @@ const fs_1 = __importDefault(require("fs"));
 const path_1 = __importDefault(require("path"));
 const core_1 = __importDefault(require("../../EmailServices/core"));
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
+const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
 // export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
@@ -182,8 +183,11 @@ const getResultPrintoutHandler = async (request, response) => {
             lastupdatedon: null,
             logourl: '',
             enteredOn: null,
+            samplingInformation: null,
             resultentry: null,
-            literatureReview: null
+            literatureReview: null,
+            testInfo: null,
+            testdetailcategory: null,
         };
         const resultsettings = await new resultSettings_1.default(null).getResultSettings(tenantIdP);
         if (typeof resultsettings != "boolean")
@@ -207,14 +211,20 @@ const getResultPrintoutHandler = async (request, response) => {
             records.result = await resultPrint_1.default.decryptResultArray(records.result);
         }
         if (records != null && typeof records != "string" && !Array.isArray(records)) {
-            const { result, testname, hasDrugs } = records;
+            const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
             dataset.records = result;
             dataset.testname = testname;
             dataset.hasDrugs = hasDrugs;
+            dataset.testInfo = testInfo || null;
+            dataset.testdetailcategory = testdetailcategory || null;
         }
         if (dataset.hasDrugs == true) {
             const drugList = await ascension_1.TestAscension.getAscensionSavedDrugs(tenantIdP, numAscensionId, parsedTestId);
             dataset.drugList = drugList;
+        }
+        let samplingInformation = await ascension_1.TestAscension.findAscension(tenantIdP, numAscensionId);
+        if (samplingInformation != null) {
+            dataset.samplingInformation = samplingInformation;
         }
         let resultEntry = await new resultPrint_1.default(billingid).getResultEntryScientist(tenantIdP, billingid, parsedTestId, numAscensionId);
         const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
@@ -235,19 +245,21 @@ const getResultPrintoutHandler = async (request, response) => {
 exports.getResultPrintoutHandler = getResultPrintoutHandler;
 const getResultPrintMultipleHandler = async (request, response) => {
     try {
-        const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId } = request.query;
+        const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId, isBrowserPrintout, employeeid } = request.query;
+        const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
         const tenantIdP = parseInt(tenantId.toString());
+        const pEmployeeId = parseInt(employeeid.toString());
+        if (!employeeid || isNaN(pEmployeeId))
+            return (0, helper_1.customError)("User Not recognized", 404, response);
         let creator = new creator_1.default(null);
         const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
         if (patientid && billingid) {
             const isvalidBillingid = await billing_1.Billing.checkValidityOfBillingid(tenantIdP, billingid);
-            if (!isvalidBillingid) {
+            if (!isvalidBillingid)
                 return response.send({ status: false, message: "Resource not found." /* OperationsFailures.notFound */ });
-            }
             const billingAscensions = await ascension_1.TestAscension.findAllBillingAssociatedTestAscensions(tenantIdP, billingid, false);
-            if (billingAscensions.length === 0) {
+            if (billingAscensions.length === 0)
                 return response.send({ status: false, message: 'No result Associated with billingid' });
-            }
             let qualifiedForPrintOut = await Promise.all(billingAscensions.map(async (ascensionItem, index) => {
                 const { id, testid } = ascensionItem;
                 const resultApproved = await resultSettings_1.default.isApprovalLimitReached(tenantIdP, null, id, "minimum");
@@ -257,6 +269,7 @@ const getResultPrintMultipleHandler = async (request, response) => {
             if (qualifiedForPrintOut.length > 0) {
                 const finalResult = {
                     test: null,
+                    generalValidation: null,
                     resultsettings: null,
                     companyInfo: null,
                     patientInformation: null,
@@ -277,6 +290,8 @@ const getResultPrintMultipleHandler = async (request, response) => {
                         lastupdatedon: '',
                         resultentry: '',
                         comments: '',
+                        testInfo: null,
+                        testdetailcategory: null,
                     };
                     const literatureReview = await new literature_1.default(null).getResultLiterature(tenantIdP, testid);
                     if (literatureReview.can != false) {
@@ -284,10 +299,15 @@ const getResultPrintMultipleHandler = async (request, response) => {
                     }
                     const records = await new creator_1.default(testid).resultPresentationView(tenantIdP, testid, billingid, patientid);
                     if (records != null && typeof records != "string") {
-                        const { result, testname, hasDrugs } = records;
+                        const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
                         dataset.records = result;
+                        if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
+                            dataset.records = await resultPrint_1.default.decryptResultArray(records.result);
+                        }
                         dataset.testname = testname;
                         dataset.hasDrugs = hasDrugs;
+                        dataset.testInfo = testInfo || null;
+                        dataset.testdetailcategory = testdetailcategory || null;
                     }
                     if (dataset.hasDrugs == true) {
                         const drugList = await ascension_1.TestAscension.getAscensionSavedDrugs(tenantIdP, ascensionid, testid);
@@ -320,6 +340,16 @@ const getResultPrintMultipleHandler = async (request, response) => {
                 finalResult.logourl = `http://localhost:${process.env.NODE_ENV === "development"
                     ? process.env.DEVELOPMENT_PORT
                     : process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`;
+                if (employeeid) {
+                    const employeedata = await new RolesRepository_1.default(tenantIdP).getRoleById(pEmployeeId);
+                    const { employeeid, username, role, mobile } = employeedata;
+                    finalResult.generalValidation = {
+                        employeeid,
+                        username,
+                        role,
+                        mobile
+                    };
+                }
                 return response.send(finalResult);
             }
         }

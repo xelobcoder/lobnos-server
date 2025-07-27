@@ -245,7 +245,7 @@ exports.testpanel = {
 								qty_required = ?,
 								shorttext = ?
 								WHERE id = ?`;
-                const { name, category, testprice, sample_container, unit, sample, shorttext, isoutsourced, description, qty_required, hasManual, procedureCode, tat, pre_Tat, post_Tat, showtrend, hasChildrenLimit, hasGenderVariation, tatCount, employeeid, testid, testcost, hasDrugs, post_TatEvaluation, pre_TatEvaluation, tatEvaluation, useLiterature, } = request.body;
+                const { name, category, testprice, sample_container, unit, sample, shorttext, isoutsourced, description, qty_required, hasManual, procedureCode, tat, pre_Tat, post_Tat, showtrend, hasChildrenLimit, hasGenderVariation, tatCount, employeeid, testid, testcost, hasDrugs, post_TatEvaluation, pre_TatEvaluation, tatEvaluation, useLiterature, deviceInterfaceMapping, reportitle, method, instrumentation } = request.body;
                 const updateMainPanel = await (0, helper_1.promisifyQuery)(tenantId, query, [
                     name,
                     testprice,
@@ -280,7 +280,11 @@ exports.testpanel = {
 									hasDrugs = ?,
 									post_TatEvaluation =? ,
 									pre_TatEvaluation = ?,
-									tatEvaluation = ?
+									tatEvaluation = ?,
+									deviceInterfaceMapping = ?,
+									reportitle = ?,
+									method = ?,
+									instrumentation = ?
 								WHERE testid = ?`;
                     const values = [
                         tat,
@@ -301,6 +305,10 @@ exports.testpanel = {
                         post_TatEvaluation,
                         pre_TatEvaluation,
                         tatEvaluation,
+                        deviceInterfaceMapping,
+                        reportitle,
+                        method,
+                        instrumentation,
                         testid,
                     ];
                     const updateTestDetails = await (0, helper_1.promisifyQuery)(tenantId, updatePanel, values);
@@ -512,6 +520,13 @@ exports.testpanel = {
         if (packets.length == 0)
             return false;
         return packets[0]['name'];
+    },
+    getTestInfo: async function (tenantId, testid) {
+        const query = `SELECT * FROM test_panels AS tp INNER JOIN testdetails AS td ON tp.id = td.testid WHERE tp.id = ?`;
+        const packets = await (0, helper_1.promisifyQuery)(tenantId, query, [testid]);
+        if (packets.length == 0)
+            return false;
+        return packets[0];
     },
     getPanelCount: async function (tenantId) {
         const query = `SELECT COUNT(*) AS count FROM test_panels `;

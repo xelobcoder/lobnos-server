@@ -1,3 +1,5 @@
+import { decrypt_resources, encrypt_resources } from "../../utils/encryptionModels";
+
 interface TestRefererNature {
      field: string,
      billingid?: number,
@@ -20,7 +22,7 @@ export default async function resultEncrptionReferer(resources: TestRefererNatur
                if ( !fieldid || !originalvalue || !value) return null
                return {
                     field,
-                    value,
+                    value: value.toString()  ,
                     id: id ? id : index + 1,
                     originalvalue,
                     fieldid
@@ -30,24 +32,30 @@ export default async function resultEncrptionReferer(resources: TestRefererNatur
           refinedResources = refinedResources.filter(item => item !== null);
           if (refinedResources.length === 0) return { resources: [] }
 
-          const response = await fetch(mode === "encryption" ?
-               process.env.ENCRYPTION_CHANNEL_ENDPOINT :
-               process.env.DECRYPTION_CHANNEL_ENDPOINT, {
-               method: 'POST',
-               headers: {
-                    "content-type": "application/json",
-               },
-               body: JSON.stringify({ resources: refinedResources })
-          });
+          // const response = await fetch(mode === "encryption" ?
+          //      process.env.ENCRYPTION_CHANNEL_ENDPOINT :
+          //      process.env.DECRYPTION_CHANNEL_ENDPOINT, {
+          //      method: 'POST',
+          //      headers: {
+          //           "content-type": "application/json",
+          //      },
+          //      body: JSON.stringify({ resources: refinedResources })
+          // });
 
-          if (!response.ok) {
-               throw new Error(`HTTP error! status: ${response.status}`);
-          }
+          // if (!response.ok) {
+          //      throw new Error(`HTTP error! status: ${response.status}`);
+          // }
 
-          const result = await response.json().catch(err => {
-               console.error('Error parsing JSON:', err);
-               throw new Error('Invalid JSON response');
-          });
+          // const result = await response.json().catch(err => {
+          //      console.error('Error parsing JSON:', err);
+          //      throw new Error('Invalid JSON response');
+          // });
+
+          const result = mode === "encryption" ?
+          encrypt_resources({ resources: refinedResources }) :
+          decrypt_resources({ resources: refinedResources });
+
+          console.log('Result from encryption/decryption:', result);
 
           return result;
      } catch (err) {

@@ -1,3 +1,5 @@
+import { PrimeLimsTabletest_panels, PrimeLimsTabletestdetailcategory } from "../../database/DatabaseTableSchema";
+import { TestDetailCategoryType } from "../operations/testFieldsCategoryClass";
 
 type drugsType = {
      name?: string,
@@ -34,10 +36,14 @@ export type resultEntryTemplateView = {
      result: CreationRule[] | estCreationRule[] | [];
      testname: string;
      hasDrugs: boolean;
+     testInfo: PrimeLimsTabletest_panels | null;
+     testdetailcategory?: TestDetailCategoryType[] | null;
 }
 
 export type previewReportView = {
      result: Omit<CreationRule, 'male' | 'female' | 'type' | 'field' | 'usePlain' | 'isValueTracked' | 'alert' | 'valueAlert' | 'constraint' | 'alert'>[],
      testname: string;
-     hasDrugs: boolean
+     hasDrugs: boolean,
+          testInfo: PrimeLimsTabletest_panels | null;
+     testdetailcategory?: TestDetailCategoryType[] | null;
 }

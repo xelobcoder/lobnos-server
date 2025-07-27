@@ -168,6 +168,7 @@ export default class Operations {
 				const searchTerm = `%${searchString}%`;
 				conditions.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
 			}
+			console.log("Final Query: ", finalQuery, '\n', conditions);
 			return { conditions, finalQuery };
 		} catch (err) {
 			return null;
@@ -267,6 +268,7 @@ export default class Operations {
 
 			query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;
 			query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
+			console.log("Final Query: ",query,'\n', conditionValues);
 			return await paginationQuery({ count, page }, query, conditionValues, tenantId);
 
 		} catch (err) {
