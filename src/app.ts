@@ -52,6 +52,7 @@ import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
 import { PrimeEventsSMSDataSource } from "./models/application/sms/events/PrimeEventsDataSource";
 import { EVENTS } from "./models/application/sms/events/EventsRepository";
+import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 
 
 
@@ -105,7 +106,7 @@ app.use(ExpensesAnalyticsRouter);
 app.use(qualityControlRoutes);
 app.use(smsPrimeRouter);
 app.use(ExcelParser);
-
+app.use(InterfacingDevicesRouter)
 
 
 app.get("/", (req: Request, res: Response) => {

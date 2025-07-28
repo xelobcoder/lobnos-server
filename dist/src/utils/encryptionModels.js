@@ -7,12 +7,13 @@ exports.text_reference_formatting = exports.decrypt_resources = exports.encrypt_
 const crypto_1 = __importDefault(require("crypto"));
 exports.ENCRYPTION_KEY = crypto_1.default.createHash('sha256').update('TiifuHamza').digest();
 class ResourceItem {
-    constructor(id, field, value, fieldid, originalvalue) {
+    constructor(id, field, value, fieldid, originalvalue, entrymode) {
         this.id = id;
         this.field = field;
         this.value = value;
         this.fieldid = fieldid;
         this.originalvalue = originalvalue;
+        this.entrymode = entrymode;
     }
 }
 exports.ResourceItem = ResourceItem;
@@ -61,7 +62,7 @@ function encrypt_resources(resource_request) {
             encrypted_value = encrypt_value(item.value);
             encrypted_original_value = encrypt_value(item.originalvalue);
         }
-        encrypted_resources.push(new EncryptedResourceItem(item.id, item.field, encrypted_value, item.fieldid, encrypted_original_value));
+        encrypted_resources.push(new EncryptedResourceItem(item.id, item.field, encrypted_value, item.fieldid, encrypted_original_value, item.entrymode));
     }
     return new EncryptedResourceResponse(encrypted_resources);
 }
@@ -78,7 +79,7 @@ function decrypt_resources(encrypted_resource_response) {
             decrypted_value = decrypt_value(item.value);
             original_decrypted_value = decrypt_value(item.originalvalue);
         }
-        decrypted_resources.push(new ResourceItem(item.id, item.field, decrypted_value, item.fieldid, original_decrypted_value));
+        decrypted_resources.push(new ResourceItem(item.id, item.field, decrypted_value, item.fieldid, original_decrypted_value, item.entrymode));
     }
     return new ResourceRequest(decrypted_resources);
 }

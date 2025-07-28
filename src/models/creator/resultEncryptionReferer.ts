@@ -18,14 +18,14 @@ type mode = "encryption" | "decryption"
 export default async function resultEncrptionReferer(resources: TestRefererNature[], mode: mode = "encryption"): Promise<undefined | { resources: any[] }> {
      try {
           let refinedResources = resources.map((item, index) => {
-               const { id, originalvalue, fieldid, field, value } = item;
-               if ( !fieldid || !originalvalue || !value) return null
+               const { id, originalvalue, fieldid, field, value, entrymode } = item;
+               if (!fieldid || !originalvalue || !value) return null
                return {
                     field,
-                    value: value.toString()  ,
+                    value: value.toString(),
                     id: id ? id : index + 1,
                     originalvalue,
-                    fieldid
+                    fieldid, entrymode
                }
           });
 
@@ -52,11 +52,8 @@ export default async function resultEncrptionReferer(resources: TestRefererNatur
           // });
 
           const result = mode === "encryption" ?
-          encrypt_resources({ resources: refinedResources }) :
-          decrypt_resources({ resources: refinedResources });
-
-          console.log('Result from encryption/decryption:', result);
-
+               encrypt_resources({ resources: refinedResources }) :
+               decrypt_resources({ resources: refinedResources });
           return result;
      } catch (err) {
           console.log('Validation or fetch error:', err);

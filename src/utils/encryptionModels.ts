@@ -2,13 +2,15 @@ import crypto from 'crypto';
 
 export const ENCRYPTION_KEY: Buffer = crypto.createHash('sha256').update('TiifuHamza').digest();
 
+
 export class ResourceItem {
      constructor(
           public id: any,
           public field: string,
           public value: string,
           public fieldid: any,
-          public originalvalue?: string
+          public originalvalue?: string,
+          public entrymode?: string
      ) { }
 }
 
@@ -40,6 +42,7 @@ export function decrypt_value(encrypted_value: string): string {
      return decrypted.toString('utf8');
 }
 
+
 export function encrypt_resources(resource_request: ResourceRequest): EncryptedResourceResponse {
      const encrypted_resources: EncryptedResourceItem[] = [];
      for (const item of resource_request.resources) {
@@ -57,11 +60,13 @@ export function encrypt_resources(resource_request: ResourceRequest): EncryptedR
                item.field,
                encrypted_value!,
                item.fieldid,
-               encrypted_original_value
+               encrypted_original_value,
+               item.entrymode
           ));
      }
      return new EncryptedResourceResponse(encrypted_resources);
 }
+
 
 export function decrypt_resources(encrypted_resource_response: EncryptedResourceResponse): ResourceRequest {
      const decrypted_resources: ResourceItem[] = [];
@@ -80,7 +85,8 @@ export function decrypt_resources(encrypted_resource_response: EncryptedResource
                item.field,
                decrypted_value!,
                item.fieldid,
-               original_decrypted_value
+               original_decrypted_value,
+               item.entrymode
           ));
      }
      return new ResourceRequest(decrypted_resources);

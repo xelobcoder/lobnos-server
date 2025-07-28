@@ -4,7 +4,7 @@ const encryptionModels_1 = require("../../utils/encryptionModels");
 async function resultEncrptionReferer(resources, mode = "encryption") {
     try {
         let refinedResources = resources.map((item, index) => {
-            const { id, originalvalue, fieldid, field, value } = item;
+            const { id, originalvalue, fieldid, field, value, entrymode } = item;
             if (!fieldid || !originalvalue || !value)
                 return null;
             return {
@@ -12,7 +12,7 @@ async function resultEncrptionReferer(resources, mode = "encryption") {
                 value: value.toString(),
                 id: id ? id : index + 1,
                 originalvalue,
-                fieldid
+                fieldid, entrymode
             };
         });
         refinedResources = refinedResources.filter(item => item !== null);
@@ -37,7 +37,6 @@ async function resultEncrptionReferer(resources, mode = "encryption") {
         const result = mode === "encryption" ?
             (0, encryptionModels_1.encrypt_resources)({ resources: refinedResources }) :
             (0, encryptionModels_1.decrypt_resources)({ resources: refinedResources });
-        console.log('Result from encryption/decryption:', result);
         return result;
     }
     catch (err) {
