@@ -3,6 +3,7 @@ import { DeviceController } from './DeviceController';
 import { ControlMaterialController } from './ControlMaterialController';
 import { ControlParameterController } from './ControlParameterController';
 import { QCReadingsController } from './QCReadingsController';
+import { QCDashboardController, QCSessionsController } from './QCDashboard';
 
 const router = express.Router();
 const deviceController = new DeviceController();
@@ -10,6 +11,11 @@ const controlMaterialController = new ControlMaterialController();
 const controlParameterController = new ControlParameterController();
 const qcReadingsController = new QCReadingsController();
 
+
+
+router.get('/api/v1/qc/dashboard', QCDashboardController.getDashboardData);
+router.get('/api/v1/qc/recent-alert-readings', QCDashboardController.getRecentAlertReadings);
+router.get('/api/v1/qc/recent-readings', QCSessionsController.getRecentReadingsWithDetails);
 // Device Routes
 router.post('/api/v1/devices', deviceController.create.bind(deviceController));
 router.put('/api/v1/devices/:id', deviceController.update.bind(deviceController));

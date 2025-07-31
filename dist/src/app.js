@@ -95,14 +95,8 @@ app.use(medicalInterfacingDevicesRoute_1.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
-app.post('/devices', (req, res) => {
-    console.log('RECEIVED DATA -------------------------------------------');
-    console.log(req.body);
-    res.status(200).json({ status: 'okay' });
-    console.log('RECEIVED DATA -------------------------------------------');
-});
 // ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(3)
-app.listen(5000, async (err) => {
+app.listen(port, async (err) => {
     try {
         // const security = new Security(null, null);
         // const isLicensed = await security.environmentSecurity(__dirname);
@@ -130,7 +124,7 @@ app.listen(5000, async (err) => {
         // // Then start the test client
         // const testClient = new TestHL7Client('localhost', 6668);
         // testClient.connect();
-        console.log(`connected to port 5000`);
+        console.log(`connected to port ${port}`);
     }
     catch (err) {
         console.log(err);

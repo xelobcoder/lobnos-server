@@ -11,6 +11,7 @@ const securityClass_1 = __importDefault(require("../models/security/securityClas
 const logger_1 = __importDefault(require("../hooks/logger"));
 const RolesRepository_1 = __importDefault(require("../models/settings/users/RolesRepository"));
 const TiifuWorkingClass_1 = require("../database/TiifuWorkingClass");
+const KnexConnections_1 = __importDefault(require("../database/KnexConnections"));
 const createNewAccount = async (req) => {
     try {
         const { name, password, role, email, branch } = req.body;
@@ -172,7 +173,7 @@ const getAUser = async (req, res) => {
         const tenantIdP = parseInt(tenantId.toString());
         if (!id)
             return (0, helper_1.customError)("employeeid required", 404, res);
-        const queryString = `SELECT username,email,employeeid,role FROM roles WHERE employeeid = ?`;
+        const queryString = `SELECT employeeid, username, role, email, branch, emailAuthenticated, activation, mobile, alternativeMobile, dob, updated_on, date_created, pin FROM roles WHERE employeeid = ?`;
         const result = await (0, helper_1.promisifyQuery)(tenantIdP, queryString, [parseInt(id)]);
         res.send({ result, message: "success", statusCode: 200 });
     }
@@ -182,37 +183,37 @@ const getAUser = async (req, res) => {
     }
 };
 exports.getAUser = getAUser;
-const updateUserBasicInfo = async (req, res) => {
-    const { employeeid, name, email, password, role, branch } = req.body;
-    if (!employeeid) {
-        res.status(401).send({
-            statusCode: 401,
-            message: "employeeid not included",
-            status: "error",
-        });
-        return;
+const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
+    const { employeeid, name, email, role, branch, pin, cpassword, password, dob, altMobile, mobile, alternativeMobile } = body;
+    if (isUser && !cpassword)
+        throw new Error("current password is required");
+    if (isUser && password) {
+        const currentEmployee = await new RolesRepository_1.default(tenantId).getRoleById(parseInt(employeeid));
+        const currentPaswordHash = currentEmployee === null || currentEmployee === void 0 ? void 0 : currentEmployee.password;
+        if (!currentPaswordHash)
+            throw new Error("current password not found");
+        const isSame = await new RolesRepository_1.default(tenantId).isPasswordSame(cpassword, currentPaswordHash);
+        if (!isSame)
+            throw new Error("current password is not same");
     }
-    if (!branch)
-        return (0, helper_1.customError)("User not assigned to a branch", 404, res);
+    const knex = await (0, KnexConnections_1.default)(tenantId);
     try {
-        const hashedPassword = await new user_1.default(name, password, role, email, null).hashPassword();
-        const query = `
-      UPDATE roles 
-      SET username = ?, email = ?, password = ?, role = ?, branch = ?
-      WHERE EMPLOYEEID = ?
-    `;
-        const tenantId = parseInt(req.query.tenantId);
-        const result = await (0, helper_1.promisifyQuery)(tenantId, query, [name, email, hashedPassword, role, branch, employeeid]);
-        const status = (0, helper_1.rowAffected)(result);
-        res.send({
-            statusCode: 200,
-            message: status ? "record updated successfully" : "updating record failed",
-            status: status ? "success" : "failed",
+        return await knex('roles')
+            .where('employeeid', employeeid)
+            .update({
+            username: name,
+            email: email,
+            mobile: mobile || "",
+            alternativeMobile: altMobile || alternativeMobile || null,
+            role: role,
+            branch: parseInt(branch),
+            pin: pin ? parseInt(pin.toString()) : null,
+            dob: dob || null,
         });
     }
     catch (error) {
-        (0, helper_1.responseError)(res);
         logger_1.default.error(error);
+        throw error;
     }
 };
 exports.updateUserBasicInfo = updateUserBasicInfo;

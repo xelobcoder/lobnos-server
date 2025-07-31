@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../hooks/helper");
 const appointmentTypes_1 = require("./appointmentTypes");
+const zod_1 = require("zod");
 class Appointment {
     constructor(employeeid) {
         this.connection = helper_1.promisifyQuery;
@@ -41,19 +42,19 @@ class Appointment {
     }
     async getPatientAppointmentHistory(tenantId, patientid, count = 10, page = 1) {
         const query = `SELECT 
-    a.appointment_date,
-    a.appointment_time,
-    a.duration,
-    a.preference,
-    a.inviteMethod,
-    a.purpose,
-    a.location,
-    a.title,
-    a.status,
-    r.username AS practioner
-    FROM appointments AS a INNER JOIN roles AS r
-    ON a.practioner = r.employeeid
-    WHERE a.patientid = ? ORDER BY a.refid DESC LIMIT ? OFFSET ?`;
+	a.appointment_date,
+	a.appointment_time,
+	a.duration,
+	a.preference,
+	a.inviteMethod,
+	a.purpose,
+	a.location,
+	a.title,
+	a.status,
+	r.username AS practione
+	FROM appointments AS a INNER JOIN roles AS r
+	ON a.practioner = r.employeeid
+	WHERE a.patientid = ? ORDER BY a.refid DESC LIMIT ? OFFSET ?`;
         return await this.connection(tenantId, query, [patientid, count, page]);
     }
     async loadMonthAppointments(tenantId, month) {
@@ -121,5 +122,60 @@ class Appointment {
         return await this.connection(tenantId, query, values);
     }
     getAppointmentCount(tenantId) { }
+    /**
+      * Get details of a specific appointment by its ID
+      */
+    async getAppointmentDetails(tenantId, appointmentId) {
+        const query = "SELECT * FROM appointments WHERE refid = ?";
+        const result = await this.connection(tenantId, query, [appointmentId]);
+        return Array.isArray(result) && result.length > 0 ? result[0] : null;
+    }
+    /**
+      * Update an appointment by its ID
+      */
+    async updateAppointment(tenantId, appointmentId, data) {
+        const updateSchema = zod_1.z.object({
+            patientid: zod_1.z.number().int(),
+            duration: zod_1.z.number().int().optional(),
+            status: zod_1.z.string().max(50).optional(),
+            appointment_time: zod_1.z.string().max(10).optional(),
+            appointment_date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+            inviteMethod: zod_1.z.string().max(20).optional(),
+            purpose: zod_1.z.string().max(500).optional(),
+            title: zod_1.z.string().max(300).optional(),
+            preference: zod_1.z.string().max(50).optional(),
+            practioner: zod_1.z.number().int().optional(),
+            location: zod_1.z.string().max(50).optional(),
+            notes: zod_1.z.string().max(500).nullable().optional(),
+        }).strict();
+        const parseResult = updateSchema.safeParse(data);
+        if (!parseResult.success) {
+            throw new Error("Invalid appointment update fields: " + JSON.stringify(parseResult.error.format()));
+        }
+        const validData = parseResult.data;
+        const fields = Object.keys(validData);
+        if (fields.length === 0)
+            return false;
+        const setClause = fields.map(field => `${field} = ?`).join(", ");
+        const values = fields.map(field => validData[field]);
+        const query = `UPDATE appointments SET ${setClause} WHERE refid = ?`;
+        const result = await this.connection(tenantId, query, [...values, appointmentId]);
+        return this._affectedRows(result);
+    }
+    async deleteAppointment(tenantId, appointmentId) {
+        const query = "DELETE FROM appointments WHERE refid = ?";
+        const result = await this.connection(tenantId, query, [appointmentId]);
+        return this._affectedRows(result);
+    }
+    async getAllAppointments(tenantId, page = 1, count = 10) {
+        const offset = (page - 1) * count;
+        const query = `
+		    SELECT a.*, np.*, r.username AS practioner_name FROM appointments AS a INNER JOIN new_patients AS np 
+		 ON a.patientid = np.patientid
+		 INNER JOIN roles AS r ON a.practioner = r.employeeid   
+		    ORDER BY refid DESC LIMIT ? OFFSET ?
+		`;
+        return await this.connection(tenantId, query, [count, offset]);
+    }
 }
 exports.default = Appointment;

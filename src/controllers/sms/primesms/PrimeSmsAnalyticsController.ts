@@ -1,5 +1,6 @@
 import { PrimeSmsAnalytics } from "../../../models/application/sms/services/PrimeSmsAnalytics";
-import { Request, Response } from 'express';
+import { Request, response, Response } from 'express';
+import { TestApprovalClass } from "../../../models/operations/testApprovalClass";
 
 export class PrimeSmsAnalyticsController {
      getJobStatusCounts(req: Request, res: Response) {
@@ -69,5 +70,22 @@ export class PrimeSmsAnalyticsController {
           analytics.getDeliveryTrendsByDay(days, from, to)
                .then(data => res.json({ success: true, data }))
                .catch((err) => res.status(500).json({ success: false, error: err.message || 'Failed to fetch delivery trends by day' }));
+     }
+
+
+     async getTransactionResultReady(req: Request, res: Response) {
+          try {
+               const billingid = req.params.billingid;
+               if (!billingid) return res.status(400).json({ success: false, error: 'Missing billingid' });
+               const tenantId = Number(req.query.tenantId);
+               const parsedBillingId = parseInt(billingid, 10);
+               const getTransactionStatus = await TestApprovalClass.getTransactionAscensionsApprovalStatus(tenantId, parsedBillingId);
+               res.send({
+                    success: true,
+                    data: getTransactionStatus
+               });
+          } catch (err: any) {
+               res.status(500).json({ success: false, error: err.message || 'Failed to fetch transaction result ready status' });
+          }
      }
 }

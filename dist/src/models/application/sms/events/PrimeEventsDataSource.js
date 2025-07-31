@@ -195,7 +195,7 @@ class PrimeEventsSMSDataSource {
         const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
         return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_BILLING_SMS', result[0].patientid);
     }
-    async testAscensionEventDataAllDone(tenantId, billingid) {
+    async testAscensionEventDataAllDone(tenantId, billingid, ignoreAllMustPass = false) {
         var _a;
         const isActive = await this.isEventActive('PATIENT_RESULT_READY');
         if (!isActive)
@@ -221,14 +221,15 @@ class PrimeEventsSMSDataSource {
         const [billingResult] = await connection.raw(billing_query, [billingid]);
         const [testCountResult] = await connection.raw(test_count_query, [billingid]);
         const hasUnapproved = Array.isArray(ascensionResult) && ascensionResult.length > 0 && ascensionResult[0].counter > 0;
-        if (!hasUnapproved)
+        if (!ignoreAllMustPass && !hasUnapproved)
             return;
+        // If ignoreAllMustPass is true, always send the message
         const data = Object.assign(Object.assign({}, billingResult[0]), { test_count: ((_a = testCountResult[0]) === null || _a === void 0 ? void 0 : _a.test_count) || 0 });
         const event = await this.repo.findByCode('PATIENT_RESULT_READY');
         if (!event)
             return;
         const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
-        const phonee164 = data.mobile_number ? data.mobile_number.replace(/^\+/, '') : '';
+        const phonee164 = data.mobile_number ? data.mobile_number.replace(/^+/, '') : '';
         return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_RESULT_READY', data.patientid);
     }
     async sampleRejectionEvent(tenantId, ascensionid) {

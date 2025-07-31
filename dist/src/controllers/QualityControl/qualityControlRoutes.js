@@ -8,11 +8,15 @@ const DeviceController_1 = require("./DeviceController");
 const ControlMaterialController_1 = require("./ControlMaterialController");
 const ControlParameterController_1 = require("./ControlParameterController");
 const QCReadingsController_1 = require("./QCReadingsController");
+const QCDashboard_1 = require("./QCDashboard");
 const router = express_1.default.Router();
 const deviceController = new DeviceController_1.DeviceController();
 const controlMaterialController = new ControlMaterialController_1.ControlMaterialController();
 const controlParameterController = new ControlParameterController_1.ControlParameterController();
 const qcReadingsController = new QCReadingsController_1.QCReadingsController();
+router.get('/api/v1/qc/dashboard', QCDashboard_1.QCDashboardController.getDashboardData);
+router.get('/api/v1/qc/recent-alert-readings', QCDashboard_1.QCDashboardController.getRecentAlertReadings);
+router.get('/api/v1/qc/recent-readings', QCDashboard_1.QCSessionsController.getRecentReadingsWithDetails);
 // Device Routes
 router.post('/api/v1/devices', deviceController.create.bind(deviceController));
 router.put('/api/v1/devices/:id', deviceController.update.bind(deviceController));

@@ -50,7 +50,6 @@ export default class RolesRepository {
 			if (!roleData.email || typeof roleData.email !== 'string') throw new Error('Invalid email');
 			if (typeof roleData.pin !== 'number' || roleData.pin.toString().length !== 4) throw new Error('Invalid pin');
 			if (!roleData.mobile || typeof roleData.mobile !== 'string' || roleData.mobile.length < 7) throw new Error('Invalid mobile');
-
 			const connection = await this.connection;
 			const result = await connection(this.tablename).insert(roleData).returning('employeeid');
 			return result[0];

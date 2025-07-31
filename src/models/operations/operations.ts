@@ -6,20 +6,17 @@ import {
 	q_get_all_entered_result,
 	q_get_all_result_entry_base,
 	q_get_all_result_entry_ultrasound_base,
-	q_get_all_result_entry_partitioning,
 	q_get_all_test_ready_for_various_stages_ultrasound,
 	q_get_all_test_preview,
 	q_get_all_test_ready_for_various_stages,
 	q_log_result_entry,
 	q_qualifiedToProcessByDepartment,
-	q_get_all_result_entry_partitioning_ultrasound,
-	q_ultrasound_processed_list,
 	q_ultrasound_waitingList,
-	OperationsStages,
 } from "./queries";
-import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterResultEntry, ProcessedScan, resultQuery } from "./types";
+import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterResultEntry, resultQuery } from "./types";
 import PartitionManager from "../billing/partitioning";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
+import { TestApprovalClass } from "./testApprovalClass";
 
 export default class Operations {
 	private billingid: number;
@@ -195,7 +192,8 @@ export default class Operations {
 			const conditions: string[] = [];
 			const values: any[] = [];
 
-			conditions.push(`ss.approvalstatus = 1 AND d.department <> 'ultrasound'`);
+			conditions.push(`ss.approvalstatus = 1`);
+			conditions.push('dta.isapproved = 1');
 
 			if (from && !to) {
 				conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
@@ -206,7 +204,7 @@ export default class Operations {
 			}
 
 			if (patientid) {
-				conditions.push(`np.PATIENTID = ?`);
+				conditions.push(`np.patientid = ?`);
 				values.push(patientid);
 			}
 
@@ -216,18 +214,33 @@ export default class Operations {
 			}
 
 			if (fullname) {
-				conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
-				values.push(`${fullname}%`);
+				conditions.push(`LOWER(CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname)) LIKE ?`);
+				values.push(`%${fullname.toLowerCase()}%`);
 			}
 
 			if (conditions.length > 0) {
 				queryString += ` WHERE ${conditions.join(" AND ")}`;
 			}
 
-			queryString += ` GROUP BY b.billingid`;
-			queryString += ` ORDER BY ta.id DESC`;
+			queryString += ` GROUP BY tr.ascensionid, tr.testid, tr.patientid, b.billingid`;
+			queryString += ` ORDER BY tr.created_on ${sortingwise === "ASC" ? "ASC" : "DESC"}`;
 			queryString += ` LIMIT ? OFFSET ?`;
-			return await paginationQuery({ page, count }, queryString, values, tenantId);
+			const result = await paginationQuery({ page, count }, queryString, values, tenantId);
+
+			if (result.length > 0) {
+				const approvalList = await Promise.all(
+					result.map(async (item) => {
+						const { ascensionid } = item;
+						const ascensionApprovalEmployeeList = await new TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
+						console.log("Approval List: ", ascensionApprovalEmployeeList);
+						return { ...item, validators: ascensionApprovalEmployeeList };
+					}
+					
+				));
+				return approvalList;
+			}
+
+			return [];
 		} catch (err) {
 			console.log(err);
 		}
@@ -260,7 +273,7 @@ export default class Operations {
 			let conditionValues = [];
 
 			if (_dateFrom && _dateEnd) {
-				const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({ sortby,from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
+				const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({ sortby, from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
 				query = finalQuery;
 				conditionValues = conditionx;
 			}
@@ -268,7 +281,7 @@ export default class Operations {
 
 			query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;
 			query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
-			console.log("Final Query: ",query,'\n', conditionValues);
+			console.log("Final Query: ", query, '\n', conditionValues);
 			return await paginationQuery({ count, page }, query, conditionValues, tenantId);
 
 		} catch (err) {

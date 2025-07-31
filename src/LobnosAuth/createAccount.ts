@@ -7,6 +7,7 @@ import { PrimeLimsTableroles } from "../database/DatabaseTableSchema";
 import logger from "../hooks/logger";
 import RolesRepository from "../models/settings/users/RolesRepository";
 import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
+import KnexConnection from "../database/KnexConnections";
 
 export interface UserRequest extends Request {
      body: {
@@ -29,6 +30,7 @@ export interface UserRequest extends Request {
           permissions?: any;
           startDate?: string;
           accessLevel?: string;
+          employeeId?: string;
           department?: string;
           address?: string;
      };
@@ -250,8 +252,7 @@ const getAUser = async (req: UserRequest, res: Response): Promise<void> => {
           const { id, tenantId } = req.query;
           const tenantIdP = parseInt(tenantId.toString())
           if (!id) return customError("employeeid required", 404, res);
-
-          const queryString = `SELECT username,email,employeeid,role FROM roles WHERE employeeid = ?`;
+          const queryString = `SELECT employeeid, username, role, email, branch, emailAuthenticated, activation, mobile, alternativeMobile, dob, updated_on, date_created, pin FROM roles WHERE employeeid = ?`;
 
           const result = await promisifyQuery(tenantIdP, queryString, [parseInt(id)]);
           res.send({ result, message: "success", statusCode: 200 });
@@ -261,38 +262,35 @@ const getAUser = async (req: UserRequest, res: Response): Promise<void> => {
      }
 };
 
-const updateUserBasicInfo = async (req: UserRequest, res: Response): Promise<void> => {
-     const { employeeid, name, email, password, role, branch } = req.body;
+const updateUserBasicInfo = async (body: UserRequest['body'], tenantId: number, isUser: boolean = false): Promise<number> => {
+     const { employeeid, name, email, role, branch, pin, cpassword, password, dob, altMobile, mobile,alternativeMobile } = body;
 
-     if (!employeeid) {
-          res.status(401).send({
-               statusCode: 401,
-               message: "employeeid not included",
-               status: "error",
-          });
-          return;
+     if (isUser && !cpassword) throw new Error("current password is required");
+     if (isUser && password) {
+          const currentEmployee = await new RolesRepository(tenantId).getRoleById(parseInt(employeeid));
+          const currentPaswordHash = currentEmployee?.password;
+          if (!currentPaswordHash) throw new Error("current password not found");
+          const isSame = await new RolesRepository(tenantId).isPasswordSame(cpassword, currentPaswordHash);
+          if (!isSame) throw new Error("current password is not same");
+
      }
-
-     if (!branch) return customError("User not assigned to a branch", 404, res);
-
+     const knex = await KnexConnection(tenantId);
      try {
-          const hashedPassword = await new User(name, password, role, email, null).hashPassword();
-          const query = `
-      UPDATE roles 
-      SET username = ?, email = ?, password = ?, role = ?, branch = ?
-      WHERE EMPLOYEEID = ?
-    `;
-          const tenantId = parseInt(req.query.tenantId);
-          const result = await promisifyQuery(tenantId, query, [name, email, hashedPassword, role, branch, employeeid]);
-          const status = rowAffected(result);
-          res.send({
-               statusCode: 200,
-               message: status ? "record updated successfully" : "updating record failed",
-               status: status ? "success" : "failed",
-          });
+          return await knex('roles')
+               .where('employeeid', employeeid)
+               .update({
+                    username: name,
+                    email: email,
+                    mobile: mobile || "",
+                    alternativeMobile: altMobile || alternativeMobile || null,
+                    role: role,
+                    branch: parseInt(branch),
+                    pin: pin ? parseInt(pin.toString()) : null,
+                    dob: dob || null,
+               });
      } catch (error) {
-          responseError(res);
           logger.error(error);
+          throw error;
      }
 };
 

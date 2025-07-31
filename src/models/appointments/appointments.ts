@@ -1,5 +1,7 @@
+
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import { type TAppointment, type Tpagination, months, slots } from "./appointmentTypes";
+import { z } from "zod";
 
 class Appointment {
 	employeeid: number;
@@ -44,19 +46,19 @@ class Appointment {
 
 	public async getPatientAppointmentHistory(tenantId: number, patientid: number, count: number = 10, page: number = 1) {
 		const query = `SELECT 
-    a.appointment_date,
-    a.appointment_time,
-    a.duration,
-    a.preference,
-    a.inviteMethod,
-    a.purpose,
-    a.location,
-    a.title,
-    a.status,
-    r.username AS practioner
-    FROM appointments AS a INNER JOIN roles AS r
-    ON a.practioner = r.employeeid
-    WHERE a.patientid = ? ORDER BY a.refid DESC LIMIT ? OFFSET ?`;
+	a.appointment_date,
+	a.appointment_time,
+	a.duration,
+	a.preference,
+	a.inviteMethod,
+	a.purpose,
+	a.location,
+	a.title,
+	a.status,
+	r.username AS practione
+	FROM appointments AS a INNER JOIN roles AS r
+	ON a.practioner = r.employeeid
+	WHERE a.patientid = ? ORDER BY a.refid DESC LIMIT ? OFFSET ?`;
 		return await this.connection(tenantId, query, [patientid, count, page]);
 	}
 
@@ -134,6 +136,67 @@ class Appointment {
 	}
 
 	public getAppointmentCount(tenantId: number) { }
+
+	/**
+	  * Get details of a specific appointment by its ID
+	  */
+	public async getAppointmentDetails(tenantId: number, appointmentId: number) {
+		const query = "SELECT * FROM appointments WHERE refid = ?";
+		const result = await this.connection(tenantId, query, [appointmentId]);
+		return Array.isArray(result) && result.length > 0 ? result[0] : null;
+	}
+
+	/**
+	  * Update an appointment by its ID
+	  */
+	public async updateAppointment(tenantId: number, appointmentId: number, data: Partial<TAppointment>) {
+
+		const updateSchema = z.object({
+			patientid: z.number().int(),
+			duration: z.number().int().optional(),
+			status: z.string().max(50).optional(),
+			appointment_time: z.string().max(10).optional(),
+			appointment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+			inviteMethod: z.string().max(20).optional(),
+			purpose: z.string().max(500).optional(),
+			title: z.string().max(300).optional(),
+			preference: z.string().max(50).optional(),
+			practioner: z.number().int().optional(),
+			location: z.string().max(50).optional(),
+			notes: z.string().max(500).nullable().optional(),
+		}).strict();
+
+		const parseResult = updateSchema.safeParse(data);
+		if (!parseResult.success) {
+			throw new Error("Invalid appointment update fields: " + JSON.stringify(parseResult.error.format()));
+		}
+		const validData = parseResult.data;
+		const fields = Object.keys(validData);
+		if (fields.length === 0) return false;
+		const setClause = fields.map(field => `${field} = ?`).join(", ");
+		const values = fields.map(field => (validData as any)[field]);
+		const query = `UPDATE appointments SET ${setClause} WHERE refid = ?`;
+		const result = await this.connection(tenantId, query, [...values, appointmentId]);
+		return this._affectedRows(result);
+	}
+
+
+	public async deleteAppointment(tenantId: number, appointmentId: number) {
+		const query = "DELETE FROM appointments WHERE refid = ?";
+		const result = await this.connection(tenantId, query, [appointmentId]);
+		return this._affectedRows(result);
+	}
+
+	public async getAllAppointments(tenantId: number, page: number = 1, count: number = 10) {
+		const offset = (page - 1) * count;
+		const query = `
+		    SELECT a.*, np.*, r.username AS practioner_name FROM appointments AS a INNER JOIN new_patients AS np 
+		 ON a.patientid = np.patientid
+		 INNER JOIN roles AS r ON a.practioner = r.employeeid   
+		    ORDER BY refid DESC LIMIT ? OFFSET ?
+		`
+		return await this.connection(tenantId, query, [count, offset]);
+	}
 }
 
 export default Appointment;

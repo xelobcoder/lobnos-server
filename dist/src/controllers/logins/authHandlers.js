@@ -46,8 +46,18 @@ const createAccount = async (req, res) => {
 exports.createAccount = createAccount;
 exports.deleteAccountHandler = (0, helper_1.handleOverLoad)(createAccount_1.deleteAccount);
 const updateBasicInfo = async (req, res) => {
-    const userReq = Object.assign(Object.assign({}, req), { query: Object.assign(Object.assign({}, req.query), { tenantId: req.query.tenantId }) });
-    (0, createAccount_1.updateUserBasicInfo)(userReq, res);
+    try {
+        const isUser = req.query.isUser == "1" || req.query.isUser === 'true';
+        const body = req.body;
+        const tenantId = parseInt(req.query.tenantId);
+        const response = await (0, createAccount_1.updateUserBasicInfo)(body, tenantId, isUser);
+        res.send({ status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made" });
+    }
+    catch (error) {
+        logger_1.default.error(error);
+        console.log('EM:', error.message);
+        (0, helper_1.customError)(error || "Error updating user information", 500, res);
+    }
 };
 exports.updateBasicInfo = updateBasicInfo;
 const authenticateUser = async (request, response) => {

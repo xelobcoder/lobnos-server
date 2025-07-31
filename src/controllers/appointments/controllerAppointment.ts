@@ -1,6 +1,94 @@
+import { z } from "zod";
 import { responseError, customError } from "../../hooks/helper";
 import Appointment from "../../models/appointments/appointments";
 import { Response, Request } from "express";
+
+export async function getAllAppointmentsController(request: Request, response: Response) {
+	try {
+		const tenantId: number = parseInt(request.query.tenant as string, 10);
+		const page = request.query.page ? parseInt(request.query.page as string, 10) : 1;
+		const count = request.query.count ? parseInt(request.query.count as string, 10) : 10;
+		const employeeId = request.query.employeeid ? parseInt(request.query.employeeid as string, 10) : 0;
+		const result = await new Appointment(employeeId).getAllAppointments(tenantId, page, count);
+		response.send(result);
+	} catch (err) {
+		responseError(response, err);
+	}
+}
+export async function getAppointmentDetailsController(request: Request, response: Response) {
+	try {
+		const tenantId: number = parseInt(request.query.tenant as string, 10);
+		const appointmentId: number = parseInt(request.params.id, 10);
+		if (!appointmentId) {
+			return customError("Appointment ID missing", 404, response);
+		}
+		const details = await new Appointment(0).getAppointmentDetails(tenantId, appointmentId);
+		if (!details) {
+			return customError("Appointment not found", 404, response);
+		}
+		response.send(details);
+	} catch (err) {
+		responseError(response, err);
+	}
+}
+
+export async function updateAppointmentController(request: Request, response: Response) {
+	try {
+		const tenantId: number = parseInt(request.query.tenant as string, 10);
+		const appointmentId: number = parseInt(request.params.id, 10);
+		if (!appointmentId) {
+			return customError("Appointment ID missing", 404, response);
+		}
+		// Preprocess payload: remove refid, convert appointment_date to YYYY-MM-DD
+		const { refid, appointment_date, ...rest } = request.body;
+		let processedDate = appointment_date;
+		if (appointment_date && appointment_date.includes("T")) {
+			processedDate = appointment_date.split("T")[0];
+		}
+		const cleanPayload = { ...rest };
+		if (processedDate) cleanPayload["appointment_date"] = processedDate;
+
+		// Use the same Zod schema as in the model for validation
+		const updateSchema = z.object({
+			patientid: z.number().int(),
+			duration: z.number().int().optional(),
+			status: z.string().max(50).optional(),
+			appointment_time: z.string().max(10).optional(),
+			appointment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+			inviteMethod: z.string().max(20).optional(),
+			purpose: z.string().max(500).optional(),
+			title: z.string().max(300).optional(),
+			preference: z.string().max(50).optional(),
+			practioner: z.number().int().optional(),
+			location: z.string().max(50).optional(),
+			notes: z.string().max(500).nullable().optional(),
+		}).strict();
+		const parseResult = updateSchema.safeParse(cleanPayload);
+		console.log("Parsed Result:", parseResult);
+		if (!parseResult.success) {
+			console.error("Zod validation error:", parseResult.error);
+			return customError("Invalid appointment update fields", 400, response);
+		}
+		const updated = await new Appointment(0).updateAppointment(tenantId, appointmentId, cleanPayload);
+		response.send({ success: updated });
+	} catch (err) {
+		responseError(response, err);
+	}
+}
+
+export async function deleteAppointmentController(request: Request, response: Response) {
+	try {
+		const tenantId: number = parseInt(request.query.tenant as string, 10);
+		const appointmentId: number = parseInt(request.params.id, 10);
+		if (!appointmentId) {
+			return customError("Appointment ID missing", 404, response);
+		}
+		const deleted = await new Appointment(0).deleteAppointment(tenantId, appointmentId);
+		response.send({ success: deleted });
+	} catch (err) {
+		responseError(response, err);
+	}
+}
 
 export async function createAppointmentController(request: Request, response: Response) {
 	try {

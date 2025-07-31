@@ -115,22 +115,14 @@ app.get("/", (req: Request, res: Response) => {
 
 
 
-app.post(
-	'/devices', (req, res) => {
-		console.log('RECEIVED DATA -------------------------------------------')
-		console.log(req.body)
-		res.status(200).json({ status: 'okay' })
-		console.log('RECEIVED DATA -------------------------------------------')
-	}
-)
-
 
 
 // ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(3)
 
 
 
-app.listen(5000, async (err?: Error) => {
+
+app.listen(port, async (err?: Error) => {
 	try {
 		// const security = new Security(null, null);
 		// const isLicensed = await security.environmentSecurity(__dirname);
@@ -165,7 +157,7 @@ app.listen(5000, async (err?: Error) => {
 		// testClient.connect();
 
 
-		console.log(`connected to port 5000`);
+		console.log(`connected to port ${port}`);
 	} catch (err) {
 		console.log(err)
 	}

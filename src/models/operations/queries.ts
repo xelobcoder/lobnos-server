@@ -163,56 +163,56 @@ export const q_get_all_result_entry_ultrasound_base: string = `
 `;
 
 export enum OperationsStages {
-	PROCESSING = "PROCESSING",
-	COMPLETED = "COMPLETED",
-	VALIDATION = "VALIDATION",
-	ULTRASOUND_UNCOMPLETED = "ULTRASOUND_UNCOMPLETED",
-	ULTRASOUND_COMPLETED = "ULTRASOUND_COMPLETED",
-	VALIDATED = 'VALIDATED'
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  VALIDATION = "VALIDATION",
+  ULTRASOUND_UNCOMPLETED = "ULTRASOUND_UNCOMPLETED",
+  ULTRASOUND_COMPLETED = "ULTRASOUND_COMPLETED",
+  VALIDATED = 'VALIDATED'
 }
 
 export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string) {
-	let query = currentQuery;
-	switch (stage) {
-		case OperationsStages.PROCESSING:
-			query += ` AND (ta.processingEndDate IS NULL OR ta.processingStartDate IS NULL) AND  (d.department <> 'ultrasound' OR d.department IS NULL)`;
-			return query;
-		case OperationsStages.COMPLETED:
-			query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL)
+  let query = currentQuery;
+  switch (stage) {
+    case OperationsStages.PROCESSING:
+      query += ` AND (ta.processingEndDate IS NULL OR ta.processingStartDate IS NULL) AND  (d.department <> 'ultrasound' OR d.department IS NULL)`;
+      return query;
+    case OperationsStages.COMPLETED:
+      query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL)
 AND (d.department <> 'ultrasound' OR d.department IS NULL)`
-			return query;
-		case OperationsStages.VALIDATION:
-			query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
+      return query;
+    case OperationsStages.VALIDATION:
+      query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
 AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `
-			return query;
-		case OperationsStages.VALIDATED:
-			query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL ) AND  dta.isapproved = 1
+      return query;
+    case OperationsStages.VALIDATED:
+      query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL ) AND  dta.isapproved = 1
      AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `
-			return query;
-		default:
-			return null
-	}
+      return query;
+    default:
+      return null
+  }
 
 
 }
 
 
 export const q_get_all_test_ready_for_various_stages_ultrasound = function (currentQuery: string, stage: string) {
-	let query = currentQuery;
-	switch (stage) {
-		case OperationsStages.ULTRASOUND_UNCOMPLETED:
-			query += ` AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL) 
+  let query = currentQuery;
+  switch (stage) {
+    case OperationsStages.ULTRASOUND_UNCOMPLETED:
+      query += ` AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL) 
       `
-			return query;
-		case OperationsStages.ULTRASOUND_COMPLETED:
-			query += `AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL )
+      return query;
+    case OperationsStages.ULTRASOUND_COMPLETED:
+      query += `AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL )
       `
-			return query;
-		default:
-			return null
-	}
+      return query;
+    default:
+      return null
+  }
 }
 
 export const q_get_all_result_entry_partitioning = `SELECT DISTINCT
@@ -334,19 +334,27 @@ export const q_ultrasound_processed_list: string = `SELECT DISTINCT
       LIMIT ? OFFSET ?
     `;
 
-export const q_get_all_entered_result: string = `SELECT  CONCAT(np.firstname,' ',np.middlename,' ',np.lastname) AS fullname,
-          np.PATIENTID AS patientid,
-          np.gender,
-          b.BILLINGID AS billingid,
-          ta.id AS ascensionid,
-          b.billedon AS billing_date,
-          tp.CATEGORY AS category
-        FROM new_patients as np
-          INNER JOIN billing as b ON np.PATIENTID = b.PATIENTID
-           INNER JOIN test_ascension AS ta ON ta.billingid = b.BILLINGID
-          INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-          INNER JOIN test_panels AS tp ON tp.ID = ss.testid
-          INNER JOIN departments AS d ON d.ID = tp.CATEGORY`;
+export const q_get_all_entered_result: string = `
+  SELECT 
+    CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
+    np.patientid,
+    np.gender,
+    b.billingid,
+    b.billedon AS billing_date,
+    tr.ascensionid,
+    tr.testid,
+    tr.created_on AS result_entry_date,
+    dta.*,
+    TP.name AS test_name,
+    ss.*
+  FROM test_results AS tr
+    INNER JOIN billing AS b ON tr.billingid = b.billingid
+    INNER JOIN new_patients AS np ON tr.patientid = np.patientid
+    INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = tr.ascensionid
+    INNER JOIN samplestatus AS ss ON ss.ascensionid = tr.ascensionid
+    INNER JOIN test_panels AS tp ON tp.id = tr.testid
+    LEFT JOIN roles AS r ON r.employeeid = tr.employeeid
+`;
 
 export const q_get_all_test_preview = `SELECT ta.testid,
             tp.NAME,

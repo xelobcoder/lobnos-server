@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
 const partitioning_1 = __importDefault(require("../billing/partitioning"));
 const helper_1 = require("../../hooks/helper");
+const testApprovalClass_1 = require("./testApprovalClass");
 class Operations {
     constructor(billingid) {
         this.logResultEntryIntoAscensionTable = async (tenantId, testid, billingid) => {
@@ -164,7 +165,8 @@ class Operations {
             let queryString = queries_1.q_get_all_entered_result;
             const conditions = [];
             const values = [];
-            conditions.push(`ss.approvalstatus = 1 AND d.department <> 'ultrasound'`);
+            conditions.push(`ss.approvalstatus = 1`);
+            conditions.push('dta.isapproved = 1');
             if (from && !to) {
                 conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
                 values.push(from);
@@ -174,7 +176,7 @@ class Operations {
                 values.push(from, to);
             }
             if (patientid) {
-                conditions.push(`np.PATIENTID = ?`);
+                conditions.push(`np.patientid = ?`);
                 values.push(patientid);
             }
             if (billingid) {
@@ -182,16 +184,26 @@ class Operations {
                 values.push(billingid);
             }
             if (fullname) {
-                conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
-                values.push(`${fullname}%`);
+                conditions.push(`LOWER(CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname)) LIKE ?`);
+                values.push(`%${fullname.toLowerCase()}%`);
             }
             if (conditions.length > 0) {
                 queryString += ` WHERE ${conditions.join(" AND ")}`;
             }
-            queryString += ` GROUP BY b.billingid`;
-            queryString += ` ORDER BY ta.id DESC`;
+            queryString += ` GROUP BY tr.ascensionid, tr.testid, tr.patientid, b.billingid`;
+            queryString += ` ORDER BY tr.created_on ${sortingwise === "ASC" ? "ASC" : "DESC"}`;
             queryString += ` LIMIT ? OFFSET ?`;
-            return await (0, helper_1.paginationQuery)({ page, count }, queryString, values, tenantId);
+            const result = await (0, helper_1.paginationQuery)({ page, count }, queryString, values, tenantId);
+            if (result.length > 0) {
+                const approvalList = await Promise.all(result.map(async (item) => {
+                    const { ascensionid } = item;
+                    const ascensionApprovalEmployeeList = await new testApprovalClass_1.TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
+                    console.log("Approval List: ", ascensionApprovalEmployeeList);
+                    return Object.assign(Object.assign({}, item), { validators: ascensionApprovalEmployeeList });
+                }));
+                return approvalList;
+            }
+            return [];
         }
         catch (err) {
             console.log(err);

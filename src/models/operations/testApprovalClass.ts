@@ -1,3 +1,11 @@
+import {
+	q_insert_result_printing_tracking,
+	q_get_result_printing_tracking_by_id,
+	q_get_result_printing_tracking_by_ascensionid,
+	q_update_result_printing_tracking,
+	q_delete_result_printing_tracking
+} from "./OperationsQueries/resultPrintingTrackingQueries";
+
 import Operations from "./operations";
 import { q_get_print_count_for_test, q_get_result_approval_details, q_updateTestApprovalStatus } from "./OperationsQueries/testApprovalQueries";
 import User from "../../LobnosAuth/user";
@@ -145,6 +153,41 @@ export class TestApprovalClass extends Operations {
 		const minvalidation = resultsettings['minimumResultValidation'] || 1;
 		const maxvalidation = resultsettings['maximumResultValidation'] || 10;
 		return await queryRunner.raw(query, [ascensionId, minvalidation, maxvalidation])
+	}
+
+	public static async updatePrintCount(tenantId: number, ascensionid: number, employeeId: number): Promise<boolean> {
+		const result = await promisifyQuery(tenantId, q_updateTestApprovalStatus, [1, employeeId, ascensionid]);
+		return rowAffected(result);
+	}
+
+	public static async getTransactionAscensionsApprovalStatus(tenantId: number, billingid: number): Promise<any[]> {
+		const conn = await KnexConnection(tenantId);
+		return await conn('test_ascension as ta')
+			.innerJoin('dbotestresultapproval as dta', 'ta.id', 'dta.ascensionid')
+			.innerJoin('test_panels as tp', 'tp.id', 'ta.testid')
+			.select('ta.*', 'tp.*')
+			.where('ta.billingid', billingid);
+	}
+
+	static async addResultPrintingTracking(tenantId: number, ascensionid: number, employeeid: number, action: 'view' | 'printed', actionon: Date | string) {
+		return await promisifyQuery(tenantId, q_insert_result_printing_tracking, [ascensionid, employeeid, action, actionon]);
+	}
+
+	static async getResultPrintingTrackingById(tenantId: number, trackid: number) {
+		const rows = await promisifyQuery(tenantId, q_get_result_printing_tracking_by_id, [trackid]);
+		return rows.length > 0 ? rows[0] : null;
+	}
+
+	static async getResultPrintingTrackingByAscensionId(tenantId: number, ascensionid: number) {
+		return await promisifyQuery(tenantId, q_get_result_printing_tracking_by_ascensionid, [ascensionid]);
+	}
+
+	static async updateResultPrintingTracking(tenantId: number, trackid: number, ascensionid: number, employeeid: number, action: 'view' | 'printed', actionon: Date | string) {
+		return await promisifyQuery(tenantId, q_update_result_printing_tracking, [ascensionid, employeeid, action, actionon, trackid]);
+	}
+
+	static async deleteResultPrintingTracking(tenantId: number, trackid: number) {
+		return await promisifyQuery(tenantId, q_delete_result_printing_tracking, [trackid]);
 	}
 }
 

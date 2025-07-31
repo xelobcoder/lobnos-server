@@ -16,7 +16,7 @@ router.get('/api/v1/prime/sms-analytics/totals', handleOverLoad(primeSmsAnalytic
 router.get('/api/v1/prime/sms-analytics/job-counts-by-category', handleOverLoad(primeSmsAnalyticsController.getJobCountsByCategory.bind(primeSmsAnalyticsController)));
 router.get('/api/v1/prime/sms-analytics/job-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getJobTrendsByDay.bind(primeSmsAnalyticsController)));
 router.get('/api/v1/prime/sms-analytics/delivery-trends-by-day', handleOverLoad(primeSmsAnalyticsController.getDeliveryTrendsByDay.bind(primeSmsAnalyticsController)));
-
+router.get('/api/v1/prime/sms/transaction/result/ready/:billingid', handleOverLoad(primeSmsAnalyticsController.getTransactionResultReady.bind(primeSmsAnalyticsController)));
 
 
 // use sms events here

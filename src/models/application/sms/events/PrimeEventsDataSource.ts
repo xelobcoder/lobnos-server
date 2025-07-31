@@ -183,7 +183,8 @@ export class PrimeEventsSMSDataSource {
      }
 
 
-     async testAscensionEventDataAllDone(tenantId: number, billingid: number): Promise<{ status: boolean | string } | undefined> {
+
+     async testAscensionEventDataAllDone(tenantId: number, billingid: number, ignoreAllMustPass: boolean = false): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('PATIENT_RESULT_READY');
           if (!isActive) return;
           // Get count of unapproved ascensions
@@ -210,12 +211,13 @@ export class PrimeEventsSMSDataSource {
           const [billingResult] = await connection.raw(billing_query, [billingid]);
           const [testCountResult] = await connection.raw(test_count_query, [billingid]);
           const hasUnapproved = Array.isArray(ascensionResult) && ascensionResult.length > 0 && ascensionResult[0].counter > 0;
-          if (!hasUnapproved) return;
+          if (!ignoreAllMustPass && !hasUnapproved) return;
+          // If ignoreAllMustPass is true, always send the message
           const data = { ...billingResult[0], test_count: testCountResult[0]?.test_count || 0 };
           const event = await this.repo.findByCode('PATIENT_RESULT_READY');
           if (!event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
-          const phonee164 = data.mobile_number ? data.mobile_number.replace(/^\+/, '') : '';
+          const phonee164 = data.mobile_number ? data.mobile_number.replace(/^+/, '') : '';
           return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_RESULT_READY', data.patientid);
      }
 

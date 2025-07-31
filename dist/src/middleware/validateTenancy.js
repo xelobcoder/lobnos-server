@@ -74,7 +74,7 @@ exports.isAuthorizedRoleScientistPhelobotomist = isAuthorizedRoleScientistPhelob
 const isAuthorizedRoleAdmin = async (request, response, next) => {
     try {
         const { tenantId } = request.query;
-        const employeeid = request.query.employeeid || request.body.employeeid;
+        const employeeid = request.query.employeeid || request.body.employeeid || request.body.employeeId;
         if (!employeeid)
             return (0, helper_1.customError)("invalid request query provided", 400, response);
         const tenantIdP = parseInt(tenantId.toString());

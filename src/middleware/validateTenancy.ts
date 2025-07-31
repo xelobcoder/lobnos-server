@@ -59,7 +59,7 @@ export const isAuthorizedRoleScientistPhelobotomist = async (request: Request, r
                return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           }
           next();
-         
+
      } catch (err) {
           responseError(response);
      }
@@ -68,19 +68,19 @@ export const isAuthorizedRoleScientistPhelobotomist = async (request: Request, r
 
 export const isAuthorizedRoleAdmin = async (request: Request, response: Response, next: NextFunction) => {
      try {
-          const { tenantId} = request.query;
-          const employeeid = request.query.employeeid || request.body.employeeid;
+          const { tenantId } = request.query;
+          const employeeid = request.query.employeeid || request.body.employeeid || request.body.employeeId;
           if (!employeeid) return customError("invalid request query provided", 400, response)
           const tenantIdP = parseInt(tenantId.toString());
           const parsedEmployeeid = parseInt(employeeid.toString())
           const userdata = await new RolesRepository(tenantIdP).getRoleById(parsedEmployeeid);
           const role = userdata ? userdata['role'].toLowerCase().trim() : ''
-          const allowedRoles = ['admin' ];
+          const allowedRoles = ['admin'];
           if (!allowedRoles.includes(role)) {
                return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           }
           next();
-         
+
      } catch (err) {
           responseError(response);
      }

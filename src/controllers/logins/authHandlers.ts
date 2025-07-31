@@ -44,14 +44,17 @@ export const createAccount = async (req: Request, res: Response) => {
 export const deleteAccountHandler = handleOverLoad(deleteAccount);
 
 export const updateBasicInfo = async (req: Request, res: Response) => {
-	const userReq: UserRequest = {
-		...req,
-		query: {
-			...req.query,
-			tenantId: req.query.tenantId as string
-		}
-	} as UserRequest;
-	updateUserBasicInfo(userReq, res);
+	try {
+		const isUser = req.query.isUser == "1" || req.query.isUser === 'true';
+		const body = req.body as UserRequest['body'];
+		const tenantId = parseInt(req.query.tenantId as string);
+		const response = await updateUserBasicInfo(body, tenantId, isUser);
+		res.send({status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made"});
+	} catch (error) {
+		logger.error(error);
+		console.log('EM:', error.message);
+		customError(error || "Error updating user information", 500, res);
+	}
 };
 
 export const authenticateUser = async (request: Request, response: Response) => {

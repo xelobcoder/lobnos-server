@@ -87,7 +87,7 @@ export type resultQuery = {
 	patientid: number;
 	fullname?: string;
 	billingid: number;
-	sortingwise: number;
+	sortingwise: 'ASC' | 'DESC';
 	count: number;
 	page: number;
 };

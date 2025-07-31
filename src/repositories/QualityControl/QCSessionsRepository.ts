@@ -1,3 +1,5 @@
+
+
 import KnexConnection from "../../database/KnexConnections";
 
 interface QCSession {
@@ -18,6 +20,55 @@ interface PaginatedResponse<T> {
 }
 
 export class QCSessionsRepository {
+    async getRecentReadingsWithDetails(limit: number = 10) {
+        const conn = await this.connection;
+        const readings = await conn('qc_readings as qr')
+            .leftJoin('qc_sessions as qs', 'qr.sessionId', 'qs.id')
+            .leftJoin('control_parameters as cp', 'qr.parameterId', 'cp.id')
+            .leftJoin('control_materials as cm', 'qs.controlMaterialId', 'cm.id')
+            .select(
+                'qr.*',
+                'qs.comments as session_comments',
+                'qs.createdAt as session_createdAt',
+                'cm.name as control_material_name',
+                'cm.lotNumber as control_material_lotNumber',
+                'cm.status as control_material_status',
+                'cp.parameter as parameter_name',
+                'cp.value as parameter_value',
+                'cp.unit as parameter_unit',
+                'cp.warningLimit',
+                'cp.actionLimit'
+            )
+            .orderBy('qr.createdAt', 'desc')
+            .limit(limit);
+        return readings;
+    }
+
+    async getRecentAlertReadings(limit: number = 10) {
+        const conn = await this.connection;
+        const alertStatuses = ['critical', 'warning', 'unmonitored'];
+        const readings = await conn('qc_readings as qr')
+            .leftJoin('qc_sessions as qs', 'qr.sessionId', 'qs.id')
+            .leftJoin('control_parameters as cp', 'qr.parameterId', 'cp.id')
+            .leftJoin('control_materials as cm', 'qs.controlMaterialId', 'cm.id')
+            .select(
+                'qr.*',
+                'qs.comments as session_comments',
+                'qs.createdAt as session_createdAt',
+                'cm.name as control_material_name',
+                'cm.lotNumber as control_material_lotNumber',
+                'cm.status as control_material_status',
+                'cp.parameter as parameter_name',
+                'cp.value as parameter_value',
+                'cp.unit as parameter_unit',
+                'cp.warningLimit',
+                'cp.actionLimit'
+            )
+            .whereIn('qr.status', alertStatuses)
+            .orderBy('qr.createdAt', 'desc')
+            .limit(limit);
+        return readings;
+    }
     private tenantId: number;
     private connection: any;
 
@@ -124,6 +175,62 @@ export class QCSessionsRepository {
             console.error('QC session delete error:', error);
             throw error;
         }
+    }
+
+
+    async getDashboardData(): Promise<{
+        totalDevices: number;
+        activeDevices: number;
+        devicesInMaintenance: number;
+        qcTestsToday: number;
+        critical: number;
+        unmonitored: number;
+        warning: number;
+        pendingReviews: number;
+    }> {
+        const conn = await this.connection;
+
+
+        const [{ count: totalDevices }] = await conn('devices').count('id as count').catch(() => [{ count: 0 }]);
+        const [{ count: activeDevices }] = await conn('devices').where({ status: 'active' }).count('id as count').catch(() => [{ count: 0 }]);
+        const [{ count: devicesInMaintenance }] = await conn('devices').where({ status: 'maintenance' }).count('id as count').catch(() => [{ count: 0 }]);
+
+        const today = new Date();
+        const [{ count: qcTestsToday }] = await conn('qc_sessions')
+            .whereRaw("CAST(createdAt AS DATE) = ?", [today])
+            .count('id as count');
+
+
+        const [{ count: critical }] = await conn('qc_readings')
+            .where({ status: 'critical' })
+            .count('id as count')
+            .catch(() => [{ count: 0 }]);
+
+        const [{ count: unmonitored }] = await conn('qc_readings')
+            .where({ status: 'unmonitored' })
+            .count('id as count')
+            .catch(() => [{ count: 0 }]);
+
+        const [{ count: warning }] = await conn('qc_readings')
+            .where({ status: 'warning' })
+            .count('id as count')
+            .catch(() => [{ count: 0 }]);
+
+        const [{ count: pendingReviews }] = await conn('qc_sessions')
+            .where({ status: 'pending_review' })
+            .count('id as count')
+            .catch(() => [{ count: 0 }]);
+
+        return {
+            totalDevices: Number(totalDevices) || 0,
+            activeDevices: Number(activeDevices) || 0,
+            devicesInMaintenance: Number(devicesInMaintenance) || 0,
+            qcTestsToday: Number(qcTestsToday) || 0,
+            critical: Number(critical) || 0,
+            unmonitored: Number(unmonitored) || 0,
+            warning: Number(warning) || 0,
+            pendingReviews: Number(pendingReviews) || 0,
+        };
     }
 }
 

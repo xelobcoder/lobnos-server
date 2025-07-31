@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TestApprovalClass = void 0;
+const resultPrintingTrackingQueries_1 = require("./OperationsQueries/resultPrintingTrackingQueries");
 const operations_1 = __importDefault(require("./operations"));
 const testApprovalQueries_1 = require("./OperationsQueries/testApprovalQueries");
 const resultSettings_1 = __importDefault(require("../application/appsettings/resultSettings"));
@@ -114,6 +115,34 @@ class TestApprovalClass extends operations_1.default {
         const minvalidation = resultsettings['minimumResultValidation'] || 1;
         const maxvalidation = resultsettings['maximumResultValidation'] || 10;
         return await queryRunner.raw(query, [ascensionId, minvalidation, maxvalidation]);
+    }
+    static async updatePrintCount(tenantId, ascensionid, employeeId) {
+        const result = await (0, helper_1.promisifyQuery)(tenantId, testApprovalQueries_1.q_updateTestApprovalStatus, [1, employeeId, ascensionid]);
+        return (0, helper_1.rowAffected)(result);
+    }
+    static async getTransactionAscensionsApprovalStatus(tenantId, billingid) {
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        return await conn('test_ascension as ta')
+            .innerJoin('dbotestresultapproval as dta', 'ta.id', 'dta.ascensionid')
+            .innerJoin('test_panels as tp', 'tp.id', 'ta.testid')
+            .select('ta.*', 'tp.*')
+            .where('ta.billingid', billingid);
+    }
+    static async addResultPrintingTracking(tenantId, ascensionid, employeeid, action, actionon) {
+        return await (0, helper_1.promisifyQuery)(tenantId, resultPrintingTrackingQueries_1.q_insert_result_printing_tracking, [ascensionid, employeeid, action, actionon]);
+    }
+    static async getResultPrintingTrackingById(tenantId, trackid) {
+        const rows = await (0, helper_1.promisifyQuery)(tenantId, resultPrintingTrackingQueries_1.q_get_result_printing_tracking_by_id, [trackid]);
+        return rows.length > 0 ? rows[0] : null;
+    }
+    static async getResultPrintingTrackingByAscensionId(tenantId, ascensionid) {
+        return await (0, helper_1.promisifyQuery)(tenantId, resultPrintingTrackingQueries_1.q_get_result_printing_tracking_by_ascensionid, [ascensionid]);
+    }
+    static async updateResultPrintingTracking(tenantId, trackid, ascensionid, employeeid, action, actionon) {
+        return await (0, helper_1.promisifyQuery)(tenantId, resultPrintingTrackingQueries_1.q_update_result_printing_tracking, [ascensionid, employeeid, action, actionon, trackid]);
+    }
+    static async deleteResultPrintingTracking(tenantId, trackid) {
+        return await (0, helper_1.promisifyQuery)(tenantId, resultPrintingTrackingQueries_1.q_delete_result_printing_tracking, [trackid]);
     }
 }
 exports.TestApprovalClass = TestApprovalClass;
