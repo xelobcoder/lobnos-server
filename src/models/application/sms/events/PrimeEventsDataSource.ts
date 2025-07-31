@@ -24,7 +24,7 @@ export class PrimeEventsSMSDataSource {
      }
 
 
-     async sendSMSMessage(smsconstent: string, phonee164: string, eventCode?: string, refId?: string | number): Promise<{ status: boolean | string }> {
+     async sendSMSMessage(smsconstent: string, phonee164: string, eventCode: string, refId: string | number, isevent: boolean, createdby: number): Promise<{ status: boolean | string }> {
           const sms = await new SmsService().sendSms([phonee164], smsconstent);
           if (sms && sms.status === 'success' && Array.isArray(sms.data) && sms.data[0]) {
                await this.logSentSmsJob({
@@ -32,19 +32,25 @@ export class PrimeEventsSMSDataSource {
                     phonee164,
                     arkeselResponse: sms,
                     eventCode,
-                    refId
+                    refId,
+                    isEvent: isevent,
+                    eventcode: eventCode || null,
+                    createdby: createdby
                });
           }
           return { status: sms.status || false }
      }
 
 
-     private async logSentSmsJob({ smsconstent, phonee164, arkeselResponse, eventCode, refId }: {
+     private async logSentSmsJob({ smsconstent, phonee164, arkeselResponse, eventCode, refId, isEvent = false, eventcode = null, createdby = 0 }: {
           smsconstent: string,
           phonee164: string,
           arkeselResponse: any,
           eventCode?: string,
-          refId?: string | number
+          refId?: string | number,
+          isEvent?: boolean,
+          eventcode?: string | null,
+          createdby: number
      }) {
           // Import repositories dynamically to avoid circular dependencies
           const { PrimeSmsJobsRepo } = await import('../repositories/PrimeSmsJobsRepo');
@@ -77,7 +83,7 @@ export class PrimeEventsSMSDataSource {
                     sendtype: 'immediate',
                     scheduledat: null,
                     status: 'sent',
-                    createdby: 0,
+                    createdby: 0
                }, trx);
 
                const arkeselData = arkeselResponse.data[0];
@@ -93,11 +99,13 @@ export class PrimeEventsSMSDataSource {
                     messageid: arkeselData.id,
                     refid: refidNum,
                     sentat: new Date(),
+                    isevent: isEvent == true ? 1 : 0,
+                    eventcode: eventcode || null,
                });
           });
      }
 
-     async paymentConfirmationEvent(tenantId: number, billingid: number): Promise<{ status: boolean | string } | undefined> {
+     async paymentConfirmationEvent(tenantId: number, billingid: number, employeeid: number): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('PAYMENT_CONFIRMATION_SMS');
           if (!isActive) return;
           const query = `
@@ -132,7 +140,7 @@ export class PrimeEventsSMSDataSource {
           const smscontent = parsedContent + (paymentSummary ? `\n\nPayment(s): ${paymentSummary}` : '');
           const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
           const refid = result[0].patientid;
-          return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid);
+          return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid, true, employeeid);
      }
 
 
@@ -143,7 +151,7 @@ export class PrimeEventsSMSDataSource {
           return SmsMessageParser.parse(event, merged);
      }
 
-     async patientRegistrationEvent(tenantId: number, patientid: number): Promise<{ status: boolean | string } | undefined> {
+     async patientRegistrationEvent(tenantId: number, patientid: number, employeeId: number): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('PATIENT_REGISTRATION_SMS');
           if (!isActive) return;
           // Get patient basic data
@@ -157,11 +165,11 @@ export class PrimeEventsSMSDataSource {
           else if ('phonenumber' in data && data.phonenumber) phonee164 = String(data.phonenumber).replace(/^\+/, '');
           else if ('mobile' in data && data.mobile) phonee164 = String(data.mobile).replace(/^\+/, '');
           else if ('mobile_number' in data && data.mobile_number) phonee164 = String(data.mobile_number).replace(/^\+/, '');
-          return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_REGISTRATION_SMS', patientid);
+          return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_REGISTRATION_SMS', patientid, true, employeeId);
      }
 
 
-     async patientTransactionEventData(tenantId: number, billingid: number): Promise<{ status: boolean | string } | undefined> {
+     async patientTransactionEventData(tenantId: number, billingid: number, employeeId: number): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('PATIENT_BILLING_SMS');
           if (!isActive) return;
 
@@ -179,12 +187,12 @@ export class PrimeEventsSMSDataSource {
           if (!event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, result[0], event.content);
           const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_BILLING_SMS', result[0].patientid);
+          return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_BILLING_SMS', result[0].patientid, true, employeeId);
      }
 
 
 
-     async testAscensionEventDataAllDone(tenantId: number, billingid: number, ignoreAllMustPass: boolean = false): Promise<{ status: boolean | string } | undefined> {
+     async testAscensionEventDataAllDone(tenantId: number, billingid: number, createdby: number, ignoreAllMustPass: boolean = false, customMessage: string | null = null): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('PATIENT_RESULT_READY');
           if (!isActive) return;
           // Get count of unapproved ascensions
@@ -218,12 +226,12 @@ export class PrimeEventsSMSDataSource {
           if (!event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
           const phonee164 = data.mobile_number ? data.mobile_number.replace(/^+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_RESULT_READY', data.patientid);
+          return await this.sendSMSMessage(customMessage ? customMessage : parsedContent, phonee164, 'PATIENT_RESULT_READY', data.billingid, true, createdby);
      }
 
 
 
-     async sampleRejectionEvent(tenantId: number, ascensionid: number): Promise<{ status: boolean | string } | undefined> {
+     async sampleRejectionEvent(tenantId: number, ascensionid: number, employeeId: number): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('SAMPLE_REJECTION_SMS');
           if (!isActive) return;
 
@@ -241,12 +249,12 @@ export class PrimeEventsSMSDataSource {
           if (!sample || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, sample, event.content);
           const phonee164 = sample.mobile_number ? sample.mobile_number.replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'SAMPLE_REJECTION_SMS', sample.patientid);
+          return await this.sendSMSMessage(parsedContent, phonee164, 'SAMPLE_REJECTION_SMS', ascensionid, true, employeeId);
      }
 
 
 
-     async clinicianRegistrationEvent(tenantId: number, clinicianid: number): Promise<{ status: boolean | string } | undefined> {
+     async clinicianRegistrationEvent(tenantId: number, clinicianid: number, employeeId: number): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('CLINICIAN_REGISTRATION_SMS');
           if (!isActive) return;
 
@@ -255,12 +263,12 @@ export class PrimeEventsSMSDataSource {
           if (!data || !Array.isArray(data) || data.length === 0 || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data[0], event.content);
           const phonee164 = (data[0].phone) ? String(data[0].phone).replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'CLINICIAN_REGISTRATION_SMS', clinicianid);
+          return await this.sendSMSMessage(parsedContent, phonee164, 'CLINICIAN_REGISTRATION_SMS', clinicianid, true, employeeId);
      }
 
 
 
-     async organizationRegistrationEvent(tenantId: number, organizationid: number): Promise<{ status: boolean | string } | undefined> {
+     async organizationRegistrationEvent(tenantId: number, organizationid: number, employeeId: number): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('ORGANIZATION_REGISTRATION_SMS');
           if (!isActive) return;
 
@@ -269,6 +277,23 @@ export class PrimeEventsSMSDataSource {
           if (!data || !Array.isArray(data) || data.length === 0 || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data[0], event.content);
           const phonee164 = data[0].phonenumber ? data[0].phonenumber.replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'ORGANIZATION_REGISTRATION_SMS', organizationid);
+          return await this.sendSMSMessage(parsedContent, phonee164, 'ORGANIZATION_REGISTRATION_SMS', organizationid, true, employeeId);
+     }
+
+     static async getClientResultReadySentcount(tenantId: number, billingid: number): Promise<number> {
+          const connection = await KnexConnection(tenantId);
+          const result = await connection('primesmsjobrecipients')
+               .where({ refid: billingid, eventcode: 'PATIENT_RESULT_READY' })
+               .andWhere('deliverystatus', 'sent')
+               .count('* as count');
+          return Number(result[0]?.count || 0);
+     }
+
+     static async getSentSMSEventMessage(tenantId: number, eventCode: string, refid: number) {
+          const connection = await KnexConnection(tenantId);
+          return connection('primesmsjobrecipients')
+               .where({ eventcode: eventCode, refid })
+               .andWhere('deliverystatus', 'sent')
+               .select('personalizedbody')
      }
 }

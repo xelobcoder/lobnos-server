@@ -259,6 +259,13 @@ class Registration {
     }
     static async addNewPatient(tenantId, request, response) {
         const { data } = request.body;
+        const employeeId = request.query.employeeid ? parseInt(request.query.employeeid.toString(), 10) : null;
+        if (!employeeId) {
+            return response.status(400).send({
+                status: "error",
+                message: "employeeid is required to add a new patient",
+            });
+        }
         try {
             const isAlreadyRegistered = await this.isClientSame(tenantId, data);
             if (isAlreadyRegistered) {
@@ -277,7 +284,7 @@ class Registration {
                     message: "New patient added successfully",
                     patientid: insertId,
                 });
-                new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()));
+                new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()), employeeId);
             }
             else {
                 response.status(400).send({
