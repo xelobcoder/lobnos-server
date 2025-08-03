@@ -7,18 +7,14 @@ import { OperationsFailures } from "../../../models/operations/types";
 import { uploadImageFile } from "./imageUpload";
 import { customError, responseError } from "../../../hooks/helper";
 
-export const AddCompanyInfoHandler = async (request: Request, response: Response)=> {
+export const AddCompanyInfoHandler = async (request: Request, response: Response) => {
 	try {
 		const { name, motto, email, phonenumber } = request.body;
-const tenantId = parseInt(request.headers.tenantId.toString());
+		const tenantId = parseInt(request.headers.tenantId.toString());
 		const hasNecessaryRequestBodyParams = name && motto && email && phonenumber;
-
-		if (!hasNecessaryRequestBodyParams) {
-			return customError(OperationsFailures.invalidRequestBodyType + ". Necessary request body params not included", 400, response);
-		}
-
+		if (!hasNecessaryRequestBodyParams) return customError(OperationsFailures.invalidRequestBodyType + ". Necessary request body params not included", 400, response);
 		await truncateCompanyProfile(tenantId);
-		await insertCompanyProfile(tenantId,request.body);
+		await insertCompanyProfile(tenantId, request.body);
 		return response.send({ status: "success" });
 	} catch (err) {
 		return responseError(response);
@@ -37,8 +33,7 @@ export const getCompanyInfoHandler = async (request: Request, response: Response
 
 export const getCompanyImageHandler = async (request: Request, response: Response): Promise<void> => {
 	try {
-		const folderPath = path.join(__dirname, "../../../../../","asserts","company");
-		console.log(folderPath)
+		const folderPath = path.join(__dirname, "../../../../../", "asserts", "company");
 		const files = fs.readdirSync(folderPath);
 		const imageFile = files.find((file) => [".jpg", ".jpeg", ".png", ".gif"].includes(path.extname(file).toLowerCase()));
 

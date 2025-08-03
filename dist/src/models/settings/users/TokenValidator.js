@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 class TokenValidator {
     constructor() {
-        this.secretKey = process.env.ACCESS_TOKEN_SECRET || 'your-secret-key';
+        this.secretKey = process.env.ACCESS_TOKEN_SECRET;
     }
     async validateAccessToken(token) {
         try {

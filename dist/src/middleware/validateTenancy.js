@@ -3,23 +3,44 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isAuthorizedRoleAdmin = exports.isAuthorizedRoleScientistPhelobotomist = exports.ValidateTenancyAgreement = exports.checkTokenExists = void 0;
+exports.isAuthorizedRoleAdmin = exports.isAuthorizedRoleScientistPhelobotomist = exports.ValidateTenancyAgreement = exports.checkTokenExists = exports.parseCookies = void 0;
 const helper_1 = require("../hooks/helper");
 const tenancyRepo_1 = require("../models/Tenancy/tenancyRepo");
 const configuration_1 = require("../hooks/configuration");
 const TokenValidator_1 = __importDefault(require("../models/settings/users/TokenValidator"));
 const RolesRepository_1 = __importDefault(require("../models/settings/users/RolesRepository"));
+const parseCookies = (cookieHeader) => {
+    if (!cookieHeader)
+        return {};
+    return cookieHeader.split(';').reduce((acc, cookie) => {
+        const [key, ...val] = cookie.trim().split('=');
+        acc[key] = val.join('=');
+        return acc;
+    }, {});
+};
+exports.parseCookies = parseCookies;
 const checkTokenExists = async (request, response, next) => {
-    const token = request.headers['x-auth-prime'];
-    if (!token) {
-        return (0, helper_1.customError)('Token not provided', 401, response);
+    const bypassRoutes = [
+        '/api/v1/prime/login',
+        '/api/v1/settings/companyprofile/images'
+    ];
+    if (bypassRoutes.some(route => request.path.startsWith(route))) {
+        console.log('Skipping token check for prime login route');
+        return next();
     }
+    const cookieHeader = request.headers['cookie'];
+    const cookiesObj = (0, exports.parseCookies)(cookieHeader);
+    const currentUserToken = cookiesObj['pls-prime-tenant-session'];
+    if (!currentUserToken)
+        return (0, helper_1.customError)('Token not provided', 401, response);
+    if (!currentUserToken)
+        return (0, helper_1.customError)('Token not provided', 401, response);
     try {
-        const isValid = await new TokenValidator_1.default().validateAccessToken(token);
+        const isValid = await new TokenValidator_1.default().validateAccessToken(currentUserToken);
         if (!isValid)
-            return (0, helper_1.customError)("Invalid Token Provided", 404, response);
-        if (!isValid.expired)
-            return (0, helper_1.customError)('Token expired', 401, response);
+            return (0, helper_1.customError)("Invalid Token Provided", 500, response);
+        if (isValid.expired == true)
+            return (0, helper_1.customError)('Token expired', 500, response);
         next();
     }
     catch (error) {

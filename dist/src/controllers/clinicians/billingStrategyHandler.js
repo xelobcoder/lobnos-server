@@ -316,7 +316,7 @@ async function removeCategoryFromStrategy(req, res) {
 }
 exports.removeCategoryFromStrategy = removeCategoryFromStrategy;
 async function getAllBillingStrategiesMini(req, res) {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e, _f;
     try {
         const tenantId = parseInt(req.query.tenantId.toString(), 10);
         if (isNaN(tenantId)) {
@@ -325,7 +325,8 @@ async function getAllBillingStrategiesMini(req, res) {
         const strategyInstance = new billingstrategy_1.default();
         const page = parseInt(((_b = (_a = req.query) === null || _a === void 0 ? void 0 : _a.page) === null || _b === void 0 ? void 0 : _b.toString()) || '1', 10);
         const count = parseInt(((_d = (_c = req.query) === null || _c === void 0 ? void 0 : _c.count) === null || _d === void 0 ? void 0 : _d.toString()) || '10', 10);
-        const strategies = await strategyInstance.getAllBillingStrategiesWithoutApplicableTest(tenantId, count, page);
+        const sortbyRaw = (_f = (_e = req.query) === null || _e === void 0 ? void 0 : _e.sortby) === null || _f === void 0 ? void 0 : _f.toString();
+        const strategies = await strategyInstance.getAllBillingStrategiesWithoutApplicableTest(tenantId, count, page, sortbyRaw);
         if (!strategies || strategies.length === 0) {
             return res.status(404).json({ message: 'No billing strategies found.' });
         }

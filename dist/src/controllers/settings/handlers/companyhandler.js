@@ -15,9 +15,8 @@ const AddCompanyInfoHandler = async (request, response) => {
         const { name, motto, email, phonenumber } = request.body;
         const tenantId = parseInt(request.headers.tenantId.toString());
         const hasNecessaryRequestBodyParams = name && motto && email && phonenumber;
-        if (!hasNecessaryRequestBodyParams) {
+        if (!hasNecessaryRequestBodyParams)
             return (0, helper_1.customError)("The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */ + ". Necessary request body params not included", 400, response);
-        }
         await (0, companyProfile_1.truncateCompanyProfile)(tenantId);
         await (0, companyProfile_1.insertCompanyProfile)(tenantId, request.body);
         return response.send({ status: "success" });
@@ -41,7 +40,6 @@ exports.getCompanyInfoHandler = getCompanyInfoHandler;
 const getCompanyImageHandler = async (request, response) => {
     try {
         const folderPath = path_1.default.join(__dirname, "../../../../../", "asserts", "company");
-        console.log(folderPath);
         const files = fs_1.default.readdirSync(folderPath);
         const imageFile = files.find((file) => [".jpg", ".jpeg", ".png", ".gif"].includes(path_1.default.extname(file).toLowerCase()));
         if (imageFile) {

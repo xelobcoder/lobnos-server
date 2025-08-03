@@ -31,11 +31,11 @@ class AuthenticationRepository {
         return await bcrypt_1.default.compare(password, user.password);
     }
     async generateAccessToken(email) {
-        const secretKey = process.env.ACCESS_TOKEN_SECRET || 'your-secret-key';
-        return jsonwebtoken_1.default.sign({ email }, secretKey, { expiresIn: '1h' });
+        const secretKey = process.env.ACCESS_TOKEN_SECRET.toString();
+        return jsonwebtoken_1.default.sign({ email }, secretKey, { expiresIn: '3h' });
     }
     async generateRefreshToken(email) {
-        const secretKey = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-key';
+        const secretKey = process.env.REFRESH_TOKEN_SECRET;
         return jsonwebtoken_1.default.sign({ email }, secretKey, { expiresIn: '7d' });
     }
     async login(email, password) {

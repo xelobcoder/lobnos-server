@@ -386,7 +386,7 @@ export async function removeCategoryFromStrategy(
 
 
 export async function getAllBillingStrategiesMini(
-    req: Request<{}, {}, {}, { tenantId: string, page?: string; count?: string }>,
+    req: Request<{}, {}, {}, { tenantId: string, page?: string; count?: string,sortby: 'ASC' | 'DESC' }>,
     res: Response
 ) {
     try {
@@ -398,7 +398,8 @@ export async function getAllBillingStrategiesMini(
         const strategyInstance = new BillingStrategy();
         const page = parseInt(req.query?.page?.toString() || '1', 10);
         const count = parseInt(req.query?.count?.toString() || '10', 10);
-        const strategies = await strategyInstance.getAllBillingStrategiesWithoutApplicableTest(tenantId, count, page);
+        const sortbyRaw = req.query?.sortby?.toString() as 'ASC' | 'DESC';
+        const strategies = await strategyInstance.getAllBillingStrategiesWithoutApplicableTest(tenantId, count, page, sortbyRaw);
 
         if (!strategies || strategies.length === 0) {
             return res.status(404).json({ message: 'No billing strategies found.' });

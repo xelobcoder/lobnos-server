@@ -28,11 +28,13 @@ const handleCreateNewSalesSesion = async function (request, response) {
 exports.handleCreateNewSalesSesion = handleCreateNewSalesSesion;
 const getSalesSessionList = async function (request, response) {
     try {
-        const { limit, page, tenantId } = request.query;
-        const parsedLimit = parseInt(limit) || 10;
+        const { count, page, tenantId, sortby, branchid } = request.query;
+        const parsedCount = parseInt(count) || 10;
         const parsedTenantId = parseInt(tenantId);
         const parsedPage = parseInt(page) || 1;
-        const list = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).findSessionsPaginated(parsedPage, parsedLimit);
+        const sortOrder = sortby === 'ASC' ? 'ASC' : 'DESC';
+        const branchId = request.query.branchid ? parseInt(request.query.branchid.toString()) : undefined;
+        const list = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).findSessionsPaginated(parsedPage, parsedCount, sortOrder, branchId);
         response.send(list);
     }
     catch (err) {

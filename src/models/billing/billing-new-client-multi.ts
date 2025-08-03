@@ -8,6 +8,7 @@ import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
 import { calculateCorrectionalAdjustment } from "./correctionalUtil";
 import { PrimeBillingEnterprise } from "./multi/PrimeBillingEnterprise";
 import { EntityType } from "../clincians/c.dev.type";
+import { OutsourcedTestTrackingRepo } from "../operations/OutsourcedTestTrackingRepo";
 
 export class SubmitCustomerBilling {
 
@@ -580,6 +581,16 @@ export class SubmitCustomerBilling {
                     packageid
                 });
 
+                if (isoutsourced && outsourceid) {
+                    const outsourcedTestTrackingRepo = new OutsourcedTestTrackingRepo(tenantId);
+                    await outsourcedTestTrackingRepo.create({
+                        testid: trackId,
+                        serviceid: outcome[0],
+                        outsourceid,
+                        employeeid,
+                        status: 0, comments: null,
+                    }, queryRunner);
+                }
                 if (outcome && item[5] != 5 && item[1]) {
                     try {
                         await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
@@ -633,6 +644,8 @@ export class SubmitCustomerBilling {
             });
 
             const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
+
+
             return loadAllServices;
         } catch (err) {
             console.log('Error Loading services ')

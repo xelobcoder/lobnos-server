@@ -8,8 +8,8 @@ interface SalesSession {
      sessionendedon: Date | null;
      openingamount: number;
      amountreceivedby: number;
-     validatedby:number;
-     handingoveramount:number;
+     validatedby: number;
+     handingoveramount: number;
      branchid: number;
 }
 
@@ -31,26 +31,26 @@ export class SalesSessionRepo {
 
      async canCreateSession(date: Date, branchId: number): Promise<boolean> {
           try {
-              const conn = await this.connection;
-              const result = await conn('salessessionmanager')
-                  .where(conn.raw('DATE(sessiondate) = DATE (?)', [date]))
-                  .andWhere('branchid', branchId)
-                  .andWhere('sessionendedon', null)
-                  .first();
+               const conn = await this.connection;
+               const result = await conn('salessessionmanager')
+                    .where(conn.raw('DATE(sessiondate) = DATE (?)', [date]))
+                    .andWhere('branchid', branchId)
+                    .andWhere('sessionendedon', null)
+                    .first();
 
-              return !result;
+               return !result;
           } catch (error) {
-              console.error('Check can create session error:', error);
-              throw error;
+               console.error('Check can create session error:', error);
+               throw error;
           }
-      }
+     }
 
-     async create(sessionData: Omit<SalesSession, 'sessionid'>):Promise<boolean|string> {
+     async create(sessionData: Omit<SalesSession, 'sessionid'>): Promise<boolean | string> {
           try {
                const { sessiondate, branchid } = sessionData;
                const canCreate = await this.canCreateSession(sessiondate, branchid);
 
-               if (!canCreate)  return OperationsFailures.cannotCreateSessionForDate;
+               if (!canCreate) return OperationsFailures.cannotCreateSessionForDate;
                const conn = await this.connection;
 
                const result = await conn('salessessionmanager').insert(sessionData);
@@ -124,60 +124,61 @@ export class SalesSessionRepo {
      async findSessionsPaginated(
           page: number = 1,
           limit: number = 20,
+          sortby: 'ASC' | 'DESC' = 'DESC',
           branchId?: number
-      ): Promise<PaginatedResponse<SalesSession & { 
-          started_by_username: string, 
+     ): Promise<PaginatedResponse<SalesSession & {
+          started_by_username: string,
           received_by_username: string,
           validated_by_username: string,
-          branchname: string 
-      }>> {
+          branchname: string
+     }>> {
           try {
-              const conn = await this.connection;
-              const offset = (page - 1) * limit;
-      
-              let countQuery = conn('salessessionmanager').count('sessionid as count');
-              if (branchId !== undefined) {
-                  countQuery = countQuery.where('branchid', branchId);
-              }
-              const [total] = await countQuery;
-      
-              let dataQuery = conn('salessessionmanager as s')
-                  .leftJoin('roles as r1', 's.session_started_by', 'r1.employeeid')
-                  .leftJoin('roles as r2', 's.amountreceivedby', 'r2.employeeid')
-                  .leftJoin('roles as r3', 's.validatedby', 'r3.employeeid')
-                  .leftJoin('branch as b', 's.branchid', 'b.branchid')
-                  .select(
-                      's.*',
-                      'r1.username as started_by_username',
-                      'r2.username as received_by_username',
-                      'r3.username as validated_by_username',
-                      'b.name as branchname'
-                  )
-                  .orderBy('s.sessiondate', 'desc')
-                  .limit(limit)
-                  .offset(offset);
-      
-              if (branchId !== undefined) {
-                  dataQuery = dataQuery.where('s.branchid', branchId);
-              }
-      
-              const data = await dataQuery;
-      
-              return {
-                  data,
-                  total: Number(total.count),
-                  page,
-                  totalPages: Math.ceil(Number(total.count) / limit)
-              };
-          } catch (error) {
-              console.error('Find sessions paginated error:', error);
-              throw error;
-          }
-      }
-      
-      
+               const conn = await this.connection;
+               const offset = (page - 1) * limit;
 
-     async endSession(sessionId: number,validatedby:number, handingoveramount:number) {
+               let countQuery = conn('salessessionmanager').count('sessionid as count');
+               if (branchId !== undefined) {
+                    countQuery = countQuery.where('branchid', branchId);
+               }
+               const [total] = await countQuery;
+
+               let dataQuery = conn('salessessionmanager as s')
+                    .leftJoin('roles as r1', 's.session_started_by', 'r1.employeeid')
+                    .leftJoin('roles as r2', 's.amountreceivedby', 'r2.employeeid')
+                    .leftJoin('roles as r3', 's.validatedby', 'r3.employeeid')
+                    .leftJoin('branch as b', 's.branchid', 'b.branchid')
+                    .select(
+                         's.*',
+                         'r1.username as started_by_username',
+                         'r2.username as received_by_username',
+                         'r3.username as validated_by_username',
+                         'b.name as branchname'
+                    )
+                    .orderBy('s.sessiondate', sortby)
+                    .limit(limit)
+                    .offset(offset);
+
+               if (branchId !== undefined) {
+                    dataQuery = dataQuery.where('s.branchid', branchId);
+               }
+
+               const data = await dataQuery;
+
+               return {
+                    data,
+                    total: Number(total.count),
+                    page,
+                    totalPages: Math.ceil(Number(total.count) / limit)
+               };
+          } catch (error) {
+               console.error('Find sessions paginated error:', error);
+               throw error;
+          }
+     }
+
+
+
+     async endSession(sessionId: number, validatedby: number, handingoveramount: number) {
           try {
                const conn = await this.connection;
                return await conn('salessessionmanager')

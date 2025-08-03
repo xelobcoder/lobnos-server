@@ -1,4 +1,6 @@
 
+
+
 import { NextFunction, Request, Response } from "express";
 import { customError, responseError } from "../hooks/helper";
 import { OperationsFailures } from "../models/operations/types";
@@ -8,16 +10,35 @@ import TokenValidator from "../models/settings/users/TokenValidator";
 import RolesRepository from "../models/settings/users/RolesRepository";
 
 
-export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
-     const token = request.headers['x-auth-prime'] as string;
-     if (!token) {
-          return customError('Token not provided', 401, response);
-     }
+export const parseCookies = (cookieHeader?: string): Record<string, string> => {
+     if (!cookieHeader) return {};
+     return cookieHeader.split(';').reduce((acc, cookie) => {
+          const [key, ...val] = cookie.trim().split('=');
+          acc[key] = val.join('=');
+          return acc;
+     }, {} as Record<string, string>);
+}
 
+export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
+     const bypassRoutes = [
+          '/api/v1/prime/login',
+          '/api/v1/settings/companyprofile/images'
+     ]
+
+     if (bypassRoutes.some(route => request.path.startsWith(route))) {
+          console.log('Skipping token check for prime login route');
+          return next();
+     }
+     const cookieHeader = request.headers['cookie'] as string;
+     const cookiesObj = parseCookies(cookieHeader);
+
+     const currentUserToken = cookiesObj['pls-prime-tenant-session'];
+     if (!currentUserToken) return customError('Token not provided', 401, response);
+     if (!currentUserToken) return customError('Token not provided', 401, response);
      try {
-          const isValid = await new TokenValidator().validateAccessToken(token);
-          if (!isValid) return customError("Invalid Token Provided", 404, response);
-          if (!isValid.expired) return customError('Token expired', 401, response);
+          const isValid = await new TokenValidator().validateAccessToken(currentUserToken);
+          if (!isValid) return customError("Invalid Token Provided", 500, response);
+          if (isValid.expired == true) return customError('Token expired', 500, response);
           next();
      } catch (error) {
           return customError('Invalid token', 401, response);
@@ -59,7 +80,6 @@ export const isAuthorizedRoleScientistPhelobotomist = async (request: Request, r
                return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           }
           next();
-
      } catch (err) {
           responseError(response);
      }
@@ -85,4 +105,6 @@ export const isAuthorizedRoleAdmin = async (request: Request, response: Response
           responseError(response);
      }
 }
+
+
 

@@ -38,6 +38,7 @@ const routes_5 = __importDefault(require("./controllers/registration/patient/rou
 const expenses_analytics_route_1 = __importDefault(require("./controllers/analytics/Expenses-analytics/expenses-analytics-route"));
 const qualityControlRoutes_1 = __importDefault(require("./controllers/QualityControl/qualityControlRoutes"));
 const excelparserHandler_1 = __importDefault(require("./controllers/utilities/excelparserHandler"));
+const outsourcedTestTracking_routes_1 = __importDefault(require("./controllers/analytics/outsourcedTestTracking.routes"));
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
@@ -48,12 +49,19 @@ const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
     : process.env.PRODUCTION_PORT;
-app.use((0, cors_1.default)({ origin: "*", credentials: true, preflightContinue: false }));
+app.use((0, cors_1.default)({
+    origin: function (origin, callback) {
+        callback(null, origin || false);
+    },
+    credentials: true,
+    preflightContinue: false
+}));
 app.use(express_1.default.static("public"));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
-// app.use(checkTokenExists);
 app.use(validateTenancy_1.ValidateTenancyAgreement);
+// app.use(checkTokenExists)
+app.use(outsourcedTestTracking_routes_1.default);
 app.use(route_18.default);
 app.use(route_16.default);
 app.use(index_1.default);
@@ -72,6 +80,8 @@ app.use(route_8.default);
 app.use(route_3.default);
 app.use(routes_2.default);
 app.use(route_2.default);
+app.use(route_18.default);
+app.use(index_1.default);
 app.use(route_6.default);
 app.use(routes_1.default);
 app.use(route_7.default);
@@ -95,38 +105,6 @@ app.use(medicalInterfacingDevicesRoute_1.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
-// ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(3)
 app.listen(port, async (err) => {
-    try {
-        // const security = new Security(null, null);
-        // const isLicensed = await security.environmentSecurity(__dirname);
-        // if (!isLicensed) process.exit();
-        // createSchema(3,'./src/database', 'DatabaseTableSchema.ts')
-        // if (new Date() > configuration['EXPIRYDATE']) {
-        // 	console.log('Application is expired')
-        // 	process.exit(0)
-        // }
-        // )
-        // const currentYear = new Date().getFullYear();
-        // new PartitionManager('billing','billing').addYearPartition(3, currentYear);
-        // new PartitionManager('test_ascension','asc').addYearPartition(3, currentYear);
-        // new BillingMultiSteps(3,32,2).processTransaction().then((id) => {
-        // 	console.log(id)
-        // 	})
-        // const d = await new PrimeEventsSMSDataSource(3).organizationRegistrationEvent(3, 1);
-        // console.log(d)
-        // const e = await new PrimeEventsSMSDataSource(3).paymentConfirmationEvent(3, 211	);
-        // console.log(e)
-        // const deviceManager = new DeviceManager();
-        // await deviceManager.initialize();
-        // // Wait for server to be fully initialized
-        // await new Promise(resolve => setTimeout(resolve, 1000));
-        // // Then start the test client
-        // const testClient = new TestHL7Client('localhost', 6668);
-        // testClient.connect();
-        console.log(`connected to port ${port}`);
-    }
-    catch (err) {
-        console.log(err);
-    }
+    console.log(`Server is running on port http://localhost:${port}`);
 });

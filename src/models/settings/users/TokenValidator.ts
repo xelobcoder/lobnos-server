@@ -4,7 +4,7 @@ export default class TokenValidator {
      private secretKey: string;
 
      constructor() {
-          this.secretKey = process.env.ACCESS_TOKEN_SECRET || 'your-secret-key';
+          this.secretKey = process.env.ACCESS_TOKEN_SECRET;
      }
 
      async validateAccessToken(token: string): Promise<{ expired: boolean | undefined }> {

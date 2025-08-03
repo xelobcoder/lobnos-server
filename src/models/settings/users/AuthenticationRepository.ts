@@ -31,12 +31,12 @@ export default class AuthenticationRepository {
     }
 
     async generateAccessToken(email: string): Promise<string> {
-        const secretKey = process.env.ACCESS_TOKEN_SECRET || 'your-secret-key';
-        return jwt.sign({ email }, secretKey, { expiresIn: '1h' });
+        const secretKey = process.env.ACCESS_TOKEN_SECRET.toString();
+        return jwt.sign({ email }, secretKey, { expiresIn: '3h' });
     }
 
     async generateRefreshToken(email: string): Promise<string> {
-        const secretKey = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-secret-key';
+        const secretKey = process.env.REFRESH_TOKEN_SECRET;
         return jwt.sign({ email }, secretKey, { expiresIn: '7d' });
     }
 

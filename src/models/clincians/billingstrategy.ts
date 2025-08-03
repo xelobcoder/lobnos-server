@@ -498,10 +498,10 @@ export default class BillingStrategy {
           return Promise.all(strategies.map(strategy => this.sanitizeToFieldsOfStrategy(strategy.strategyid, tenantId)));
      }
 
-     public async getAllBillingStrategiesWithoutApplicableTest(tenantId: number, count: number = 10, page: number = 1): Promise<(IBillingStrategy & { applicableTest: ApplicableTest[], applicableEntities: ApplicableEntity[] })[]> {
+     public async getAllBillingStrategiesWithoutApplicableTest(tenantId: number, count: number = 10, page: number = 1, sortby: 'ASC' | 'DESC'): Promise<(IBillingStrategy & { applicableTest: ApplicableTest[], applicableEntities: ApplicableEntity[] })[]> {
           const connection = await KnexConnection(tenantId);
           const strategies = await connection('billingstrategy')
-               .select('*').limit(count).offset((page - 1) * count);
+               .select('*').limit(count).offset((page - 1) * count).orderBy('createdon', sortby);
           return strategies;
      }
 

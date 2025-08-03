@@ -3,6 +3,7 @@ import AuthenticationRepository from '../../models/settings/users/Authentication
 import TokenValidator from '../../models/settings/users/TokenValidator';
 import RolesRepository from '../../models/settings/users/RolesRepository';
 import { customError } from '../../hooks/helper';
+import { parseCookies } from '../../middleware/validateTenancy';
 
 export class AuthController {
     private authRepo: AuthenticationRepository;
@@ -22,17 +23,21 @@ export class AuthController {
 
     public async login(req: Request, res: Response): Promise<void> {
         try {
+            console.log('Login request received:', req.body);
             const tenantId = this.getTenantId(req);
             this.authRepo = new AuthenticationRepository(tenantId);
 
             const { email, password } = req.body;
+
             const tokens = await this.authRepo.login(email, password);
+                        console.log('Attempting login for user:', email,password);
             if (!tokens) {
                 const message = 'Invalid email or password'
                 res.status(401).json({ status: false, error: message });
                 return;
             }
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);
+            
             const { role, username, employeeid } = user;
             res.status(200).json({ status: true, accessToken: tokens.accessToken, user: { role, employeeid, username, email } });
         } catch (error) {
@@ -41,20 +46,16 @@ export class AuthController {
         }
     }
 
-    public async validateToken(req: Request, res: Response): Promise<void> {
-        const token = req.headers.authorization?.split(' ')[1];
-        if (!token) {
-            res.status(401).json({ message: 'Token not provided' });
-            return;
-        }
+    public async validateToken(req: Request, res: Response): Promise<any> {
+        const cookies = parseCookies(req.headers['cookie'] as string);
+        const tenantId = this.getTenantId(req);
+        const token = cookies['pls-prime-tenant-session'];
+        if (!token) return res.status(401).json({ message: 'Token not provided' });
 
         const isValid = await this.tokenValidator.validateAccessToken(token);
-        if (!isValid) {
-            res.status(401).json({ message: 'Invalid token' });
-            return;
-        }
+        if (!isValid) return res.status(401).json({ message: 'Invalid token' });
 
-        res.status(200).json({ message: 'Token is valid' });
+        console.log('Token is valid', isValid);
     }
 
     async validateUserPinProvided(req: Request<{}, {}, {}, { employeeid: string | number, tenantId: number, pin: string | number }>, res: Response) {

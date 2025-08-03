@@ -21,6 +21,7 @@ const billing_shared_types_1 = require("./multi/billing_shared_types");
 const billingclientTypes_1 = require("./billingclientTypes");
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
 const customerBillingCheckout_1 = require("./multi/customerBillingCheckout");
+const OutsourcedTestTrackingRepo_1 = require("../operations/OutsourcedTestTrackingRepo");
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
         const paidamount = (typeof item.paidamount !== 'undefined' && !isNaN(item.paidamount) && typeof parseFloat(item.paidamount.toString()) === 'number')
@@ -447,6 +448,16 @@ class SubmitCustomerBilling {
                     isPackageUsed,
                     packageid
                 });
+                if (isoutsourced && outsourceid) {
+                    const outsourcedTestTrackingRepo = new OutsourcedTestTrackingRepo_1.OutsourcedTestTrackingRepo(tenantId);
+                    await outsourcedTestTrackingRepo.create({
+                        testid: trackId,
+                        serviceid: outcome[0],
+                        outsourceid,
+                        employeeid,
+                        status: 0, comments: null,
+                    }, queryRunner);
+                }
                 if (outcome && item[5] != 5 && item[1]) {
                     try {
                         await billing_shared_1.BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);

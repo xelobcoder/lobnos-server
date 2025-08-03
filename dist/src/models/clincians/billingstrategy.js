@@ -370,10 +370,10 @@ class BillingStrategy {
         const strategies = await connection('billingstrategy').select('*');
         return Promise.all(strategies.map(strategy => this.sanitizeToFieldsOfStrategy(strategy.strategyid, tenantId)));
     }
-    async getAllBillingStrategiesWithoutApplicableTest(tenantId, count = 10, page = 1) {
+    async getAllBillingStrategiesWithoutApplicableTest(tenantId, count = 10, page = 1, sortby) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const strategies = await connection('billingstrategy')
-            .select('*').limit(count).offset((page - 1) * count);
+            .select('*').limit(count).offset((page - 1) * count).orderBy('createdon', sortby);
         return strategies;
     }
     async getBillingStrategyByEntity(tenantId, entity_type, entity_id) {

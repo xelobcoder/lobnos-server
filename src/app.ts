@@ -31,27 +31,15 @@ import sampleContainerRouter from "./controllers/routes/sampleContainerRoutes";
 import FileUploadsRouter from './controllers/uploads/uploadController';
 import IndividualPatientAnalyticRouter from './controllers/registration/patient/routes';
 import ExpensesAnalyticsRouter from './controllers/analytics/Expenses-analytics/expenses-analytics-route';
-import { DeviceManager } from './services/medical-devices/DeviceManager';
-import { TestHL7Client } from './services/medical-devices/TestHL7Client';
 import qualityControlRoutes from './controllers/QualityControl/qualityControlRoutes';
 import ExcelParser from './controllers/utilities/excelparserHandler';
+import OutsourcedTestTracking from './controllers/analytics/outsourcedTestTracking.routes'
 
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
-import { TenancyRepository } from "./models/Tenancy/tenancyRepo";
-import { primeTenancyConnector } from "./models/Tenancy/tenantConnections";
 import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
-import ApplicationSettings from "./models/application/appsettings/appset";
-import { createSchema } from "./database/createTableSchema";
-import { configuration } from "./hooks/configuration";
-import PartitionManager from "./models/billing/partitioning";
-import { PanelRunner } from "./migrations/data/SeedTestPanels/panelRunner";
-import ExpenseAuditLog from "./models/Expenses/ExpenseAuditLog";
-import ExpensesAnalytics from "./models/analytics/ExpensesAnalytics/Expenses-Analytics";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
-import { PrimeEventsSMSDataSource } from "./models/application/sms/events/PrimeEventsDataSource";
-import { EVENTS } from "./models/application/sms/events/EventsRepository";
 import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 
 
@@ -61,14 +49,21 @@ const port = process.env.NODE_ENV === "development"
 	? process.env.DEVELOPMENT_PORT
 	: process.env.PRODUCTION_PORT;
 
-app.use(cors({ origin: "*", credentials: true, preflightContinue: false }));
+
+app.use(cors({
+	origin: function (origin, callback) {
+		callback(null, origin || false);
+	},
+	credentials: true,
+	preflightContinue: false
+}));
+
 app.use(express.static("public"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-
-// app.use(checkTokenExists);
 app.use(ValidateTenancyAgreement)
+// app.use(checkTokenExists)
+app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
 app.use(SecurityRouter);
 app.use(BillingRouter);
@@ -87,6 +82,8 @@ app.use(settingsRouter);
 app.use(operationsRouter);
 app.use(resultprintRouter);
 app.use(resultChecker);
+app.use(smsAnalytics);
+app.use(BillingRouter);
 app.use(clinicianRouter);
 app.use(insuranceRouters);
 app.use(SMSRouter);
@@ -109,57 +106,16 @@ app.use(ExcelParser);
 app.use(InterfacingDevicesRouter)
 
 
+
+
+
 app.get("/", (req: Request, res: Response) => {
 	res.status(200).json({ message: "success" });
 });
 
 
 
-
-
-// ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(3)
-
-
-
-
 app.listen(port, async (err?: Error) => {
-	try {
-		// const security = new Security(null, null);
-		// const isLicensed = await security.environmentSecurity(__dirname);
-		// if (!isLicensed) process.exit();
-		// createSchema(3,'./src/database', 'DatabaseTableSchema.ts')
-		// if (new Date() > configuration['EXPIRYDATE']) {
-		// 	console.log('Application is expired')
-		// 	process.exit(0)
-		// }
-		// )
-		// const currentYear = new Date().getFullYear();
-
-		// new PartitionManager('billing','billing').addYearPartition(3, currentYear);
-		// new PartitionManager('test_ascension','asc').addYearPartition(3, currentYear);
-
-		// new BillingMultiSteps(3,32,2).processTransaction().then((id) => {
-		// 	console.log(id)
-		// 	})
-
-		// const d = await new PrimeEventsSMSDataSource(3).organizationRegistrationEvent(3, 1);
-		// console.log(d)
-		// const e = await new PrimeEventsSMSDataSource(3).paymentConfirmationEvent(3, 211	);
-		// console.log(e)
-		// const deviceManager = new DeviceManager();
-		// await deviceManager.initialize();
-
-		// // Wait for server to be fully initialized
-		// await new Promise(resolve => setTimeout(resolve, 1000));
-
-		// // Then start the test client
-		// const testClient = new TestHL7Client('localhost', 6668);
-		// testClient.connect();
-
-
-		console.log(`connected to port ${port}`);
-	} catch (err) {
-		console.log(err)
-	}
+	console.log(`Server is running on port http://localhost:${port}`);
 });
 

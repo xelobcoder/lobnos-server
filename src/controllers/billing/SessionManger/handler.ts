@@ -28,13 +28,15 @@ export const handleCreateNewSalesSesion = async function (request: Request, resp
 
 
 
-export const getSalesSessionList = async function (request: Request<{}, {}, {}, { page: string, tenantId: string, limit: string }>, response: Response) {
+export const getSalesSessionList = async function (request: Request<{}, {}, {}, { page: string, tenantId: string, count: string, sortby: 'ASC' | 'DESC', branchid: string }>, response: Response) {
      try {
-          const { limit, page, tenantId } = request.query
-          const parsedLimit = parseInt(limit) || 10
+          const { count, page, tenantId, sortby, branchid } = request.query
+          const parsedCount = parseInt(count) || 10;
           const parsedTenantId = parseInt(tenantId);
           const parsedPage = parseInt(page) || 1;
-          const list = await new SalesSessionRepo(parsedTenantId).findSessionsPaginated(parsedPage, parsedLimit);
+          const sortOrder = sortby === 'ASC' ? 'ASC' : 'DESC';
+          const branchId = request.query.branchid ? parseInt(request.query.branchid.toString()) : undefined;
+          const list = await new SalesSessionRepo(parsedTenantId).findSessionsPaginated(parsedPage, parsedCount, sortOrder, branchId);
           response.send(list);
      }
      catch (err: any) {

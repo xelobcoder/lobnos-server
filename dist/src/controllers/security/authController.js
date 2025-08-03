@@ -8,6 +8,7 @@ const AuthenticationRepository_1 = __importDefault(require("../../models/setting
 const TokenValidator_1 = __importDefault(require("../../models/settings/users/TokenValidator"));
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
 const helper_1 = require("../../hooks/helper");
+const validateTenancy_1 = require("../../middleware/validateTenancy");
 class AuthController {
     constructor() {
         this.tokenValidator = new TokenValidator_1.default();
@@ -21,10 +22,12 @@ class AuthController {
     }
     async login(req, res) {
         try {
+            console.log('Login request received:', req.body);
             const tenantId = this.getTenantId(req);
             this.authRepo = new AuthenticationRepository_1.default(tenantId);
             const { email, password } = req.body;
             const tokens = await this.authRepo.login(email, password);
+            console.log('Attempting login for user:', email, password);
             if (!tokens) {
                 const message = 'Invalid email or password';
                 res.status(401).json({ status: false, error: message });
@@ -40,18 +43,15 @@ class AuthController {
         }
     }
     async validateToken(req, res) {
-        var _a;
-        const token = (_a = req.headers.authorization) === null || _a === void 0 ? void 0 : _a.split(' ')[1];
-        if (!token) {
-            res.status(401).json({ message: 'Token not provided' });
-            return;
-        }
+        const cookies = (0, validateTenancy_1.parseCookies)(req.headers['cookie']);
+        const tenantId = this.getTenantId(req);
+        const token = cookies['pls-prime-tenant-session'];
+        if (!token)
+            return res.status(401).json({ message: 'Token not provided' });
         const isValid = await this.tokenValidator.validateAccessToken(token);
-        if (!isValid) {
-            res.status(401).json({ message: 'Invalid token' });
-            return;
-        }
-        res.status(200).json({ message: 'Token is valid' });
+        if (!isValid)
+            return res.status(401).json({ message: 'Invalid token' });
+        console.log('Token is valid', isValid);
     }
     async validateUserPinProvided(req, res) {
         try {

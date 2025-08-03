@@ -97,7 +97,7 @@ class SalesSessionRepo {
             throw error;
         }
     }
-    async findSessionsPaginated(page = 1, limit = 20, branchId) {
+    async findSessionsPaginated(page = 1, limit = 20, sortby = 'DESC', branchId) {
         try {
             const conn = await this.connection;
             const offset = (page - 1) * limit;
@@ -112,7 +112,7 @@ class SalesSessionRepo {
                 .leftJoin('roles as r3', 's.validatedby', 'r3.employeeid')
                 .leftJoin('branch as b', 's.branchid', 'b.branchid')
                 .select('s.*', 'r1.username as started_by_username', 'r2.username as received_by_username', 'r3.username as validated_by_username', 'b.name as branchname')
-                .orderBy('s.sessiondate', 'desc')
+                .orderBy('s.sessiondate', sortby)
                 .limit(limit)
                 .offset(offset);
             if (branchId !== undefined) {
