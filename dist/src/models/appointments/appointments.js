@@ -63,7 +63,7 @@ class Appointment {
             searchMonth = appointmentTypes_1.months[month];
         }
         if (searchMonth !== undefined) {
-            return await this.connection(tenantId, "SELECT * FROM appointments WHERE MONTH(appointment_date) = ?", [month]);
+            return await this.connection(tenantId, "SELECT ta.*, r.username AS practioner,r.employeeid AS practionerid FROM appointments AS ta INNER JOIN roles AS r ON ta.practioner = r.employeeid WHERE MONTH(appointment_date) = ?", [month]);
         }
         return [];
     }
@@ -134,6 +134,7 @@ class Appointment {
       * Update an appointment by its ID
       */
     async updateAppointment(tenantId, appointmentId, data) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
         const updateSchema = zod_1.z.object({
             patientid: zod_1.z.number().int(),
             duration: zod_1.z.number().int().optional(),
@@ -156,10 +157,39 @@ class Appointment {
         const fields = Object.keys(validData);
         if (fields.length === 0)
             return false;
-        const setClause = fields.map(field => `${field} = ?`).join(", ");
-        const values = fields.map(field => validData[field]);
-        const query = `UPDATE appointments SET ${setClause} WHERE refid = ?`;
-        const result = await this.connection(tenantId, query, [...values, appointmentId]);
+        // Write the full SQL query with all fields explicitly
+        const query = `UPDATE appointments SET
+			patientid = ?,
+			duration = ?,
+			status = ?,
+			appointment_time = ?,
+			appointment_date = ?,
+			inviteMethod = ?,
+			purpose = ?,
+			title = ?,
+			preference = ?,
+			practioner = ?,
+			location = ?,
+			notes = ?
+		WHERE refid = ?`;
+        // Ensure all fields are present in the correct order, use null if missing
+        const values = [
+            (_a = validData.patientid) !== null && _a !== void 0 ? _a : null,
+            (_b = validData.duration) !== null && _b !== void 0 ? _b : null,
+            (_c = validData.status) !== null && _c !== void 0 ? _c : null,
+            (_d = validData.appointment_time) !== null && _d !== void 0 ? _d : null,
+            (_e = validData.appointment_date) !== null && _e !== void 0 ? _e : null,
+            (_f = validData.inviteMethod) !== null && _f !== void 0 ? _f : null,
+            (_g = validData.purpose) !== null && _g !== void 0 ? _g : null,
+            (_h = validData.title) !== null && _h !== void 0 ? _h : null,
+            (_j = validData.preference) !== null && _j !== void 0 ? _j : null,
+            (_k = validData.practioner) !== null && _k !== void 0 ? _k : null,
+            (_l = validData.location) !== null && _l !== void 0 ? _l : null,
+            (_m = validData.notes) !== null && _m !== void 0 ? _m : null,
+            appointmentId
+        ];
+        console.log(query, values); // Debugging line to check the query and values
+        const result = await this.connection(tenantId, query, values);
         return this._affectedRows(result);
     }
     async deleteAppointment(tenantId, appointmentId) {
@@ -167,13 +197,13 @@ class Appointment {
         const result = await this.connection(tenantId, query, [appointmentId]);
         return this._affectedRows(result);
     }
-    async getAllAppointments(tenantId, page = 1, count = 10) {
+    async getAllAppointments(tenantId, page = 1, count = 10, sortby = 'DESC') {
         const offset = (page - 1) * count;
         const query = `
-		    SELECT a.*, np.*, r.username AS practioner_name FROM appointments AS a INNER JOIN new_patients AS np 
+			SELECT a.*, np.*, r.username AS practioner_name FROM appointments AS a INNER JOIN new_patients AS np 
 		 ON a.patientid = np.patientid
 		 INNER JOIN roles AS r ON a.practioner = r.employeeid   
-		    ORDER BY refid DESC LIMIT ? OFFSET ?
+			ORDER BY refid ${sortby} LIMIT ? OFFSET ?
 		`;
         return await this.connection(tenantId, query, [count, offset]);
     }

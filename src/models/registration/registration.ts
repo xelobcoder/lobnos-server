@@ -146,7 +146,7 @@ export default class Registration {
 	}
 
 	public async getCustomersRecords(tenantId: number, data: PatientRecords): Promise<NewRegistration | NewRegistration[]> {
-		const { count = 10, mobile, page = 1, fullname, email, patientid, from, to } = data;
+		const { count = 10, mobile, page = 1, fullname, email, patientid, from, to, sortby = 'DESC' } = data;
 		var query = q_filter_patients;
 		if (patientid) {
 			const is_valid_ptid: boolean = await Registration.checkPatientIdExist(tenantId, patientid);
@@ -186,7 +186,9 @@ export default class Registration {
 		const offset = (page - 1) * count;
 		values.push(parseInt(count.toString()));
 		values.push(offset);
-		query += ` ORDER BY patientid DESC LIMIT ? OFFSET ? `;
+
+		query += sortby ? ` ORDER BY patientid ${sortby} LIMIT ? OFFSET ? ` : ` ORDER BY patientid DESC LIMIT ? OFFSET ? `;
+
 		try {
 			let result = await promisifyQuery(tenantId, query, values);
 			return result;
@@ -347,7 +349,7 @@ export default class Registration {
 					message: "New patient added successfully",
 					patientid: insertId,
 				});
-				new PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()),employeeId);
+				new PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()), employeeId);
 			}
 			else {
 				response.status(400).send({

@@ -45,7 +45,11 @@ class TrackValuesAlertClass extends creator_1.default {
             })
                 .filter(record => record !== null)
             : [];
-        return Object.assign(Object.assign(Object.assign({}, alert), patientInfo[0]), { recordValues: recordValuesWithConstraints });
+        return {
+            alert,
+            patientInfo: patientInfo[0],
+            recordValues: recordValuesWithConstraints
+        };
     }
 }
 exports.TrackValuesAlertClass = TrackValuesAlertClass;

@@ -57,6 +57,7 @@ export type PatientRecords = {
   tenantId: string;
   from: string;
   to: string;
+  sortby: 'DESC' | 'ASC';
   fullname: string;
   mobile: number;
 };

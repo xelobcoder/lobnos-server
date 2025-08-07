@@ -56,7 +56,7 @@ class LoggingCriticalValueAlertRepository {
             throw error;
         }
     }
-    async findAllPaginated(page = 1, pageSize = 20, filters) {
+    async findAllPaginated(page = 1, pageSize = 20, sortby = 'DESC', filters) {
         try {
             const conn = await this.connection;
             let baseQuery = conn(this.tableName)
@@ -70,6 +70,8 @@ class LoggingCriticalValueAlertRepository {
                 if (filters.billingid !== undefined)
                     baseQuery = baseQuery.where('billingid', filters.billingid);
             }
+            // Add sorting by created date
+            baseQuery = baseQuery.orderBy(`${this.tableName}.createdOn`, sortby);
             const totalResultRaw = await baseQuery.clone().count('* as count').first();
             const total = totalResultRaw ? Number(totalResultRaw.count) : 0;
             const data = await baseQuery

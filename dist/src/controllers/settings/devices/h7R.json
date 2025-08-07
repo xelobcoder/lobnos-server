@@ -1,0 +1,2298 @@
+[
+  {
+    "timestamp": "2025-08-05T08:48:10.540Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:13.582Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:16.565Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:19.549Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:22.554Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:25.555Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:29.399Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:31.559Z",
+    "data": [
+      {
+        "DATE_TIME_OF_MESSAGE": "20250805083641",
+        "FIELD_SEPARATOR": "MSH",
+        "MESSAGE_CONTROL_ID": "153",
+        "MESSAGE_TYPE": "ORU^R01",
+        "PROCESSING_ID": "P",
+        "RECEIVING_APPLICATION": "",
+        "RECEIVING_FACILITY": "",
+        "SECURITY": "",
+        "SEGMENT": "MSH",
+        "SENDING_APPLICATION": "",
+        "SENDING_FACILITY": "",
+        "VERSION_ID": "2.3.1"
+      },
+      {
+        "DATE_OF_BIRTH": "",
+        "DATE_OF_DEATH": "",
+        "DRIVERS_LICENSE_NUMBER": "",
+        "ETHNICITY": "",
+        "LANGUAGE": "",
+        "MARITAL_STATUS": "",
+        "PATIENT_ACCOUNT_NUMBER": "",
+        "PATIENT_ADDRESS": "",
+        "PATIENT_CLASS": "",
+        "PATIENT_ID": "^^^^MR",
+        "PATIENT_NAME": "^MOHAMMED F HUSSEINI",
+        "PATIENT_TYPE": "",
+        "PHONE_NUMBER": "",
+        "PLACE_OF_BIRTH": "",
+        "RACE": "",
+        "RELIGION": "",
+        "SEGMENT": "PID",
+        "SET_ID": "1",
+        "SEX": "Male",
+        "SSN_NUMBER": ""
+      },
+      {
+        "ADMISSION_TYPE": "",
+        "ADMITTING_DATE_TIME": "",
+        "ADMITTING_DIAGNOSIS": "",
+        "ADMITTING_SOURCE": "",
+        "ASSIGNING_AUTHORITY": "",
+        "BED_STATUS": "",
+        "DISCHARGE_DATE_TIME": "",
+        "DISCHARGE_DISPOSITION": "",
+        "DISCHARGE_LOCATION": "",
+        "INPATIENT_ID": "",
+        "OUTPATIENT_ID": "",
+        "PATIENT_CLASS": "",
+        "PRIMARY_DIAGNOSIS": "",
+        "SEGMENT": "PV1",
+        "SET_ID": "1",
+        "VISIT_NUMBER": ""
+      },
+      {
+        "COLLECTION_VOLUME": "",
+        "COLLECTOR_IDENTIFIER": "",
+        "FILLER_ORDER_NUMBER": "118621",
+        "OBSERVATION_DATE_TIME": "20250804220539",
+        "OBSERVATION_END_DATE_TIME": "",
+        "ORDERING_PROVIDER": "",
+        "PLACER_ORDER_NUMBER": "",
+        "PRIORITY": "",
+        "RELEVANT_CLINICAL_INFO": "",
+        "REQUESTED_DATE_TIME": "",
+        "SEGMENT": "OBR",
+        "SET_ID": "1",
+        "SPECIMEN_ACTION_CODE": "",
+        "SPECIMEN_RECEIVED_DATE_TIME": "",
+        "SPECIMEN_SOURCE": "",
+        "UNIVERSAL_SERVICE_ID": "00001^Automated Count^99MRC"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "08001^Take Mode^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "O",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "1",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "08002^Blood Mode^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "W",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "2",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "01002^Ref Group^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "Child",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "3",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "30525-0^Age^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "5",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "4",
+        "UNITS": "yr",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "6690-2^WBC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "10.1",
+        "REFERENCE_RANGE": "4.0-12.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "5",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "731-0^LYM#^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "2.4",
+        "REFERENCE_RANGE": "0.8-7.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "6",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "736-9^LYM%^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "23.9",
+        "REFERENCE_RANGE": "20.0-60.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "7",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "789-8^RBC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "2.65",
+        "REFERENCE_RANGE": "3.50-5.20",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "8",
+        "UNITS": "10*12/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "718-7^HGB^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.1",
+        "REFERENCE_RANGE": "12.0-16.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "9",
+        "UNITS": "g/dL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "787-2^MCV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "67.8",
+        "REFERENCE_RANGE": "80.0-100.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "10",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "785-6^MCH^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "23.1",
+        "REFERENCE_RANGE": "27.0-34.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "11",
+        "UNITS": "pg",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "786-4^MCHC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "340",
+        "REFERENCE_RANGE": "310-370",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "12",
+        "UNITS": "g/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "788-0^RDW-CV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "16.4",
+        "REFERENCE_RANGE": "11.0-16.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "13",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "21000-5^RDW-SD^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "35.4",
+        "REFERENCE_RANGE": "35.0-56.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "14",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "4544-3^HCT^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "18.0",
+        "REFERENCE_RANGE": "35.0-49.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "15",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "777-3^PLT^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "551",
+        "REFERENCE_RANGE": "100-300",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "16",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "32623-1^MPV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.3",
+        "REFERENCE_RANGE": "6.5-12.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "17",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "32207-3^PDW^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "14.5",
+        "REFERENCE_RANGE": "15.0-17.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "18",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10002^PCT^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "0.348",
+        "REFERENCE_RANGE": "0.108-0.282",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "19",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10027^MID#^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1.3",
+        "REFERENCE_RANGE": "0.1-1.5",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "20",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10029^MID%^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "13.0",
+        "REFERENCE_RANGE": "3.0-15.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "21",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10028^GRAN#^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.4",
+        "REFERENCE_RANGE": "2.0-8.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "22",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10030^GRAN%^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "63.1",
+        "REFERENCE_RANGE": "50.0-70.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "23",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10014^PLCR^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.2",
+        "REFERENCE_RANGE": "11.0-45.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "24",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12013^RBC Abnormal distribution^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "25",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15199-3^Microcytes^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "26",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12014^Anemia^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "27",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12045^Multiple alerts^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "28",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12047^Lym mid region alert^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "29",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12048^Mid gran region alert^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "30",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12051^Micro plt over aboundce^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "31",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15004^WBC Histogram. Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "32",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15009^WBC Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "33",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15010^WBC Lym left line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "10",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "34",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15011^WBC Lym Mid line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "40",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "35",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15012^WBC Mid Gran line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "50",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "36",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15013^WBC Gran right line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "110",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "37",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15000^WBC Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^AAAAAAIIFStJaoeYmo9/cWhma3WDkqO2yNnn8fj8/fr0697QwK6biHZlV0k9MyoiGxURDQoIBgUEAwICAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "38",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15051^RBC Histogram. Left Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "22",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "39",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15052^RBC Histogram. Right Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "107",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "40",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15053^RBC Histogram. Binary Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "41",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15057^RBC Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "42",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15050^RBC Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^AAAAAAAAAQIDBgkOFiAvQlhyj6zH3u/4+PDhzLOYfmZRPzAlHBYRDQsIBwYFBQQEBAQEAwMDAgICAgEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "43",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15111^PLT Histogram. Left Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "44",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15112^PLT Histogram. Right Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "122",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "45",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15113^PLT Histogram. Binary Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "46",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15117^PLT Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "47",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15100^PLT Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^FhocKTZFVGV1h5eouMjX5e/2+/369vDp4NbLwLSonJGFe3BnXVVNRj45NDArKCUiIB4cGhgXFBMSERAPDg4NDQwMCwsKCgoKCgoKCgoLCwsMDQ0NDg4PDxARERITFBQWFhgZGhsdHiAhIyQnKCstMDM2Oj1BRUhNUVZbYWZrcXc=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "48",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "SEGMENT": ""
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:41.576Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:52.582Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:55.873Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:48:58.867Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:01.901Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:04.869Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:07.901Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:10.921Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:13.928Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:16.896Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:19.901Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:22.883Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:25.886Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:28.912Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:31.908Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:34.910Z",
+    "data": [
+      {
+        "SEGMENT": "\u0002"
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:40.757Z",
+    "data": [
+      {
+        "DATE_TIME_OF_MESSAGE": "20250805083750",
+        "FIELD_SEPARATOR": "MSH",
+        "MESSAGE_CONTROL_ID": "155",
+        "MESSAGE_TYPE": "ORU^R01",
+        "PROCESSING_ID": "P",
+        "RECEIVING_APPLICATION": "",
+        "RECEIVING_FACILITY": "",
+        "SECURITY": "",
+        "SEGMENT": "MSH",
+        "SENDING_APPLICATION": "",
+        "SENDING_FACILITY": "",
+        "VERSION_ID": "2.3.1"
+      },
+      {
+        "DATE_OF_BIRTH": "",
+        "DATE_OF_DEATH": "",
+        "DRIVERS_LICENSE_NUMBER": "",
+        "ETHNICITY": "",
+        "LANGUAGE": "",
+        "MARITAL_STATUS": "",
+        "PATIENT_ACCOUNT_NUMBER": "",
+        "PATIENT_ADDRESS": "",
+        "PATIENT_CLASS": "",
+        "PATIENT_ID": "^^^^MR",
+        "PATIENT_NAME": "^MOHAMMED F HUSSEINI",
+        "PATIENT_TYPE": "",
+        "PHONE_NUMBER": "",
+        "PLACE_OF_BIRTH": "",
+        "RACE": "",
+        "RELIGION": "",
+        "SEGMENT": "PID",
+        "SET_ID": "1",
+        "SEX": "Male",
+        "SSN_NUMBER": ""
+      },
+      {
+        "ADMISSION_TYPE": "",
+        "ADMITTING_DATE_TIME": "",
+        "ADMITTING_DIAGNOSIS": "",
+        "ADMITTING_SOURCE": "",
+        "ASSIGNING_AUTHORITY": "",
+        "BED_STATUS": "",
+        "DISCHARGE_DATE_TIME": "",
+        "DISCHARGE_DISPOSITION": "",
+        "DISCHARGE_LOCATION": "",
+        "INPATIENT_ID": "",
+        "OUTPATIENT_ID": "",
+        "PATIENT_CLASS": "",
+        "PRIMARY_DIAGNOSIS": "",
+        "SEGMENT": "PV1",
+        "SET_ID": "1",
+        "VISIT_NUMBER": ""
+      },
+      {
+        "COLLECTION_VOLUME": "",
+        "COLLECTOR_IDENTIFIER": "",
+        "FILLER_ORDER_NUMBER": "118621",
+        "OBSERVATION_DATE_TIME": "20250804220539",
+        "OBSERVATION_END_DATE_TIME": "",
+        "ORDERING_PROVIDER": "",
+        "PLACER_ORDER_NUMBER": "",
+        "PRIORITY": "",
+        "RELEVANT_CLINICAL_INFO": "",
+        "REQUESTED_DATE_TIME": "",
+        "SEGMENT": "OBR",
+        "SET_ID": "1",
+        "SPECIMEN_ACTION_CODE": "",
+        "SPECIMEN_RECEIVED_DATE_TIME": "",
+        "SPECIMEN_SOURCE": "",
+        "UNIVERSAL_SERVICE_ID": "00001^Automated Count^99MRC"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "08001^Take Mode^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "O",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "1",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "08002^Blood Mode^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "W",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "2",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "01002^Ref Group^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "Child",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "3",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "30525-0^Age^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "5",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "4",
+        "UNITS": "yr",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "6690-2^WBC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "10.1",
+        "REFERENCE_RANGE": "4.0-12.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "5",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "731-0^LYM#^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "2.4",
+        "REFERENCE_RANGE": "0.8-7.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "6",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "736-9^LYM%^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "23.9",
+        "REFERENCE_RANGE": "20.0-60.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "7",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "789-8^RBC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "2.65",
+        "REFERENCE_RANGE": "3.50-5.20",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "8",
+        "UNITS": "10*12/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "718-7^HGB^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.1",
+        "REFERENCE_RANGE": "12.0-16.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "9",
+        "UNITS": "g/dL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "787-2^MCV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "67.8",
+        "REFERENCE_RANGE": "80.0-100.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "10",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "785-6^MCH^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "23.1",
+        "REFERENCE_RANGE": "27.0-34.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "11",
+        "UNITS": "pg",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "786-4^MCHC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "340",
+        "REFERENCE_RANGE": "310-370",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "12",
+        "UNITS": "g/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "788-0^RDW-CV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "16.4",
+        "REFERENCE_RANGE": "11.0-16.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "13",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "21000-5^RDW-SD^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "35.4",
+        "REFERENCE_RANGE": "35.0-56.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "14",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "4544-3^HCT^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "18.0",
+        "REFERENCE_RANGE": "35.0-49.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "15",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "777-3^PLT^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "551",
+        "REFERENCE_RANGE": "100-300",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "16",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "32623-1^MPV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.3",
+        "REFERENCE_RANGE": "6.5-12.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "17",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "32207-3^PDW^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "14.5",
+        "REFERENCE_RANGE": "15.0-17.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "18",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10002^PCT^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "0.348",
+        "REFERENCE_RANGE": "0.108-0.282",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "19",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10027^MID#^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1.3",
+        "REFERENCE_RANGE": "0.1-1.5",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "20",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10029^MID%^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "13.0",
+        "REFERENCE_RANGE": "3.0-15.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "21",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10028^GRAN#^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.4",
+        "REFERENCE_RANGE": "2.0-8.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "22",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10030^GRAN%^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "63.1",
+        "REFERENCE_RANGE": "50.0-70.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "23",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10014^PLCR^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.2",
+        "REFERENCE_RANGE": "11.0-45.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "24",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12013^RBC Abnormal distribution^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "25",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15199-3^Microcytes^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "26",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12014^Anemia^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "27",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12045^Multiple alerts^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "28",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12047^Lym mid region alert^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "29",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12048^Mid gran region alert^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "30",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12051^Micro plt over aboundce^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "31",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15004^WBC Histogram. Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "32",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15009^WBC Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "33",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15010^WBC Lym left line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "10",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "34",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15011^WBC Lym Mid line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "40",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "35",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15012^WBC Mid Gran line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "50",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "36",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15013^WBC Gran right line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "110",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "37",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15000^WBC Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^AAAAAAIIFStJaoeYmo9/cWhma3WDkqO2yNnn8fj8/fr0697QwK6biHZlV0k9MyoiGxURDQoIBgUEAwICAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "38",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15051^RBC Histogram. Left Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "22",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "39",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15052^RBC Histogram. Right Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "107",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "40",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15053^RBC Histogram. Binary Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "41",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15057^RBC Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "42",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15050^RBC Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^AAAAAAAAAQIDBgkOFiAvQlhyj6zH3u/4+PDhzLOYfmZRPzAlHBYRDQsIBwYFBQQEBAQEAwMDAgICAgEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "43",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15111^PLT Histogram. Left Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "44",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15112^PLT Histogram. Right Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "122",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "45",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15113^PLT Histogram. Binary Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "46",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15117^PLT Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "47",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15100^PLT Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^FhocKTZFVGV1h5eouMjX5e/2+/369vDp4NbLwLSonJGFe3BnXVVNRj45NDArKCUiIB4cGhgXFBMSERAPDg4NDQwMCwsKCgoKCgoKCgoLCwsMDQ0NDg4PDxARERITFBQWFhgZGhsdHiAhIyQnKCstMDM2Oj1BRUhNUVZbYWZrcXc=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "48",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "SEGMENT": ""
+      }
+    ]
+  },
+  {
+    "timestamp": "2025-08-05T08:49:51.705Z",
+    "data": [
+      {
+        "DATE_TIME_OF_MESSAGE": "20250805083801",
+        "FIELD_SEPARATOR": "MSH",
+        "MESSAGE_CONTROL_ID": "156",
+        "MESSAGE_TYPE": "ORU^R01",
+        "PROCESSING_ID": "P",
+        "RECEIVING_APPLICATION": "",
+        "RECEIVING_FACILITY": "",
+        "SECURITY": "",
+        "SEGMENT": "MSH",
+        "SENDING_APPLICATION": "",
+        "SENDING_FACILITY": "",
+        "VERSION_ID": "2.3.1"
+      },
+      {
+        "DATE_OF_BIRTH": "",
+        "DATE_OF_DEATH": "",
+        "DRIVERS_LICENSE_NUMBER": "",
+        "ETHNICITY": "",
+        "LANGUAGE": "",
+        "MARITAL_STATUS": "",
+        "PATIENT_ACCOUNT_NUMBER": "",
+        "PATIENT_ADDRESS": "",
+        "PATIENT_CLASS": "",
+        "PATIENT_ID": "^^^^MR",
+        "PATIENT_NAME": "^MOHAMMED F HUSSEINI",
+        "PATIENT_TYPE": "",
+        "PHONE_NUMBER": "",
+        "PLACE_OF_BIRTH": "",
+        "RACE": "",
+        "RELIGION": "",
+        "SEGMENT": "PID",
+        "SET_ID": "1",
+        "SEX": "Male",
+        "SSN_NUMBER": ""
+      },
+      {
+        "ADMISSION_TYPE": "",
+        "ADMITTING_DATE_TIME": "",
+        "ADMITTING_DIAGNOSIS": "",
+        "ADMITTING_SOURCE": "",
+        "ASSIGNING_AUTHORITY": "",
+        "BED_STATUS": "",
+        "DISCHARGE_DATE_TIME": "",
+        "DISCHARGE_DISPOSITION": "",
+        "DISCHARGE_LOCATION": "",
+        "INPATIENT_ID": "",
+        "OUTPATIENT_ID": "",
+        "PATIENT_CLASS": "",
+        "PRIMARY_DIAGNOSIS": "",
+        "SEGMENT": "PV1",
+        "SET_ID": "1",
+        "VISIT_NUMBER": ""
+      },
+      {
+        "COLLECTION_VOLUME": "",
+        "COLLECTOR_IDENTIFIER": "",
+        "FILLER_ORDER_NUMBER": "118621",
+        "OBSERVATION_DATE_TIME": "20250804220539",
+        "OBSERVATION_END_DATE_TIME": "",
+        "ORDERING_PROVIDER": "",
+        "PLACER_ORDER_NUMBER": "",
+        "PRIORITY": "",
+        "RELEVANT_CLINICAL_INFO": "",
+        "REQUESTED_DATE_TIME": "",
+        "SEGMENT": "OBR",
+        "SET_ID": "1",
+        "SPECIMEN_ACTION_CODE": "",
+        "SPECIMEN_RECEIVED_DATE_TIME": "",
+        "SPECIMEN_SOURCE": "",
+        "UNIVERSAL_SERVICE_ID": "00001^Automated Count^99MRC"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "08001^Take Mode^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "O",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "1",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "08002^Blood Mode^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "W",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "2",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "01002^Ref Group^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "Child",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "3",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "30525-0^Age^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "5",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "4",
+        "UNITS": "yr",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "6690-2^WBC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "10.1",
+        "REFERENCE_RANGE": "4.0-12.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "5",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "731-0^LYM#^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "2.4",
+        "REFERENCE_RANGE": "0.8-7.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "6",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "736-9^LYM%^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "23.9",
+        "REFERENCE_RANGE": "20.0-60.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "7",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "789-8^RBC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "2.65",
+        "REFERENCE_RANGE": "3.50-5.20",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "8",
+        "UNITS": "10*12/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "718-7^HGB^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.1",
+        "REFERENCE_RANGE": "12.0-16.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "9",
+        "UNITS": "g/dL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "787-2^MCV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "67.8",
+        "REFERENCE_RANGE": "80.0-100.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "10",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "785-6^MCH^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "23.1",
+        "REFERENCE_RANGE": "27.0-34.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "11",
+        "UNITS": "pg",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "786-4^MCHC^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "340",
+        "REFERENCE_RANGE": "310-370",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "12",
+        "UNITS": "g/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "788-0^RDW-CV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "16.4",
+        "REFERENCE_RANGE": "11.0-16.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "13",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "21000-5^RDW-SD^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "35.4",
+        "REFERENCE_RANGE": "35.0-56.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "14",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "4544-3^HCT^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "18.0",
+        "REFERENCE_RANGE": "35.0-49.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "15",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "777-3^PLT^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "551",
+        "REFERENCE_RANGE": "100-300",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "16",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "32623-1^MPV^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.3",
+        "REFERENCE_RANGE": "6.5-12.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "17",
+        "UNITS": "fL",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "32207-3^PDW^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "14.5",
+        "REFERENCE_RANGE": "15.0-17.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "18",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "H~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10002^PCT^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "0.348",
+        "REFERENCE_RANGE": "0.108-0.282",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "19",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10027^MID#^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1.3",
+        "REFERENCE_RANGE": "0.1-1.5",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "20",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10029^MID%^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "13.0",
+        "REFERENCE_RANGE": "3.0-15.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "21",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10028^GRAN#^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.4",
+        "REFERENCE_RANGE": "2.0-8.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "22",
+        "UNITS": "10*9/L",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "A",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10030^GRAN%^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "63.1",
+        "REFERENCE_RANGE": "50.0-70.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "23",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "L~N",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "10014^PLCR^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6.2",
+        "REFERENCE_RANGE": "11.0-45.0",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "24",
+        "UNITS": "%",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12013^RBC Abnormal distribution^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "25",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15199-3^Microcytes^LN",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "26",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12014^Anemia^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "27",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12045^Multiple alerts^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "28",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12047^Lym mid region alert^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "29",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12048^Mid gran region alert^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "30",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "12051^Micro plt over aboundce^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "T",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "31",
+        "UNITS": "",
+        "VALUE_TYPE": "IS"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15004^WBC Histogram. Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "32",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15009^WBC Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "33",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15010^WBC Lym left line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "10",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "34",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15011^WBC Lym Mid line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "40",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "35",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15012^WBC Mid Gran line.^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "50",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "36",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15013^WBC Gran right line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "110",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "37",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15000^WBC Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^AAAAAAIIFStJaoeYmo9/cWhma3WDkqO2yNnn8fj8/fr0697QwK6biHZlV0k9MyoiGxURDQoIBgUEAwICAQEBAQEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "38",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15051^RBC Histogram. Left Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "22",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "39",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15052^RBC Histogram. Right Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "107",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "40",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15053^RBC Histogram. Binary Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "41",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15057^RBC Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "42",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15050^RBC Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^AAAAAAAAAQIDBgkOFiAvQlhyj6zH3u/4+PDhzLOYfmZRPzAlHBYRDQsIBwYFBQQEBAQEAwMDAgICAgEBAQEBAQEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "43",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15111^PLT Histogram. Left Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "6",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "44",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15112^PLT Histogram. Right Line^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "122",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "45",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15113^PLT Histogram. Binary Meta Length^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "1",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "46",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15117^PLT Histogram. Total^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "128",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "47",
+        "UNITS": "",
+        "VALUE_TYPE": "NM"
+      },
+      {
+        "ABNORMAL_FLAGS": "",
+        "OBSERVATION_DATE_TIME": "",
+        "OBSERVATION_ID": "15100^PLT Histogram. Binary^99MRC",
+        "OBSERVATION_SUB_ID": "",
+        "OBSERVATION_VALUE": "^Application^Octer-stream^Base64^FhocKTZFVGV1h5eouMjX5e/2+/369vDp4NbLwLSonJGFe3BnXVVNRj45NDArKCUiIB4cGhgXFBMSERAPDg4NDQwMCwsKCgoKCgoKCgoLCwsMDQ0NDg4PDxARERITFBQWFhgZGhsdHiAhIyQnKCstMDM2Oj1BRUhNUVZbYWZrcXc=",
+        "REFERENCE_RANGE": "",
+        "RESULT_STATUS": "F",
+        "SEGMENT": "OBX",
+        "SET_ID": "48",
+        "UNITS": "",
+        "VALUE_TYPE": "ED"
+      },
+      {
+        "SEGMENT": ""
+      }
+    ]
+  }
+]

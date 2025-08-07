@@ -78,13 +78,70 @@ async function handleReceivedIntefacingData(req, res) {
         const tenantId = Number(req.query.tenantId) || 3;
         const repo = getRepo(tenantId);
         const { data, device, timestamp } = req.body;
-        const ascensionId = data[1]['PATIENT_ID'] || data[1]['PATIENT_ID'].toString();
+        console.log("Received interfacing data:", device, timestamp);
+        // Check if data contains only '\x02' segment and ignore it
+        if (data.length === 1 && data[0].SEGMENT === '\x02') {
+            return res.status(200).json({
+                status: "ignored",
+                message: "Data contains only control character segment, ignoring"
+            });
+        }
+        // filter obx segments with fallback for OBSERVATION_SUB_ID
+        const obxSegments = data.filter(seg => {
+            if (seg.SEGMENT !== 'OBX')
+                return false;
+            // Fallback: treat OBSERVATION_ID as OBSERVATION_SUB_ID if OBSERVATION_SUB_ID is empty
+            if (!seg.OBSERVATION_SUB_ID || seg.OBSERVATION_SUB_ID.trim() === "") {
+                seg.OBSERVATION_SUB_ID = seg.OBSERVATION_ID;
+            }
+            // If OBSERVATION_SUB_ID contains ^, pick the middle value
+            if (typeof seg.OBSERVATION_SUB_ID === 'string' && seg.OBSERVATION_SUB_ID.includes('^')) {
+                const parts = seg.OBSERVATION_SUB_ID.split('^');
+                if (parts.length >= 3) {
+                    seg.OBSERVATION_SUB_ID = parts[1]; // pick the middle value
+                }
+                else if (parts.length === 2) {
+                    seg.OBSERVATION_SUB_ID = parts[1]; // fallback to second value
+                } // else leave as is
+            }
+            return true;
+        });
+        const pidSegment = data.find(seg => seg.SEGMENT === 'PID');
+        // Extract patient ID and clean it to format: number-number (ascensionId-employeeId)
+        let rawPatientId = (pidSegment === null || pidSegment === void 0 ? void 0 : pidSegment.PATIENT_ID) || "";
+        console.log("Raw Patient ID:", rawPatientId);
+        // If PATIENT_ID contains ^, extract the first part that has the format we need
+        let cleanedPatientId = "";
+        if (typeof rawPatientId === 'string' && rawPatientId.includes('^')) {
+            const parts = rawPatientId.split('^');
+            for (const p of parts) {
+                // Remove all characters except numbers and hyphen
+                const cleaned = p.replace(/[^0-9-]/g, "");
+                if (cleaned.includes('-') && cleaned.match(/^\d+-\d+$/)) {
+                    cleanedPatientId = cleaned;
+                    break;
+                }
+            }
+        }
+        else {
+            // Remove all characters except numbers and hyphen
+            cleanedPatientId = rawPatientId.replace(/[^0-9-]/g, "");
+        }
+        console.log("Cleaned Patient ID:", cleanedPatientId);
+        // Validate format is number-number
+        if (!cleanedPatientId.match(/^\d+-\d+$/)) {
+            return res.status(400).json({ error: "Invalid patient ID format. Expected format: number-number" });
+        }
+        // Extract ascension ID (first number before hyphen) for lookup
+        const ascensionId = cleanedPatientId.split('-')[0];
+        const employeeid = Number(cleanedPatientId.split('-')[1]);
         const providedTestIdx = device.testid;
+        console.log(providedTestIdx, ascensionId, employeeid);
         if (!providedTestIdx || !Array.isArray(providedTestIdx) || providedTestIdx.length === 0)
             return res.status(400).json({ error: "Provided test index is required" });
         if (!ascensionId)
             return res.status(400).json({ error: "Ascension ID is required" });
-        const ascensionInformation = await ascension_1.TestAscension.findAscension(tenantId, ascensionId);
+        const ascensionInformation = await ascension_1.TestAscension.findAscension(tenantId, Number(ascensionId));
         if (!ascensionInformation)
             return res.status(404).json({ error: "Ascension information not found" });
         const knownTestId = ascensionInformation.testid;
@@ -104,7 +161,6 @@ async function handleReceivedIntefacingData(req, res) {
         // Extract OBX values for mapped analytes and merge with testCreationRules
         let obxResults = [];
         if (deviceInterfaceMapping && typeof deviceInterfaceMapping === 'object') {
-            const obxSegments = data.filter(seg => seg.SEGMENT === 'OBX');
             for (const [deviceCode, analyte] of Object.entries(deviceInterfaceMapping)) {
                 const matchingObx = obxSegments.filter(seg => seg.OBSERVATION_SUB_ID === analyte);
                 for (const obx of matchingObx) {
@@ -126,7 +182,6 @@ async function handleReceivedIntefacingData(req, res) {
         const comments = '';
         const csvid = `Qzb6uPyN0T0qRx8UE2NIjsusvUSxD4Hnc5iWR9DGFuBRg7YxeCO3fnSrw59LTptnNNPq3t${billingid}`;
         const drugs = [];
-        const employeeid = 3;
         const patientInfo = await new TiifuWorkingClass_1.TiifuWorkingClass('billing').findOne(tenantId, 'billingid', billingid);
         if (!patientInfo)
             return res.status(404).json({ error: "Patient ID not found for the provided billing ID" });
@@ -143,6 +198,7 @@ async function handleReceivedIntefacingData(req, res) {
         });
     }
     catch (err) {
+        console.log("Error processing interfacing data:", err);
         res.status(500).json({ error: err.message });
     }
 }

@@ -60,19 +60,23 @@ export default class LoggingCriticalValueAlertRepository {
      async findAllPaginated(
           page: number = 1,
           pageSize: number = 20,
+          sortby: 'ASC' | 'DESC' = 'DESC',
           filters?: { testid?: number; ascensionid?: number; billingid?: number }
      ): Promise<{ data: LoggingCriticalValueAlert[]; total: number; page: number; pageSize: number }> {
           try {
                const conn = await this.connection;
                let baseQuery = conn(this.tableName)
                     .innerJoin('test_panels', `${this.tableName}.testid`, 'test_panels.id')
-                    .select(`${this.tableName}.*`, 'test_panels.name as testname'); 
+                    .select(`${this.tableName}.*`, 'test_panels.name as testname');
 
                if (filters) {
                     if (filters.testid !== undefined) baseQuery = baseQuery.where('testid', filters.testid);
                     if (filters.ascensionid !== undefined) baseQuery = baseQuery.where('ascensionid', filters.ascensionid);
                     if (filters.billingid !== undefined) baseQuery = baseQuery.where('billingid', filters.billingid);
                }
+               // Add sorting by created date
+               baseQuery = baseQuery.orderBy(`${this.tableName}.createdOn`, sortby);
+
                const totalResultRaw = await baseQuery.clone().count('* as count').first();
                const total = totalResultRaw ? Number((totalResultRaw as any).count) : 0;
                const data = await baseQuery

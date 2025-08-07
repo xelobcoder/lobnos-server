@@ -115,7 +115,7 @@ class Registration {
         return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_patient_update_emmergency_information, values));
     }
     async getCustomersRecords(tenantId, data) {
-        const { count = 10, mobile, page = 1, fullname, email, patientid, from, to } = data;
+        const { count = 10, mobile, page = 1, fullname, email, patientid, from, to, sortby = 'DESC' } = data;
         var query = queries_1.q_filter_patients;
         if (patientid) {
             const is_valid_ptid = await Registration.checkPatientIdExist(tenantId, patientid);
@@ -155,7 +155,7 @@ class Registration {
         const offset = (page - 1) * count;
         values.push(parseInt(count.toString()));
         values.push(offset);
-        query += ` ORDER BY patientid DESC LIMIT ? OFFSET ? `;
+        query += sortby ? ` ORDER BY patientid ${sortby} LIMIT ? OFFSET ? ` : ` ORDER BY patientid DESC LIMIT ? OFFSET ? `;
         try {
             let result = await (0, helper_1.promisifyQuery)(tenantId, query, values);
             return result;

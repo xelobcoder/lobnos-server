@@ -1,3 +1,4 @@
+import { PhoneCallsTrackersController } from "./PhoneCallsTrackersController";
 import {
   MonthAppointmentsController,
   getPatientAppointmentHistoryController,
@@ -9,7 +10,12 @@ import {
   getAllAppointmentsController,
 } from "./controllerAppointment";
 
+
+
 const router = require("express").Router();
+
+
+
 
 
 
@@ -22,5 +28,12 @@ router.get("/api/v1/appointments/practioner/slots", loadPractionerAvailableSlots
 router.get("/api/v1/appointments/:id", getAppointmentDetailsController);
 router.put("/api/v1/appointments/:id", updateAppointmentController);
 router.delete("/api/v1/appointments/:id", deleteAppointmentController);
+// Phone call log routes
+router.post("/api/v1/appointment/reminder/phonecall", PhoneCallsTrackersController.createPhoneCallLog);
+router.get("/api/v1/appointments/reminder/phonecalls/:id", PhoneCallsTrackersController.getPhoneCallLog);
+router.put("/api/v1/appointments/reminder/phonecalls/:id", PhoneCallsTrackersController.updatePhoneCallLog);
+router.get("/api/v1/appointments/reminder/phonecalls", PhoneCallsTrackersController.listPhoneCallLogs);
+router.get("/api/v1/appointments/phonecalls/paginated", PhoneCallsTrackersController.listPhoneCallLogsWithPagination);
+router.get("/api/v1/appointments/reminder/appointment/phonecalls/:appointment_refid", PhoneCallsTrackersController.getPhoneCallLogsByAppointmentRef);
 
 export default router;

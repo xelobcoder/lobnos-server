@@ -44,7 +44,7 @@ export class TrackValuesAlertClass extends Creator {
 
 
 		const decrtyptedRecordedValues = Array.isArray(recordValues) && recordValues.length > 0 ?
-		 await resultEncrptionReferer(recordValues,"decryption") : {resources: []}
+			await resultEncrptionReferer(recordValues, "decryption") : { resources: [] }
 
 		const recordValuesWithConstraints = Array.isArray(decrtyptedRecordedValues.resources)
 			? decrtyptedRecordedValues.resources
@@ -55,10 +55,10 @@ export class TrackValuesAlertClass extends Creator {
 				.filter(record => record !== null)
 			: [];
 
-		
+
 		return {
-			...alert,
-			...patientInfo[0],
+			alert,
+			patientInfo: patientInfo[0],
 			recordValues: recordValuesWithConstraints
 		};
 	}

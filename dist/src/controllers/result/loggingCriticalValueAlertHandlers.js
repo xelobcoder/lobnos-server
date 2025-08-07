@@ -28,8 +28,9 @@ const getPaginatedLoggingCriticalValueAlerts = async (req, res) => {
         const tenantId = Number(req.query.tenantId);
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.count) || 10;
+        const sortby = req.query.sortby === 'ASC' ? 'ASC' : 'DESC';
         const repo = new loggingCriticalValueAlertRepository_1.default(tenantId);
-        const alerts = await repo.findAllPaginated(page, limit);
+        const alerts = await repo.findAllPaginated(page, limit, sortby);
         res.json(alerts);
     }
     catch (error) {
@@ -81,12 +82,13 @@ const getLoggingCriticalValueAlertsPaginated = async (req, res) => {
         const repo = new loggingCriticalValueAlertRepository_1.default(tenantId);
         const page = req.query.page ? Number(req.query.page) : 1;
         const pageSize = req.query.pageSize ? Number(req.query.pageSize) : 20;
+        const sortby = req.query.sortby === 'ASC' ? 'ASC' : 'DESC';
         const filters = {
             testid: req.query.testid ? Number(req.query.testid) : undefined,
             ascensionid: req.query.ascensionid ? Number(req.query.ascensionid) : undefined,
             billingid: req.query.billingid ? Number(req.query.billingid) : undefined,
         };
-        const result = await repo.findAllPaginated(page, pageSize, filters);
+        const result = await repo.findAllPaginated(page, pageSize, sortby, filters);
         res.json(result);
     }
     catch (error) {

@@ -8,8 +8,9 @@ export async function getAllAppointmentsController(request: Request, response: R
 		const tenantId: number = parseInt(request.query.tenant as string, 10);
 		const page = request.query.page ? parseInt(request.query.page as string, 10) : 1;
 		const count = request.query.count ? parseInt(request.query.count as string, 10) : 10;
+		const sortby = request.query.sortby as 'ASC' | 'DESC' || 'DESC';
 		const employeeId = request.query.employeeid ? parseInt(request.query.employeeid as string, 10) : 0;
-		const result = await new Appointment(employeeId).getAllAppointments(tenantId, page, count);
+		const result = await new Appointment(employeeId).getAllAppointments(tenantId, page, count, sortby);
 		response.send(result);
 	} catch (err) {
 		responseError(response, err);
@@ -63,15 +64,33 @@ export async function updateAppointmentController(request: Request, response: Re
 			location: z.string().max(50).optional(),
 			notes: z.string().max(500).nullable().optional(),
 		}).strict();
-		const parseResult = updateSchema.safeParse(cleanPayload);
-		console.log("Parsed Result:", parseResult);
+
+		const unParsedCleanPayload = {
+			patientid:cleanPayload.patientid,
+			duration: cleanPayload.duration,
+			status: cleanPayload.status,
+			appointment_time: cleanPayload.appointment_time,
+			appointment_date: cleanPayload.appointment_date,
+			inviteMethod: cleanPayload.inviteMethod,
+			purpose: cleanPayload.purpose,
+			title: cleanPayload.title,
+			preference: cleanPayload.preference,
+			practioner: cleanPayload.practionerid,
+			location: cleanPayload.location,
+			notes: cleanPayload.notes,
+		};
+
+		const parseResult = updateSchema.safeParse(unParsedCleanPayload);
 		if (!parseResult.success) {
 			console.error("Zod validation error:", parseResult.error);
 			return customError("Invalid appointment update fields", 400, response);
 		}
-		const updated = await new Appointment(0).updateAppointment(tenantId, appointmentId, cleanPayload);
+
+		
+		const updated = await new Appointment(0).updateAppointment(tenantId, appointmentId, unParsedCleanPayload);
 		response.send({ success: updated });
 	} catch (err) {
+		console.log("Error updating appointment:", err);
 		responseError(response, err);
 	}
 }

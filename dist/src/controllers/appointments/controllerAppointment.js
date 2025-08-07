@@ -23,8 +23,9 @@ async function getAllAppointmentsController(request, response) {
         const tenantId = parseInt(request.query.tenant, 10);
         const page = request.query.page ? parseInt(request.query.page, 10) : 1;
         const count = request.query.count ? parseInt(request.query.count, 10) : 10;
+        const sortby = request.query.sortby || 'DESC';
         const employeeId = request.query.employeeid ? parseInt(request.query.employeeid, 10) : 0;
-        const result = await new appointments_1.default(employeeId).getAllAppointments(tenantId, page, count);
+        const result = await new appointments_1.default(employeeId).getAllAppointments(tenantId, page, count, sortby);
         response.send(result);
     }
     catch (err) {
@@ -81,16 +82,30 @@ async function updateAppointmentController(request, response) {
             location: zod_1.z.string().max(50).optional(),
             notes: zod_1.z.string().max(500).nullable().optional(),
         }).strict();
-        const parseResult = updateSchema.safeParse(cleanPayload);
-        console.log("Parsed Result:", parseResult);
+        const unParsedCleanPayload = {
+            patientid: cleanPayload.patientid,
+            duration: cleanPayload.duration,
+            status: cleanPayload.status,
+            appointment_time: cleanPayload.appointment_time,
+            appointment_date: cleanPayload.appointment_date,
+            inviteMethod: cleanPayload.inviteMethod,
+            purpose: cleanPayload.purpose,
+            title: cleanPayload.title,
+            preference: cleanPayload.preference,
+            practioner: cleanPayload.practionerid,
+            location: cleanPayload.location,
+            notes: cleanPayload.notes,
+        };
+        const parseResult = updateSchema.safeParse(unParsedCleanPayload);
         if (!parseResult.success) {
             console.error("Zod validation error:", parseResult.error);
             return (0, helper_1.customError)("Invalid appointment update fields", 400, response);
         }
-        const updated = await new appointments_1.default(0).updateAppointment(tenantId, appointmentId, cleanPayload);
+        const updated = await new appointments_1.default(0).updateAppointment(tenantId, appointmentId, unParsedCleanPayload);
         response.send({ success: updated });
     }
     catch (err) {
+        console.log("Error updating appointment:", err);
         (0, helper_1.responseError)(response, err);
     }
 }
