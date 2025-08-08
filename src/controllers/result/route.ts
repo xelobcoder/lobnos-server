@@ -22,6 +22,7 @@ import {
        getAllLoggingCriticalValueAlerts
 } from './loggingCriticalValueAlertHandlers';
 import { handleOverLoad } from "../../hooks/helper";
+import { TestResultsAuditLogsController } from "./testResultsAuditLogsController";
 
 const router = express.Router();
 
@@ -78,3 +79,14 @@ router.post('/api/v1/result/criticalvalues/logging', createLoggingCriticalValueA
 router.get('/api/v1/result/criticalvalues/logging', getAllLoggingCriticalValueAlerts);
 router.put('/api/v1/result/criticalvalues/logging/:id', updateLoggingCriticalValueAlert);
 router.delete('/api/v1/result/criticalvalues/logging/:id', deleteLoggingCriticalValueAlert);
+
+
+
+// results audit logs route
+
+
+router.post('/api/v1/result/auditlogs', TestResultsAuditLogsController.create);
+router.get('/api/v1/result/auditlogs/paginated', TestResultsAuditLogsController.listPaginated);
+router.get('/api/v1/result/auditlogs/:id', handleOverLoad(TestResultsAuditLogsController.getById));
+router.get('/api/v1/result/auditlogs', TestResultsAuditLogsController.listAll);
+router.delete('/api/v1/result/auditlogs/:id', TestResultsAuditLogsController.delete);

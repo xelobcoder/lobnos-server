@@ -9,6 +9,7 @@ const resultanalysis_1 = require("./resultanalysis");
 const handlerAscensionBillingCheck_1 = require("../../middleware/redis/handlerAscensionBillingCheck");
 const loggingCriticalValueAlertHandlers_1 = require("./loggingCriticalValueAlertHandlers");
 const helper_1 = require("../../hooks/helper");
+const testResultsAuditLogsController_1 = require("./testResultsAuditLogsController");
 const router = express_1.default.Router();
 // router.get(`/api/v1/result/patientrend/single`, getPatientTestTrend);
 router.post("/api/v1/result/entry/customtest", resultHandlers_1.resultEntry);
@@ -39,3 +40,9 @@ router.post('/api/v1/result/criticalvalues/logging', loggingCriticalValueAlertHa
 router.get('/api/v1/result/criticalvalues/logging', loggingCriticalValueAlertHandlers_1.getAllLoggingCriticalValueAlerts);
 router.put('/api/v1/result/criticalvalues/logging/:id', loggingCriticalValueAlertHandlers_1.updateLoggingCriticalValueAlert);
 router.delete('/api/v1/result/criticalvalues/logging/:id', loggingCriticalValueAlertHandlers_1.deleteLoggingCriticalValueAlert);
+// results audit logs route
+router.post('/api/v1/result/auditlogs', testResultsAuditLogsController_1.TestResultsAuditLogsController.create);
+router.get('/api/v1/result/auditlogs/paginated', testResultsAuditLogsController_1.TestResultsAuditLogsController.listPaginated);
+router.get('/api/v1/result/auditlogs/:id', (0, helper_1.handleOverLoad)(testResultsAuditLogsController_1.TestResultsAuditLogsController.getById));
+router.get('/api/v1/result/auditlogs', testResultsAuditLogsController_1.TestResultsAuditLogsController.listAll);
+router.delete('/api/v1/result/auditlogs/:id', testResultsAuditLogsController_1.TestResultsAuditLogsController.delete);

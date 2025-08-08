@@ -22,6 +22,7 @@ import {
 import Registration from "../registration/registration";
 import { OperationsFailures } from "../operations/types";
 import { TestAscension } from "../operations/ascension";
+import { v4 as uuidv4 } from 'uuid';
 import { NewRegistration } from "../registration/types";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import { CreationRule, resultEntryTemplateView, previewReportView, resultEntryType } from "./creator.d.type";
@@ -175,7 +176,7 @@ export default class Creator {
 
 			const testdetailcategory = await TestDetailCategory.getByTestId(tenantId, testid);
 
-			return { testname, result: previousRecords, hasDrugs, testInfo ,testdetailcategory}
+			return { testname, result: previousRecords, hasDrugs, testInfo, testdetailcategory }
 		} catch (err) {
 			throw err;
 		}
@@ -184,7 +185,7 @@ export default class Creator {
 	async resultPresentationView(tenantId: number, testid: number, billingid: number, patientid: number): Promise<previewReportView | [] | string> {
 		const resultDataset = await this.getCustomPreviousRecords(tenantId, testid, billingid, patientid);
 		if (typeof resultDataset == "string") return resultDataset
-		const { result, hasDrugs, testname,testInfo,testdetailcategory } = resultDataset
+		const { result, hasDrugs, testname, testInfo, testdetailcategory } = resultDataset
 
 		if (result && Array.isArray(result) && result.length > 0) {
 			let resultOmissionMaleFemale = result.map((item: CreationRule, index: number) => {
@@ -281,21 +282,22 @@ export default class Creator {
 
 		const insertUpdate = async function (tenantId: number, fields: any[], testid: number) {
 			const { resources } = await resultEncrptionReferer(fields);
+			const editSessionId = uuidv4();
 			const insertAll = await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;
 					const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
 					if (isCreateRecord) {
-						const values = [item.field, billingid, patientid, item.value, employeeid, item?.entrymode || "manual", originalvalue, item.fieldid, testid, ascensionid];
+						const values = [item.field, billingid, patientid, item.value, employeeid, item?.entrymode || "manual", originalvalue, item.fieldid, testid, ascensionid, editSessionId];
 						if (isScan) await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
-						const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid) 
-						VALUES(?,?,?,?,?,?,?,?,?,?)`;
+						const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id) 
+						VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(await promisifyQuery(tenantId, query, values));
 					} else {
-						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? WHERE ascensionid = ? AND fieldid = ?`;
+						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ?`;
 
-						const result = await promisifyQuery(tenantId, updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, ascensionid, item.fieldid, testid]);
+						const result = await promisifyQuery(tenantId, updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(result);
 					}

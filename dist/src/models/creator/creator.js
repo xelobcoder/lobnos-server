@@ -19,6 +19,7 @@ const testpanelList_1 = require("../../testpanel/testpanelList");
 const queries_1 = require("./queries");
 const registration_1 = __importDefault(require("../registration/registration"));
 const ascension_1 = require("../operations/ascension");
+const uuid_1 = require("uuid");
 const helper_1 = require("../../hooks/helper");
 const resultEncryptionReferer_1 = __importDefault(require("./resultEncryptionReferer"));
 const TestCreationRulesRepository_1 = __importDefault(require("../TestCreation/TestCreationRulesRepository"));
@@ -246,21 +247,22 @@ class Creator {
         };
         const insertUpdate = async function (tenantId, fields, testid) {
             const { resources } = await (0, resultEncryptionReferer_1.default)(fields);
+            const editSessionId = (0, uuid_1.v4)();
             const insertAll = await Promise.all(resources.map(async (item, index) => {
                 const originalvalue = item.originalvalue;
                 const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
                 if (isCreateRecord) {
-                    const values = [item.field, billingid, patientid, item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.fieldid, testid, ascensionid];
+                    const values = [item.field, billingid, patientid, item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.fieldid, testid, ascensionid, editSessionId];
                     if (isScan)
                         await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
-                    const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid) 
-						VALUES(?,?,?,?,?,?,?,?,?,?)`;
+                    const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id) 
+						VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
                     await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
                     return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
                 }
                 else {
-                    const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? WHERE ascensionid = ? AND fieldid = ?`;
-                    const result = await (0, helper_1.promisifyQuery)(tenantId, updateRecords, [item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.field, ascensionid, item.fieldid, testid]);
+                    const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ?`;
+                    const result = await (0, helper_1.promisifyQuery)(tenantId, updateRecords, [item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
                     await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
                     return (0, helper_1.rowAffected)(result);
                 }
