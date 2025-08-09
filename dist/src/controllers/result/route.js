@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const ResultPrintingTrackingController_1 = require("./ResultPrintingTrackingController");
 const express_1 = __importDefault(require("express"));
 const resultHandlers_1 = require("./resultHandlers");
 const resultanalysis_1 = require("./resultanalysis");
@@ -10,6 +11,7 @@ const handlerAscensionBillingCheck_1 = require("../../middleware/redis/handlerAs
 const loggingCriticalValueAlertHandlers_1 = require("./loggingCriticalValueAlertHandlers");
 const helper_1 = require("../../hooks/helper");
 const testResultsAuditLogsController_1 = require("./testResultsAuditLogsController");
+const testTrendsHandler_1 = require("../creator/testTrendsHandler");
 const router = express_1.default.Router();
 // router.get(`/api/v1/result/patientrend/single`, getPatientTestTrend);
 router.post("/api/v1/result/entry/customtest", resultHandlers_1.resultEntry);
@@ -46,3 +48,11 @@ router.get('/api/v1/result/auditlogs/paginated', testResultsAuditLogsController_
 router.get('/api/v1/result/auditlogs/:id', (0, helper_1.handleOverLoad)(testResultsAuditLogsController_1.TestResultsAuditLogsController.getById));
 router.get('/api/v1/result/auditlogs', testResultsAuditLogsController_1.TestResultsAuditLogsController.listAll);
 router.delete('/api/v1/result/auditlogs/:id', testResultsAuditLogsController_1.TestResultsAuditLogsController.delete);
+// result printing or viewing tracking
+// result printing or viewing tracking
+router.post('/api/v1/result/printingtracking', ResultPrintingTrackingController_1.ResultPrintingTrackingController.create);
+router.get('/api/v1/result/printingtracking/ascension/:ascensionid', ResultPrintingTrackingController_1.ResultPrintingTrackingController.getByAscensionId);
+router.get('/api/v1/result/printingtracking', ResultPrintingTrackingController_1.ResultPrintingTrackingController.listAll);
+router.delete('/api/v1/result/printingtracking/:id', ResultPrintingTrackingController_1.ResultPrintingTrackingController.delete);
+// result trends
+router.get("/api/v1/result/trends", (0, helper_1.handleOverLoad)(testTrendsHandler_1.getTestTrendsHandler));

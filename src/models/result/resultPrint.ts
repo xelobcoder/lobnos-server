@@ -1,6 +1,5 @@
 import logger from "../../hooks/logger";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
-import { testpanel } from "../../testpanel/testpanelList";
 import ResultSettings from "../application/appsettings/resultSettings";
 import { TestApprovalClass } from "../operations/testApprovalClass";
 import { OperationsFailures, validatorsFinalFormatType } from "../operations/types";
@@ -308,7 +307,7 @@ class ResultPrint implements IResultPrint {
 	 * @param resultArray The array of result data to decrypt
 	 * @returns The decrypted result array
 	 */
-	public static  async decryptResultArray(resultArray: any): Promise<any> {
+	public static async decryptResultArray(resultArray: any): Promise<any> {
 		if (resultArray && Array.isArray(resultArray) && resultArray.length > 0) {
 			const decryptedResult = await resultEncrptionReferer(resultArray as any, "decryption");
 			if (decryptedResult.resources && Array.isArray(decryptedResult.resources) && decryptedResult.resources.length > 0) {
@@ -343,9 +342,7 @@ class ResultPrint implements IResultPrint {
 
 					if (isApproved) {
 						const result = await promisifyQuery(tenantId, transactionApprovedMini, [ascensionId]);
-
 						if (Array.isArray(result) && result.length > 0) {
-
 							ApprovedAscensionIds.push(result[0]);
 						}
 					}

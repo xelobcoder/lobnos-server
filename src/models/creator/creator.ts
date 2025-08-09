@@ -406,7 +406,6 @@ export default class Creator {
 					await promisifyQuery(tenantId, q_update_ultrasound_template, [field, value, keyid, field]);
 				} else {
 					await promisifyQuery(tenantId, q_insert_ultrasound_template, [keyid, field, value]);
-
 				}
 			}
 		}

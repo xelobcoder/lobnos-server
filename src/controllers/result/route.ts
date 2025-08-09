@@ -1,3 +1,6 @@
+import { ResultPrintingTrackingController } from "./ResultPrintingTrackingController";
+
+
 import express from "express"
 import {
        resultEntry,
@@ -23,6 +26,7 @@ import {
 } from './loggingCriticalValueAlertHandlers';
 import { handleOverLoad } from "../../hooks/helper";
 import { TestResultsAuditLogsController } from "./testResultsAuditLogsController";
+import { getTestTrendsHandler } from "../creator/testTrendsHandler";
 
 const router = express.Router();
 
@@ -90,3 +94,17 @@ router.get('/api/v1/result/auditlogs/paginated', TestResultsAuditLogsController.
 router.get('/api/v1/result/auditlogs/:id', handleOverLoad(TestResultsAuditLogsController.getById));
 router.get('/api/v1/result/auditlogs', TestResultsAuditLogsController.listAll);
 router.delete('/api/v1/result/auditlogs/:id', TestResultsAuditLogsController.delete);
+
+
+// result printing or viewing tracking
+// result printing or viewing tracking
+router.post('/api/v1/result/printingtracking', ResultPrintingTrackingController.create);
+router.get('/api/v1/result/printingtracking/ascension/:ascensionid', ResultPrintingTrackingController.getByAscensionId);
+router.get('/api/v1/result/printingtracking', ResultPrintingTrackingController.listAll);
+router.delete('/api/v1/result/printingtracking/:id', ResultPrintingTrackingController.delete);
+
+
+// result trends
+router.get("/api/v1/result/trends", handleOverLoad(getTestTrendsHandler));
+
+
