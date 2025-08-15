@@ -13,7 +13,7 @@ const helper_1 = require("../../../hooks/helper");
 const AddCompanyInfoHandler = async (request, response) => {
     try {
         const { name, motto, email, phonenumber } = request.body;
-        const tenantId = parseInt(request.headers.tenantId.toString());
+        const tenantId = parseInt(request.query.tenantId.toString());
         const hasNecessaryRequestBodyParams = name && motto && email && phonenumber;
         if (!hasNecessaryRequestBodyParams)
             return (0, helper_1.customError)("The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */ + ". Necessary request body params not included", 400, response);
@@ -22,6 +22,7 @@ const AddCompanyInfoHandler = async (request, response) => {
         return response.send({ status: "success" });
     }
     catch (err) {
+        console.log(err);
         return (0, helper_1.responseError)(response);
     }
 };

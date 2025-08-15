@@ -49,6 +49,7 @@ export const updateBasicInfo = async (req: Request, res: Response) => {
 		const body = req.body as UserRequest['body'];
 		const tenantId = parseInt(req.query.tenantId as string);
 		const response = await updateUserBasicInfo(body, tenantId, isUser);
+		console.log(response,'RR')
 		res.send({status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made"});
 	} catch (error) {
 		logger.error(error);

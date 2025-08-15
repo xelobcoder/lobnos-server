@@ -185,18 +185,20 @@ const getAUser = async (req, res) => {
 exports.getAUser = getAUser;
 const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
     const { employeeid, name, email, role, branch, pin, cpassword, password, dob, altMobile, mobile, alternativeMobile } = body;
+    const roleRepo = new RolesRepository_1.default(tenantId);
     if (isUser && !cpassword)
         throw new Error("current password is required");
     if (isUser && password) {
-        const currentEmployee = await new RolesRepository_1.default(tenantId).getRoleById(parseInt(employeeid));
+        const currentEmployee = await roleRepo.getRoleById(parseInt(employeeid));
         const currentPaswordHash = currentEmployee === null || currentEmployee === void 0 ? void 0 : currentEmployee.password;
         if (!currentPaswordHash)
             throw new Error("current password not found");
-        const isSame = await new RolesRepository_1.default(tenantId).isPasswordSame(cpassword, currentPaswordHash);
+        const isSame = await roleRepo.isPasswordSame(cpassword, currentPaswordHash);
         if (!isSame)
             throw new Error("current password is not same");
     }
     const knex = await (0, KnexConnections_1.default)(tenantId);
+    const passwordHash = await roleRepo.hashPassword(password);
     try {
         return await knex('roles')
             .where('employeeid', employeeid)
@@ -207,6 +209,7 @@ const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
             alternativeMobile: altMobile || alternativeMobile || null,
             role: role,
             branch: parseInt(branch),
+            password: passwordHash,
             pin: pin ? parseInt(pin.toString()) : null,
             dob: dob || null,
         });

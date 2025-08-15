@@ -10,13 +10,14 @@ import { customError, responseError } from "../../../hooks/helper";
 export const AddCompanyInfoHandler = async (request: Request, response: Response) => {
 	try {
 		const { name, motto, email, phonenumber } = request.body;
-		const tenantId = parseInt(request.headers.tenantId.toString());
+		const tenantId = parseInt(request.query.tenantId.toString());
 		const hasNecessaryRequestBodyParams = name && motto && email && phonenumber;
 		if (!hasNecessaryRequestBodyParams) return customError(OperationsFailures.invalidRequestBodyType + ". Necessary request body params not included", 400, response);
 		await truncateCompanyProfile(tenantId);
 		await insertCompanyProfile(tenantId, request.body);
 		return response.send({ status: "success" });
 	} catch (err) {
+		console.log(err)
 		return responseError(response);
 	}
 };

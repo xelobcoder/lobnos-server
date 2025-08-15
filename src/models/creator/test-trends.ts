@@ -52,7 +52,6 @@ export async function getTestTrends(
           ORDER BY tr.created_on DESC, tr.ascensionid DESC
      `;
 
-     console.log("resultsSql", resultsSql);
      const resultsRaw = await knex.raw(resultsSql, [patientid, testid]);
      const rows = Array.isArray(resultsRaw) && Array.isArray(resultsRaw[0]) ? resultsRaw[0] : resultsRaw;
      return rows.map((row: any) => ({

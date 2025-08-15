@@ -15,7 +15,7 @@ const router: Router = express.Router();
 const authController = new AuthController();
 router.post('/api/v1/prime/login', (req, res) => authController.login(req, res));
 router.get('/api/v1/prime/validate-token', checkTokenExists, (req, res) => authController.validateToken(req, res));
-router.get('/api/v1/prime/validate-user-pin',  (req, res) => authController.validateUserPinProvided(req as unknown as any, res));
+router.get('/api/v1/prime/validate-user-pin', (req, res) => authController.validateUserPinProvided(req as unknown as any, res));
 
 
 

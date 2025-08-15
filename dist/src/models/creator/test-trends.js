@@ -42,7 +42,6 @@ async function getTestTrends(tenantId, patientid, testid, trendNumber = 10, limi
             AND tr.testid = ?
           ORDER BY tr.created_on DESC, tr.ascensionid DESC
      `;
-    console.log("resultsSql", resultsSql);
     const resultsRaw = await knex.raw(resultsSql, [patientid, testid]);
     const rows = Array.isArray(resultsRaw) && Array.isArray(resultsRaw[0]) ? resultsRaw[0] : resultsRaw;
     return rows.map((row) => (Object.assign(Object.assign({}, row), { value: row.value ? (0, encryptionModels_1.decrypt_value)(row.value) : row.value })));

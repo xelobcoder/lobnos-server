@@ -22,12 +22,10 @@ class AuthController {
     }
     async login(req, res) {
         try {
-            console.log('Login request received:', req.body);
             const tenantId = this.getTenantId(req);
             this.authRepo = new AuthenticationRepository_1.default(tenantId);
             const { email, password } = req.body;
             const tokens = await this.authRepo.login(email, password);
-            console.log('Attempting login for user:', email, password);
             if (!tokens) {
                 const message = 'Invalid email or password';
                 res.status(401).json({ status: false, error: message });
@@ -43,27 +41,90 @@ class AuthController {
         }
     }
     async validateToken(req, res) {
-        const cookies = (0, validateTenancy_1.parseCookies)(req.headers['cookie']);
-        const tenantId = this.getTenantId(req);
-        const token = cookies['pls-prime-tenant-session'];
-        if (!token)
-            return res.status(401).json({ message: 'Token not provided' });
-        const isValid = await this.tokenValidator.validateAccessToken(token);
-        if (!isValid)
-            return res.status(401).json({ message: 'Invalid token' });
-        console.log('Token is valid', isValid);
+        try {
+            const cookies = (0, validateTenancy_1.parseCookies)(req.headers['cookie']);
+            const token = cookies['pls-prime-tenant-session'];
+            const tenantId = this.getTenantId(req);
+            if (!token)
+                return res.status(401).json({ message: 'Token not provided', status: false });
+            const isValid = await this.tokenValidator.validateAccessToken(token);
+            if (!isValid)
+                return res.status(401).json({ message: 'Invalid token', status: false });
+            const { expired } = isValid;
+            if (expired)
+                return res.status(401).json({ message: 'Token has expired', status: false });
+            const response = await new TokenValidator_1.default().decodeAccessToken(token);
+            const { email } = response;
+            if (!email)
+                return res.status(401).json({ message: 'Invalid token', status: false });
+            const user = await new RolesRepository_1.default(tenantId).getRoleByEmail(email);
+            const { role, username, employeeid } = user;
+            return res.status(200).json({
+                message: 'Token is valid', status: true, user: {
+                    loginDuration: 6,
+                    daysToExpiration: 200,
+                    maximumUsers: 3,
+                    customization: {
+                        decimalPlaces: 3,
+                        headerColor: '#3bb75e', // default healthcare green
+                        headerGradient: 'linear-gradient(90deg, #3bb75e 0%, #0ba4db 100%)',
+                        sidebarColor: '#3ab75e', // Updated to preferred healthcare green
+                        sidebarGradient: '#3bb75e',
+                        sidebarNavGradient: '#3bb75e',
+                        sidebarNavBorder: '1px solid #eaf6fc',
+                        backgroundColor: '#f9fbfc', // Soft healthcare background
+                        backgroundGradient: 'linear-gradient(135deg, #f9fbfc 0%, #f1fef4 60%, #eaf8ee 100%)', // Professional healthcare gradient
+                        contentCardColor: '#ffffff',
+                        contentCardBorder: '#eaf6fc',
+                        contentCardShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                        textColor: '#011b33',
+                        textSecondary: '#3bb75e',
+                        textSidebar: '#ffffff',
+                        textSidebarActive: '#0ba4db',
+                        textSidebarIcon: '#eaf6fc',
+                        accentColor: '#3bb75e',
+                        accentColorHover: '#3ab75e',
+                        theme: "light",
+                    },
+                    result: {
+                        resultLockAfter24Hours: 1,
+                        isPinOnResultEntry: 1,
+                        isPinOnResultViewAfter24Hours: 1,
+                        maximumResultValidation: 4,
+                        minimumResultValidation: 1,
+                        staffQualifiedToValidationResult: [],
+                        showPastTestResult: 0,
+                        allowScientistViewAudit: 1,
+                        showTaTAnalysis: 0,
+                        encryptResultAfter24Hours: 1,
+                        staffToDecryptResult: [],
+                        sendLoginEmailNotificationAfterResultEdit: 0,
+                        monitorForCriticalValues: 1,
+                        notifyClientOnResultReady: 1,
+                        notificationType: 'Email'
+                    }, user: {
+                        role, employeeid, username, email
+                    },
+                    company: 'VITALSCAN LABORATORY AND DIAGNOSTIC CENTRE',
+                    branchid: 32,
+                    tenantId: 3,
+                }
+            });
+        }
+        catch (err) {
+            console.log(err);
+            res.status(400).json({ message: err.message });
+        }
     }
     async validateUserPinProvided(req, res) {
         try {
             const { employeeid, pin, tenantId } = req.query;
-            if (!employeeid || !pin) {
+            if (!employeeid || !pin)
                 return (0, helper_1.customError)('employeeid and pin are required', 400, res);
-            }
             const pEmployeeid = parseInt(employeeid.toString());
             const pPin = parseInt(pin.toString());
-            if (isNaN(pEmployeeid) || isNaN(pPin)) {
+            if (isNaN(pEmployeeid) || isNaN(pPin))
                 return (0, helper_1.customError)('employeeid and pin must be numbers', 400, res);
-            }
             const rolesRepo = await new RolesRepository_1.default(tenantId).validatePin(pEmployeeid, pPin);
             if (rolesRepo) {
                 res.status(200).json({ status: true, message: 'Pin is valid' });

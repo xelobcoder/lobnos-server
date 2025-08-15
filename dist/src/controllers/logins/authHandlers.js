@@ -51,6 +51,7 @@ const updateBasicInfo = async (req, res) => {
         const body = req.body;
         const tenantId = parseInt(req.query.tenantId);
         const response = await (0, createAccount_1.updateUserBasicInfo)(body, tenantId, isUser);
+        console.log(response, 'RR');
         res.send({ status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made" });
     }
     catch (error) {
