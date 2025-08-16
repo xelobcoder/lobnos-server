@@ -105,6 +105,7 @@ app.use(medicalInterfacingDevicesRoute_1.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
-app.listen(port, async (err) => {
-    console.log(`Server is running on port http://localhost:${port}`);
+const host = process.env.apphost || 'localhost';
+app.listen(Number(port), host, () => {
+    console.log(`Server is running on http://${host}:${port}`);
 });

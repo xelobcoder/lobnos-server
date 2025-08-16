@@ -40,7 +40,10 @@ const getCompanyInfoHandler = async (request, response) => {
 exports.getCompanyInfoHandler = getCompanyInfoHandler;
 const getCompanyImageHandler = async (request, response) => {
     try {
-        const folderPath = path_1.default.join(__dirname, "../../../../../", "asserts", "company");
+        const folderPath = path_1.default.resolve(process.cwd(), "dist", "asserts", "company");
+        if (!fs_1.default.existsSync(folderPath)) {
+            fs_1.default.mkdirSync(folderPath, { recursive: true });
+        }
         const files = fs_1.default.readdirSync(folderPath);
         const imageFile = files.find((file) => [".jpg", ".jpeg", ".png", ".gif"].includes(path_1.default.extname(file).toLowerCase()));
         if (imageFile) {
@@ -61,11 +64,20 @@ const getCompanyImageHandler = async (request, response) => {
 };
 exports.getCompanyImageHandler = getCompanyImageHandler;
 const handleUploadCompanyImage = async (request, response) => {
-    const destinationDir = "../../../asserts/company";
+    const destinationDir = path_1.default.resolve(process.cwd(), 'dist', 'asserts', 'company');
+    if (!fs_1.default.existsSync(destinationDir)) {
+        fs_1.default.mkdirSync(destinationDir, { recursive: true });
+    }
     const field = "file";
     try {
+        // Remove existing images before uploading new one
+        const files = fs_1.default.readdirSync(destinationDir);
+        files.forEach(file => {
+            if ([".jpg", ".jpeg", ".png", ".gif"].includes(path_1.default.extname(file).toLowerCase())) {
+                fs_1.default.unlinkSync(path_1.default.join(destinationDir, file));
+            }
+        });
         const uploadResult = await (0, imageUpload_1.uploadImageFile)(request, response, destinationDir, field);
-        console.log(uploadResult);
         if (uploadResult) {
             response.status(200).json({
                 status: "success",

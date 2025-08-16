@@ -5,7 +5,9 @@ import { Request, Response } from "express";
 const configureMulterStorage = (destinationDir: string) => {
 	return multer.diskStorage({
 		destination: (req, file, cb) => {
-			const folderPath = path.join(__dirname, "..", destinationDir);
+			const folderPath = path.isAbsolute(destinationDir)
+				? destinationDir
+				: path.join(__dirname, "..", destinationDir);
 			cb(null, folderPath);
 		},
 		filename: (req, file, cb) => {

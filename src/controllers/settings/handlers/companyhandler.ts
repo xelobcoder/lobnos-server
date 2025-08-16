@@ -34,7 +34,10 @@ export const getCompanyInfoHandler = async (request: Request, response: Response
 
 export const getCompanyImageHandler = async (request: Request, response: Response): Promise<void> => {
 	try {
-		const folderPath = path.join(__dirname, "../../../../../", "asserts", "company");
+		const folderPath = path.resolve(process.cwd(), "dist", "asserts", "company");
+		if (!fs.existsSync(folderPath)) {
+			fs.mkdirSync(folderPath, { recursive: true });
+		}
 		const files = fs.readdirSync(folderPath);
 		const imageFile = files.find((file) => [".jpg", ".jpeg", ".png", ".gif"].includes(path.extname(file).toLowerCase()));
 
@@ -56,12 +59,21 @@ export const getCompanyImageHandler = async (request: Request, response: Respons
 
 
 export const handleUploadCompanyImage = async (request: Request, response: Response): Promise<void> => {
-	const destinationDir = "../../../asserts/company";
-
+	const destinationDir = path.resolve(process.cwd(), 'dist', 'asserts', 'company');
+	if (!fs.existsSync(destinationDir)) {
+		fs.mkdirSync(destinationDir, { recursive: true });
+	}
 	const field = "file";
 	try {
+		// Remove existing images before uploading new one
+		const files = fs.readdirSync(destinationDir);
+		files.forEach(file => {
+			if ([".jpg", ".jpeg", ".png", ".gif"].includes(path.extname(file).toLowerCase())) {
+				fs.unlinkSync(path.join(destinationDir, file));
+			}
+		});
+
 		const uploadResult = await uploadImageFile(request, response, destinationDir, field);
-		console.log(uploadResult)
 
 		if (uploadResult) {
 			response.status(200).json({
@@ -75,7 +87,7 @@ export const handleUploadCompanyImage = async (request: Request, response: Respo
 			});
 		}
 	} catch (error) {
-		console.log(error)
+		console.log(error);
 		response.status(500).json({
 			status: "error",
 			message: "Failed to upload image",

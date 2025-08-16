@@ -9,6 +9,8 @@ const TokenValidator_1 = __importDefault(require("../../models/settings/users/To
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
 const helper_1 = require("../../hooks/helper");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
+const companyProfile_1 = require("../../models/settings/companyProfile");
+const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 class AuthController {
     constructor() {
         this.tokenValidator = new TokenValidator_1.default();
@@ -58,7 +60,14 @@ class AuthController {
             if (!email)
                 return res.status(401).json({ message: 'Invalid token', status: false });
             const user = await new RolesRepository_1.default(tenantId).getRoleByEmail(email);
-            const { role, username, employeeid } = user;
+            const { role, username, employeeid, branch } = user;
+            const companyInfo = await (0, companyProfile_1.getAllCompanyProfiles)(tenantId);
+            if (!companyInfo)
+                return res.status(404).json({ message: 'Company information not found', status: false });
+            const { name: company } = companyInfo;
+            const resultsettings = await resultSettings_1.default.getResultEntrySettings(tenantId);
+            if (!resultsettings)
+                return res.status(404).json({ message: 'Result settings not found', status: false });
             return res.status(200).json({
                 message: 'Token is valid', status: true, user: {
                     loginDuration: 6,
@@ -86,27 +95,12 @@ class AuthController {
                         accentColorHover: '#3ab75e',
                         theme: "light",
                     },
-                    result: {
-                        resultLockAfter24Hours: 1,
-                        isPinOnResultEntry: 1,
-                        isPinOnResultViewAfter24Hours: 1,
-                        maximumResultValidation: 4,
-                        minimumResultValidation: 1,
-                        staffQualifiedToValidationResult: [],
-                        showPastTestResult: 0,
-                        allowScientistViewAudit: 1,
-                        showTaTAnalysis: 0,
-                        encryptResultAfter24Hours: 1,
-                        staffToDecryptResult: [],
-                        sendLoginEmailNotificationAfterResultEdit: 0,
-                        monitorForCriticalValues: 1,
-                        notifyClientOnResultReady: 1,
-                        notificationType: 'Email'
-                    }, user: {
+                    result: resultsettings,
+                    user: {
                         role, employeeid, username, email
                     },
-                    company: 'VITALSCAN LABORATORY AND DIAGNOSTIC CENTRE',
-                    branchid: 32,
+                    company: company,
+                    branchid: branch,
                     tenantId: 3,
                 }
             });

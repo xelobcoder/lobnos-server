@@ -9,7 +9,9 @@ const path_1 = __importDefault(require("path"));
 const configureMulterStorage = (destinationDir) => {
     return multer_1.default.diskStorage({
         destination: (req, file, cb) => {
-            const folderPath = path_1.default.join(__dirname, "..", destinationDir);
+            const folderPath = path_1.default.isAbsolute(destinationDir)
+                ? destinationDir
+                : path_1.default.join(__dirname, "..", destinationDir);
             cb(null, folderPath);
         },
         filename: (req, file, cb) => {

@@ -114,8 +114,9 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 
+const host = process.env.apphost || 'localhost';
 
-app.listen(port, async (err?: Error) => {
-	console.log(`Server is running on port http://localhost:${port}`);
+app.listen(Number(port), host, () => {
+	console.log(`Server is running on http://${host}:${port}`);
 });
 
