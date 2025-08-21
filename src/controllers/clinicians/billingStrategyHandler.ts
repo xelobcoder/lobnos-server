@@ -4,7 +4,7 @@ import BillingStrategy from "../../models/clincians/billingstrategy";
 import { ReferralCoding, ReferralCodingRepo } from "../../models/referral/repositories/ReferralCodingRepo";
 
 interface BillingStrategyRequestBody {
-    allConcessionApplied: boolean;
+    allconcessionApplied: boolean;
     concessionValue: number;
     concessionMode: 'absolute' | 'percentage';
     price_type?: 'discount' | 'surcharge';
@@ -22,7 +22,7 @@ export async function createBillingStrategy(
 ) {
     try {
         const {
-            allConcessionApplied,
+            allconcessionApplied,
             concessionMode,
             concessionValue,
             price_type,
@@ -31,22 +31,22 @@ export async function createBillingStrategy(
         } = req.body;
 
         if (
-            [true, false].includes(allConcessionApplied) === false ||
+            [true, false].includes(allconcessionApplied) === false ||
             !name ||
             name.length > 100
         ) {
             return res.status(400).json({
-                message: 'Please provide all required fields: allConcessionApplied, name (max 100 characters).',
+                message: 'Please provide all required fields: allconcessionApplied, name (max 100 characters).',
             });
         }
 
-        if (allConcessionApplied && (!concessionMode || !concessionValue || !price_type)) {
+        if (allconcessionApplied && (!concessionMode || !concessionValue || !price_type)) {
             return res.status(400).json({
                 message: 'Concession mode, concession value, and price type are required when all concessions are applied.',
             });
         }
 
-        if (allConcessionApplied && (concessionValue <= 0 || !concessionValue)) {
+        if (allconcessionApplied && (concessionValue <= 0 || !concessionValue)) {
             return res.status(400).json({
                 message: 'Concession value must be present and greater than zero.',
             });
@@ -59,7 +59,7 @@ export async function createBillingStrategy(
         if (typeof strategyId === 'string') {
             res.status(400).json({ status: false, message: strategyId });
         } else {
-            if (applicableTest && applicableTest.length > 0 && !allConcessionApplied) {
+            if (applicableTest && applicableTest.length > 0 && !allconcessionApplied) {
                 await strategyInstance.addApplicableTests(tenantId, strategyId, applicableTest);
             }
             res.status(201).json({ message: 'Billing strategy successfully created.', strategyId });
@@ -110,10 +110,10 @@ export async function updateBillingStrategy(
             res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
         } else {
             const strategyInstance = new BillingStrategy();
-            const { allConcessionApplied, ...rest } = req.body;
+            const { allconcessionApplied, ...rest } = req.body;
             const updateData = {
                 ...rest,
-                allConcessionApplied: allConcessionApplied ? 1 : 0
+                allconcessionApplied: allconcessionApplied ? 1 : 0
             };
             const result = await strategyInstance.updateBillingStrategy(tenantId, strategyId, updateData);
             if (!result) {
@@ -193,14 +193,15 @@ export async function deleteBillingStrategy(
             const strategyInstance = new BillingStrategy();
             const result = await strategyInstance.deleteBillingStrategy(tenantId, strategyId);
             if (!result) {
-                return res.status(404).json({ message: 'Billing strategy not found.' });
+                return res.status(404).json({ message: 'Billing strategy not found.', status: false });
             }
-            res.status(200).json({ message: 'Strategy deleted successfully' });
+            return res.status(200).json({ message: 'Strategy deleted successfully', status: true });
         }
     } catch (error: any) {
-        res.status(500).json({
+        return res.status(500).json({
             message: 'Error deleting billing strategy.',
-            error: error.message
+            error: error.message,
+            status: false
         });
     }
 }
@@ -386,7 +387,7 @@ export async function removeCategoryFromStrategy(
 
 
 export async function getAllBillingStrategiesMini(
-    req: Request<{}, {}, {}, { tenantId: string, page?: string; count?: string,sortby: 'ASC' | 'DESC' }>,
+    req: Request<{}, {}, {}, { tenantId: string, page?: string; count?: string, sortby: 'ASC' | 'DESC' }>,
     res: Response
 ) {
     try {

@@ -70,11 +70,11 @@ class BillingStrategy {
         const finalPrice = pricingType === 'discount' ? originalPrice - discountedValue : originalPrice + discountedValue;
         return Number((finalPrice < 0 ? (pricingType === 'discount' ? originalPrice : 0) : finalPrice).toFixed(2));
     }
-    async validateApplicableTest(tenantId, applicableTest, allConcessionApplied) {
-        if (!allConcessionApplied && !Array.isArray(applicableTest)) {
+    async validateApplicableTest(tenantId, applicableTest, allconcessionApplied) {
+        if (!allconcessionApplied && !Array.isArray(applicableTest)) {
             throw new TypeError("Expected 'applicableTest' to be an array.");
         }
-        if (!allConcessionApplied && applicableTest.length > 0) {
+        if (!allconcessionApplied && applicableTest.length > 0) {
             const connection = await (0, KnexConnections_1.default)(tenantId);
             const validTests = await connection('test_panels')
                 .select('id', 'price').whereIn('id', applicableTest.map(item => item.testid));
@@ -111,22 +111,16 @@ class BillingStrategy {
         return filtered.length > 0 ? filtered : null;
     }
     async sanitizeClinicianBillingData(tenantId, data) {
-        const { allConcessionApplied, concessionValue, concessionMode, price_type = 'discount', valid_from, valid_until, name, description, applicableTest } = data;
+        const { allconcessionApplied, concessionValue, concessionMode, price_type = 'discount', valid_from, valid_until, name, description, applicableTest } = data;
         if (!name || name.length > 100) {
             return 'Strategy name is required and must not exceed 100 characters.';
         }
         if (concessionValue < 0 || concessionValue > 9999.99) {
             return 'Concession value must be between 0 and 9999.99.';
         }
-        let validatedApplicableTest = null;
-        if (!allConcessionApplied && applicableTest && Array.isArray(applicableTest) && applicableTest.length > 0) {
-            validatedApplicableTest = await this.validateApplicableTest(tenantId, applicableTest, allConcessionApplied);
-            if (validatedApplicableTest === null) {
-                return 'No valid tests provided.';
-            }
-        }
+        let validatedApplicableTest;
         return {
-            allConcessionApplied: allConcessionApplied ? 1 : 0,
+            allconcessionApplied: allconcessionApplied ? 1 : 0,
             concessionValue,
             concessionMode,
             price_type,
@@ -153,7 +147,7 @@ class BillingStrategy {
                     .insert({
                     name: data.name,
                     description: data.description,
-                    allConcessionApplied: data.allConcessionApplied,
+                    allconcessionApplied: data.allconcessionApplied,
                     concessionValue: data.concessionValue,
                     concessionMode: data.concessionMode,
                     price_type: data.price_type,
@@ -166,7 +160,7 @@ class BillingStrategy {
                     .onConflict('name')
                     .merge({
                     description: data.description,
-                    allConcessionApplied: data.allConcessionApplied,
+                    allconcessionApplied: data.allconcessionApplied,
                     concessionValue: data.concessionValue,
                     concessionMode: data.concessionMode,
                     price_type: data.price_type,
@@ -179,7 +173,7 @@ class BillingStrategy {
                 if (!insertedStrategyId) {
                     throw new Error('Failed to insert or update billing strategy.');
                 }
-                if (data.allConcessionApplied === 0 && ((_a = data.applicableTest) === null || _a === void 0 ? void 0 : _a.length) > 0) {
+                if (data.allconcessionApplied === 0 && ((_a = data.applicableTest) === null || _a === void 0 ? void 0 : _a.length) > 0) {
                     // 1. Prepare data
                     const values = data.applicableTest.map(test => [
                         insertedStrategyId,
@@ -208,7 +202,7 @@ class BillingStrategy {
                         .del();
                 }
                 else {
-                    // If allConcessionApplied is 1, clear old tests
+                    // If allconcessionApplied is 1, clear old tests
                     await trx('billingstrategy_tests')
                         .where({ strategyid: insertedStrategyId })
                         .del();
@@ -228,8 +222,8 @@ class BillingStrategy {
             if (!strategy) {
                 throw new Error('Billing strategy not found.');
             }
-            if (strategy.allConcessionApplied === 1) {
-                throw new Error('Cannot add applicable tests to a strategy with allConcessionApplied enabled.');
+            if (strategy.allconcessionApplied === 1) {
+                throw new Error('Cannot add applicable tests to a strategy with allconcessionApplied enabled.');
             }
             const validatedApplicableTest = await this.validateApplicableTest(tenantId, applicableTest, false);
             if (validatedApplicableTest === null) {
@@ -442,10 +436,10 @@ class BillingStrategy {
             if (!strategyList.length && fallbackToDefault) {
                 return this.mapTestsWithDefaults(allTest);
             }
-            const { concessionMode, concessionValue, allConcessionApplied, applicableTest, price_type } = strategyList[0];
+            const { concessionMode, concessionValue, allconcessionApplied, applicableTest, price_type } = strategyList[0];
             const isTruthy = (val) => val === 1;
             // CASE 1: All concession applies
-            if (isTruthy(allConcessionApplied) && allTest.length) {
+            if (isTruthy(allconcessionApplied) && allTest.length) {
                 return allTest.map(({ price, name, testid, id }) => ({
                     discountedValue: this.calculateDiscountedValue(price, concessionMode, concessionValue, price_type),
                     price,
@@ -510,10 +504,10 @@ class BillingStrategy {
             const strategyList = await new BillingStrategy().getBillingStrategyByEntity(tenantId, entity_type, entity_id);
             if (strategyList.length === 0)
                 return [];
-            const { concessionMode, concessionValue, allConcessionApplied, applicableTest } = strategyList[0];
+            const { concessionMode, concessionValue, allconcessionApplied, applicableTest } = strategyList[0];
             const isTruthy = (value) => value === 1;
             const allTest = await new customTestEntry_1.CustomTest(null, null).loadTestWithDetails(tenantId);
-            if (isTruthy(allConcessionApplied) && allTest.length) {
+            if (isTruthy(allconcessionApplied) && allTest.length) {
                 const billingTestList = await Promise.all(allTest.map(async ({ price, name, testid, id }) => {
                     const discountedValue = new BillingStrategy().calculateDiscountedValue(price, concessionMode, concessionValue, strategyList[0].price_type);
                     return {
@@ -583,7 +577,7 @@ class BillingStrategy {
             if (!strategyData || strategyData.length === 0) {
                 throw new Error('Billing strategy not found.');
             }
-            const { applicableTest, concessionMode, concessionValue, allConcessionApplied } = strategyData[0];
+            const { applicableTest, concessionMode, concessionValue, allconcessionApplied } = strategyData[0];
             const connection = await (0, KnexConnections_1.default)(tenantId);
             const test = await connection('test_panels')
                 .select('id', 'price')
@@ -593,7 +587,7 @@ class BillingStrategy {
                 return null;
             }
             const { price } = test;
-            if (allConcessionApplied === 1) {
+            if (allconcessionApplied === 1) {
                 const discountedValue = this.calculateDiscountedValue(price, concessionMode, concessionValue, strategyData[0].price_type);
                 return { testid, price, discountedValue, actualPrice: price, originalPrice: price };
             }
@@ -651,7 +645,7 @@ class BillingStrategy {
         let concessionMode = strategy.concessionMode || "absolute";
         let concessionValue = (_a = strategy.concessionValue) !== null && _a !== void 0 ? _a : 0;
         let pricingType = strategy.price_type || "discount";
-        const isAllConcession = strategy.allConcessionApplied === 1;
+        const isAllConcession = strategy.allconcessionApplied === 1;
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const test = await connection('test_panels').where({ id: testId }).first();
         if (!test)

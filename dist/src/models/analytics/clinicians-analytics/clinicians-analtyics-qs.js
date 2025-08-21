@@ -81,7 +81,7 @@ SELECT
     YEAR(serviceAddedOn) AS year,
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
+    SUM(CASE WHEN (serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND clinicianId > 0)  THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
     SUM(totalpayable) AS clinicians_revenue_generated
 FROM dboservices
 WHERE YEAR(serviceAddedOn) = ? AND clinicianId IS NOT NULL
@@ -100,12 +100,13 @@ GROUP BY DATE(serviceAddedOn)
 ORDER BY DATE(serviceAddedOn);
 `;
 exports.q_can_dailyCaseChange = `
+
 WITH DailyCases AS (
     SELECT 
         DATE(serviceAddedOn) AS date,
-        COUNT(*) AS clinician_cases,
+        COUNT(CASE WHEN serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND clinicianId > 0 THEN 1 END) AS clinician_cases,
         SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
-        SUM(totalpayable) AS clinicians_revenue_generated
+        SUM(CASE WHEN serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND clinicianId > 0 THEN totalpayable ELSE 0 END) AS clinicians_revenue_generated
     FROM dboservices
     GROUP BY DATE(serviceAddedOn)
 ),
@@ -132,7 +133,7 @@ SELECT
     COALESCE(percentage_revenue_change, 0) AS percentage_revenue_change
 FROM DailyChange
 ORDER BY date
-LIMIT ? OFFSET ?
+
 
 `;
 exports.q_can_monthlyCaseChange = `

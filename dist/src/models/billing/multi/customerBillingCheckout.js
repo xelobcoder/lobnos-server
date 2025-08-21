@@ -38,9 +38,12 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             previousBilling = await this.previousBillingSummary(billingid);
             previousServices = await conn('dboservices').where('billingid', billingid).select();
         }
-        const totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
-        if (totalOutstanding > 0)
-            return { success: false, message: 'Outstanding debt found' };
+        let totalOutstanding = 0;
+        if (!ispricingcheckout) {
+            totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
+            if (totalOutstanding > 0)
+                return { success: false, message: 'Outstanding debt found' };
+        }
         const appsettings = await this.getAppSettings();
         const { includeTax, billingsettings } = appsettings || {};
         const taxation = appsettings ? await this.getAppBillSettings() : {};
@@ -92,10 +95,16 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             recalculatedCart,
             recalculatedServicesList
         });
-        const toFixed2 = (num) => Number(num.toFixed(2));
+        const toFixed2 = (num) => {
+            if (typeof num !== 'number' || isNaN(num))
+                return 0;
+            const fixed = Number(num.toFixed(2));
+            return isNaN(fixed) ? 0 : fixed;
+        };
         const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
         const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
         const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
+        console.log(recalculatedCart);
         const amountPayable = toFixed2(totalpayable);
         const outstanding = toFixed2(amountPayable - paid);
         const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
@@ -172,6 +181,9 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         }
         if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
             recalculatedCart = PrimeBillingEnterprise_1.PrimeBillingEnterprise.applyTaxToTests(recalculatedCart, taxation.taxValue);
+        }
+        else {
+            recalculatedCart = PrimeBillingEnterprise_1.PrimeBillingEnterprise.applyTaxToTests(recalculatedCart, 0);
         }
         recalculatedCart = PrimeBillingEnterprise_1.PrimeBillingEnterprise.addNightAdjustmentInfo(recalculatedCart, billingsettings);
         return recalculatedCart;

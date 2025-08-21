@@ -24,6 +24,7 @@ import {
 } from "./testpanelHandlers";
 import { testpanel } from "../../testpanel/testpanelList";
 import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, getFieldConstraintsByTestIdHandler, updateFieldConstraintHandler, deleteFieldConstraintHandler, deleteFieldConstraintsByFieldIdHandler } from "../testcreation/fieldConstraintsHandlers";
+import { handleOverLoad } from "../../hooks/helper";
 
 const router = express.Router();
 
@@ -34,8 +35,8 @@ router.post("/api/v1/testpanel/categories", postCategories);
 // Test Panel Routes
 router.get("/api/v1/testpanel/list", getTestPanelList);
 router.get("/api/v1/testpanel/list/bulk", getBulkTestPanelList);
-router.post("/api/v1/testpanel/list/createcustom", postCreateCustomTestPanel);
-router.put("/api/v1/testpanel/list/updateprocedureManual", putTestPanelUpdateProcedureManual);
+router.post("/api/v1/testpanel/list/createcustom",handleOverLoad( postCreateCustomTestPanel));
+router.put("/api/v1/testpanel/list/updateprocedureManual", handleOverLoad(putTestPanelUpdateProcedureManual));
 router.get("/api/v1/gettestpanel/edit", getTestPanelEdit);
 router.get("/api/v1/test/getProcedureManual", getProcedureManual);
 router.get("/api/v1/test/getLiteraturereview", getTestLiteratureReview);

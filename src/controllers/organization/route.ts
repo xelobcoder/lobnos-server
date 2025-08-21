@@ -3,7 +3,8 @@ import {
      createOrganizationOutSource, updateOrganizationOutSource, updateOrganizationOutSourceServices, getOrganizationOutSourceServices, getOrganizationOutSourceBasic, getOrganizationOutsourcingAll, checkIsServiceRenderedByOutsourceOrganization,
      getOutsourcedTestBasedStageHandler,
      updateToResolveOutsourcedHandler,
-     updateTestPanelOutsourcingInformation, getTestOutSourcingOrganizations
+     updateTestPanelOutsourcingInformation, getTestOutSourcingOrganizations,
+     getOutsourcedCasesPaginated
 } from "./outsourceHandlers"
 import { organizationImageUpload } from './uploadImages'
 import { bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler, dailyOrganizationCommission, deleteOrganization, generateMonthlySalesReport, getOrganizationCommissionByMonth, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationWithDetails, getTopPerformance, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
@@ -53,5 +54,8 @@ router.get('/api/v1/outsourcing/organization/testpanel/outsourceinfo', getTestOu
 router.get('/api/v1/outsourced/testpanel/:stage?', getOutsourcedTestBasedStageHandler)
 router.post("/api/v1/outsourced/testpanel/resolve", handleOverLoad(updateToResolveOutsourcedHandler))
 
+// routes for outsourced cases tracking
+
+router.get("/api/v1/outsourced/cases/tracking", getOutsourcedCasesPaginated);
 
 export default router

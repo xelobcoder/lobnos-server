@@ -37,7 +37,12 @@ class SalesSessionServices {
                          AND status != 'written-off'
                     AND (adjustmentType != 'void' OR adjustmentType IS NULL)
                     `, [session.sessiondate, currentDate]);
-        const expenseTransactions = await ExpenseService_1.default.getExpensesByCreatedOnRange(tenantId, session.sessiondate, currentDate);
+        let expenseTransactions = await ExpenseService_1.default.getExpensesByCreatedOnRange(tenantId, session.sessiondate, currentDate);
+        expenseTransactions = expenseTransactions.filter(e => {
+            if (e.approved === null || e.approved === undefined)
+                return false;
+            return parseInt(e.approved.toString()) === 1;
+        });
         let totalExpense = 0;
         if (expenseTransactions.length > 0) {
             totalExpense = expenseTransactions.reduce((acc, expense) => acc + Number(expense.amount), 0);

@@ -1,3 +1,6 @@
+import OutsourcedCases from '../../models/organization/outsourcingOrganization/outsourcedCases';
+
+
 import { Response, Request } from "express";
 import Outsourcing from "../../models/organization/outsourcingOrganization/outsourcing";
 import { customError, responseError } from "../../hooks/helper";
@@ -176,3 +179,16 @@ export const updateToResolveOutsourcedHandler = async function (request: Request
         responseError(response);
     }
 }
+
+export const getOutsourcedCasesPaginated = async (request: Request, response: Response) => {
+    try {
+        const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
+        const count = parseInt(request.query.count as string) || 20;
+        const page = parseInt(request.query.page as string) || 1;
+        const orderby = (request.query.orderby as 'ASC' | 'DESC') || 'DESC';
+        const result = await OutsourcedCases.getOutsourcedCases(tenantId, { count, page, orderby });
+        response.send({ status: 'success', data: result });
+    } catch (err) {
+        responseError(response);
+    }
+};

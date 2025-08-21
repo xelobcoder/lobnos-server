@@ -57,7 +57,7 @@ export const handleEndSalesSession = async function (request: Request, response:
                handingoveramount
           );
 
-          response.status(200).send({ status });
+          response.status(200).send({ status : status > 0 });
      } catch (err) {
           responseError(response, err?.message);
      }

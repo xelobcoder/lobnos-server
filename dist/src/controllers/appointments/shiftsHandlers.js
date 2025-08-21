@@ -20,7 +20,10 @@ exports.createShiftHandler = createShiftHandler;
 const getAllShiftsHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenant, 10);
-        const shifts = await shfitsServices_1.default.getAllShifts(tenantId);
+        const sortby = req.query.sortby === 'ASC' ? 'ASC' : 'DESC';
+        const page = req.query.page ? parseInt(req.query.page, 10) : undefined;
+        const count = req.query.count ? parseInt(req.query.count, 10) : undefined;
+        const shifts = await shfitsServices_1.default.getAllShifts(tenantId, { sortby, count, page });
         res.status(200).json(shifts);
     }
     catch (error) {

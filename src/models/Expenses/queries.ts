@@ -9,12 +9,19 @@ SELECT
     er.approved,
     er.date,
     er.createdon,
+    CASE WHEN er.isassociatedservice AND er.merchant IS NOT NULL THEN
+        CONCAT('Outsource - ', oo.name)
+    ELSE
+        em.name
+    END AS merchant_name,
     er.id,
     er.employeeid,
     er.amount
 FROM expensesrecord AS er 
-INNER JOIN roles AS r ON r.employeeid = er.employeeid`;
-
+INNER JOIN roles AS r ON r.employeeid = er.employeeid
+LEFT JOIN expense_merchants AS em ON em.id = er.merchant
+LEFT JOIN outsourcingorganization AS oo ON oo.outsourceid = er.merchant
+`;
 
 export const updateExpenseQuery = `
   UPDATE expensesrecord 

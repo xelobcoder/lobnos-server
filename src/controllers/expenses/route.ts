@@ -18,9 +18,12 @@ import {
   createExpenseMerchant,
   updateExpenseMerchant,
   getAllExpenseMerchants,
+  markOutsourceCasesAsExpense,
+  markCaseAsDone,
 
 } from "./expenseHandlers";
 import { handleOverLoad } from "../../hooks/helper";
+import OutsourcedCases from "../../models/organization/outsourcingOrganization/outsourcedCases";
 
 const router = express.Router();
 const RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts"
@@ -56,5 +59,11 @@ router.post("/api/v1/expense/pending/decision", updateExpenseDecision);
 router.post("/api/v1/expense/new/category", handleOverLoad(createExpenseCategory));
 router.put("/api/v1/expense/new/category", updateExpenseCategory);
 router.get("/api/v1/expense/get/category", getAllExpenseCategory);
+
+
+// expense outsource spending 
+
+router.post('/api/v1/outsourced/cases/mark-expense', handleOverLoad(markOutsourceCasesAsExpense));
+router.post('/api/v1/outsourced/cases/confirm-done', handleOverLoad(markCaseAsDone));
 
 export default router;

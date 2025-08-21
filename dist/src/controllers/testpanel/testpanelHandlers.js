@@ -33,14 +33,33 @@ exports.getBulkTestPanelList = getBulkTestPanelList;
 const postCreateCustomTestPanel = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId.toString());
-        const { name } = req.body;
+        let { name } = req.body;
         if (!name)
             return (0, helper_1.customError)("testname required", 404, res);
-        const isSuccess = await testpanelList_1.testpanel.createCustomTest(tenantId, name);
-        if (isSuccess === "EXIST") {
-            return (0, helper_1.customError)("test with same name is available", 404, res);
+        if (Array.isArray(name)) {
+            const results = [];
+            for (const testName of name) {
+                if (!testName) {
+                    results.push({ testName, status: "failed", reason: "Empty name" });
+                    continue;
+                }
+                const isSuccess = await testpanelList_1.testpanel.createCustomTest(tenantId, testName.name);
+                if (isSuccess === "EXIST") {
+                    results.push({ testName, status: "failed", reason: "test with same name is available" });
+                }
+                else {
+                    results.push({ testName, status: isSuccess ? "success" : "failed" });
+                }
+            }
+            return res.send({ results });
         }
-        res.send({ status: isSuccess ? "success" : "failed" });
+        else {
+            const isSuccess = await testpanelList_1.testpanel.createCustomTest(tenantId, name);
+            if (isSuccess === "EXIST") {
+                return (0, helper_1.customError)("test with same name is available", 404, res);
+            }
+            res.send({ status: isSuccess ? "success" : "failed" });
+        }
     }
     catch (err) {
         console.error(err);
@@ -51,14 +70,23 @@ exports.postCreateCustomTestPanel = postCreateCustomTestPanel;
 const putTestPanelUpdateProcedureManual = async (req, res) => {
     try {
         const { proceduremanual, employeeid, testid, title } = req.body;
+        const tenantId = parseInt(req.query.tenantId.toString());
         if (!proceduremanual || !employeeid || !testid) {
             return (0, helper_1.customError)("employeeid, testid and proceduremanual are required", 404, res);
         }
-        const tenantId = parseInt(req.query.tenantId.toString());
+        // testid exist 
+        const testExistInManualQuery = `SELECT * FROM proceduremanual WHERE testid = ?`;
+        const isExist = await (0, helper_1.promisifyQuery)(tenantId, testExistInManualQuery, [parseInt(testid, 10)]);
+        console.log(isExist);
+        if (Array.isArray(isExist) && isExist.length === 0) {
+            const insertProcedure = await (0, helper_1.promisifyQuery)(tenantId, `INSERT INTO proceduremanual  (testid, proceduremanual,  createdby,  title) VALUES(?,?,?,?)`, [parseInt(testid, 10), proceduremanual, parseInt(employeeid, 10), title]);
+            return res.send({ status: (0, helper_1.rowAffected)(insertProcedure) === true ? "success" : "failed" });
+        }
         const isUpdated = await testpanelList_1.testpanel.updateProcedureManual(tenantId, proceduremanual, parseInt(testid, 10), parseInt(employeeid, 10), title);
-        res.send({ status: isUpdated === true ? "success" : "failed" });
+        return res.send({ status: isUpdated ? "success" : "failed" });
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(res);
     }
 };

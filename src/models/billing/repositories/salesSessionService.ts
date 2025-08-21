@@ -6,7 +6,7 @@ import { SalesSessionRepo } from "./SalesSessionRepo";
 
 export default class SalesSessionServices {
      public static async getSessionFinancialSummary(tenantId: number, sessionId: number) {
-          const session : PrimeLimsTablesalessessionmanager | null = await new SalesSessionRepo(tenantId).findById(sessionId);
+          const session: PrimeLimsTablesalessessionmanager | null = await new SalesSessionRepo(tenantId).findById(sessionId);
           if (!session) return OperationsFailures.billingSessionNotFound;
           const isSessionEnded = session.sessionendedon !== null;
           if (isSessionEnded) return OperationsFailures.billingSessionAlreadyEnded
@@ -36,11 +36,16 @@ export default class SalesSessionServices {
                     AND (adjustmentType != 'void' OR adjustmentType IS NULL)
                     `, [session.sessiondate, currentDate]);
 
-          const expenseTransactions = await Expenses.getExpensesByCreatedOnRange(
+          let expenseTransactions = await Expenses.getExpensesByCreatedOnRange(
                tenantId,
                session.sessiondate,
                currentDate
           ) as PrimeLimsTableexpensesrecord[];
+          
+          expenseTransactions = expenseTransactions.filter(e => {
+               if (e.approved === null || e.approved === undefined) return false;
+               return parseInt(e.approved.toString()) === 1;
+          });
 
           let totalExpense = 0;
           if (expenseTransactions.length > 0) {

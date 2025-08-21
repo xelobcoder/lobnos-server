@@ -36,13 +36,13 @@ class PrimeLimsTabletasksService {
           return await connection(this.tableName).where({ id }).del();
      }
 
-     async list(tenantId: number, page: number, count: number): Promise<PrimeLimsTabletasks[]> {
+     async list(tenantId: number, page: number, count: number, sortby: 'DESC' | 'ASC'): Promise<PrimeLimsTabletasks[]> {
           const offset = (page - 1) * count;
           const connection = await KnexConnection(tenantId)
           return await connection(this.tableName)
                .innerJoin("roles", "roles.employeeid", "=", `${this.tableName}.assignedTo`)
                .select(`${this.tableName}.*`, "roles.username")
-               .orderBy(`${this.tableName}.id`, "desc")
+               .orderBy(`${this.tableName}.id`, sortby)
                .limit(count)
                .offset(offset);
      }

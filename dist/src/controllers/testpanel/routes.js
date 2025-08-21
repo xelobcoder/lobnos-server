@@ -7,6 +7,7 @@ const express_1 = __importDefault(require("express"));
 const testpanelHandlers_1 = require("./testpanelHandlers");
 const testpanelList_1 = require("../../testpanel/testpanelList");
 const fieldConstraintsHandlers_1 = require("../testcreation/fieldConstraintsHandlers");
+const helper_1 = require("../../hooks/helper");
 const router = express_1.default.Router();
 // Category Routes
 router.get("/api/v1/testpanel/categories", testpanelHandlers_1.getCategories);
@@ -14,8 +15,8 @@ router.post("/api/v1/testpanel/categories", testpanelHandlers_1.postCategories);
 // Test Panel Routes
 router.get("/api/v1/testpanel/list", testpanelHandlers_1.getTestPanelList);
 router.get("/api/v1/testpanel/list/bulk", testpanelHandlers_1.getBulkTestPanelList);
-router.post("/api/v1/testpanel/list/createcustom", testpanelHandlers_1.postCreateCustomTestPanel);
-router.put("/api/v1/testpanel/list/updateprocedureManual", testpanelHandlers_1.putTestPanelUpdateProcedureManual);
+router.post("/api/v1/testpanel/list/createcustom", (0, helper_1.handleOverLoad)(testpanelHandlers_1.postCreateCustomTestPanel));
+router.put("/api/v1/testpanel/list/updateprocedureManual", (0, helper_1.handleOverLoad)(testpanelHandlers_1.putTestPanelUpdateProcedureManual));
 router.get("/api/v1/gettestpanel/edit", testpanelHandlers_1.getTestPanelEdit);
 router.get("/api/v1/test/getProcedureManual", testpanelHandlers_1.getProcedureManual);
 router.get("/api/v1/test/getLiteraturereview", testpanelHandlers_1.getTestLiteratureReview);

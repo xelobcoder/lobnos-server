@@ -13,9 +13,14 @@ class ShiftService {
             .merge();
         return shift;
     }
-    static async getAllShifts(tenantId) {
+    static async getAllShifts(tenantId, query) {
+        const { page = 1, count = 20, sortby = 'DESC' } = query || {};
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        return await connection("shifts").select("*");
+        return await connection("shifts")
+            .select("*")
+            .orderBy("id", sortby)
+            .limit(count)
+            .offset((page - 1) * count);
     }
     static async getShiftById(tenantId, id) {
         const connection = await (0, KnexConnections_1.default)(tenantId);

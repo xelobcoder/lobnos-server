@@ -54,8 +54,12 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                previousServices = await conn('dboservices').where('billingid', billingid).select();
           }
 
-          const totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
-          if (totalOutstanding > 0) return { success: false, message: 'Outstanding debt found' };
+          let totalOutstanding = 0;
+
+          if (!ispricingcheckout) {
+               totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
+               if (totalOutstanding > 0) return { success: false, message: 'Outstanding debt found' };
+          }
 
           const appsettings: ApplicationSettingsData | null = await this.getAppSettings();
           const { includeTax, billingsettings } = appsettings || {};
@@ -119,10 +123,16 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           });
 
 
-          const toFixed2 = (num: number) => Number(num.toFixed(2));
+          const toFixed2 = (num: number) => {
+               if (typeof num !== 'number' || isNaN(num)) return 0;
+               const fixed = Number(num.toFixed(2));
+               return isNaN(fixed) ? 0 : fixed;
+          };
+
           const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
           const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
           const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
+          console.log(recalculatedCart)
           const amountPayable = toFixed2(totalpayable)
           const outstanding = toFixed2(amountPayable - paid);
           const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
@@ -146,8 +156,28 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     totalServiceAmountPayable,
                     paid,
                     balance,
-                    cart: recalculatedCart.map(item => ({ ...item, totalpayable: toFixed2(item.totalpayable), totalcost: toFixed2(item.totalcost), discountedValue: toFixed2(item.discountedValue), amountIncurredDueTax: toFixed2(item.amountIncurredDueTax), price: toFixed2(item.price), actualPrice: toFixed2(item.actualPrice), originalPrice: toFixed2(item.originalPrice), entitytype: item.entitytype || entitytype, entityId: item.entityId || entityid })),
-                    servicesList: recalculatedServicesList.map(item => ({ ...item, totalpayable: toFixed2(item.totalpayable), totalcost: toFixed2(item.totalcost), discountedValue: toFixed2(item.discountedValue), amountIncurredDueTax: toFixed2(item.amountIncurredDueTax), servicePrice: toFixed2(item.servicePrice), entitytype: item.entitytype || entitytype, entityId: item.entityId || entityid })),
+                    cart: recalculatedCart.map(item => ({
+                         ...item,
+                         totalpayable: toFixed2(item.totalpayable),
+                         totalcost: toFixed2(item.totalcost),
+                         discountedValue: toFixed2(item.discountedValue),
+                         amountIncurredDueTax: toFixed2(item.amountIncurredDueTax),
+                         price: toFixed2(item.price),
+                         actualPrice: toFixed2(item.actualPrice),
+                         originalPrice: toFixed2(item.originalPrice),
+                         entitytype: item.entitytype || entitytype,
+                         entityId: item.entityId || entityid
+                    })),
+                    servicesList: recalculatedServicesList.map(item => ({
+                         ...item,
+                         totalpayable: toFixed2(item.totalpayable),
+                         totalcost: toFixed2(item.totalcost),
+                         discountedValue: toFixed2(item.discountedValue),
+                         amountIncurredDueTax: toFixed2(item.amountIncurredDueTax),
+                         servicePrice: toFixed2(item.servicePrice),
+                         entitytype: item.entitytype || entitytype,
+                         entityId: item.entityId || entityid
+                    })),
                     promoCode: promoCode || undefined,
                     promoDiscount: toFixed2(promoDiscount),
                     isPromo: !!isPromo,
@@ -206,6 +236,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           }
           if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                recalculatedCart = PrimeBillingEnterprise.applyTaxToTests(recalculatedCart, taxation.taxValue);
+          } else {
+               recalculatedCart = PrimeBillingEnterprise.applyTaxToTests(recalculatedCart, 0);
           }
           recalculatedCart = PrimeBillingEnterprise.addNightAdjustmentInfo(recalculatedCart, billingsettings);
           return recalculatedCart;

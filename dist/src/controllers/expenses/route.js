@@ -38,4 +38,7 @@ router.post("/api/v1/expense/pending/decision", expenseHandlers_1.updateExpenseD
 router.post("/api/v1/expense/new/category", (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpenseCategory));
 router.put("/api/v1/expense/new/category", expenseHandlers_1.updateExpenseCategory);
 router.get("/api/v1/expense/get/category", expenseHandlers_1.getAllExpenseCategory);
+// expense outsource spending 
+router.post('/api/v1/outsourced/cases/mark-expense', (0, helper_1.handleOverLoad)(expenseHandlers_1.markOutsourceCasesAsExpense));
+router.post('/api/v1/outsourced/cases/confirm-done', (0, helper_1.handleOverLoad)(expenseHandlers_1.markCaseAsDone));
 exports.default = router;

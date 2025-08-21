@@ -3,7 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateToResolveOutsourcedHandler = exports.getOutsourcedTestBasedStageHandler = exports.getTestOutSourcingOrganizations = exports.updateTestPanelOutsourcingInformation = exports.checkIsServiceRenderedByOutsourceOrganization = exports.getOrganizationOutsourcingAll = exports.getOrganizationOutSourceBasic = exports.getOrganizationOutSourceServices = exports.updateOrganizationOutSourceServices = exports.updateOrganizationOutSource = exports.createOrganizationOutSource = void 0;
+exports.getOutsourcedCasesPaginated = exports.updateToResolveOutsourcedHandler = exports.getOutsourcedTestBasedStageHandler = exports.getTestOutSourcingOrganizations = exports.updateTestPanelOutsourcingInformation = exports.checkIsServiceRenderedByOutsourceOrganization = exports.getOrganizationOutsourcingAll = exports.getOrganizationOutSourceBasic = exports.getOrganizationOutSourceServices = exports.updateOrganizationOutSourceServices = exports.updateOrganizationOutSource = exports.createOrganizationOutSource = void 0;
+const outsourcedCases_1 = __importDefault(require("../../models/organization/outsourcingOrganization/outsourcedCases"));
 const outsourcing_1 = __importDefault(require("../../models/organization/outsourcingOrganization/outsourcing"));
 const helper_1 = require("../../hooks/helper");
 const createOrganizationOutSource = async function (request, response) {
@@ -173,3 +174,17 @@ const updateToResolveOutsourcedHandler = async function (request, response) {
     }
 };
 exports.updateToResolveOutsourcedHandler = updateToResolveOutsourcedHandler;
+const getOutsourcedCasesPaginated = async (request, response) => {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString(), 10);
+        const count = parseInt(request.query.count) || 20;
+        const page = parseInt(request.query.page) || 1;
+        const orderby = request.query.orderby || 'DESC';
+        const result = await outsourcedCases_1.default.getOutsourcedCases(tenantId, { count, page, orderby });
+        response.send({ status: 'success', data: result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.getOutsourcedCasesPaginated = getOutsourcedCasesPaginated;

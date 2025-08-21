@@ -1,3 +1,4 @@
+
 import KnexConnection from "../../../database/KnexConnections";
 
 export type EntityType = 'organization' | 'clinician' | 'insurance';
@@ -44,6 +45,36 @@ export class ReferralCodingRepo {
                return code;
           } catch (error) {
                console.error('ReferralCoding generateCode error:', error);
+               throw error;
+          }
+     }
+
+
+     async getReferralStrategyFullList(limit: number = 20, offset: number = 0): Promise<any[]> {
+          try {
+               const conn = await this.connection;
+               const results = await conn('referralcoding as r')
+                    .select(
+                         'r.id as referral_id',
+                         'r.entity_type as referral_type',
+                         'r.code as referral_code',
+                         conn.raw('COALESCE(o.name, c.name) as name'),
+                         conn.raw('COALESCE(o.location, c.location) as location'),
+                         conn.raw('COALESCE(o.email, c.email) as email')
+                    )
+                    .leftJoin('organization as o', function () {
+                         this.on('r.entity_type', '=', conn.raw("'organization'"))
+                              .andOn('r.entity_id', '=', 'o.id');
+                    })
+                    .leftJoin('clinicianbasicinfo as c', function () {
+                         this.on('r.entity_type', '=', conn.raw("'clinician'"))
+                              .andOn('r.entity_id', '=', 'c.id');
+                    })
+                    .limit(limit)
+                    .offset(offset);
+               return results;
+          } catch (error) {
+               console.error('ReferralCodingRepo.getReferralStrategyFullList error:', error);
                throw error;
           }
      }

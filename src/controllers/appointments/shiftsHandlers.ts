@@ -15,7 +15,10 @@ export const createShiftHandler = async (req: Request, res: Response) => {
 export const getAllShiftsHandler = async (req: Request, res: Response) => {
      try {
           const tenantId: number = parseInt(req.query.tenant as string, 10);
-          const shifts = await ShiftService.getAllShifts(tenantId);
+          const sortby = req.query.sortby === 'ASC' ? 'ASC' : 'DESC' as 'ASC' | 'DESC';
+          const page = req.query.page ? parseInt(req.query.page as string, 10) : undefined;
+          const count = req.query.count ? parseInt(req.query.count as string, 10) : undefined;
+          const shifts = await ShiftService.getAllShifts(tenantId, { sortby, count, page });
           res.status(200).json(shifts);
      } catch (error: any) {
           res.status(500).json({ error: error.message });

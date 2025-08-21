@@ -18,9 +18,17 @@ class ShiftService {
           return shift;
      }
 
-     static async getAllShifts(tenantId: number): Promise<Shift[]> {
+     static async getAllShifts(
+          tenantId: number,
+          query?: { sortby?: 'DESC' | 'ASC', page?: number, count?: number }
+     ): Promise<Shift[]> {
+          const { page = 1, count = 20, sortby = 'DESC' } = query || {};
           const connection = await KnexConnection(tenantId);
-          return await connection("shifts").select("*");
+          return await connection("shifts")
+               .select("*")
+               .orderBy("id", sortby)
+               .limit(count)
+               .offset((page - 1) * count);
      }
 
      static async getShiftById(tenantId: number, id: number): Promise<Shift | undefined> {

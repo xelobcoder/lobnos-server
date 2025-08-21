@@ -76,7 +76,7 @@ export default class Creator {
 					return matchingRule ? { ...matchingRule, ...item } : null;
 				});
 
-				return mappings.filter(Boolean)
+				return mappings
 			}
 		} catch (err) {
 

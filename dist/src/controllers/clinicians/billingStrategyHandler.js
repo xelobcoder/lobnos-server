@@ -19,20 +19,20 @@ const billingstrategy_1 = __importDefault(require("../../models/clincians/billin
 const ReferralCodingRepo_1 = require("../../models/referral/repositories/ReferralCodingRepo");
 async function createBillingStrategy(req, res) {
     try {
-        const { allConcessionApplied, concessionMode, concessionValue, price_type, name, applicableTest } = req.body;
-        if ([true, false].includes(allConcessionApplied) === false ||
+        const { allconcessionApplied, concessionMode, concessionValue, price_type, name, applicableTest } = req.body;
+        if ([true, false].includes(allconcessionApplied) === false ||
             !name ||
             name.length > 100) {
             return res.status(400).json({
-                message: 'Please provide all required fields: allConcessionApplied, name (max 100 characters).',
+                message: 'Please provide all required fields: allconcessionApplied, name (max 100 characters).',
             });
         }
-        if (allConcessionApplied && (!concessionMode || !concessionValue || !price_type)) {
+        if (allconcessionApplied && (!concessionMode || !concessionValue || !price_type)) {
             return res.status(400).json({
                 message: 'Concession mode, concession value, and price type are required when all concessions are applied.',
             });
         }
-        if (allConcessionApplied && (concessionValue <= 0 || !concessionValue)) {
+        if (allconcessionApplied && (concessionValue <= 0 || !concessionValue)) {
             return res.status(400).json({
                 message: 'Concession value must be present and greater than zero.',
             });
@@ -44,7 +44,7 @@ async function createBillingStrategy(req, res) {
             res.status(400).json({ status: false, message: strategyId });
         }
         else {
-            if (applicableTest && applicableTest.length > 0 && !allConcessionApplied) {
+            if (applicableTest && applicableTest.length > 0 && !allconcessionApplied) {
                 await strategyInstance.addApplicableTests(tenantId, strategyId, applicableTest);
             }
             res.status(201).json({ message: 'Billing strategy successfully created.', strategyId });
@@ -91,8 +91,8 @@ async function updateBillingStrategy(req, res) {
         }
         else {
             const strategyInstance = new billingstrategy_1.default();
-            const _a = req.body, { allConcessionApplied } = _a, rest = __rest(_a, ["allConcessionApplied"]);
-            const updateData = Object.assign(Object.assign({}, rest), { allConcessionApplied: allConcessionApplied ? 1 : 0 });
+            const _a = req.body, { allconcessionApplied } = _a, rest = __rest(_a, ["allconcessionApplied"]);
+            const updateData = Object.assign(Object.assign({}, rest), { allconcessionApplied: allconcessionApplied ? 1 : 0 });
             const result = await strategyInstance.updateBillingStrategy(tenantId, strategyId, updateData);
             if (!result) {
                 return res.status(404).json({ message: 'Billing strategy not found or no changes made.' });
@@ -158,15 +158,16 @@ async function deleteBillingStrategy(req, res) {
             const strategyInstance = new billingstrategy_1.default();
             const result = await strategyInstance.deleteBillingStrategy(tenantId, strategyId);
             if (!result) {
-                return res.status(404).json({ message: 'Billing strategy not found.' });
+                return res.status(404).json({ message: 'Billing strategy not found.', status: false });
             }
-            res.status(200).json({ message: 'Strategy deleted successfully' });
+            return res.status(200).json({ message: 'Strategy deleted successfully', status: true });
         }
     }
     catch (error) {
-        res.status(500).json({
+        return res.status(500).json({
             message: 'Error deleting billing strategy.',
-            error: error.message
+            error: error.message,
+            status: false
         });
     }
 }

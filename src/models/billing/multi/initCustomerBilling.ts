@@ -63,7 +63,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
           const [sessionExists, hasDebt, appsettings, taxation, paymentModes] = await Promise.all([
                this.hasActiveSession(params.branchid),
-               this.hasOutstandingDebt(params.patientId),
+               this.hasOutstandingDebt(params.patientId, params.pricingcheckout || false),
                new ApplicationSettings().getAllAppSettings(this.tenantId),
                new ApplicationSettings().getAppBillSettings(this.tenantId),
                this.getPaymentModes()
@@ -86,6 +86,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
 
           let defaultCustomerInitData = this.getDefaultCustomerInitData(params, previousRecordsSummary);
+          console.log("Default customer init data:", defaultCustomerInitData);
 
           if (params.isPackageUsed && params.packageid) {
                return await PackageBillingHelper.handlePackageInit({
@@ -167,6 +168,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           } else {
                ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);
           }
+          console.log("Applicable tests:", ApplicableTest, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId);
           if (defaultCustomerInitData.promoCode && defaultCustomerInitData.promoCode.value && defaultCustomerInitData.promoCode.type) {
                // Only apply promo, not regular discounts
                ApplicableTest = PrimeBillingEnterprise.applyPromoToItems(ApplicableTest, defaultCustomerInitData.promoCode);

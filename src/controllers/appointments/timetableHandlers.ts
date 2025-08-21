@@ -35,7 +35,7 @@ export const createStaffAttendance = async (req: Request, res: Response) => {
           const staffAttendance = new StaffAttendance();
           const attendanceData = req.body;
           const id = await staffAttendance.create(tenantId, attendanceData);
-          res.status(201).json({ id, message: "Attendance record created successfully" });
+          res.status(201).json({ status: id > 0, message:  id > 0 ? "Attendance record created successfully" : "Failed to create attendance record, this might happen if the records already exist" });
      } catch (error: any) {
           res.status(400).json({ message: "Failed to create attendance record", error: error.message });
      }

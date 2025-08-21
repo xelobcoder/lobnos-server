@@ -43,4 +43,6 @@ router.put('/api/v1/outsourcing/organization/testpanel/outsourceinfo/update', ou
 router.get('/api/v1/outsourcing/organization/testpanel/outsourceinfo', outsourceHandlers_1.getTestOutSourcingOrganizations);
 router.get('/api/v1/outsourced/testpanel/:stage?', outsourceHandlers_1.getOutsourcedTestBasedStageHandler);
 router.post("/api/v1/outsourced/testpanel/resolve", (0, helper_1.handleOverLoad)(outsourceHandlers_1.updateToResolveOutsourcedHandler));
+// routes for outsourced cases tracking
+router.get("/api/v1/outsourced/cases/tracking", outsourceHandlers_1.getOutsourcedCasesPaginated);
 exports.default = router;

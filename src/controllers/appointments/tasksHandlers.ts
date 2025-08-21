@@ -62,12 +62,12 @@ export const deleteTask = async (req: Request, res: Response) => {
      }
 };
 
-export const listTasks = async (req: Request<{}, {}, {}, { count: number; page: number; tenantId: string }>, res: Response) => {
+export const listTasks = async (req: Request<{}, {}, {}, { count: number; page: number; tenantId: string ,sortby: 'DESC' | 'ASC'}>, res: Response) => {
      try {
-          const { page = 1, count = 10, tenantId } = req.query;
+          const { page = 1, count = 10, tenantId, sortby = 'DESC' } = req.query;
           const tenantIdNum = parseInt(tenantId, 10);
           const taskService = new PrimeLimsTabletasksService('tasks');
-          const tasks = await taskService.list(tenantIdNum, page, count);
+          const tasks = await taskService.list(tenantIdNum, page, count, sortby);
           res.status(200).json(tasks);
      } catch (error) {
           res.status(500).json({ error: 'Failed to fetch tasks' });

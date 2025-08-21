@@ -48,7 +48,7 @@ const handleEndSalesSession = async function (request, response) {
         const { sessionId, validatedby, handingoveramount } = request.body;
         const parsedTenantId = parseInt(tenantId.toString());
         const status = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).endSession(sessionId, validatedby, handingoveramount);
-        response.status(200).send({ status });
+        response.status(200).send({ status: status > 0 });
     }
     catch (err) {
         (0, helper_1.responseError)(response, err === null || err === void 0 ? void 0 : err.message);

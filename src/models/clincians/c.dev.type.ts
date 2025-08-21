@@ -1,5 +1,5 @@
 export interface BillingStrategyRequestBody {
-  allConcessionApplied: boolean;
+  allconcessionApplied: boolean;
   concessionValue: number;
   concessionMode: 'absolute' | 'percentage';
   price_type?: 'discount' | 'surcharge';
@@ -14,7 +14,7 @@ export interface IBillingStrategy {
   strategyid: number;
   name: string;
   description: string | null;
-  allConcessionApplied: number;
+  allconcessionApplied: number;
   concessionValue: number;
   concessionMode: 'absolute' | 'percentage';
   price_type: 'discount' | 'surcharge';
@@ -25,7 +25,7 @@ export interface IBillingStrategy {
   updatedon: string | null;
 }
 
-export type EntityType = 'clinician' | 'insurance' | 'organization' | 'general' |'phis'
+export type EntityType = 'clinician' | 'insurance' | 'organization' | 'general' | 'phis'
 
 export interface ApplicableEntity {
   entity_type: EntityType;

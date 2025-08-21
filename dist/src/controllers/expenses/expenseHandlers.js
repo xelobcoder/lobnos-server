@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllExpenseMerchants = exports.updateExpenseMerchant = exports.createExpenseMerchant = exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.generateNewExpense = void 0;
+exports.markCaseAsDone = exports.markOutsourceCasesAsExpense = exports.getAllExpenseMerchants = exports.updateExpenseMerchant = exports.createExpenseMerchant = exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.generateNewExpense = void 0;
 const ExpenseService_1 = __importDefault(require("../../models/Expenses/ExpenseService"));
 const node_path_1 = __importDefault(require("node:path"));
 const helper_1 = require("../../hooks/helper");
@@ -11,6 +11,7 @@ const queries_1 = require("../../models/Expenses/queries");
 const ExpenseAuditLog_1 = __importDefault(require("../../models/Expenses/ExpenseAuditLog"));
 const expenseMerchants_1 = __importDefault(require("../../models/Expenses/expenseMerchants"));
 const logger_1 = __importDefault(require("../../hooks/logger"));
+const outsourcedCases_1 = __importDefault(require("../../models/organization/outsourcingOrganization/outsourcedCases"));
 const initializeExpense = (requestQuery) => {
     const { employeeid, branchid, tenantId, expenseId } = requestQuery;
     const pTenantId = parseInt(tenantId.toString());
@@ -310,3 +311,45 @@ const getAllExpenseMerchants = async (req, res) => {
     }
 };
 exports.getAllExpenseMerchants = getAllExpenseMerchants;
+const markOutsourceCasesAsExpense = async (request, response) => {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const { testid, serviceid, tracking_id, employeeid, branchid } = request.body;
+        if (!testid || !serviceid || !employeeid || !branchid)
+            return (0, helper_1.customError)("Required parameters missing", 400, response);
+        const result = await outsourcedCases_1.default.markOutsourceCasesAsExpense(tenantId, {
+            serviceid: serviceid,
+            testid: testid,
+            trackingid: tracking_id,
+            branchid,
+            employeeid
+        });
+        console.log(result);
+        response.send({ status: result });
+    }
+    catch (err) {
+        console.log(err);
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.markOutsourceCasesAsExpense = markOutsourceCasesAsExpense;
+const markCaseAsDone = async (request, response) => {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const { trackingId, employeeid, comments } = request.body;
+        if (!trackingId || !employeeid)
+            return (0, helper_1.customError)("Required parameters missing", 400, response);
+        const result = await outsourcedCases_1.default.markOutsourceTrackingDone(tenantId, {
+            trackingId,
+            employeeId: employeeid,
+            comments,
+        });
+        console.log(result);
+        response.send({ status: result });
+    }
+    catch (err) {
+        console.log(err);
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.markCaseAsDone = markCaseAsDone;

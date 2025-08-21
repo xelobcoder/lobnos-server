@@ -52,7 +52,9 @@ class PrimeBillingEnterprise {
             return true;
         return result.billingid === billingid;
     }
-    async hasOutstandingDebt(patientId) {
+    async hasOutstandingDebt(patientId, ispricingcheckout) {
+        if (ispricingcheckout)
+            return false;
         const outstandingAmount = this.getCustomerOutstandingDebt(patientId);
         return parseFloat(outstandingAmount.toString()) > 0;
     }
@@ -184,19 +186,31 @@ class PrimeBillingEnterprise {
         });
     }
     static applyDiscountsToTests(tests) {
-        return tests.map(test => {
-            if (!test.discountedValue || test.discountedValue === 0) {
-                return Object.assign({}, test);
-            }
-            const discount = test.discount || 0;
-            const base = test.discountedValue;
-            const discountedValue = base - discount;
-            return Object.assign(Object.assign({}, test), { discountedValue, discount });
-        });
+        try {
+            console.log("Applying discounts to test:", tests);
+            return tests.map(test => {
+                if (!test.discountedValue || test.discountedValue === 0)
+                    return Object.assign(Object.assign({}, test), { discountedValue: 0 });
+                const discount = test.discount || 0;
+                const base = test.discountedValue;
+                const discountedValue = base - discount;
+                return Object.assign(Object.assign({}, test), { discountedValue, discount });
+            });
+        }
+        catch (error) {
+            console.error("Error applying discounts to tests:", error);
+            return tests;
+        }
     }
     static applyTaxToTests(tests, taxValue) {
-        if (!Array.isArray(tests) || !taxValue || taxValue <= 0)
+        if (!Array.isArray(tests))
             return tests;
+        if (!taxValue || taxValue <= 0) {
+            return tests.map(test => {
+                const totalpayable = test.discountedValue - (test.discount || 0) - (test.promoDiscount || 0);
+                return Object.assign(Object.assign({}, test), { amountIncurredDueTax: 0, totalpayable, totalcost: test.discountedValue || 0 });
+            });
+        }
         return tests.map(test => {
             const preDiscountValue = test.discountedValue;
             const taxAmount = Number(((preDiscountValue * taxValue) / 100).toFixed(2));

@@ -64,7 +64,7 @@ class Creator {
                     const matchingRule = creationRules.find(rule => rule.id === item.fieldid);
                     return matchingRule ? Object.assign(Object.assign({}, matchingRule), item) : null;
                 });
-                return mappings.filter(Boolean);
+                return mappings;
             }
         }
         catch (err) {

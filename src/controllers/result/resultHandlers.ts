@@ -181,12 +181,13 @@ export const getResultPrintoutHandler = async (request: Request<
 		csvid: string,
 		ptid: string,
 		target: string,
+		employeeid: string,
 		tenantId: string,
 		isBrowserPrintout?: number | string
 	}
 >, response: Response) => {
 	try {
-		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, isBrowserPrintout } = request.query;
+		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
 		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
 
@@ -253,8 +254,13 @@ export const getResultPrintoutHandler = async (request: Request<
 		}
 
 		if (records != null && typeof records != "string" && !Array.isArray(records)) {
-			const { result, testname, hasDrugs,testInfo,testdetailcategory } = records;
-			dataset.records = result;
+			const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
+			// Sort result in ascending order by 'ordering' property if present
+			if (Array.isArray(result) && result.length > 0 && result[0].hasOwnProperty('ordering')) {
+				dataset.records = [...result].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
+			} else {
+				dataset.records = result;
+			}
 			dataset.testname = testname
 			dataset.hasDrugs = hasDrugs
 			dataset.testInfo = testInfo || null
@@ -278,10 +284,22 @@ export const getResultPrintoutHandler = async (request: Request<
 		dataset.validators = validators;
 		dataset.lastupdatedon = lastupdatedon;
 		dataset.resultentry = resultentry
-		dataset.logourl = `http://localhost:${process.env.NODE_ENV === "development"
+		dataset.logourl = `http://${process.env.apphost}:${process.env.NODE_ENV === "development"
 			? process.env.DEVELOPMENT_PORT
 			: process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`
 		dataset.enteredOn = enteredOn
+
+		if (employeeid) {
+			const pEmployeeId = parseInt(employeeid.toString());
+			const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
+			const { username, role, mobile } = employeedata;
+			dataset.generalValidation = {
+				employeeid: pEmployeeId,
+				username,
+				role,
+				mobile
+			}
+		}
 
 		response.send(dataset)
 	} catch (err) {
@@ -413,7 +431,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 				finalResult.patientid = patientid;
 				finalResult.billingid = billingid
 
-				finalResult.logourl = `http://localhost:${process.env.NODE_ENV === "development"
+				finalResult.logourl = `http://${process.env.apphost}:${process.env.NODE_ENV === "development"
 					? process.env.DEVELOPMENT_PORT
 					: process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`
 

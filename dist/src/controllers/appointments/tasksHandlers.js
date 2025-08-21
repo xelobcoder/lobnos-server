@@ -75,10 +75,10 @@ const deleteTask = async (req, res) => {
 exports.deleteTask = deleteTask;
 const listTasks = async (req, res) => {
     try {
-        const { page = 1, count = 10, tenantId } = req.query;
+        const { page = 1, count = 10, tenantId, sortby = 'DESC' } = req.query;
         const tenantIdNum = parseInt(tenantId, 10);
         const taskService = new tasks_1.default('tasks');
-        const tasks = await taskService.list(tenantIdNum, page, count);
+        const tasks = await taskService.list(tenantIdNum, page, count, sortby);
         res.status(200).json(tasks);
     }
     catch (error) {

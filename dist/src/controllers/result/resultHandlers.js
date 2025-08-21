@@ -156,7 +156,7 @@ const resultEntryDrugsHandler = async (request, response) => {
 exports.resultEntryDrugsHandler = resultEntryDrugsHandler;
 const getResultPrintoutHandler = async (request, response) => {
     try {
-        const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, isBrowserPrintout } = request.query;
+        const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
         const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
         const tenantIdP = parseInt(tenantId.toString());
         if (!ascensionId)
@@ -212,7 +212,13 @@ const getResultPrintoutHandler = async (request, response) => {
         }
         if (records != null && typeof records != "string" && !Array.isArray(records)) {
             const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
-            dataset.records = result;
+            // Sort result in ascending order by 'ordering' property if present
+            if (Array.isArray(result) && result.length > 0 && result[0].hasOwnProperty('ordering')) {
+                dataset.records = [...result].sort((a, b) => { var _a, _b; return ((_a = a.ordering) !== null && _a !== void 0 ? _a : 0) - ((_b = b.ordering) !== null && _b !== void 0 ? _b : 0); });
+            }
+            else {
+                dataset.records = result;
+            }
             dataset.testname = testname;
             dataset.hasDrugs = hasDrugs;
             dataset.testInfo = testInfo || null;
@@ -231,10 +237,21 @@ const getResultPrintoutHandler = async (request, response) => {
         dataset.validators = validators;
         dataset.lastupdatedon = lastupdatedon;
         dataset.resultentry = resultentry;
-        dataset.logourl = `http://localhost:${process.env.NODE_ENV === "development"
+        dataset.logourl = `http://${process.env.apphost}:${process.env.NODE_ENV === "development"
             ? process.env.DEVELOPMENT_PORT
             : process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`;
         dataset.enteredOn = enteredOn;
+        if (employeeid) {
+            const pEmployeeId = parseInt(employeeid.toString());
+            const employeedata = await new RolesRepository_1.default(tenantIdP).getRoleById(pEmployeeId);
+            const { username, role, mobile } = employeedata;
+            dataset.generalValidation = {
+                employeeid: pEmployeeId,
+                username,
+                role,
+                mobile
+            };
+        }
         response.send(dataset);
     }
     catch (err) {
@@ -337,7 +354,7 @@ const getResultPrintMultipleHandler = async (request, response) => {
                 finalResult.patientInformation = await new registration_1.default().getPatientBasicData(tenantIdP, intPatientid);
                 finalResult.patientid = patientid;
                 finalResult.billingid = billingid;
-                finalResult.logourl = `http://localhost:${process.env.NODE_ENV === "development"
+                finalResult.logourl = `http://${process.env.apphost}:${process.env.NODE_ENV === "development"
                     ? process.env.DEVELOPMENT_PORT
                     : process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`;
                 if (employeeid) {

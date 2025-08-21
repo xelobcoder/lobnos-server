@@ -7,6 +7,8 @@ import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema
 import ExpenseAuditLog from "../../models/Expenses/ExpenseAuditLog";
 import expenseMerchants, { ExpenseMerchant } from "../../models/Expenses/expenseMerchants";
 import logger from "../../hooks/logger";
+import { request } from "node:http";
+import OutsourcedCases from "../../models/organization/outsourcingOrganization/outsourcedCases";
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -346,5 +348,55 @@ export const getAllExpenseMerchants = async (req: Request, res: Response) => {
 	} catch (err) {
 		console.log(err);
 		responseError(res);
+	}
+};
+
+
+
+
+export const markOutsourceCasesAsExpense = async (request: Request, response: Response): Promise<any> => {
+	try {
+		const tenantId = parseInt(request.query.tenantId.toString());
+		const { testid, serviceid, tracking_id, employeeid, branchid } = request.body;
+
+		if (!testid || !serviceid || !employeeid || !branchid) return customError("Required parameters missing", 400, response);
+
+		const result = await OutsourcedCases.markOutsourceCasesAsExpense(tenantId, {
+			serviceid: serviceid,
+			testid: testid,
+			trackingid: tracking_id,
+			branchid,
+			employeeid
+		});
+
+		console.log(result);
+		response.send({ status: result });
+	} catch (err) {
+		console.log(err);
+		responseError(response);
+	}
+};
+
+
+
+export const markCaseAsDone = async (request: Request, response: Response): Promise<any> => {
+	try {
+		const tenantId = parseInt(request.query.tenantId.toString());
+		const { trackingId, employeeid, comments } = request.body;
+
+		if (!trackingId || !employeeid) return customError("Required parameters missing", 400, response);
+
+		const result = await OutsourcedCases.markOutsourceTrackingDone(tenantId, {
+			trackingId,
+			employeeId: employeeid,
+			comments,
+
+		});
+
+		console.log(result);
+		response.send({ status: result });
+	} catch (err) {
+		console.log(err);
+		responseError(response);
 	}
 };

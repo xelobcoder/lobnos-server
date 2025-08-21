@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Creator from "../../models/creator/creator";
 import { getCategory, postCategory } from "../../testpanel/categories";
-import { customError, responseError, rowAffected } from "../../hooks/helper";
+import { customError, promisifyQuery, responseError, rowAffected } from "../../hooks/helper";
 import TestLiteratureSetup from "../../testpanel/literature";
 import { testpanel } from "../../testpanel/testpanelList";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
@@ -29,14 +29,32 @@ export const getBulkTestPanelList = (req: Request, res: Response) => {
 
 export const postCreateCustomTestPanel = async (req: Request, res: Response) => {
      try {
-          const tenantId = parseInt(req.query.tenantId.toString())
-          const { name } = req.body;
+          const tenantId = parseInt(req.query.tenantId.toString());
+          let { name } = req.body;
           if (!name) return customError("testname required", 404, res);
-          const isSuccess = await testpanel.createCustomTest(tenantId, name);
-          if (isSuccess === "EXIST") {
-               return customError("test with same name is available", 404, res);
+
+          if (Array.isArray(name)) {
+               const results = [];
+               for (const testName of name) {
+                    if (!testName) {
+                         results.push({ testName, status: "failed", reason: "Empty name" });
+                         continue;
+                    }
+                    const isSuccess = await testpanel.createCustomTest(tenantId, testName.name);
+                    if (isSuccess === "EXIST") {
+                         results.push({ testName, status: "failed", reason: "test with same name is available" });
+                    } else {
+                         results.push({ testName, status: isSuccess ? "success" : "failed" });
+                    }
+               }
+               return res.send({ results });
+          } else {
+               const isSuccess = await testpanel.createCustomTest(tenantId, name);
+               if (isSuccess === "EXIST") {
+                    return customError("test with same name is available", 404, res);
+               }
+               res.send({ status: isSuccess ? "success" : "failed" });
           }
-          res.send({ status: isSuccess ? "success" : "failed" });
      } catch (err) {
           console.error(err);
           responseError(res);
@@ -46,19 +64,34 @@ export const postCreateCustomTestPanel = async (req: Request, res: Response) => 
 export const putTestPanelUpdateProcedureManual = async (req: Request, res: Response) => {
      try {
           const { proceduremanual, employeeid, testid, title } = req.body;
+          const tenantId = parseInt(req.query.tenantId.toString())
           if (!proceduremanual || !employeeid || !testid) {
                return customError("employeeid, testid and proceduremanual are required", 404, res);
           }
-          const tenantId = parseInt(req.query.tenantId.toString())
+
+          // testid exist 
+          const testExistInManualQuery = `SELECT * FROM proceduremanual WHERE testid = ?`;
+
+          const isExist = await promisifyQuery(tenantId, testExistInManualQuery, [parseInt(testid, 10)]);
+          console.log(isExist)
+          if (Array.isArray(isExist) && isExist.length === 0) {
+               const insertProcedure = await promisifyQuery(tenantId, `INSERT INTO proceduremanual  (testid, proceduremanual,  createdby,  title) VALUES(?,?,?,?)`,
+                    [parseInt(testid, 10), proceduremanual, parseInt(employeeid, 10), title]
+               )
+               return res.send({ status: rowAffected(insertProcedure) === true ? "success" : "failed" });
+          }
           const isUpdated = await testpanel.updateProcedureManual(
                tenantId,
                proceduremanual,
                parseInt(testid, 10),
                parseInt(employeeid, 10),
                title
-          );
-          res.send({ status: isUpdated === true ? "success" : "failed" });
+          )
+
+          return res.send({ status: isUpdated ? "success" : "failed" });
+
      } catch (err) {
+          console.log(err)
           responseError(res);
      }
 };
