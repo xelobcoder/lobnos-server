@@ -170,8 +170,8 @@ class PrimeBillingEnterprise {
         const isNight = this.isNightTime(billingsettings);
         return tests.map(test => {
             const base = test.discountedValue;
-            const discount = Number(test.discount || 0);
-            const discountedBase = base - discount;
+            // const discount = Number(test.discount || 0);
+            const discountedBase = base;
             if (!isNight) {
                 return Object.assign(Object.assign({}, test), { discountedValue: discountedBase, isNightTime: false });
             }
@@ -187,10 +187,9 @@ class PrimeBillingEnterprise {
     }
     static applyDiscountsToTests(tests) {
         try {
-            console.log("Applying discounts to test:", tests);
             return tests.map(test => {
                 if (!test.discountedValue || test.discountedValue === 0)
-                    return Object.assign(Object.assign({}, test), { discountedValue: 0 });
+                    return Object.assign(Object.assign({}, test), { discountedValue: 0, discount: 0 });
                 const discount = test.discount || 0;
                 const base = test.discountedValue;
                 const discountedValue = base - discount;
@@ -207,7 +206,7 @@ class PrimeBillingEnterprise {
             return tests;
         if (!taxValue || taxValue <= 0) {
             return tests.map(test => {
-                const totalpayable = test.discountedValue - (test.discount || 0) - (test.promoDiscount || 0);
+                const totalpayable = test.discountedValue - (test.promoDiscount || 0);
                 return Object.assign(Object.assign({}, test), { amountIncurredDueTax: 0, totalpayable, totalcost: test.discountedValue || 0 });
             });
         }
@@ -215,9 +214,9 @@ class PrimeBillingEnterprise {
             const preDiscountValue = test.discountedValue;
             const taxAmount = Number(((preDiscountValue * taxValue) / 100).toFixed(2));
             const totalcost = Number((preDiscountValue + taxAmount).toFixed(2));
-            const discount = Number(test.discount || 0);
+            // const discount = Number(test.discount || 0);
             const promo = Number(test.promoDiscount || 0);
-            const totalpayable = Number((totalcost - discount - promo).toFixed(2));
+            const totalpayable = Number((totalcost - promo).toFixed(2));
             return Object.assign(Object.assign({}, test), { amountIncurredDueTax: taxAmount, totalcost,
                 totalpayable, discountedValue: totalpayable });
         });

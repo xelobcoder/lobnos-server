@@ -428,7 +428,7 @@ const submitBillingHandler = async (req, res) => {
         const tenantId = parseInt(req.query.tenantId, 10);
         if (!tenantId)
             return res.status(400).json({ success: false, message: 'Missing tenantId' });
-        const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, isPayAll, promoMethod, patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList, entityId, additionalinformation, isAdjustment, writeOffOutstanding, adjustmentType, adjustmentReason } = req.body;
+        const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, isPayAll, promoMethod, patientId, billingid, paymentDetails, branchid, referalCode, promoCode, packageid, servicesList, entitytype, entityId, additionalinformation, isAdjustment, writeOffOutstanding, adjustmentType, adjustmentReason } = req.body;
         const result = await new billing_new_client_multi_1.SubmitCustomerBilling({
             tenantId,
             amountPayable,
@@ -445,6 +445,7 @@ const submitBillingHandler = async (req, res) => {
             patientId: patientid !== null && patientid !== void 0 ? patientid : patientId,
             employeeid,
             isPackageUsed,
+            entitytype,
             writeOffOutstanding,
             hasNightAdjustment,
             samplingCenter,

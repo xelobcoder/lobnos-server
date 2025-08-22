@@ -269,7 +269,13 @@ export const getResultPrintoutHandler = async (request: Request<
 
 		if (dataset.hasDrugs == true) {
 			const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, numAscensionId, parsedTestId);
-			dataset.drugList = drugList as [];
+			if (Array.isArray(drugList) && drugList.length > 0) {
+				dataset.drugList = drugList.filter((drug) => {
+					return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
+				}) as [];
+			} else {
+				dataset.drugList = drugList as [];
+			}
 		}
 
 		let samplingInformation = await TestAscension.findAscension(tenantIdP, numAscensionId);
@@ -391,10 +397,14 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 					if (dataset.hasDrugs == true) {
 						const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, ascensionid, testid);
-
-						dataset.drugList = drugList as [];
+						if (Array.isArray(drugList) && drugList.length > 0) {
+							dataset.drugList = drugList.filter((drug) => {
+								return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
+							}) as [];
+						} else {
+							dataset.drugList = drugList as [];
+						}
 					}
-
 
 					let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, testid, ascensionid);
 

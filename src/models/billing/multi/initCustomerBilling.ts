@@ -9,7 +9,7 @@ import { BillingModuleCodes, BillingTestItem, CustomerInitResponse } from "./bil
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
 import { Billing } from "../billing";
-import { Console } from "winston/lib/winston/transports";
+
 
 class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
      static instance: CustomerBillingInitSingleton;
@@ -57,7 +57,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
 
           if (validationError) return validationError;
-          if (params.pricingcheckout  === false && !params.patientId) return BillingModuleCodes.MODULE_NO_PATIENT_ID;
+          if (params.pricingcheckout === false && !params.patientId) return BillingModuleCodes.MODULE_NO_PATIENT_ID;
           if (params.billingSource === undefined || params.billingSource === null) return BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
           if (params.branchid === undefined || params.branchid === null) return BillingModuleCodes.BRANCH_ID_NOT_PROVIDED;
 
@@ -86,7 +86,6 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
 
           let defaultCustomerInitData = this.getDefaultCustomerInitData(params, previousRecordsSummary);
-          console.log("Default customer init data:", defaultCustomerInitData);
 
           if (params.isPackageUsed && params.packageid) {
                return await PackageBillingHelper.handlePackageInit({
@@ -168,13 +167,13 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           } else {
                ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);
           }
-          console.log("Applicable tests:", ApplicableTest, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId);
           if (defaultCustomerInitData.promoCode && defaultCustomerInitData.promoCode.value && defaultCustomerInitData.promoCode.type) {
                // Only apply promo, not regular discounts
                ApplicableTest = PrimeBillingEnterprise.applyPromoToItems(ApplicableTest, defaultCustomerInitData.promoCode);
           } else {
                ApplicableTest = PrimeBillingEnterprise.applyDiscountsToTests(ApplicableTest);
           }
+
           if (appsettings.billingsettings && appsettings.billingsettings.hasNightAdjustment && !isPackageUsed) {
                ApplicableTest = PrimeBillingEnterprise.applyNightAdjustmentsToTests(ApplicableTest, appsettings.billingsettings, 'test');
                defaultCustomerInitData.hasNightAdjustment = true;

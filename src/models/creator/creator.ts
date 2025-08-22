@@ -30,6 +30,7 @@ import resultEncrptionReferer from "./resultEncryptionReferer";
 import TestCreationRulesRepository, { TestCreationRule } from "../TestCreation/TestCreationRulesRepository";
 import { CriticalValueEvaluator } from './CriticalValueEvaluator';
 import TestDetailCategory from "../operations/testFieldsCategoryClass";
+import KnexConnection from "../../database/KnexConnections";
 
 export default class Creator {
 	testid: number;
@@ -331,8 +332,8 @@ export default class Creator {
 		};
 
 		if (hasDrugs && drugs.length > 0) {
-			let refinedDrugsArray = drugs.map((item, index) => { return { ...item, ascensionid, testid, reaction: item.sensitivity, drugid: item.id } });
-			let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray);
+			let refinedDrugsArray = drugs.map((item, index) => { return { ...item, ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity } });
+			let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray as DrugSqlInsertion[]);
 			if (isDrugsInserted) {
 				await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
 			}
@@ -466,16 +467,24 @@ export default class Creator {
 	}
 
 	private static async insertResultDrugReaction(tenantId: number, drugRxn: DrugSqlInsertion): Promise<boolean> {
-		const { drugid, reaction, ascensionid, testid } = drugRxn
-		const hasRxn = await this.hasResultDrugreactions(tenantId, ascensionid, testid, drugid);
+		const connection = await KnexConnection(tenantId);
+		try {
+			const { drugid, sensitivity, ascensionid, testid } = drugRxn
+			const record = await connection.raw(`SELECT * FROM resultentrydrugsreaction WHERE ascensionid = ? AND testid = ? AND drugid = ? `, [ascensionid, testid, drugid]);
+			const hasRecord = Array.isArray(record[0]) ? record[0].length > 0 : false;
+			if (hasRecord) {
+				// If a record exists, we can update it
+				const updateResult = await connection.raw(`UPDATE resultentrydrugsreaction SET reaction = ? WHERE ascensionid = ? AND testid = ? AND drugid = ?`, [sensitivity, ascensionid, testid, drugid]);
+				return rowAffected(updateResult[0]);
+			} else {
+				const insertResult = await connection.raw(`INSERT INTO resultentrydrugsreaction (drugid, reaction, ascensionid, testid) VALUES (?, ?, ?, ?)`, [drugid, sensitivity, ascensionid, testid]);
+				return rowAffected(insertResult[0]);
+			}
 
-		if (!hasRxn) {
-			const result = await promisifyQuery(tenantId, q_insert_drug_reaction, [drugid, reaction, ascensionid, testid]);
-			return rowAffected(result);
-		} else {
-			return await this.updateResultDrugReactions(tenantId, reaction, ascensionid, testid);
+		} catch (error) {
+			console.error('Error inserting drug reaction:', error);
+			return false;
 		}
-
 	}
 
 	private static async insertResultDrugReactionBulk(
@@ -487,13 +496,16 @@ export default class Creator {
 		);
 		const results = await Promise.allSettled(insertPromises);
 		const hasErrorOccurred = results.some((res) => res.status === 'rejected');
+		// delete are records of that ascension  that is not in the drugs array
+		const submittedDrugs =  drugs.map(d => d.drugid).toString()
+		await promisifyQuery(tenantId,`DELETE FROM resultentrydrugsreaction WHERE drugid NOT IN (${submittedDrugs})`)
 		return !hasErrorOccurred;
 	}
 
 
 }
 type DrugSqlInsertion = {
-	ascensionid: number, reaction: string, testid: number, drugid: number
+	ascensionid: number, reaction?: string, testid: number, drugid: number, sensitivity?: 'resistant' | 'sensitive' | 'Resistant' | 'Sensitive' | ''
 }
 type fieldConstraints = { value: (string | number), constraint: number, valueAlert: number, prefix: number, suffix: number, alert: number, replacementText: string }
 

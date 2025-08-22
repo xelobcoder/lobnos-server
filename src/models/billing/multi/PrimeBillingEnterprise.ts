@@ -182,8 +182,8 @@ export class PrimeBillingEnterprise {
 		const isNight = this.isNightTime(billingsettings);
 		return tests.map(test => {
 			const base = test.discountedValue;
-			const discount = Number(test.discount || 0);
-			const discountedBase = base - discount;
+			// const discount = Number(test.discount || 0);
+			const discountedBase = base;
 			if (!isNight) {
 				return { ...test, discountedValue: discountedBase, isNightTime: false };
 			}
@@ -200,10 +200,8 @@ export class PrimeBillingEnterprise {
 
 	static applyDiscountsToTests<T extends { servicePrice?: number; discountedValue?: number; discount?: number; price?: number }>(tests: T[]): T[] {
 		try {
-			console.log("Applying discounts to test:", tests);
 			return tests.map(test => {
-				
-				if (!test.discountedValue || test.discountedValue === 0) return { ...test, discountedValue: 0 };
+				if (!test.discountedValue || test.discountedValue === 0) return { ...test, discountedValue: 0, discount: 0 };
 				const discount = test.discount || 0;
 				const base = test.discountedValue;
 				const discountedValue = base - discount;
@@ -219,7 +217,7 @@ export class PrimeBillingEnterprise {
 		if (!Array.isArray(tests)) return tests;
 		if (!taxValue || taxValue <= 0) {
 			return tests.map(test => {
-				const totalpayable = test.discountedValue - (test.discount || 0) - (test.promoDiscount || 0);
+				const totalpayable = test.discountedValue - (test.promoDiscount || 0);
 				return { ...test, amountIncurredDueTax: 0, totalpayable, totalcost: test.discountedValue || 0 };
 			});
 		}
@@ -227,9 +225,9 @@ export class PrimeBillingEnterprise {
 			const preDiscountValue = test.discountedValue
 			const taxAmount = Number(((preDiscountValue * taxValue) / 100).toFixed(2));
 			const totalcost = Number((preDiscountValue + taxAmount).toFixed(2));
-			const discount = Number(test.discount || 0);
+			// const discount = Number(test.discount || 0);
 			const promo = Number(test.promoDiscount || 0);
-			const totalpayable = Number((totalcost - discount - promo).toFixed(2));
+			const totalpayable = Number((totalcost - promo).toFixed(2));
 			return {
 				...test,
 				amountIncurredDueTax: taxAmount,

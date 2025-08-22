@@ -66,9 +66,7 @@ export class DrugManagementService {
 
 	public async addNewDrugCategory(tenantId: number, drugCategoryInformation: drugCategoryInformation): Promise<boolean | string> {
 		const { categoryName, description, createdBy } = drugCategoryInformation;
-
 		if (await this.hasDrugCategory(tenantId, categoryName)) return DrugInfo.catExist;
-
 		const result = await promisifyQuery(tenantId, q_insert_drug_category_sql, [categoryName, description, createdBy]);
 		return rowAffected(result);
 	}

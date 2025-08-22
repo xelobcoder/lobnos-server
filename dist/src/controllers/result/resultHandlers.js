@@ -226,7 +226,14 @@ const getResultPrintoutHandler = async (request, response) => {
         }
         if (dataset.hasDrugs == true) {
             const drugList = await ascension_1.TestAscension.getAscensionSavedDrugs(tenantIdP, numAscensionId, parsedTestId);
-            dataset.drugList = drugList;
+            if (Array.isArray(drugList) && drugList.length > 0) {
+                dataset.drugList = drugList.filter((drug) => {
+                    return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
+                });
+            }
+            else {
+                dataset.drugList = drugList;
+            }
         }
         let samplingInformation = await ascension_1.TestAscension.findAscension(tenantIdP, numAscensionId);
         if (samplingInformation != null) {
@@ -328,7 +335,14 @@ const getResultPrintMultipleHandler = async (request, response) => {
                     }
                     if (dataset.hasDrugs == true) {
                         const drugList = await ascension_1.TestAscension.getAscensionSavedDrugs(tenantIdP, ascensionid, testid);
-                        dataset.drugList = drugList;
+                        if (Array.isArray(drugList) && drugList.length > 0) {
+                            dataset.drugList = drugList.filter((drug) => {
+                                return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
+                            });
+                        }
+                        else {
+                            dataset.drugList = drugList;
+                        }
                     }
                     let resultEntry = await new resultPrint_1.default(billingid).getResultEntryScientist(tenantIdP, billingid, testid, ascensionid);
                     const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;

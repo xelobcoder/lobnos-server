@@ -72,7 +72,10 @@ export class SubmitCustomerBilling {
                 amountPayable,
                 employeeid,
                 samplingCenter,
-                isAdjustment, adjustmentdate, adjustmentType, adjustmentReason,
+                isAdjustment, 
+                adjustmentdate,
+                adjustmentType,
+                adjustmentReason,
                 payments,
                 status,
                 entitytype,
@@ -104,6 +107,8 @@ export class SubmitCustomerBilling {
             });
 
 
+            console.log(checkoutResult,'------------------')
+
 
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
@@ -128,6 +133,7 @@ export class SubmitCustomerBilling {
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult}` };
             }
+
             const data = checkoutResult.data;
             const summaryFields = [
                 'subtotal',

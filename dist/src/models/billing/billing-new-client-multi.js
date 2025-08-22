@@ -78,6 +78,7 @@ class SubmitCustomerBilling {
                 entitytype,
                 tenantId
             });
+            console.log(checkoutResult, '------------------');
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
             }

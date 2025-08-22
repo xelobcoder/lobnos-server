@@ -95,6 +95,9 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                recalculatedCart = await this.getRecalculatedCart(cart, referalCode, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation, entitytype, entityid);
           }
 
+          console.log('I am recalculated cart', recalculatedCart);
+          console.log('entitytype', entitytype);
+
           let recalculatedServicesList: any[] = await CustomerBillingCheckoutSingleton.recalculateServicesList({
                billing: this,
                servicesList,
@@ -132,7 +135,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
           const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
           const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
-          console.log(recalculatedCart)
+          // console.log(recalculatedCart)
           const amountPayable = toFixed2(totalpayable)
           const outstanding = toFixed2(amountPayable - paid);
           const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
@@ -200,6 +203,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
      }
      private async getRecalculatedCart(cart: any[], referalCode: any, billingsettings: any, isPromo: boolean, promoValid: boolean, promoCode: string, promoDetails: any, includeTax: any, taxation: any, entitytype?: any, entityId?: any): Promise<any[]> {
           const selectedTestIds = cart.map((item: any) => item.testid);
+          console.log('I am selected',selectedTestIds,entityId,entitytype)
 
           let allTests: any[] = [];
           if (selectedTestIds.length > 0) {
@@ -214,13 +218,19 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                }
                allTests = await this.getBillingHandler(entityType, entityIdValue);
           }
+
           let recalculatedCart = allTests
                .filter((test: any) => selectedTestIds.includes(test.testid))
-               .map((test: any) => ({
-                    ...test,
-                    price: test.price,
-                    discount: test.discount || 0
-               }));
+               .map((test: any) => {
+                    // get test from cart to apply the discounts
+                    const cartItem = cart.find(item => item.testid === test.testid);
+                    return {
+                         ...test,
+                         price: test.price,
+                         discount: cartItem ? cartItem.discount : 0
+                    }
+               })
+
           recalculatedCart = this.applyAllBillingRulesToCart(recalculatedCart, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation);
           return recalculatedCart;
      }
@@ -234,6 +244,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           } else {
                recalculatedCart = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedCart);
           }
+          // check here double discount
           if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
                recalculatedCart = PrimeBillingEnterprise.applyTaxToTests(recalculatedCart, taxation.taxValue);
           } else {
