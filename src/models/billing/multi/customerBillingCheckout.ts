@@ -148,8 +148,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                success: true,
                message: 'Checkout recalculation successful. No payment has been received yet.',
                data: {
-                    subtotal: toFixed2(subtotal),
-                    totalcost: amountPayable,
+                    subtotal: toFixed2(subtotal) + toFixed2(totaldiscount),
+                    totalcost: amountPayable + toFixed2(totaldiscount),
                     totaldiscount: toFixed2(totaldiscount),
                     totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
                     totalServiceAmount: toFixed2(totalServiceAmount),
@@ -203,7 +203,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
      }
      private async getRecalculatedCart(cart: any[], referalCode: any, billingsettings: any, isPromo: boolean, promoValid: boolean, promoCode: string, promoDetails: any, includeTax: any, taxation: any, entitytype?: any, entityId?: any): Promise<any[]> {
           const selectedTestIds = cart.map((item: any) => item.testid);
-          console.log('I am selected',selectedTestIds,entityId,entitytype)
+          console.log('I am selected', selectedTestIds, entityId, entitytype)
 
           let allTests: any[] = [];
           if (selectedTestIds.length > 0) {

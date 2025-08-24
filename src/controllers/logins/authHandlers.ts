@@ -5,7 +5,7 @@ import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasi
 import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
 import { OperationsFailures } from "../../models/operations/types";
 
-export const getLogins = async (request: Request<{}, {}, {}, { count: number, page: number, name: string, email: string, role: string, tenantId: string }>, response: Response) => {
+export const getLogins = async (request: Request<{}, {}, {}, { count: number, page: number, sortby: 'ASC' | 'DESC', name: string, email: string, role: string, tenantId: string }>, response: Response) => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId)
 		const result = await getAllLogins(tenantIdP, request.query);

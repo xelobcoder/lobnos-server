@@ -155,7 +155,7 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
           const tenantId = Number(req.query.tenantId) || 3;
           const repo = getRepo(tenantId);
           const { data, device, timestamp } = req.body;
-          console.log("Received interfacing data:",  device, timestamp);
+          console.log("Received interfacing data:", device, timestamp);
           // Check if data contains only '\x02' segment and ignore it
           if (data.length === 1 && data[0].SEGMENT === '\x02') {
                return res.status(200).json({
@@ -184,6 +184,8 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
                }
                return true;
           }) as IObxSegment[];
+
+          console.log('OBX Results:', obxSegments);
 
           const pidSegment = data.find(seg => seg.SEGMENT === 'PID') as IPidSegment;
 
@@ -228,10 +230,10 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
           const ascensionInformation = await TestAscension.findAscension(tenantId, Number(ascensionId));
           if (!ascensionInformation) return res.status(404).json({ error: "Ascension information not found" });
           const knownTestId = ascensionInformation.testid;
-
-          if (!providedTestIdx.includes(knownTestId)) {
-               return res.status(400).json({ error: "Provided test ID does not match ascension information assciated testid" });
-          }
+          console.log('KnownTestId', knownTestId);
+          // if (!providedTestIdx.includes(knownTestId)) {
+          //      return res.status(400).json({ error: "Provided test ID does not match ascension information assciated testid" });
+          // }
 
           const getMappingInformatoion = await testpanel.getTestInfo(tenantId, knownTestId);
 
@@ -243,6 +245,7 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
                     getMappingInformatoion['deviceInterfaceMapping']
                : null;
 
+          console.log('Device Interface Mapping:', deviceInterfaceMapping);
 
           // Get test creation rules first
           const testCreationRules = await new TestCreationRulesRepository(tenantId).findByTestId(knownTestId);
@@ -266,6 +269,8 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
                }
           }
 
+       console.log('OBX Results:', obxResults);
+
           if (obxResults.length === 0) return res.status(400).json({ error: "No OBX results found for the provided device mapping" });
           const { billingid } = ascensionInformation;
           const comments = '';
@@ -282,7 +287,7 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
           const finalData = { testid: knownTestId, ascensionid: ascensionId, isScan: false, csvid, ptid, comments, drugs, employeeid, fields: obxResults, hasDrugs: false };
           const resultEntry = await new Creator(knownTestId).resultEntry(tenantId, finalData as any);
 
-
+          console.log('Result Entry:', resultEntry);
           return res.status(200).json({
                status: resultEntry ? "success" : "error",
                message: "Data processed successfully",

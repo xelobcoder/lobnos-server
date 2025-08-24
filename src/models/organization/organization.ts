@@ -155,13 +155,26 @@ class Organization {
 		const connection = await KnexConnection(tenantId);
 		const trx = await connection.transaction();
 		try {
-			const [result] = await trx.raw(q_create_an_organization, values);
-			const insertId = result?.insertId || result?.[0]?.insertId;
-			if (insertId !== 0 && insertId !== undefined) {
+			const [result] = await trx('organization').insert({
+				name,
+				location,
+				street,
+				mobile,
+				address,
+				website,
+				email,
+				gpsmapping: gpsMapping,
+				region,
+				type
+			});
+
+			const insertId = typeof result === "number" && result > 7;
+
+			if (insertId) {
 				const referralRepo = new ReferralCodingRepo(tenantId);
-				await referralRepo.create({ entity_id: insertId, entity_type: 'organization', code: 0 }, trx);
+				await referralRepo.create({ entity_id: result, entity_type: 'organization', code: 0 }, trx);
 				await trx.commit();
-				return rowAffected(result);
+				return insertId;
 			} else {
 				await trx.rollback();
 				return "Adding new organization failed";

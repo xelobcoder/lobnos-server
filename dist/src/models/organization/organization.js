@@ -116,7 +116,6 @@ class Organization {
         }
     }
     async createAorganization(tenantId, body) {
-        var _a;
         const { name, location, street, mobile, address, website, email, gpsMapping, region, type } = body;
         const has_organization = await this.hasOrganization(tenantId, name);
         if (has_organization)
@@ -125,13 +124,24 @@ class Organization {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const trx = await connection.transaction();
         try {
-            const [result] = await trx.raw(queries_1.q_create_an_organization, values);
-            const insertId = (result === null || result === void 0 ? void 0 : result.insertId) || ((_a = result === null || result === void 0 ? void 0 : result[0]) === null || _a === void 0 ? void 0 : _a.insertId);
-            if (insertId !== 0 && insertId !== undefined) {
+            const [result] = await trx('organization').insert({
+                name,
+                location,
+                street,
+                mobile,
+                address,
+                website,
+                email,
+                gpsmapping: gpsMapping,
+                region,
+                type
+            });
+            const insertId = typeof result === "number" && result > 7;
+            if (insertId) {
                 const referralRepo = new ReferralCodingRepo_1.ReferralCodingRepo(tenantId);
-                await referralRepo.create({ entity_id: insertId, entity_type: 'organization', code: 0 }, trx);
+                await referralRepo.create({ entity_id: result, entity_type: 'organization', code: 0 }, trx);
                 await trx.commit();
-                return (0, helper_1.rowAffected)(result);
+                return insertId;
             }
             else {
                 await trx.rollback();

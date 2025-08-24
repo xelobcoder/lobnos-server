@@ -97,7 +97,7 @@ const userLogin = async (req, res) => {
 };
 exports.userLogin = userLogin;
 const getAllLogins = async (tenantId, records) => {
-    const { name, email, role, page, count } = records;
+    const { name, email, role, sortby = 'DESC', page, count } = records;
     try {
         let query = `
       SELECT
@@ -130,7 +130,7 @@ const getAllLogins = async (tenantId, records) => {
             query += ` WHERE ${conditions.join(" AND ")}`;
         }
         if (count && page) {
-            query += ` ORDER BY rl.employeeid DESC LIMIT ? OFFSET ?`;
+            query += ` ORDER BY rl.employeeid ${sortby} LIMIT ? OFFSET ?`;
         }
         let result = [];
         result = count && page ? await (0, helper_1.paginationQuery)({ count, page }, query, vals, tenantId) : await (0, helper_1.promisifyQuery)(tenantId, query, vals);

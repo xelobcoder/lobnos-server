@@ -168,10 +168,11 @@ const getAllLogins = async (tenantId: number, records: {
      name: string,
      email: string,
      role: string,
+     sortby: 'ASC' | 'DESC',
      page: number,
      count: number
 }): Promise<PrimeLimsTableroles[] | any> => {
-     const { name, email, role, page, count } = records
+     const { name, email, role, sortby = 'DESC', page, count } = records
      try {
           let query = `
       SELECT
@@ -208,9 +209,11 @@ const getAllLogins = async (tenantId: number, records: {
                query += ` WHERE ${conditions.join(" AND ")}`;
           }
 
+
           if (count && page) {
-               query += ` ORDER BY rl.employeeid DESC LIMIT ? OFFSET ?`;
+               query += ` ORDER BY rl.employeeid ${sortby} LIMIT ? OFFSET ?`;
           }
+
 
           let result = [];
 

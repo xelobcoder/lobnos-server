@@ -106,6 +106,7 @@ async function handleReceivedIntefacingData(req, res) {
             }
             return true;
         });
+        console.log('OBX Results:', obxSegments);
         const pidSegment = data.find(seg => seg.SEGMENT === 'PID');
         // Extract patient ID and clean it to format: number-number (ascensionId-employeeId)
         let rawPatientId = (pidSegment === null || pidSegment === void 0 ? void 0 : pidSegment.PATIENT_ID) || "";
@@ -145,9 +146,10 @@ async function handleReceivedIntefacingData(req, res) {
         if (!ascensionInformation)
             return res.status(404).json({ error: "Ascension information not found" });
         const knownTestId = ascensionInformation.testid;
-        if (!providedTestIdx.includes(knownTestId)) {
-            return res.status(400).json({ error: "Provided test ID does not match ascension information assciated testid" });
-        }
+        console.log('KnownTestId', knownTestId);
+        // if (!providedTestIdx.includes(knownTestId)) {
+        //      return res.status(400).json({ error: "Provided test ID does not match ascension information assciated testid" });
+        // }
         const getMappingInformatoion = await testpanelList_1.testpanel.getTestInfo(tenantId, knownTestId);
         if (!getMappingInformatoion)
             return res.status(404).json({ error: "Test information not found for the provided test ID" });
@@ -156,6 +158,7 @@ async function handleReceivedIntefacingData(req, res) {
                 JSON.parse(getMappingInformatoion['deviceInterfaceMapping']) :
                 getMappingInformatoion['deviceInterfaceMapping']
             : null;
+        console.log('Device Interface Mapping:', deviceInterfaceMapping);
         // Get test creation rules first
         const testCreationRules = await new TestCreationRulesRepository_1.default(tenantId).findByTestId(knownTestId);
         // Extract OBX values for mapped analytes and merge with testCreationRules
@@ -176,6 +179,7 @@ async function handleReceivedIntefacingData(req, res) {
                 }
             }
         }
+        console.log('OBX Results:', obxResults);
         if (obxResults.length === 0)
             return res.status(400).json({ error: "No OBX results found for the provided device mapping" });
         const { billingid } = ascensionInformation;
@@ -189,6 +193,7 @@ async function handleReceivedIntefacingData(req, res) {
         const ptid = `USxD4Hnc5iWR9DGFuBRg7YxeCQzb6uPyN0T0qRx8UE2NIjsusv${patientid.toString()}`;
         const finalData = { testid: knownTestId, ascensionid: ascensionId, isScan: false, csvid, ptid, comments, drugs, employeeid, fields: obxResults, hasDrugs: false };
         const resultEntry = await new creator_1.default(knownTestId).resultEntry(tenantId, finalData);
+        console.log('Result Entry:', resultEntry);
         return res.status(200).json({
             status: resultEntry ? "success" : "error",
             message: "Data processed successfully",

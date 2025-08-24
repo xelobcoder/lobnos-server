@@ -117,8 +117,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             success: true,
             message: 'Checkout recalculation successful. No payment has been received yet.',
             data: {
-                subtotal: toFixed2(subtotal),
-                totalcost: amountPayable,
+                subtotal: toFixed2(subtotal) + toFixed2(totaldiscount),
+                totalcost: amountPayable + toFixed2(totaldiscount),
                 totaldiscount: toFixed2(totaldiscount),
                 totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
                 totalServiceAmount: toFixed2(totalServiceAmount),
