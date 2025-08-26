@@ -43,7 +43,7 @@ export default class RolesRepository {
 
 	async createRole(roleData: IEmployee): Promise<number> {
 		try {
-			const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist'];
+			const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist','customer service representative'];
 			if (!roleData.username || typeof roleData.username !== 'string') throw new Error('Invalid username');
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');
 			if (!roleData.password || typeof roleData.password !== 'string') throw new Error('Invalid password');

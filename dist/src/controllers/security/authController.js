@@ -26,7 +26,8 @@ class AuthController {
         try {
             const tenantId = this.getTenantId(req);
             this.authRepo = new AuthenticationRepository_1.default(tenantId);
-            const { email, password } = req.body;
+            const { email, password, browserInfo } = req.body;
+            console.log('Browser Info:', browserInfo);
             const tokens = await this.authRepo.login(email, password);
             if (!tokens) {
                 const message = 'Invalid email or password';

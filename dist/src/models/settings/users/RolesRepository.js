@@ -22,7 +22,7 @@ class RolesRepository {
     }
     async createRole(roleData) {
         try {
-            const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist'];
+            const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative'];
             if (!roleData.username || typeof roleData.username !== 'string')
                 throw new Error('Invalid username');
             if (!allowedRoles.includes(roleData.role))

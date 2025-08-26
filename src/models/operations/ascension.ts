@@ -107,9 +107,7 @@ export class TestAscension extends Operations {
 		}
 		query += ` ORDER BY b.billingid ASC 
           LIMIT ? OFFSET ?`;
-		console.log(
-			query
-		)
+
 		return await paginationQuery({ count, page }, query, [start_date, end_date], tenantId);
 	}
 

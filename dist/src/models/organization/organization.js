@@ -126,15 +126,15 @@ class Organization {
         try {
             const [result] = await trx('organization').insert({
                 name,
-                location,
-                street,
+                location: location || null,
+                street: street || null,
                 mobile,
-                address,
-                website,
-                email,
-                gpsmapping: gpsMapping,
-                region,
-                type
+                address: address || null,
+                website: website || null,
+                email: email || null,
+                gpsmapping: gpsMapping || null,
+                region: region || null,
+                type: type || null
             });
             const insertId = typeof result === "number" && result > 7;
             if (insertId) {

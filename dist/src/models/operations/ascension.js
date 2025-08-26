@@ -90,7 +90,6 @@ class TestAscension extends operations_1.default {
         }
         query += ` ORDER BY b.billingid ASC 
           LIMIT ? OFFSET ?`;
-        console.log(query);
         return await (0, helper_1.paginationQuery)({ count, page }, query, [start_date, end_date], tenantId);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {

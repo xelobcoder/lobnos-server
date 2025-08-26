@@ -26,7 +26,6 @@ export const checkTokenExists = async (request: Request, response: Response, nex
      ]
 
      if (bypassRoutes.some(route => request.path.startsWith(route))) {
-          console.log('Skipping token check for prime login route');
           return next();
      }
      const cookieHeader = request.headers['cookie'] as string;
