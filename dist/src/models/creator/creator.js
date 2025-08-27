@@ -26,6 +26,7 @@ const TestCreationRulesRepository_1 = __importDefault(require("../TestCreation/T
 const CriticalValueEvaluator_1 = require("./CriticalValueEvaluator");
 const testFieldsCategoryClass_1 = __importDefault(require("../operations/testFieldsCategoryClass"));
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const encryptionModels_1 = require("../../utils/encryptionModels");
 class Creator {
     constructor(testid) {
         this.testid = testid;
@@ -61,9 +62,10 @@ class Creator {
                 });
             }
             if (previousRecords.length > 0 && creationRules.length > 0) {
-                const mappings = previousRecords.map(item => {
-                    const matchingRule = creationRules.find(rule => rule.id === item.fieldid);
-                    return matchingRule ? Object.assign(Object.assign({}, matchingRule), item) : null;
+                const mappings = creationRules.map(rule => {
+                    const previous = previousRecords.find(item => item.fieldid === rule.id);
+                    const state = previous ? Object.assign(Object.assign({}, rule), previous) : Object.assign(Object.assign({}, rule), { value: (0, encryptionModels_1.encrypt_value)('tiifu'), originalvalue: (0, encryptionModels_1.encrypt_value)('tiifu'), fieldid: rule.id, field: rule.name });
+                    return state;
                 });
                 return mappings;
             }

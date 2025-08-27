@@ -87,7 +87,7 @@ class CriticalValueEvaluator {
     static generataStatementAndEaluate(isHit, field, value, constraints, additionalfield, tenantId, others) {
         const { value: constraintValue, action } = constraints;
         if (isHit) {
-            const statement = this.alertStatementGenerator(field, constraintValue, "greater", isHit, action, value, others);
+            const statement = this.alertStatementGenerator(field, constraintValue, constraints.constraint_type, isHit, action, value, others);
             const currentValue = this.CriticalActionCarrier(constraints, value, additionalfield, tenantId, statement);
             return currentValue;
         }

@@ -306,7 +306,7 @@ exports.totalSamplePendingCollectionWithDateIn24Hours = `SELECT COUNT(*) AS pend
 INNER JOIN dboservices AS ds ON ds.serviceid = ta.serviceid 
 INNER JOIN test_panels AS tp ON tp.id = ta.testid
 LEFT JOIN departments AS d ON d.id = tp.category
-WHERE d.name <> 'Ultrasound' AND (collectionStartDate IS NULL OR collectionEndDate IS NULL) AND TIMESTAMPDIFF(HOUR,ds.serviceAddedOn,CURRENT_DATE) <= 24`;
+WHERE d.department <> 'Ultrasound' AND (collectionStartDate IS NULL OR collectionEndDate IS NULL) AND TIMESTAMPDIFF(HOUR,ds.serviceAddedOn,CURRENT_DATE) <= 24`;
 // Represent some of the analytics the phelobotomist would have access to.
 exports.testsCompletedIn24Hours = `
     SELECT COUNT(*) AS tests_completed_in_24h 
@@ -326,5 +326,6 @@ exports.testsRejectedIn24Hours = `
     SELECT COUNT(*) AS tests_rejected_in_24h 
       FROM samplestatus AS ss INNER JOIN test_ascension AS ta
     ON ss.ascensionid = ta.id
-    WHERE TIMESTAMPDIFF(HOUR, ta.collectionStartDate, CURRENT_DATE) <= 24 AND ss.approvalstatus = 1`;
+    INNER JOIN dboservices AS ds ON ds.serviceid = ta.serviceid
+    WHERE TIMESTAMPDIFF(HOUR,ds.serviceAddedOn, CURRENT_DATE) <= 24 AND ss.approvalstatus = 0`;
 exports.q_get_AscensionEditCount = `SELECT counter FROM dbogeneraltesteditcount WHERE billingid = ? AND ascensionid  = ?`;

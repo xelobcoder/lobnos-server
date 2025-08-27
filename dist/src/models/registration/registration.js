@@ -83,6 +83,11 @@ class Registration {
                         return 'A primary (self) contact already exists for this mobile number.';
                     }
                 }
+                const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
+                const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
+                const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
+                const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
+                const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
                 const values = [
                     firstname,
                     lastname,
@@ -90,7 +95,7 @@ class Registration {
                     email,
                     age,
                     ageType,
-                    `${years}-${months}-${days}`,
+                    dob,
                     maritalstatus,
                     mobile,
                     occupation,
@@ -172,6 +177,11 @@ class Registration {
         if (!isPatientId)
             return "Resource not found." /* OperationsFailures.notFound */;
         const { designation, firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, whatAppcontact } = clientdata;
+        const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
+        const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
+        const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
+        const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
+        const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
         const values = [
             firstname,
             designation,
@@ -180,7 +190,7 @@ class Registration {
             email,
             age,
             ageType,
-            `${years}-${months}-${days}`,
+            dob,
             maritalstatus,
             mobile,
             occupation,

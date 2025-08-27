@@ -113,6 +113,13 @@ export default class Registration {
 					}
 				}
 
+				const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
+				const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
+				const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
+
+				const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
+				const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
+
 				const values = [
 					firstname,
 					lastname,
@@ -120,7 +127,7 @@ export default class Registration {
 					email,
 					age,
 					ageType,
-					`${years}-${months}-${days}`,
+					dob,
 					maritalstatus,
 					mobile,
 					occupation,
@@ -222,6 +229,14 @@ export default class Registration {
 			years,
 			whatAppcontact
 		} = clientdata;
+
+		const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
+		const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
+		const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
+
+		const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
+		const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
+
 		const values = [
 			firstname,
 			designation,
@@ -230,7 +245,7 @@ export default class Registration {
 			email,
 			age,
 			ageType,
-			`${years}-${months}-${days}`,
+			dob,
 			maritalstatus,
 			mobile,
 			occupation,

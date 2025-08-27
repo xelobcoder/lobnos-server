@@ -33,6 +33,8 @@ class EncryptedResourceResponse {
 }
 exports.EncryptedResourceResponse = EncryptedResourceResponse;
 function encrypt_value(value) {
+    if (!value)
+        return '';
     const iv = crypto_1.default.randomBytes(16);
     // @ts-ignore: Buffer is valid as CipherKey in Node.js
     const cipher = crypto_1.default.createCipheriv('aes-256-cfb', exports.ENCRYPTION_KEY, iv);
@@ -41,6 +43,8 @@ function encrypt_value(value) {
 }
 exports.encrypt_value = encrypt_value;
 function decrypt_value(encrypted_value) {
+    if (!encrypted_value)
+        return '';
     const encrypted_data = Buffer.from(encrypted_value, 'base64');
     const iv = encrypted_data.slice(0, 16);
     const encrypted = encrypted_data.slice(16);

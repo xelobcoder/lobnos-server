@@ -127,8 +127,8 @@ export async function getPatientAppointmentHistoryController(request: Request, r
 			return customError("Patient ID missing", 404, response);
 		}
 		const ptid: number = typeof patientid === "string" && !isNaN(Number(patientid)) ? parseInt(patientid) : Number(patientid);
-		const reqPage: number = parseInt(page as string);
-		const reqCount: number = parseInt(count as string);
+		const reqPage: number = parseInt(page as string) || 1;
+		const reqCount: number = parseInt(count as string) || 10;
 		const previous = await new Appointment(0).getPatientAppointmentHistory(tenantId, ptid, reqCount, reqPage);
 		response.send(previous);
 	} catch (err) {

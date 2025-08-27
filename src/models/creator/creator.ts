@@ -31,6 +31,7 @@ import TestCreationRulesRepository, { TestCreationRule } from "../TestCreation/T
 import { CriticalValueEvaluator } from './CriticalValueEvaluator';
 import TestDetailCategory from "../operations/testFieldsCategoryClass";
 import KnexConnection from "../../database/KnexConnections";
+import { encrypt_value } from "../../utils/encryptionModels";
 
 export default class Creator {
 	testid: number;
@@ -71,13 +72,20 @@ export default class Creator {
 					return item;
 				});
 			}
-			if (previousRecords.length > 0 && creationRules.length > 0) {
-				const mappings = previousRecords.map(item => {
-					const matchingRule = creationRules.find(rule => rule.id === item.fieldid);
-					return matchingRule ? { ...matchingRule, ...item } : null;
-				});
 
-				return mappings
+			if (previousRecords.length > 0 && creationRules.length > 0) {
+				const mappings = creationRules.map(rule => {
+					const previous = previousRecords.find(item => item.fieldid === rule.id);
+					const state = previous ? { ...rule, ...previous } : {
+						...rule,
+						value: encrypt_value('tiifu'),
+						originalvalue: encrypt_value('tiifu'),
+						fieldid: rule.id,
+						field: rule.name
+					};
+					return state;
+				});
+				return mappings;
 			}
 		} catch (err) {
 
@@ -497,8 +505,8 @@ export default class Creator {
 		const results = await Promise.allSettled(insertPromises);
 		const hasErrorOccurred = results.some((res) => res.status === 'rejected');
 		// delete are records of that ascension  that is not in the drugs array
-		const submittedDrugs =  drugs.map(d => d.drugid).toString()
-		await promisifyQuery(tenantId,`DELETE FROM resultentrydrugsreaction WHERE drugid NOT IN (${submittedDrugs})`)
+		const submittedDrugs = drugs.map(d => d.drugid).toString()
+		await promisifyQuery(tenantId, `DELETE FROM resultentrydrugsreaction WHERE drugid NOT IN (${submittedDrugs})`)
 		return !hasErrorOccurred;
 	}
 
