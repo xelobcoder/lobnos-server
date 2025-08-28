@@ -114,10 +114,13 @@ export class PrimeBillingEnterprise {
 				}
 				const base = item.discountedValue || 0;
 				const share = Number(((base * promo.value) / 100).toFixed(2));
+				const totalpayable = Number((base - share).toFixed(2));
 				return {
 					...item,
 					promoDiscount: share,
-					discountedValue: Number((base - share).toFixed(2)),
+					totalcost: base,
+					discountedValue: totalpayable,
+					totalpayable,
 					discount: Number(((item.discount || 0) + share).toFixed(2))
 				};
 			});
@@ -136,10 +139,13 @@ export class PrimeBillingEnterprise {
 					? Number((totalPromoDiscount - distributed).toFixed(2))
 					: perItem;
 				distributed += share;
+				const totalpayable = Number((base - share).toFixed(2));
 				return {
 					...item,
 					promoDiscount: share,
-					discountedValue: Number((base - share).toFixed(2)),
+					discountedValue: totalpayable,
+					totalpayable,
+					totalcost: base,
 					discount: Number(((item.discount || 0) + share).toFixed(2))
 				};
 			});
@@ -185,7 +191,11 @@ export class PrimeBillingEnterprise {
 			// const discount = Number(test.discount || 0);
 			const discountedBase = base;
 			if (!isNight) {
-				return { ...test, discountedValue: discountedBase, isNightTime: false };
+				return {
+					...test,
+					discountedValue: discountedBase,
+					isNightTime: false
+				};
 			}
 			let adjustedValue = discountedBase;
 			if (nightAdjustmentMode === "percentage") {
@@ -193,7 +203,11 @@ export class PrimeBillingEnterprise {
 			} else if (nightAdjustmentMode === "absolute") {
 				adjustedValue = Number((discountedBase + Number(nightAdjustmentValue)).toFixed(2));
 			}
-			return { ...test, discountedValue: adjustedValue, isNightTime: true };
+			return {
+				...test,
+				discountedValue: adjustedValue, isNightTime: true, totalpayable: adjustedValue,
+				totalcost: adjustedValue
+			};
 		});
 	}
 
@@ -217,23 +231,25 @@ export class PrimeBillingEnterprise {
 		if (!Array.isArray(tests)) return tests;
 		if (!taxValue || taxValue <= 0) {
 			return tests.map(test => {
-				const totalpayable = test.discountedValue - (test.promoDiscount || 0);
-				return { ...test, amountIncurredDueTax: 0, totalpayable, totalcost: test.discountedValue || 0 };
+				const totalpayable = test.discountedValue
+				return {
+					...test,
+					amountIncurredDueTax: 0,
+					totalpayable,
+					totalcost: test.discountedValue || 0
+				};
 			});
 		}
 		return tests.map(test => {
 			const preDiscountValue = test.discountedValue
 			const taxAmount = Number(((preDiscountValue * taxValue) / 100).toFixed(2));
 			const totalcost = Number((preDiscountValue + taxAmount).toFixed(2));
-			// const discount = Number(test.discount || 0);
-			const promo = Number(test.promoDiscount || 0);
-			const totalpayable = Number((totalcost - promo).toFixed(2));
 			return {
 				...test,
 				amountIncurredDueTax: taxAmount,
 				totalcost,
-				totalpayable,
-				discountedValue: totalpayable
+				totalpayable: totalcost,
+				discountedValue: test.discountedValue
 			};
 		});
 	}
@@ -437,7 +453,7 @@ export class PrimeBillingEnterprise {
 				const promoDiscount = 0;
 				const amountIncurredDueTax = 0;
 				const totalcost = price;
-				const totalpayable = price - discount;
+				const totalpayable = price;
 				return {
 					...service,
 					discountedValue: price,
@@ -454,11 +470,13 @@ export class PrimeBillingEnterprise {
 		if (billingsettings && billingsettings.hasNightAdjustment) {
 			recalculatedServicesList = PrimeBillingEnterprise.applyNightAdjustmentsToTests(recalculatedServicesList, billingsettings, 'services');
 		}
+
 		if (isPromo && promoValid && promoCode && promoDetails) {
 			recalculatedServicesList = PrimeBillingEnterprise.applyPromoToItems(recalculatedServicesList, { type: promoDetails.discount_type, value: promoDetails.discount_value });
 		} else {
 			recalculatedServicesList = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedServicesList);
 		}
+
 		if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
 			recalculatedServicesList = PrimeBillingEnterprise.applyTaxToTests(recalculatedServicesList, taxation.taxValue);
 		}

@@ -234,6 +234,7 @@ class Operations {
                 await new partitioning_1.default('billing', 'billing').addYearPartition(tenantId, new Date().getFullYear());
                 await new partitioning_1.default('test_ascension', 'asc').addYearPartition(tenantId, new Date().getFullYear());
             }
+            return [];
         }
     }
 }

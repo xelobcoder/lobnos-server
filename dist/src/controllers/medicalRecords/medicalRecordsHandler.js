@@ -107,10 +107,12 @@ const getAllConsultationRecords = async (request, response) => {
 exports.getAllConsultationRecords = getAllConsultationRecords;
 const getAllPendingConsultationRecords = async (request, response) => {
     try {
-        const { count, page } = request.query;
+        const { count, page, sortby } = request.query;
         const pageSize = count ? parseInt(count) : 10;
+        const tenantId = request.query.tenantId ? parseInt(request.query.tenantId.toString()) : 0;
         const currentPage = page ? parseInt(page) : 1;
-        const pending = await medicalRecordClass_1.default.getPendingConsultationServices(currentPage, pageSize);
+        const sortOrder = sortby === 'DESC' ? 'DESC' : 'ASC';
+        const pending = await medicalRecordClass_1.default.getPendingConsultationServices(tenantId, currentPage, pageSize, sortOrder);
         response.send(pending);
     }
     catch (err) {

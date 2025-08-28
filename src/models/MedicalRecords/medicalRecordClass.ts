@@ -89,7 +89,7 @@ export default class PrimeMedicalRecords {
     }
 
 
-    static async getPendingConsultationServices(tenantId: number, page = 1, pageSize = 10) {
+    static async getPendingConsultationServices(tenantId: number, page = 1, pageSize = 10, sortby: 'ASC' | 'DESC') {
         const offset = (page - 1) * pageSize;
         const connection = await KnexConnection(tenantId)
         const result = await connection("dboservices")
@@ -99,6 +99,7 @@ export default class PrimeMedicalRecords {
             .select(
                 "dboservices.serviceid",
                 "dboservices.billingid",
+                "dboservices.serviceAddedOn",
                 "roles.username",
                 "new_patients.*"
             )
@@ -107,6 +108,7 @@ export default class PrimeMedicalRecords {
                 categoryTrackId: 5,
                 trackId: 1
             })
+            .orderBy("dboservices.serviceid", sortby)
             .limit(pageSize)
             .offset(offset);
         return result;

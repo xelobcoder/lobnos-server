@@ -106,7 +106,8 @@ class PrimeBillingEnterprise {
                 }
                 const base = item.discountedValue || 0;
                 const share = Number(((base * promo.value) / 100).toFixed(2));
-                return Object.assign(Object.assign({}, item), { promoDiscount: share, discountedValue: Number((base - share).toFixed(2)), discount: Number(((item.discount || 0) + share).toFixed(2)) });
+                const totalpayable = Number((base - share).toFixed(2));
+                return Object.assign(Object.assign({}, item), { promoDiscount: share, totalcost: base, discountedValue: totalpayable, totalpayable, discount: Number(((item.discount || 0) + share).toFixed(2)) });
             });
         }
         else if (promo.type === 'flat') {
@@ -124,7 +125,8 @@ class PrimeBillingEnterprise {
                     ? Number((totalPromoDiscount - distributed).toFixed(2))
                     : perItem;
                 distributed += share;
-                return Object.assign(Object.assign({}, item), { promoDiscount: share, discountedValue: Number((base - share).toFixed(2)), discount: Number(((item.discount || 0) + share).toFixed(2)) });
+                const totalpayable = Number((base - share).toFixed(2));
+                return Object.assign(Object.assign({}, item), { promoDiscount: share, discountedValue: totalpayable, totalpayable, totalcost: base, discount: Number(((item.discount || 0) + share).toFixed(2)) });
             });
         }
         return items;
@@ -182,7 +184,7 @@ class PrimeBillingEnterprise {
             else if (nightAdjustmentMode === "absolute") {
                 adjustedValue = Number((discountedBase + Number(nightAdjustmentValue)).toFixed(2));
             }
-            return Object.assign(Object.assign({}, test), { discountedValue: adjustedValue, isNightTime: true });
+            return Object.assign(Object.assign({}, test), { discountedValue: adjustedValue, isNightTime: true, totalpayable: adjustedValue, totalcost: adjustedValue });
         });
     }
     static applyDiscountsToTests(tests) {
@@ -206,7 +208,7 @@ class PrimeBillingEnterprise {
             return tests;
         if (!taxValue || taxValue <= 0) {
             return tests.map(test => {
-                const totalpayable = test.discountedValue - (test.promoDiscount || 0);
+                const totalpayable = test.discountedValue;
                 return Object.assign(Object.assign({}, test), { amountIncurredDueTax: 0, totalpayable, totalcost: test.discountedValue || 0 });
             });
         }
@@ -214,11 +216,7 @@ class PrimeBillingEnterprise {
             const preDiscountValue = test.discountedValue;
             const taxAmount = Number(((preDiscountValue * taxValue) / 100).toFixed(2));
             const totalcost = Number((preDiscountValue + taxAmount).toFixed(2));
-            // const discount = Number(test.discount || 0);
-            const promo = Number(test.promoDiscount || 0);
-            const totalpayable = Number((totalcost - promo).toFixed(2));
-            return Object.assign(Object.assign({}, test), { amountIncurredDueTax: taxAmount, totalcost,
-                totalpayable, discountedValue: totalpayable });
+            return Object.assign(Object.assign({}, test), { amountIncurredDueTax: taxAmount, totalcost, totalpayable: totalcost, discountedValue: test.discountedValue });
         });
     }
     static calculatePackageConcessionDiscountedValue(price, concessionMode, concessionValue) {
@@ -345,7 +343,7 @@ class PrimeBillingEnterprise {
             const promoDiscount = 0;
             const amountIncurredDueTax = 0;
             const totalcost = price;
-            const totalpayable = price - discount;
+            const totalpayable = price;
             return Object.assign(Object.assign({}, service), { discountedValue: price, discount,
                 amountIncurredDueTax,
                 totalcost,

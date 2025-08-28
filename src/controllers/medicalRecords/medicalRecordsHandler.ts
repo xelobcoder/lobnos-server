@@ -16,7 +16,7 @@ export const createAConsultationRecord = async (request: Request<{}, {}, Medical
                const recordId = await medicalRecordsService.createRecord(
                     tenantId,
                     {
-                         complaints, hpc, pmh, sh, record_type, odq, dhx, se, fh, 
+                         complaints, hpc, pmh, sh, record_type, odq, dhx, se, fh,
                          obsGynecHistory, oe, consulationby, patientid, associatedTransactionid
                     });
                response.status(201).json({ message: "Record created successfully.", recordId });
@@ -102,13 +102,15 @@ export const getAllConsultationRecords = async (request: Request<{}, {}, {}, { c
 };
 
 
-export const getAllPendingConsultationRecords = async (request: Request<{}, {}, {}, { count: string, page: string }>, response: Response) => {
+export const getAllPendingConsultationRecords = async (request: Request<{}, {}, {}, { tenantId: number, count: string, page: string, sortby: 'ASC' | 'DESC' }>, response: Response) => {
      try {
-          const { count, page } = request.query;
+          const { count, page, sortby } = request.query;
           const pageSize = count ? parseInt(count) : 10;
+          const tenantId = request.query.tenantId ? parseInt(request.query.tenantId.toString()) : 0;
           const currentPage = page ? parseInt(page) : 1;
+          const sortOrder = sortby === 'DESC' ? 'DESC' : 'ASC';
 
-          const pending = await PrimeMedicalRecords.getPendingConsultationServices(currentPage, pageSize);
+          const pending = await PrimeMedicalRecords.getPendingConsultationServices(tenantId, currentPage, pageSize, sortOrder);
           response.send(pending);
      } catch (err) {
           console.error("Error fetching all records:", err);

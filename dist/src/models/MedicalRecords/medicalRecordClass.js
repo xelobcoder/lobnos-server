@@ -48,19 +48,20 @@ class PrimeMedicalRecords {
         const rows = page && count ? await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_medical_records_getAll, [], tenantId) : await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_medical_records_getAll);
         return rows;
     }
-    static async getPendingConsultationServices(tenantId, page = 1, pageSize = 10) {
+    static async getPendingConsultationServices(tenantId, page = 1, pageSize = 10, sortby) {
         const offset = (page - 1) * pageSize;
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const result = await connection("dboservices")
             .join("roles", "roles.employeeid", "dboservices.employeeid")
             .join("billing", "billing.billingid", "dboservices.billingid")
             .join("new_patients", "new_patients.patientid", "billing.patientid")
-            .select("dboservices.serviceid", "dboservices.billingid", "roles.username", "new_patients.*")
+            .select("dboservices.serviceid", "dboservices.billingid", "dboservices.serviceAddedOn", "roles.username", "new_patients.*")
             .where({
             serviceCategory: "SERVICES",
             categoryTrackId: 5,
             trackId: 1
         })
+            .orderBy("dboservices.serviceid", sortby)
             .limit(pageSize)
             .offset(offset);
         return result;

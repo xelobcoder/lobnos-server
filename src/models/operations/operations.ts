@@ -287,6 +287,7 @@ export default class Operations {
 				await new PartitionManager('billing', 'billing').addYearPartition(tenantId, new Date().getFullYear());
 				await new PartitionManager('test_ascension', 'asc').addYearPartition(tenantId, new Date().getFullYear());
 			}
+			return []
 		}
 	}
 }
