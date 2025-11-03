@@ -1,0 +1,125 @@
+import { Request, Response } from 'express';
+import RequestAccess from '../../models/security/RequestAcessResult/requestAcess';
+import ResultAccessTableRepo from '../../models/security/RequestAcessResult/resultAcessTableRepo';
+
+export class ResultAccessController {
+     static async requestAccess(req: Request, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+               const { patientid, staffid, requestType, ascensionid } = req.body;
+               const id = await RequestAccess.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid });
+               res.status(201).json({
+                    status: true,
+                    message: 'Access requested',
+                    requestId: id
+               });
+          } catch (error) {
+               res.status(500).json({
+                    status: false,
+                    error: error.message
+               });
+          }
+     }
+
+     static async grantAccess(req: Request, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+               const { requestId } = req.params;
+               const success = await ResultAccessTableRepo.grantAccess(tenantId, parseInt(requestId));
+               if (success) {
+                    res.json({
+                         status: true,
+                         message: 'Access granted'
+                    });
+               } else {
+                    res.status(404).json({
+                         status: false,
+                         error: 'Request not found'
+                    });
+               }
+          } catch (error) {
+               res.status(500).json({
+                    status: false,
+                    error: error.message
+               });
+          }
+     }
+
+     static async revokeAccess(req: Request, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+               const { requestId } = req.params;
+               const success = await ResultAccessTableRepo.revokeAccess(tenantId, parseInt(requestId));
+               if (success) {
+                    res.json({
+                         status: true,
+                         message: 'Access revoked'
+                    });
+               } else {
+                    res.status(404).json({
+                         status: false,
+                         error: 'Request not found'
+                    });
+               }
+          } catch (error) {
+               res.status(500).json({
+                    status: false,
+                    error: error.message
+               });
+          }
+     }
+
+     static async getAccessHistory(req: Request, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+               const { patientid, staffid, page, count } = req.query;
+               const history = await RequestAccess.getAccessHistory(
+                    tenantId,
+                    patientid ? parseInt(patientid as string) : undefined,
+                    staffid ? parseInt(staffid as string) : undefined
+               );
+               res.json({
+                    status: true,
+                    data: history
+               });
+          } catch (error) {
+               res.status(500).json({
+                    status: false,
+                    error: error.message
+               });
+          }
+     }
+
+     static async verifyAccess(req: Request, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+               const { ascensionid, staffid, requestType } = req.body;
+               const allowed = await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, staffid, requestType);
+               res.json({
+                    status: true,
+                    allowed
+               });
+          } catch (error) {
+               res.status(500).json({
+                    status: false,
+                    error: error.message
+               });
+          }
+     }
+
+     static async expireExpiredRequests(req: Request, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+               await RequestAccess.expireExpiredRequests(tenantId);
+               res.json({
+                    status: true,
+                    message: 'Expired requests processed'
+               });
+          } catch (error) {
+               res.status(500).json({
+                    status: false,
+                    error: error.message
+               });
+          }
+     }
+}

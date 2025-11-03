@@ -32,6 +32,8 @@ import { CriticalValueEvaluator } from './CriticalValueEvaluator';
 import TestDetailCategory from "../operations/testFieldsCategoryClass";
 import KnexConnection from "../../database/KnexConnections";
 import { encrypt_value } from "../../utils/encryptionModels";
+import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
+import RequestAccess from "../security/RequestAcessResult/requestAcess";
 
 export default class Creator {
 	testid: number;
@@ -57,6 +59,12 @@ export default class Creator {
 			testid
 		]);
 		return previousRecords;
+	}
+
+	static async getRecordedResultsUsingServicedId(tenantId: number, serviceid: number): Promise<PrimeLimsTabletest_results[] | []> {
+		const query = `SELECT * FROM test_results WHERE servicedid = ?`;
+		const records = await promisifyQuery(tenantId, query, [serviceid]);
+		return records.length > 0 ? records : [];
 	}
 	async getPreviousRecordsOrCreationRule(tenantId: number, testid: number, billingid: number, patientid: number
 	): Promise<TestCreationRule[] | null | undefined> {
@@ -304,8 +312,9 @@ export default class Creator {
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(await promisifyQuery(tenantId, query, values));
 					} else {
+						const iswithinWindow = await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid,"edit");
+						if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
 						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ?`;
-
 						const result = await promisifyQuery(tenantId, updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(result);

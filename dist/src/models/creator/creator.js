@@ -27,6 +27,7 @@ const CriticalValueEvaluator_1 = require("./CriticalValueEvaluator");
 const testFieldsCategoryClass_1 = __importDefault(require("../operations/testFieldsCategoryClass"));
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const encryptionModels_1 = require("../../utils/encryptionModels");
+const requestAcess_1 = __importDefault(require("../security/RequestAcessResult/requestAcess"));
 class Creator {
     constructor(testid) {
         this.testid = testid;
@@ -48,6 +49,11 @@ class Creator {
             testid
         ]);
         return previousRecords;
+    }
+    static async getRecordedResultsUsingServicedId(tenantId, serviceid) {
+        const query = `SELECT * FROM test_results WHERE servicedid = ?`;
+        const records = await (0, helper_1.promisifyQuery)(tenantId, query, [serviceid]);
+        return records.length > 0 ? records : [];
     }
     async getPreviousRecordsOrCreationRule(tenantId, testid, billingid, patientid) {
         try {
@@ -264,6 +270,9 @@ class Creator {
                     return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
                 }
                 else {
+                    const iswithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantId, ascensionid, employeeid, "edit");
+                    if (!iswithinWindow)
+                        throw new Error("Edit window period has elapsed, you can no longer edit this result");
                     const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ?`;
                     const result = await (0, helper_1.promisifyQuery)(tenantId, updateRecords, [item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
                     await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
