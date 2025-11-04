@@ -13,6 +13,8 @@ interface AccessRequest {
      revokedAt?: Date;
      expiredAt?: Date;
      accessedAt?: Date;
+     reason?: string;
+     urgency?: 'low' | 'medium' | 'high' | 'critical';
 }
 
 export default class ResultAccessTableRepo {
@@ -77,7 +79,7 @@ export default class ResultAccessTableRepo {
      }
 
 
-      static async grantAccess(tenantId: number, requestId: number): Promise<boolean> {
+     static async grantAccess(tenantId: number, requestId: number): Promise<boolean> {
           const connection = await KnexConnection(tenantId);
           const updated = await connection(this.TABLE_NAME).where('id', requestId).update({ status: 'granted', grantedAt: new Date() });
           return updated > 0;

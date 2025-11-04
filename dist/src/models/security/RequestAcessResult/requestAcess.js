@@ -16,10 +16,10 @@ class RequestAccess {
         if (!ascensionid)
             throw new Error("Ascension ID is required to extract window period");
         const records = creator_1.default.getRecordedResultsUsingServicedId(tenantId, ascensionid);
-        if (Array.isArray(records) && records.length === 0)
+        if (!Array.isArray(records) || records.length === 0 || !records[0])
             return false;
         const record = records[0];
-        const timestamp = record.updated_on ? record.updated_on : record.created_on;
+        const timestamp = record.updated_on || record.created_on || new Date();
         // Get effective settings (employee-specific or global)
         const window = staffid ? await accessWindowsRepo_1.default.getEffectiveSettings(staffid) : await accessWindowsRepo_1.default.findGlobalSettings();
         const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
@@ -35,7 +35,7 @@ class RequestAccess {
                 return false;
             }
             const { windowPeriod, timestamp, record, requireApproval } = extraction;
-            if (requestType === 'edit' && record.employeeid !== existingRequests.staffid) {
+            if (requestType === 'edit' && record && record.employeeid && record.employeeid !== existingRequests.staffid) {
                 await resultAcessTableRepo_1.default.expireAccess(tenantId, existingRequests.id);
                 return false;
             }
@@ -79,17 +79,32 @@ class RequestAccess {
         const [id] = await connection(this.TABLE_NAME).insert(Object.assign(Object.assign({}, request), { requestedAt: new Date(), status: 'pending' }));
         return id;
     }
-    static async getAccessHistory(tenantId, patientid, staffid, count, page) {
+    static async getAccessHistory(tenantId, patientid, staffid, urgency, count, page, sortby, ascensionid) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        let query = connection(this.TABLE_NAME).select('*');
+        const query = connection(this.TABLE_NAME)
+            .select([
+            `${this.TABLE_NAME}.*`,
+            'roles.username',
+            'roles.email',
+            'roles.role as employee_role',
+            'new_patients.fullpatientid'
+        ])
+            .leftJoin('roles', `${this.TABLE_NAME}.staffid`, 'roles.employeeid')
+            .leftJoin('new_patients', `${this.TABLE_NAME}.patientid`, 'new_patients.patientid');
         if (patientid)
-            query = query.where('patientid', patientid);
+            query.where(`${this.TABLE_NAME}.patientid`, patientid);
         if (staffid)
-            query = query.where('staffid', staffid);
-        if (count)
-            query = query.limit(count);
-        if (page)
-            query = query.offset((page - 1) * (count || 20));
+            query.where(`${this.TABLE_NAME}.staffid`, staffid);
+        if (urgency)
+            query.where(`${this.TABLE_NAME}.urgency`, urgency);
+        if (ascensionid)
+            query.where(`${this.TABLE_NAME}.ascensionid`, ascensionid);
+        if (sortby) {
+            query.orderBy(`${this.TABLE_NAME}.requestedAt`, sortby);
+        }
+        if (count && page) {
+            query.limit(count).offset((page - 1) * count);
+        }
         return await query;
     }
     static async expireExpiredRequests(tenantId) {

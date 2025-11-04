@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { request, Request, Response } from 'express';
 import RequestAccess from '../../models/security/RequestAcessResult/requestAcess';
 import ResultAccessTableRepo from '../../models/security/RequestAcessResult/resultAcessTableRepo';
 
@@ -6,8 +6,8 @@ export class ResultAccessController {
      static async requestAccess(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const { patientid, staffid, requestType, ascensionid } = req.body;
-               const id = await RequestAccess.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid });
+               const { patientid, staffid, requestType, ascensionid, reason, urgency } = req.body;
+               const id = await RequestAccess.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency });
                res.status(201).json({
                     status: true,
                     message: 'Access requested',
@@ -72,11 +72,15 @@ export class ResultAccessController {
      static async getAccessHistory(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const { patientid, staffid, page, count } = req.query;
+               const { patientid, staffid, urgency, page, count, sortby } = req.query;
                const history = await RequestAccess.getAccessHistory(
                     tenantId,
                     patientid ? parseInt(patientid as string) : undefined,
-                    staffid ? parseInt(staffid as string) : undefined
+                    staffid ? parseInt(staffid as string) : undefined,
+                    urgency as 'low' | 'medium' | 'high' | 'critical' | undefined,
+                    count ? parseInt(count as string) : undefined,
+                    page ? parseInt(page as string) : undefined,
+                    sortby ? (sortby as string).toLowerCase() as 'asc' | 'desc' : undefined
                );
                res.json({
                     status: true,
@@ -114,6 +118,35 @@ export class ResultAccessController {
                res.json({
                     status: true,
                     message: 'Expired requests processed'
+               });
+          } catch (error) {
+               res.status(500).json({
+                    status: false,
+                    error: error.message
+               });
+          }
+     }
+
+     static async getAccessHistoryByAscensionAndEmployee(req: Request, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+
+               const { ascensionid, employeeid } = req.params;
+               const { urgency, page, count, sortby } = req.query;
+               const history = await RequestAccess.getAccessHistory(
+                    tenantId,
+                    undefined, // patientid not filtered
+                    parseInt(employeeid), // staffid
+                    urgency as 'low' | 'medium' | 'high' | 'critical' | undefined,
+                    count ? parseInt(count as string) : undefined,
+                    page ? parseInt(page as string) : undefined,
+                    sortby ? (sortby as string).toLowerCase() as 'asc' | 'desc' : undefined,
+                    parseInt(ascensionid) 
+               );
+
+               res.json({
+                    status: true,
+                    data: history
                });
           } catch (error) {
                res.status(500).json({

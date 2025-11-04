@@ -35,6 +35,7 @@ router.post('/api/v1/security-features/request-access', ResultAccessController.r
 router.put('/api/v1/security-features/grant/:requestId', ResultAccessController.grantAccess);
 router.put('/api/v1/security-features/revoke/:requestId', ResultAccessController.revokeAccess);
 router.get('/api/v1/security-features/history', ResultAccessController.getAccessHistory);
+router.get('/api/v1/security-features/history/:ascensionid/:employeeid', ResultAccessController.getAccessHistoryByAscensionAndEmployee);
 router.post('/api/v1/security-features/verify', ResultAccessController.verifyAccess);
 router.post('/api/v1/security-features/expire', ResultAccessController.expireExpiredRequests);
 

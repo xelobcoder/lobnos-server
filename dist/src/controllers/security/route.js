@@ -25,6 +25,7 @@ router.post('/api/v1/security-features/request-access', result_acess_controller_
 router.put('/api/v1/security-features/grant/:requestId', result_acess_controller_1.ResultAccessController.grantAccess);
 router.put('/api/v1/security-features/revoke/:requestId', result_acess_controller_1.ResultAccessController.revokeAccess);
 router.get('/api/v1/security-features/history', result_acess_controller_1.ResultAccessController.getAccessHistory);
+router.get('/api/v1/security-features/history/:ascensionid/:employeeid', result_acess_controller_1.ResultAccessController.getAccessHistoryByAscensionAndEmployee);
 router.post('/api/v1/security-features/verify', result_acess_controller_1.ResultAccessController.verifyAccess);
 router.post('/api/v1/security-features/expire', result_acess_controller_1.ResultAccessController.expireExpiredRequests);
 // access windows routes
