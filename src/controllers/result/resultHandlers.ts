@@ -50,8 +50,7 @@ export const resultEntry = async (req: IRequest, response: IResponse): Promise<v
 			response.send({ status: "failed", statusCode: 404, message: "error occured saving results" });
 		}
 	} catch (err) {
-		console.log(err)
-		responseError(response);
+		responseError(response, err);
 	}
 };
 

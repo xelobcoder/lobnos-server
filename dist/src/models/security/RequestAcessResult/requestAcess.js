@@ -9,18 +9,17 @@ const accessWindowsRepo_1 = __importDefault(require("./accessWindowsRepo"));
 const resultAcessTableRepo_1 = __importDefault(require("./resultAcessTableRepo"));
 const DEFAULT_WINDOW_PERIODS = {
     access: '24h',
-    edit: '1h'
+    edit: '24h'
 };
 class RequestAccess {
     static async extractWindowPeriod(tenantId, ascensionid, requestType, staffid) {
         if (!ascensionid)
             throw new Error("Ascension ID is required to extract window period");
-        const records = creator_1.default.getRecordedResultsUsingServicedId(tenantId, ascensionid);
+        const records = await creator_1.default.getRecordedResultsUsingascensionId(tenantId, ascensionid);
         if (!Array.isArray(records) || records.length === 0 || !records[0])
             return false;
         const record = records[0];
-        const timestamp = record.updated_on || record.created_on || new Date();
-        // Get effective settings (employee-specific or global)
+        const timestamp = new Date(record.updated_on || record.created_on || new Date());
         const window = staffid ? await accessWindowsRepo_1.default.getEffectiveSettings(staffid) : await accessWindowsRepo_1.default.findGlobalSettings();
         const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
         const requireApproval = window ? window.require_approval : false;
@@ -29,19 +28,27 @@ class RequestAccess {
     static async verifyWindowPeriod(tenantId, ascensionid, staffid, requestType) {
         const existingRequests = await resultAcessTableRepo_1.default.findLatestByAscensionAndStaff(tenantId, ascensionid, staffid);
         if (existingRequests && existingRequests.status === 'granted') {
-            const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
-            if (!extraction || typeof extraction === "boolean") {
-                await resultAcessTableRepo_1.default.expireAccess(tenantId, existingRequests.id);
-                return false;
-            }
-            const { windowPeriod, timestamp, record, requireApproval } = extraction;
-            if (requestType === 'edit' && record && record.employeeid && record.employeeid !== existingRequests.staffid) {
+            const window = await accessWindowsRepo_1.default.getEffectiveSettings(staffid) || await accessWindowsRepo_1.default.findGlobalSettings();
+            const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
+            if (!existingRequests.grantedAt) {
                 await resultAcessTableRepo_1.default.expireAccess(tenantId, existingRequests.id);
                 return false;
             }
             const refinedPeriod = RequestAccess.convertWindowToDate(windowPeriod);
-            const expirationTime = new Date(timestamp).getTime() + refinedPeriod;
-            if (expirationTime >= new Date().getTime()) {
+            const grantedTime = new Date(existingRequests.grantedAt).getTime();
+            const currentTime = new Date().getTime();
+            const expirationTime = grantedTime + refinedPeriod;
+            if (expirationTime >= currentTime) {
+                if (requestType === 'edit') {
+                    const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
+                    if (extraction && typeof extraction !== "boolean") {
+                        const { record } = extraction;
+                        if (record && record.employeeid && record.employeeid !== existingRequests.staffid) {
+                            await resultAcessTableRepo_1.default.expireAccess(tenantId, existingRequests.id);
+                            return false;
+                        }
+                    }
+                }
                 return true;
             }
             else {
@@ -49,13 +56,16 @@ class RequestAccess {
                 return false;
             }
         }
-        const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
-        if (!extraction || typeof extraction === "boolean")
-            return false;
-        const { windowPeriod, timestamp } = extraction;
-        const refinedPeriod = RequestAccess.convertWindowToDate(windowPeriod);
-        const refinedTimestamp = new Date(timestamp).getTime() + refinedPeriod;
-        return refinedTimestamp >= new Date().getTime();
+        if (!existingRequests) {
+            const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
+            if (!extraction || typeof extraction === "boolean")
+                return false;
+            const { windowPeriod, timestamp } = extraction;
+            const refinedPeriod = RequestAccess.convertWindowToDate(windowPeriod);
+            const refinedTimestamp = new Date(timestamp).getTime() + refinedPeriod;
+            return refinedTimestamp >= new Date().getTime();
+        }
+        return false;
     }
     static convertWindowToDate(windowPeriod) {
         if (windowPeriod.endsWith('h')) {

@@ -5478,3 +5478,45 @@
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"level":"error","message":"Database query error: Unknown column 'servicedid' in 'where clause'","sql":"SELECT * FROM test_results WHERE servicedid = '880'","sqlMessage":"Unknown column 'servicedid' in 'where clause'","sqlState":"42S22","stack":"Error: Unknown column 'servicedid' in 'where clause'\n    at PromisePoolConnection.query (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\node_modules\\mysql2\\lib\\promise\\connection.js:29:22)\n    at promisifyQuery (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\dist\\src\\hooks\\helper.js:84:43)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Creator.getRecordedResultsUsingServicedId (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\dist\\src\\models\\creator\\creator.js:55:25)"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"level":"error","message":"Database query error: Unknown column 'servicedid' in 'where clause'","sql":"SELECT * FROM test_results WHERE servicedid = '880'","sqlMessage":"Unknown column 'servicedid' in 'where clause'","sqlState":"42S22","stack":"Error: Unknown column 'servicedid' in 'where clause'\n    at PromisePoolConnection.query (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\node_modules\\mysql2\\lib\\promise\\connection.js:29:22)\n    at promisifyQuery (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\dist\\src\\hooks\\helper.js:84:43)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Creator.getRecordedResultsUsingServicedId (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\dist\\src\\models\\creator\\creator.js:55:25)"}
 {"code":"ER_BAD_FIELD_ERROR","errno":1054,"level":"error","message":"Database query error: Unknown column 'servicedid' in 'where clause'","sql":"SELECT * FROM test_results WHERE servicedid = '880'","sqlMessage":"Unknown column 'servicedid' in 'where clause'","sqlState":"42S22","stack":"Error: Unknown column 'servicedid' in 'where clause'\n    at PromisePoolConnection.query (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\node_modules\\mysql2\\lib\\promise\\connection.js:29:22)\n    at promisifyQuery (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\dist\\src\\hooks\\helper.js:84:43)\n    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)\n    at async Creator.getRecordedResultsUsingServicedId (C:\\Programming\\PLS-DIFFERENT-VERSIONS\\LobnosProfessionalVersion\\lobnos-server\\dist\\src\\models\\creator\\creator.js:55:25)"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}
+{"level":"error"}

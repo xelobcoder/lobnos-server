@@ -61,9 +61,9 @@ export default class Creator {
 		return previousRecords;
 	}
 
-	static async getRecordedResultsUsingServicedId(tenantId: number, serviceid: number): Promise<PrimeLimsTabletest_results[] | []> {
-		const query = `SELECT * FROM test_results WHERE servicedid = ?`;
-		const records = await promisifyQuery(tenantId, query, [serviceid]);
+	static async getRecordedResultsUsingascensionId(tenantId: number, ascensionid: number): Promise<PrimeLimsTabletest_results[] | []> {
+		const query = `SELECT * FROM test_results WHERE ascensionid = ?`;
+		const records = await promisifyQuery(tenantId, query, [ascensionid]);
 		return records.length > 0 ? records : [];
 	}
 	async getPreviousRecordsOrCreationRule(tenantId: number, testid: number, billingid: number, patientid: number
@@ -300,6 +300,9 @@ export default class Creator {
 		const insertUpdate = async function (tenantId: number, fields: any[], testid: number) {
 			const { resources } = await resultEncrptionReferer(fields);
 			const editSessionId = uuidv4();
+			const iswithinWindow = await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, "edit");
+			console.log("iswithinWindow", iswithinWindow);
+			if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
 			const insertAll = await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;
@@ -312,8 +315,6 @@ export default class Creator {
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(await promisifyQuery(tenantId, query, values));
 					} else {
-						const iswithinWindow = await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid,"edit");
-						if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
 						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ?`;
 						const result = await promisifyQuery(tenantId, updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);

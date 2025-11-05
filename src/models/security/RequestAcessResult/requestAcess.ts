@@ -22,7 +22,7 @@ interface AccessRequest {
 
 const DEFAULT_WINDOW_PERIODS = {
      access: '24h',
-     edit: '1h'
+     edit: '24h'
 };
 
 export default class RequestAccess {
@@ -30,35 +30,44 @@ export default class RequestAccess {
 
      private static async extractWindowPeriod(tenantId: number, ascensionid: number, requestType: 'access' | 'edit', staffid?: number): Promise<boolean | { windowPeriod: string, timestamp: Date, record: any, requireApproval: boolean }> {
           if (!ascensionid) throw new Error("Ascension ID is required to extract window period");
-          const records = Creator.getRecordedResultsUsingServicedId(tenantId, ascensionid);
+          const records = await Creator.getRecordedResultsUsingascensionId(tenantId, ascensionid);
           if (!Array.isArray(records) || records.length === 0 || !records[0]) return false;
           const record = records[0];
-          const timestamp = record.updated_on || record.created_on || new Date();
-
-          // Get effective settings (employee-specific or global)
+          const timestamp = new Date(record.updated_on || record.created_on || new Date())
           const window = staffid ? await AccessWindowsRepo.getEffectiveSettings(staffid) : await AccessWindowsRepo.findGlobalSettings();
           const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
           const requireApproval = window ? window.require_approval : false;
-
           return { windowPeriod, timestamp, record, requireApproval };
      }
 
      static async verifyWindowPeriod(tenantId: number, ascensionid: number, staffid: number, requestType: 'access' | 'edit'): Promise<boolean> {
           const existingRequests = await ResultAccessTableRepo.findLatestByAscensionAndStaff(tenantId, ascensionid, staffid);
+
           if (existingRequests && existingRequests.status === 'granted') {
-               const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
-               if (!extraction || typeof extraction === "boolean") {
+               const window = await AccessWindowsRepo.getEffectiveSettings(staffid) || await AccessWindowsRepo.findGlobalSettings();
+               const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
+
+               if (!existingRequests.grantedAt) {
                     await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
                     return false;
                }
-               const { windowPeriod, timestamp, record, requireApproval } = extraction;
-               if (requestType === 'edit' && record && record.employeeid && record.employeeid !== existingRequests.staffid) {
-                    await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
-                    return false;
-               }
+
                const refinedPeriod = RequestAccess.convertWindowToDate(windowPeriod);
-               const expirationTime = new Date(timestamp).getTime() + refinedPeriod;
-               if (expirationTime >= new Date().getTime()) {
+               const grantedTime = new Date(existingRequests.grantedAt).getTime();
+               const currentTime = new Date().getTime();
+               const expirationTime = grantedTime + refinedPeriod;
+
+               if (expirationTime >= currentTime) {
+                    if (requestType === 'edit') {
+                         const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
+                         if (extraction && typeof extraction !== "boolean") {
+                              const { record } = extraction;
+                              if (record && record.employeeid && record.employeeid !== existingRequests.staffid) {
+                                   await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
+                                   return false;
+                              }
+                         }
+                    }
                     return true;
                } else {
                     await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
@@ -66,12 +75,16 @@ export default class RequestAccess {
                }
           }
 
-          const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
-          if (!extraction || typeof extraction === "boolean") return false;
-          const { windowPeriod, timestamp } = extraction;
-          const refinedPeriod = RequestAccess.convertWindowToDate(windowPeriod);
-          const refinedTimestamp = new Date(timestamp).getTime() + refinedPeriod;
-          return refinedTimestamp >= new Date().getTime();
+          if (!existingRequests) {
+               const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
+               if (!extraction || typeof extraction === "boolean") return false;
+               const { windowPeriod, timestamp } = extraction;
+               const refinedPeriod = RequestAccess.convertWindowToDate(windowPeriod);
+               const refinedTimestamp = new Date(timestamp).getTime() + refinedPeriod;
+
+               return refinedTimestamp >= new Date().getTime();
+          }
+          return false;
      }
 
      private static convertWindowToDate(windowPeriod: string) {

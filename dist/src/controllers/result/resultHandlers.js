@@ -46,8 +46,7 @@ const resultEntry = async (req, response) => {
         }
     }
     catch (err) {
-        console.log(err);
-        (0, helper_1.responseError)(response);
+        (0, helper_1.responseError)(response, err);
     }
 };
 exports.resultEntry = resultEntry;

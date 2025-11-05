@@ -10,6 +10,7 @@ import { AuthController } from "./authController";
 import { checkTokenExists } from "../../middleware/validateTenancy";
 import { ResultAccessController } from "./result-acess-controller";
 import { AccessWindowsController } from "./access-windows-controller";
+import { BackupController } from "./backup-controller";
 import { handleOverLoad } from "../../hooks/helper";
 
 
@@ -48,5 +49,31 @@ router.get('/api/v1/security-features/access-windows/effective/:employeeid', han
 router.put('/api/v1/security-features/access-windows/:id', handleOverLoad(AccessWindowsController.updateAccessWindow));
 router.delete('/api/v1/security-features/access-windows/:id', handleOverLoad(AccessWindowsController.deleteAccessWindow));
 router.delete('/api/v1/security-features/access-windows/employee/:employeeid', handleOverLoad(AccessWindowsController.deleteAccessWindowByEmployee));
+
+// backup routes
+router.post('/api/v1/security-features/backup/database', handleOverLoad(BackupController.createDatabaseBackup));
+router.post('/api/v1/security-features/backup/files', handleOverLoad(BackupController.createFileBackup));
+router.get('/api/v1/security-features/backup/logs', handleOverLoad(BackupController.getBackupLogs));
+router.get('/api/v1/security-features/backup/logs/:id', handleOverLoad(BackupController.getBackupById));
+router.get('/api/v1/security-features/backup/logs/:id/download', handleOverLoad(BackupController.downloadBackup));
+router.get('/api/v1/security-features/backup/stats', handleOverLoad(BackupController.getBackupStats));
+router.delete('/api/v1/security-features/backup/:id', handleOverLoad(BackupController.deleteBackup));
+
+// backup schedule routes
+router.post('/api/v1/security-features/backup/schedules', handleOverLoad(BackupController.createBackupSchedule));
+router.get('/api/v1/security-features/backup/schedules', handleOverLoad(BackupController.getBackupSchedules));
+router.get('/api/v1/security-features/backup/schedules/:id', handleOverLoad(BackupController.getBackupScheduleById));
+router.put('/api/v1/security-features/backup/schedules/:id', handleOverLoad(BackupController.updateBackupSchedule));
+router.delete('/api/v1/security-features/backup/schedules/:id', handleOverLoad(BackupController.deleteBackupSchedule));
+router.post('/api/v1/security-features/backup/schedules/:id/execute', handleOverLoad(BackupController.executeScheduledBackup));
+router.post('/api/v1/security-features/backup/schedules/run-all', handleOverLoad(BackupController.runScheduledBackups));
+
+// encryption and security routes
+router.get('/api/v1/security-features/backup/security-settings', handleOverLoad(BackupController.getSecuritySettings));
+router.put('/api/v1/security-features/backup/security-settings', handleOverLoad(BackupController.updateSecuritySettings));
+router.post('/api/v1/security-features/backup/generate-key', handleOverLoad(BackupController.generateEncryptionKey));
+router.get('/api/v1/security-features/backup/encryption-keys', handleOverLoad(BackupController.getEncryptionKeys));
+router.post('/api/v1/security-features/backup/rotate-key', handleOverLoad(BackupController.rotateEncryptionKey));
+router.post('/api/v1/security-features/backup/:id/decrypt', handleOverLoad(BackupController.decryptBackup));
 
 export default router;

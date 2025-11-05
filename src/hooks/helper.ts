@@ -18,11 +18,16 @@ function DuplicateError(response: any) {
 }
 
 function responseError(response: any, err: any = null, statusCode?: 500) {
+	const errorMessage = err
+		? (typeof err === "string" ? err : (err.message || err.toString() || "something wrong occurred"))
+		: "something wrong occurred";
+
 	response.status(statusCode || 500).send({
-		message: "something wrong occurred",
+		message: errorMessage,
 		statusCode: 500,
 		status: "error",
 	});
+
 	if (err) logger.error(err);
 }
 
@@ -199,13 +204,13 @@ const hasSpecialCharacters = (
 
 
 const handleOverLoad = (func: Function) => {
-  return async (req: any, res: any, next: any) => {
-    try {
-	 await func(req, res, next);
-    } catch (error) {
-	 next(error);
-    }
-  };
+	return async (req: any, res: any, next: any) => {
+		try {
+			await func(req, res, next);
+		} catch (error) {
+			next(error);
+		}
+	};
 };
 export {
 	customError,
