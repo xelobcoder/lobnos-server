@@ -5,3 +5,15 @@ node_modules
 FlowCharts
 asserts
 .qodo
+
+# Backup files and directories
+backups/
+*.sql
+*.tar.gz
+*.encrypted
+*.bin
+data/
+backups/
+cert/
+public/uploads/
+public/asserts/
