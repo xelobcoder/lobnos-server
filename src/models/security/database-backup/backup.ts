@@ -21,6 +21,7 @@ interface BackupLog {
      duration_seconds?: number;
      created_by?: string;
      schedule_id?: number;
+     encryption_key_id?: string;
 }
 
 interface BackupSchedule {
@@ -233,7 +234,8 @@ export default class BackupManager {
                     backup_path: finalBackupPath,
                     duration_seconds: duration,
                     created_by: createdBy,
-                    schedule_id: scheduleId
+                    schedule_id: scheduleId,
+                    encryption_key_id: encryptionKeyId
                });
 
                return {
@@ -330,7 +332,8 @@ export default class BackupManager {
                     backup_path: finalBackupPath,
                     duration_seconds: duration,
                     created_by: createdBy,
-                    schedule_id: scheduleId
+                    schedule_id: scheduleId,
+                    encryption_key_id: encryptionKeyId
                });
 
                return {
@@ -513,7 +516,7 @@ export default class BackupManager {
           return dueSchedules;
      }
 
-     static async executeScheduledBackup(tenantId: number, scheduleId: number): Promise<{ success: boolean; backupPath?: string; error?: string }> {
+     static async executeScheduledBackup(tenantId: number, mode: "manual" | "automated", scheduleId: number): Promise<{ success: boolean; backupPath?: string; error?: string }> {
           const schedule = await this.findBackupScheduleById(tenantId, scheduleId);
           if (!schedule) {
                return { success: false, error: 'Schedule not found' };
@@ -537,7 +540,7 @@ export default class BackupManager {
                          backupName,
                          backupPath,
                          true,
-                         'automated',
+                         mode,
                          `schedule_${scheduleId}`,
                          scheduleId,
                          encryptBackup
@@ -619,7 +622,7 @@ export default class BackupManager {
           }
      }
 
-     static async runScheduledBackups(tenantId: number): Promise<{
+     static async runScheduledBackups(tenantId: number, mode: "automated" | "manual"): Promise<{
           processed: number;
           successful: number;
           failed: number;
@@ -632,7 +635,7 @@ export default class BackupManager {
           let failed = 0;
 
           for (const schedule of dueSchedules) {
-               const result = await this.executeScheduledBackup(tenantId, schedule.id!);
+               const result = await this.executeScheduledBackup(tenantId, mode, schedule.id!);
                results.push({
                     scheduleId: schedule.id!,
                     success: result.success,

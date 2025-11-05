@@ -6,7 +6,10 @@
   "scripts": {
     "dev": " nodemon --env-file=./.env ./dist/src/app.js",
     "tsdev": "npx tsc --w",
-    "start": " node --env-file=./.env ./dist/src/app.js"
+    "start": " node --env-file=./.env ./dist/src/app.js",
+    "backup-scheduler:start": "node --env-file=./.env ./scripts/backup-scheduler.js start",
+    "backup-scheduler:stop": "node --env-file=./.env ./scripts/backup-scheduler.js stop",
+    "backup-scheduler:status": "node --env-file=./.env ./scripts/backup-scheduler.js status"
   },
   "keywords": [
     "high performance laboratory information system",
@@ -35,6 +38,7 @@
     "nodemailer": "^6.9.5",
     "nodemailer-smtp-transport": "^2.4.2",
     "redis": "^4.6.13",
+    "reflect-metadata": "^0.2.2",
     "winston": "^3.10.0",
     "zod": "^3.24.4"
   },

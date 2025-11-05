@@ -187,7 +187,8 @@ class BackupManager {
                 backup_path: finalBackupPath,
                 duration_seconds: duration,
                 created_by: createdBy,
-                schedule_id: scheduleId
+                schedule_id: scheduleId,
+                encryption_key_id: encryptionKeyId
             });
             return {
                 success: true,
@@ -263,7 +264,8 @@ class BackupManager {
                 backup_path: finalBackupPath,
                 duration_seconds: duration,
                 created_by: createdBy,
-                schedule_id: scheduleId
+                schedule_id: scheduleId,
+                encryption_key_id: encryptionKeyId
             });
             return {
                 success: true,
@@ -410,7 +412,7 @@ class BackupManager {
         });
         return dueSchedules;
     }
-    static async executeScheduledBackup(tenantId, scheduleId) {
+    static async executeScheduledBackup(tenantId, mode, scheduleId) {
         const schedule = await this.findBackupScheduleById(tenantId, scheduleId);
         if (!schedule) {
             return { success: false, error: 'Schedule not found' };
@@ -424,7 +426,7 @@ class BackupManager {
             const securitySettings = await encryption_1.default.getSecuritySettings(tenantId);
             const encryptBackup = (securitySettings === null || securitySettings === void 0 ? void 0 : securitySettings.encryption_enabled) || false;
             if (schedule.backup_type === 'database') {
-                result = await this.performDatabaseBackup(tenantId, backupName, backupPath, true, 'automated', `schedule_${scheduleId}`, scheduleId, encryptBackup);
+                result = await this.performDatabaseBackup(tenantId, backupName, backupPath, true, mode, `schedule_${scheduleId}`, scheduleId, encryptBackup);
             }
             else if (schedule.backup_type === 'files') {
                 if (!schedule.source_path) {
@@ -490,13 +492,13 @@ class BackupManager {
             console.error('Error during backup cleanup:', error);
         }
     }
-    static async runScheduledBackups(tenantId) {
+    static async runScheduledBackups(tenantId, mode) {
         const dueSchedules = await this.getDueSchedules(tenantId);
         const results = [];
         let successful = 0;
         let failed = 0;
         for (const schedule of dueSchedules) {
-            const result = await this.executeScheduledBackup(tenantId, schedule.id);
+            const result = await this.executeScheduledBackup(tenantId, mode, schedule.id);
             results.push({
                 scheduleId: schedule.id,
                 success: result.success,

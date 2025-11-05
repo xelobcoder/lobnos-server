@@ -34,10 +34,15 @@ const encryption_1 = __importDefault(require("../../models/security/database-bac
 const backup_validators_1 = require("../../utils/backup-validators");
 class BackupController {
     static async createDatabaseBackup(req, res) {
-        var _a, _b, _c;
+        var _a, _b;
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const { backupName, backupPath, isFullBackup = true, backupMode = 'manual', createdBy } = req.body;
+            const { backupName, backupPath, isFullBackup = true, backupMode, createdBy } = req.body;
+            let finalBackupMode = backupMode;
+            if (!backupMode) {
+                // Force manual mode for API-initiated backups (frontend button clicks)
+                finalBackupMode = 'manual';
+            }
             // Generate unique backup name with timestamp
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             const uniqueBackupName = `${backupName}_${timestamp}`;
@@ -46,7 +51,7 @@ class BackupController {
                 backupName: uniqueBackupName,
                 backupPath,
                 isFullBackup,
-                backupMode,
+                backupMode: finalBackupMode,
                 createdBy
             });
             if (!validation.success) {
@@ -59,68 +64,13 @@ class BackupController {
             // Check if encryption is enabled in security settings
             const securitySettings = await encryption_1.default.getSecuritySettings(tenantId);
             const encryptBackup = (securitySettings === null || securitySettings === void 0 ? void 0 : securitySettings.encryption_enabled) || false;
-            const result = await backup_1.default.performDatabaseBackup(tenantId, validation.data.backupName, validation.data.backupPath, (_b = validation.data.isFullBackup) !== null && _b !== void 0 ? _b : true, (_c = validation.data.backupMode) !== null && _c !== void 0 ? _c : 'manual', validation.data.createdBy, undefined, // scheduleId
+            console.log(validation.data);
+            const result = await backup_1.default.performDatabaseBackup(tenantId, validation.data.backupName, validation.data.backupPath, (_b = validation.data.isFullBackup) !== null && _b !== void 0 ? _b : true, finalBackupMode, validation.data.createdBy, undefined, // scheduleId
             encryptBackup);
             if (result.success) {
                 res.json({
                     status: true,
                     message: 'Database backup completed successfully',
-                    data: {
-                        backupPath: result.backupPath,
-                        size: result.size,
-                        duration: result.duration,
-                        encrypted: encryptBackup,
-                        keyId: result.encryptionKeyId
-                    }
-                });
-            }
-            else {
-                res.status(500).json({
-                    status: false,
-                    error: result.error,
-                    duration: result.duration
-                });
-            }
-        }
-        catch (error) {
-            res.status(500).json({
-                status: false,
-                error: error.message
-            });
-        }
-    }
-    static async createFileBackup(req, res) {
-        var _a, _b;
-        try {
-            const tenantId = parseInt(req.query.tenantId);
-            const { backupName, sourcePath, backupPath, backupMode = 'manual', createdBy } = req.body;
-            // Generate unique backup name with timestamp
-            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-            const uniqueBackupName = `${backupName}_${timestamp}`;
-            // Validation using Zod
-            const validation = backup_validators_1.BackupValidators.validateCreateFileBackup({
-                backupName: uniqueBackupName,
-                sourcePath,
-                backupPath,
-                backupMode,
-                createdBy
-            });
-            if (!validation.success) {
-                return res.status(400).json({
-                    status: false,
-                    error: 'Validation failed',
-                    details: ((_a = validation.error) === null || _a === void 0 ? void 0 : _a.errors.map(e => e.message)) || ['Unknown validation error']
-                });
-            }
-            // Check if encryption is enabled in security settings
-            const securitySettings = await encryption_1.default.getSecuritySettings(tenantId);
-            const encryptBackup = (securitySettings === null || securitySettings === void 0 ? void 0 : securitySettings.encryption_enabled) || false;
-            const result = await backup_1.default.performFileBackup(tenantId, validation.data.backupName, validation.data.sourcePath, validation.data.backupPath, (_b = validation.data.backupMode) !== null && _b !== void 0 ? _b : 'manual', validation.data.createdBy, undefined, // scheduleId
-            encryptBackup);
-            if (result.success) {
-                res.json({
-                    status: true,
-                    message: 'File backup completed successfully',
                     data: {
                         backupPath: result.backupPath,
                         size: result.size,
@@ -436,7 +386,7 @@ class BackupController {
         try {
             const tenantId = parseInt(req.query.tenantId);
             const { id } = req.params;
-            const result = await backup_1.default.executeScheduledBackup(tenantId, parseInt(id));
+            const result = await backup_1.default.executeScheduledBackup(tenantId, "manual", parseInt(id));
             if (result.success) {
                 res.json({
                     status: true,
@@ -463,7 +413,7 @@ class BackupController {
     static async runScheduledBackups(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const result = await backup_1.default.runScheduledBackups(tenantId);
+            const result = await backup_1.default.runScheduledBackups(tenantId, "automated");
             res.json({
                 status: true,
                 message: 'Scheduled backups processed',
@@ -474,145 +424,6 @@ class BackupController {
                     results: result.results
                 }
             });
-        }
-        catch (error) {
-            res.status(500).json({
-                status: false,
-                error: error.message
-            });
-        }
-    }
-    // Encryption and Security Endpoints
-    static async getSecuritySettings(req, res) {
-        try {
-            const tenantId = parseInt(req.query.tenantId);
-            const settings = await encryption_1.default.getSecuritySettings(tenantId);
-            res.json({
-                status: true,
-                data: settings
-            });
-        }
-        catch (error) {
-            res.status(500).json({
-                status: false,
-                error: error.message
-            });
-        }
-    }
-    static async updateSecuritySettings(req, res) {
-        try {
-            const tenantId = parseInt(req.query.tenantId);
-            const updates = req.body;
-            const success = await encryption_1.default.updateSecuritySettings(tenantId, updates);
-            if (success) {
-                res.json({
-                    status: true,
-                    message: 'Security settings updated successfully'
-                });
-            }
-            else {
-                res.status(404).json({
-                    status: false,
-                    error: 'Security settings not found'
-                });
-            }
-        }
-        catch (error) {
-            res.status(500).json({
-                status: false,
-                error: error.message
-            });
-        }
-    }
-    static async generateEncryptionKey(req, res) {
-        try {
-            const tenantId = parseInt(req.query.tenantId);
-            const { createdBy } = req.body;
-            const keyId = await encryption_1.default.generateEncryptionKey(tenantId, createdBy);
-            res.status(201).json({
-                status: true,
-                message: 'Encryption key generated successfully',
-                data: { keyId }
-            });
-        }
-        catch (error) {
-            res.status(500).json({
-                status: false,
-                error: error.message
-            });
-        }
-    }
-    static async getEncryptionKeys(req, res) {
-        try {
-            const tenantId = parseInt(req.query.tenantId);
-            const keys = await encryption_1.default.getAllEncryptionKeys(tenantId);
-            res.json({
-                status: true,
-                data: keys
-            });
-        }
-        catch (error) {
-            res.status(500).json({
-                status: false,
-                error: error.message
-            });
-        }
-    }
-    static async rotateEncryptionKey(req, res) {
-        try {
-            const tenantId = parseInt(req.query.tenantId);
-            const { createdBy } = req.body;
-            const result = await encryption_1.default.rotateKeyIfNeeded(tenantId, createdBy);
-            res.json({
-                status: true,
-                data: result
-            });
-        }
-        catch (error) {
-            res.status(500).json({
-                status: false,
-                error: error.message
-            });
-        }
-    }
-    static async decryptBackup(req, res) {
-        try {
-            const tenantId = parseInt(req.query.tenantId);
-            const { id } = req.params;
-            const { outputPath } = req.body;
-            const backup = await backup_1.default.findById(tenantId, parseInt(id));
-            if (!backup) {
-                return res.status(404).json({
-                    status: false,
-                    error: 'Backup not found'
-                });
-            }
-            if (!backup.backup_path || !fs.existsSync(backup.backup_path)) {
-                return res.status(404).json({
-                    status: false,
-                    error: 'Backup file not found'
-                });
-            }
-            // For now, we'll assume the key ID is stored in the backup record or we need to determine it
-            // In a real implementation, you'd store the encryption key ID with the backup
-            const keyId = 'KEY-2025-001'; // This should be retrieved from backup metadata
-            const finalOutputPath = outputPath || backup.backup_path.replace('.encrypted', '_decrypted');
-            const result = await encryption_1.default.decryptFile(tenantId, backup.backup_path, finalOutputPath, keyId);
-            if (result.success) {
-                res.json({
-                    status: true,
-                    message: 'Backup decrypted successfully',
-                    data: {
-                        outputPath: finalOutputPath
-                    }
-                });
-            }
-            else {
-                res.status(500).json({
-                    status: false,
-                    error: result.error
-                });
-            }
         }
         catch (error) {
             res.status(500).json({

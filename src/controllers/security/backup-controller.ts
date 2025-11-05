@@ -23,9 +23,14 @@ export class BackupController {
                     backupName,
                     backupPath,
                     isFullBackup = true,
-                    backupMode = 'manual',
+                    backupMode,
                     createdBy
                } = req.body;
+               let finalBackupMode = backupMode;
+               if (!backupMode) {
+                    // Force manual mode for API-initiated backups (frontend button clicks)
+                    finalBackupMode = 'manual';
+               }
 
                // Generate unique backup name with timestamp
                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
@@ -36,7 +41,7 @@ export class BackupController {
                     backupName: uniqueBackupName,
                     backupPath,
                     isFullBackup,
-                    backupMode,
+                    backupMode: finalBackupMode,
                     createdBy
                });
 
@@ -51,13 +56,13 @@ export class BackupController {
                // Check if encryption is enabled in security settings
                const securitySettings = await EncryptionManager.getSecuritySettings(tenantId);
                const encryptBackup = securitySettings?.encryption_enabled || false;
-
+               console.log(validation.data);
                const result = await BackupManager.performDatabaseBackup(
                     tenantId,
                     validation.data!.backupName,
                     validation.data!.backupPath,
                     validation.data!.isFullBackup ?? true,
-                    validation.data!.backupMode ?? 'manual',
+                    finalBackupMode,
                     validation.data!.createdBy,
                     undefined, // scheduleId
                     encryptBackup
@@ -90,80 +95,7 @@ export class BackupController {
           }
      }
 
-     static async createFileBackup(req: Request, res: Response) {
-          try {
-               const tenantId = parseInt(req.query.tenantId as string);
-               const {
-                    backupName,
-                    sourcePath,
-                    backupPath,
-                    backupMode = 'manual',
-                    createdBy
-               } = req.body;
-
-               // Generate unique backup name with timestamp
-               const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-               const uniqueBackupName = `${backupName}_${timestamp}`;
-
-               // Validation using Zod
-               const validation = BackupValidators.validateCreateFileBackup({
-                    backupName: uniqueBackupName,
-                    sourcePath,
-                    backupPath,
-                    backupMode,
-                    createdBy
-               });
-
-               if (!validation.success) {
-                    return res.status(400).json({
-                         status: false,
-                         error: 'Validation failed',
-                         details: validation.error?.errors.map(e => e.message) || ['Unknown validation error']
-                    });
-               }
-
-               // Check if encryption is enabled in security settings
-               const securitySettings = await EncryptionManager.getSecuritySettings(tenantId);
-               const encryptBackup = securitySettings?.encryption_enabled || false;
-
-               const result = await BackupManager.performFileBackup(
-                    tenantId,
-                    validation.data!.backupName,
-                    validation.data!.sourcePath,
-                    validation.data!.backupPath,
-                    validation.data!.backupMode ?? 'manual',
-                    validation.data!.createdBy,
-                    undefined, // scheduleId
-                    encryptBackup
-               );
-
-               if (result.success) {
-                    res.json({
-                         status: true,
-                         message: 'File backup completed successfully',
-                         data: {
-                              backupPath: result.backupPath,
-                              size: result.size,
-                              duration: result.duration,
-                              encrypted: encryptBackup,
-                              keyId: result.encryptionKeyId
-                         }
-                    });
-               } else {
-                    res.status(500).json({
-                         status: false,
-                         error: result.error,
-                         duration: result.duration
-                    });
-               }
-          } catch (error) {
-               res.status(500).json({
-                    status: false,
-                    error: error.message
-               });
-          }
-     }
-
+    
      static async getBackupLogs(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
@@ -485,7 +417,7 @@ export class BackupController {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
 
-               const result = await BackupManager.executeScheduledBackup(tenantId, parseInt(id));
+               const result = await BackupManager.executeScheduledBackup(tenantId,"manual", parseInt(id));
 
                if (result.success) {
                     res.json({
@@ -513,7 +445,7 @@ export class BackupController {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
 
-               const result = await BackupManager.runScheduledBackups(tenantId);
+               const result = await BackupManager.runScheduledBackups(tenantId,"automated");
 
                res.json({
                     status: true,
@@ -525,160 +457,6 @@ export class BackupController {
                          results: result.results
                     }
                });
-          } catch (error) {
-               res.status(500).json({
-                    status: false,
-                    error: error.message
-               });
-          }
-     }
-
-     // Encryption and Security Endpoints
-     static async getSecuritySettings(req: Request, res: Response) {
-          try {
-               const tenantId = parseInt(req.query.tenantId as string);
-
-               const settings = await EncryptionManager.getSecuritySettings(tenantId);
-
-               res.json({
-                    status: true,
-                    data: settings
-               });
-          } catch (error) {
-               res.status(500).json({
-                    status: false,
-                    error: error.message
-               });
-          }
-     }
-
-     static async updateSecuritySettings(req: Request, res: Response) {
-          try {
-               const tenantId = parseInt(req.query.tenantId as string);
-               const updates = req.body;
-
-               const success = await EncryptionManager.updateSecuritySettings(tenantId, updates);
-
-               if (success) {
-                    res.json({
-                         status: true,
-                         message: 'Security settings updated successfully'
-                    });
-               } else {
-                    res.status(404).json({
-                         status: false,
-                         error: 'Security settings not found'
-                    });
-               }
-          } catch (error) {
-               res.status(500).json({
-                    status: false,
-                    error: error.message
-               });
-          }
-     }
-
-     static async generateEncryptionKey(req: Request, res: Response) {
-          try {
-               const tenantId = parseInt(req.query.tenantId as string);
-               const { createdBy } = req.body;
-
-               const keyId = await EncryptionManager.generateEncryptionKey(tenantId, createdBy);
-
-               res.status(201).json({
-                    status: true,
-                    message: 'Encryption key generated successfully',
-                    data: { keyId }
-               });
-          } catch (error) {
-               res.status(500).json({
-                    status: false,
-                    error: error.message
-               });
-          }
-     }
-
-     static async getEncryptionKeys(req: Request, res: Response) {
-          try {
-               const tenantId = parseInt(req.query.tenantId as string);
-
-               const keys = await EncryptionManager.getAllEncryptionKeys(tenantId);
-
-               res.json({
-                    status: true,
-                    data: keys
-               });
-          } catch (error) {
-               res.status(500).json({
-                    status: false,
-                    error: error.message
-               });
-          }
-     }
-
-     static async rotateEncryptionKey(req: Request, res: Response) {
-          try {
-               const tenantId = parseInt(req.query.tenantId as string);
-               const { createdBy } = req.body;
-
-               const result = await EncryptionManager.rotateKeyIfNeeded(tenantId, createdBy);
-
-               res.json({
-                    status: true,
-                    data: result
-               });
-          } catch (error) {
-               res.status(500).json({
-                    status: false,
-                    error: error.message
-               });
-          }
-     }
-
-     static async decryptBackup(req: Request, res: Response) {
-          try {
-               const tenantId = parseInt(req.query.tenantId as string);
-               const { id } = req.params;
-               const { outputPath } = req.body;
-
-               const backup = await BackupManager.findById(tenantId, parseInt(id));
-
-               if (!backup) {
-                    return res.status(404).json({
-                         status: false,
-                         error: 'Backup not found'
-                    });
-               }
-
-               if (!backup.backup_path || !fs.existsSync(backup.backup_path)) {
-                    return res.status(404).json({
-                         status: false,
-                         error: 'Backup file not found'
-                    });
-               }
-
-               // For now, we'll assume the key ID is stored in the backup record or we need to determine it
-               // In a real implementation, you'd store the encryption key ID with the backup
-               const keyId = 'KEY-2025-001'; // This should be retrieved from backup metadata
-
-               const finalOutputPath = outputPath || backup.backup_path.replace('.encrypted', '_decrypted');
-
-               const result = await EncryptionManager.decryptFile(tenantId, backup.backup_path, finalOutputPath, keyId);
-
-               if (result.success) {
-                    res.json({
-                         status: true,
-                         message: 'Backup decrypted successfully',
-                         data: {
-                              outputPath: finalOutputPath
-                         }
-                    });
-               } else {
-                    res.status(500).json({
-                         status: false,
-                         error: result.error
-                    });
-               }
           } catch (error) {
                res.status(500).json({
                     status: false,

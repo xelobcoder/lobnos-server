@@ -15,6 +15,7 @@ export async function up(knex: Knex): Promise<void> {
           table.integer('duration_seconds').nullable();
           table.string('created_by').nullable();
           table.integer('schedule_id').nullable().references('id').inTable('backup_schedules').onDelete('SET NULL');
+          table.string('encryption_key_id').nullable();
           table.timestamps(true, true);
      });
 }

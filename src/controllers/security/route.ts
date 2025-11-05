@@ -11,6 +11,7 @@ import { checkTokenExists } from "../../middleware/validateTenancy";
 import { ResultAccessController } from "./result-acess-controller";
 import { AccessWindowsController } from "./access-windows-controller";
 import { BackupController } from "./backup-controller";
+import { EncryptionController } from "./encryption-controller";
 import { handleOverLoad } from "../../hooks/helper";
 
 
@@ -52,7 +53,6 @@ router.delete('/api/v1/security-features/access-windows/employee/:employeeid', h
 
 // backup routes
 router.post('/api/v1/security-features/backup/database', handleOverLoad(BackupController.createDatabaseBackup));
-router.post('/api/v1/security-features/backup/files', handleOverLoad(BackupController.createFileBackup));
 router.get('/api/v1/security-features/backup/logs', handleOverLoad(BackupController.getBackupLogs));
 router.get('/api/v1/security-features/backup/logs/:id', handleOverLoad(BackupController.getBackupById));
 router.get('/api/v1/security-features/backup/logs/:id/download', handleOverLoad(BackupController.downloadBackup));
@@ -69,11 +69,11 @@ router.post('/api/v1/security-features/backup/schedules/:id/execute', handleOver
 router.post('/api/v1/security-features/backup/schedules/run-all', handleOverLoad(BackupController.runScheduledBackups));
 
 // encryption and security routes
-router.get('/api/v1/security-features/backup/security-settings', handleOverLoad(BackupController.getSecuritySettings));
-router.put('/api/v1/security-features/backup/security-settings', handleOverLoad(BackupController.updateSecuritySettings));
-router.post('/api/v1/security-features/backup/generate-key', handleOverLoad(BackupController.generateEncryptionKey));
-router.get('/api/v1/security-features/backup/encryption-keys', handleOverLoad(BackupController.getEncryptionKeys));
-router.post('/api/v1/security-features/backup/rotate-key', handleOverLoad(BackupController.rotateEncryptionKey));
-router.post('/api/v1/security-features/backup/:id/decrypt', handleOverLoad(BackupController.decryptBackup));
+router.get('/api/v1/security-features/backup/security-settings', handleOverLoad(EncryptionController.getSecuritySettings));
+router.put('/api/v1/security-features/backup/security-settings', handleOverLoad(EncryptionController.updateSecuritySettings));
+router.post('/api/v1/security-features/backup/generate-key', handleOverLoad(EncryptionController.generateEncryptionKey));
+router.get('/api/v1/security-features/backup/encryption-keys', handleOverLoad(EncryptionController.getEncryptionKeys));
+router.post('/api/v1/security-features/backup/rotate-key', handleOverLoad(EncryptionController.rotateEncryptionKey));
+router.post('/api/v1/security-features/backup/:id/decrypt', handleOverLoad(EncryptionController.decryptBackup));
 
 export default router;

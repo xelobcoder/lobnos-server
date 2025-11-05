@@ -10,6 +10,7 @@ const validateTenancy_1 = require("../../middleware/validateTenancy");
 const result_acess_controller_1 = require("./result-acess-controller");
 const access_windows_controller_1 = require("./access-windows-controller");
 const backup_controller_1 = require("./backup-controller");
+const encryption_controller_1 = require("./encryption-controller");
 const helper_1 = require("../../hooks/helper");
 const router = express_1.default.Router();
 const authController = new authController_1.AuthController();
@@ -40,7 +41,6 @@ router.delete('/api/v1/security-features/access-windows/:id', (0, helper_1.handl
 router.delete('/api/v1/security-features/access-windows/employee/:employeeid', (0, helper_1.handleOverLoad)(access_windows_controller_1.AccessWindowsController.deleteAccessWindowByEmployee));
 // backup routes
 router.post('/api/v1/security-features/backup/database', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.createDatabaseBackup));
-router.post('/api/v1/security-features/backup/files', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.createFileBackup));
 router.get('/api/v1/security-features/backup/logs', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.getBackupLogs));
 router.get('/api/v1/security-features/backup/logs/:id', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.getBackupById));
 router.get('/api/v1/security-features/backup/logs/:id/download', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.downloadBackup));
@@ -55,10 +55,10 @@ router.delete('/api/v1/security-features/backup/schedules/:id', (0, helper_1.han
 router.post('/api/v1/security-features/backup/schedules/:id/execute', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.executeScheduledBackup));
 router.post('/api/v1/security-features/backup/schedules/run-all', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.runScheduledBackups));
 // encryption and security routes
-router.get('/api/v1/security-features/backup/security-settings', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.getSecuritySettings));
-router.put('/api/v1/security-features/backup/security-settings', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.updateSecuritySettings));
-router.post('/api/v1/security-features/backup/generate-key', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.generateEncryptionKey));
-router.get('/api/v1/security-features/backup/encryption-keys', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.getEncryptionKeys));
-router.post('/api/v1/security-features/backup/rotate-key', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.rotateEncryptionKey));
-router.post('/api/v1/security-features/backup/:id/decrypt', (0, helper_1.handleOverLoad)(backup_controller_1.BackupController.decryptBackup));
+router.get('/api/v1/security-features/backup/security-settings', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.getSecuritySettings));
+router.put('/api/v1/security-features/backup/security-settings', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.updateSecuritySettings));
+router.post('/api/v1/security-features/backup/generate-key', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.generateEncryptionKey));
+router.get('/api/v1/security-features/backup/encryption-keys', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.getEncryptionKeys));
+router.post('/api/v1/security-features/backup/rotate-key', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.rotateEncryptionKey));
+router.post('/api/v1/security-features/backup/:id/decrypt', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.decryptBackup));
 exports.default = router;
