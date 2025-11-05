@@ -89,10 +89,8 @@ export class EncryptionController {
      static async rotateEncryptionKey(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const { createdBy } = req.body;
-
-               const result = await EncryptionManager.rotateKeyIfNeeded(tenantId, createdBy);
-
+               const { createdBy, force } = req.body;
+               const result = await EncryptionManager.rotateKeyIfNeeded(tenantId, createdBy, force);
                res.json({
                     status: true,
                     data: result

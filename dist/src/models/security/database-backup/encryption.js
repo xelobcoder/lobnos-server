@@ -182,11 +182,10 @@ class EncryptionManager {
         const daysSinceRotation = Math.floor((now.getTime() - lastRotated.getTime()) / (1000 * 60 * 60 * 24));
         return daysSinceRotation >= settings.key_rotation_days;
     }
-    static async rotateKeyIfNeeded(tenantId, createdBy) {
-        const needsRotation = await this.isKeyRotationNeeded(tenantId);
-        if (!needsRotation) {
+    static async rotateKeyIfNeeded(tenantId, createdBy, force = false) {
+        const needsRotation = force || await this.isKeyRotationNeeded(tenantId);
+        if (!needsRotation)
             return { rotated: false };
-        }
         try {
             const newKeyId = await this.generateEncryptionKey(tenantId, createdBy);
             return { rotated: true, newKeyId };

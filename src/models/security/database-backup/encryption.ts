@@ -231,12 +231,9 @@ export default class EncryptionManager {
           return daysSinceRotation >= settings.key_rotation_days;
      }
 
-     static async rotateKeyIfNeeded(tenantId: number, createdBy?: string): Promise<{ rotated: boolean; newKeyId?: string; error?: string }> {
-          const needsRotation = await this.isKeyRotationNeeded(tenantId);
-          if (!needsRotation) {
-               return { rotated: false };
-          }
-
+     static async rotateKeyIfNeeded(tenantId: number, createdBy?: string, force: boolean = false): Promise<{ rotated: boolean; newKeyId?: string; error?: string }> {
+          const needsRotation = force || await this.isKeyRotationNeeded(tenantId);
+          if (!needsRotation) return { rotated: false };
           try {
                const newKeyId = await this.generateEncryptionKey(tenantId, createdBy);
                return { rotated: true, newKeyId };
