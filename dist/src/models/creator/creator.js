@@ -248,67 +248,86 @@ class Creator {
         if (typeof billingid != "number" || typeof patientid != "number") {
             return "The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */;
         }
+        const connection = await (0, KnexConnections_1.default)(tenantId);
         const shouldCreateRecord = async function (tenantId, fieldid, ascensionId, testid) {
             const records = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
                 ascensionId, testid, fieldid
             ]);
             return Array.isArray(records) && records.length === 0;
         };
-        const insertUpdate = async function (tenantId, fields, testid) {
+        const insertUpdate = async function (trx, tenantId, fields, testid) {
             const { resources } = await (0, resultEncryptionReferer_1.default)(fields);
             const editSessionId = (0, uuid_1.v4)();
             const iswithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantId, ascensionid, employeeid, "edit");
-            console.log("iswithinWindow", iswithinWindow);
-            if (!iswithinWindow)
-                throw new Error("Edit window period has elapsed, you can no longer edit this result");
-            const insertAll = await Promise.all(resources.map(async (item, index) => {
+            await Promise.all(resources.map(async (item, index) => {
                 const originalvalue = item.originalvalue;
                 const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
                 if (isCreateRecord) {
+                    return await insertRecord();
+                }
+                else {
+                    return await updateRecord();
+                }
+                async function updateRecord() {
+                    if (!iswithinWindow)
+                        throw new Error("Edit window period has elapsed, you can no longer edit this result");
+                    const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ? AND testid = ?`;
+                    const result = await trx.raw(updateRecords, [item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
+                    await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
+                    return (0, helper_1.rowAffected)(result);
+                }
+                async function insertRecord() {
                     const values = [item.field, billingid, patientid, item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.fieldid, testid, ascensionid, editSessionId];
                     if (isScan)
                         await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
-                    const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id) 
-						VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
-                    await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
-                    return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
-                }
-                else {
-                    const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ?`;
-                    const result = await (0, helper_1.promisifyQuery)(tenantId, updateRecords, [item.value, employeeid, (item === null || item === void 0 ? void 0 : item.entrymode) || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
+                    const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id)
+							VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
+                    const result = await trx.raw(query, values);
                     await ascension_1.TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
                     return (0, helper_1.rowAffected)(result);
                 }
             }));
-            const isAllInserted = insertAll.some((a, i) => a == false);
             const pushCommentsQuery = `UPDATE result_comments SET comments = ? WHERE billingid = ? AND testid = ?`;
             const commentSection = async function () {
-                const isRecordAvailable = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM result_comments WHERE testid = ? AND billingid = ?`, [
+                const isRecordAvailable = await trx.raw(`SELECT * FROM result_comments WHERE testid = ? AND billingid = ?`, [
                     testid,
                     billingid,
                 ]);
-                if (isRecordAvailable.length > 0) {
-                    return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, pushCommentsQuery, [comments, billingid, testid]));
+                if (Array.isArray(isRecordAvailable[0]) && isRecordAvailable[0].length > 0) {
+                    const result = await trx.raw(pushCommentsQuery, [comments, billingid, testid]);
+                    return (0, helper_1.rowAffected)(result);
                 }
                 else {
-                    return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, `insert into result_comments (testid,billingid,comments) VALUES (?,?,?)`, [testid, billingid, comments]));
+                    const result = await trx.raw(`INSERT INTO result_comments (testid,billingid,comments) VALUES (?,?,?)`, [testid, billingid, comments]);
+                    return (0, helper_1.rowAffected)(result);
                 }
             };
             const isCommented = await commentSection();
-            return isAllInserted === false && isCommented;
+            return isCommented;
         };
-        if (hasDrugs && drugs.length > 0) {
-            let refinedDrugsArray = drugs.map((item, index) => { return Object.assign(Object.assign({}, item), { ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity }); });
-            let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray);
-            if (isDrugsInserted) {
+        async function drugProcessor() {
+            if (hasDrugs && drugs.length > 0) {
+                let refinedDrugsArray = drugs.map((item, index) => { return Object.assign(Object.assign({}, item), { ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity }); });
+                let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray);
+                if (isDrugsInserted) {
+                    await ascension_1.TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+                }
+            }
+            if (!hasDrugs) {
                 await ascension_1.TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
             }
         }
-        if (!hasDrugs) {
-            await ascension_1.TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+        try {
+            await connection.transaction(async (trx) => {
+                await insertUpdate(trx, tenantId, fields, testid);
+                await drugProcessor();
+            });
+            await CriticalValueEvaluator_1.CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
+            return true;
         }
-        const criticalcallout = await CriticalValueEvaluator_1.CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
-        return !isScan ? await insertUpdate(tenantId, fields, testid) : await insertUpdate(tenantId, criticalcallout, testid);
+        catch (error) {
+            throw error;
+        }
     }
     static async logCriticalValue(tenantId, testid, billingid, statement, employeeid) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.insert_critical_value_alert, [billingid, testid, statement, employeeid]);

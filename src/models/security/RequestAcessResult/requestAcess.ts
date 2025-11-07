@@ -46,7 +46,6 @@ export default class RequestAccess {
           if (existingRequests && existingRequests.status === 'granted') {
                const window = await AccessWindowsRepo.getEffectiveSettings(staffid) || await AccessWindowsRepo.findGlobalSettings();
                const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
-
                if (!existingRequests.grantedAt) {
                     await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
                     return false;

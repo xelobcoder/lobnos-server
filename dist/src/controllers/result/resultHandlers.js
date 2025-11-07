@@ -20,6 +20,7 @@ const path_1 = __importDefault(require("path"));
 const core_1 = __importDefault(require("../../EmailServices/core"));
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
+const requestAcess_1 = __importDefault(require("../../models/security/RequestAcessResult/requestAcess"));
 // export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
@@ -155,12 +156,17 @@ const resultEntryDrugsHandler = async (request, response) => {
 exports.resultEntryDrugsHandler = resultEntryDrugsHandler;
 const getResultPrintoutHandler = async (request, response) => {
     try {
+        // check if access to view is allowed
         const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
         const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
         const tenantIdP = parseInt(tenantId.toString());
         if (!ascensionId)
             return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + ". ascensionid not provided", 404, response);
         const numAscensionId = parseInt(ascensionId.toString());
+        const isWithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
+        if (!isWithinWindow) {
+            return (0, helper_1.customError)("Access window period has expired." /* OperationsFailures.accessWindowExpired */, 403, response);
+        }
         const resultApproved = await resultSettings_1.default.isApprovalLimitReached(tenantIdP, null, numAscensionId, "minimum");
         if (!resultApproved && !isScan) {
             return response.send({ message: "Mininum result approval not reached" /* OperationsFailures.minimumResultValidation */ });
@@ -289,6 +295,16 @@ const getResultPrintMultipleHandler = async (request, response) => {
                 return resultApproved ? { ascensionid: id, testid } : null;
             }));
             qualifiedForPrintOut = qualifiedForPrintOut.filter((item) => item === null || item === void 0 ? void 0 : item.ascensionid);
+            // check each for acess window or acess permission allowed
+            let accessPermissionTest = [];
+            for (let i = 0; i < qualifiedForPrintOut.length; i++) {
+                const isWithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+                isWithinWindow ? accessPermissionTest.push(qualifiedForPrintOut[i]) : null;
+            }
+            if (accessPermissionTest.length == 0) {
+                throw new Error("Access window period has expired." /* OperationsFailures.accessWindowExpired */);
+            }
+            qualifiedForPrintOut = accessPermissionTest;
             if (qualifiedForPrintOut.length > 0) {
                 const finalResult = {
                     test: null,
@@ -386,7 +402,8 @@ const getResultPrintMultipleHandler = async (request, response) => {
         return response.send({ status: false, message: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ });
     }
     catch (err) {
-        (0, helper_1.responseError)(response);
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        (0, helper_1.responseError)(response, errorMessage);
     }
 };
 exports.getResultPrintMultipleHandler = getResultPrintMultipleHandler;

@@ -24,6 +24,7 @@ import { string } from "zod";
 import { testAscensionTableTypes } from "../../models/billing/billingclientTypes";
 import RolesRepository from "../../models/settings/users/RolesRepository";
 import { TestDetailCategoryType } from "../../models/operations/testFieldsCategoryClass";
+import RequestAccess from "../../models/security/RequestAcessResult/requestAcess";
 
 // export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -186,12 +187,20 @@ export const getResultPrintoutHandler = async (request: Request<
 	}
 >, response: Response) => {
 	try {
+
+		// check if access to view is allowed
 		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
 		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
 
 		if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
 		const numAscensionId = parseInt(ascensionId.toString());
+
+		const isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
+
+		if (!isWithinWindow) {
+			return customError(OperationsFailures.accessWindowExpired, 403, response);
+		}
 		const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId, "minimum");
 		if (!resultApproved && !isScan) {
 			return response.send({ message: OperationsFailures.minimumResultValidation })
@@ -344,6 +353,22 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 			qualifiedForPrintOut = qualifiedForPrintOut.filter((item: { ascensionid: number, testid: number } | null) => item?.ascensionid);
 
+
+			// check each for acess window or acess permission allowed
+
+			let accessPermissionTest = []
+
+			for (let i = 0; i < qualifiedForPrintOut.length; i++) {
+				const isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+				isWithinWindow ? accessPermissionTest.push(qualifiedForPrintOut[i]) : null;
+			}
+
+			if (accessPermissionTest.length == 0) {
+				throw new Error(OperationsFailures.accessWindowExpired);
+			}
+
+			qualifiedForPrintOut = accessPermissionTest;
+
 			if (qualifiedForPrintOut.length > 0) {
 				const finalResult = {
 					test: null,
@@ -461,7 +486,8 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 		return response.send({ status: false, message: OperationsFailures.invalidResquestQuery })
 
 	} catch (err) {
-		responseError(response)
+const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+		responseError(response, errorMessage)
 	}
 }
 

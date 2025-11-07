@@ -21,6 +21,7 @@ export const enum OperationsFailures {
 	billingStrategyNotFoundForEntity = 'Billing strategy not found for the given entity.',
 	billingStrategyExpired = 'Billing strategy has expired.',
 	queryExecutionFailed = 'Query execution failed.',
+	accessWindowExpired = "Access window period has expired.",
 	NothaveDifferentPriceList = "Different Pricing not selected",
 	refundAlreadyConcluded = "Refund already concluded for this service",
 	EmptyTestList = "Empty TestList Provided",

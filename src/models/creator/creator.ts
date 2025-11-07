@@ -288,6 +288,8 @@ export default class Creator {
 			return OperationsFailures.invalidRequestBodyType;
 		}
 
+		const connection = await KnexConnection(tenantId);
+
 		const shouldCreateRecord = async function (tenantId: number, fieldid: number, ascensionId: number, testid: number): Promise<boolean> {
 			const records = await promisifyQuery(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
 				ascensionId, testid, fieldid]);
@@ -295,73 +297,91 @@ export default class Creator {
 		};
 
 
-
-
-		const insertUpdate = async function (tenantId: number, fields: any[], testid: number) {
+		const insertUpdate = async function (trx: any, tenantId: number, fields: any[], testid: number) {
 			const { resources } = await resultEncrptionReferer(fields);
 			const editSessionId = uuidv4();
 			const iswithinWindow = await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, "edit");
-			console.log("iswithinWindow", iswithinWindow);
-			if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
-			const insertAll = await Promise.all(
+
+			await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;
 					const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
 					if (isCreateRecord) {
+						return await insertRecord();
+					} else {
+						return await updateRecord();
+					}
+
+					async function updateRecord() {
+						if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
+						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ? AND testid = ?`;
+						const result = await trx.raw(updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
+						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
+						return rowAffected(result);
+					}
+
+					async function insertRecord() {
 						const values = [item.field, billingid, patientid, item.value, employeeid, item?.entrymode || "manual", originalvalue, item.fieldid, testid, ascensionid, editSessionId];
 						if (isScan) await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
-						const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id) 
-						VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
-						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
-						return rowAffected(await promisifyQuery(tenantId, query, values));
-					} else {
-						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ?`;
-						const result = await promisifyQuery(tenantId, updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
+						const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id)
+							VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
+						const result = await trx.raw(query, values);
 						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
 						return rowAffected(result);
 					}
 				})
 			);
 
-
-
-			const isAllInserted = insertAll.some((a, i) => a == false);
-
 			const pushCommentsQuery = `UPDATE result_comments SET comments = ? WHERE billingid = ? AND testid = ?`;
 
 			const commentSection = async function () {
-				const isRecordAvailable = await promisifyQuery(tenantId, `SELECT * FROM result_comments WHERE testid = ? AND billingid = ?`, [
+				const isRecordAvailable = await trx.raw(`SELECT * FROM result_comments WHERE testid = ? AND billingid = ?`, [
 					testid,
 					billingid,
 				]);
 
-				if (isRecordAvailable.length > 0) {
-					return rowAffected(await promisifyQuery(tenantId, pushCommentsQuery, [comments, billingid, testid]));
+				if (Array.isArray(isRecordAvailable[0]) && isRecordAvailable[0].length > 0) {
+					const result = await trx.raw(pushCommentsQuery, [comments, billingid, testid]);
+					return rowAffected(result);
 				} else {
-					return rowAffected(
-						await promisifyQuery(tenantId, `insert into result_comments (testid,billingid,comments) VALUES (?,?,?)`, [testid, billingid, comments])
-					);
+					const result = await trx.raw(`INSERT INTO result_comments (testid,billingid,comments) VALUES (?,?,?)`, [testid, billingid, comments]);
+					return rowAffected(result);
 				}
 			};
 
 			const isCommented = await commentSection();
 
-			return isAllInserted === false && isCommented;
+
+			return isCommented;
 		};
 
-		if (hasDrugs && drugs.length > 0) {
-			let refinedDrugsArray = drugs.map((item, index) => { return { ...item, ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity } });
-			let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray as DrugSqlInsertion[]);
-			if (isDrugsInserted) {
+
+		async function drugProcessor() {
+			if (hasDrugs && drugs.length > 0) {
+				let refinedDrugsArray = drugs.map((item, index) => { return { ...item, ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity }; });
+				let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray as DrugSqlInsertion[]);
+				if (isDrugsInserted) {
+					await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+				}
+			}
+
+			if (!hasDrugs) {
 				await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
 			}
 		}
-		if (!hasDrugs) {
-			await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
-		}
-		const criticalcallout = await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
-		return !isScan ? await insertUpdate(tenantId, fields, testid) : await insertUpdate(tenantId, criticalcallout, testid);
 
+
+		try {
+			await connection.transaction(async (trx) => {
+				await insertUpdate(trx, tenantId, fields, testid);
+				await drugProcessor();
+			});
+			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
+			return true;
+			
+		} catch (error) {
+			throw error;
+		}
 	}
 
 

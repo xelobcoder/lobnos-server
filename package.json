@@ -4,7 +4,7 @@
   "description": "Server for running lobnos sotware",
   "main": "app.js",
   "scripts": {
-    "dev": " nodemon --env-file=./.env ./dist/src/app.js",
+    "dev": "node --watch --env-file=./.env ./dist/src/app.js",
     "tsdev": "npx tsc --w",
     "start": " node --env-file=./.env ./dist/src/app.js",
     "backup-scheduler:start": "node --env-file=./.env ./scripts/backup-scheduler.js start",
