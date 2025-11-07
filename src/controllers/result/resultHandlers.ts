@@ -1,6 +1,5 @@
 import { IRequest, IResponse } from "./types";
 import { Request, Response } from "express";
-import { TrackValuesAlertClass } from "../../models/creator/TrackValuesAlertClass";
 import { OperationsFailures, validatorsFinalFormatType } from "../../models/operations/types";
 import ResultSettings, { ApplicationResultSettings } from "../../models/application/appsettings/resultSettings";
 import { companyInfo, getAllCompanyProfiles } from "../../models/settings/companyProfile";
@@ -20,7 +19,6 @@ import fs from 'fs'
 import path from 'path'
 import Core from "../../EmailServices/core";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
-import { string } from "zod";
 import { testAscensionTableTypes } from "../../models/billing/billingclientTypes";
 import RolesRepository from "../../models/settings/users/RolesRepository";
 import { TestDetailCategoryType } from "../../models/operations/testFieldsCategoryClass";
@@ -486,7 +484,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 		return response.send({ status: false, message: OperationsFailures.invalidResquestQuery })
 
 	} catch (err) {
-const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+		const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
 		responseError(response, errorMessage)
 	}
 }
