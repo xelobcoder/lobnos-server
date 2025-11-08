@@ -1,6 +1,4 @@
 import {
-     CreateIncidentRequest,
-     UpdateIncidentRequest,
      IncidentType,
      IncidentSeverity,
      IncidentStatus
@@ -17,23 +15,19 @@ export class IncidentValidation {
      static validateCreateRequest(data: any): { isValid: boolean; errors: string[] } {
           const errors: string[] = [];
 
-          // Required fields
           if (!data.type) errors.push('Type is required');
           if (!data.title) errors.push('Title is required');
           if (!data.description) errors.push('Description is required');
           if (!data.severity) errors.push('Severity is required');
 
-          // Type validation
           if (data.type && !this.VALID_TYPES.includes(data.type)) {
                errors.push('Invalid incident type');
           }
 
-          // Severity validation
           if (data.severity && !this.VALID_SEVERITIES.includes(data.severity)) {
                errors.push('Invalid severity level');
           }
 
-          // String length validations
           if (data.title && data.title.length > 255) {
                errors.push('Title must be 255 characters or less');
           }
@@ -51,12 +45,10 @@ export class IncidentValidation {
      static validateUpdateRequest(data: any): { isValid: boolean; errors: string[] } {
           const errors: string[] = [];
 
-          // Status validation
           if (data.status && !this.VALID_STATUSES.includes(data.status)) {
                errors.push('Invalid status value');
           }
 
-          // Date validations
           if (data.followUpDate && !this.isValidDate(data.followUpDate)) {
                errors.push('Invalid follow-up date format');
           }
@@ -65,7 +57,6 @@ export class IncidentValidation {
                errors.push('Invalid resolution date format');
           }
 
-          // JSON validations
           if (data.rootCauseAnalysis && !this.isValidJSON(data.rootCauseAnalysis)) {
                errors.push('Invalid root cause analysis format');
           }
@@ -91,18 +82,15 @@ export class IncidentValidation {
      static validateFilters(filters: any): { isValid: boolean; errors: string[] } {
           const errors: string[] = [];
 
-          // Pagination validation
           if (filters.page && (!Number.isInteger(filters.page) || filters.page < 1)) {
                errors.push('Page must be a positive integer');
           }
 
 
-          // Sort validation
           if (filters.sortby && !['ASC', 'DESC'].includes(filters.sortby.toUpperCase())) {
                errors.push('Sortby must be ASC or DESC');
           }
 
-          // Filter validations
           if (filters.type && !this.VALID_TYPES.includes(filters.type)) {
                errors.push('Invalid type filter');
           }
@@ -115,7 +103,6 @@ export class IncidentValidation {
                errors.push('Invalid status filter');
           }
 
-          // Date validations
           if (filters.startDate && !this.isValidDate(filters.startDate)) {
                errors.push('Invalid start date format');
           }

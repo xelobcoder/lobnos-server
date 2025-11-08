@@ -9,19 +9,12 @@ class IncidentModel {
     constructor(tenantId) {
         this.connection = (0, KnexConnections_1.default)(tenantId);
     }
-    /**
-     * Generate unique incident ID
-     */
     generateIncidentId() {
         const timestamp = Date.now().toString();
         return `INC-${timestamp}`;
     }
-    /**
-     * Create a new incident
-     */
     async create(request, employeeId, userContext) {
         const connection = await this.connection;
-        // Prepare data for insertion, ensuring JSON fields are properly serialized
         const escalatedTo = this.getEscalationTargets(request.severity);
         const incidentData = {
             id: this.generateIncidentId(),
@@ -41,7 +34,6 @@ class IncidentModel {
             updated_at: new Date().toISOString()
         };
         await connection('incidents').insert(incidentData);
-        // Create incident object for return (with parsed JSON arrays)
         const incident = {
             id: incidentData.id,
             type: incidentData.type,
@@ -59,7 +51,6 @@ class IncidentModel {
             createdAt: incidentData.created_at,
             updatedAt: incidentData.updated_at
         };
-        // Log audit trail
         await this.logAuditTrail({
             incidentId: incident.id,
             action: 'CREATE',
@@ -70,9 +61,6 @@ class IncidentModel {
         });
         return incident;
     }
-    /**
-     * Get incident by ID with employee information
-     */
     async findById(id) {
         const connection = await this.connection;
         const result = await connection('incidents')
@@ -82,7 +70,6 @@ class IncidentModel {
             .first();
         if (!result)
             return null;
-        // Parse JSON fields and map to camelCase
         const incident = {
             id: result.id,
             type: result.type,
@@ -113,9 +100,6 @@ class IncidentModel {
         };
         return incident;
     }
-    /**
-     * Get paginated list of incidents with filters and employee information
-     */
     async findMany(filters) {
         const connection = await this.connection;
         const { page = 1, count = 10, sortby = 'DESC', type, severity, status, startDate, endDate } = filters;
@@ -123,7 +107,6 @@ class IncidentModel {
             .leftJoin('roles', 'incidents.reported_by', 'roles.employeeid')
             .select('incidents.*', 'roles.username as reportedByUsername', 'roles.email as reportedByEmail', 'roles.role as reportedByRole')
             .orderBy('incidents.reported_at', sortby);
-        // Apply filters
         if (type) {
             query = query.where('incidents.type', type);
         }
@@ -139,14 +122,11 @@ class IncidentModel {
         if (endDate) {
             query = query.where('incidents.reported_at', '<=', endDate);
         }
-        // Get total count
         const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
         const totalResult = await totalQuery;
         const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
-        // Apply pagination
         const offset = (page - 1) * count;
         const rawData = await query.limit(count).offset(offset);
-        // Parse JSON fields for each incident and map to camelCase
         const data = rawData.map((result) => ({
             id: result.id,
             type: result.type,
@@ -185,30 +165,22 @@ class IncidentModel {
             }
         };
     }
-    /**
-     * Update incident
-     */
     async update(id, updates, userContext) {
         const connection = await this.connection;
-        // Get current state before update for audit trail
         const currentIncident = await this.findById(id);
         if (!currentIncident) {
             throw new Error('Incident not found');
         }
-        // Validate status transition if status is being updated
         if (updates.status) {
             if (!this.isValidStatusTransition(currentIncident.status, updates.status)) {
                 throw new Error(`Invalid status transition from ${currentIncident.status} to ${updates.status}`);
             }
-            // Set resolution date if status is resolved or closed
             if (['resolved', 'closed'].includes(updates.status)) {
                 updates.resolutionDate = new Date().toISOString().split('T')[0];
             }
         }
         updates.updatedAt = new Date().toISOString();
-        // Prepare update data for database, ensuring JSON fields are properly serialized
         const dbUpdateData = {};
-        // Map camelCase to snake_case for database columns
         if (updates.status !== undefined)
             dbUpdateData.status = updates.status;
         if (updates.rootCause !== undefined)
@@ -223,7 +195,6 @@ class IncidentModel {
             dbUpdateData.resolution_date = updates.resolutionDate;
         if (updates.updatedAt !== undefined)
             dbUpdateData.updated_at = updates.updatedAt;
-        // Handle JSON fields
         if (updates.escalatedTo) {
             dbUpdateData.escalated_to = JSON.stringify(updates.escalatedTo);
         }
@@ -243,7 +214,6 @@ class IncidentModel {
             .where({ id })
             .update(dbUpdateData);
         const updatedIncident = await this.findById(id);
-        // Log audit trail
         if (userContext) {
             await this.logAuditTrail({
                 incidentId: id,
@@ -256,17 +226,12 @@ class IncidentModel {
         }
         return updatedIncident;
     }
-    /**
-     * Delete incident
-     */
     async delete(id, userContext) {
         const connection = await this.connection;
-        // Get current state before deletion for audit trail
         const currentIncident = await this.findById(id);
         const result = await connection('incidents')
             .where({ id })
             .del();
-        // Log audit trail if incident existed and was deleted
         if (result > 0 && userContext && currentIncident) {
             await this.logAuditTrail({
                 incidentId: id,
@@ -279,9 +244,6 @@ class IncidentModel {
         }
         return result > 0;
     }
-    /**
-     * Business logic methods
-     */
     shouldTriggerRegulatoryReporting(type, severity) {
         return severity === 'critical' || severity === 'high';
     }
@@ -292,9 +254,6 @@ class IncidentModel {
         const validTransitions = IncidentModel.VALID_STATUS_TRANSITIONS[from];
         return validTransitions ? validTransitions.includes(to) : false;
     }
-    /**
-     * Log audit trail entry
-     */
     async logAuditTrail(params) {
         const connection = await this.connection;
         const auditEntry = {
@@ -310,27 +269,15 @@ class IncidentModel {
         };
         await connection('incident_audit_trail').insert(auditEntry);
     }
-    /**
-     * Get escalation rules (static method for external use)
-     */
     static getEscalationRules() {
         return IncidentModel.ESCALATION_RULES;
     }
-    /**
-     * Get valid status transitions (static method for external use)
-     */
     static getValidStatusTransitions() {
         return IncidentModel.VALID_STATUS_TRANSITIONS;
     }
-    /**
-     * Get regulatory triggers (static method for external use)
-     */
     static getRegulatoryTriggers() {
         return IncidentModel.REGULATORY_TRIGGERS;
     }
-    /**
-     * Get audit trail for a specific incident with employee information
-     */
     async getAuditTrail(incidentId, filters) {
         const connection = await this.connection;
         const { page = 1, count = 10, sortby = 'DESC', action, employeeId, startDate, endDate } = filters || {};
@@ -339,7 +286,6 @@ class IncidentModel {
             .select('incident_audit_trail.*', 'roles.username as employeeUsername', 'roles.email as employeeEmail', 'roles.role as employeeRole')
             .where('incident_audit_trail.incident_id', incidentId)
             .orderBy('incident_audit_trail.timestamp', sortby);
-        // Apply filters
         if (action) {
             query = query.where('incident_audit_trail.action', action);
         }
@@ -352,14 +298,11 @@ class IncidentModel {
         if (endDate) {
             query = query.where('incident_audit_trail.timestamp', '<=', endDate);
         }
-        // Get total count
         const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
         const totalResult = await totalQuery;
         const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
-        // Apply pagination
         const offset = (page - 1) * count;
         const rawData = await query.limit(count).offset(offset);
-        // Map to camelCase
         const data = rawData.map((result) => ({
             id: result.id,
             incidentId: result.incident_id,
@@ -384,9 +327,6 @@ class IncidentModel {
             }
         };
     }
-    /**
-     * Get all audit trails with filters and employee information (admin function)
-     */
     async getAllAuditTrails(filters) {
         const connection = await this.connection;
         const { page = 1, count = 10, sortby = 'DESC', action, employeeId, startDate, endDate } = filters || {};
@@ -394,7 +334,6 @@ class IncidentModel {
             .leftJoin('roles', 'incident_audit_trail.employeeId', 'roles.employeeid')
             .select('incident_audit_trail.*', 'roles.username as employeeUsername', 'roles.email as employeeEmail', 'roles.role as employeeRole')
             .orderBy('incident_audit_trail.timestamp', sortby);
-        // Apply filters
         if (action) {
             query = query.where('incident_audit_trail.action', action);
         }
@@ -407,14 +346,11 @@ class IncidentModel {
         if (endDate) {
             query = query.where('incident_audit_trail.timestamp', '<=', endDate);
         }
-        // Get total count
         const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
         const totalResult = await totalQuery;
         const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
-        // Apply pagination
         const offset = (page - 1) * count;
         const rawData = await query.limit(count).offset(offset);
-        // Map to camelCase
         const data = rawData.map((result) => ({
             id: result.id,
             incidentId: result.incident_id,
@@ -441,7 +377,6 @@ class IncidentModel {
     }
 }
 exports.IncidentModel = IncidentModel;
-// Business logic constants
 IncidentModel.ESCALATION_RULES = {
     critical: ['management', 'regulatory-affairs', 'quality-manager'],
     high: ['supervisor', 'quality-manager'],
@@ -450,8 +385,6 @@ IncidentModel.ESCALATION_RULES = {
 };
 IncidentModel.VALID_STATUS_TRANSITIONS = {
     'reported': ['investigating', 'closed'],
-    // Allow both investigating -> root-cause-analysis (detailed flow)
-    // and the more direct investigating -> corrective-actions path when teams skip a formal RCA step.
     'investigating': ['root-cause-analysis', 'corrective-actions', 'escalated', 'closed'],
     'root-cause-analysis': ['corrective-actions', 'escalated', 'closed'],
     'corrective-actions': ['resolved', 'escalated', 'closed'],

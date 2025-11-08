@@ -198,10 +198,6 @@ class IncidentController {
             });
         }
     }
-    /**
-     * GET /api/compliance/incidents/{id}/audit-trail
-     * Get audit trail for a specific incident
-     */
     async getIncidentAuditTrail(req, res) {
         try {
             const tenantId = this.getTenantId(req);
@@ -234,10 +230,6 @@ class IncidentController {
             });
         }
     }
-    /**
-     * GET /api/compliance/audit-trail
-     * Get all audit trails (admin endpoint)
-     */
     async getAllAuditTrails(req, res) {
         try {
             const tenantId = this.getTenantId(req);

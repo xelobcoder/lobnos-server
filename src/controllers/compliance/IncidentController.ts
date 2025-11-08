@@ -263,10 +263,6 @@ export class IncidentController {
           }
      }
 
-     /**
-      * GET /api/compliance/audit-trail
-      * Get all audit trails (admin endpoint)
-      */
      async getAllAuditTrails(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);

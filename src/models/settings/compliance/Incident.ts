@@ -24,7 +24,6 @@ export class IncidentModel {
           this.connection = KnexConnection(tenantId);
      }
 
-     // Business logic constants
      private static readonly ESCALATION_RULES: EscalationRules = {
           critical: ['management', 'regulatory-affairs', 'quality-manager'],
           high: ['supervisor', 'quality-manager'],
@@ -34,8 +33,6 @@ export class IncidentModel {
 
      private static readonly VALID_STATUS_TRANSITIONS: ValidStatusTransitions = {
           'reported': ['investigating', 'closed'],
-          // Allow both investigating -> root-cause-analysis (detailed flow)
-          // and the more direct investigating -> corrective-actions path when teams skip a formal RCA step.
           'investigating': ['root-cause-analysis', 'corrective-actions', 'escalated', 'closed'],
           'root-cause-analysis': ['corrective-actions', 'escalated', 'closed'],
           'corrective-actions': ['resolved', 'escalated', 'closed'],
@@ -63,21 +60,14 @@ export class IncidentModel {
           }
      };
 
-     /**
-      * Generate unique incident ID
-      */
      private generateIncidentId(): string {
           const timestamp = Date.now().toString();
           return `INC-${timestamp}`;
      }
 
-     /**
-      * Create a new incident
-      */
      async create(request: CreateIncidentRequest, employeeId: number, userContext?: { employeeId: number }): Promise<Incident> {
           const connection = await this.connection;
 
-          // Prepare data for insertion, ensuring JSON fields are properly serialized
           const escalatedTo = this.getEscalationTargets(request.severity);
 
           const incidentData = {
@@ -100,7 +90,6 @@ export class IncidentModel {
 
           await connection('incidents').insert(incidentData);
 
-          // Create incident object for return (with parsed JSON arrays)
           const incident: Incident = {
                id: incidentData.id,
                type: incidentData.type,
@@ -119,7 +108,6 @@ export class IncidentModel {
                updatedAt: incidentData.updated_at
           };
 
-          // Log audit trail
           await this.logAuditTrail({
                incidentId: incident.id,
                action: 'CREATE',
@@ -132,9 +120,6 @@ export class IncidentModel {
           return incident;
      }
 
-     /**
-      * Get incident by ID with employee information
-      */
      async findById(id: string): Promise<Incident | null> {
           const connection = await this.connection;
           const result = await connection('incidents')
@@ -150,7 +135,6 @@ export class IncidentModel {
 
           if (!result) return null;
 
-          // Parse JSON fields and map to camelCase
           const incident: Incident = {
                id: result.id,
                type: result.type,
@@ -183,9 +167,6 @@ export class IncidentModel {
           return incident;
      }
 
-     /**
-      * Get paginated list of incidents with filters and employee information
-      */
      async findMany(filters: IncidentFilters): Promise<IncidentListResponse> {
           const connection = await this.connection;
           const {
@@ -209,7 +190,6 @@ export class IncidentModel {
                )
                .orderBy('incidents.reported_at', sortby);
 
-          // Apply filters
           if (type) {
                query = query.where('incidents.type', type);
           }
@@ -226,16 +206,13 @@ export class IncidentModel {
                query = query.where('incidents.reported_at', '<=', endDate);
           }
 
-          // Get total count
           const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
           const totalResult = await totalQuery;
           const total = parseInt(totalResult?.count as string) || 0;
 
-          // Apply pagination
           const offset = (page - 1) * count;
           const rawData = await query.limit(count).offset(offset);
 
-          // Parse JSON fields for each incident and map to camelCase
           const data = rawData.map((result: any) => ({
                id: result.id,
                type: result.type,
@@ -276,25 +253,19 @@ export class IncidentModel {
           };
      }
 
-     /**
-      * Update incident
-      */
      async update(id: string, updates: UpdateIncidentRequest, userContext?: { employeeId: number }): Promise<Incident | null> {
           const connection = await this.connection;
 
-          // Get current state before update for audit trail
           const currentIncident = await this.findById(id);
           if (!currentIncident) {
                throw new Error('Incident not found');
           }
 
-          // Validate status transition if status is being updated
           if (updates.status) {
                if (!this.isValidStatusTransition(currentIncident.status, updates.status)) {
                     throw new Error(`Invalid status transition from ${currentIncident.status} to ${updates.status}`);
                }
 
-               // Set resolution date if status is resolved or closed
                if (['resolved', 'closed'].includes(updates.status)) {
                     updates.resolutionDate = new Date().toISOString().split('T')[0];
                }
@@ -302,10 +273,8 @@ export class IncidentModel {
 
           updates.updatedAt = new Date().toISOString();
 
-          // Prepare update data for database, ensuring JSON fields are properly serialized
           const dbUpdateData: any = {};
 
-          // Map camelCase to snake_case for database columns
           if (updates.status !== undefined) dbUpdateData.status = updates.status;
           if (updates.rootCause !== undefined) dbUpdateData.root_cause = updates.rootCause;
           if (updates.correctiveActions !== undefined) dbUpdateData.corrective_actions = updates.correctiveActions;
@@ -314,7 +283,6 @@ export class IncidentModel {
           if (updates.resolutionDate !== undefined) dbUpdateData.resolution_date = updates.resolutionDate;
           if (updates.updatedAt !== undefined) dbUpdateData.updated_at = updates.updatedAt;
 
-          // Handle JSON fields
           if (updates.escalatedTo) {
                dbUpdateData.escalated_to = JSON.stringify(updates.escalatedTo);
           }
@@ -337,7 +305,6 @@ export class IncidentModel {
 
           const updatedIncident = await this.findById(id);
 
-          // Log audit trail
           if (userContext) {
                await this.logAuditTrail({
                     incidentId: id,
@@ -352,20 +319,15 @@ export class IncidentModel {
           return updatedIncident;
      }
 
-     /**
-      * Delete incident
-      */
      async delete(id: string, userContext?: { employeeId: number }): Promise<boolean> {
           const connection = await this.connection;
 
-          // Get current state before deletion for audit trail
           const currentIncident = await this.findById(id);
 
           const result = await connection('incidents')
                .where({ id })
                .del();
 
-          // Log audit trail if incident existed and was deleted
           if (result > 0 && userContext && currentIncident) {
                await this.logAuditTrail({
                     incidentId: id,
@@ -380,9 +342,6 @@ export class IncidentModel {
           return result > 0;
      }
 
-     /**
-      * Business logic methods
-      */
      private shouldTriggerRegulatoryReporting(type: IncidentType, severity: IncidentSeverity): boolean {
           return severity === 'critical' || severity === 'high';
      }
@@ -396,9 +355,6 @@ export class IncidentModel {
           return validTransitions ? validTransitions.includes(to) : false;
      }
 
-     /**
-      * Log audit trail entry
-      */
      private async logAuditTrail(params: {
           incidentId: string;
           action: string;
@@ -424,30 +380,18 @@ export class IncidentModel {
           await connection('incident_audit_trail').insert(auditEntry);
      }
 
-     /**
-      * Get escalation rules (static method for external use)
-      */
      static getEscalationRules(): EscalationRules {
           return IncidentModel.ESCALATION_RULES;
      }
 
-     /**
-      * Get valid status transitions (static method for external use)
-      */
      static getValidStatusTransitions(): ValidStatusTransitions {
           return IncidentModel.VALID_STATUS_TRANSITIONS;
      }
 
-     /**
-      * Get regulatory triggers (static method for external use)
-      */
      static getRegulatoryTriggers(): RegulatoryTriggers {
           return IncidentModel.REGULATORY_TRIGGERS;
      }
 
-     /**
-      * Get audit trail for a specific incident with employee information
-      */
      async getAuditTrail(incidentId: string, filters?: AuditTrailFilters): Promise<AuditTrailListResponse> {
           const connection = await this.connection;
           const {
@@ -471,7 +415,6 @@ export class IncidentModel {
                .where('incident_audit_trail.incident_id', incidentId)
                .orderBy('incident_audit_trail.timestamp', sortby);
 
-          // Apply filters
           if (action) {
                query = query.where('incident_audit_trail.action', action);
           }
@@ -485,16 +428,13 @@ export class IncidentModel {
                query = query.where('incident_audit_trail.timestamp', '<=', endDate);
           }
 
-          // Get total count
           const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
           const totalResult = await totalQuery;
           const total = parseInt(totalResult?.count as string) || 0;
 
-          // Apply pagination
           const offset = (page - 1) * count;
           const rawData = await query.limit(count).offset(offset);
 
-          // Map to camelCase
           const data = rawData.map((result: any) => ({
                id: result.id,
                incidentId: result.incident_id,
@@ -521,9 +461,6 @@ export class IncidentModel {
           };
      }
 
-     /**
-      * Get all audit trails with filters and employee information (admin function)
-      */
      async getAllAuditTrails(filters?: AuditTrailFilters): Promise<AuditTrailListResponse> {
           const connection = await this.connection;
           const {
@@ -546,7 +483,6 @@ export class IncidentModel {
                )
                .orderBy('incident_audit_trail.timestamp', sortby);
 
-          // Apply filters
           if (action) {
                query = query.where('incident_audit_trail.action', action);
           }
@@ -560,16 +496,13 @@ export class IncidentModel {
                query = query.where('incident_audit_trail.timestamp', '<=', endDate);
           }
 
-          // Get total count
           const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
           const totalResult = await totalQuery;
           const total = parseInt(totalResult?.count as string) || 0;
 
-          // Apply pagination
           const offset = (page - 1) * count;
           const rawData = await query.limit(count).offset(offset);
 
-          // Map to camelCase
           const data = rawData.map((result: any) => ({
                id: result.id,
                incidentId: result.incident_id,
