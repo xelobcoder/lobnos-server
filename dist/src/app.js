@@ -45,6 +45,7 @@ const validateTenancy_1 = require("./middleware/validateTenancy");
 const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
 const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
+const routes_7 = __importDefault(require("./controllers/compliance/routes"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -102,6 +103,7 @@ app.use(qualityControlRoutes_1.default);
 app.use(routes_6.default);
 app.use(excelparserHandler_1.default);
 app.use(medicalInterfacingDevicesRoute_1.default);
+app.use(routes_7.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });

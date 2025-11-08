@@ -41,6 +41,7 @@ import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validat
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
 import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
+import complianceRouter from './controllers/compliance/routes';
 
 
 
@@ -104,6 +105,7 @@ app.use(qualityControlRoutes);
 app.use(smsPrimeRouter);
 app.use(ExcelParser);
 app.use(InterfacingDevicesRouter)
+app.use(complianceRouter)
 
 
 
