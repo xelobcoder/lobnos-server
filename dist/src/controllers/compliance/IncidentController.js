@@ -13,10 +13,6 @@ class IncidentController {
             employeeId: req.body.employeeId || ((_a = req.user) === null || _a === void 0 ? void 0 : _a.employeeId) || 0
         };
     }
-    /**
-     * GET /api/compliance/incidents
-     * Retrieve paginated list of incidents with filtering
-     */
     async getIncidents(req, res) {
         try {
             const tenantId = this.getTenantId(req);
@@ -30,7 +26,6 @@ class IncidentController {
                 startDate: req.query.start_date,
                 endDate: req.query.end_date
             };
-            // Validate filters
             const validation = validation_1.IncidentValidation.validateFilters(filters);
             if (!validation.isValid) {
                 res.status(400).json({
@@ -51,16 +46,11 @@ class IncidentController {
             });
         }
     }
-    /**
-     * POST /api/compliance/incidents
-     * Create a new incident
-     */
     async createIncident(req, res) {
         try {
             const tenantId = this.getTenantId(req);
             const userContext = this.getUserContext(req);
             const requestData = req.body;
-            // Validate request data
             const validation = validation_1.IncidentValidation.validateCreateRequest(requestData);
             if (!validation.isValid) {
                 res.status(400).json({
@@ -84,10 +74,6 @@ class IncidentController {
             });
         }
     }
-    /**
-     * PUT /api/compliance/incidents/{id}
-     * Update incident status and investigation data
-     */
     async updateIncident(req, res) {
         try {
             const tenantId = this.getTenantId(req);
@@ -101,7 +87,6 @@ class IncidentController {
                 });
                 return;
             }
-            // Validate update data
             const validation = validation_1.IncidentValidation.validateUpdateRequest(updateData);
             if (!validation.isValid) {
                 res.status(400).json({
@@ -146,10 +131,6 @@ class IncidentController {
             });
         }
     }
-    /**
-     * GET /api/compliance/incidents/{id}
-     * Get single incident by ID
-     */
     async getIncident(req, res) {
         try {
             const tenantId = this.getTenantId(req);
@@ -183,10 +164,6 @@ class IncidentController {
             });
         }
     }
-    /**
-     * DELETE /api/compliance/incidents/{id}
-     * Delete incident (if needed)
-     */
     async deleteIncident(req, res) {
         try {
             const tenantId = this.getTenantId(req);

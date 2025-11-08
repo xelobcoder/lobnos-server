@@ -19,10 +19,6 @@ export class IncidentController {
           };
      }
 
-     /**
-      * GET /api/compliance/incidents
-      * Retrieve paginated list of incidents with filtering
-      */
      async getIncidents(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
@@ -37,7 +33,6 @@ export class IncidentController {
                     endDate: req.query.end_date as string
                };
 
-               // Validate filters
                const validation = IncidentValidation.validateFilters(filters);
                if (!validation.isValid) {
                     res.status(400).json({
@@ -60,10 +55,6 @@ export class IncidentController {
           }
      }
 
-     /**
-      * POST /api/compliance/incidents
-      * Create a new incident
-      */
      async createIncident(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
@@ -71,7 +62,6 @@ export class IncidentController {
 
                const requestData: CreateIncidentRequest = req.body;
 
-               // Validate request data
                const validation = IncidentValidation.validateCreateRequest(requestData);
                if (!validation.isValid) {
                     res.status(400).json({
@@ -97,10 +87,6 @@ export class IncidentController {
           }
      }
 
-     /**
-      * PUT /api/compliance/incidents/{id}
-      * Update incident status and investigation data
-      */
      async updateIncident(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
@@ -116,7 +102,6 @@ export class IncidentController {
                     return;
                }
 
-               // Validate update data
                const validation = IncidentValidation.validateUpdateRequest(updateData);
                if (!validation.isValid) {
                     res.status(400).json({
@@ -167,10 +152,6 @@ export class IncidentController {
           }
      }
 
-     /**
-      * GET /api/compliance/incidents/{id}
-      * Get single incident by ID
-      */
      async getIncident(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
@@ -208,10 +189,6 @@ export class IncidentController {
           }
      }
 
-     /**
-      * DELETE /api/compliance/incidents/{id}
-      * Delete incident (if needed)
-      */
      async deleteIncident(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
@@ -250,10 +227,6 @@ export class IncidentController {
           }
      }
 
-     /**
-      * GET /api/compliance/incidents/{id}/audit-trail
-      * Get audit trail for a specific incident
-      */
      async getIncidentAuditTrail(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
