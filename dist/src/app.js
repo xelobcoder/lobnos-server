@@ -39,6 +39,7 @@ const expenses_analytics_route_1 = __importDefault(require("./controllers/analyt
 const qualityControlRoutes_1 = __importDefault(require("./controllers/QualityControl/qualityControlRoutes"));
 const excelparserHandler_1 = __importDefault(require("./controllers/utilities/excelparserHandler"));
 const outsourcedTestTracking_routes_1 = __importDefault(require("./controllers/analytics/outsourcedTestTracking.routes"));
+const index_2 = __importDefault(require("./controllers/inventory/routes/index"));
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
@@ -104,6 +105,7 @@ app.use(routes_6.default);
 app.use(excelparserHandler_1.default);
 app.use(medicalInterfacingDevicesRoute_1.default);
 app.use(routes_7.default);
+app.use('/api/v1/inventory', index_2.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });

@@ -34,7 +34,7 @@ import ExpensesAnalyticsRouter from './controllers/analytics/Expenses-analytics/
 import qualityControlRoutes from './controllers/QualityControl/qualityControlRoutes';
 import ExcelParser from './controllers/utilities/excelparserHandler';
 import OutsourcedTestTracking from './controllers/analytics/outsourcedTestTracking.routes'
-
+import InventoryRouter from './controllers/inventory/routes/index';
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
 import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
@@ -106,6 +106,7 @@ app.use(smsPrimeRouter);
 app.use(ExcelParser);
 app.use(InterfacingDevicesRouter)
 app.use(complianceRouter)
+app.use('/api/v1/inventory', InventoryRouter);
 
 
 
