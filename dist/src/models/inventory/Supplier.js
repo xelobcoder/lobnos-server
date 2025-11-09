@@ -48,10 +48,10 @@ class SupplierModel {
             updated_at: result.updated_at
         };
     }
-    async findMany(page = 1, count = 10, search) {
+    async findMany(page = 1, count = 10, search, sortby = 'ASC') {
         const connection = await this.connection;
         let query = connection('inv_suppliers')
-            .orderBy('name', 'ASC');
+            .orderBy('name', sortby.toLowerCase());
         if (search) {
             query = query.where((qb) => {
                 qb.where('name', 'like', `%${search}%`)
@@ -80,7 +80,8 @@ class SupplierModel {
             total,
             page,
             count,
-            totalPages: Math.ceil(total / count)
+            totalPages: Math.ceil(total / count),
+            sortby
         };
     }
     async update(id, updates) {

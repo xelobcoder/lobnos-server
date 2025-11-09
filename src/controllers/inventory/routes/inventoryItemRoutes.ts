@@ -13,7 +13,6 @@ router.delete('/items/:id', (req, res) => inventoryItemController.deleteInventor
 
 // Special routes for alerts and reports
 router.get('/items-alerts/low-stock', (req, res) => inventoryItemController.getLowStockItems(req, res));
-router.get('/items-alerts/expiring', (req, res) => inventoryItemController.getExpiringItems(req, res));
 router.get('/items-summary', (req, res) => inventoryItemController.getInventorySummary(req, res));
 
 export default router;

@@ -88,11 +88,11 @@ export class CategoryModel {
           };
      }
 
-     async findMany(page: number = 1, count: number = 10, search?: string): Promise<CategoryListResponse> {
+     async findMany(page: number = 1, count: number = 10, search?: string, sortby: 'ASC' | 'DESC' = 'ASC'): Promise<CategoryListResponse> {
           const connection = await this.connection;
 
           let query = connection('inv_categories')
-               .orderBy('name', 'ASC');
+               .orderBy('name', sortby.toLowerCase() as 'asc' | 'desc');
 
           if (search) {
                query = query.where('name', 'like', `%${search}%`)
@@ -120,7 +120,8 @@ export class CategoryModel {
                total,
                page,
                count,
-               totalPages: Math.ceil(total / count)
+               totalPages: Math.ceil(total / count),
+               sortby
           };
      }
 

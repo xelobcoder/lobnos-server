@@ -11,7 +11,11 @@ import {
 export class BrandController {
      private getTenantId(req: Request): number {
           // Extract tenant ID from request (could be from JWT token, headers, etc.)
-          return req.body.tenantId || parseInt(req.headers['x-tenant-id'] as string) || 1;
+          const tenantId = parseInt(req.query.tenantId as string);
+          if (!tenantId || isNaN(tenantId)) {
+               throw new Error('Tenant ID is required');
+          }
+          return tenantId;
      }
 
      private validateCreateBrandRequest(data: any): { isValid: boolean; errors: ValidationError[] } {
@@ -30,6 +34,14 @@ export class BrandController {
                     field: 'name',
                     message: 'Brand name must be less than 100 characters',
                     value: data.name
+               });
+          }
+
+          if (!data.inventory_item_id || typeof data.inventory_item_id !== 'string' || data.inventory_item_id.trim().length === 0) {
+               errors.push({
+                    field: 'inventory_item_id',
+                    message: 'Inventory item ID is required and must be a non-empty string',
+                    value: data.inventory_item_id
                });
           }
 
@@ -54,6 +66,16 @@ export class BrandController {
                          field: 'name',
                          message: 'Brand name must be less than 100 characters',
                          value: data.name
+                    });
+               }
+          }
+
+          if (data.inventory_item_id !== undefined) {
+               if (typeof data.inventory_item_id !== 'string' || data.inventory_item_id.trim().length === 0) {
+                    errors.push({
+                         field: 'inventory_item_id',
+                         message: 'Inventory item ID must be a non-empty string',
+                         value: data.inventory_item_id
                     });
                }
           }
@@ -155,14 +177,16 @@ export class BrandController {
                const {
                     page = '1',
                     count = '10',
-                    search
+                    search,
+                    sortby = 'ASC'
                } = req.query;
 
                const pageNum = parseInt(page as string, 10);
                const countNum = parseInt(count as string, 10);
+               const sortDirection = (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
                const brandModel = new BrandModel(tenantId);
-               const result: BrandListResponse = await brandModel.findMany(pageNum, countNum, search as string);
+               const result: BrandListResponse = await brandModel.findMany(pageNum, countNum, search as string, sortDirection);
 
                const response: ApiResponse = {
                     success: true,
@@ -171,7 +195,8 @@ export class BrandController {
                          page: result.page,
                          count: result.count,
                          total: result.total,
-                         totalPages: result.totalPages
+                         totalPages: result.totalPages,
+                         sortby: result.sortby
                     }
                };
 

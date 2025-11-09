@@ -4,7 +4,11 @@ exports.CategoryController = void 0;
 const inventory_1 = require("../../models/inventory");
 class CategoryController {
     getTenantId(req) {
-        return req.body.tenantId || parseInt(req.headers['x-tenant-id']) || 1;
+        const tenantId = parseInt(req.query.tenantId);
+        if (!tenantId || isNaN(tenantId)) {
+            throw new Error('Tenant ID is required');
+        }
+        return tenantId;
     }
     validateCreateCategoryRequest(data) {
         const errors = [];
@@ -139,11 +143,12 @@ class CategoryController {
     async getCategories(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { page = '1', count = '10', search } = req.query;
+            const { page = '1', count = '10', search, sortby = 'ASC' } = req.query;
             const pageNum = parseInt(page, 10);
             const countNum = parseInt(count, 10);
+            const sortDirection = sortby.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
             const categoryModel = new inventory_1.CategoryModel(tenantId);
-            const result = await categoryModel.findMany(pageNum, countNum, search);
+            const result = await categoryModel.findMany(pageNum, countNum, search, sortDirection);
             const response = {
                 success: true,
                 data: result.categories,
@@ -151,7 +156,8 @@ class CategoryController {
                     page: result.page,
                     count: result.count,
                     total: result.total,
-                    totalPages: result.totalPages
+                    totalPages: result.totalPages,
+                    sortby: result.sortby
                 }
             };
             res.json(response);

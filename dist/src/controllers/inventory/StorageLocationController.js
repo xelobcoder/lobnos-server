@@ -4,7 +4,11 @@ exports.StorageLocationController = void 0;
 const inventory_1 = require("../../models/inventory");
 class StorageLocationController {
     getTenantId(req) {
-        return req.body.tenantId || parseInt(req.headers['x-tenant-id']) || 1;
+        const tenantId = parseInt(req.query.tenantId);
+        if (!tenantId || isNaN(tenantId)) {
+            throw new Error('Tenant ID is required');
+        }
+        return tenantId;
     }
     validateCreateStorageLocationRequest(data) {
         const errors = [];
@@ -181,11 +185,12 @@ class StorageLocationController {
     async getStorageLocations(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { page = '1', count = '10', search } = req.query;
+            const { page = '1', count = '10', search, sortby = 'ASC' } = req.query;
             const pageNum = parseInt(page, 10);
             const countNum = parseInt(count, 10);
+            const sortDirection = sortby.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
             const storageLocationModel = new inventory_1.StorageLocationModel(tenantId);
-            const result = await storageLocationModel.findMany(pageNum, countNum, search);
+            const result = await storageLocationModel.findMany(pageNum, countNum, search, sortDirection);
             const response = {
                 success: true,
                 data: result.locations,
@@ -193,7 +198,8 @@ class StorageLocationController {
                     page: result.page,
                     count: result.count,
                     total: result.total,
-                    totalPages: result.totalPages
+                    totalPages: result.totalPages,
+                    sortby: result.sortby
                 }
             };
             res.json(response);

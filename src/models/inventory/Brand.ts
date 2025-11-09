@@ -34,6 +34,7 @@ export class BrandModel {
           const brandData = {
                id: this.generateBrandId(),
                name: request.name,
+               inventory_item_id: request.inventory_item_id,
                created_date: new Date().toISOString(),
                item_count: 0,
                created_at: new Date().toISOString(),
@@ -45,6 +46,7 @@ export class BrandModel {
           return {
                id: brandData.id,
                name: brandData.name,
+               inventory_item_id: brandData.inventory_item_id,
                created_date: brandData.created_date,
                item_count: brandData.item_count,
                created_at: brandData.created_at,
@@ -63,6 +65,7 @@ export class BrandModel {
           return {
                id: result.id,
                name: result.name,
+               inventory_item_id: result.inventory_item_id,
                created_date: result.created_date,
                item_count: result.item_count,
                created_at: result.created_at,
@@ -81,6 +84,7 @@ export class BrandModel {
           return {
                id: result.id,
                name: result.name,
+               inventory_item_id: result.inventory_item_id,
                created_date: result.created_date,
                item_count: result.item_count,
                created_at: result.created_at,
@@ -88,11 +92,11 @@ export class BrandModel {
           };
      }
 
-     async findMany(page: number = 1, count: number = 10, search?: string): Promise<BrandListResponse> {
+     async findMany(page: number = 1, count: number = 10, search?: string, sortby: 'ASC' | 'DESC' = 'ASC'): Promise<BrandListResponse> {
           const connection = await this.connection;
 
           let query = connection('inv_brands')
-               .orderBy('name', 'ASC');
+               .orderBy('name', sortby.toLowerCase() as 'asc' | 'desc');
 
           if (search) {
                query = query.where('name', 'like', `%${search}%`);
@@ -108,6 +112,7 @@ export class BrandModel {
           const brands = rawData.map((result: any) => ({
                id: result.id,
                name: result.name,
+               inventory_item_id: result.inventory_item_id,
                created_date: result.created_date,
                item_count: result.item_count,
                created_at: result.created_at,
@@ -119,7 +124,8 @@ export class BrandModel {
                total,
                page,
                count,
-               totalPages: Math.ceil(total / count)
+               totalPages: Math.ceil(total / count),
+               sortby
           };
      }
 
@@ -148,6 +154,7 @@ export class BrandModel {
           };
 
           if (updates.name !== undefined) updateData.name = updates.name;
+          if (updates.inventory_item_id !== undefined) updateData.inventory_item_id = updates.inventory_item_id;
 
           await connection('inv_brands')
                .where({ id })
@@ -208,6 +215,7 @@ export class BrandModel {
           return results.map((result: any) => ({
                id: result.id,
                name: result.name,
+               inventory_item_id: result.inventory_item_id,
                created_date: result.created_date,
                item_count: result.item_count,
                created_at: result.created_at,

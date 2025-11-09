@@ -10,7 +10,11 @@ import {
 
 export class StorageLocationController {
      private getTenantId(req: Request): number {
-          return req.body.tenantId || parseInt(req.headers['x-tenant-id'] as string) || 1;
+          const tenantId = parseInt(req.query.tenantId as string);
+          if (!tenantId || isNaN(tenantId)) {
+               throw new Error('Tenant ID is required');
+          }
+          return tenantId;
      }
 
      private validateCreateStorageLocationRequest(data: any): { isValid: boolean; errors: ValidationError[] } {
@@ -217,14 +221,16 @@ export class StorageLocationController {
                const {
                     page = '1',
                     count = '10',
-                    search
+                    search,
+                    sortby = 'ASC'
                } = req.query;
 
                const pageNum = parseInt(page as string, 10);
                const countNum = parseInt(count as string, 10);
+               const sortDirection = (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
                const storageLocationModel = new StorageLocationModel(tenantId);
-               const result: StorageLocationListResponse = await storageLocationModel.findMany(pageNum, countNum, search as string);
+               const result: StorageLocationListResponse = await storageLocationModel.findMany(pageNum, countNum, search as string, sortDirection);
 
                const response: ApiResponse = {
                     success: true,
@@ -233,7 +239,8 @@ export class StorageLocationController {
                          page: result.page,
                          count: result.count,
                          total: result.total,
-                         totalPages: result.totalPages
+                         totalPages: result.totalPages,
+                         sortby: result.sortby
                     }
                };
 

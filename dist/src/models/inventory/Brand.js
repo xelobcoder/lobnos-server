@@ -25,6 +25,7 @@ class BrandModel {
         const brandData = {
             id: this.generateBrandId(),
             name: request.name,
+            inventory_item_id: request.inventory_item_id,
             created_date: new Date().toISOString(),
             item_count: 0,
             created_at: new Date().toISOString(),
@@ -34,6 +35,7 @@ class BrandModel {
         return {
             id: brandData.id,
             name: brandData.name,
+            inventory_item_id: brandData.inventory_item_id,
             created_date: brandData.created_date,
             item_count: brandData.item_count,
             created_at: brandData.created_at,
@@ -50,6 +52,7 @@ class BrandModel {
         return {
             id: result.id,
             name: result.name,
+            inventory_item_id: result.inventory_item_id,
             created_date: result.created_date,
             item_count: result.item_count,
             created_at: result.created_at,
@@ -66,16 +69,17 @@ class BrandModel {
         return {
             id: result.id,
             name: result.name,
+            inventory_item_id: result.inventory_item_id,
             created_date: result.created_date,
             item_count: result.item_count,
             created_at: result.created_at,
             updated_at: result.updated_at
         };
     }
-    async findMany(page = 1, count = 10, search) {
+    async findMany(page = 1, count = 10, search, sortby = 'ASC') {
         const connection = await this.connection;
         let query = connection('inv_brands')
-            .orderBy('name', 'ASC');
+            .orderBy('name', sortby.toLowerCase());
         if (search) {
             query = query.where('name', 'like', `%${search}%`);
         }
@@ -87,6 +91,7 @@ class BrandModel {
         const brands = rawData.map((result) => ({
             id: result.id,
             name: result.name,
+            inventory_item_id: result.inventory_item_id,
             created_date: result.created_date,
             item_count: result.item_count,
             created_at: result.created_at,
@@ -97,7 +102,8 @@ class BrandModel {
             total,
             page,
             count,
-            totalPages: Math.ceil(total / count)
+            totalPages: Math.ceil(total / count),
+            sortby
         };
     }
     async update(id, updates) {
@@ -121,6 +127,8 @@ class BrandModel {
         };
         if (updates.name !== undefined)
             updateData.name = updates.name;
+        if (updates.inventory_item_id !== undefined)
+            updateData.inventory_item_id = updates.inventory_item_id;
         await connection('inv_brands')
             .where({ id })
             .update(updateData);
@@ -170,6 +178,7 @@ class BrandModel {
         return results.map((result) => ({
             id: result.id,
             name: result.name,
+            inventory_item_id: result.inventory_item_id,
             created_date: result.created_date,
             item_count: result.item_count,
             created_at: result.created_at,

@@ -10,7 +10,11 @@ import {
 
 export class SupplierController {
      private getTenantId(req: Request): number {
-          return req.body.tenantId || parseInt(req.headers['x-tenant-id'] as string) || 1;
+          const tenantId = parseInt(req.query.tenantId as string);
+          if (!tenantId || isNaN(tenantId)) {
+               throw new Error('Tenant ID is required');
+          }
+          return tenantId;
      }
 
      private validateCreateSupplierRequest(data: any): { isValid: boolean; errors: ValidationError[] } {
@@ -201,14 +205,16 @@ export class SupplierController {
                const {
                     page = '1',
                     count = '10',
-                    search
+                    search,
+                    sortby = 'ASC'
                } = req.query;
 
                const pageNum = parseInt(page as string, 10);
                const countNum = parseInt(count as string, 10);
+               const sortDirection = (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
                const supplierModel = new SupplierModel(tenantId);
-               const result: SupplierListResponse = await supplierModel.findMany(pageNum, countNum, search as string);
+               const result: SupplierListResponse = await supplierModel.findMany(pageNum, countNum, search as string, sortDirection);
 
                const response: ApiResponse = {
                     success: true,
@@ -217,7 +223,8 @@ export class SupplierController {
                          page: result.page,
                          count: result.count,
                          total: result.total,
-                         totalPages: result.totalPages
+                         totalPages: result.totalPages,
+                         sortby: result.sortby
                     }
                };
 

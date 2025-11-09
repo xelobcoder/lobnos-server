@@ -72,10 +72,10 @@ class CategoryModel {
             updated_at: result.updated_at
         };
     }
-    async findMany(page = 1, count = 10, search) {
+    async findMany(page = 1, count = 10, search, sortby = 'ASC') {
         const connection = await this.connection;
         let query = connection('inv_categories')
-            .orderBy('name', 'ASC');
+            .orderBy('name', sortby.toLowerCase());
         if (search) {
             query = query.where('name', 'like', `%${search}%`)
                 .orWhere('description', 'like', `%${search}%`);
@@ -98,7 +98,8 @@ class CategoryModel {
             total,
             page,
             count,
-            totalPages: Math.ceil(total / count)
+            totalPages: Math.ceil(total / count),
+            sortby
         };
     }
     async update(id, updates) {

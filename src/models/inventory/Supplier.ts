@@ -60,11 +60,11 @@ export class SupplierModel {
           };
      }
 
-     async findMany(page: number = 1, count: number = 10, search?: string): Promise<SupplierListResponse> {
+     async findMany(page: number = 1, count: number = 10, search?: string, sortby: 'ASC' | 'DESC' = 'ASC'): Promise<SupplierListResponse> {
           const connection = await this.connection;
 
           let query = connection('inv_suppliers')
-               .orderBy('name', 'ASC');
+               .orderBy('name', sortby.toLowerCase() as 'asc' | 'desc');
 
           if (search) {
                query = query.where((qb) => {
@@ -98,7 +98,8 @@ export class SupplierModel {
                total,
                page,
                count,
-               totalPages: Math.ceil(total / count)
+               totalPages: Math.ceil(total / count),
+               sortby
           };
      }
 

@@ -72,11 +72,11 @@ export class StorageLocationModel {
           };
      }
 
-     async findMany(page: number = 1, count: number = 10, search?: string): Promise<StorageLocationListResponse> {
+     async findMany(page: number = 1, count: number = 10, search?: string, sortby: 'ASC' | 'DESC' = 'ASC'): Promise<StorageLocationListResponse> {
           const connection = await this.connection;
 
           let query = connection('inv_storage_locations')
-               .orderBy('name', 'ASC');
+               .orderBy('name', sortby.toLowerCase() as 'asc' | 'desc');
 
           if (search) {
                query = query.where('name', 'like', `%${search}%`)
@@ -108,7 +108,8 @@ export class StorageLocationModel {
                total,
                page,
                count,
-               totalPages: Math.ceil(total / count)
+               totalPages: Math.ceil(total / count),
+               sortby
           };
      }
 

@@ -5,7 +5,8 @@ import {
      UpdatePurchaseOrderRequest,
      PurchaseOrderListResponse,
      PurchaseOrderFilters,
-     PurchaseOrderItem
+     PurchaseOrderItem,
+     ReceiveOrderRequest
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
 
@@ -14,20 +15,6 @@ export class PurchaseOrderModel {
 
      constructor(tenantId: number) {
           this.connection = KnexConnection(tenantId);
-     }
-
-     private generateOrderId(): string {
-          const timestamp = Date.now().toString();
-          return `ORD-${timestamp}`;
-     }
-
-     private generateOrderNumber(): string {
-          // Generate order number in format: ORD-202411-0001
-          const year = new Date().getFullYear();
-          const month = String(new Date().getMonth() + 1).padStart(2, '0');
-          // For simplicity, using timestamp-based sequence
-          const sequence = Date.now().toString().slice(-4);
-          return `ORD-${year}${month}-${sequence}`;
      }
 
      async create(request: CreatePurchaseOrderRequest, createdBy: string): Promise<PurchaseOrder> {
@@ -43,67 +30,120 @@ export class PurchaseOrderModel {
                throw new Error('Supplier not found or inactive');
           }
 
-          const orderNumber = this.generateOrderNumber();
+          // Generate order number using stored function
+          const [orderNumberResult] = await connection.raw('SELECT inv_generate_purchase_order_number() as order_number');
+          const orderNumber = orderNumberResult[0].order_number;
+
           const orderDate = request.order_date || new Date().toISOString().split('T')[0];
 
-          // Calculate total amount from items
-          const totalAmount = request.items.reduce((sum, item) => sum + (item.quantity_ordered * item.unit_price), 0);
+          // Fetch inventory item details for all items
+          const itemIds = request.items.map(item => item.item_id);
+          const inventoryItems = await connection('inv_inventory_items')
+               .select('id', 'name', 'sku', 'description', 'unit', 'category_id', 'location_id')
+               .whereIn('id', itemIds)
+               .where('is_active', true);
 
-          const orderData = {
-               id: this.generateOrderId(),
+          const itemMap = new Map(inventoryItems.map(item => [item.id, item]));
+
+          // Validate all items exist
+          const missingItems = itemIds.filter(id => !itemMap.has(id));
+          if (missingItems.length > 0) {
+               throw new Error(`Inventory items not found: ${missingItems.join(', ')}`);
+          }
+
+          // Calculate initial totals (will be updated by triggers)
+          const totalAmount = request.items.reduce((sum, item) => {
+               const inventoryItem = itemMap.get(item.item_id);
+               const unitPrice = item.unit_price || 0; // Default to 0 if not provided
+               const lineTotal = (item.quantity * unitPrice) *
+                    (1 + (item.tax_rate || 0) / 100) *
+                    (1 - (item.discount_rate || 0) / 100);
+               return sum + lineTotal;
+          }, 0);
+
+          const finalAmount = totalAmount + (request.tax_amount || 0) +
+               (request.shipping_cost || 0) - (request.discount_amount || 0);
+
+          const orderId = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+          // Create purchase order
+          await connection('inv_purchase_orders').insert({
+               id: orderId,
                order_number: orderNumber,
                supplier_id: request.supplier_id,
                order_date: orderDate,
-               expected_delivery_date: request.expected_delivery_date || null,
+               expected_delivery_date: request.expected_delivery_date,
                status: 'draft',
                total_amount: totalAmount,
-               notes: request.notes || null,
+               tax_amount: request.tax_amount || 0,
+               discount_amount: request.discount_amount || 0,
+               shipping_cost: request.shipping_cost || 0,
+               final_amount: finalAmount,
+               currency: request.currency || 'USD',
+               payment_terms: request.payment_terms,
+               notes: request.notes,
                created_by: createdBy,
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
-          };
-
-          await connection('inv_purchase_orders').insert(orderData);
+               created_at: connection.fn.now(),
+               updated_at: connection.fn.now()
+          });
 
           // Create order items
-          const orderItems = request.items.map(item => ({
-               id: `POI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-               order_id: orderData.id,
-               item_name: item.item_name,
-               sku: item.sku || null,
-               brand_name: item.brand_name || null,
-               quantity_ordered: item.quantity_ordered,
-               quantity_received: 0,
-               unit_price: item.unit_price,
-               total_price: item.quantity_ordered * item.unit_price,
-               status: 'pending',
-               notes: item.notes || null,
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
-          }));
+          const orderItems = request.items.map(item => {
+               const inventoryItem = itemMap.get(item.item_id)!;
+               const unitPrice = item.unit_price || 0;
+               return {
+                    id: `POI-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    order_id: orderId,
+                    inventory_item_id: item.item_id,
+                    item_name: inventoryItem.name,
+                    item_description: inventoryItem.description,
+                    sku: inventoryItem.sku,
+                    quantity_ordered: item.quantity,
+                    quantity_received: 0,
+                    quantity_rejected: 0,
+                    unit_price: unitPrice,
+                    tax_rate: item.tax_rate || 0,
+                    discount_rate: item.discount_rate || 0,
+                    line_total: (item.quantity * unitPrice) *
+                         (1 + (item.tax_rate || 0) / 100) *
+                         (1 - (item.discount_rate || 0) / 100),
+                    unit: inventoryItem.unit,
+                    status: 'pending',
+                    notes: item.notes,
+                    created_at: connection.fn.now(),
+                    updated_at: connection.fn.now()
+               };
+          });
 
           await connection('inv_purchase_order_items').insert(orderItems);
 
-          return await this.findById(orderData.id) as PurchaseOrder;
+          return this.findById(orderId);
      }
 
      async findById(id: string): Promise<PurchaseOrder | null> {
           const connection = await this.connection;
+
           const result = await connection('inv_purchase_orders')
-               .leftJoin('inv_suppliers', 'inv_purchase_orders.supplier_id', 'inv_suppliers.id')
                .select(
                     'inv_purchase_orders.*',
                     'inv_suppliers.name as supplier_name'
                )
+               .leftJoin('inv_suppliers', 'inv_purchase_orders.supplier_id', 'inv_suppliers.id')
                .where('inv_purchase_orders.id', id)
                .first();
 
           if (!result) return null;
 
           // Get items count
-          const itemsCount = await connection('inv_purchase_order_items')
-               .where('order_id', id)
+          const itemsCountResult = await connection('inv_purchase_order_items')
                .count('* as count')
+               .where('order_id', id)
+               .first();
+
+          const receivedItemsCountResult = await connection('inv_purchase_order_items')
+               .count('* as count')
+               .where('order_id', id)
+               .where('status', 'received')
                .first();
 
           return {
@@ -114,84 +154,125 @@ export class PurchaseOrderModel {
                expected_delivery_date: result.expected_delivery_date,
                actual_delivery_date: result.actual_delivery_date,
                status: result.status,
-               total_amount: result.total_amount,
+               total_amount: parseFloat(result.total_amount),
+               tax_amount: parseFloat(result.tax_amount),
+               discount_amount: parseFloat(result.discount_amount),
+               shipping_cost: parseFloat(result.shipping_cost),
+               final_amount: parseFloat(result.final_amount),
+               currency: result.currency,
+               payment_terms: result.payment_terms,
                notes: result.notes,
                created_by: result.created_by,
                approved_by: result.approved_by,
+               approved_at: result.approved_at,
+               sent_at: result.sent_at,
                created_at: result.created_at,
                updated_at: result.updated_at,
                supplier_name: result.supplier_name,
-               items_count: parseInt((itemsCount as any)?.count || 0)
+               items_count: parseInt(String(itemsCountResult?.count || 0)),
+               received_items_count: parseInt(String(receivedItemsCountResult?.count || 0))
           };
      }
 
      async findMany(filters: PurchaseOrderFilters): Promise<PurchaseOrderListResponse> {
           const connection = await this.connection;
-          const {
-               page = 1,
-               count = 10,
-               sortby = 'DESC',
-               supplier_id,
-               status,
-               startDate,
-               endDate,
-               search
-          } = filters;
-
-          let query = connection('purchase_orders')
-               .leftJoin('suppliers', 'purchase_orders.supplier_id', 'suppliers.id')
-               .select(
-                    'purchase_orders.*',
-                    'suppliers.name as supplier_name'
-               )
-               .orderBy('purchase_orders.created_at', sortby);
-
-          if (supplier_id) {
-               query = query.where('purchase_orders.supplier_id', supplier_id);
-          }
-          if (status) {
-               query = query.where('purchase_orders.status', status);
-          }
-          if (startDate) {
-               query = query.where('purchase_orders.order_date', '>=', startDate);
-          }
-          if (endDate) {
-               query = query.where('purchase_orders.order_date', '<=', endDate);
-          }
-          if (search) {
-               query = query.where('purchase_orders.order_number', 'like', `%${search}%`);
-          }
-
-          const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
-          const totalResult = await totalQuery;
-          const total = parseInt((totalResult as any)?.count || 0);
-
+          const page = filters.page || 1;
+          const count = filters.count || 25;
           const offset = (page - 1) * count;
-          const rawData = await query.limit(count).offset(offset);
+          const sortBy = filters.sortby || 'DESC';
 
-          const orders = await Promise.all(rawData.map(async (result: any) => {
-               const itemsCount = await connection('inv_purchase_order_items')
-                    .where('order_id', result.id)
-                    .count('* as count')
-                    .first();
+          let query = connection('inv_purchase_orders')
+               .select(
+                    'inv_purchase_orders.*',
+                    'inv_suppliers.name as supplier_name',
+                    connection.raw('COUNT(inv_purchase_order_items.id) as items_count'),
+                    connection.raw('SUM(CASE WHEN inv_purchase_order_items.status = "received" THEN 1 ELSE 0 END) as received_items_count')
+               )
+               .leftJoin('inv_suppliers', 'inv_purchase_orders.supplier_id', 'inv_suppliers.id')
+               .leftJoin('inv_purchase_order_items', 'inv_purchase_orders.id', 'inv_purchase_order_items.order_id')
+               .groupBy('inv_purchase_orders.id');
 
-               return {
-                    id: result.id,
-                    order_number: result.order_number,
-                    supplier_id: result.supplier_id,
-                    order_date: result.order_date,
-                    expected_delivery_date: result.expected_delivery_date,
-                    actual_delivery_date: result.actual_delivery_date,
-                    status: result.status,
-                    total_amount: result.total_amount,
-                    notes: result.notes,
-                    created_by: result.created_by,
-                    approved_by: result.approved_by,
-                    created_at: result.created_at,
-                    updated_at: result.updated_at,
-                    supplier_name: result.supplier_name,
-                    items_count: parseInt((itemsCount as any)?.count || 0)
-               };
+          // Apply filters
+          if (filters.supplier_id) {
+               query = query.where('inv_purchase_orders.supplier_id', filters.supplier_id);
+          }
+
+          if (filters.status) {
+               const statuses = Array.isArray(filters.status) ? filters.status : [filters.status];
+               query = query.whereIn('inv_purchase_orders.status', statuses);
+          }
+
+          if (filters.startDate) {
+               query = query.where('inv_purchase_orders.order_date', '>=', filters.startDate);
+          }
+
+          if (filters.endDate) {
+               query = query.where('inv_purchase_orders.order_date', '<=', filters.endDate);
+          }
+
+          if (filters.search) {
+               query = query.where(function () {
+                    this.where('inv_purchase_orders.order_number', 'like', `%${filters.search}%`)
+                         .orWhere('inv_suppliers.name', 'like', `%${filters.search}%`)
+                         .orWhere('inv_purchase_orders.notes', 'like', `%${filters.search}%`);
+               });
+          }
+
+          // Get total count
+          const totalResult = await connection.raw(`
+               SELECT COUNT(DISTINCT po.id) as total
+               FROM inv_purchase_orders po
+               LEFT JOIN inv_suppliers s ON po.supplier_id = s.id
+               LEFT JOIN inv_purchase_order_items poi ON po.id = poi.order_id
+               WHERE 1=1
+               ${filters.supplier_id ? 'AND po.supplier_id = ?' : ''}
+               ${filters.status ? `AND po.status ${Array.isArray(filters.status) ? 'IN (?)' : '= ?'}` : ''}
+               ${filters.startDate ? 'AND po.order_date >= ?' : ''}
+               ${filters.endDate ? 'AND po.order_date <= ?' : ''}
+               ${filters.search ? 'AND (po.order_number LIKE ? OR s.name LIKE ? OR po.notes LIKE ?)' : ''}
+          `, [
+               ...(filters.supplier_id ? [filters.supplier_id] : []),
+               ...(filters.status ? [Array.isArray(filters.status) ? filters.status : filters.status] : []),
+               ...(filters.startDate ? [filters.startDate] : []),
+               ...(filters.endDate ? [filters.endDate] : []),
+               ...(filters.search ? [`%${filters.search}%`, `%${filters.search}%`, `%${filters.search}%`] : [])
+          ]);
+
+          const total = parseInt(String(totalResult[0][0]?.total || 0));
+
+          // Apply sorting and pagination
+          query = query.orderBy('inv_purchase_orders.order_date', sortBy)
+               .limit(count)
+               .offset(offset);
+
+          const rawData = await query;
+
+          // Transform data
+          const orders = rawData.map(result => ({
+               id: result.id,
+               order_number: result.order_number,
+               supplier_id: result.supplier_id,
+               order_date: result.order_date,
+               expected_delivery_date: result.expected_delivery_date,
+               actual_delivery_date: result.actual_delivery_date,
+               status: result.status,
+               total_amount: parseFloat(result.total_amount),
+               tax_amount: parseFloat(result.tax_amount),
+               discount_amount: parseFloat(result.discount_amount),
+               shipping_cost: parseFloat(result.shipping_cost),
+               final_amount: parseFloat(result.final_amount),
+               currency: result.currency,
+               payment_terms: result.payment_terms,
+               notes: result.notes,
+               created_by: result.created_by,
+               approved_by: result.approved_by,
+               approved_at: result.approved_at,
+               sent_at: result.sent_at,
+               created_at: result.created_at,
+               updated_at: result.updated_at,
+               supplier_name: result.supplier_name,
+               items_count: parseInt(result.items_count),
+               received_items_count: parseInt(result.received_items_count || 0)
           }));
 
           return {
@@ -199,67 +280,177 @@ export class PurchaseOrderModel {
                total,
                page,
                count,
-               totalPages: Math.ceil(total / count)
+               totalPages: Math.ceil(total / count),
+               sortby: sortBy
           };
      }
 
      async update(id: string, updates: UpdatePurchaseOrderRequest): Promise<PurchaseOrder | null> {
           const connection = await this.connection;
 
-          const currentOrder = await this.findById(id);
-          if (!currentOrder) {
-               throw new Error('Purchase order not found');
+          // Check if order exists
+          const existingOrder = await this.findById(id);
+          if (!existingOrder) {
+               return null;
           }
 
-          const updateData: any = {
-               updated_at: new Date().toISOString()
-          };
+          // Validate status transitions
+          if (updates.status && !this.isValidStatusTransition(existingOrder.status, updates.status)) {
+               throw new Error(`Invalid status transition from ${existingOrder.status} to ${updates.status}`);
+          }
 
-          if (updates.supplier_id !== undefined) updateData.supplier_id = updates.supplier_id;
-          if (updates.order_date !== undefined) updateData.order_date = updates.order_date;
-          if (updates.expected_delivery_date !== undefined) updateData.expected_delivery_date = updates.expected_delivery_date;
-          if (updates.actual_delivery_date !== undefined) updateData.actual_delivery_date = updates.actual_delivery_date;
-          if (updates.status !== undefined) updateData.status = updates.status;
-          if (updates.notes !== undefined) updateData.notes = updates.notes;
-          if (updates.approved_by !== undefined) updateData.approved_by = updates.approved_by;
+          // Set timestamps based on status changes
+          const updateData: any = { ...updates, updated_at: connection.fn.now() };
+
+          if (updates.status === 'approved' && updates.approved_by) {
+               updateData.approved_at = connection.fn.now();
+          }
+
+          if (updates.sent_at) {
+               updateData.sent_at = updates.sent_at;
+          }
 
           await connection('inv_purchase_orders')
-               .where({ id })
+               .where('id', id)
                .update(updateData);
 
-          return await this.findById(id);
+          return this.findById(id);
      }
 
      async delete(id: string): Promise<boolean> {
           const connection = await this.connection;
 
-          const result = await connection('inv_purchase_orders')
-               .where({ id })
-               .del();
+          // Check if order can be deleted (only draft status)
+          const order = await connection('inv_purchase_orders')
+               .where('id', id)
+               .where('status', 'draft')
+               .first();
 
-          return result > 0;
+          if (!order) {
+               throw new Error('Order not found or cannot be deleted (not in draft status)');
+          }
+
+          await connection('inv_purchase_orders').where('id', id).del();
+          return true;
      }
 
      async getOrderItems(orderId: string): Promise<PurchaseOrderItem[]> {
           const connection = await this.connection;
+
           const results = await connection('inv_purchase_order_items')
                .where('order_id', orderId)
-               .orderBy('created_at', 'ASC');
+               .orderBy('created_at', 'asc');
 
-          return results.map((result: any) => ({
+          return results.map(result => ({
                id: result.id,
                order_id: result.order_id,
+               inventory_item_id: result.inventory_item_id,
                item_name: result.item_name,
+               item_description: result.item_description,
                sku: result.sku,
+               category_name: result.category_name,
                brand_name: result.brand_name,
+               supplier_sku: result.supplier_sku,
                quantity_ordered: result.quantity_ordered,
                quantity_received: result.quantity_received,
-               unit_price: result.unit_price,
-               total_price: result.total_price,
+               quantity_rejected: result.quantity_rejected,
+               unit_price: parseFloat(result.unit_price),
+               tax_rate: parseFloat(result.tax_rate),
+               discount_rate: parseFloat(result.discount_rate),
+               line_total: parseFloat(result.line_total),
+               unit: result.unit,
+               batch_number: result.batch_number,
+               expiry_date: result.expiry_date,
                status: result.status,
+               received_at: result.received_at,
                notes: result.notes,
                created_at: result.created_at,
                updated_at: result.updated_at
           }));
+     }
+
+     async receiveOrder(request: ReceiveOrderRequest): Promise<any> {
+          const connection = await this.connection;
+          const transaction = await connection.transaction();
+
+          try {
+               // Verify order exists and is in a receivable state
+               const order = await transaction('inv_purchase_orders')
+                    .where('id', request.order_id)
+                    .first();
+
+               if (!order) {
+                    throw new Error('Purchase order not found');
+               }
+
+               if (order.status === 'cancelled') {
+                    throw new Error('Cannot receive items for a cancelled order');
+               }
+
+               if (order.status === 'received') {
+                    throw new Error('Order is already fully received');
+               }
+
+               const results = [];
+
+               // Process each receipt
+               for (const receipt of request.receipts) {
+                    const result = await this.processReceipt(transaction, receipt, request.received_by, request.received_date);
+                    results.push(result);
+               }
+
+               // Update order status
+               await transaction.raw('CALL inv_update_purchase_order_status(?)', [request.order_id]);
+
+               await transaction.commit();
+
+               return {
+                    order_id: request.order_id,
+                    receipts_processed: results,
+                    message: 'Order receipts processed successfully'
+               };
+
+          } catch (error) {
+               await transaction.rollback();
+               throw error;
+          }
+     }
+
+     private async processReceipt(transaction: Knex.Transaction, receipt: any, receivedBy: string, receivedDate?: string): Promise<any> {
+          // Call stored procedure to process the receipt
+          await transaction.raw('CALL inv_process_purchase_receipt(?, ?, ?, ?, ?, ?, ?, ?, ?)', [
+               receipt.order_item_id,
+               receipt.quantity_received,
+               receipt.batch_number || null,
+               receipt.expiry_date || null,
+               receipt.storage_location_id || null,
+               receivedBy,
+               receipt.condition_status || 'good',
+               receipt.quality_check_passed !== false, // Default to true
+               receipt.notes || null
+          ]);
+
+          return {
+               order_item_id: receipt.order_item_id,
+               quantity_received: receipt.quantity_received,
+               batch_number: receipt.batch_number,
+               condition_status: receipt.condition_status || 'good',
+               quality_check_passed: receipt.quality_check_passed !== false
+          };
+     }
+
+     private isValidStatusTransition(fromStatus: string, toStatus: string): boolean {
+          const validTransitions: { [key: string]: string[] } = {
+               'draft': ['pending_approval', 'cancelled'],
+               'pending_approval': ['approved', 'draft', 'cancelled'],
+               'approved': ['sent', 'cancelled'],
+               'sent': ['confirmed', 'cancelled'],
+               'confirmed': ['partially_received', 'received', 'cancelled'],
+               'partially_received': ['confirmed', 'received', 'cancelled'],
+               'received': [], // Final state
+               'cancelled': [] // Final state
+          };
+
+          return validTransitions[fromStatus]?.includes(toStatus) || false;
      }
 }

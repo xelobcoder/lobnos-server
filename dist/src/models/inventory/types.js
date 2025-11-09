@@ -11,10 +11,10 @@ exports.INVENTORY_STATUSES = [
     'in_stock', 'low_stock', 'out_of_stock', 'expired'
 ];
 exports.PURCHASE_ORDER_STATUSES = [
-    'draft', 'sent', 'confirmed', 'partially_received', 'received', 'cancelled'
+    'draft', 'pending_approval', 'approved', 'sent', 'confirmed', 'partially_received', 'received', 'cancelled'
 ];
 exports.PURCHASE_ORDER_ITEM_STATUSES = [
-    'pending', 'partially_received', 'received', 'cancelled'
+    'pending', 'partially_received', 'received', 'cancelled', 'backordered'
 ];
 exports.TRANSACTION_TYPES = [
     'consumption', 'addition', 'adjustment', 'transfer'

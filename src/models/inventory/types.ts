@@ -18,9 +18,9 @@ export type InventoryUnit =
 
 export type InventoryStatus = 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired';
 
-export type PurchaseOrderStatus = 'draft' | 'sent' | 'confirmed' | 'partially_received' | 'received' | 'cancelled';
+export type PurchaseOrderStatus = 'draft' | 'pending_approval' | 'approved' | 'sent' | 'confirmed' | 'partially_received' | 'received' | 'cancelled';
 
-export type PurchaseOrderItemStatus = 'pending' | 'partially_received' | 'received' | 'cancelled';
+export type PurchaseOrderItemStatus = 'pending' | 'partially_received' | 'received' | 'cancelled' | 'backordered';
 
 export type TransactionType = 'consumption' | 'addition' | 'adjustment' | 'transfer';
 
@@ -34,16 +34,19 @@ export interface BaseEntity {
 // Brand interfaces
 export interface Brand extends BaseEntity {
      name: string;
+     inventory_item_id: string;
      created_date: string;
      item_count: number;
 }
 
 export interface CreateBrandRequest {
      name: string;
+     inventory_item_id: string;
 }
 
 export interface UpdateBrandRequest {
      name?: string;
+     inventory_item_id?: string;
 }
 
 export interface BrandListResponse {
@@ -52,6 +55,7 @@ export interface BrandListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
 }
 
 // Category interfaces
@@ -77,6 +81,7 @@ export interface CategoryListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
 }
 
 // Supplier interfaces
@@ -113,6 +118,7 @@ export interface SupplierListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
 }
 
 // Storage Location interfaces
@@ -152,6 +158,7 @@ export interface StorageLocationListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
 }
 
 // Inventory Item interfaces
@@ -160,23 +167,17 @@ export interface InventoryItem extends BaseEntity {
      sku: string;
      description?: string;
      category_id?: string;
-     brand_id?: string;
      unit: InventoryUnit;
      current_stock: number;
      min_stock: number;
      max_stock: number;
-     unit_price: number;
-     total_value: number;
      location_id?: string;
-     expiry_date?: string;
-     batch_number?: string;
      status: InventoryStatus;
      is_active: boolean;
      last_updated: string;
 
      // Joined data
      category_name?: string;
-     brand_name?: string;
      location_name?: string;
 }
 
@@ -185,15 +186,11 @@ export interface CreateInventoryItemRequest {
      sku: string;
      description?: string;
      category_id?: string;
-     brand_id?: string;
      unit?: InventoryUnit;
      current_stock?: number;
      min_stock?: number;
      max_stock?: number;
-     unit_price?: number;
      location_id?: string;
-     expiry_date?: string;
-     batch_number?: string;
 }
 
 export interface UpdateInventoryItemRequest {
@@ -201,15 +198,11 @@ export interface UpdateInventoryItemRequest {
      sku?: string;
      description?: string;
      category_id?: string;
-     brand_id?: string;
      unit?: InventoryUnit;
      current_stock?: number;
      min_stock?: number;
      max_stock?: number;
-     unit_price?: number;
      location_id?: string;
-     expiry_date?: string;
-     batch_number?: string;
      is_active?: boolean;
 }
 
@@ -219,8 +212,8 @@ export interface InventoryItemListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
      summary: {
-          total_value: number;
           low_stock_count: number;
           expired_count: number;
           total_items: number;
@@ -233,7 +226,6 @@ export interface InventoryFilters {
      count?: number;
      sortby?: 'ASC' | 'DESC';
      category_id?: string;
-     brand_id?: string;
      location_id?: string;
      status?: InventoryStatus;
      search?: string;
@@ -252,19 +244,33 @@ export interface PurchaseOrder extends BaseEntity {
      actual_delivery_date?: string;
      status: PurchaseOrderStatus;
      total_amount: number;
+     tax_amount: number;
+     discount_amount: number;
+     shipping_cost: number;
+     final_amount: number;
+     currency: string;
+     payment_terms?: string;
      notes?: string;
      created_by?: string;
      approved_by?: string;
+     approved_at?: string;
+     sent_at?: string;
 
      // Joined data
      supplier_name?: string;
      items_count?: number;
+     received_items_count?: number;
 }
 
 export interface CreatePurchaseOrderRequest {
      supplier_id: string;
      order_date?: string;
      expected_delivery_date?: string;
+     payment_terms?: string;
+     tax_amount?: number;
+     discount_amount?: number;
+     shipping_cost?: number;
+     currency?: string;
      notes?: string;
      items: CreatePurchaseOrderItemRequest[];
 }
@@ -275,8 +281,14 @@ export interface UpdatePurchaseOrderRequest {
      expected_delivery_date?: string;
      actual_delivery_date?: string;
      status?: PurchaseOrderStatus;
+     payment_terms?: string;
+     tax_amount?: number;
+     discount_amount?: number;
+     shipping_cost?: number;
+     currency?: string;
      notes?: string;
      approved_by?: string;
+     sent_at?: string;
 }
 
 export interface PurchaseOrderListResponse {
@@ -285,6 +297,7 @@ export interface PurchaseOrderListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
 }
 
 export interface PurchaseOrderFilters {
@@ -292,7 +305,7 @@ export interface PurchaseOrderFilters {
      count?: number;
      sortby?: 'ASC' | 'DESC';
      supplier_id?: string;
-     status?: PurchaseOrderStatus;
+     status?: PurchaseOrderStatus | PurchaseOrderStatus[];
      startDate?: string;
      endDate?: string;
      search?: string;
@@ -301,29 +314,52 @@ export interface PurchaseOrderFilters {
 // Purchase Order Item interfaces
 export interface PurchaseOrderItem extends BaseEntity {
      order_id: string;
+     inventory_item_id?: string;
      item_name: string;
+     item_description?: string;
      sku?: string;
+     category_name?: string;
      brand_name?: string;
+     supplier_sku?: string;
      quantity_ordered: number;
      quantity_received: number;
+     quantity_rejected: number;
      unit_price: number;
-     total_price: number;
+     tax_rate: number;
+     discount_rate: number;
+     line_total: number;
+     unit: string;
+     batch_number?: string;
+     expiry_date?: string;
      status: PurchaseOrderItemStatus;
+     received_at?: string;
      notes?: string;
 }
 
 export interface CreatePurchaseOrderItemRequest {
-     item_name: string;
-     sku?: string;
-     brand_name?: string;
-     quantity_ordered: number;
-     unit_price: number;
+     item_id: string;
+     quantity: number;
+     unit_price?: number;
+     tax_rate?: number;
+     discount_rate?: number;
      notes?: string;
 }
 
 export interface UpdatePurchaseOrderItemRequest {
+     inventory_item_id?: string;
+     item_name?: string;
+     item_description?: string;
+     sku?: string;
+     category_name?: string;
+     brand_name?: string;
+     supplier_sku?: string;
      quantity_ordered?: number;
      unit_price?: number;
+     tax_rate?: number;
+     discount_rate?: number;
+     unit?: string;
+     batch_number?: string;
+     expiry_date?: string;
      notes?: string;
 }
 
@@ -333,6 +369,43 @@ export interface PurchaseOrderItemListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
+}
+
+// Purchase Order Receipt interfaces
+export interface PurchaseOrderReceipt extends BaseEntity {
+     order_id: string;
+     order_item_id: string;
+     receipt_number: string;
+     received_date: string;
+     received_by: string;
+     quantity_received: number;
+     batch_number?: string;
+     expiry_date?: string;
+     condition_status: 'good' | 'damaged' | 'expired' | 'incorrect_item';
+     quality_check_passed: boolean;
+     storage_location_id?: string;
+     notes?: string;
+}
+
+export interface CreatePurchaseOrderReceiptRequest {
+     order_item_id: string;
+     quantity_received: number;
+     batch_number?: string;
+     expiry_date?: string;
+     condition_status?: 'good' | 'damaged' | 'expired' | 'incorrect_item';
+     quality_check_passed?: boolean;
+     storage_location_id?: string;
+     notes?: string;
+}
+
+export interface PurchaseOrderReceiptListResponse {
+     receipts: PurchaseOrderReceipt[];
+     total: number;
+     page: number;
+     count: number;
+     totalPages: number;
+     sortby: 'ASC' | 'DESC';
 }
 
 // Inventory Transaction interfaces
@@ -373,6 +446,7 @@ export interface InventoryTransactionListResponse {
      page: number;
      count: number;
      totalPages: number;
+     sortby: 'ASC' | 'DESC';
 }
 
 export interface InventoryTransactionFilters {
@@ -390,16 +464,20 @@ export interface InventoryTransactionFilters {
 // Receiving interfaces
 export interface ReceiveOrderItemRequest {
      order_item_id: string;
-     quantity: number;
+     quantity_received: number;
      batch_number?: string;
      expiry_date?: string;
-     location_id?: string;
+     condition_status?: 'good' | 'damaged' | 'expired' | 'incorrect_item';
+     quality_check_passed?: boolean;
+     storage_location_id?: string;
+     notes?: string;
 }
 
 export interface ReceiveOrderRequest {
      order_id: string;
-     items: ReceiveOrderItemRequest[];
+     receipts: CreatePurchaseOrderReceiptRequest[];
      received_by: string;
+     received_date?: string;
 }
 
 // Bulk operations
@@ -436,13 +514,13 @@ export interface ApiResponse<T = any> {
           count: number;
           total: number;
           totalPages: number;
+          sortby: 'ASC' | 'DESC';
      };
 }
 
 // Dashboard/Summary interfaces
 export interface InventorySummary {
      total_items: number;
-     total_value: number;
      low_stock_items: number;
      expired_items: number;
      out_of_stock_items: number;
@@ -460,19 +538,9 @@ export interface LowStockAlert {
      last_updated: string;
 }
 
-export interface ExpiringItemAlert {
-     item_id: string;
-     item_name: string;
-     sku: string;
-     expiry_date: string;
-     days_until_expiry: number;
-     current_stock: number;
-}
-
 // Report interfaces
 export interface InventoryReportFilters {
      category_id?: string;
-     brand_id?: string;
      supplier_id?: string;
      location_id?: string;
      status?: InventoryStatus;
@@ -483,7 +551,6 @@ export interface InventoryReportFilters {
 export interface InventoryValueReport {
      category_name: string;
      item_count: number;
-     total_value: number;
      percentage: number;
 }
 
@@ -507,11 +574,11 @@ export const INVENTORY_STATUSES: InventoryStatus[] = [
 ];
 
 export const PURCHASE_ORDER_STATUSES: PurchaseOrderStatus[] = [
-     'draft', 'sent', 'confirmed', 'partially_received', 'received', 'cancelled'
+     'draft', 'pending_approval', 'approved', 'sent', 'confirmed', 'partially_received', 'received', 'cancelled'
 ];
 
 export const PURCHASE_ORDER_ITEM_STATUSES: PurchaseOrderItemStatus[] = [
-     'pending', 'partially_received', 'received', 'cancelled'
+     'pending', 'partially_received', 'received', 'cancelled', 'backordered'
 ];
 
 export const TRANSACTION_TYPES: TransactionType[] = [

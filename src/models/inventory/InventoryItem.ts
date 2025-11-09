@@ -9,8 +9,7 @@ import {
      InventoryTransaction,
      CreateInventoryTransactionRequest,
      InventorySummary,
-     LowStockAlert,
-     ExpiringItemAlert
+     LowStockAlert
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
 
@@ -26,15 +25,7 @@ export class InventoryItemModel {
           return `INV-${timestamp}`;
      }
 
-     private calculateItemStatus(currentStock: number, minStock: number, expiryDate?: string): InventoryStatus {
-          if (expiryDate) {
-               const expiry = new Date(expiryDate);
-               const today = new Date();
-               if (expiry < today) {
-                    return 'expired';
-               }
-          }
-
+     private calculateItemStatus(currentStock: number, minStock: number): InventoryStatus {
           if (currentStock === 0) {
                return 'out_of_stock';
           }
@@ -58,16 +49,6 @@ export class InventoryItemModel {
                throw new Error('Stock Keeping Unit already exists');
           }
 
-          // Validate expiry date is not in the past
-          if (request.expiry_date) {
-               const expiryDate = new Date(request.expiry_date);
-               const today = new Date();
-               today.setHours(0, 0, 0, 0);
-               if (expiryDate < today) {
-                    throw new Error('Cannot add item with past expiry date');
-               }
-          }
-
           // Validate stock levels
           const currentStock = request.current_stock || 0;
           const minStock = request.min_stock || 0;
@@ -82,12 +63,8 @@ export class InventoryItemModel {
           if (maxStock > 0 && maxStock < minStock) {
                throw new Error('Maximum stock must be greater than minimum stock');
           }
-          if (request.unit_price < 0) {
-               throw new Error('Unit price cannot be negative');
-          }
 
-          const status = this.calculateItemStatus(currentStock, minStock, request.expiry_date);
-          const totalValue = currentStock * (request.unit_price || 0);
+          const status = this.calculateItemStatus(currentStock, minStock);
 
           const itemData = {
                id: this.generateItemId(),
@@ -99,11 +76,7 @@ export class InventoryItemModel {
                current_stock: currentStock,
                min_stock: minStock,
                max_stock: maxStock,
-               unit_price: request.unit_price || 0,
-               total_value: totalValue,
                location_id: request.location_id || null,
-               expiry_date: request.expiry_date || null,
-               batch_number: request.batch_number || null,
                status: status,
                is_active: true,
                last_updated: new Date().toISOString(),
@@ -148,11 +121,7 @@ export class InventoryItemModel {
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
-               unit_price: result.unit_price,
-               total_value: result.total_value,
                location_id: result.location_id,
-               expiry_date: result.expiry_date,
-               batch_number: result.batch_number,
                status: result.status,
                is_active: result.is_active,
                last_updated: result.last_updated,
@@ -188,11 +157,7 @@ export class InventoryItemModel {
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
-               unit_price: result.unit_price,
-               total_value: result.total_value,
                location_id: result.location_id,
-               expiry_date: result.expiry_date,
-               batch_number: result.batch_number,
                status: result.status,
                is_active: result.is_active,
                last_updated: result.last_updated,
@@ -214,7 +179,6 @@ export class InventoryItemModel {
                status,
                search,
                low_stock_only,
-               expired_only,
                startDate,
                endDate
           } = filters;
@@ -243,9 +207,6 @@ export class InventoryItemModel {
           if (low_stock_only) {
                query = query.whereRaw('inv_inventory_items.current_stock <= inv_inventory_items.min_stock')
                     .where('inv_inventory_items.current_stock', '>', 0);
-          }
-          if (expired_only) {
-               query = query.where('inv_inventory_items.expiry_date', '<', new Date().toISOString().split('T')[0]);
           }
           if (search) {
                query = query.where((qb) => {
@@ -278,11 +239,7 @@ export class InventoryItemModel {
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
-               unit_price: result.unit_price,
-               total_value: result.total_value,
                location_id: result.location_id,
-               expiry_date: result.expiry_date,
-               batch_number: result.batch_number,
                status: result.status,
                is_active: result.is_active,
                last_updated: result.last_updated,
@@ -301,10 +258,10 @@ export class InventoryItemModel {
                page,
                count,
                totalPages: Math.ceil(total / count),
+               sortby,
                summary: {
-                    total_value: summary.total_value || 0,
                     low_stock_count: summary.low_stock_items || 0,
-                    expired_count: summary.expired_items || 0,
+                    expired_count: 0, // No longer tracked since expiry_date removed
                     total_items: summary.total_items || 0,
                     out_of_stock_count: summary.out_of_stock_items || 0
                }
@@ -331,16 +288,6 @@ export class InventoryItemModel {
                }
           }
 
-          // Validate expiry date
-          if (updates.expiry_date) {
-               const expiryDate = new Date(updates.expiry_date);
-               const today = new Date();
-               today.setHours(0, 0, 0, 0);
-               if (expiryDate < today) {
-                    throw new Error('Cannot set past expiry date');
-               }
-          }
-
           // Validate stock levels
           const currentStock = updates.current_stock !== undefined ? updates.current_stock : currentItem.current_stock;
           const minStock = updates.min_stock !== undefined ? updates.min_stock : currentItem.min_stock;
@@ -354,9 +301,6 @@ export class InventoryItemModel {
           }
           if (maxStock > 0 && maxStock < minStock) {
                throw new Error('Maximum stock must be greater than minimum stock');
-          }
-          if (updates.unit_price !== undefined && updates.unit_price < 0) {
-               throw new Error('Unit price cannot be negative');
           }
 
           const updateData: any = {
@@ -372,17 +316,12 @@ export class InventoryItemModel {
           if (updates.current_stock !== undefined) updateData.current_stock = updates.current_stock;
           if (updates.min_stock !== undefined) updateData.min_stock = updates.min_stock;
           if (updates.max_stock !== undefined) updateData.max_stock = updates.max_stock;
-          if (updates.unit_price !== undefined) updateData.unit_price = updates.unit_price;
           if (updates.location_id !== undefined) updateData.location_id = updates.location_id;
-          if (updates.expiry_date !== undefined) updateData.expiry_date = updates.expiry_date;
-          if (updates.batch_number !== undefined) updateData.batch_number = updates.batch_number;
           if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
 
           // Recalculate status and total value
-          const newStatus = this.calculateItemStatus(currentStock, minStock, updates.expiry_date || currentItem.expiry_date);
-          const unitPrice = updates.unit_price !== undefined ? updates.unit_price : currentItem.unit_price;
+          const newStatus = this.calculateItemStatus(currentStock, minStock);
           updateData.status = newStatus;
-          updateData.total_value = currentStock * unitPrice;
           updateData.last_updated = new Date().toISOString();
 
           // Handle category count updates
@@ -515,9 +454,7 @@ export class InventoryItemModel {
                .where('is_active', true)
                .select(
                     connection.raw('COUNT(*) as total_items'),
-                    connection.raw('SUM(total_value) as total_value'),
                     connection.raw('SUM(CASE WHEN status = "low_stock" THEN 1 ELSE 0 END) as low_stock_items'),
-                    connection.raw('SUM(CASE WHEN status = "expired" THEN 1 ELSE 0 END) as expired_items'),
                     connection.raw('SUM(CASE WHEN status = "out_of_stock" THEN 1 ELSE 0 END) as out_of_stock_items')
                )
                .first();
@@ -527,9 +464,8 @@ export class InventoryItemModel {
 
           return {
                total_items: parseInt((summary as any)?.total_items || 0),
-               total_value: parseFloat((summary as any)?.total_value || 0),
                low_stock_items: parseInt((summary as any)?.low_stock_items || 0),
-               expired_items: parseInt((summary as any)?.expired_items || 0),
+               expired_items: 0, // No longer tracked since expiry_date removed
                out_of_stock_items: parseInt((summary as any)?.out_of_stock_items || 0),
                categories_count: parseInt((categoriesCount as any)?.count || 0),
                suppliers_count: parseInt((suppliersCount as any)?.count || 0),
@@ -562,41 +498,5 @@ export class InventoryItemModel {
                min_stock: result.min_stock,
                last_updated: result.last_updated
           }));
-     }
-
-     async getExpiringItems(daysAhead: number = 30): Promise<ExpiringItemAlert[]> {
-          const connection = await this.connection;
-
-          const futureDate = new Date();
-          futureDate.setDate(futureDate.getDate() + daysAhead);
-
-          const results = await connection('inv_inventory_items')
-               .select(
-                    'id',
-                    'name',
-                    'sku',
-                    'expiry_date',
-                    'current_stock'
-               )
-               .where('is_active', true)
-               .whereNotNull('expiry_date')
-               .where('expiry_date', '>=', new Date().toISOString().split('T')[0])
-               .where('expiry_date', '<=', futureDate.toISOString().split('T')[0])
-               .orderBy('expiry_date', 'ASC');
-
-          return results.map((result: any) => {
-               const expiryDate = new Date(result.expiry_date);
-               const today = new Date();
-               const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-               return {
-                    item_id: result.id,
-                    item_name: result.name,
-                    sku: result.sku,
-                    expiry_date: result.expiry_date,
-                    days_until_expiry: daysUntilExpiry,
-                    current_stock: result.current_stock
-               };
-          });
      }
 }

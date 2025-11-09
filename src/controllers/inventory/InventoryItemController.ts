@@ -11,7 +11,11 @@ import {
 
 export class InventoryItemController {
      private getTenantId(req: Request): number {
-          return req.body.tenantId || parseInt(req.headers['x-tenant-id'] as string) || 1;
+          const tenantId = parseInt(req.query.tenantId as string);
+          if (!tenantId || isNaN(tenantId)) {
+               throw new Error('Tenant ID is required');
+          }
+          return tenantId;
      }
 
      private validateCreateInventoryItemRequest(data: any): { isValid: boolean; errors: ValidationError[] } {
@@ -49,10 +53,10 @@ export class InventoryItemController {
                });
           }
 
-          if (data.description && data.description.length > 500) {
+          if (data.description && data.description.length > 1000) {
                errors.push({
                     field: 'description',
-                    message: 'Description must be less than 500 characters',
+                    message: 'Description must be less than 1000 characters',
                     value: data.description
                });
           }
@@ -78,14 +82,6 @@ export class InventoryItemController {
                     field: 'max_stock',
                     message: 'Maximum stock must be a non-negative number',
                     value: data.max_stock
-               });
-          }
-
-          if (data.unit_price !== undefined && (typeof data.unit_price !== 'number' || data.unit_price < 0)) {
-               errors.push({
-                    field: 'unit_price',
-                    message: 'Unit price must be a non-negative number',
-                    value: data.unit_price
                });
           }
 
@@ -159,14 +155,6 @@ export class InventoryItemController {
                     field: 'max_stock',
                     message: 'Maximum stock must be a non-negative number',
                     value: data.max_stock
-               });
-          }
-
-          if (data.unit_price !== undefined && (typeof data.unit_price !== 'number' || data.unit_price < 0)) {
-               errors.push({
-                    field: 'unit_price',
-                    message: 'Unit price must be a non-negative number',
-                    value: data.unit_price
                });
           }
 
@@ -269,7 +257,8 @@ export class InventoryItemController {
                     category_id,
                     location_id,
                     status,
-                    search
+                    search,
+                    sortby = 'ASC'
                } = req.query;
 
                const filters: InventoryFilters = {
@@ -278,7 +267,8 @@ export class InventoryItemController {
                     category_id: category_id as string,
                     location_id: location_id as string,
                     status: status as any,
-                    search: search as string
+                    search: search as string,
+                    sortby: (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
                };
 
                const inventoryItemModel = new InventoryItemModel(tenantId);
@@ -291,7 +281,8 @@ export class InventoryItemController {
                          page: result.page,
                          count: result.count,
                          total: result.total,
-                         totalPages: result.totalPages
+                         totalPages: result.totalPages,
+                         sortby: result.sortby
                     }
                };
 
@@ -429,37 +420,6 @@ export class InventoryItemController {
                     error: {
                          code: 'INTERNAL_ERROR',
                          message: error.message || 'Failed to fetch low stock items'
-                    }
-               };
-
-               res.status(500).json(response);
-          }
-     }
-
-     async getExpiringItems(req: Request, res: Response): Promise<void> {
-          try {
-               const tenantId = this.getTenantId(req);
-               const { days = '30' } = req.query;
-
-               const daysAhead = parseInt(days as string, 10);
-
-               const inventoryItemModel = new InventoryItemModel(tenantId);
-               const expiringItems = await inventoryItemModel.getExpiringItems(daysAhead);
-
-               const response: ApiResponse = {
-                    success: true,
-                    data: expiringItems
-               };
-
-               res.json(response);
-          } catch (error: any) {
-               console.error('Error fetching expiring items:', error);
-
-               const response: ApiResponse = {
-                    success: false,
-                    error: {
-                         code: 'INTERNAL_ERROR',
-                         message: error.message || 'Failed to fetch expiring items'
                     }
                };
 
