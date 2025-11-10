@@ -24,10 +24,10 @@ class PurchaseOrderItemModel {
             item_name: request.item_name,
             sku: request.sku || null,
             brand_name: request.brand_name || null,
-            quantity_ordered: request.quantity_ordered,
+            quantity_ordered: request.quantity,
             quantity_received: 0,
             unit_price: request.unit_price,
-            total_price: request.quantity_ordered * request.unit_price,
+            line_total: request.quantity * request.unit_price,
             status: 'pending',
             notes: request.notes || null,
             created_at: new Date().toISOString(),
@@ -43,7 +43,7 @@ class PurchaseOrderItemModel {
             quantity_ordered: itemData.quantity_ordered,
             quantity_received: itemData.quantity_received,
             unit_price: itemData.unit_price,
-            total_price: itemData.total_price,
+            line_total: itemData.line_total,
             status: itemData.status,
             notes: itemData.notes,
             created_at: itemData.created_at,
@@ -66,7 +66,7 @@ class PurchaseOrderItemModel {
             quantity_ordered: result.quantity_ordered,
             quantity_received: result.quantity_received,
             unit_price: result.unit_price,
-            total_price: result.total_price,
+            line_total: result.line_total,
             status: result.status,
             notes: result.notes,
             created_at: result.created_at,
@@ -101,7 +101,7 @@ class PurchaseOrderItemModel {
             quantity_ordered: result.quantity_ordered,
             quantity_received: result.quantity_received,
             unit_price: result.unit_price,
-            total_price: result.total_price,
+            line_total: result.line_total,
             status: result.status,
             notes: result.notes,
             created_at: result.created_at,
@@ -126,11 +126,11 @@ class PurchaseOrderItemModel {
         };
         if (updates.quantity_ordered !== undefined) {
             updateData.quantity_ordered = updates.quantity_ordered;
-            updateData.total_price = updates.quantity_ordered * currentItem.unit_price;
+            updateData.line_total = updates.quantity_ordered * currentItem.unit_price;
         }
         if (updates.unit_price !== undefined) {
             updateData.unit_price = updates.unit_price;
-            updateData.total_price = currentItem.quantity_ordered * updates.unit_price;
+            updateData.line_total = currentItem.quantity_ordered * updates.unit_price;
         }
         if (updates.notes !== undefined)
             updateData.notes = updates.notes;
@@ -187,7 +187,7 @@ class PurchaseOrderItemModel {
             quantity_ordered: result.quantity_ordered,
             quantity_received: result.quantity_received,
             unit_price: result.unit_price,
-            total_price: result.total_price,
+            line_total: result.line_total,
             status: result.status,
             notes: result.notes,
             created_at: result.created_at,

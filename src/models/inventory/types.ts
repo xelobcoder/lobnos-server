@@ -256,10 +256,15 @@ export interface PurchaseOrder extends BaseEntity {
      approved_at?: string;
      sent_at?: string;
 
-     // Joined data
+     // Joined supplier data
      supplier_name?: string;
+     supplier_contact?: string;
+     supplier_email?: string;
+     supplier_phone?: string;
+     supplier_address?: string;
      items_count?: number;
      received_items_count?: number;
+     items?: PurchaseOrderItem[];
 }
 
 export interface CreatePurchaseOrderRequest {
@@ -272,6 +277,9 @@ export interface CreatePurchaseOrderRequest {
      shipping_cost?: number;
      currency?: string;
      notes?: string;
+     status?: PurchaseOrderStatus;
+     communication_method?: string;
+     communication_notes?: string;
      items: CreatePurchaseOrderItemRequest[];
 }
 
@@ -279,16 +287,38 @@ export interface UpdatePurchaseOrderRequest {
      supplier_id?: string;
      order_date?: string;
      expected_delivery_date?: string;
-     actual_delivery_date?: string;
-     status?: PurchaseOrderStatus;
      payment_terms?: string;
      tax_amount?: number;
      discount_amount?: number;
      shipping_cost?: number;
      currency?: string;
      notes?: string;
+     status?: PurchaseOrderStatus;
      approved_by?: string;
      sent_at?: string;
+     total_amount?: number;
+     final_amount?: number;
+     items?: Array<{
+          inventory_item_id: string;
+          quantity_ordered: number;
+          unit_price?: number;
+          tax_rate?: number;
+          discount_rate?: number;
+          notes?: string;
+     }>;
+}
+
+export interface UpdatePurchaseOrderPreReceivalRequest {
+     supplier_id?: string;
+     items: Array<{
+          inventory_item_id: string;
+          quantity_ordered: number;
+     }>;
+     status?: PurchaseOrderStatus;
+     expected_delivery_date?: string;
+     notes?: string;
+     communication_method?: string;
+     communication_notes?: string;
 }
 
 export interface PurchaseOrderListResponse {
@@ -305,6 +335,7 @@ export interface PurchaseOrderFilters {
      count?: number;
      sortby?: 'ASC' | 'DESC';
      supplier_id?: string;
+     supplier_name?: string;
      status?: PurchaseOrderStatus | PurchaseOrderStatus[];
      startDate?: string;
      endDate?: string;

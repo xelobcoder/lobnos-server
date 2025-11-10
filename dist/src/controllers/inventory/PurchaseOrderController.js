@@ -59,6 +59,7 @@ class PurchaseOrderController {
                 count: parseInt(req.query.count) || 25,
                 sortby: req.query.sortby || 'DESC',
                 supplier_id: req.query.supplier_id,
+                supplier_name: req.query.supplier_name,
                 status: req.query.status,
                 startDate: req.query.startDate,
                 endDate: req.query.endDate,
@@ -80,7 +81,6 @@ class PurchaseOrderController {
             res.json(response);
         }
         catch (error) {
-            console.error('Error fetching purchase orders:', error);
             const response = {
                 success: false,
                 error: {
@@ -171,6 +171,56 @@ class PurchaseOrderController {
                 error: {
                     code: 'INTERNAL_ERROR',
                     message: error.message || 'Failed to update purchase order'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async updatePurchaseOrderPreReceival(req, res) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const { id } = req.params;
+            const updates = req.body;
+            // Validate request
+            const validation = this.validateUpdatePurchaseOrderPreReceivalRequest(updates);
+            if (!validation.isValid) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Purchase order pre-receival update validation failed',
+                        details: validation.errors
+                    }
+                };
+                res.status(400).json(response);
+                return;
+            }
+            const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
+            const order = await purchaseOrderModel.updatePreReceival(id, updates);
+            if (!order) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'NOT_FOUND',
+                        message: 'Purchase order not found or already received'
+                    }
+                };
+                res.status(404).json(response);
+                return;
+            }
+            const response = {
+                success: true,
+                data: { order }
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error updating purchase order pre-receival:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to update purchase order pre-receival'
                 }
             };
             res.status(500).json(response);
@@ -366,6 +416,91 @@ class PurchaseOrderController {
             res.status(500).json(response);
         }
     }
+    async updatePurchaseOrderItem(req, res) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const { orderId, itemId } = req.params;
+            const updates = req.body;
+            const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
+            const item = await purchaseOrderModel.updateOrderItem(orderId, itemId, updates);
+            if (!item) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'NOT_FOUND',
+                        message: 'Purchase order item not found'
+                    }
+                };
+                res.status(404).json(response);
+                return;
+            }
+            const response = {
+                success: true,
+                data: { item }
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error updating purchase order item:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to update purchase order item'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async addPurchaseOrderItem(req, res) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const { orderId } = req.params;
+            const item = req.body;
+            const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
+            const newItem = await purchaseOrderModel.addOrderItem(orderId, item);
+            const response = {
+                success: true,
+                data: { item: newItem }
+            };
+            res.status(201).json(response);
+        }
+        catch (error) {
+            console.error('Error adding purchase order item:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to add purchase order item'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async removePurchaseOrderItem(req, res) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const { orderId, itemId } = req.params;
+            const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
+            await purchaseOrderModel.removeOrderItem(orderId, itemId);
+            const response = {
+                success: true,
+                data: { message: 'Purchase order item removed successfully' }
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error removing purchase order item:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to remove purchase order item'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
     validateCreatePurchaseOrderRequest(data) {
         const errors = [];
         if (!data.supplier_id || typeof data.supplier_id !== 'string' || data.supplier_id.trim().length === 0) {
@@ -532,6 +667,136 @@ class PurchaseOrderController {
                 field: 'currency',
                 message: 'Currency must be a string',
                 value: data.currency
+            });
+        }
+        // Validate items if provided
+        if (data.items !== undefined) {
+            if (!Array.isArray(data.items)) {
+                errors.push({
+                    field: 'items',
+                    message: 'Items must be an array',
+                    value: data.items
+                });
+            }
+            else if (data.items.length === 0) {
+                errors.push({
+                    field: 'items',
+                    message: 'Order must contain at least one item',
+                    value: data.items
+                });
+            }
+            else {
+                data.items.forEach((item, index) => {
+                    if (!item.inventory_item_id || typeof item.inventory_item_id !== 'string' || item.inventory_item_id.trim().length === 0) {
+                        errors.push({
+                            field: `items[${index}].inventory_item_id`,
+                            message: 'Inventory item ID is required',
+                            value: item.inventory_item_id
+                        });
+                    }
+                    if (item.quantity_ordered !== undefined && (typeof item.quantity_ordered !== 'number' || item.quantity_ordered <= 0)) {
+                        errors.push({
+                            field: `items[${index}].quantity_ordered`,
+                            message: 'Quantity ordered must be a positive number',
+                            value: item.quantity_ordered
+                        });
+                    }
+                    if (item.unit_price !== undefined && (typeof item.unit_price !== 'number' || item.unit_price < 0)) {
+                        errors.push({
+                            field: `items[${index}].unit_price`,
+                            message: 'Unit price must be a non-negative number',
+                            value: item.unit_price
+                        });
+                    }
+                    if (item.tax_rate !== undefined && (typeof item.tax_rate !== 'number' || item.tax_rate < 0 || item.tax_rate > 100)) {
+                        errors.push({
+                            field: `items[${index}].tax_rate`,
+                            message: 'Tax rate must be between 0 and 100',
+                            value: item.tax_rate
+                        });
+                    }
+                    if (item.discount_rate !== undefined && (typeof item.discount_rate !== 'number' || item.discount_rate < 0 || item.discount_rate > 100)) {
+                        errors.push({
+                            field: `items[${index}].discount_rate`,
+                            message: 'Discount rate must be between 0 and 100',
+                            value: item.discount_rate
+                        });
+                    }
+                });
+            }
+        }
+        return {
+            isValid: errors.length === 0,
+            errors
+        };
+    }
+    validateUpdatePurchaseOrderPreReceivalRequest(data) {
+        const errors = [];
+        if (data.supplier_id && (typeof data.supplier_id !== 'string' || data.supplier_id.trim().length === 0)) {
+            errors.push({
+                field: 'supplier_id',
+                message: 'Supplier ID must be a non-empty string',
+                value: data.supplier_id
+            });
+        }
+        if (data.expected_delivery_date && typeof data.expected_delivery_date !== 'string') {
+            errors.push({
+                field: 'expected_delivery_date',
+                message: 'Expected delivery date must be a valid date string',
+                value: data.expected_delivery_date
+            });
+        }
+        if (data.status && !['draft', 'approved', 'sent', 'partially_received', 'received', 'cancelled'].includes(data.status)) {
+            errors.push({
+                field: 'status',
+                message: 'Status must be one of: draft, approved, sent, partially_received, received, cancelled',
+                value: data.status
+            });
+        }
+        if (data.notes && typeof data.notes !== 'string') {
+            errors.push({
+                field: 'notes',
+                message: 'Notes must be a string',
+                value: data.notes
+            });
+        }
+        if (data.communication_method && typeof data.communication_method !== 'string') {
+            errors.push({
+                field: 'communication_method',
+                message: 'Communication method must be a string',
+                value: data.communication_method
+            });
+        }
+        if (data.communication_notes && typeof data.communication_notes !== 'string') {
+            errors.push({
+                field: 'communication_notes',
+                message: 'Communication notes must be a string',
+                value: data.communication_notes
+            });
+        }
+        if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+            errors.push({
+                field: 'items',
+                message: 'Order must contain at least one item',
+                value: data.items
+            });
+        }
+        else {
+            data.items.forEach((item, index) => {
+                if (!item.inventory_item_id || typeof item.inventory_item_id !== 'string' || item.inventory_item_id.trim().length === 0) {
+                    errors.push({
+                        field: `items[${index}].inventory_item_id`,
+                        message: 'Inventory item ID is required',
+                        value: item.inventory_item_id
+                    });
+                }
+                if (item.quantity_ordered !== undefined && (typeof item.quantity_ordered !== 'number' || item.quantity_ordered <= 0)) {
+                    errors.push({
+                        field: `items[${index}].quantity_ordered`,
+                        message: 'Quantity ordered must be a positive number',
+                        value: item.quantity_ordered
+                    });
+                }
             });
         }
         return {

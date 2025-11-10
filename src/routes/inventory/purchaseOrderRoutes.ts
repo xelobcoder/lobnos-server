@@ -31,4 +31,16 @@ router.post('/orders/:id/approve', (req, res) => purchaseOrderController.approve
 // Send purchase order
 router.post('/orders/:id/send', (req, res) => purchaseOrderController.sendPurchaseOrder(req, res));
 
+// Update purchase order item
+router.put('/orders/:orderId/items/:itemId', (req, res) => purchaseOrderController.updatePurchaseOrderItem(req, res));
+
+// Update purchase order pre-receival (sync items)
+router.put('/orders/:id/pre-receival', (req, res) => purchaseOrderController.updatePurchaseOrderPreReceival(req, res));
+
+// Add purchase order item
+router.post('/orders/:orderId/items', (req, res) => purchaseOrderController.addPurchaseOrderItem(req, res));
+
+// Remove purchase order item
+router.delete('/orders/:orderId/items/:itemId', (req, res) => purchaseOrderController.removePurchaseOrderItem(req, res));
+
 export default router;
