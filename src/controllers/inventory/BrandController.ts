@@ -178,7 +178,8 @@ export class BrandController {
                     page = '1',
                     count = '10',
                     search,
-                    sortby = 'ASC'
+                    sortby = 'ASC',
+                    inventory_item_id
                } = req.query;
 
                const pageNum = parseInt(page as string, 10);
@@ -186,7 +187,7 @@ export class BrandController {
                const sortDirection = (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
                const brandModel = new BrandModel(tenantId);
-               const result: BrandListResponse = await brandModel.findMany(pageNum, countNum, search as string, sortDirection);
+               const result: BrandListResponse = await brandModel.findMany(pageNum, countNum, search as string, sortDirection,inventory_item_id as string);
 
                const response: ApiResponse = {
                     success: true,

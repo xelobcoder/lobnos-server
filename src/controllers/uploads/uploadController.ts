@@ -10,7 +10,7 @@ const uploadDir = path.join(__dirname, '../../public/uploads')
 
 const fileUploader = createFileUploader(uploadDir);
 
-export const validStoragePaths = ['patients']
+export const validStoragePaths = ['patients', 'receipts']
 
 router.post(`${baseurl}storage/prime/uploads`,
      fileUploader.getMulterMiddleware().single('file'),

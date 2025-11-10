@@ -6,8 +6,6 @@ import {
      InventoryItemListResponse,
      InventoryFilters,
      InventoryStatus,
-     InventoryTransaction,
-     CreateInventoryTransactionRequest,
      InventorySummary,
      LowStockAlert
 } from './types';
@@ -367,84 +365,6 @@ export class InventoryItemModel {
                .del();
 
           return result > 0;
-     }
-
-     async processTransaction(transaction: CreateInventoryTransactionRequest): Promise<InventoryTransaction> {
-          const connection = await this.connection;
-
-          const item = await this.findById(transaction.item_id);
-          if (!item) {
-               throw new Error('Inventory item not found');
-          }
-
-          let newStock: number;
-          switch (transaction.transaction_type) {
-               case 'consumption':
-                    if (item.current_stock < transaction.quantity) {
-                         throw new Error('Insufficient stock for consumption');
-                    }
-                    newStock = item.current_stock - transaction.quantity;
-                    break;
-               case 'addition':
-                    newStock = item.current_stock + transaction.quantity;
-                    break;
-               case 'adjustment':
-                    newStock = transaction.quantity; // Absolute adjustment
-                    break;
-               case 'transfer':
-                    if (item.current_stock < transaction.quantity) {
-                         throw new Error('Insufficient stock for transfer');
-                    }
-                    newStock = item.current_stock - transaction.quantity;
-                    break;
-               default:
-                    throw new Error('Invalid transaction type');
-          }
-
-          const transactionData = {
-               id: `TRX-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-               item_id: transaction.item_id,
-               transaction_type: transaction.transaction_type,
-               quantity: transaction.quantity,
-               previous_stock: item.current_stock,
-               new_stock: newStock,
-               batch_number: transaction.batch_number || null,
-               brand_name: transaction.brand_name || null,
-               reason: transaction.reason || null,
-               reference_id: transaction.reference_id || null,
-               performed_by: transaction.performed_by || null,
-               transaction_date: new Date().toISOString(),
-               notes: transaction.notes || null,
-               created_at: new Date().toISOString()
-          };
-
-          await connection('inv_inventory_transactions').insert(transactionData);
-
-          // Update item stock
-          await connection('inv_inventory_items')
-               .where('id', transaction.item_id)
-               .update({
-                    current_stock: newStock,
-                    last_updated: new Date().toISOString()
-               });
-
-          return {
-               id: transactionData.id,
-               item_id: transactionData.item_id,
-               transaction_type: transactionData.transaction_type,
-               quantity: transactionData.quantity,
-               previous_stock: transactionData.previous_stock,
-               new_stock: transactionData.new_stock,
-               batch_number: transactionData.batch_number,
-               brand_name: transactionData.brand_name,
-               reason: transactionData.reason,
-               reference_id: transactionData.reference_id,
-               performed_by: transactionData.performed_by,
-               transaction_date: transactionData.transaction_date,
-               notes: transactionData.notes,
-               created_at: transactionData.created_at,
-               updated_at: transactionData.created_at // Transactions don't have separate updated_at
-          };
      }
 
      async getInventorySummary(): Promise<InventorySummary> {

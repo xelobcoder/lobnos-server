@@ -1,7 +1,7 @@
 "use strict";
 // Inventory Management System Types and Interfaces
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.TRANSACTION_TYPES = exports.PURCHASE_ORDER_ITEM_STATUSES = exports.PURCHASE_ORDER_STATUSES = exports.INVENTORY_STATUSES = exports.INVENTORY_UNITS = void 0;
+exports.INVENTORY_STATUSES = exports.INVENTORY_UNITS = void 0;
 // Constants and enums
 exports.INVENTORY_UNITS = [
     'pieces', 'boxes', 'bottles', 'packs', 'liters', 'kg', 'mg', 'ml',
@@ -9,13 +9,4 @@ exports.INVENTORY_UNITS = [
 ];
 exports.INVENTORY_STATUSES = [
     'in_stock', 'low_stock', 'out_of_stock', 'expired'
-];
-exports.PURCHASE_ORDER_STATUSES = [
-    'draft', 'pending_approval', 'approved', 'sent', 'confirmed', 'partially_received', 'received', 'cancelled'
-];
-exports.PURCHASE_ORDER_ITEM_STATUSES = [
-    'pending', 'partially_received', 'received', 'cancelled', 'backordered'
-];
-exports.TRANSACTION_TYPES = [
-    'consumption', 'addition', 'adjustment', 'transfer'
 ];

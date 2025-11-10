@@ -92,7 +92,7 @@ export class BrandModel {
           };
      }
 
-     async findMany(page: number = 1, count: number = 10, search?: string, sortby: 'ASC' | 'DESC' = 'ASC'): Promise<BrandListResponse> {
+     async findMany(page: number = 1, count: number = 10, search?: string, sortby: 'ASC' | 'DESC' = 'ASC', inventory_item_id?: string): Promise<BrandListResponse> {
           const connection = await this.connection;
 
           let query = connection('inv_brands')
@@ -102,6 +102,10 @@ export class BrandModel {
                query = query.where('name', 'like', `%${search}%`);
           }
 
+          if (inventory_item_id) {
+               query = query.where('inventory_item_id', inventory_item_id);
+          }
+          
           const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
           const totalResult = await totalQuery;
           const total = parseInt(totalResult?.count as string) || 0;

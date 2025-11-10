@@ -4,7 +4,7 @@ import categoryRoutes from './categoryRoutes';
 import supplierRoutes from './supplierRoutes';
 import storageLocationRoutes from './storageLocationRoutes';
 import inventoryItemRoutes from './inventoryItemRoutes';
-import purchaseOrderRoutes from '../../../routes/inventory/purchaseOrderRoutes';
+import purchaseOrderRoutes from './purchaseOrderRoutes';
 
 
 

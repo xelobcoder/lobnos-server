@@ -9,7 +9,7 @@ async function up(knex) {
         table.date('order_date').notNullable().comment('Date order was placed');
         table.date('expected_delivery_date').comment('Expected delivery date');
         table.date('actual_delivery_date').comment('Actual delivery date');
-        table.enum('status', ['draft', 'sent', 'confirmed', 'partially_received', 'received', 'cancelled']).defaultTo('draft');
+        table.enum('status', ['ordering', 'received', 'cancelled']).defaultTo('ordering');
         table.decimal('total_amount', 12, 2).defaultTo(0.00).comment('Computed: sum of all line items');
         table.text('notes').comment('Order notes');
         table.string('created_by', 100).comment('User who created the order');

@@ -9,7 +9,7 @@ const categoryRoutes_1 = __importDefault(require("./categoryRoutes"));
 const supplierRoutes_1 = __importDefault(require("./supplierRoutes"));
 const storageLocationRoutes_1 = __importDefault(require("./storageLocationRoutes"));
 const inventoryItemRoutes_1 = __importDefault(require("./inventoryItemRoutes"));
-const purchaseOrderRoutes_1 = __importDefault(require("../../../routes/inventory/purchaseOrderRoutes"));
+const purchaseOrderRoutes_1 = __importDefault(require("./purchaseOrderRoutes"));
 const router = (0, express_1.Router)();
 // Mount all inventory routes
 router.use('/', brandRoutes_1.default);

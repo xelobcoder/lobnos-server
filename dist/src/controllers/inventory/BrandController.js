@@ -147,12 +147,12 @@ class BrandController {
     async getBrands(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { page = '1', count = '10', search, sortby = 'ASC' } = req.query;
+            const { page = '1', count = '10', search, sortby = 'ASC', inventory_item_id } = req.query;
             const pageNum = parseInt(page, 10);
             const countNum = parseInt(count, 10);
             const sortDirection = sortby.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
             const brandModel = new inventory_1.BrandModel(tenantId);
-            const result = await brandModel.findMany(pageNum, countNum, search, sortDirection);
+            const result = await brandModel.findMany(pageNum, countNum, search, sortDirection, inventory_item_id);
             const response = {
                 success: true,
                 data: result.brands,

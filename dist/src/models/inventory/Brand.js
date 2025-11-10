@@ -76,12 +76,15 @@ class BrandModel {
             updated_at: result.updated_at
         };
     }
-    async findMany(page = 1, count = 10, search, sortby = 'ASC') {
+    async findMany(page = 1, count = 10, search, sortby = 'ASC', inventory_item_id) {
         const connection = await this.connection;
         let query = connection('inv_brands')
             .orderBy('name', sortby.toLowerCase());
         if (search) {
             query = query.where('name', 'like', `%${search}%`);
+        }
+        if (inventory_item_id) {
+            query = query.where('inventory_item_id', inventory_item_id);
         }
         const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
         const totalResult = await totalQuery;

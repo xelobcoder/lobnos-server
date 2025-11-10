@@ -13,7 +13,7 @@ const router = express_1.default.Router();
 const baseurl = `/api/v1/`;
 const uploadDir = path_1.default.join(__dirname, '../../public/uploads');
 const fileUploader = (0, fileuploads_1.default)(uploadDir);
-exports.validStoragePaths = ['patients'];
+exports.validStoragePaths = ['patients', 'receipts'];
 router.post(`${baseurl}storage/prime/uploads`, fileUploader.getMulterMiddleware().single('file'), fileUploader.handleUpload, PatientsHandler_1.updatePatientImageHandler);
 router.post('/storage/prime/uploads/multiple');
 router.get(`${baseurl}/patient/images/:filename`, (req, res) => {
