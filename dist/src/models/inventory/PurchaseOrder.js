@@ -172,7 +172,7 @@ class PurchaseOrderModel {
         if (endDate) {
             query = query.where('inv_purchase_orders.order_date', '<=', endDate);
         }
-        const totalQuery = query.clone().clearSelect().clearOrder().count('DISTINCT inv_purchase_orders.id as count').first();
+        const totalQuery = query.clone().clearSelect().clearOrder().select(connection.raw('COUNT(DISTINCT ??) as ??', ['inv_purchase_orders.id', 'count'])).first();
         const totalResult = await totalQuery;
         const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
         const offset = (page - 1) * count;

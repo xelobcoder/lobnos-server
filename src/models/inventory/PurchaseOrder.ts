@@ -230,7 +230,7 @@ export class PurchaseOrderModel {
                query = query.where('inv_purchase_orders.order_date', '<=', endDate);
           }
 
-          const totalQuery = query.clone().clearSelect().clearOrder().count('DISTINCT inv_purchase_orders.id as count').first();
+          const totalQuery = query.clone().clearSelect().clearOrder().select(connection.raw('COUNT(DISTINCT ??) as ??', ['inv_purchase_orders.id', 'count'])).first();
           const totalResult = await totalQuery;
           const total = parseInt(totalResult?.count as string) || 0;
 
