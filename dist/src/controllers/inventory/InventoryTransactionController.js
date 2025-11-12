@@ -15,7 +15,6 @@ class InventoryTransactionController {
         const tenantId = this.getTenantId(req);
         return new InventoryTransaction_1.InventoryTransactionModel(tenantId);
     }
-    // Validate batch-level stock availability
     async validateBatchStockAvailability(tenantId, itemId, batchNumber, requestedQuantity) {
         try {
             const model = new InventoryTransaction_1.InventoryTransactionModel(tenantId);
@@ -49,7 +48,6 @@ class InventoryTransactionController {
             };
         }
     }
-    // Validate overall stock availability for an item
     async validateStockAvailability(tenantId, itemId, requestedQuantity) {
         try {
             const itemModel = new InventoryItem_1.InventoryItemModel(tenantId);
@@ -82,7 +80,6 @@ class InventoryTransactionController {
             };
         }
     }
-    // Validate consumption request
     validateConsumptionRequest(data) {
         const errors = [];
         if (!data.item_id || typeof data.item_id !== 'string') {
@@ -96,13 +93,11 @@ class InventoryTransactionController {
         }
         return { isValid: errors.length === 0, errors };
     }
-    // Automatic test consumption
     async recordTestConsumption(req, res) {
         try {
             const model = this.getModel(req);
             const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = req.body;
             const tenantId = this.getTenantId(req);
-            // Validate required fields
             if (!test_id || !item_id || !quantity_used || !test_type || !patient_id || !ascension_id || !performed_by) {
                 const response = {
                     success: false,
@@ -114,7 +109,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Basic validation
             const validation = this.validateConsumptionRequest({ item_id, quantity: quantity_used });
             if (!validation.isValid) {
                 const response = {
@@ -127,7 +121,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Check stock availability
             const stockCheck = await this.validateStockAvailability(tenantId, item_id, quantity_used);
             if (!stockCheck.isValid) {
                 const response = {
@@ -140,7 +133,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Get expiry_date for the batch if batch_number is provided
             let expiry_date;
             if (batch_number) {
                 const stockDetails = await model.getAvailableStockDetails(item_id);
@@ -183,13 +175,11 @@ class InventoryTransactionController {
             res.status(500).json(response);
         }
     }
-    // Record wastage
     async recordWastage(req, res) {
         try {
             const model = this.getModel(req);
             const { item_id, quantity, reason, batch_number, brand_name, performed_by, notes } = req.body;
             const tenantId = this.getTenantId(req);
-            // Validate required fields
             if (!item_id || !quantity || !reason) {
                 const response = {
                     success: false,
@@ -201,7 +191,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Basic validation
             const validation = this.validateConsumptionRequest({ item_id, quantity });
             if (!validation.isValid) {
                 const response = {
@@ -214,7 +203,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Check stock availability
             const stockCheck = await this.validateStockAvailability(tenantId, item_id, quantity);
             if (!stockCheck.isValid) {
                 const response = {
@@ -227,7 +215,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Get expiry_date for the batch if batch_number is provided
             let expiry_date;
             if (batch_number) {
                 const stockDetails = await model.getAvailableStockDetails(item_id);
@@ -266,7 +253,6 @@ class InventoryTransactionController {
             res.status(500).json(response);
         }
     }
-    // Get consumption transactions only
     async getConsumptionTransactions(req, res) {
         try {
             const model = this.getModel(req);
@@ -297,12 +283,10 @@ class InventoryTransactionController {
             res.status(500).json(response);
         }
     }
-    // Get comprehensive consumption report
     async getConsumptionReport(req, res) {
         try {
             const model = this.getModel(req);
             const { page = 1, count = 10, sortby = 'DESC', consumption_type, item_id, performed_by, startDate, endDate, reason } = req.query;
-            // Build filters for consumption transactions only
             const filters = {
                 page: parseInt(page),
                 count: parseInt(count),
@@ -314,9 +298,7 @@ class InventoryTransactionController {
                 endDate: endDate
             };
             const result = await model.findMany(filters);
-            // Calculate consumption summary using existing model methods
-            const allConsumptionTransactions = await model.findMany(Object.assign(Object.assign({}, filters), { page: 1, count: 10000 // Get all for summary calculation
-             }));
+            const allConsumptionTransactions = await model.findMany(Object.assign(Object.assign({}, filters), { page: 1, count: 10000 }));
             const summary = {
                 total_consumptions: allConsumptionTransactions.total,
                 manual_consumptions: allConsumptionTransactions.transactions.filter(t => (t.reason || '').toLowerCase().includes('manual')).length,
@@ -326,7 +308,6 @@ class InventoryTransactionController {
                 period_start: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                 period_end: endDate || new Date().toISOString().split('T')[0]
             };
-            // Transform transactions to consumption report format
             const consumptions = result.transactions.map(transaction => ({
                 id: transaction.id,
                 item_id: transaction.item_id,
@@ -377,7 +358,6 @@ class InventoryTransactionController {
             res.status(500).json(response);
         }
     }
-    // Helper method to determine consumption type from reason
     determineConsumptionType(reason) {
         if (reason.toLowerCase().includes('test'))
             return 'test';
@@ -385,7 +365,6 @@ class InventoryTransactionController {
             return 'wastage';
         return 'manual';
     }
-    // Get available stock details for consumption
     async getAvailableStockDetails(req, res) {
         try {
             const model = this.getModel(req);
@@ -421,14 +400,12 @@ class InventoryTransactionController {
             res.status(500).json(response);
         }
     }
-    // Unified consumption endpoint - handles single or bulk, FIFO or manual per item
     async consumeStockUnified(req, res) {
         try {
             const model = this.getModel(req);
             const { consumptions, item_id, quantity, reason, batch_number, brand_name, performed_by, notes } = req.body;
             const tenantId = this.getTenantId(req);
             let consumptionRequests = [];
-            // Handle single consumption
             if (item_id && quantity !== undefined) {
                 consumptionRequests = [{
                         item_id,
@@ -440,7 +417,6 @@ class InventoryTransactionController {
                         notes
                     }];
             }
-            // Handle bulk consumption
             else if (consumptions && Array.isArray(consumptions)) {
                 consumptionRequests = consumptions;
             }
@@ -455,7 +431,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Validate each consumption request
             for (const consumption of consumptionRequests) {
                 const validation = this.validateConsumptionRequest(consumption);
                 if (!validation.isValid) {
@@ -469,7 +444,6 @@ class InventoryTransactionController {
                     res.status(400).json(response);
                     return;
                 }
-                // Check stock availability for each item
                 const stockCheck = await this.validateStockAvailability(tenantId, consumption.item_id, consumption.quantity);
                 if (!stockCheck.isValid) {
                     const response = {
@@ -482,7 +456,6 @@ class InventoryTransactionController {
                     res.status(400).json(response);
                     return;
                 }
-                // If batch is specified, validate batch-level stock
                 if (consumption.batch_number) {
                     const batchStockCheck = await this.validateBatchStockAvailability(tenantId, consumption.item_id, consumption.batch_number, consumption.quantity);
                     if (!batchStockCheck.isValid) {
@@ -498,13 +471,9 @@ class InventoryTransactionController {
                     }
                 }
             }
-            // Process each consumption
             const results = [];
             for (const consumption of consumptionRequests) {
-                // Determine consumption method based on batch information
                 if (consumption.batch_number || consumption.brand_name) {
-                    // Manual consumption - use specified batch
-                    // Get expiry_date for the batch if batch_number is provided
                     let expiry_date;
                     if (consumption.batch_number) {
                         const stockDetails = await model.getAvailableStockDetails(consumption.item_id);
@@ -534,7 +503,6 @@ class InventoryTransactionController {
                     results.push(Object.assign(Object.assign({}, transaction), { consumption_method: 'manual', consumed_from_batch: transactionData.batch_number, consumed_brand: transactionData.brand_name }));
                 }
                 else {
-                    // FIFO consumption - consume from oldest batches first, potentially spanning multiple batches
                     console.log(`Starting FIFO consumption for item ${consumption.item_id}, quantity: ${consumption.quantity}`);
                     const stockDetails = await model.getAvailableStockDetails(consumption.item_id);
                     console.log(`Stock details for FIFO:`, {
@@ -552,7 +520,6 @@ class InventoryTransactionController {
                         res.status(400).json(response);
                         return;
                     }
-                    // Calculate total available quantity across all batches
                     const totalAvailableQuantity = stockDetails.available_batches.reduce((sum, batch) => sum + batch.available_quantity, 0);
                     console.log(`Total available quantity: ${totalAvailableQuantity}, requested: ${consumption.quantity}`);
                     if (totalAvailableQuantity < consumption.quantity) {
@@ -566,7 +533,6 @@ class InventoryTransactionController {
                         res.status(400).json(response);
                         return;
                     }
-                    // Consume from batches in FIFO order (oldest first)
                     let remainingQuantity = consumption.quantity;
                     const batchesToConsume = [];
                     for (const batch of stockDetails.available_batches) {
@@ -583,7 +549,6 @@ class InventoryTransactionController {
                         console.log(`Will consume ${consumeFromBatch} from batch ${batch.batch_number} (expiry: ${batch.expiry_date}), remaining: ${remainingQuantity}`);
                     }
                     console.log(`Final consumption plan:`, batchesToConsume);
-                    // Create transactions for each batch consumption
                     const fifoTransactions = [];
                     for (const batchConsumption of batchesToConsume) {
                         console.log(`Creating FIFO transaction for batch ${batchConsumption.batch_number}, quantity: ${batchConsumption.quantity}`);
@@ -594,7 +559,7 @@ class InventoryTransactionController {
                             reason: consumption.reason || 'FIFO consumption',
                             batch_number: batchConsumption.batch_number,
                             brand_name: batchConsumption.brand_name,
-                            expiry_date: batchConsumption.expiry_date, // Include expiry_date to match batch entry
+                            expiry_date: batchConsumption.expiry_date,
                             performed_by: consumption.performed_by,
                             notes: consumption.notes || `FIFO consumption from batch ${batchConsumption.batch_number} (${batchConsumption.quantity} units)`
                         };
@@ -602,7 +567,6 @@ class InventoryTransactionController {
                         console.log(`Created transaction ${transaction.id} for batch ${batchConsumption.batch_number}`);
                         fifoTransactions.push(Object.assign(Object.assign({}, transaction), { consumed_quantity: batchConsumption.quantity }));
                     }
-                    // Return the first transaction as primary result, but log all batch consumptions
                     const primaryTransaction = fifoTransactions[0];
                     console.log(`FIFO consumption completed for item ${consumption.item_id}:`, {
                         total_quantity: consumption.quantity,
