@@ -5,6 +5,7 @@ import supplierRoutes from './supplierRoutes';
 import storageLocationRoutes from './storageLocationRoutes';
 import inventoryItemRoutes from './inventoryItemRoutes';
 import purchaseOrderRoutes from './purchaseOrderRoutes';
+import inventoryTransactionRoutes from './inventoryTransactionRoutes';
 
 
 
@@ -17,5 +18,6 @@ router.use('/', supplierRoutes);
 router.use('/', storageLocationRoutes);
 router.use('/', inventoryItemRoutes);
 router.use('/', purchaseOrderRoutes);
+router.use('/transactions', inventoryTransactionRoutes);
 
 export default router;

@@ -10,8 +10,8 @@ router.get('/orders/:id', (req, res) => purchaseOrderController.getPurchaseOrder
 router.get('/orders', (req, res) => purchaseOrderController.getPurchaseOrders(req, res));
 router.put('/orders/:id', (req, res) => purchaseOrderController.updatePurchaseOrder(req, res));
 router.delete('/orders/:id/cancel', (req, res) => purchaseOrderController.cancelPurchaseOrder(req, res));
-// Order receipt routes
 router.post('/orders/:id/receive', (req, res) => purchaseOrderController.receivePurchaseOrder(req, res));
-// Order items route
 router.get('/orders/:id/items', (req, res) => purchaseOrderController.getPurchaseOrderItems(req, res));
+// Received orders report route
+router.get('/orders/received/report', (req, res) => purchaseOrderController.getReceivedOrdersReport(req, res));
 exports.default = router;

@@ -334,17 +334,19 @@ export type TransactionType = 'addition' | 'consumption' | 'adjustment' | 'trans
 
 export interface PurchaseOrder extends BaseEntity {
      id: string;
-     order_id: string;
+     order_number: string;
      supplier_id: string;
      order_date: string;
      expected_delivery_date?: string;
      status: PurchaseOrderStatus;
      total_amount: number;
+     communication_method?: string;
+     communication_notes?: string;
      notes?: string;
      created_by?: string;
 
      // Joined data
-     supplier_name?: string;
+     supplier?: Supplier;
      items_count?: number;
      received_items_count?: number;
      items?: PurchaseOrderItem[];
@@ -354,6 +356,8 @@ export interface CreatePurchaseOrderRequest {
      supplier_id: string;
      order_date?: string;
      expected_delivery_date?: string;
+     communication_method?: string;
+     communication_notes?: string;
      items: CreatePurchaseOrderItemRequest[];
      notes?: string;
 }
@@ -361,6 +365,8 @@ export interface CreatePurchaseOrderRequest {
 export interface UpdatePurchaseOrderRequest {
      supplier_id?: string;
      expected_delivery_date?: string;
+     communication_method?: string;
+     communication_notes?: string;
      status?: PurchaseOrderStatus;
      notes?: string;
 }
@@ -407,7 +413,7 @@ export interface PurchaseOrderItem extends BaseEntity {
 export interface CreatePurchaseOrderItemRequest {
      inventory_item_id: string;
      quantity_ordered: number;
-     unit_price: number;
+     unit_price?: number;
      tax_rate?: number;
      discount_rate?: number;
      notes?: string;
@@ -436,7 +442,7 @@ export interface PurchaseOrderReceipt extends BaseEntity {
      order_item_id: string;
      receipt_number: string;
      received_date: string;
-     received_by?: string;
+     received_by?: number;
      quantity_received: number;
      batch_number?: string;
      expiry_date?: string;
@@ -473,7 +479,7 @@ export interface PurchaseOrderReceiptListResponse {
 }
 
 export interface ReceiveOrderRequest {
-     received_by: string;
+     received_by: number;
      received_date?: string;
      receipts: CreatePurchaseOrderReceiptRequest[];
 }
@@ -492,7 +498,10 @@ export interface InventoryTransaction {
      brand_name?: string;
      reason?: string;
      reference_id?: string;
-     performed_by?: string;
+     patient_id?: number;
+     ascension_id?: number;
+     testid?: number;
+     performed_by?: number;
      transaction_date: string;
      notes?: string;
      created_at: string;
@@ -512,7 +521,10 @@ export interface CreateInventoryTransactionRequest {
      brand_name?: string;
      reason?: string;
      reference_id?: string;
-     performed_by?: string;
+     patient_id?: number;
+     ascension_id?: number;
+     testid?: number;
+     performed_by?: number;
      notes?: string;
 }
 
@@ -533,6 +545,123 @@ export interface InventoryTransactionFilters {
      transaction_type?: TransactionType;
      startDate?: string;
      endDate?: string;
-     performed_by?: string;
+     performed_by?: number;
      batch_number?: string;
+}
+
+export interface AvailableBatchDetails {
+     batch_number: string;
+     brand_name?: string;
+     total_received: number;
+     total_consumed: number;
+     available_quantity: number;
+     expiry_date?: string;
+     last_received: string;
+}
+
+export interface AvailableStockDetails {
+     item: {
+          id: string;
+          name: string;
+          sku: string;
+          current_stock: number;
+          unit: string;
+     };
+     available_batches: AvailableBatchDetails[];
+     fifo_batch?: {
+          batch_number: string;
+          brand_name?: string;
+          available_quantity: number;
+          expiry_date?: string;
+     };
+}
+
+// Consumption-specific interfaces
+export type ConsumptionType = 'manual' | 'test' | 'wastage';
+
+export interface ManualConsumptionRequest {
+     item_id: string;
+     quantity: number;
+     reason?: string;
+     batch_number?: string;
+     brand_name?: string;
+     performed_by?: number;
+     notes?: string;
+}
+
+export interface BulkConsumptionRequest {
+     consumptions: ManualConsumptionRequest[];
+}
+
+export interface TestConsumptionRequest {
+     test_id: string;
+     item_id: string;
+     quantity_used: number;
+     test_type: string;
+     patient_id: number;
+     ascension_id: number;
+     testid?: number;
+     batch_number?: string;
+     brand_name?: string;
+     performed_by: number;
+     notes?: string;
+}
+
+export interface WastageRecordRequest {
+     item_id: string;
+     quantity: number;
+     reason: string;
+     batch_number?: string;
+     brand_name?: string;
+     performed_by?: number;
+     notes?: string;
+}
+
+export interface ConsumptionReportFilters {
+     page?: number;
+     count?: number;
+     sortby?: 'ASC' | 'DESC';
+     consumption_type?: ConsumptionType;
+     item_id?: string;
+     performed_by?: number;
+     startDate?: string;
+     endDate?: string;
+     reason?: string;
+}
+
+export interface ConsumptionSummary {
+     total_consumptions: number;
+     manual_consumptions: number;
+     test_consumptions: number;
+     wastage_consumptions: number;
+     total_quantity_consumed: number;
+     period_start: string;
+     period_end: string;
+}
+
+export interface ConsumptionReport {
+     id: string;
+     item_id: string;
+     item_name: string;
+     item_sku: string;
+     consumption_type: ConsumptionType;
+     quantity: number;
+     reason?: string;
+     batch_number?: string;
+     patient_id?: number;
+     ascension_id?: number;
+     testid?: number;
+     performed_by?: number;
+     transaction_date: string;
+     notes?: string;
+}
+
+export interface ConsumptionReportResponse {
+     consumptions: ConsumptionReport[];
+     total: number;
+     page: number;
+     count: number;
+     totalPages: number;
+     sortby: 'ASC' | 'DESC';
+     summary: ConsumptionSummary;
 }

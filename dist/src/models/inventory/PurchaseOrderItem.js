@@ -131,7 +131,6 @@ class PurchaseOrderItemModel {
         const updateData = {
             updated_at: new Date().toISOString()
         };
-        // Map updates
         if (updates.quantity_ordered !== undefined)
             updateData.quantity_ordered = updates.quantity_ordered;
         if (updates.unit_price !== undefined)
@@ -142,7 +141,6 @@ class PurchaseOrderItemModel {
             updateData.discount_rate = updates.discount_rate;
         if (updates.notes !== undefined)
             updateData.notes = updates.notes;
-        // Recalculate line total if pricing changed
         if (updates.unit_price !== undefined || updates.quantity_ordered !== undefined ||
             updates.tax_rate !== undefined || updates.discount_rate !== undefined) {
             const unitPrice = updates.unit_price !== undefined ? updates.unit_price : currentItem.unit_price;
@@ -224,14 +222,12 @@ class PurchaseOrderItemModel {
             .where({ id })
             .del();
         if (result > 0) {
-            // Update order total
             await this.updateOrderTotal(currentItem.order_id);
         }
         return result > 0;
     }
     async updateOrderTotal(orderId) {
         const connection = await this.connection;
-        // Calculate new total from all items
         const result = await connection('inv_purchase_order_items')
             .where('order_id', orderId)
             .where('status', '!=', 'cancelled')

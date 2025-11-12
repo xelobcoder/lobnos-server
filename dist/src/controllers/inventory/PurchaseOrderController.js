@@ -42,7 +42,7 @@ class PurchaseOrderController {
                         value: item.quantity_ordered
                     });
                 }
-                if (!item.unit_price || typeof item.unit_price !== 'number' || item.unit_price < 0) {
+                if (item.unit_price !== undefined && (typeof item.unit_price !== 'number' || item.unit_price < 0)) {
                     errors.push({
                         field: `items[${index}].unit_price`,
                         message: 'Unit price must be a non-negative number',
@@ -357,11 +357,11 @@ class PurchaseOrderController {
                 res.status(400).json(response);
                 return;
             }
-            // TODO: Implement receipt processing logic
-            // This will involve creating receipts, updating inventory, and logging transactions
+            const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
+            const purchaseOrder = await purchaseOrderModel.receiveOrder(id, requestData);
             const response = {
                 success: true,
-                data: { message: 'Order receipt processing not yet implemented' }
+                data: purchaseOrder
             };
             res.json(response);
         }
@@ -408,6 +408,44 @@ class PurchaseOrderController {
                 error: {
                     code: 'INTERNAL_ERROR',
                     message: error.message || 'Failed to fetch purchase order items'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async getReceivedOrdersReport(req, res) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const { page = '1', count = '10', startDate, endDate, supplier_id, sortby = 'DESC' } = req.query;
+            const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
+            const result = await purchaseOrderModel.getReceivedOrdersReport({
+                page: parseInt(page, 10),
+                count: parseInt(count, 10),
+                supplier_id: supplier_id,
+                startDate: startDate,
+                endDate: endDate,
+                sortby: sortby.toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
+            });
+            const response = {
+                success: true,
+                data: result.orders,
+                pagination: {
+                    page: result.page,
+                    count: result.count,
+                    total: result.total,
+                    totalPages: result.totalPages,
+                    sortby: result.sortby
+                }
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error fetching received orders report:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to fetch received orders report'
                 }
             };
             res.status(500).json(response);

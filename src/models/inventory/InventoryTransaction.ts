@@ -73,6 +73,8 @@ export class InventoryTransactionModel {
                brand_name: request.brand_name || null,
                reason: request.reason || null,
                reference_id: request.reference_id || null,
+               patient_id: request.patient_id || null,
+               ascension_id: request.ascension_id || null,
                performed_by: request.performed_by || null,
                transaction_date: new Date().toISOString(),
                notes: request.notes || null,
@@ -83,11 +85,20 @@ export class InventoryTransactionModel {
           const trx = await connection.transaction();
 
           try {
+               console.log(`Creating transaction for item ${request.item_id}:`, {
+                    transaction_type: request.transaction_type,
+                    quantity: request.quantity,
+                    batch_number: request.batch_number,
+                    previous_stock: previousStock,
+                    new_stock: newStock
+               });
+
                // Insert transaction record
                await trx('inv_inventory_transactions').insert(transactionData);
+               console.log(`Transaction inserted with ID: ${transactionData.id}`);
 
                // Update inventory item stock
-               await trx('inv_inventory_items')
+               const updateResult = await trx('inv_inventory_items')
                     .where('id', request.item_id)
                     .update({
                          current_stock: newStock,
@@ -95,10 +106,17 @@ export class InventoryTransactionModel {
                          updated_at: new Date().toISOString()
                     });
 
+               console.log(`Stock update result for item ${request.item_id}:`, {
+                    rowsAffected: updateResult,
+                    newStock: newStock
+               });
+
                await trx.commit();
+               console.log(`Transaction committed successfully for item ${request.item_id}`);
 
                return await this.findById(transactionData.id) as InventoryTransaction;
           } catch (error) {
+               console.error(`Transaction failed for item ${request.item_id}:`, error);
                await trx.rollback();
                throw error;
           }
@@ -160,6 +178,8 @@ export class InventoryTransactionModel {
                          brand_name: request.brand_name || null,
                          reason: request.reason || null,
                          reference_id: request.reference_id || null,
+                         patient_id: request.patient_id || null,
+                         ascension_id: request.ascension_id || null,
                          performed_by: request.performed_by || null,
                          transaction_date: new Date().toISOString(),
                          notes: request.notes || null,
@@ -184,6 +204,7 @@ export class InventoryTransactionModel {
                await trx.commit();
                return createdTransactions;
           } catch (error) {
+               console.error('Bulk transaction failed:', error);
                await trx.rollback();
                throw error;
           }
@@ -218,6 +239,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
+               patient_id: result.patient_id,
+               ascension_id: result.ascension_id,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -288,6 +311,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
+               patient_id: result.patient_id,
+               ascension_id: result.ascension_id,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -370,6 +395,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
+               patient_id: result.patient_id,
+               ascension_id: result.ascension_id,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -419,6 +446,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
+               patient_id: result.patient_id,
+               ascension_id: result.ascension_id,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -455,6 +484,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
+               patient_id: result.patient_id,
+               ascension_id: result.ascension_id,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -507,6 +538,91 @@ export class InventoryTransactionModel {
                total_adjustments: parseInt(result?.total_adjustments || 0),
                total_transfers: parseInt(result?.total_transfers || 0),
                net_change: parseInt(result?.net_change || 0)
+          };
+     }
+
+     async getAvailableStockDetails(itemId: string): Promise<{
+          item: any;
+          available_batches: Array<{
+               batch_number: string;
+               brand_name?: string;
+               total_received: number;
+               total_consumed: number;
+               available_quantity: number;
+               expiry_date?: string;
+               last_received: string;
+          }>;
+          fifo_batch?: {
+               batch_number: string;
+               brand_name?: string;
+               available_quantity: number;
+               expiry_date?: string;
+          };
+     }> {
+          const connection = await this.connection;
+
+          console.log(`Getting available stock details for item ${itemId}`);
+
+          // Get item details
+          const item = await connection('inv_inventory_items')
+               .where('id', itemId)
+               .where('is_active', true)
+               .first();
+
+          if (!item) {
+               throw new Error('Inventory item not found or inactive');
+          }
+
+          // Get batch-wise stock details - calculate properly by batch entry
+          const batchDetails = await connection('inv_inventory_transactions')
+               .select(
+                    'batch_number',
+                    'brand_name',
+                    'expiry_date',
+                    connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'),
+                    connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_consumed'),
+                    connection.raw('MAX(CASE WHEN transaction_type = "addition" THEN transaction_date END) as last_received')
+               )
+               .where('item_id', itemId)
+               .whereNotNull('batch_number')
+               .groupBy('batch_number', 'brand_name', 'expiry_date')
+               .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0') // Only batches that have received stock
+               .orderBy('last_received', 'ASC'); // FIFO order
+
+          const all_batches = batchDetails.map((batch: any) => ({
+               batch_number: batch.batch_number,
+               brand_name: batch.brand_name,
+               total_received: parseInt(batch.total_received || 0),
+               total_consumed: parseInt(batch.total_consumed || 0),
+               available_quantity: parseInt(batch.total_received || 0) - parseInt(batch.total_consumed || 0),
+               expiry_date: batch.expiry_date,
+               last_received: batch.last_received
+          }));
+
+          console.log(`All batches for item ${itemId}:`, all_batches);
+
+          const available_batches = all_batches.filter(batch => batch.available_quantity > 0); // Only include batches with remaining stock
+
+          console.log(`Available batches for item ${itemId}:`, available_batches);
+
+          // Get FIFO batch (oldest received batch with available stock)
+          const fifo_batch = available_batches.length > 0 ? {
+               batch_number: available_batches[0].batch_number,
+               brand_name: available_batches[0].brand_name,
+               available_quantity: available_batches[0].available_quantity,
+               expiry_date: available_batches[0].expiry_date
+          } : undefined;
+
+          return {
+               item: {
+                    id: item.id,
+                    name: item.name,
+                    sku: item.sku,
+                    current_stock: item.current_stock,
+                    unit: item.unit
+               },
+               available_batches,
+               fifo_batch
           };
      }
 }

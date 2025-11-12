@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { PurchaseOrderModel, PurchaseOrderItemModel, InventoryTransactionModel } from '../../models/inventory';
+import { PurchaseOrderModel } from '../../models/inventory';
 import {
      CreatePurchaseOrderRequest,
      UpdatePurchaseOrderRequest,
@@ -54,7 +54,7 @@ export class PurchaseOrderController {
                          });
                     }
 
-                    if (!item.unit_price || typeof item.unit_price !== 'number' || item.unit_price < 0) {
+                    if (item.unit_price !== undefined && (typeof item.unit_price !== 'number' || item.unit_price < 0)) {
                          errors.push({
                               field: `items[${index}].unit_price`,
                               message: 'Unit price must be a non-negative number',
@@ -426,12 +426,12 @@ export class PurchaseOrderController {
                     return;
                }
 
-               // TODO: Implement receipt processing logic
-               // This will involve creating receipts, updating inventory, and logging transactions
+               const purchaseOrderModel = new PurchaseOrderModel(tenantId);
+               const purchaseOrder = await purchaseOrderModel.receiveOrder(id, requestData);
 
                const response: ApiResponse = {
                     success: true,
-                    data: { message: 'Order receipt processing not yet implemented' }
+                    data: purchaseOrder
                };
 
                res.json(response);
@@ -486,6 +486,56 @@ export class PurchaseOrderController {
                     error: {
                          code: 'INTERNAL_ERROR',
                          message: error.message || 'Failed to fetch purchase order items'
+                    }
+               };
+
+               res.status(500).json(response);
+          }
+     }
+
+     async getReceivedOrdersReport(req: Request, res: Response): Promise<void> {
+          try {
+               const tenantId = this.getTenantId(req);
+               const {
+                    page = '1',
+                    count = '10',
+                    startDate,
+                    endDate,
+                    supplier_id,
+                    sortby = 'DESC'
+               } = req.query;
+
+               const purchaseOrderModel = new PurchaseOrderModel(tenantId);
+               const result = await purchaseOrderModel.getReceivedOrdersReport({
+                    page: parseInt(page as string, 10),
+                    count: parseInt(count as string, 10),
+                    supplier_id: supplier_id as string,
+                    startDate: startDate as string,
+                    endDate: endDate as string,
+                    sortby: (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
+               });
+
+               const response: ApiResponse = {
+                    success: true,
+                    data: result.orders,
+                    pagination: {
+                         page: result.page,
+                         count: result.count,
+                         total: result.total,
+                         totalPages: result.totalPages,
+                         sortby: result.sortby
+                    }
+               };
+
+               res.json(response);
+          } catch (error: any) {
+               console.error('Error fetching received orders report:', error);
+
+               const response: ApiResponse = {
+                    success: false,
+                    error: {
+                         code: 'INTERNAL_ERROR',
+                         message: error.message || 'Failed to fetch received orders report'
                     }
                };
 

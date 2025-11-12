@@ -58,11 +58,13 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
   "supplier_id": "string (required)",
   "order_date": "string (optional, YYYY-MM-DD format, defaults to today)",
   "expected_delivery_date": "string (optional, YYYY-MM-DD format)",
+  "communication_method": "string (optional, e.g., 'email', 'phone', 'fax')",
+  "communication_notes": "string (optional)",
   "items": [
     {
       "inventory_item_id": "string (required)",
       "quantity_ordered": "number (required, positive)",
-      "unit_price": "number (required, non-negative)",
+      "unit_price": "number (optional, non-negative, defaults to 0)",
       "tax_rate": "number (optional, 0-100)",
       "discount_rate": "number (optional, 0-100)",
       "notes": "string (optional)"
@@ -77,6 +79,8 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
 {
   "supplier_id": "SUP-001",
   "expected_delivery_date": "2025-11-20",
+  "communication_method": "email",
+  "communication_notes": "Contacted supplier via email on 2025-11-10",
   "items": [
     {
       "inventory_item_id": "INV-001",
@@ -89,7 +93,6 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
     {
       "inventory_item_id": "INV-002",
       "quantity_ordered": 50,
-      "unit_price": 12.00,
       "tax_rate": 8.25
     }
   ],
@@ -103,12 +106,14 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
   "success": true,
   "data": {
     "id": "PO-1731264000000",
-    "order_id": "ORD-2025-11-10-0001",
+    "order_number": "ORD-2025-11-10-0001",
     "supplier_id": "SUP-001",
     "order_date": "2025-11-10",
     "expected_delivery_date": "2025-11-20",
     "status": "ordered",
     "total_amount": 962.50,
+    "communication_method": "email",
+    "communication_notes": "Contacted supplier via email on 2025-11-10",
     "notes": "Monthly restock order",
     "created_by": null,
     "created_at": "2025-11-10T10:00:00.000Z",
@@ -125,7 +130,7 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
 - `items`: Must contain at least one item
 - `inventory_item_id`: Must exist and be active
 - `quantity_ordered`: Must be positive number
-- `unit_price`: Must be non-negative
+- `unit_price`: Must be non-negative if provided (optional)
 - `tax_rate` & `discount_rate`: Must be 0-100 if provided
 
 ---
@@ -141,12 +146,14 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
   "success": true,
   "data": {
     "id": "PO-1731264000000",
-    "order_id": "ORD-2025-11-10-0001",
+    "order_number": "ORD-2025-11-10-0001",
     "supplier_id": "SUP-001",
     "order_date": "2025-11-10",
     "expected_delivery_date": "2025-11-20",
     "status": "ordered",
     "total_amount": 962.50,
+    "communication_method": "email",
+    "communication_notes": "Contacted supplier via email on 2025-11-10",
     "notes": "Monthly restock order",
     "created_by": null,
     "created_at": "2025-11-10T10:00:00.000Z",
@@ -204,12 +211,14 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
   "data": [
     {
       "id": "PO-1731264000000",
-      "order_id": "ORD-2025-11-10-0001",
+      "order_number": "ORD-2025-11-10-0001",
       "supplier_id": "SUP-001",
       "order_date": "2025-11-10",
       "expected_delivery_date": "2025-11-20",
       "status": "ordered",
       "total_amount": 962.50,
+      "communication_method": "email",
+      "communication_notes": "Contacted supplier via email on 2025-11-10",
       "notes": "Monthly restock order",
       "created_by": null,
       "created_at": "2025-11-10T10:00:00.000Z",
@@ -241,6 +250,8 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
 {
   "supplier_id": "string (optional)",
   "expected_delivery_date": "string (optional, YYYY-MM-DD)",
+  "communication_method": "string (optional)",
+  "communication_notes": "string (optional)",
   "status": "ordered | partially_received | received | cancelled (optional)",
   "notes": "string (optional)"
 }
@@ -273,12 +284,14 @@ All requests require a valid tenant ID passed as a query parameter: `?tenantId=<
   "success": true,
   "data": {
     "id": "PO-1731264000000",
-    "order_id": "ORD-2025-11-10-0001",
+    "order_number": "ORD-2025-11-10-0001",
     "supplier_id": "SUP-001",
     "order_date": "2025-11-10",
     "expected_delivery_date": "2025-11-20",
     "status": "cancelled",
     "total_amount": 962.50,
+    "communication_method": "email",
+    "communication_notes": "Contacted supplier via email on 2025-11-10",
     "notes": "Monthly restock order",
     "created_by": null,
     "created_at": "2025-11-10T10:00:00.000Z",
