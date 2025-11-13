@@ -105,6 +105,7 @@ class InventoryTransactionModel {
                     case 'consumption':
                     case 'adjustment':
                     case 'transfer':
+                    case 'wastage':
                         newStock = previousStock - request.quantity;
                         break;
                     default:

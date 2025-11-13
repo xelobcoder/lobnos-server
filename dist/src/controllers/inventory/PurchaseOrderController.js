@@ -340,6 +340,8 @@ class PurchaseOrderController {
         }
     }
     async receivePurchaseOrder(req, res) {
+        console.log(`[RECEIVE] 🚚 receivePurchaseOrder called with ID: ${req.params.id}`);
+        console.log(`[RECEIVE] 📦 Request body:`, JSON.stringify(req.body, null, 2));
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;

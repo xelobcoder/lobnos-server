@@ -3,9 +3,7 @@ import {
      InventoryTransaction,
      CreateInventoryTransactionRequest,
      InventoryTransactionListResponse,
-     InventoryTransactionFilters,
-     TransactionType
-} from './types';
+     InventoryTransactionFilters} from './types';
 import KnexConnection from '../../database/KnexConnections';
 
 export class InventoryTransactionModel {
@@ -128,6 +126,7 @@ export class InventoryTransactionModel {
                          case 'consumption':
                          case 'adjustment':
                          case 'transfer':
+                         case 'wastage':
                               newStock = previousStock - request.quantity;
                               break;
                          default:

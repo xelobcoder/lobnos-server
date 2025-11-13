@@ -673,6 +673,7 @@ export class InventoryTransactionController {
                               previous_stock: transaction.previous_stock,
                               new_stock: transaction.new_stock
                          });
+
                          results.push({
                               ...transaction,
                               consumption_method: 'manual',

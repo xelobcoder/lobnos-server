@@ -8,7 +8,6 @@ import purchaseOrderRoutes from './purchaseOrderRoutes';
 import inventoryTransactionRoutes from './inventoryTransactionRoutes';
 
 
-
 const router = Router();
 
 // Mount all inventory routes
@@ -19,5 +18,6 @@ router.use('/', storageLocationRoutes);
 router.use('/', inventoryItemRoutes);
 router.use('/', purchaseOrderRoutes);
 router.use('/transactions', inventoryTransactionRoutes);
+
 
 export default router;
