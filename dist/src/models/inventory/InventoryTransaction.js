@@ -34,6 +34,7 @@ class InventoryTransactionModel {
             case 'consumption':
             case 'adjustment':
             case 'transfer':
+            case 'wastage':
                 newStock = previousStock - request.quantity;
                 break;
             default:
@@ -64,6 +65,7 @@ class InventoryTransactionModel {
             performed_by: request.performed_by || null,
             transaction_date: new Date().toISOString(),
             notes: request.notes || null,
+            wastage_type: request.wastage_type || null,
             created_at: new Date().toISOString()
         };
         // Start transaction to ensure data consistency
@@ -155,6 +157,7 @@ class InventoryTransactionModel {
                     performed_by: request.performed_by || null,
                     transaction_date: new Date().toISOString(),
                     notes: request.notes || null,
+                    wastage_type: request.wastage_type || null,
                     created_at: new Date().toISOString()
                 };
                 // Insert transaction record
@@ -206,6 +209,7 @@ class InventoryTransactionModel {
             performed_by: result.performed_by,
             transaction_date: result.transaction_date,
             notes: result.notes,
+            wastage_type: result.wastage_type,
             created_at: result.created_at,
             item_name: result.item_name,
             item_sku: result.item_sku
@@ -259,6 +263,7 @@ class InventoryTransactionModel {
             performed_by: result.performed_by,
             transaction_date: result.transaction_date,
             notes: result.notes,
+            wastage_type: result.wastage_type,
             created_at: result.created_at,
             item_name: result.item_name,
             item_sku: result.item_sku
@@ -322,6 +327,7 @@ class InventoryTransactionModel {
             performed_by: result.performed_by,
             transaction_date: result.transaction_date,
             notes: result.notes,
+            wastage_type: result.wastage_type,
             created_at: result.created_at,
             item_name: result.item_name,
             item_sku: result.item_sku
@@ -364,6 +370,7 @@ class InventoryTransactionModel {
             performed_by: result.performed_by,
             transaction_date: result.transaction_date,
             notes: result.notes,
+            wastage_type: result.wastage_type,
             created_at: result.created_at,
             item_name: result.item_name,
             item_sku: result.item_sku
@@ -395,6 +402,7 @@ class InventoryTransactionModel {
             performed_by: result.performed_by,
             transaction_date: result.transaction_date,
             notes: result.notes,
+            wastage_type: result.wastage_type,
             created_at: result.created_at,
             item_name: result.item_name,
             item_sku: result.item_sku
@@ -442,10 +450,12 @@ class InventoryTransactionModel {
         }
         // Get batch-wise stock details - calculate properly by batch entry
         const batchDetails = await connection('inv_inventory_transactions')
-            .select('batch_number', 'brand_name', 'expiry_date', connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'), connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_consumed'), connection.raw('MAX(CASE WHEN transaction_type = "addition" THEN transaction_date END) as last_received'))
+            .select('batch_number', connection.raw('MAX(brand_name) as brand_name'), // Get the latest non-null brand_name
+        connection.raw('MAX(expiry_date) as expiry_date'), // Get the latest expiry_date
+        connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'), connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_consumed'), connection.raw('MAX(CASE WHEN transaction_type = "addition" THEN transaction_date END) as last_received'))
             .where('item_id', itemId)
             .whereNotNull('batch_number')
-            .groupBy('batch_number', 'brand_name', 'expiry_date')
+            .groupBy('batch_number') // Group only by batch_number to aggregate all transactions for the same batch
             .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0') // Only batches that have received stock
             .orderBy('last_received', 'ASC'); // FIFO order
         const all_batches = batchDetails.map((batch) => ({
@@ -478,6 +488,35 @@ class InventoryTransactionModel {
             available_batches,
             fifo_batch
         };
+    }
+    async getExpiredBatches() {
+        const connection = await this.connection;
+        // First, get all expired batches with their consumption details
+        const expiredBatches = await connection('inv_inventory_transactions')
+            .select('inv_inventory_transactions.item_id', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_transactions.batch_number', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.expiry_date', connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'), connection.raw('SUM(CASE WHEN transaction_type IN ("consumption", "wastage") THEN quantity ELSE 0 END) as total_consumed'), connection.raw('SUM(CASE WHEN transaction_type = "wastage" AND (reason LIKE "%expired%" OR reason LIKE "%expiry%" OR wastage_type = "expired") THEN quantity ELSE 0 END) as expired_wastage_quantity'), connection.raw('MAX(CASE WHEN transaction_type = "addition" THEN transaction_date END) as last_received'))
+            .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
+            .whereNotNull('expiry_date')
+            .where('expiry_date', '<', new Date().toISOString().split('T')[0]) // Compare with current date (YYYY-MM-DD format)
+            .groupBy('inv_inventory_transactions.item_id', 'inv_inventory_items.name', 'inv_inventory_items.sku', 'inv_inventory_transactions.batch_number', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.expiry_date')
+            .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0') // Only batches that have received stock
+            .orderBy('expiry_date', 'ASC');
+        // Filter out batches that have been fully consumed as expired wastage
+        const filteredBatches = expiredBatches.filter((batch) => {
+            const totalReceived = parseInt(batch.total_received || 0);
+            const expiredWastageQuantity = parseInt(batch.expired_wastage_quantity || 0);
+            // Only include batches that haven't been fully consumed as expired wastage
+            return expiredWastageQuantity < totalReceived;
+        });
+        return filteredBatches.map((batch) => ({
+            item_id: batch.item_id,
+            item_name: batch.item_name,
+            item_sku: batch.item_sku,
+            batch_number: batch.batch_number,
+            brand_name: batch.brand_name,
+            expiry_date: batch.expiry_date,
+            available_quantity: parseInt(batch.total_received || 0) - parseInt(batch.total_consumed || 0),
+            last_received: batch.last_received
+        }));
     }
 }
 exports.InventoryTransactionModel = InventoryTransactionModel;

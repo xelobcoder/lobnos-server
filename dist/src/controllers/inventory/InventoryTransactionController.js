@@ -88,9 +88,9 @@ class InventoryTransactionController {
         if (!data.quantity || typeof data.quantity !== 'number' || data.quantity <= 0) {
             errors.push('Quantity must be a positive number');
         }
-        if (data.quantity && data.quantity > 10000) {
-            errors.push('Quantity cannot exceed 10,000 units per transaction');
-        }
+        // if (data.quantity && data.quantity > 10000) {
+        //      errors.push('Quantity cannot exceed 10,000 units per transaction');
+        // }
         return { isValid: errors.length === 0, errors };
     }
     async recordTestConsumption(req, res) {
@@ -215,6 +215,19 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
+            // Check for duplicate wastage consumption
+            const duplicateCheck = await this.validateNoDuplicateWastage(tenantId, item_id, batch_number, undefined, reason);
+            if (!duplicateCheck.isValid) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'DUPLICATE_WASTAGE',
+                        message: duplicateCheck.message
+                    }
+                };
+                res.status(400).json(response);
+                return;
+            }
             let expiry_date;
             if (batch_number) {
                 const stockDetails = await model.getAvailableStockDetails(item_id);
@@ -225,7 +238,7 @@ class InventoryTransactionController {
             }
             const transactionData = {
                 item_id,
-                transaction_type: 'consumption',
+                transaction_type: 'wastage',
                 quantity,
                 reason: `Wastage - ${reason}`,
                 batch_number,
@@ -301,9 +314,9 @@ class InventoryTransactionController {
             const allConsumptionTransactions = await model.findMany(Object.assign(Object.assign({}, filters), { page: 1, count: 10000 }));
             const summary = {
                 total_consumptions: allConsumptionTransactions.total,
-                manual_consumptions: allConsumptionTransactions.transactions.filter(t => (t.reason || '').toLowerCase().includes('manual')).length,
+                manual_consumptions: allConsumptionTransactions.transactions.filter(t => t.transaction_type === 'consumption' && !(t.reason || '').toLowerCase().includes('test') && !(t.reason || '').toLowerCase().includes('wastage')).length,
                 test_consumptions: allConsumptionTransactions.transactions.filter(t => (t.reason || '').toLowerCase().includes('test')).length,
-                wastage_consumptions: allConsumptionTransactions.transactions.filter(t => (t.reason || '').toLowerCase().includes('wastage')).length,
+                wastage_consumptions: allConsumptionTransactions.transactions.filter(t => t.transaction_type === 'wastage').length,
                 total_quantity_consumed: allConsumptionTransactions.transactions.reduce((sum, t) => sum + t.quantity, 0),
                 period_start: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                 period_end: endDate || new Date().toISOString().split('T')[0]
@@ -313,7 +326,7 @@ class InventoryTransactionController {
                 item_id: transaction.item_id,
                 item_name: transaction.item_name || '',
                 item_sku: transaction.item_sku || '',
-                consumption_type: this.determineConsumptionType(transaction.reason || ''),
+                consumption_type: this.determineConsumptionType(transaction),
                 quantity: transaction.quantity,
                 reason: transaction.reason,
                 batch_number: transaction.batch_number,
@@ -358,12 +371,51 @@ class InventoryTransactionController {
             res.status(500).json(response);
         }
     }
-    determineConsumptionType(reason) {
-        if (reason.toLowerCase().includes('test'))
-            return 'test';
-        if (reason.toLowerCase().includes('wastage'))
+    determineConsumptionType(transaction) {
+        if (transaction.transaction_type === 'wastage')
             return 'wastage';
+        if ((transaction.reason || '').toLowerCase().includes('test'))
+            return 'test';
         return 'manual';
+    }
+    async validateNoDuplicateWastage(tenantId, itemId, batchNumber, wastageType, reason) {
+        const model = new InventoryTransaction_1.InventoryTransactionModel(tenantId);
+        try {
+            // Check if this batch/item combination has already been consumed as wastage with the same reason/type
+            const filters = {
+                transaction_type: 'wastage',
+                count: 1
+            };
+            if (batchNumber) {
+                filters.batch_number = batchNumber;
+            }
+            const existingWastage = await model.findByItemId(itemId, filters);
+            // Filter transactions that match the same wastage reason/type
+            const matchingWastage = existingWastage.transactions.filter((transaction) => {
+                const existingReason = (transaction.reason || '').toLowerCase();
+                const existingWastageType = (transaction.wastage_type || '').toLowerCase();
+                const currentReason = (reason || '').toLowerCase();
+                const currentWastageType = (wastageType || '').toLowerCase();
+                // Check if it's the same type of wastage
+                return existingWastageType === currentWastageType ||
+                    (existingReason.includes('expired') && currentReason.includes('expired')) ||
+                    (existingReason.includes('damage') && currentReason.includes('damage')) ||
+                    (existingReason.includes('broken') && currentReason.includes('broken'));
+            });
+            if (matchingWastage.length > 0) {
+                const wastageTransaction = matchingWastage[0];
+                return {
+                    isValid: false,
+                    message: `This ${batchNumber ? `batch (${batchNumber})` : 'item'} has already been consumed as wastage (${wastageType || reason || 'N/A'}) on ${new Date(wastageTransaction.transaction_date).toLocaleDateString()}`
+                };
+            }
+            return { isValid: true };
+        }
+        catch (error) {
+            console.error('Error checking for duplicate wastage:', error);
+            // If we can't check, allow the transaction to proceed (fail-safe)
+            return { isValid: true };
+        }
     }
     async getAvailableStockDetails(req, res) {
         try {
@@ -403,13 +455,27 @@ class InventoryTransactionController {
     async consumeStockUnified(req, res) {
         try {
             const model = this.getModel(req);
-            const { consumptions, item_id, quantity, reason, batch_number, brand_name, performed_by, notes } = req.body;
+            const { consumptions, item_id, quantity, transaction_type, wastage_type, reason, batch_number, brand_name, performed_by, notes } = req.body;
             const tenantId = this.getTenantId(req);
+            const accepted_tranaction_type = ['consumption', 'wastage'];
+            if (transaction_type && !accepted_tranaction_type.includes(transaction_type)) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: `Invalid transaction_type. Accepted values are: ${accepted_tranaction_type.join(', ')}`
+                    }
+                };
+                res.status(400).json(response);
+                return;
+            }
             let consumptionRequests = [];
             if (item_id && quantity !== undefined) {
                 consumptionRequests = [{
                         item_id,
                         quantity,
+                        transaction_type: transaction_type || 'consumption',
+                        wastage_type,
                         reason,
                         batch_number,
                         brand_name,
@@ -418,7 +484,7 @@ class InventoryTransactionController {
                     }];
             }
             else if (consumptions && Array.isArray(consumptions)) {
-                consumptionRequests = consumptions;
+                consumptionRequests = consumptions.map(c => (Object.assign(Object.assign({}, c), { transaction_type: c.transaction_type || 'consumption', wastage_type: c.wastage_type })));
             }
             else {
                 const response = {
@@ -443,6 +509,21 @@ class InventoryTransactionController {
                     };
                     res.status(400).json(response);
                     return;
+                }
+                // Check for duplicate wastage consumption
+                if (consumption.transaction_type === 'wastage') {
+                    const duplicateCheck = await this.validateNoDuplicateWastage(tenantId, consumption.item_id, consumption.batch_number, consumption.wastage_type, consumption.reason);
+                    if (!duplicateCheck.isValid) {
+                        const response = {
+                            success: false,
+                            error: {
+                                code: 'DUPLICATE_WASTAGE',
+                                message: duplicateCheck.message
+                            }
+                        };
+                        res.status(400).json(response);
+                        return;
+                    }
                 }
                 const stockCheck = await this.validateStockAvailability(tenantId, consumption.item_id, consumption.quantity);
                 if (!stockCheck.isValid) {
@@ -484,8 +565,9 @@ class InventoryTransactionController {
                     }
                     const transactionData = {
                         item_id: consumption.item_id,
-                        transaction_type: 'consumption',
+                        transaction_type: consumption.transaction_type,
                         quantity: consumption.quantity,
+                        wastage_type: consumption.wastage_type,
                         reason: consumption.reason || 'Manual consumption',
                         batch_number: consumption.batch_number,
                         brand_name: consumption.brand_name,
@@ -554,8 +636,9 @@ class InventoryTransactionController {
                         console.log(`Creating FIFO transaction for batch ${batchConsumption.batch_number}, quantity: ${batchConsumption.quantity}`);
                         const batchTransactionData = {
                             item_id: consumption.item_id,
-                            transaction_type: 'consumption',
+                            transaction_type: consumption.transaction_type,
                             quantity: batchConsumption.quantity,
+                            wastage_type: consumption.wastage_type,
                             reason: consumption.reason || 'FIFO consumption',
                             batch_number: batchConsumption.batch_number,
                             brand_name: batchConsumption.brand_name,
@@ -589,6 +672,173 @@ class InventoryTransactionController {
                 error: {
                     code: 'INTERNAL_ERROR',
                     message: error.message || 'Failed to process consumption'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async getExpiredBatches(req, res) {
+        try {
+            const model = this.getModel(req);
+            const expiredBatches = await model.getExpiredBatches();
+            const response = {
+                success: true,
+                data: expiredBatches
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error getting expired batches:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to get expired batches'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async getExpiredBatchesForItem(req, res) {
+        try {
+            const model = this.getModel(req);
+            const { item_id } = req.params;
+            if (!item_id) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Item ID is required'
+                    }
+                };
+                res.status(400).json(response);
+                return;
+            }
+            const expiredBatches = await model.getExpiredBatches();
+            const itemExpiredBatches = expiredBatches.filter(batch => batch.item_id === item_id);
+            const response = {
+                success: true,
+                data: itemExpiredBatches
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error getting expired batches for item:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to get expired batches for item'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async getExpiredConsumptionHistory(req, res) {
+        try {
+            const model = this.getModel(req);
+            const tenantId = this.getTenantId(req);
+            const { page = 1, count = 10, sortby = 'DESC', item_id, batch_number, startDate, endDate, performed_by } = req.query;
+            // Custom query to include employee details
+            const connection = await model.connection;
+            const sortOrder = sortby.toUpperCase() === 'ASC' ? 'asc' : 'desc';
+            let query = connection('inv_inventory_transactions')
+                .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
+                .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
+                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'roles.username', 'roles.email', 'roles.role as role_name', 'roles.employeeid as employee_id')
+                .where('inv_inventory_transactions.transaction_type', 'wastage')
+                .orderBy('inv_inventory_transactions.transaction_date', sortOrder);
+            // Apply filters
+            if (item_id) {
+                query = query.where('inv_inventory_transactions.item_id', item_id);
+            }
+            if (batch_number) {
+                query = query.where('inv_inventory_transactions.batch_number', batch_number);
+            }
+            if (performed_by) {
+                query = query.where('inv_inventory_transactions.performed_by', parseInt(performed_by));
+            }
+            if (startDate) {
+                query = query.where('inv_inventory_transactions.transaction_date', '>=', startDate);
+            }
+            if (endDate) {
+                query = query.where('inv_inventory_transactions.transaction_date', '<=', endDate);
+            }
+            // Get total count
+            const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
+            const totalResult = await totalQuery;
+            const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
+            // Apply pagination
+            const offset = (parseInt(page) - 1) * parseInt(count);
+            const rawData = await query.limit(parseInt(count)).offset(offset);
+            // Filter transactions that are expired wastage
+            const expiredConsumptionHistory = rawData.filter((transaction) => {
+                const reason = (transaction.reason || '').toLowerCase();
+                const wastageType = (transaction.wastage_type || '').toLowerCase();
+                return wastageType === 'expired' ||
+                    reason.includes('expired') ||
+                    reason.includes('expiry');
+            });
+            // Calculate summary
+            const totalExpiredQuantity = expiredConsumptionHistory.reduce((sum, t) => sum + t.quantity, 0);
+            const uniqueBatches = new Set(expiredConsumptionHistory.map(t => t.batch_number).filter(Boolean)).size;
+            const uniqueItems = new Set(expiredConsumptionHistory.map(t => t.item_id)).size;
+            const expiredConsumptionData = expiredConsumptionHistory.map(transaction => ({
+                id: transaction.id,
+                item_id: transaction.item_id,
+                item_name: transaction.item_name || '',
+                item_sku: transaction.item_sku || '',
+                batch_number: transaction.batch_number,
+                brand_name: transaction.brand_name,
+                expiry_date: transaction.expiry_date,
+                quantity_consumed: transaction.quantity,
+                wastage_type: transaction.wastage_type,
+                reason: transaction.reason,
+                performed_by: {
+                    employee_id: transaction.employee_id,
+                    username: transaction.username,
+                    email: transaction.email,
+                    role_name: transaction.role_name,
+                    full_name: transaction.username || 'Unknown User'
+                },
+                transaction_date: transaction.transaction_date,
+                notes: transaction.notes
+            }));
+            const response = {
+                success: true,
+                data: {
+                    expired_consumptions: expiredConsumptionData,
+                    total: expiredConsumptionHistory.length,
+                    page: parseInt(page),
+                    count: parseInt(count),
+                    totalPages: Math.ceil(expiredConsumptionHistory.length / parseInt(count)),
+                    sortby: sortby.toUpperCase(),
+                    summary: {
+                        total_expired_consumptions: expiredConsumptionHistory.length,
+                        total_quantity_expired: totalExpiredQuantity,
+                        unique_batches_affected: uniqueBatches,
+                        unique_items_affected: uniqueItems,
+                        period_start: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                        period_end: endDate || new Date().toISOString().split('T')[0]
+                    }
+                },
+                pagination: {
+                    page: parseInt(page),
+                    count: parseInt(count),
+                    total: expiredConsumptionHistory.length,
+                    totalPages: Math.ceil(expiredConsumptionHistory.length / parseInt(count)),
+                    sortby: sortby.toUpperCase()
+                }
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error getting expired consumption history:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to get expired consumption history'
                 }
             };
             res.status(500).json(response);

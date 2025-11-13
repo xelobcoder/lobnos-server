@@ -330,7 +330,9 @@ export type PurchaseOrderItemStatus = 'pending' | 'partially_received' | 'receiv
 
 export type ConditionStatus = 'good' | 'acceptable' | 'damaged' | 'expired';
 
-export type TransactionType = 'addition' | 'consumption' | 'adjustment' | 'transfer';
+export type TransactionType = 'addition' | 'consumption' | 'adjustment' | 'transfer' | 'wastage';
+
+export type WastageType = 'expired' | 'damaged' | 'broken' | 'contamination' | 'other';
 
 export interface PurchaseOrder extends BaseEntity {
      id: string;
@@ -504,6 +506,7 @@ export interface InventoryTransaction {
      performed_by?: number;
      transaction_date: string;
      notes?: string;
+     wastage_type?: WastageType;
      created_at: string;
 
      // Joined data
@@ -526,6 +529,7 @@ export interface CreateInventoryTransactionRequest {
      testid?: number;
      performed_by?: number;
      notes?: string;
+     wastage_type?: WastageType;
 }
 
 export interface InventoryTransactionListResponse {
@@ -582,6 +586,8 @@ export type ConsumptionType = 'manual' | 'test' | 'wastage';
 export interface ManualConsumptionRequest {
      item_id: string;
      quantity: number;
+     transaction_type?: TransactionType;
+     wastage_type?: WastageType;
      reason?: string;
      batch_number?: string;
      brand_name?: string;
