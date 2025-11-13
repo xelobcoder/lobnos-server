@@ -23,7 +23,6 @@ export class InventoryTransactionModel {
      async create(request: CreateInventoryTransactionRequest): Promise<InventoryTransaction> {
           const connection = await this.connection;
 
-          // Validate inventory item exists
           const inventoryItem = await connection('inv_inventory_items')
                .where('id', request.item_id)
                .where('is_active', true)
@@ -33,10 +32,8 @@ export class InventoryTransactionModel {
                throw new Error('Inventory item not found or inactive');
           }
 
-          // Get current stock before transaction
           const previousStock = inventoryItem.current_stock;
 
-          // Calculate new stock based on transaction type
           let newStock: number;
           switch (request.transaction_type) {
                case 'addition':
@@ -83,23 +80,11 @@ export class InventoryTransactionModel {
                created_at: new Date().toISOString()
           };
 
-          // Start transaction to ensure data consistency
           const trx = await connection.transaction();
 
           try {
-               console.log(`Creating transaction for item ${request.item_id}:`, {
-                    transaction_type: request.transaction_type,
-                    quantity: request.quantity,
-                    batch_number: request.batch_number,
-                    previous_stock: previousStock,
-                    new_stock: newStock
-               });
-
-               // Insert transaction record
                await trx('inv_inventory_transactions').insert(transactionData);
-               console.log(`Transaction inserted with ID: ${transactionData.id}`);
 
-               // Update inventory item stock
                const updateResult = await trx('inv_inventory_items')
                     .where('id', request.item_id)
                     .update({
@@ -108,17 +93,10 @@ export class InventoryTransactionModel {
                          updated_at: new Date().toISOString()
                     });
 
-               console.log(`Stock update result for item ${request.item_id}:`, {
-                    rowsAffected: updateResult,
-                    newStock: newStock
-               });
-
                await trx.commit();
-               console.log(`Transaction committed successfully for item ${request.item_id}`);
 
                return await this.findById(transactionData.id) as InventoryTransaction;
           } catch (error) {
-               console.error(`Transaction failed for item ${request.item_id}:`, error);
                await trx.rollback();
                throw error;
           }
@@ -131,7 +109,6 @@ export class InventoryTransactionModel {
 
           try {
                for (const request of transactions) {
-                    // Validate inventory item exists
                     const inventoryItem = await trx('inv_inventory_items')
                          .where('id', request.item_id)
                          .where('is_active', true)
@@ -143,7 +120,6 @@ export class InventoryTransactionModel {
 
                     const previousStock = inventoryItem.current_stock;
 
-                    // Calculate new stock
                     let newStock: number;
                     switch (request.transaction_type) {
                          case 'addition':
@@ -189,10 +165,8 @@ export class InventoryTransactionModel {
                          created_at: new Date().toISOString()
                     };
 
-                    // Insert transaction record
                     await trx('inv_inventory_transactions').insert(transactionData);
 
-                    // Update inventory item stock
                     await trx('inv_inventory_items')
                          .where('id', request.item_id)
                          .update({
@@ -207,7 +181,6 @@ export class InventoryTransactionModel {
                await trx.commit();
                return createdTransactions;
           } catch (error) {
-               console.error('Bulk transaction failed:', error);
                await trx.rollback();
                throw error;
           }
@@ -277,7 +250,6 @@ export class InventoryTransactionModel {
                .where('inv_inventory_transactions.item_id', itemId)
                .orderBy('inv_inventory_transactions.transaction_date', sortby);
 
-          // Apply filters
           if (transaction_type) {
                query = query.where('inv_inventory_transactions.transaction_type', transaction_type);
           }
@@ -359,7 +331,6 @@ export class InventoryTransactionModel {
                )
                .orderBy('inv_inventory_transactions.transaction_date', sortby);
 
-          // Apply filters
           if (item_id) {
                query = query.where('inv_inventory_transactions.item_id', item_id);
           }
@@ -521,7 +492,6 @@ export class InventoryTransactionModel {
                     connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity WHEN transaction_type IN ("consumption", "adjustment", "transfer") THEN -quantity ELSE 0 END) as net_change')
                );
 
-          // Apply filters
           if (filters?.item_id) {
                query = query.where('item_id', filters.item_id);
           }
@@ -569,9 +539,6 @@ export class InventoryTransactionModel {
      }> {
           const connection = await this.connection;
 
-          console.log(`Getting available stock details for item ${itemId}`);
-
-          // Get item details
           const item = await connection('inv_inventory_items')
                .where('id', itemId)
                .where('is_active', true)
@@ -581,21 +548,20 @@ export class InventoryTransactionModel {
                throw new Error('Inventory item not found or inactive');
           }
 
-          // Get batch-wise stock details - calculate properly by batch entry
           const batchDetails = await connection('inv_inventory_transactions')
                .select(
                     'batch_number',
-                    connection.raw('MAX(brand_name) as brand_name'), // Get the latest non-null brand_name
-                    connection.raw('MAX(expiry_date) as expiry_date'), // Get the latest expiry_date
+                    connection.raw('MAX(brand_name) as brand_name'),
+                    connection.raw('MAX(expiry_date) as expiry_date'),
                     connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'),
                     connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_consumed'),
                     connection.raw('MAX(CASE WHEN transaction_type = "addition" THEN transaction_date END) as last_received')
                )
                .where('item_id', itemId)
                .whereNotNull('batch_number')
-               .groupBy('batch_number') // Group only by batch_number to aggregate all transactions for the same batch
-               .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0') // Only batches that have received stock
-               .orderBy('last_received', 'ASC'); // FIFO order
+               .groupBy('batch_number')
+               .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0')
+               .orderBy('last_received', 'ASC');
 
           const all_batches = batchDetails.map((batch: any) => ({
                batch_number: batch.batch_number,
@@ -607,13 +573,8 @@ export class InventoryTransactionModel {
                last_received: batch.last_received
           }));
 
-          console.log(`All batches for item ${itemId}:`, all_batches);
+          const available_batches = all_batches.filter(batch => batch.available_quantity > 0);
 
-          const available_batches = all_batches.filter(batch => batch.available_quantity > 0); // Only include batches with remaining stock
-
-          console.log(`Available batches for item ${itemId}:`, available_batches);
-
-          // Get FIFO batch (oldest received batch with available stock)
           const fifo_batch = available_batches.length > 0 ? {
                batch_number: available_batches[0].batch_number,
                brand_name: available_batches[0].brand_name,
@@ -632,9 +593,7 @@ export class InventoryTransactionModel {
                available_batches,
                fifo_batch
           };
-     }
-
-     async getExpiredBatches(): Promise<Array<{
+     } async getExpiredBatches(): Promise<Array<{
           item_id: string;
           item_name: string;
           item_sku: string;
@@ -646,7 +605,6 @@ export class InventoryTransactionModel {
      }>> {
           const connection = await this.connection;
 
-          // First, get all expired batches with their consumption details
           const expiredBatches = await connection('inv_inventory_transactions')
                .select(
                     'inv_inventory_transactions.item_id',
@@ -662,16 +620,14 @@ export class InventoryTransactionModel {
                )
                .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
                .whereNotNull('expiry_date')
-               .where('expiry_date', '<', new Date().toISOString().split('T')[0]) // Compare with current date (YYYY-MM-DD format)
+               .where('expiry_date', '<', new Date().toISOString().split('T')[0])
                .groupBy('inv_inventory_transactions.item_id', 'inv_inventory_items.name', 'inv_inventory_items.sku', 'inv_inventory_transactions.batch_number', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.expiry_date')
-               .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0') // Only batches that have received stock
+               .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0')
                .orderBy('expiry_date', 'ASC');
 
-          // Filter out batches that have been fully consumed as expired wastage
           const filteredBatches = expiredBatches.filter((batch: any) => {
                const totalReceived = parseInt(batch.total_received || 0);
                const expiredWastageQuantity = parseInt(batch.expired_wastage_quantity || 0);
-               // Only include batches that haven't been fully consumed as expired wastage
                return expiredWastageQuantity < totalReceived;
           });
 

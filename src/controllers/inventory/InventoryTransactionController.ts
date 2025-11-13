@@ -995,4 +995,135 @@ export class InventoryTransactionController {
                res.status(500).json(response);
           }
      }
+
+     async getNonExpiredWastageHistory(req: Request, res: Response): Promise<void> {
+          try {
+               const model = this.getModel(req);
+               const tenantId = this.getTenantId(req);
+               const {
+                    page = 1,
+                    count = 10,
+                    sortby = 'DESC',
+                    item_id,
+                    batch_number,
+                    startDate,
+                    endDate,
+                    performed_by
+               } = req.query;
+
+               const connection = await (model as any).connection;
+
+               const sortOrder = (sortby as string).toUpperCase() === 'ASC' ? 'asc' : 'desc';
+
+               let query = connection('inv_inventory_transactions')
+                    .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
+                    .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
+                    .select(
+                         'inv_inventory_transactions.*',
+                         'inv_inventory_items.name as item_name',
+                         'inv_inventory_items.sku as item_sku',
+                         'roles.username',
+                         'roles.email',
+                         'roles.role as role_name',
+                         'roles.employeeid as employee_id'
+                    )
+                    .where('inv_inventory_transactions.transaction_type', 'wastage')
+                    .orderBy('inv_inventory_transactions.transaction_date', sortOrder);
+
+               if (item_id) {
+                    query = query.where('inv_inventory_transactions.item_id', item_id);
+               }
+               if (batch_number) {
+                    query = query.where('inv_inventory_transactions.batch_number', batch_number);
+               }
+               if (performed_by) {
+                    query = query.where('inv_inventory_transactions.performed_by', parseInt(performed_by as string));
+               }
+               if (startDate) {
+                    query = query.where('inv_inventory_transactions.transaction_date', '>=', startDate);
+               }
+               if (endDate) {
+                    query = query.where('inv_inventory_transactions.transaction_date', '<=', endDate);
+               }
+
+               const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
+               const totalResult = await totalQuery;
+               const total = parseInt(totalResult?.count as string) || 0;
+
+               const offset = (parseInt(page as string) - 1) * parseInt(count as string);
+               const rawData = await query.limit(parseInt(count as string)).offset(offset);
+
+               const nonExpiredWastageHistory = rawData.filter((transaction: any) => {
+                    const reason = (transaction.reason || '').toLowerCase();
+                    const wastageType = (transaction.wastage_type || '').toLowerCase();
+                    return !(wastageType === 'expired' ||
+                         reason.includes('expired') ||
+                         reason.includes('expiry'));
+               });
+
+               const totalNonExpiredQuantity = nonExpiredWastageHistory.reduce((sum, t) => sum + t.quantity, 0);
+               const uniqueBatches = new Set(nonExpiredWastageHistory.map(t => t.batch_number).filter(Boolean)).size;
+               const uniqueItems = new Set(nonExpiredWastageHistory.map(t => t.item_id)).size;
+
+               const nonExpiredWastageData = nonExpiredWastageHistory.map(transaction => ({
+                    id: transaction.id,
+                    item_id: transaction.item_id,
+                    item_name: transaction.item_name || '',
+                    item_sku: transaction.item_sku || '',
+                    batch_number: transaction.batch_number,
+                    brand_name: transaction.brand_name,
+                    expiry_date: transaction.expiry_date,
+                    quantity_wasted: transaction.quantity,
+                    wastage_type: transaction.wastage_type,
+                    reason: transaction.reason,
+                    performed_by: {
+                         employee_id: transaction.employee_id,
+                         username: transaction.username,
+                         email: transaction.email,
+                         role_name: transaction.role_name,
+                         full_name: transaction.username || 'Unknown User'
+                    },
+                    transaction_date: transaction.transaction_date,
+                    notes: transaction.notes
+               }));
+
+               const response: ApiResponse = {
+                    success: true,
+                    data: {
+                         non_expired_wastages: nonExpiredWastageData,
+                         total: nonExpiredWastageHistory.length,
+                         page: parseInt(page as string),
+                         count: parseInt(count as string),
+                         totalPages: Math.ceil(nonExpiredWastageHistory.length / parseInt(count as string)),
+                         sortby: (sortby as string).toUpperCase() as 'ASC' | 'DESC',
+                         summary: {
+                              total_non_expired_wastages: nonExpiredWastageHistory.length,
+                              total_quantity_wasted: totalNonExpiredQuantity,
+                              unique_batches_affected: uniqueBatches,
+                              unique_items_affected: uniqueItems,
+                              period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                              period_end: endDate as string || new Date().toISOString().split('T')[0]
+                         }
+                    },
+                    pagination: {
+                         page: parseInt(page as string),
+                         count: parseInt(count as string),
+                         total: nonExpiredWastageHistory.length,
+                         totalPages: Math.ceil(nonExpiredWastageHistory.length / parseInt(count as string)),
+                         sortby: (sortby as string).toUpperCase() as 'ASC' | 'DESC'
+                    }
+               };
+               res.json(response);
+          } catch (error: any) {
+               console.error('Error getting non-expired wastage history:', error);
+               const response: ApiResponse = {
+                    success: false,
+                    error: {
+                         code: 'INTERNAL_ERROR',
+                         message: error.message || 'Failed to get non-expired wastage history'
+                    }
+               };
+               res.status(500).json(response);
+          }
+     }
 }
