@@ -15,6 +15,6 @@ router.put('/payments/:id/cancel', (req, res) => supplierPaymentController.cance
 router.put('/payments/:id/reject', (req, res) => supplierPaymentController.reject(req, res));
 router.post('/payments/:id/allocations', (req, res) => supplierPaymentController.addAllocation(req, res));
 router.delete('/allocations/:allocationId', (req, res) => supplierPaymentController.removeAllocation(req, res));
-router.get('/payments/summary', (req, res) => supplierPaymentController.getSummary(req, res));
+router.get('/payments/information/summary', (req, res) => supplierPaymentController.getSummary(req, res));
 
 export default router;

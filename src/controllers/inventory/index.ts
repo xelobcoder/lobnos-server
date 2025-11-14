@@ -7,3 +7,4 @@ export { InventoryItemController } from './InventoryItemController';
 export { PurchaseOrderController } from './PurchaseOrderController';
 export { InventoryTransactionController } from './InventoryTransactionController';
 export { SupplierPaymentController } from './SupplierPaymentController';
+export { JournalController } from './JournalController';

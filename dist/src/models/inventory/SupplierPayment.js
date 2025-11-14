@@ -347,7 +347,7 @@ class SupplierPaymentModel {
         }
         const updateData = {
             payment_status: 'reject',
-            approved_by: rejectedBy, // Use approved_by field to track who rejected
+            approved_by: rejectedBy,
             processed_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         };
