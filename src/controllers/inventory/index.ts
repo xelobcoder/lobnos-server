@@ -6,3 +6,4 @@ export { StorageLocationController } from './StorageLocationController';
 export { InventoryItemController } from './InventoryItemController';
 export { PurchaseOrderController } from './PurchaseOrderController';
 export { InventoryTransactionController } from './InventoryTransactionController';
+export { SupplierPaymentController } from './SupplierPaymentController';

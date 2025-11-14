@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InventoryTransactionController = exports.PurchaseOrderController = exports.InventoryItemController = exports.StorageLocationController = exports.SupplierController = exports.CategoryController = exports.BrandController = void 0;
+exports.SupplierPaymentController = exports.InventoryTransactionController = exports.PurchaseOrderController = exports.InventoryItemController = exports.StorageLocationController = exports.SupplierController = exports.CategoryController = exports.BrandController = void 0;
 // Inventory Management Controllers
 var BrandController_1 = require("./BrandController");
 Object.defineProperty(exports, "BrandController", { enumerable: true, get: function () { return BrandController_1.BrandController; } });
@@ -16,3 +16,5 @@ var PurchaseOrderController_1 = require("./PurchaseOrderController");
 Object.defineProperty(exports, "PurchaseOrderController", { enumerable: true, get: function () { return PurchaseOrderController_1.PurchaseOrderController; } });
 var InventoryTransactionController_1 = require("./InventoryTransactionController");
 Object.defineProperty(exports, "InventoryTransactionController", { enumerable: true, get: function () { return InventoryTransactionController_1.InventoryTransactionController; } });
+var SupplierPaymentController_1 = require("./SupplierPaymentController");
+Object.defineProperty(exports, "SupplierPaymentController", { enumerable: true, get: function () { return SupplierPaymentController_1.SupplierPaymentController; } });

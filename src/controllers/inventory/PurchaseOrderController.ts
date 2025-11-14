@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PurchaseOrderModel } from '../../models/inventory';
+import { SupplierPaymentModel } from '../../models/inventory';
 import {
      CreatePurchaseOrderRequest,
      UpdatePurchaseOrderRequest,
@@ -191,9 +192,18 @@ export class PurchaseOrderController {
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const purchaseOrder = await purchaseOrderModel.create(requestData);
 
+               // Add payment information to the created order (initially empty)
+               const orderWithPayments = {
+                    ...purchaseOrder,
+                    payment_history: [],
+                    total_paid: 0,
+                    total_pending: 0,
+                    remaining_balance: purchaseOrder.total_amount
+               };
+
                const response: ApiResponse = {
                     success: true,
-                    data: purchaseOrder
+                    data: orderWithPayments
                };
 
                res.status(201).json(response);
@@ -232,12 +242,63 @@ export class PurchaseOrderController {
                     return;
                }
 
-               const response: ApiResponse = {
-                    success: true,
-                    data: purchaseOrder
-               };
+               // Fetch payment information for this purchase order
+               const supplierPaymentModel = new SupplierPaymentModel(tenantId);
+               try {
+                    const paymentResult = await supplierPaymentModel.findMany({
+                         purchase_order_id: purchaseOrder.id,
+                         page: 1,
+                         count: 1000, // Get all payments for this order
+                         sortby: 'DESC'
+                    });
 
-               res.json(response);
+                    const payments = paymentResult.payments || [];
+
+                    // Calculate total paid (only completed payments)
+                    const totalPaid = payments
+                         .filter(payment => payment.payment_status === 'completed')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    // Calculate total pending (only pending payments)
+                    const totalPending = payments
+                         .filter(payment => payment.payment_status === 'pending')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    // Calculate remaining balance
+                    const remainingBalance = purchaseOrder.total_amount - totalPaid;
+
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: payments,
+                         total_paid: totalPaid,
+                         total_pending: totalPending,
+                         remaining_balance: remainingBalance
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               } catch (paymentError) {
+                    console.warn(`Failed to fetch payments for order ${purchaseOrder.id}:`, paymentError);
+                    // Return order without payment info if payment fetch fails
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: [],
+                         total_paid: 0,
+                         total_pending: 0,
+                         remaining_balance: purchaseOrder.total_amount
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               }
           } catch (error: any) {
                console.error('Error fetching purchase order:', error);
 
@@ -281,9 +342,58 @@ export class PurchaseOrderController {
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const result: PurchaseOrderListResponse = await purchaseOrderModel.findMany(filters);
 
+               // Fetch payment information for each purchase order
+               const supplierPaymentModel = new SupplierPaymentModel(tenantId);
+               const ordersWithPayments = await Promise.all(
+                    result.orders.map(async (order) => {
+                         try {
+                              // Get all payments for this purchase order
+                              const paymentResult = await supplierPaymentModel.findMany({
+                                   purchase_order_id: order.id,
+                                   page: 1,
+                                   count: 1000, // Get all payments for this order
+                                   sortby: 'DESC'
+                              });
+
+                              const payments = paymentResult.payments || [];
+
+                              // Calculate total paid (only completed payments)
+                              const totalPaid = payments
+                                   .filter(payment => payment.payment_status === 'completed')
+                                   .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                              // Calculate total pending (only pending payments)
+                              const totalPending = payments
+                                   .filter(payment => payment.payment_status === 'pending')
+                                   .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                              // Calculate remaining balance
+                              const remainingBalance = order.total_amount - totalPaid;
+
+                              return {
+                                   ...order,
+                                   payment_history: payments,
+                                   total_paid: totalPaid,
+                                   total_pending: totalPending,
+                                   remaining_balance: remainingBalance
+                              };
+                         } catch (error) {
+                              console.warn(`Failed to fetch payments for order ${order.id}:`, error);
+                              // Return order without payment info if payment fetch fails
+                              return {
+                                   ...order,
+                                   payment_history: [],
+                                   total_paid: 0,
+                                   total_pending: 0,
+                                   remaining_balance: order.total_amount
+                              };
+                         }
+                    })
+               );
+
                const response: ApiResponse = {
                     success: true,
-                    data: result.orders,
+                    data: ordersWithPayments,
                     pagination: {
                          page: result.page,
                          count: result.count,
@@ -344,12 +454,56 @@ export class PurchaseOrderController {
                     return;
                }
 
-               const response: ApiResponse = {
-                    success: true,
-                    data: purchaseOrder
-               };
+               // Fetch payment information for the updated order
+               const supplierPaymentModel = new SupplierPaymentModel(tenantId);
+               try {
+                    const paymentResult = await supplierPaymentModel.findMany({
+                         purchase_order_id: purchaseOrder.id,
+                         page: 1,
+                         count: 1000,
+                         sortby: 'DESC'
+                    });
 
-               res.json(response);
+                    const payments = paymentResult.payments || [];
+                    const totalPaid = payments
+                         .filter(payment => payment.payment_status === 'completed')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    const totalPending = payments
+                         .filter(payment => payment.payment_status === 'pending')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: payments,
+                         total_paid: totalPaid,
+                         total_pending: totalPending,
+                         remaining_balance: purchaseOrder.total_amount - totalPaid
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               } catch (paymentError) {
+                    console.warn(`Failed to fetch payments for order ${purchaseOrder.id}:`, paymentError);
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: [],
+                         total_paid: 0,
+                         total_pending: 0,
+                         remaining_balance: purchaseOrder.total_amount
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               }
           } catch (error: any) {
                console.error('Error updating purchase order:', error);
 
@@ -385,12 +539,56 @@ export class PurchaseOrderController {
                     return;
                }
 
-               const response: ApiResponse = {
-                    success: true,
-                    data: purchaseOrder
-               };
+               // Fetch payment information for the cancelled order
+               const supplierPaymentModel = new SupplierPaymentModel(tenantId);
+               try {
+                    const paymentResult = await supplierPaymentModel.findMany({
+                         purchase_order_id: purchaseOrder.id,
+                         page: 1,
+                         count: 1000,
+                         sortby: 'DESC'
+                    });
 
-               res.json(response);
+                    const payments = paymentResult.payments || [];
+                    const totalPaid = payments
+                         .filter(payment => payment.payment_status === 'completed')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    const totalPending = payments
+                         .filter(payment => payment.payment_status === 'pending')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: payments,
+                         total_paid: totalPaid,
+                         total_pending: totalPending,
+                         remaining_balance: purchaseOrder.total_amount - totalPaid
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               } catch (paymentError) {
+                    console.warn(`Failed to fetch payments for order ${purchaseOrder.id}:`, paymentError);
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: [],
+                         total_paid: 0,
+                         total_pending: 0,
+                         remaining_balance: purchaseOrder.total_amount
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               }
           } catch (error: any) {
                console.error('Error cancelling purchase order:', error);
 
@@ -432,12 +630,56 @@ export class PurchaseOrderController {
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const purchaseOrder = await purchaseOrderModel.receiveOrder(id, requestData);
 
-               const response: ApiResponse = {
-                    success: true,
-                    data: purchaseOrder
-               };
+               // Fetch payment information for the received order
+               const supplierPaymentModel = new SupplierPaymentModel(tenantId);
+               try {
+                    const paymentResult = await supplierPaymentModel.findMany({
+                         purchase_order_id: purchaseOrder.id,
+                         page: 1,
+                         count: 1000,
+                         sortby: 'DESC'
+                    });
 
-               res.json(response);
+                    const payments = paymentResult.payments || [];
+                    const totalPaid = payments
+                         .filter(payment => payment.payment_status === 'completed')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    const totalPending = payments
+                         .filter(payment => payment.payment_status === 'pending')
+                         .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: payments,
+                         total_paid: totalPaid,
+                         total_pending: totalPending,
+                         remaining_balance: purchaseOrder.total_amount - totalPaid
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               } catch (paymentError) {
+                    console.warn(`Failed to fetch payments for order ${purchaseOrder.id}:`, paymentError);
+                    const orderWithPayments = {
+                         ...purchaseOrder,
+                         payment_history: [],
+                         total_paid: 0,
+                         total_pending: 0,
+                         remaining_balance: purchaseOrder.total_amount
+                    };
+
+                    const response: ApiResponse = {
+                         success: true,
+                         data: orderWithPayments
+                    };
+
+                    res.json(response);
+               }
           } catch (error: any) {
                console.error('Error processing purchase order receipt:', error);
 
@@ -518,9 +760,50 @@ export class PurchaseOrderController {
                     sortby: (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
                });
 
+               // Fetch payment information for each purchase order
+               const supplierPaymentModel = new SupplierPaymentModel(tenantId);
+               const ordersWithPayments = await Promise.all(
+                    result.orders.map(async (order) => {
+                         try {
+                              const paymentResult = await supplierPaymentModel.findMany({
+                                   purchase_order_id: order.id,
+                                   page: 1,
+                                   count: 1000,
+                                   sortby: 'DESC'
+                              });
+
+                              const payments = paymentResult.payments || [];
+                              const totalPaid = payments
+                                   .filter(payment => payment.payment_status === 'completed')
+                                   .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                              const totalPending = payments
+                                   .filter(payment => payment.payment_status === 'pending')
+                                   .reduce((sum, payment) => sum + payment.payment_amount, 0);
+
+                              return {
+                                   ...order,
+                                   payment_history: payments,
+                                   total_paid: totalPaid,
+                                   total_pending: totalPending,
+                                   remaining_balance: order.total_amount - totalPaid
+                              };
+                         } catch (error) {
+                              console.warn(`Failed to fetch payments for order ${order.id}:`, error);
+                              return {
+                                   ...order,
+                                   payment_history: [],
+                                   total_paid: 0,
+                                   total_pending: 0,
+                                   remaining_balance: order.total_amount
+                              };
+                         }
+                    })
+               );
+
                const response: ApiResponse = {
                     success: true,
-                    data: result.orders,
+                    data: ordersWithPayments,
                     pagination: {
                          page: result.page,
                          count: result.count,

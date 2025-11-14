@@ -7,6 +7,8 @@ export { InventoryItemModel } from './InventoryItem';
 export { PurchaseOrderModel } from './PurchaseOrder';
 export { PurchaseOrderItemModel } from './PurchaseOrderItem';
 export { InventoryTransactionModel } from './InventoryTransaction';
+export { SupplierPaymentModel } from './SupplierPayment';
 
 // Re-export types for convenience
 export * from './types';
+export * from './supplierPaymentTypes';

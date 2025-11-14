@@ -1,5 +1,7 @@
 // Inventory Management System Types and Interfaces
 
+import { SupplierPayment } from './supplierPaymentTypes';
+
 export type InventoryUnit =
      | 'pieces'
      | 'boxes'
@@ -353,6 +355,12 @@ export interface PurchaseOrder extends BaseEntity {
      items_count?: number;
      received_items_count?: number;
      items?: PurchaseOrderItem[];
+
+     // Payment information
+     payment_history?: SupplierPayment[];
+     total_paid?: number;
+     remaining_balance?: number;
+     total_pending?: number;
 }
 
 export interface CreatePurchaseOrderRequest {

@@ -583,7 +583,7 @@ export class PurchaseOrderModel {
                                    expiry_date: receiptData.expiry_date || null,
                                    unit_cost: receiptData.unit_price || orderItem.unit_price,
                                    total_cost: (receiptData.unit_price || orderItem.unit_price) * receiptData.quantity_received,
-                                   brand_name: null, 
+                                   brand_name: null,
                                    reason: 'Purchase order receipt',
                                    reference_id: receipt.id,
                                    performed_by: request.received_by,
@@ -609,17 +609,42 @@ export class PurchaseOrderModel {
                          itemStatus = 'pending';
                     }
 
+                    // Recalculate line_total based on received quantity
+                    const receivedLineTotal = this.calculateLineTotal(
+                         receiptData.unit_price || orderItem.unit_price,
+                         updatedQuantityReceived,
+                         receiptData.tax_rate || orderItem.tax_rate,
+                         receiptData.discount_rate || orderItem.discount_rate
+                    );
+
                     await trx('inv_purchase_order_items')
                          .where('id', receiptData.order_item_id)
                          .update({
                               quantity_received: updatedQuantityReceived,
                               status: itemStatus,
+                              line_total: receivedLineTotal,
                               updated_at: new Date().toISOString()
                          });
                }
 
                // Update order status based on items
                await this.updateOrderStatus(orderId, trx);
+
+               // Update order total based on received quantities
+               const totalResult = await trx('inv_purchase_order_items')
+                    .where('order_id', orderId)
+                    .where('status', '!=', 'cancelled')
+                    .sum('line_total as total')
+                    .first();
+
+               const newTotal = parseFloat(totalResult?.total || 0);
+
+               await trx('inv_purchase_orders')
+                    .where('id', orderId)
+                    .update({
+                         total_amount: newTotal,
+                         updated_at: new Date().toISOString()
+                    });
 
                // Commit transaction
                await trx.commit();

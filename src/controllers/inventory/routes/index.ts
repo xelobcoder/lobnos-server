@@ -6,6 +6,7 @@ import storageLocationRoutes from './storageLocationRoutes';
 import inventoryItemRoutes from './inventoryItemRoutes';
 import purchaseOrderRoutes from './purchaseOrderRoutes';
 import inventoryTransactionRoutes from './inventoryTransactionRoutes';
+import supplierPaymentRoutes from './supplierPaymentRoutes';
 
 
 const router = Router();
@@ -18,6 +19,7 @@ router.use('/', storageLocationRoutes);
 router.use('/', inventoryItemRoutes);
 router.use('/', purchaseOrderRoutes);
 router.use('/transactions', inventoryTransactionRoutes);
+router.use('/supplier-payments', supplierPaymentRoutes);
 
 
 export default router;
