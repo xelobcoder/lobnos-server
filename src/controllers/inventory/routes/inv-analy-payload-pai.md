@@ -466,74 +466,60 @@ interface CostValuationAnalytics {
 **Response Structure:**
 ```typescript
 interface UsageAnalytics {
-  consumption_patterns: {
-    department_usage: Array<{
-      department_id: string;
-      department_name: string;
-      total_consumed: number;
-      percentage_of_total: number;
-      top_items: Array<{
-        item_id: string;
-        item_name: string;
-        quantity_consumed: number;
-      }>;
-    }>;
-    consumption_trends: Array<{
-      date: string;
-      total_consumed: number;
-      unique_items_used: number;
-      consumption_value: number;
-    }>;
-    predictive_usage: Array<{
-      item_id: string;
-      item_name: string;
-      predicted_monthly_usage: number;
-      confidence_level: number;
-      based_on_history_months: number;
-    }>;
-  };
-  anomalies_red_flags: {
-    unusual_usage_spikes: Array<{
-      item_id: string;
-      item_name: string;
-      date: string;
-      actual_usage: number;
-      expected_usage: number;
-      deviation_percentage: number;
-      potential_cause: string;
-    }>;
-    potential_theft_indicators: Array<{
-      item_id: string;
-      item_name: string;
-      unusual_pattern: string;
-      risk_level: 'low' | 'medium' | 'high';
-      last_incident_date: string;
-    }>;
-    misallocation_trends: Array<{
-      item_id: string;
-      item_name: string;
-      allocated_quantity: number;
-      actual_usage: number;
-      variance_percentage: number;
-      department: string;
-    }>;
-  };
-  usage_efficiency: {
-    stock_utilization_rate: number;
-    average_usage_per_department: number;
-    wastage_rate: number;
-    optimal_ordering_patterns: Array<{
-      item_id: string;
-      item_name: string;
-      recommended_order_quantity: number;
-      recommended_order_frequency_days: number;
-      reasoning: string;
-    }>;
-  };
+     consumption_patterns: {
+          consumption_trends: Array<{
+               date: string;
+               total_consumed: number;
+               unique_items_used: number;
+               consumption_value: number;
+          }>;
+          predictive_usage: Array<{
+               item_id: string;
+               item_name: string;
+               predicted_monthly_usage: number;
+               confidence_level: number;
+               based_on_history_months: number;
+          }>;
+     };
+     anomalies_red_flags: {
+          unusual_usage_spikes: Array<{
+               item_id: string;
+               item_name: string;
+               date: string;
+               actual_usage: number;
+               expected_usage: number;
+               deviation_percentage: number;
+               potential_cause: string;
+          }>;
+          potential_theft_indicators: Array<{
+               item_id: string;
+               item_name: string;
+               unusual_pattern: string;
+               risk_level: 'low' | 'medium' | 'high';
+               last_incident_date: string;
+          }>;
+          misallocation_trends: Array<{
+               item_id: string;
+               item_name: string;
+               allocated_quantity: number;
+               actual_usage: number;
+               variance_percentage: number;
+               department: string;
+          }>;
+     };
+     usage_efficiency: {
+          stock_utilization_rate: number;
+          wastage_rate: number;
+          optimal_ordering_patterns: Array<{
+               item_id: string;
+               item_name: string;
+               recommended_order_quantity: number;
+               recommended_order_frequency_days: number;
+               reasoning: string;
+          }>;
+     };
 }
-```
-
-## Error Handling
+```## Error Handling
 
 All endpoints return standardized error responses:
 
