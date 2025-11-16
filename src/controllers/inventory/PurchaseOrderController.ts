@@ -192,7 +192,6 @@ export class PurchaseOrderController {
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const purchaseOrder = await purchaseOrderModel.create(requestData);
 
-               // Add payment information to the created order (initially empty)
                const orderWithPayments = {
                     ...purchaseOrder,
                     payment_history: [],
@@ -242,29 +241,25 @@ export class PurchaseOrderController {
                     return;
                }
 
-               // Fetch payment information for this purchase order
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                try {
                     const paymentResult = await supplierPaymentModel.findMany({
                          purchase_order_id: purchaseOrder.id,
                          page: 1,
-                         count: 1000, // Get all payments for this order
+                         count: 1000,
                          sortby: 'DESC'
                     });
 
                     const payments = paymentResult.payments || [];
 
-                    // Calculate total paid (only completed payments)
                     const totalPaid = payments
                          .filter(payment => payment.payment_status === 'completed')
                          .reduce((sum, payment) => sum + payment.payment_amount, 0);
 
-                    // Calculate total pending (only pending payments)
                     const totalPending = payments
                          .filter(payment => payment.payment_status === 'pending')
                          .reduce((sum, payment) => sum + payment.payment_amount, 0);
 
-                    // Calculate remaining balance
                     const remainingBalance = purchaseOrder.total_amount - totalPaid;
 
                     const orderWithPayments = {
@@ -283,7 +278,6 @@ export class PurchaseOrderController {
                     res.json(response);
                } catch (paymentError) {
                     console.warn(`Failed to fetch payments for order ${purchaseOrder.id}:`, paymentError);
-                    // Return order without payment info if payment fetch fails
                     const orderWithPayments = {
                          ...purchaseOrder,
                          payment_history: [],
@@ -321,9 +315,10 @@ export class PurchaseOrderController {
                     page = '1',
                     count = '10',
                     supplier_id,
+                    order_id,
                     status,
-                    startDate,
-                    endDate,
+                    start_date,
+                    end_date,
                     search,
                     sortby = 'DESC'
                } = req.query;
@@ -332,9 +327,10 @@ export class PurchaseOrderController {
                     page: parseInt(page as string, 10),
                     count: parseInt(count as string, 10),
                     supplier_id: supplier_id as string,
+                    order_id: order_id as string,
                     status: status as any,
-                    startDate: startDate as string,
-                    endDate: endDate as string,
+                    start_date: start_date as string,
+                    end_date: end_date as string,
                     search: search as string,
                     sortby: (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
                };
@@ -342,32 +338,27 @@ export class PurchaseOrderController {
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const result: PurchaseOrderListResponse = await purchaseOrderModel.findMany(filters);
 
-               // Fetch payment information for each purchase order
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                const ordersWithPayments = await Promise.all(
                     result.orders.map(async (order) => {
                          try {
-                              // Get all payments for this purchase order
                               const paymentResult = await supplierPaymentModel.findMany({
                                    purchase_order_id: order.id,
                                    page: 1,
-                                   count: 1000, // Get all payments for this order
+                                   count: 1000,
                                    sortby: 'DESC'
                               });
 
                               const payments = paymentResult.payments || [];
 
-                              // Calculate total paid (only completed payments)
                               const totalPaid = payments
                                    .filter(payment => payment.payment_status === 'completed')
                                    .reduce((sum, payment) => sum + payment.payment_amount, 0);
 
-                              // Calculate total pending (only pending payments)
                               const totalPending = payments
                                    .filter(payment => payment.payment_status === 'pending')
                                    .reduce((sum, payment) => sum + payment.payment_amount, 0);
 
-                              // Calculate remaining balance
                               const remainingBalance = order.total_amount - totalPaid;
 
                               return {
@@ -379,7 +370,6 @@ export class PurchaseOrderController {
                               };
                          } catch (error) {
                               console.warn(`Failed to fetch payments for order ${order.id}:`, error);
-                              // Return order without payment info if payment fetch fails
                               return {
                                    ...order,
                                    payment_history: [],
@@ -454,7 +444,6 @@ export class PurchaseOrderController {
                     return;
                }
 
-               // Fetch payment information for the updated order
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                try {
                     const paymentResult = await supplierPaymentModel.findMany({
@@ -539,7 +528,6 @@ export class PurchaseOrderController {
                     return;
                }
 
-               // Fetch payment information for the cancelled order
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                try {
                     const paymentResult = await supplierPaymentModel.findMany({
@@ -605,9 +593,6 @@ export class PurchaseOrderController {
      }
 
      async receivePurchaseOrder(req: Request, res: Response): Promise<void> {
-          console.log(`[RECEIVE] 🚚 receivePurchaseOrder called with ID: ${req.params.id}`);
-          console.log(`[RECEIVE] 📦 Request body:`, JSON.stringify(req.body, null, 2));
-
           try {
                const tenantId = this.getTenantId(req);
                const { id } = req.params;
@@ -630,7 +615,6 @@ export class PurchaseOrderController {
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const purchaseOrder = await purchaseOrderModel.receiveOrder(id, requestData);
 
-               // Fetch payment information for the received order
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                try {
                     const paymentResult = await supplierPaymentModel.findMany({
@@ -755,12 +739,11 @@ export class PurchaseOrderController {
                     page: parseInt(page as string, 10),
                     count: parseInt(count as string, 10),
                     supplier_id: supplier_id as string,
-                    startDate: startDate as string,
-                    endDate: endDate as string,
+                    start_date: startDate as string,
+                    end_date: endDate as string,
                     sortby: (sortby as string).toUpperCase() === 'DESC' ? 'DESC' : 'ASC'
                });
 
-               // Fetch payment information for each purchase order
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                const ordersWithPayments = await Promise.all(
                     result.orders.map(async (order) => {

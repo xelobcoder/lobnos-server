@@ -21,7 +21,6 @@ class PurchaseOrderModel {
         return `ORD-${year}${month}${day}-${timestamp}`;
     }
     generateOrderItemId() {
-        // Use timestamp with counter to ensure uniqueness even within the same millisecond
         const timestamp = Date.now();
         this.orderItemCounter += 1;
         return `POI-${timestamp}${this.orderItemCounter.toString().padStart(3, '0')}`;
@@ -40,11 +39,9 @@ class PurchaseOrderModel {
     }
     async create(request) {
         const connection = await this.connection;
-        // Reset counters for new order
         this.orderItemCounter = 0;
         this.receiptCounter = 0;
         this.transactionCounter = 0;
-        // Validate supplier exists and is active
         const supplier = await connection('inv_suppliers')
             .where('id', request.supplier_id)
             .where('is_active', true)
@@ -52,7 +49,6 @@ class PurchaseOrderModel {
         if (!supplier) {
             throw new Error('Supplier not found or inactive');
         }
-        // Validate items exist and are active
         for (const item of request.items) {
             const inventoryItem = await connection('inv_inventory_items')
                 .where('id', item.inventory_item_id)
@@ -76,16 +72,13 @@ class PurchaseOrderModel {
             communication_method: request.communication_method || null,
             communication_notes: request.communication_notes || null,
             notes: request.notes || null,
-            created_by: null, // TODO: Get from auth context
+            created_by: null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         };
-        // Start transaction
         const trx = await connection.transaction();
         try {
-            // Insert order
             await trx('inv_purchase_orders').insert(orderData);
-            // Insert order items
             const orderItems = request.items.map(item => {
                 const lineTotal = this.calculateLineTotal(item.unit_price, item.quantity_ordered, item.tax_rate || 0, item.discount_rate || 0);
                 return {
@@ -124,9 +117,7 @@ class PurchaseOrderModel {
             .first();
         if (!result)
             return null;
-        // Fetch the items for this order
         const items = await this.getOrderItems(id);
-        // Build supplier object
         const supplier = result.supplier_id_join ? {
             id: result.supplier_id_join,
             name: result.supplier_name,
@@ -169,16 +160,18 @@ class PurchaseOrderModel {
     }
     async findMany(filters) {
         const connection = await this.connection;
-        const { page = 1, count = 10, sortby = 'DESC', supplier_id, status, startDate, endDate, search } = filters;
+        const { page = 1, count = 10, sortby = 'DESC', supplier_id, order_id, status, start_date, end_date, search } = filters;
         let query = connection('inv_purchase_orders')
             .leftJoin('inv_suppliers', 'inv_purchase_orders.supplier_id', 'inv_suppliers.id')
             .leftJoin('inv_purchase_order_items', 'inv_purchase_orders.id', 'inv_purchase_order_items.order_id')
             .select('inv_purchase_orders.*', 'inv_suppliers.name as supplier_name', connection.raw('COUNT(DISTINCT inv_purchase_order_items.id) as items_count'), connection.raw('COUNT(DISTINCT CASE WHEN inv_purchase_order_items.status = "received" THEN inv_purchase_order_items.id END) as received_items_count'))
             .groupBy('inv_purchase_orders.id', 'inv_suppliers.name')
             .orderBy('inv_purchase_orders.created_at', sortby);
-        // Apply filters
         if (supplier_id) {
             query = query.where('inv_purchase_orders.supplier_id', supplier_id);
+        }
+        if (order_id) {
+            query = query.where('inv_purchase_orders.order_number', order_id);
         }
         if (status) {
             if (Array.isArray(status)) {
@@ -195,11 +188,11 @@ class PurchaseOrderModel {
                     .orWhere('inv_suppliers.name', 'like', `%${search}%`);
             });
         }
-        if (startDate) {
-            query = query.where('inv_purchase_orders.order_date', '>=', startDate);
+        if (start_date) {
+            query = query.where('inv_purchase_orders.order_date', '>=', start_date);
         }
-        if (endDate) {
-            query = query.where('inv_purchase_orders.order_date', '<=', endDate);
+        if (end_date) {
+            query = query.where('inv_purchase_orders.order_date', '<=', end_date);
         }
         const totalQuery = query.clone().clearSelect().clearOrder().select(connection.raw('COUNT(DISTINCT ??) as ??', ['inv_purchase_orders.id', 'count'])).first();
         const totalResult = await totalQuery;
@@ -239,11 +232,9 @@ class PurchaseOrderModel {
         if (!currentOrder) {
             throw new Error('Purchase order not found');
         }
-        // Only allow updates if order is not received or cancelled
         if (currentOrder.status === 'received' || currentOrder.status === 'cancelled') {
             throw new Error('Cannot update a received or cancelled order');
         }
-        // Validate supplier if changing
         if (updates.supplier_id && updates.supplier_id !== currentOrder.supplier_id) {
             const supplier = await connection('inv_suppliers')
                 .where('id', updates.supplier_id)
@@ -256,7 +247,6 @@ class PurchaseOrderModel {
         const updateData = {
             updated_at: new Date().toISOString()
         };
-        // Map updates
         if (updates.supplier_id !== undefined)
             updateData.supplier_id = updates.supplier_id;
         if (updates.expected_delivery_date !== undefined)
@@ -283,17 +273,14 @@ class PurchaseOrderModel {
         if (currentOrder.status === 'received' || currentOrder.status === 'cancelled') {
             throw new Error('Order is already received or cancelled');
         }
-        // Start transaction to update order and items
         const trx = await connection.transaction();
         try {
-            // Update order status
             await trx('inv_purchase_orders')
                 .where({ id })
                 .update({
                 status: 'cancelled',
                 updated_at: new Date().toISOString()
             });
-            // Update all order items to cancelled
             await trx('inv_purchase_order_items')
                 .where('order_id', id)
                 .update({
@@ -336,7 +323,6 @@ class PurchaseOrderModel {
     }
     async updateOrderStatus(orderId, trx) {
         const connection = trx || await this.connection;
-        // Get order items status
         const items = await connection('inv_purchase_order_items')
             .where('order_id', orderId)
             .select('status', 'quantity_ordered', 'quantity_received');
@@ -353,7 +339,7 @@ class PurchaseOrderModel {
             newStatus = 'partially_received';
         }
         else {
-            newStatus = 'ordered'; // fallback
+            newStatus = 'ordered';
         }
         await connection('inv_purchase_orders')
             .where('id', orderId)
@@ -378,13 +364,10 @@ class PurchaseOrderModel {
     }
     async receiveOrder(orderId, request) {
         const connection = await this.connection;
-        // Reset counters for receipt processing
         this.receiptCounter = 0;
         this.transactionCounter = 0;
-        // Start transaction
         const trx = await connection.transaction();
         try {
-            // Validate order exists and is not cancelled
             const order = await trx('inv_purchase_orders')
                 .where('id', orderId)
                 .whereNot('status', 'cancelled')
@@ -394,9 +377,7 @@ class PurchaseOrderModel {
             }
             const receipts = [];
             const transactions = [];
-            // Process each receipt
             for (const receiptData of request.receipts) {
-                // Validate order item exists
                 const orderItem = await trx('inv_purchase_order_items')
                     .where('id', receiptData.order_item_id)
                     .where('order_id', orderId)
@@ -404,14 +385,11 @@ class PurchaseOrderModel {
                 if (!orderItem) {
                     throw new Error(`Order item ${receiptData.order_item_id} not found in this order`);
                 }
-                // Check if quantity received doesn't exceed ordered quantity
                 const newTotalReceived = orderItem.quantity_received + receiptData.quantity_received;
                 if (newTotalReceived > orderItem.quantity_ordered) {
                     throw new Error(`Cannot receive more than ordered quantity for item ${receiptData.order_item_id}`);
                 }
-                // Generate receipt number
                 const receiptNumber = this.generateReceiptNumber();
-                // Create receipt record
                 const receipt = {
                     id: `REC-${Date.now()}`,
                     order_id: orderId,
@@ -428,16 +406,14 @@ class PurchaseOrderModel {
                     condition_status: receiptData.condition_status || 'good',
                     quality_check_passed: receiptData.quality_check_passed !== undefined ? receiptData.quality_check_passed : true,
                     notes: receiptData.notes || null,
-                    image_url: null, // TODO: Handle image uploads
+                    image_url: null,
                     created_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 };
                 await trx('inv_purchase_order_receipts').insert(receipt);
                 receipts.push(receipt);
-                // Update inventory and create transaction only for good/acceptable items
                 if (receipt.condition_status === 'good' || receipt.condition_status === 'acceptable') {
                     if (orderItem.inventory_item_id) {
-                        // Get current stock
                         const inventoryItem = await trx('inv_inventory_items')
                             .where('id', orderItem.inventory_item_id)
                             .first();
@@ -446,7 +422,6 @@ class PurchaseOrderModel {
                         }
                         const previousStock = inventoryItem.current_stock;
                         const newStock = previousStock + receiptData.quantity_received;
-                        // Update inventory stock
                         await trx('inv_inventory_items')
                             .where('id', orderItem.inventory_item_id)
                             .update({
@@ -455,7 +430,6 @@ class PurchaseOrderModel {
                             last_updated: new Date().toISOString(),
                             updated_at: new Date().toISOString()
                         });
-                        // Create transaction record
                         const transaction = {
                             id: this.generateTransactionId(),
                             item_id: orderItem.inventory_item_id,
@@ -479,7 +453,6 @@ class PurchaseOrderModel {
                         transactions.push(transaction);
                     }
                 }
-                // Update order item quantities and status
                 const updatedQuantityReceived = orderItem.quantity_received + receiptData.quantity_received;
                 let itemStatus;
                 if (updatedQuantityReceived >= orderItem.quantity_ordered) {
@@ -491,7 +464,6 @@ class PurchaseOrderModel {
                 else {
                     itemStatus = 'pending';
                 }
-                // Recalculate line_total based on received quantity
                 const receivedLineTotal = this.calculateLineTotal(receiptData.unit_price || orderItem.unit_price, updatedQuantityReceived, receiptData.tax_rate || orderItem.tax_rate, receiptData.discount_rate || orderItem.discount_rate);
                 await trx('inv_purchase_order_items')
                     .where('id', receiptData.order_item_id)
@@ -502,9 +474,7 @@ class PurchaseOrderModel {
                     updated_at: new Date().toISOString()
                 });
             }
-            // Update order status based on items
             await this.updateOrderStatus(orderId, trx);
-            // Update order total based on received quantities
             const totalResult = await trx('inv_purchase_order_items')
                 .where('order_id', orderId)
                 .where('status', '!=', 'cancelled')
@@ -517,9 +487,7 @@ class PurchaseOrderModel {
                 total_amount: newTotal,
                 updated_at: new Date().toISOString()
             });
-            // Commit transaction
             await trx.commit();
-            // Return updated order
             const updatedOrder = await this.findById(orderId);
             if (!updatedOrder) {
                 throw new Error('Failed to retrieve updated order');
@@ -527,7 +495,6 @@ class PurchaseOrderModel {
             return updatedOrder;
         }
         catch (error) {
-            // Rollback transaction on error
             await trx.rollback();
             throw error;
         }
@@ -541,8 +508,7 @@ class PurchaseOrderModel {
     }
     async getReceivedOrdersReport(filters) {
         const connection = await this.connection;
-        const { page = 1, count = 10, supplier_id, startDate, endDate, sortby = 'DESC' } = filters;
-        // Build the comprehensive query for received orders
+        const { page = 1, count = 10, supplier_id, status, start_date, end_date, sortby = 'DESC' } = filters;
         let query = connection('inv_purchase_orders')
             .leftJoin('inv_suppliers', 'inv_purchase_orders.supplier_id', 'inv_suppliers.id')
             .leftJoin('inv_purchase_order_items', 'inv_purchase_orders.id', 'inv_purchase_order_items.order_id')
@@ -550,43 +516,37 @@ class PurchaseOrderModel {
             .leftJoin('inv_purchase_order_receipts', 'inv_purchase_order_items.id', 'inv_purchase_order_receipts.order_item_id')
             .leftJoin('inv_inventory_transactions', 'inv_purchase_order_receipts.id', 'inv_inventory_transactions.reference_id')
             .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
-            .select(
-        // Order information
-        'inv_purchase_orders.id as order_id', 'inv_purchase_orders.order_number', 'inv_purchase_orders.order_date', 'inv_purchase_orders.expected_delivery_date', 'inv_purchase_orders.status', 'inv_purchase_orders.total_amount', 'inv_purchase_orders.communication_method', 'inv_purchase_orders.communication_notes', 'inv_purchase_orders.notes', 'inv_purchase_orders.created_at as order_created_at', 'inv_purchase_orders.updated_at as order_updated_at', 
-        // Supplier information
-        'inv_suppliers.id as supplier_id', 'inv_suppliers.name as supplier_name', 'inv_suppliers.contact as supplier_contact', 'inv_suppliers.email as supplier_email', 'inv_suppliers.phone as supplier_phone', 'inv_suppliers.address as supplier_address', 
-        // Order item information
-        'inv_purchase_order_items.id as item_id', 'inv_purchase_order_items.quantity_ordered', 'inv_purchase_order_items.quantity_received', 'inv_purchase_order_items.unit_price as item_unit_price', 'inv_purchase_order_items.tax_rate as item_tax_rate', 'inv_purchase_order_items.discount_rate as item_discount_rate', 'inv_purchase_order_items.line_total', 'inv_purchase_order_items.status as item_status', 'inv_purchase_order_items.notes as item_notes', 'inv_purchase_order_items.created_at as item_created_at', 
-        // Inventory item information
-        'inv_inventory_items.name as inventory_name', 'inv_inventory_items.sku as inventory_sku', 'inv_inventory_items.unit as inventory_unit', 
-        // Receipt information
-        'inv_purchase_order_receipts.id as receipt_id', 'inv_purchase_order_receipts.receipt_number', 'inv_purchase_order_receipts.received_date', 'inv_purchase_order_receipts.received_by', 'inv_purchase_order_receipts.quantity_received as receipt_quantity', 'inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.unit_price as receipt_unit_price', 'inv_purchase_order_receipts.tax_rate as receipt_tax_rate', 'inv_purchase_order_receipts.discount_rate as receipt_discount_rate', 'inv_purchase_order_receipts.condition_status', 'inv_purchase_order_receipts.quality_check_passed', 'inv_purchase_order_receipts.notes as receipt_notes', 'inv_purchase_order_receipts.created_at as receipt_created_at', 
-        // Transaction information
-        'inv_inventory_transactions.id as transaction_id', 'inv_inventory_transactions.transaction_type', 'inv_inventory_transactions.quantity as transaction_quantity', 'inv_inventory_transactions.previous_stock', 'inv_inventory_transactions.new_stock', 'inv_inventory_transactions.unit_cost', 'inv_inventory_transactions.total_cost', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.reason', 'inv_inventory_transactions.performed_by', 'inv_inventory_transactions.transaction_date', 'inv_inventory_transactions.notes as transaction_notes', 'inv_inventory_transactions.created_at as transaction_created_at', 
-        // Employee information
-        'roles.employeeid as employee_id', 'roles.username as employee_fullname', 'roles.email as employee_email', 'roles.role as employee_jobtitle')
-            .where('inv_purchase_orders.status', 'received');
-        // Apply filters
+            .select('inv_purchase_orders.id as order_id', 'inv_purchase_orders.order_number', 'inv_purchase_orders.order_date', 'inv_purchase_orders.expected_delivery_date', 'inv_purchase_orders.status', 'inv_purchase_orders.total_amount', 'inv_purchase_orders.communication_method', 'inv_purchase_orders.communication_notes', 'inv_purchase_orders.notes', 'inv_purchase_orders.created_at as order_created_at', 'inv_purchase_orders.updated_at as order_updated_at', 'inv_suppliers.id as supplier_id', 'inv_suppliers.name as supplier_name', 'inv_suppliers.contact as supplier_contact', 'inv_suppliers.email as supplier_email', 'inv_suppliers.phone as supplier_phone', 'inv_suppliers.address as supplier_address', 'inv_purchase_order_items.id as item_id', 'inv_purchase_order_items.quantity_ordered', 'inv_purchase_order_items.quantity_received', 'inv_purchase_order_items.unit_price as item_unit_price', 'inv_purchase_order_items.tax_rate as item_tax_rate', 'inv_purchase_order_items.discount_rate as item_discount_rate', 'inv_purchase_order_items.line_total', 'inv_purchase_order_items.status as item_status', 'inv_purchase_order_items.notes as item_notes', 'inv_purchase_order_items.created_at as item_created_at', 'inv_inventory_items.name as inventory_name', 'inv_inventory_items.sku as inventory_sku', 'inv_inventory_items.unit as inventory_unit', 'inv_purchase_order_receipts.id as receipt_id', 'inv_purchase_order_receipts.receipt_number', 'inv_purchase_order_receipts.received_date', 'inv_purchase_order_receipts.received_by', 'inv_purchase_order_receipts.quantity_received as receipt_quantity', 'inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.unit_price as receipt_unit_price', 'inv_purchase_order_receipts.tax_rate as receipt_tax_rate', 'inv_purchase_order_receipts.discount_rate as receipt_discount_rate', 'inv_purchase_order_receipts.condition_status', 'inv_purchase_order_receipts.quality_check_passed', 'inv_purchase_order_receipts.notes as receipt_notes', 'inv_purchase_order_receipts.created_at as receipt_created_at', 'inv_inventory_transactions.id as transaction_id', 'inv_inventory_transactions.transaction_type', 'inv_inventory_transactions.quantity as transaction_quantity', 'inv_inventory_transactions.previous_stock', 'inv_inventory_transactions.new_stock', 'inv_inventory_transactions.unit_cost', 'inv_inventory_transactions.total_cost', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.reason', 'inv_inventory_transactions.performed_by', 'inv_inventory_transactions.transaction_date', 'inv_inventory_transactions.notes as transaction_notes', 'inv_inventory_transactions.created_at as transaction_created_at', 'roles.employeeid as employee_id', 'roles.username as employee_fullname', 'roles.email as employee_email', 'roles.role as employee_jobtitle')
+            .where(function () {
+            if (status) {
+                if (Array.isArray(status)) {
+                    this.whereIn('inv_purchase_orders.status', status);
+                }
+                else {
+                    this.where('inv_purchase_orders.status', status);
+                }
+            }
+            else {
+                this.where('inv_purchase_orders.status', 'received');
+            }
+        });
         if (supplier_id) {
             query = query.where('inv_purchase_orders.supplier_id', supplier_id);
         }
-        if (startDate) {
-            query = query.where('inv_purchase_orders.order_date', '>=', startDate);
+        if (start_date) {
+            query = query.where('inv_purchase_orders.order_date', '>=', start_date);
         }
-        if (endDate) {
-            query = query.where('inv_purchase_orders.order_date', '<=', endDate);
+        if (end_date) {
+            query = query.where('inv_purchase_orders.order_date', '<=', end_date);
         }
-        // Get total count for pagination
         const totalQuery = query.clone().clearSelect().clearOrder()
             .countDistinct('inv_purchase_orders.id as count').first();
         const totalResult = await totalQuery;
         const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
-        // Apply ordering and pagination
         query = query.orderBy('inv_purchase_orders.order_date', sortby)
             .orderBy('inv_purchase_orders.created_at', sortby);
         const offset = (page - 1) * count;
         const rawData = await query.limit(count).offset(offset);
-        // Group the results by order
         const ordersMap = new Map();
         rawData.forEach((row) => {
             const orderId = row.order_id;
@@ -618,7 +578,6 @@ class PurchaseOrderModel {
                 });
             }
             const order = ordersMap.get(orderId);
-            // Find or create item
             let item = order.items.find((i) => i.id === row.item_id);
             if (!item) {
                 item = {
@@ -643,7 +602,6 @@ class PurchaseOrderModel {
                 order.total_cost += item.line_total;
                 order.total_received_quantity += item.quantity_received;
             }
-            // Add receipt if exists
             if (row.receipt_id) {
                 let receipt = item.receipts.find((r) => r.id === row.receipt_id);
                 if (!receipt) {
@@ -666,7 +624,6 @@ class PurchaseOrderModel {
                     };
                     item.receipts.push(receipt);
                 }
-                // Add transaction if exists
                 if (row.transaction_id) {
                     const transaction = {
                         id: row.transaction_id,
@@ -693,7 +650,6 @@ class PurchaseOrderModel {
                         created_at: row.transaction_created_at
                     };
                     receipt.transactions.push(transaction);
-                    // Add transaction cost to order total
                     order.total_transaction_cost += transaction.total_cost;
                 }
             }

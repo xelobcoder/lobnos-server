@@ -396,9 +396,10 @@ export interface PurchaseOrderFilters {
      count?: number;
      sortby?: 'ASC' | 'DESC';
      supplier_id?: string;
+     order_id?: string;
      status?: PurchaseOrderStatus | PurchaseOrderStatus[];
-     startDate?: string;
-     endDate?: string;
+     start_date?: string;
+     end_date?: string;
      search?: string;
 }
 
