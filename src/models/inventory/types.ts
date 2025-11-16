@@ -680,3 +680,38 @@ export interface ConsumptionReportResponse {
      sortby: 'ASC' | 'DESC';
      summary: ConsumptionSummary;
 }
+
+// Stock management interfaces
+export interface ExpiredBatchDetails {
+     item_id: string;
+     item_name: string;
+     item_sku: string;
+     batch_number: string;
+     brand_name?: string;
+     expiry_date: string;
+     unit_price: number;
+     total_received: number;
+     total_consumed: number;
+     available_quantity: number;
+     total_value: number;
+     days_to_expiry: number;
+}
+
+export interface ExpiredBatchesSummary {
+     total_expired_batches: number;
+     total_expired_quantity: number;
+     total_expired_value: number;
+     unique_items_affected: number;
+     expiry_threshold_days: number;
+     expiry_threshold_date: string;
+}
+
+export interface ExpiredBatchesResponse {
+     expired_batches: ExpiredBatchDetails[];
+     total: number;
+     page: number;
+     count: number;
+     totalPages: number;
+     sortby: 'ASC' | 'DESC';
+     summary: ExpiredBatchesSummary;
+}

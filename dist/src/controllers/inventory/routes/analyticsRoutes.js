@@ -5,7 +5,6 @@ const InventoryAnalyticsController_1 = require("../InventoryAnalyticsController"
 const router = (0, express_1.Router)();
 const analyticsController = new InventoryAnalyticsController_1.InventoryAnalyticsController();
 router.get('/analytics/dashboard', (req, res) => analyticsController.getDashboardSummary(req, res));
-router.get('/analytics/stock-status', (req, res) => analyticsController.getStockStatusAnalytics(req, res));
 router.get('/analytics/purchase-orders', (req, res) => analyticsController.getPurchaseOrderAnalytics(req, res));
 router.get('/analytics/transactions', (req, res) => analyticsController.getTransactionAnalytics(req, res));
 router.get('/analytics/payments', (req, res) => analyticsController.getPaymentAnalytics(req, res));

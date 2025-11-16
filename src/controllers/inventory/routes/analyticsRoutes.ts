@@ -6,8 +6,6 @@ const analyticsController = new InventoryAnalyticsController();
 
 router.get('/analytics/dashboard', (req, res) => analyticsController.getDashboardSummary(req, res));
 
-router.get('/analytics/stock-status', (req, res) => analyticsController.getStockStatusAnalytics(req, res));
-
 router.get('/analytics/purchase-orders', (req, res) => analyticsController.getPurchaseOrderAnalytics(req, res));
 
 router.get('/analytics/transactions', (req, res) => analyticsController.getTransactionAnalytics(req, res));

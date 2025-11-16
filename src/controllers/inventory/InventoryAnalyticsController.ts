@@ -3,7 +3,6 @@ import { ApiResponse } from '../../models/inventory/types';
 import KnexConnection from '../../database/KnexConnections';
 import {
      InventoryAnalyticsSummary,
-     StockStatusAnalytics,
      TransactionAnalytics,
      CostAnalytics,
      PaymentAnalytics,
@@ -43,8 +42,20 @@ export class InventoryAnalyticsController {
                const [supplierCount] = await connection('inv_suppliers').count('* as count') as any[];
                const [locationCount] = await connection('inv_storage_locations').count('* as count') as any[];
 
-               // Calculate total stock value (simplified - would need actual pricing)
-               const totalStockValue = 0; // Placeholder - would need to calculate based on item costs
+               // Calculate total stock value: received items minus consumed/wasted
+               const totalReceivedValue = await connection.raw(`
+                    SELECT COALESCE(SUM(unit_price * quantity_received), 0) as total_received
+                    FROM inv_purchase_order_receipts 
+               `);
+
+               const totalConsumedValue = await connection.raw(`
+                    SELECT COALESCE(SUM(total_cost), 0) as total_consumed
+                    FROM inv_consumption_history
+                    WHERE consumption_reason IN ('consumption', 'wastage')
+               `);
+
+               const totalStockValue = parseFloat(totalReceivedValue[0][0]?.total_received || 0) -
+                    parseFloat(totalConsumedValue[0][0]?.total_consumed || 0);
 
                const summary: InventoryAnalyticsSummary = {
                     total_items: parseInt(inventorySummary.total_items) || 0,
@@ -69,55 +80,6 @@ export class InventoryAnalyticsController {
                const response: ApiResponse<null> = {
                     success: false,
                     message: error.message || 'Failed to retrieve dashboard summary',
-                    data: null
-               };
-               res.status(500).json(response);
-          }
-     }
-
-     async getStockStatusAnalytics(req: Request, res: Response): Promise<void> {
-          try {
-               const tenantId = this.getTenantId(req);
-               const connection = await KnexConnection(tenantId);
-
-               let stockStatusQuery = connection('inv_inventory_items')
-                    .select(
-                         connection.raw('SUM(CASE WHEN status = "in_stock" THEN 1 ELSE 0 END) as in_stock'),
-                         connection.raw('SUM(CASE WHEN status = "low_stock" THEN 1 ELSE 0 END) as low_stock'),
-                         connection.raw('SUM(CASE WHEN status = "out_of_stock" THEN 1 ELSE 0 END) as out_of_stock'),
-                         connection.raw('SUM(CASE WHEN status = "expired" THEN 1 ELSE 0 END) as expired')
-                    );
-
-               const stockStatus = await stockStatusQuery.first() as any;
-
-               // Placeholder for stock value calculations - would need pricing data
-               const stockValueByStatus = {
-                    in_stock: 0,
-                    low_stock: 0,
-                    out_of_stock: 0,
-                    expired: 0
-               };
-
-               const analytics: StockStatusAnalytics = {
-                    in_stock: parseInt(stockStatus.in_stock) || 0,
-                    low_stock: parseInt(stockStatus.low_stock) || 0,
-                    out_of_stock: parseInt(stockStatus.out_of_stock) || 0,
-                    expired: parseInt(stockStatus.expired) || 0,
-                    stock_value_by_status: stockValueByStatus
-               };
-
-               const response: ApiResponse<StockStatusAnalytics> = {
-                    success: true,
-                    message: 'Stock status analytics retrieved successfully',
-                    data: analytics
-               };
-
-               res.json(response);
-          } catch (error: any) {
-               console.error('Error retrieving stock status analytics:', error);
-               const response: ApiResponse<null> = {
-                    success: false,
-                    message: error.message || 'Failed to retrieve stock status analytics',
                     data: null
                };
                res.status(500).json(response);
@@ -412,76 +374,758 @@ export class InventoryAnalyticsController {
           try {
                const tenantId = this.getTenantId(req);
                const connection = await KnexConnection(tenantId);
-               const { itemid, supplierid } = req.query;
+               const { itemid, supplierid, start_date, end_date } = req.query;
 
-               // Get transaction summary
-               const transactionSummary = await connection('inv_inventory_transactions')
-                    .select(
-                         connection.raw('COUNT(*) as total_transactions'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN 1 ELSE 0 END) as additions'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN 1 ELSE 0 END) as consumptions'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "adjustment" THEN 1 ELSE 0 END) as adjustments'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "transfer" THEN 1 ELSE 0 END) as transfers'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "wastage" THEN 1 ELSE 0 END) as wastage')
-                    )
-                    .first() as any;
+               // Build date filter conditions
+               let dateFilter = '';
+               const dateParams: any[] = [];
 
-               // Get transaction trends (last 30 days)
-               let transactionTrendsQuery = connection('inv_inventory_transactions')
-                    .select(
-                         connection.raw('DATE(transaction_date) as date'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN 1 ELSE 0 END) as additions'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN 1 ELSE 0 END) as consumptions'),
-                         connection.raw('SUM(CASE WHEN transaction_type = "adjustment" THEN 1 ELSE 0 END) as adjustments')
-                    )
-                    .where('transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 30 DAY)'));
-
-               if (itemid) {
-                    transactionTrendsQuery = transactionTrendsQuery.andWhere('item_id', itemid);
+               if (start_date) {
+                    dateFilter += ' AND transaction_date >= ?';
+                    dateParams.push(start_date);
                }
 
-               const transactionTrends = await transactionTrendsQuery
-                    .groupBy('date')
-                    .orderBy('date', 'desc') as any[];
+               if (end_date) {
+                    dateFilter += ' AND transaction_date <= ?';
+                    dateParams.push(end_date);
+               }
 
+               // Utility function for raw results
+               const parseRawResult = (result: any): any[] => result?.[0] || [];
 
+               // 1. Core Transaction Metrics
+               let coreMetricsQuery = connection.raw(`
+                    SELECT
+                         -- Overall Metrics
+                         COUNT(*) as total_transactions,
+                         SUM(quantity) as total_quantity_moved,
+                         AVG(quantity) as avg_quantity_per_transaction,
+                         SUM(CASE WHEN total_cost IS NOT NULL THEN total_cost ELSE 0 END) as total_transaction_value,
 
-               // Get top consumed items
-               const topConsumedItems = await connection('inv_inventory_transactions')
-                    .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-                    .select(
-                         'inv_inventory_transactions.item_id',
-                         'inv_inventory_items.name as item_name',
-                         connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_consumed')
+                         -- Transaction Type Distribution
+                         COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                         COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                         COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+                         COUNT(CASE WHEN transaction_type = 'adjustment' THEN 1 END) as adjustment_count,
+                         COUNT(CASE WHEN transaction_type = 'transfer' THEN 1 END) as transfer_count,
+
+                         -- Quantity by Type
+                         SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                         SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+                         SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+                         SUM(CASE WHEN transaction_type = 'adjustment' THEN quantity ELSE 0 END) as adjustment_quantity,
+                         SUM(CASE WHEN transaction_type = 'transfer' THEN quantity ELSE 0 END) as transfer_quantity,
+
+                         -- Cost Analysis
+                         SUM(CASE WHEN transaction_type = 'addition' THEN total_cost ELSE 0 END) as addition_cost,
+                         AVG(CASE WHEN transaction_type = 'addition' THEN unit_cost ELSE NULL END) as avg_addition_unit_cost,
+
+                         -- Temporal Analysis
+                         MIN(transaction_date) as first_transaction_date,
+                         MAX(transaction_date) as last_transaction_date,
+                         DATEDIFF(MAX(transaction_date), MIN(transaction_date)) as transaction_period_days,
+                         COUNT(DISTINCT DATE(transaction_date)) as unique_transaction_days,
+
+                         -- Batch Analysis
+                         COUNT(DISTINCT batch_number) as unique_batches,
+                         COUNT(DISTINCT item_id) as unique_items,
+                         COUNT(DISTINCT performed_by) as unique_users,
+                         COUNT(DISTINCT reason) as unique_reasons
+
+                    FROM inv_inventory_transactions
+                    WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+               `);
+
+               if (start_date) {
+                    coreMetricsQuery = connection.raw(`
+                         SELECT
+                              -- Overall Metrics
+                              COUNT(*) as total_transactions,
+                              SUM(quantity) as total_quantity_moved,
+                              AVG(quantity) as avg_quantity_per_transaction,
+                              SUM(CASE WHEN total_cost IS NOT NULL THEN total_cost ELSE 0 END) as total_transaction_value,
+
+                              -- Transaction Type Distribution
+                              COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                              COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                              COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+                              COUNT(CASE WHEN transaction_type = 'adjustment' THEN 1 END) as adjustment_count,
+                              COUNT(CASE WHEN transaction_type = 'transfer' THEN 1 END) as transfer_count,
+
+                              -- Quantity by Type
+                              SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                              SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+                              SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+                              SUM(CASE WHEN transaction_type = 'adjustment' THEN quantity ELSE 0 END) as adjustment_quantity,
+                              SUM(CASE WHEN transaction_type = 'transfer' THEN quantity ELSE 0 END) as transfer_quantity,
+
+                              -- Cost Analysis
+                              SUM(CASE WHEN transaction_type = 'addition' THEN total_cost ELSE 0 END) as addition_cost,
+                              AVG(CASE WHEN transaction_type = 'addition' THEN unit_cost ELSE NULL END) as avg_addition_unit_cost,
+                              (SELECT COALESCE(SUM(total_cost), 0) FROM inv_consumption_history WHERE consumption_reason IN ('consumption', 'wastage')) as consumption_cost_total,
+
+                              -- Temporal Analysis
+                              MIN(transaction_date) as first_transaction_date,
+                              MAX(transaction_date) as last_transaction_date,
+                              DATEDIFF(MAX(transaction_date), MIN(transaction_date)) as transaction_period_days,
+                              COUNT(DISTINCT DATE(transaction_date)) as unique_transaction_days,
+
+                              -- Batch Analysis
+                              COUNT(DISTINCT batch_number) as unique_batches,
+                              COUNT(DISTINCT item_id) as unique_items,
+                              COUNT(DISTINCT performed_by) as unique_users,
+                              COUNT(DISTINCT reason) as unique_reasons
+
+                         FROM inv_inventory_transactions
+                         WHERE transaction_date >= ?
+                    `, [start_date]);
+               }
+
+               if (end_date && start_date) {
+                    coreMetricsQuery = connection.raw(`
+                         SELECT
+                              -- Overall Metrics
+                              COUNT(*) as total_transactions,
+                              SUM(quantity) as total_quantity_moved,
+                              AVG(quantity) as avg_quantity_per_transaction,
+                              SUM(CASE WHEN total_cost IS NOT NULL THEN total_cost ELSE 0 END) as total_transaction_value,
+
+                              -- Transaction Type Distribution
+                              COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                              COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                              COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+                              COUNT(CASE WHEN transaction_type = 'adjustment' THEN 1 END) as adjustment_count,
+                              COUNT(CASE WHEN transaction_type = 'transfer' THEN 1 END) as transfer_count,
+
+                              -- Quantity by Type
+                              SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                              SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+                              SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+                              SUM(CASE WHEN transaction_type = 'adjustment' THEN quantity ELSE 0 END) as adjustment_quantity,
+                              SUM(CASE WHEN transaction_type = 'transfer' THEN quantity ELSE 0 END) as transfer_quantity,
+
+                              -- Cost Analysis
+                              SUM(CASE WHEN transaction_type = 'addition' THEN total_cost ELSE 0 END) as addition_cost,
+                              AVG(CASE WHEN transaction_type = 'addition' THEN unit_cost ELSE NULL END) as avg_addition_unit_cost,
+                              (SELECT COALESCE(SUM(total_cost), 0) FROM inv_consumption_history WHERE consumption_reason IN ('consumption', 'wastage')) as consumption_cost_total,
+
+                              -- Temporal Analysis
+                              MIN(transaction_date) as first_transaction_date,
+                              MAX(transaction_date) as last_transaction_date,
+                              DATEDIFF(MAX(transaction_date), MIN(transaction_date)) as transaction_period_days,
+                              COUNT(DISTINCT DATE(transaction_date)) as unique_transaction_days,
+
+                              -- Batch Analysis
+                              COUNT(DISTINCT batch_number) as unique_batches,
+                              COUNT(DISTINCT item_id) as unique_items,
+                              COUNT(DISTINCT performed_by) as unique_users,
+                              COUNT(DISTINCT reason) as unique_reasons
+
+                         FROM inv_inventory_transactions
+                         WHERE transaction_date >= ? AND transaction_date <= ?
+                    `, [start_date, end_date]);
+               } else if (end_date) {
+                    coreMetricsQuery = connection.raw(`
+                         SELECT
+                              -- Overall Metrics
+                              COUNT(*) as total_transactions,
+                              SUM(quantity) as total_quantity_moved,
+                              AVG(quantity) as avg_quantity_per_transaction,
+                              SUM(CASE WHEN total_cost IS NOT NULL THEN total_cost ELSE 0 END) as total_transaction_value,
+
+                              -- Transaction Type Distribution
+                              COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                              COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                              COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+                              COUNT(CASE WHEN transaction_type = 'adjustment' THEN 1 END) as adjustment_count,
+                              COUNT(CASE WHEN transaction_type = 'transfer' THEN 1 END) as transfer_count,
+
+                              -- Quantity by Type
+                              SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                              SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+                              SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+                              SUM(CASE WHEN transaction_type = 'adjustment' THEN quantity ELSE 0 END) as adjustment_quantity,
+                              SUM(CASE WHEN transaction_type = 'transfer' THEN quantity ELSE 0 END) as transfer_quantity,
+
+                              -- Cost Analysis
+                              SUM(CASE WHEN transaction_type = 'addition' THEN total_cost ELSE 0 END) as addition_cost,
+                              AVG(CASE WHEN transaction_type = 'addition' THEN unit_cost ELSE NULL END) as avg_addition_unit_cost,
+                              (SELECT COALESCE(SUM(total_cost), 0) FROM inv_consumption_history WHERE consumption_reason IN ('consumption', 'wastage')) as consumption_cost_total,
+
+                              -- Temporal Analysis
+                              MIN(transaction_date) as first_transaction_date,
+                              MAX(transaction_date) as last_transaction_date,
+                              DATEDIFF(MAX(transaction_date), MIN(transaction_date)) as transaction_period_days,
+                              COUNT(DISTINCT DATE(transaction_date)) as unique_transaction_days,
+
+                              -- Batch Analysis
+                              COUNT(DISTINCT batch_number) as unique_batches,
+                              COUNT(DISTINCT item_id) as unique_items,
+                              COUNT(DISTINCT performed_by) as unique_users,
+                              COUNT(DISTINCT reason) as unique_reasons
+
+                         FROM inv_inventory_transactions
+                         WHERE transaction_date <= ?
+                    `, [end_date]);
+               }
+
+               // 2. Transaction Velocity Analysis
+               let velocityQuery = connection.raw(`
+                    SELECT
+                         AVG(daily_transaction_count) as avg_daily_transactions,
+                         STDDEV(daily_transaction_count) as daily_transactions_std_dev,
+                         MAX(daily_transaction_count) as max_daily_transactions,
+                         MIN(daily_transaction_count) as min_daily_transactions,
+                         AVG(daily_quantity) as avg_daily_quantity,
+                         STDDEV(daily_quantity) as daily_quantity_std_dev,
+                         MAX(daily_quantity) as max_daily_quantity,
+                         MIN(daily_quantity) as min_daily_quantity,
+                         AVG(daily_unique_items) as avg_daily_unique_items,
+                         AVG(daily_transaction_types) as avg_daily_transaction_types,
+                         0 as peak_activity_days,
+                         0 as low_activity_days,
+                         0 as transaction_volume_volatility,
+                         0 as quantity_volume_volatility
+                    FROM (
+                         SELECT
+                              DATE(transaction_date) as transaction_day,
+                              COUNT(*) as daily_transaction_count,
+                              SUM(quantity) as daily_quantity,
+                              AVG(quantity) as avg_daily_quantity_per_txn,
+                              COUNT(DISTINCT item_id) as daily_unique_items,
+                              COUNT(DISTINCT transaction_type) as daily_transaction_types
+                         FROM inv_inventory_transactions
+                         WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+                              ${start_date ? 'AND transaction_date >= ?' : ''}
+                              ${end_date ? 'AND transaction_date <= ?' : ''}
+                         GROUP BY DATE(transaction_date)
+                    ) daily_transactions
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               // 3. Transaction Type Deep Dive
+               let typeAnalysisQuery = connection.raw(`
+                    SELECT
+                         transaction_type,
+                         COUNT(*) as transaction_count,
+                         SUM(quantity) as total_quantity,
+                         AVG(quantity) as avg_quantity,
+                         STDDEV(quantity) as quantity_std_dev,
+                         MIN(quantity) as min_quantity,
+                         MAX(quantity) as max_quantity,
+
+                         -- Cost Metrics (where applicable)
+                         SUM(CASE WHEN total_cost IS NOT NULL THEN total_cost ELSE 0 END) as total_cost,
+                         AVG(CASE WHEN unit_cost IS NOT NULL THEN unit_cost ELSE NULL END) as avg_unit_cost,
+                         COUNT(CASE WHEN total_cost IS NOT NULL THEN 1 END) as cost_recorded_transactions,
+
+                         -- Temporal Patterns
+                         MIN(transaction_date) as first_occurrence,
+                         MAX(transaction_date) as last_occurrence,
+                         COUNT(DISTINCT DATE(transaction_date)) as active_days,
+                         DATEDIFF(MAX(transaction_date), MIN(transaction_date)) as activity_period_days,
+
+                         -- Item and Batch Diversity
+                         COUNT(DISTINCT item_id) as unique_items,
+                         COUNT(DISTINCT batch_number) as unique_batches,
+                         COUNT(DISTINCT performed_by) as unique_users,
+                         COUNT(DISTINCT reason) as unique_reasons,
+
+                         -- Wastage Type Breakdown (for wastage transactions)
+                         COUNT(CASE WHEN wastage_type = 'expired' THEN 1 END) as expired_count,
+                         COUNT(CASE WHEN wastage_type = 'damaged' THEN 1 END) as damaged_count,
+                         COUNT(CASE WHEN wastage_type = 'broken' THEN 1 END) as broken_count,
+                         COUNT(CASE WHEN wastage_type = 'contamination' THEN 1 END) as contamination_count,
+                         COUNT(CASE WHEN wastage_type = 'other' THEN 1 END) as other_wastage_count
+
+                    FROM inv_inventory_transactions
+                    WHERE 1=1
+                         ${start_date ? 'AND transaction_date >= ?' : ''}
+                         ${end_date ? 'AND transaction_date <= ?' : ''}
+                    GROUP BY transaction_type
+                    ORDER BY total_quantity DESC
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               // 4. Transaction Time Pattern Analysis - Separate queries for hourly and daily patterns
+               let hourlyPatternQuery = connection.raw(`
+                    SELECT
+                         HOUR(transaction_date) as transaction_hour,
+                         COUNT(*) as transaction_count,
+                         SUM(quantity) as total_quantity,
+                         AVG(quantity) as avg_quantity
+                    FROM inv_inventory_transactions
+                    WHERE 1=1
+                         ${start_date ? 'AND transaction_date >= ?' : ''}
+                         ${end_date ? 'AND transaction_date <= ?' : ''}
+                    GROUP BY HOUR(transaction_date)
+                    ORDER BY transaction_hour
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               let dailyPatternQuery = connection.raw(`
+                    SELECT
+                         DATE(transaction_date) as day_name,
+                         COUNT(*) as day_transaction_count,
+                         SUM(quantity) as day_total_quantity
+                    FROM inv_inventory_transactions
+                    WHERE 1=1
+                         ${start_date ? 'AND transaction_date >= ?' : ''}
+                         ${end_date ? 'AND transaction_date <= ?' : ''}
+                    GROUP BY DATE(transaction_date)
+                    ORDER BY DATE(transaction_date) DESC
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               // 5. Batch Transaction Analysis
+               let batchAnalysisQuery = connection.raw(`
+                    SELECT
+                         batch_number,
+                         COUNT(*) as transaction_count,
+                         SUM(quantity) as total_quantity_moved,
+                         AVG(quantity) as avg_quantity_per_transaction,
+
+                         -- Transaction Type Mix
+                         COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                         COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                         COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+
+                         -- Quantity by Type
+                         SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+                         SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                         SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+
+                         -- Cost Analysis
+                         SUM(CASE WHEN transaction_type = 'addition' THEN total_cost ELSE 0 END) as total_addition_cost,
+                         AVG(CASE WHEN transaction_type = 'addition' THEN unit_cost ELSE NULL END) as avg_unit_cost,
+
+                         -- Temporal Analysis
+                         MIN(transaction_date) as first_transaction_date,
+                         MAX(transaction_date) as last_transaction_date,
+                         COUNT(DISTINCT DATE(transaction_date)) as transaction_days,
+                         DATEDIFF(MAX(transaction_date), MIN(transaction_date)) as transaction_period_days,
+
+                         -- Item and User Diversity
+                         COUNT(DISTINCT item_id) as unique_items,
+                         COUNT(DISTINCT performed_by) as unique_users
+
+                    FROM inv_inventory_transactions
+                    WHERE batch_number IS NOT NULL
+                         AND batch_number != ''
+                         AND 1=1
+                         ${start_date ? 'AND transaction_date >= ?' : ''}
+                         ${end_date ? 'AND transaction_date <= ?' : ''}
+                    GROUP BY batch_number
+                    HAVING transaction_count > 1
+                    ORDER BY transaction_count DESC
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               // 6. User Transaction Behavior
+               let userAnalysisQuery = connection.raw(`
+                    SELECT
+                         performed_by as user_id,
+                         COUNT(*) as total_transactions,
+                         SUM(quantity) as total_quantity_processed,
+                         AVG(quantity) as avg_quantity_per_transaction,
+
+                         -- Transaction Type Preferences
+                         COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                         COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                         COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+                         COUNT(CASE WHEN transaction_type = 'adjustment' THEN 1 END) as adjustment_count,
+
+                         -- Quantity by Type
+                         SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                         SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+                         SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+                         SUM(CASE WHEN transaction_type = 'adjustment' THEN quantity ELSE 0 END) as adjustment_quantity,
+
+                         -- Activity Patterns
+                         MIN(transaction_date) as first_transaction_date,
+                         MAX(transaction_date) as last_transaction_date,
+                         COUNT(DISTINCT DATE(transaction_date)) as active_days,
+                         DATEDIFF(MAX(transaction_date), MIN(transaction_date)) as activity_period_days,
+                         COUNT(*) / NULLIF(COUNT(DISTINCT DATE(transaction_date)), 0) as avg_transactions_per_day,
+
+                         -- Scope and Diversity
+                         COUNT(DISTINCT item_id) as unique_items_processed,
+                         COUNT(DISTINCT batch_number) as unique_batches_processed,
+                         COUNT(DISTINCT transaction_type) as transaction_types_used,
+                         COUNT(DISTINCT reason) as unique_reasons_used,
+
+                         -- Recent Activity
+                         DATEDIFF(CURDATE(), MAX(transaction_date)) as days_since_last_activity
+
+                    FROM inv_inventory_transactions
+                    WHERE performed_by IS NOT NULL
+                         AND 1=1
+                         ${start_date ? 'AND transaction_date >= ?' : ''}
+                         ${end_date ? 'AND transaction_date <= ?' : ''}
+                    GROUP BY performed_by
+                    HAVING total_transactions > 0
+                    ORDER BY total_transactions DESC
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               // 7. Transaction Reason Analysis
+               let reasonAnalysisQuery = connection.raw(`
+                    SELECT
+                         reason,
+                         COUNT(*) as transaction_count,
+                         SUM(quantity) as total_quantity,
+                         AVG(quantity) as avg_quantity,
+
+                         -- Transaction Type Distribution
+                         COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                         COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                         COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+                         COUNT(CASE WHEN transaction_type = 'adjustment' THEN 1 END) as adjustment_count,
+
+                         -- Quantity by Type
+                         SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                         SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+                         SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+                         SUM(CASE WHEN transaction_type = 'adjustment' THEN quantity ELSE 0 END) as adjustment_quantity,
+
+                         -- Temporal Patterns
+                         MIN(transaction_date) as first_occurrence,
+                         MAX(transaction_date) as last_occurrence,
+                         COUNT(DISTINCT DATE(transaction_date)) as active_days,
+
+                         -- User and Item Diversity
+                         COUNT(DISTINCT performed_by) as unique_users,
+                         COUNT(DISTINCT item_id) as unique_items,
+                         COUNT(DISTINCT batch_number) as unique_batches
+
+                    FROM inv_inventory_transactions
+                    WHERE reason IS NOT NULL
+                         AND reason != ''
+                         AND 1=1
+                         ${start_date ? 'AND transaction_date >= ?' : ''}
+                         ${end_date ? 'AND transaction_date <= ?' : ''}
+                    GROUP BY reason
+                    HAVING transaction_count >= 5
+                    ORDER BY transaction_count DESC
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               // 8. High-Volume Transaction Analysis - Grouped by Date
+               let highVolumeQuery = connection.raw(`
+                    SELECT
+                         DATE(transaction_date) as transaction_date,
+                         COUNT(*) as transaction_count,
+                         SUM(quantity) as total_quantity,
+                         SUM(
+                              CASE
+                                   WHEN transaction_type = 'wastage' THEN
+                                        CASE
+                                             WHEN total_cost IS NOT NULL AND total_cost > 0 THEN total_cost
+                                             WHEN unit_cost IS NOT NULL AND unit_cost > 0 THEN unit_cost * quantity
+                                             ELSE COALESCE(
+                                                  (SELECT AVG(unit_cost) FROM inv_inventory_transactions it2
+                                                   WHERE it2.item_id = inv_inventory_transactions.item_id
+                                                   AND it2.transaction_type IN ('addition', 'consumption')
+                                                   AND it2.unit_cost IS NOT NULL AND it2.unit_cost > 0
+                                                   ORDER BY it2.transaction_date DESC LIMIT 1), 0
+                                             ) * quantity
+                                        END
+                                   ELSE COALESCE(total_cost, (unit_cost * quantity))
+                              END
+                         ) as total_cost,
+                         COUNT(DISTINCT transaction_type) as unique_transaction_types,
+                         COUNT(DISTINCT item_id) as unique_items_affected,
+
+                         -- Transaction Type Breakdown
+                         COUNT(CASE WHEN transaction_type = 'wastage' THEN 1 END) as wastage_count,
+                         COUNT(CASE WHEN transaction_type = 'consumption' THEN 1 END) as consumption_count,
+                         COUNT(CASE WHEN transaction_type = 'addition' THEN 1 END) as addition_count,
+                         COUNT(CASE WHEN transaction_type = 'adjustment' THEN 1 END) as adjustment_count,
+
+                         -- Quantity by Type
+                         SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as wastage_quantity,
+                         SUM(CASE WHEN transaction_type = 'consumption' THEN quantity ELSE 0 END) as consumption_quantity,
+                         SUM(CASE WHEN transaction_type = 'addition' THEN quantity ELSE 0 END) as addition_quantity,
+
+                         -- Volume Category for the Day
+                         CASE
+                              WHEN SUM(quantity) > 5000 THEN 'Extremely High Volume Day'
+                              WHEN SUM(quantity) > 2000 THEN 'Very High Volume Day'
+                              WHEN SUM(quantity) > 1000 THEN 'High Volume Day'
+                              WHEN SUM(quantity) > 500 THEN 'Moderate High Volume Day'
+                              WHEN SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) > 50 THEN 'Significant Wastage Day'
+                              ELSE 'Notable Activity Day'
+                         END as volume_category,
+
+                         -- Cost Impact for the Day
+                         CASE
+                              WHEN SUM(
+                                   CASE
+                                        WHEN transaction_type = 'wastage' THEN
+                                             CASE
+                                                  WHEN total_cost IS NOT NULL AND total_cost > 0 THEN total_cost
+                                                  WHEN unit_cost IS NOT NULL AND unit_cost > 0 THEN unit_cost * quantity
+                                                  ELSE COALESCE(
+                                                       (SELECT AVG(unit_cost) FROM inv_inventory_transactions it2
+                                                        WHERE it2.item_id = inv_inventory_transactions.item_id
+                                                        AND it2.transaction_type IN ('addition', 'consumption')
+                                                        AND it2.unit_cost IS NOT NULL AND it2.unit_cost > 0
+                                                        ORDER BY it2.transaction_date DESC LIMIT 1), 0
+                                                  ) * quantity
+                                             END
+                                        ELSE COALESCE(total_cost, (unit_cost * quantity))
+                                   END
+                              ) > 50000 THEN 'Major Cost Day'
+                              WHEN SUM(
+                                   CASE
+                                        WHEN transaction_type = 'wastage' THEN
+                                             CASE
+                                                  WHEN total_cost IS NOT NULL AND total_cost > 0 THEN total_cost
+                                                  WHEN unit_cost IS NOT NULL AND unit_cost > 0 THEN unit_cost * quantity
+                                                  ELSE COALESCE(
+                                                       (SELECT AVG(unit_cost) FROM inv_inventory_transactions it2
+                                                        WHERE it2.item_id = inv_inventory_transactions.item_id
+                                                        AND it2.transaction_type IN ('addition', 'consumption')
+                                                        AND it2.unit_cost IS NOT NULL AND it2.unit_cost > 0
+                                                        ORDER BY it2.transaction_date DESC LIMIT 1), 0
+                                                  ) * quantity
+                                             END
+                                        ELSE COALESCE(total_cost, (unit_cost * quantity))
+                                   END
+                              ) > 25000 THEN 'High Cost Day'
+                              WHEN SUM(
+                                   CASE
+                                        WHEN transaction_type = 'wastage' THEN
+                                             CASE
+                                                  WHEN total_cost IS NOT NULL AND total_cost > 0 THEN total_cost
+                                                  WHEN unit_cost IS NOT NULL AND unit_cost > 0 THEN unit_cost * quantity
+                                                  ELSE COALESCE(
+                                                       (SELECT AVG(unit_cost) FROM inv_inventory_transactions it2
+                                                        WHERE it2.item_id = inv_inventory_transactions.item_id
+                                                        AND it2.transaction_type IN ('addition', 'consumption')
+                                                        AND it2.unit_cost IS NOT NULL AND it2.unit_cost > 0
+                                                        ORDER BY it2.transaction_date DESC LIMIT 1), 0
+                                                  ) * quantity
+                                             END
+                                        ELSE COALESCE(total_cost, (unit_cost * quantity))
+                                   END
+                              ) > 10000 THEN 'Moderate Cost Day'
+                              WHEN SUM(
+                                   CASE
+                                        WHEN transaction_type = 'wastage' THEN
+                                             CASE
+                                                  WHEN total_cost IS NOT NULL AND total_cost > 0 THEN total_cost
+                                                  WHEN unit_cost IS NOT NULL AND unit_cost > 0 THEN unit_cost * quantity
+                                                  ELSE COALESCE(
+                                                       (SELECT AVG(unit_cost) FROM inv_inventory_transactions it2
+                                                        WHERE it2.item_id = inv_inventory_transactions.item_id
+                                                        AND it2.transaction_type IN ('addition', 'consumption')
+                                                        AND it2.unit_cost IS NOT NULL AND it2.unit_cost > 0
+                                                        ORDER BY it2.transaction_date DESC LIMIT 1), 0
+                                                  ) * quantity
+                                             END
+                                        ELSE COALESCE(total_cost, (unit_cost * quantity))
+                                   END
+                              ) > 5000 THEN 'Notable Cost Day'
+                              ELSE 'Normal Cost Day'
+                         END as cost_category,
+
+                         -- Key Transactions (sample)
+                         GROUP_CONCAT(DISTINCT CASE WHEN transaction_type = 'wastage' THEN CONCAT(transaction_type, ':', quantity) END SEPARATOR '; ') as wastage_transactions,
+                         MAX(CASE WHEN transaction_type = 'wastage' THEN quantity END) as max_wastage_quantity
+
+                    FROM inv_inventory_transactions
+                    WHERE (
+                         quantity > 100
+                         OR (total_cost IS NOT NULL AND total_cost > 1000)
+                         OR transaction_type = 'wastage'
                     )
-                    .where('transaction_type', 'consumption')
-                    .groupBy('inv_inventory_transactions.item_id', 'inv_inventory_items.name')
-                    .orderBy('total_consumed', 'desc')
-                    .limit(10) as any[];
+                    AND 1=1
+                    ${start_date ? 'AND transaction_date >= ?' : ''}
+                    ${end_date ? 'AND transaction_date <= ?' : ''}
+                    GROUP BY DATE(transaction_date)
+                    ORDER BY total_quantity DESC, total_cost DESC
+                    LIMIT 50
+               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+
+               // Execute all queries
+               const [coreMetricsResult] = await Promise.all([
+                    coreMetricsQuery,
+                    velocityQuery,
+                    typeAnalysisQuery,
+                    hourlyPatternQuery,
+                    dailyPatternQuery,
+                    batchAnalysisQuery,
+                    userAnalysisQuery,
+                    reasonAnalysisQuery,
+                    highVolumeQuery
+               ]);
+
+               // Parse results
+               const metricsData = parseRawResult(coreMetricsResult);
+               const velocityData = parseRawResult(await velocityQuery);
+               const typeData = parseRawResult(await typeAnalysisQuery);
+               const hourlyPatternData = parseRawResult(await hourlyPatternQuery);
+               const dailyPatternData = parseRawResult(await dailyPatternQuery);
+               const batchData = parseRawResult(await batchAnalysisQuery);
+               const userData = parseRawResult(await userAnalysisQuery);
+               const reasonData = parseRawResult(await reasonAnalysisQuery);
+               const highVolumeData = parseRawResult(await highVolumeQuery);
 
                const analytics: TransactionAnalytics = {
-                    total_transactions: parseInt(transactionSummary.total_transactions) || 0,
-                    additions: parseInt(transactionSummary.additions) || 0,
-                    consumptions: parseInt(transactionSummary.consumptions) || 0,
-                    adjustments: parseInt(transactionSummary.adjustments) || 0,
-                    transfers: parseInt(transactionSummary.transfers) || 0,
-                    wastage: parseInt(transactionSummary.wastage) || 0,
-                    transaction_trends: transactionTrends.map(row => ({
-                         date: row.date,
-                         additions: parseInt(row.additions),
-                         consumptions: parseInt(row.consumptions),
-                         adjustments: parseInt(row.adjustments)
-                    })),
-                    top_consumed_items: topConsumedItems.map(row => ({
-                         item_id: row.item_id,
-                         item_name: row.item_name,
-                         total_consumed: parseInt(row.total_consumed)
-                    }))
+                    // EXECUTIVE SUMMARY - Key metrics business managers need to see first
+                    executive_summary: {
+                         total_inventory_value: parseFloat(metricsData[0].total_transaction_value) || 0,
+                         monthly_transaction_volume: parseInt(metricsData[0].total_transactions) || 0,
+                         inventory_turnover_ratio: velocityData.length > 0 ?
+                              (parseFloat(velocityData[0].avg_daily_quantity) * 30) / Math.max(parseFloat(metricsData[0].total_quantity_moved), 1) : 0,
+                         stockout_risk_level: typeData.some(row => row.transaction_type === 'consumption' && row.total_quantity > 1000) ? 'high' : 'normal',
+                         supplier_performance_score: typeData.length > 0 ?
+                              typeData.reduce((acc, row) => acc + (row.transaction_type === 'addition' ? row.total_quantity : 0), 0) /
+                              Math.max(typeData.reduce((acc, row) => acc + row.total_quantity, 0), 1) : 0,
+                         cost_efficiency_rating: parseFloat(metricsData[0].total_transaction_value) > 10000 ? 'needs_attention' : 'good'
+                    },
+
+                    // FINANCIAL IMPACT - Cost analysis and profitability insights
+                    financial_impact: {
+                         total_transaction_value: parseFloat(metricsData[0].total_transaction_value) || 0,
+                         average_transaction_value: parseFloat(metricsData[0].total_transaction_value) /
+                              Math.max(parseInt(metricsData[0].total_transactions), 1) || 0,
+                         cost_savings_opportunities: highVolumeData.filter(row => parseFloat(row.total_cost) > 1000).length,
+                         budget_impact_alerts: parseFloat(metricsData[0].total_transaction_value) > 50000 ? 'high_spending_period' : 'normal',
+                         profitability_indicators: {
+                              high_value_transactions: highVolumeData.filter(row => parseFloat(row.total_cost) > 500).length,
+                              cost_per_unit_trend: parseFloat(metricsData[0].avg_addition_unit_cost) || 0,
+                              volume_vs_cost_efficiency: parseInt(metricsData[0].total_quantity_moved) /
+                                   Math.max(parseFloat(metricsData[0].total_transaction_value), 1)
+                         }
+                    },
+
+                    // OPERATIONAL EFFICIENCY - How well the inventory system is performing
+                    operational_efficiency: {
+                         transaction_processing_speed: velocityData.length > 0 ? parseFloat(velocityData[0].avg_daily_transactions) || 0 : 0,
+                         inventory_accuracy_score: typeData.some(row => row.transaction_type === 'adjustment') ?
+                              Math.min(100, 100 - (typeData.find(row => row.transaction_type === 'adjustment')?.total_quantity || 0)) : 100,
+                         process_bottlenecks: userData.filter(row => parseInt(row.total_transactions) > 100).length > 5 ? 'high_workload_users' : 'balanced',
+                         automation_opportunities: reasonData.filter(row => row.reason?.toLowerCase().includes('manual')).length,
+                         efficiency_trends: {
+                              transaction_volume_trend: velocityData.length > 0 ? parseFloat(velocityData[0].avg_daily_transactions) > 10 ? 'increasing' : 'stable' : 'stable',
+                              error_rate: typeData.find(row => row.transaction_type === 'adjustment')?.total_quantity || 0,
+                              processing_time_efficiency: 'good' // Placeholder - would need timing data
+                         }
+                    },
+
+                    // RISK MANAGEMENT - Critical alerts and risk indicators
+                    risk_management: {
+                         critical_alerts: [
+                              ...(parseInt(metricsData[0].wastage_count) > 50 ? ['high_wastage_levels'] : []),
+                              ...(highVolumeData.length > 10 ? ['frequent_large_transactions'] : []),
+                              ...(typeData.some(row => row.transaction_type === 'adjustment' && row.total_quantity > 100) ? ['frequent_adjustments'] : [])
+                         ],
+                         stockout_prevention_score: typeData.find(row => row.transaction_type === 'consumption')?.total_quantity || 0,
+                         supplier_reliability_score: typeData.find(row => row.transaction_type === 'addition')?.active_days || 0,
+                         compliance_risks: reasonData.filter(row => row.reason?.toLowerCase().includes('audit') || row.reason?.toLowerCase().includes('compliance')).length,
+                         financial_risks: parseFloat(metricsData[0].total_transaction_value) > 100000 ? 'high_value_exposure' : 'normal',
+                         operational_risks: userData.filter(row => parseInt(row.total_transactions) < 5).length > 10 ? 'underutilized_staff' : 'normal'
+                    },
+
+                    // BUSINESS INSIGHTS - Actionable recommendations
+                    business_insights: {
+                         top_opportunities: [
+                              'Optimize high-volume transaction processes',
+                              'Review supplier performance and lead times',
+                              'Implement automated reorder points',
+                              'Reduce adjustment transactions through better accuracy',
+                              'Analyze consumption patterns for demand forecasting'
+                         ],
+                         immediate_actions_needed: [
+                              ...(parseInt(metricsData[0].wastage_count) > 20 ? ['Investigate high wastage causes'] : []),
+                              ...(highVolumeData.length > 5 ? ['Review large transaction approvals'] : []),
+                              ...(typeData.some(row => row.transaction_type === 'adjustment') ? ['Improve inventory accuracy processes'] : [])
+                         ],
+                         strategic_recommendations: [
+                              'Implement predictive analytics for demand forecasting',
+                              'Establish automated inventory replenishment',
+                              'Optimize supplier selection based on performance',
+                              'Digital transformation of manual processes',
+                              'Implement real-time inventory tracking'
+                         ],
+                         cost_optimization_targets: reasonData.filter(row => row.total_quantity > 100).map(row => ({
+                              reason: row.reason,
+                              potential_savings: parseFloat(row.total_quantity) * 0.1, // Estimated 10% savings
+                              priority: row.total_quantity > 500 ? 'high' : 'medium'
+                         }))
+                    },
+
+                    // SIMPLIFIED METRICS - Easy to understand key indicators
+                    key_performance_indicators: {
+                         transactions_per_day: velocityData.length > 0 ? parseFloat(velocityData[0].avg_daily_transactions) || 0 : 0,
+                         inventory_turnover_days: velocityData.length > 0 ?
+                              Math.max(parseFloat(metricsData[0].total_quantity_moved) / Math.max(parseFloat(velocityData[0].avg_daily_quantity), 1), 1) : 0,
+                         supplier_performance_rating: typeData.length > 0 ?
+                              (typeData.find(row => row.transaction_type === 'addition')?.active_days || 0) > 30 ? 'good' : 'needs_improvement' : 'unknown',
+                         process_efficiency_score: 100 - (typeData.find(row => row.transaction_type === 'adjustment')?.total_quantity || 0) * 0.1,
+                         cost_effectiveness_rating: parseFloat(metricsData[0].total_transaction_value) /
+                              Math.max(parseInt(metricsData[0].total_quantity_moved), 1) < 10 ? 'excellent' : 'good'
+                    },
+
+                    // DETAILED ANALYTICS - For deep dive when needed (keeping some technical details)
+                    detailed_analytics: {
+                         core_metrics: metricsData.length > 0 ? {
+                              transaction_volume: {
+                                   total_transactions: parseInt(metricsData[0].total_transactions) || 0,
+                                   total_quantity_moved: parseInt(metricsData[0].total_quantity_moved) || 0,
+                                   avg_quantity_per_transaction: parseFloat(metricsData[0].avg_quantity_per_transaction) || 0,
+                                   total_transaction_value: parseFloat(metricsData[0].total_transaction_value) || 0
+                              },
+                              transaction_type_distribution: {
+                                   consumption: parseInt(metricsData[0].consumption_count) || 0,
+                                   addition: parseInt(metricsData[0].addition_count) || 0,
+                                   wastage: parseInt(metricsData[0].wastage_count) || 0,
+                                   adjustment: parseInt(metricsData[0].adjustment_count) || 0,
+                                   transfer: parseInt(metricsData[0].transfer_count) || 0
+                              },
+                              cost_analysis: {
+                                   addition_cost: parseFloat(metricsData[0].addition_cost) || 0,
+                                   avg_addition_unit_cost: parseFloat(metricsData[0].avg_addition_unit_cost) || 0
+                              }
+                         } : null,
+
+                         time_pattern_analysis: {
+                              daily_patterns: dailyPatternData.filter(row => row.day_name !== null).slice(0, 10).map(row => ({
+                                   date: row.day_name,
+                                   transaction_count: parseInt(row.day_transaction_count) || 0,
+                                   total_quantity: parseInt(row.day_total_quantity) || 0
+                              })),
+                              peak_hours: hourlyPatternData.filter(row => row.transaction_hour !== null)
+                                   .sort((a, b) => parseInt(b.transaction_count) - parseInt(a.transaction_count))
+                                   .slice(0, 5)
+                                   .map(row => ({
+                                        hour: parseInt(row.transaction_hour),
+                                        transaction_count: parseInt(row.transaction_count) || 0
+                                   }))
+                         },
+
+                         high_volume_transactions: highVolumeData.slice(0, 10).map(row => ({
+                              date: row.transaction_date,
+                              transaction_count: parseInt(row.transaction_count) || 0,
+                              total_quantity: parseInt(row.total_quantity) || 0,
+                              total_cost: parseFloat(row.total_cost) || 0,
+                              unique_items_affected: parseInt(row.unique_items_affected) || 0,
+                              volume_category: row.volume_category,
+                              cost_category: row.cost_category,
+                              transaction_breakdown: {
+                                   wastage: parseInt(row.wastage_count) || 0,
+                                   consumption: parseInt(row.consumption_count) || 0,
+                                   addition: parseInt(row.addition_count) || 0,
+                                   adjustment: parseInt(row.adjustment_count) || 0
+                              },
+                              quantity_breakdown: {
+                                   wastage_quantity: parseInt(row.wastage_quantity) || 0,
+                                   consumption_quantity: parseInt(row.consumption_quantity) || 0,
+                                   addition_quantity: parseInt(row.addition_quantity) || 0
+                              },
+                              notable_wastage: row.wastage_transactions ? row.wastage_transactions.split('; ').filter(t => t) : []
+                         }))
+                    }
                };
 
                const response: ApiResponse<TransactionAnalytics> = {
                     success: true,
-                    message: 'Transaction analytics retrieved successfully',
+                    message: 'Comprehensive transaction analytics retrieved successfully',
                     data: analytics
                };
 
@@ -490,7 +1134,7 @@ export class InventoryAnalyticsController {
                console.error('Error retrieving transaction analytics:', error);
                const response: ApiResponse<null> = {
                     success: false,
-                    message: error.message || 'Failed to retrieve transaction analytics',
+                    message: error.message || 'Failed to retrieve comprehensive transaction analytics',
                     data: null
                };
                res.status(500).json(response);
@@ -1259,14 +1903,13 @@ export class InventoryAnalyticsController {
                     .limit(50) as any[];
 
                // Days of inventory remaining - FIXED: Proper consumption calculation using Knex query builder
-               let dailyConsumptionQuery = connection('inv_inventory_transactions')
+               let dailyConsumptionQuery = connection('inv_consumption_history')
                     .select(
                          'item_id',
-                         connection.raw('DATE(transaction_date) as consumption_date'),
-                         connection.raw('SUM(COALESCE(quantity, 0)) as daily_consumption')
+                         connection.raw('DATE(consumption_date) as consumption_date'),
+                         connection.raw('SUM(COALESCE(quantity_consumed, 0)) as daily_consumption')
                     )
-                    .where('transaction_type', 'consumption')
-                    .where(connection.raw('COALESCE(quantity, 0)'), '>', 0);
+                    .whereIn('consumption_reason', ['consumption', 'wastage']);
 
                const daysOfInventoryRemaining = await connection('inv_inventory_items')
                     .select(
@@ -1282,7 +1925,7 @@ export class InventoryAnalyticsController {
                               .select(connection.raw('AVG(daily_consumption) as avg_daily_consumption'))
                               .from(
                                    dailyConsumptionQuery
-                                        .groupBy('item_id', connection.raw('DATE(transaction_date)'))
+                                        .groupBy('item_id', connection.raw('DATE(consumption_date)'))
                                         .as('daily_consumption')
                               )
                               .groupBy('item_id')
@@ -1298,14 +1941,13 @@ export class InventoryAnalyticsController {
                console.log('DEBUG - Knex query results:', daysOfInventoryRemaining);
 
                // Predictive analytics (simplified) - FIXED: Proper daily consumption calculation
-               let dailyConsumptionQuery2 = connection('inv_inventory_transactions')
+               let dailyConsumptionQuery2 = connection('inv_consumption_history')
                     .select(
                          'item_id',
-                         connection.raw('DATE(transaction_date) as consumption_date'),
-                         connection.raw('SUM(COALESCE(quantity, 0)) as daily_consumption')
+                         connection.raw('DATE(consumption_date) as consumption_date'),
+                         connection.raw('SUM(COALESCE(quantity_consumed, 0)) as daily_consumption')
                     )
-                    .where('transaction_type', 'consumption')
-                    .where(connection.raw('COALESCE(quantity, 0)'), '>', 0);
+                    .whereIn('consumption_reason', ['consumption', 'wastage']);
 
                const stockOutPredictions = await connection('inv_inventory_items')
                     .select(
@@ -1322,7 +1964,7 @@ export class InventoryAnalyticsController {
                               .select(connection.raw('AVG(daily_consumption) as avg_daily_consumption'))
                               .from(
                                    dailyConsumptionQuery2
-                                        .groupBy('item_id', connection.raw('DATE(transaction_date)'))
+                                        .groupBy('item_id', connection.raw('DATE(consumption_date)'))
                                         .as('daily_consumption')
                               )
                               .groupBy('item_id')
@@ -1336,14 +1978,13 @@ export class InventoryAnalyticsController {
                     .limit(20) as any[];
 
                // Overstock predictions - items with excess stock relative to consumption - FIXED: Proper daily consumption calculation
-               let dailyConsumptionQuery3 = connection('inv_inventory_transactions')
+               let dailyConsumptionQuery3 = connection('inv_consumption_history')
                     .select(
                          'item_id',
-                         connection.raw('DATE(transaction_date) as consumption_date'),
-                         connection.raw('SUM(COALESCE(quantity, 0)) as daily_consumption')
+                         connection.raw('DATE(consumption_date) as consumption_date'),
+                         connection.raw('SUM(COALESCE(quantity_consumed, 0)) as daily_consumption')
                     )
-                    .where('transaction_type', 'consumption')
-                    .where(connection.raw('COALESCE(quantity, 0)'), '>', 0);
+                    .whereIn('consumption_reason', ['consumption', 'wastage']);
 
                const overstockPredictions = await connection('inv_inventory_items')
                     .select(
@@ -1378,7 +2019,7 @@ export class InventoryAnalyticsController {
                               .select(connection.raw('STDDEV(daily_consumption) as consumption_std_dev'))
                               .from(
                                    dailyConsumptionQuery3
-                                        .groupBy('item_id', connection.raw('DATE(transaction_date)'))
+                                        .groupBy('item_id', connection.raw('DATE(consumption_date)'))
                                         .as('daily_consumption')
                               )
                               .groupBy('item_id')
@@ -1465,15 +2106,15 @@ export class InventoryAnalyticsController {
                          SELECT
                               t.item_id,
                               i.name as item_name,
-                              DATE_FORMAT(t.transaction_date, '%Y-%m') as month_year,
-                              SUM(t.quantity) as monthly_consumed,
+                              DATE_FORMAT(t.consumption_date, '%Y-%m') as month_year,
+                              SUM(t.quantity_consumed) as monthly_consumed,
                               COUNT(*) as transactions_in_month
-                         FROM inv_inventory_transactions t
+                         FROM inv_consumption_history t
                          JOIN inv_inventory_items i ON t.item_id = i.id
-                         WHERE t.transaction_type = 'consumption'
-                              AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+                         WHERE t.consumption_reason IN ('consumption', 'wastage')
+                              AND t.consumption_date >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
                               AND i.is_active = 1
-                         GROUP BY t.item_id, i.name, DATE_FORMAT(t.transaction_date, '%Y-%m')
+                         GROUP BY t.item_id, i.name, DATE_FORMAT(t.consumption_date, '%Y-%m')
                     ),
                     consumption_stats AS (
                          SELECT
@@ -1546,11 +2187,11 @@ export class InventoryAnalyticsController {
                          FROM (
                               SELECT
                                    item_id,
-                                   DATE(transaction_date) as consumption_date,
-                                   SUM(quantity) as daily_consumption
-                              FROM inv_inventory_transactions
-                              WHERE transaction_type = 'consumption'
-                              GROUP BY item_id, DATE(transaction_date)
+                                   DATE(consumption_date) as consumption_date,
+                                   SUM(quantity_consumed) as daily_consumption
+                              FROM inv_consumption_history
+                              WHERE consumption_reason IN ('consumption', 'wastage')
+                              GROUP BY item_id, DATE(consumption_date)
                          ) daily_data
                          GROUP BY item_id
                     ),
@@ -1588,7 +2229,7 @@ export class InventoryAnalyticsController {
                          -- Economic order quantity approximation
                          CASE
                               WHEN COALESCE(cs.avg_daily_consumption, 0) > 0
-                              THEN ROUND(SQRT((2 * COALESCE(cs.avg_daily_consumption, 0) * 365 * 10) / 0.2)) -- Assuming $10 ordering cost, 20% carrying cost
+                              THEN ROUND(SQRT((2 * COALESCE(cs.avg_daily_consumption, 0) * 365 * 10) / 0.2)) 
                               ELSE 0
                          END as economic_order_quantity,
                          -- Service level optimization
@@ -1627,13 +2268,13 @@ export class InventoryAnalyticsController {
                     WITH daily_consumption AS (
                          SELECT
                               item_id,
-                              DATE(transaction_date) as consumption_date,
-                              DAYOFWEEK(transaction_date) as day_of_week,
-                              MONTH(transaction_date) as month_of_year,
-                              SUM(quantity) as daily_consumption
-                         FROM inv_inventory_transactions
-                         WHERE transaction_type = 'consumption'
-                         GROUP BY item_id, DATE(transaction_date), DAYOFWEEK(transaction_date), MONTH(transaction_date)
+                              DATE(consumption_date) as consumption_date,
+                              DAYOFWEEK(consumption_date) as day_of_week,
+                              MONTH(consumption_date) as month_of_year,
+                              SUM(quantity_consumed) as daily_consumption
+                         FROM inv_consumption_history
+                         WHERE consumption_reason IN ('consumption', 'wastage')
+                         GROUP BY item_id, DATE(consumption_date), DAYOFWEEK(consumption_date), MONTH(consumption_date)
                     ),
                     consumption_stats AS (
                          SELECT
@@ -1724,13 +2365,13 @@ export class InventoryAnalyticsController {
                     WITH daily_consumption AS (
                          SELECT
                               item_id,
-                              DATE(transaction_date) as consumption_date,
-                              SUM(quantity) as daily_consumption
-                         FROM inv_inventory_transactions
-                         WHERE transaction_type = 'consumption'
-                              ${start_date ? 'AND transaction_date >= ?' : ''}
-                              ${end_date ? 'AND transaction_date <= ?' : ''}
-                         GROUP BY item_id, DATE(transaction_date)
+                              DATE(consumption_date) as consumption_date,
+                              SUM(quantity_consumed) as daily_consumption
+                         FROM inv_consumption_history
+                         WHERE consumption_reason IN ('consumption', 'wastage')
+                              ${start_date ? 'AND consumption_date >= ?' : ''}
+                              ${end_date ? 'AND consumption_date <= ?' : ''}
+                         GROUP BY item_id, DATE(consumption_date)
                     ),
                     consumption_stats AS (
                          SELECT
@@ -2185,63 +2826,65 @@ export class InventoryAnalyticsController {
                const connection = await KnexConnection(tenantId);
                const { start_date, end_date } = req.query;
 
-               // Expiring batches (next 90 days)
-               const expiringBatches = await connection('inv_inventory_batches')
-                    .leftJoin('inv_inventory_items', 'inv_inventory_batches.item_id', 'inv_inventory_items.id')
+               // Expiring batches (next 90 days) - using inv_purchase_order_receipts instead of non-existent inv_inventory_batches
+               const expiringBatches = await connection('inv_purchase_order_receipts')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
                     .select(
-                         'inv_inventory_batches.id as batch_id',
-                         'inv_inventory_batches.batch_number',
-                         'inv_inventory_batches.expiry_date',
-                         'inv_inventory_batches.quantity as batch_quantity',
+                         'inv_purchase_order_receipts.batch_number',
+                         'inv_purchase_order_receipts.expiry_date',
+                         'inv_purchase_order_receipts.quantity_received as batch_quantity',
                          'inv_inventory_items.id as item_id',
                          'inv_inventory_items.name as item_name',
-                         connection.raw('DATEDIFF(inv_inventory_batches.expiry_date, CURDATE()) as days_until_expiry')
+                         connection.raw('DATEDIFF(inv_purchase_order_receipts.expiry_date, CURDATE()) as days_until_expiry')
                     )
                     .modify(function (queryBuilder) {
                          if (start_date) {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '>=', start_date);
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', start_date);
                          } else {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '>=', connection.raw('CURDATE()'));
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', connection.raw('CURDATE()'));
                          }
                          if (end_date) {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<=', end_date);
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', end_date);
                          } else {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 90 DAY)'));
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 90 DAY)'));
                          }
                     })
-                    .andWhere('inv_inventory_batches.quantity', '>', 0)
+                    .andWhere('inv_purchase_order_receipts.quantity_received', '>', 0)
+                    .whereNotNull('inv_purchase_order_receipts.batch_number')
+                    .whereNotNull('inv_purchase_order_receipts.expiry_date')
                     .orderBy('days_until_expiry', 'asc')
                     .limit(100) as any[];
 
-               // Expired batches
-               const expiredBatches = await connection('inv_inventory_batches')
-                    .leftJoin('inv_inventory_items', 'inv_inventory_batches.item_id', 'inv_inventory_items.id')
+               // Expired batches - using inv_purchase_order_receipts
+               const expiredBatches = await connection('inv_purchase_order_receipts')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
                     .select(
-                         'inv_inventory_batches.id as batch_id',
-                         'inv_inventory_batches.batch_number',
-                         'inv_inventory_batches.expiry_date',
-                         'inv_inventory_batches.quantity as batch_quantity',
+                         'inv_purchase_order_receipts.batch_number',
+                         'inv_purchase_order_receipts.expiry_date',
+                         'inv_purchase_order_receipts.quantity_received as batch_quantity',
                          'inv_inventory_items.id as item_id',
                          'inv_inventory_items.name as item_name',
-                         connection.raw('DATEDIFF(CURDATE(), inv_inventory_batches.expiry_date) as days_expired')
+                         connection.raw('DATEDIFF(CURDATE(), inv_purchase_order_receipts.expiry_date) as days_expired')
                     )
                     .modify(function (queryBuilder) {
                          if (start_date) {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<', start_date);
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<', start_date);
                          } else {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<', connection.raw('CURDATE()'));
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<', connection.raw('CURDATE()'));
                          }
                     })
-                    .andWhere('inv_inventory_batches.quantity', '>', 0)
+                    .andWhere('inv_purchase_order_receipts.quantity_received', '>', 0)
+                    .whereNotNull('inv_purchase_order_receipts.batch_number')
+                    .whereNotNull('inv_purchase_order_receipts.expiry_date')
                     .orderBy('days_expired', 'desc')
                     .limit(50) as any[];
 
-               // Batch expiry distribution
-               const batchExpiryDistribution = await connection('inv_inventory_batches')
+               // Batch expiry distribution - using inv_purchase_order_receipts
+               const batchExpiryDistribution = await connection('inv_purchase_order_receipts')
                     .select(
                          connection.raw('CASE WHEN DATEDIFF(expiry_date, CURDATE()) <= 30 THEN "0-30_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 60 THEN "31-60_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 90 THEN "61-90_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 180 THEN "91-180_days" ELSE "181+_days" END as expiry_range'),
                          connection.raw('COUNT(*) as batch_count'),
-                         connection.raw('SUM(quantity) as total_quantity')
+                         connection.raw('SUM(quantity_received) as total_quantity')
                     )
                     .modify(function (queryBuilder) {
                          if (start_date) {
@@ -2255,70 +2898,75 @@ export class InventoryAnalyticsController {
                               queryBuilder.andWhere('expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
                          }
                     })
-                    .andWhere('quantity', '>', 0)
+                    .andWhere('quantity_received', '>', 0)
+                    .whereNotNull('batch_number')
+                    .whereNotNull('expiry_date')
                     .groupBy('expiry_range') as any[];
 
-               // Items with multiple batches
-               const itemsWithMultipleBatches = await connection('inv_inventory_batches')
-                    .leftJoin('inv_inventory_items', 'inv_inventory_batches.item_id', 'inv_inventory_items.id')
+               // Items with multiple batches - using inv_purchase_order_receipts
+               const itemsWithMultipleBatches = await connection('inv_purchase_order_receipts')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
                     .select(
                          'inv_inventory_items.id as item_id',
                          'inv_inventory_items.name as item_name',
-                         connection.raw('COUNT(inv_inventory_batches.id) as batch_count'),
-                         connection.raw('SUM(inv_inventory_batches.quantity) as total_quantity'),
-                         connection.raw('MIN(inv_inventory_batches.expiry_date) as earliest_expiry'),
-                         connection.raw('MAX(inv_inventory_batches.expiry_date) as latest_expiry')
+                         connection.raw('COUNT(DISTINCT inv_purchase_order_receipts.batch_number) as batch_count'),
+                         connection.raw('SUM(inv_purchase_order_receipts.quantity_received) as total_quantity'),
+                         connection.raw('MIN(inv_purchase_order_receipts.expiry_date) as earliest_expiry'),
+                         connection.raw('MAX(inv_purchase_order_receipts.expiry_date) as latest_expiry')
                     )
                     .modify(function (queryBuilder) {
                          if (start_date) {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '>=', start_date);
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', start_date);
                          } else {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '>=', connection.raw('CURDATE()'));
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', connection.raw('CURDATE()'));
                          }
                          if (end_date) {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<=', end_date);
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', end_date);
                          } else {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
                          }
                     })
-                    .andWhere('inv_inventory_batches.quantity', '>', 0)
+                    .andWhere('inv_purchase_order_receipts.quantity_received', '>', 0)
+                    .whereNotNull('inv_purchase_order_receipts.batch_number')
+                    .whereNotNull('inv_purchase_order_receipts.expiry_date')
                     .groupBy('inv_inventory_items.id', 'inv_inventory_items.name')
                     .having('batch_count', '>', 1)
                     .orderBy('batch_count', 'desc')
                     .limit(50) as any[];
 
-               // Batch utilization analysis
-               const batchUtilization = await connection('inv_inventory_batches')
-                    .leftJoin('inv_inventory_items', 'inv_inventory_batches.item_id', 'inv_inventory_items.id')
+               // Batch utilization analysis - using inv_purchase_order_receipts and inv_inventory_transactions
+               const batchUtilization = await connection('inv_purchase_order_receipts')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
                     .leftJoin('inv_inventory_transactions', function () {
-                         this.on('inv_inventory_batches.id', '=', 'inv_inventory_transactions.batch_id')
+                         this.on('inv_purchase_order_receipts.batch_number', '=', 'inv_inventory_transactions.batch_number')
                               .andOn('inv_inventory_transactions.transaction_type', '=', connection.raw("'consumption'"));
                     })
                     .select(
-                         'inv_inventory_batches.id as batch_id',
-                         'inv_inventory_batches.batch_number',
-                         'inv_inventory_batches.quantity as original_quantity',
-                         'inv_inventory_batches.expiry_date',
+                         'inv_purchase_order_receipts.batch_number',
+                         'inv_purchase_order_receipts.expiry_date',
+                         'inv_purchase_order_receipts.quantity_received as original_quantity',
                          'inv_inventory_items.id as item_id',
                          'inv_inventory_items.name as item_name',
                          connection.raw('COALESCE(SUM(inv_inventory_transactions.quantity), 0) as consumed_quantity'),
-                         connection.raw('inv_inventory_batches.quantity - COALESCE(SUM(inv_inventory_transactions.quantity), 0) as remaining_quantity'),
-                         connection.raw('CASE WHEN inv_inventory_batches.quantity > 0 THEN (COALESCE(SUM(inv_inventory_transactions.quantity), 0) / inv_inventory_batches.quantity) * 100 ELSE 0 END as utilization_percentage')
+                         connection.raw('inv_purchase_order_receipts.quantity_received - COALESCE(SUM(inv_inventory_transactions.quantity), 0) as remaining_quantity'),
+                         connection.raw('CASE WHEN inv_purchase_order_receipts.quantity_received > 0 THEN (COALESCE(SUM(inv_inventory_transactions.quantity), 0) / inv_purchase_order_receipts.quantity_received) * 100 ELSE 0 END as utilization_percentage')
                     )
                     .modify(function (queryBuilder) {
                          if (start_date) {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '>=', start_date);
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', start_date);
                          } else {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '>=', connection.raw('CURDATE()'));
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', connection.raw('CURDATE()'));
                          }
                          if (end_date) {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<=', end_date);
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', end_date);
                          } else {
-                              queryBuilder.andWhere('inv_inventory_batches.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
+                              queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
                          }
                     })
-                    .andWhere('inv_inventory_batches.quantity', '>', 0)
-                    .groupBy('inv_inventory_batches.id', 'inv_inventory_batches.batch_number', 'inv_inventory_batches.quantity', 'inv_inventory_batches.expiry_date', 'inv_inventory_items.id', 'inv_inventory_items.name')
+                    .andWhere('inv_purchase_order_receipts.quantity_received', '>', 0)
+                    .whereNotNull('inv_purchase_order_receipts.batch_number')
+                    .whereNotNull('inv_purchase_order_receipts.expiry_date')
+                    .groupBy('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received', 'inv_inventory_items.id', 'inv_inventory_items.name')
                     .orderBy('utilization_percentage', 'asc')
                     .limit(50) as any[];
 
@@ -2713,10 +3361,11 @@ export class InventoryAnalyticsController {
                // Current valuation (simplified - using most recent unit cost from transactions)
                const [fifoValuation] = await connection.raw(`
                     SELECT SUM(i.current_stock * COALESCE((
-                         SELECT t.unit_cost
-                         FROM inv_inventory_transactions t
-                         WHERE t.item_id = i.id AND t.transaction_type = 'addition' AND t.unit_cost IS NOT NULL
-                         ORDER BY t.transaction_date DESC
+                         SELECT COALESCE(por.unit_price, poi.unit_price, 0)
+                         FROM inv_purchase_order_items poi
+                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
+                         WHERE poi.inventory_item_id = i.id
+                         ORDER BY por.received_date DESC, poi.created_at DESC
                          LIMIT 1
                     ), 0)) as fifo_value
                     FROM inv_inventory_items i
@@ -2725,10 +3374,11 @@ export class InventoryAnalyticsController {
 
                const [lifoValuation] = await connection.raw(`
                     SELECT SUM(i.current_stock * COALESCE((
-                         SELECT t.unit_cost
-                         FROM inv_inventory_transactions t
-                         WHERE t.item_id = i.id AND t.transaction_type = 'addition' AND t.unit_cost IS NOT NULL
-                         ORDER BY t.transaction_date DESC
+                         SELECT COALESCE(por.unit_price, poi.unit_price, 0)
+                         FROM inv_purchase_order_items poi
+                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
+                         WHERE poi.inventory_item_id = i.id
+                         ORDER BY por.received_date DESC, poi.created_at DESC
                          LIMIT 1
                     ), 0)) as lifo_value
                     FROM inv_inventory_items i
@@ -2737,12 +3387,13 @@ export class InventoryAnalyticsController {
 
                const [weightedAvgValuation] = await connection.raw(`
                     SELECT SUM(i.current_stock * COALESCE((
-                         SELECT AVG(t.unit_cost)
-                         FROM inv_inventory_transactions t
-                         WHERE t.item_id = i.id AND t.transaction_type = 'addition' AND t.unit_cost IS NOT NULL
-                         ${start_date ? 'AND t.transaction_date >= ?' : ''}
-                         ${end_date ? 'AND t.transaction_date <= ?' : ''}
-                         ${!start_date && !end_date ? 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)' : ''}
+                         SELECT AVG(COALESCE(por.unit_price, poi.unit_price, 0))
+                         FROM inv_purchase_order_items poi
+                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
+                         WHERE poi.inventory_item_id = i.id
+                         ${start_date ? 'AND por.received_date >= ?' : ''}
+                         ${end_date ? 'AND por.received_date <= ?' : ''}
+                         ${!start_date && !end_date ? 'AND por.received_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)' : ''}
                     ), 0)) as weighted_avg_value
                     FROM inv_inventory_items i
                     WHERE i.is_active = 1
@@ -2751,10 +3402,11 @@ export class InventoryAnalyticsController {
                // Slow moving value
                const [slowMovingValue] = await connection.raw(`
                     SELECT SUM(CASE WHEN DATEDIFF(CURDATE(), MAX(t.transaction_date)) >= 90 THEN i.current_stock * COALESCE((
-                         SELECT sub_t.unit_cost
-                         FROM inv_inventory_transactions sub_t
-                         WHERE sub_t.item_id = i.id AND sub_t.transaction_type = 'addition' AND sub_t.unit_cost IS NOT NULL
-                         ORDER BY sub_t.transaction_date DESC
+                         SELECT COALESCE(por.unit_price, poi.unit_price, 0)
+                         FROM inv_purchase_order_items poi
+                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
+                         WHERE poi.inventory_item_id = i.id
+                         ORDER BY por.received_date DESC, poi.created_at DESC
                          LIMIT 1
                     ), 0) ELSE 0 END) as slow_moving_value
                     FROM inv_inventory_items i
@@ -2790,52 +3442,52 @@ export class InventoryAnalyticsController {
                `) as any[];
 
                // Cost trends by month
-               const costTrends = await connection('inv_inventory_transactions')
-                    .leftJoin('inv_purchase_order_receipts', function () {
-                         this.on('inv_inventory_transactions.batch_number', 'inv_purchase_order_receipts.batch_number')
-                              .andOn('inv_inventory_transactions.expiry_date', 'inv_purchase_order_receipts.expiry_date')
-                    })
-                    .select(
-                         connection.raw('DATE_FORMAT(inv_inventory_transactions.transaction_date, "%Y-%m") as month'),
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "addition" THEN COALESCE(inv_inventory_transactions.total_cost, 0) ELSE 0 END) as additions_cost'),
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN COALESCE(inv_inventory_transactions.total_cost, inv_inventory_transactions.quantity * COALESCE(inv_purchase_order_receipts.unit_price, inv_inventory_transactions.unit_cost, 0)) ELSE 0 END) as consumption_cost'),
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "adjustment" THEN COALESCE(inv_inventory_transactions.total_cost, 0) ELSE 0 END) as write_off_cost'),
-                         connection.raw('SUM(COALESCE(inv_inventory_transactions.total_cost, CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN inv_inventory_transactions.quantity * COALESCE(inv_purchase_order_receipts.unit_price, inv_inventory_transactions.unit_cost, 0) ELSE 0 END)) as net_cost_change')
-                    )
-                    .modify(function (queryBuilder) {
-                         if (start_date) {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
-                         } else {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'));
-                         }
-                         if (end_date) {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', end_date);
-                         } else {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', connection.raw('CURDATE()'));
-                         }
-                    })
-                    .groupBy('month')
-                    .orderBy('month', 'desc') as any[];
+               const costTrends = await connection.raw(`
+                    SELECT
+                         month,
+                         SUM(additions_cost) as additions_cost,
+                         SUM(consumption_cost) as consumption_cost,
+                         SUM(write_off_cost) as write_off_cost,
+                         SUM(net_cost_change) as net_cost_change
+                    FROM (
+                         SELECT
+                              DATE_FORMAT(t.transaction_date, '%Y-%m') as month,
+                              SUM(CASE WHEN t.transaction_type = 'addition' THEN COALESCE(t.total_cost, 0) ELSE 0 END) as additions_cost,
+                              0 as consumption_cost,
+                              SUM(CASE WHEN t.transaction_type = 'adjustment' THEN COALESCE(t.total_cost, 0) ELSE 0 END) as write_off_cost,
+                              SUM(COALESCE(t.total_cost, 0)) as net_cost_change
+                         FROM inv_inventory_transactions t
+                         WHERE 1=1
+                         ${start_date ? `AND t.transaction_date >= '${start_date}'` : 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'}
+                         ${end_date ? `AND t.transaction_date <= '${end_date}'` : 'AND t.transaction_date <= CURDATE()'}
+                         GROUP BY month
+
+                         UNION ALL
+
+                         SELECT
+                              DATE_FORMAT(ch.consumption_date, '%Y-%m') as month,
+                              0 as additions_cost,
+                              SUM(ch.total_cost) as consumption_cost,
+                              0 as write_off_cost,
+                              -SUM(ch.total_cost) as net_cost_change
+                         FROM inv_consumption_history ch
+                         WHERE ch.consumption_reason IN ('consumption', 'wastage')
+                         ${start_date ? `AND ch.consumption_date >= '${start_date}'` : 'AND ch.consumption_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'}
+                         ${end_date ? `AND ch.consumption_date <= '${end_date}'` : 'AND ch.consumption_date <= CURDATE()'}
+                         GROUP BY month
+                    ) combined
+                    GROUP BY month
+                    ORDER BY month DESC
+               `) as any[];
 
                // Cost of goods issued
-               const [cogiResult] = await connection('inv_inventory_transactions')
-                    .leftJoin('inv_purchase_order_receipts', function () {
-                         this.on('inv_inventory_transactions.batch_number', 'inv_purchase_order_receipts.batch_number')
-                              .andOn('inv_inventory_transactions.expiry_date', 'inv_purchase_order_receipts.expiry_date')
-                    })
-                    .select(connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN COALESCE(inv_inventory_transactions.total_cost, inv_inventory_transactions.quantity * COALESCE(inv_purchase_order_receipts.unit_price, inv_inventory_transactions.unit_cost, 0)) ELSE 0 END) as cogi'))
-                    .modify(function (queryBuilder) {
-                         if (start_date) {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
-                         } else {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 365 DAY)'));
-                         }
-                         if (end_date) {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', end_date);
-                         } else {
-                              queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', connection.raw('CURDATE()'));
-                         }
-                    }) as any[];
+               const [cogiResult] = await connection.raw(`
+                    SELECT SUM(total_cost) as cogi
+                    FROM inv_consumption_history
+                    WHERE consumption_reason IN ('consumption', 'wastage')
+                    ${start_date ? `AND consumption_date >= '${start_date}'` : 'AND consumption_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)'}
+                    ${end_date ? `AND consumption_date <= '${end_date}'` : 'AND consumption_date <= CURDATE()'}
+               `) as any[];
 
                // Average cost per unit
                const [avgCostResult] = await connection.raw(`
@@ -2901,18 +3553,13 @@ export class InventoryAnalyticsController {
                // Consumption trends
                const consumptionTrends = await connection('inv_inventory_transactions')
                     .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-                    .leftJoin('inv_purchase_order_receipts', function () {
-                         this.on('inv_inventory_transactions.batch_number', 'inv_purchase_order_receipts.batch_number')
-                              .andOn('inv_inventory_transactions.expiry_date', 'inv_purchase_order_receipts.expiry_date')
-                    })
                     .select(
-                         'inv_purchase_order_receipts.unit_price',
                          connection.raw('DATE_FORMAT(inv_inventory_transactions.transaction_date, "%Y-%m-%d") as date'),
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN inv_inventory_transactions.quantity ELSE 0 END) as total_consumed'),
-                         connection.raw('COUNT(DISTINCT CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN inv_inventory_transactions.item_id END) as unique_items_used'),
-                         connection.raw('AVG(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN COALESCE(inv_purchase_order_receipts.unit_price, inv_inventory_transactions.unit_cost, 0) ELSE NULL END) as avg_unit_price'),
+                         connection.raw('SUM(inv_inventory_transactions.quantity) as total_consumed'),
+                         connection.raw('COUNT(DISTINCT inv_inventory_transactions.item_id) as unique_items_used'),
+                         connection.raw('AVG(inv_inventory_transactions.total_cost / NULLIF(inv_inventory_transactions.quantity, 0)) as avg_unit_price'),
                     )
-                    .where('inv_inventory_transactions.transaction_type', 'consumption')
+                    .whereIn('inv_inventory_transactions.transaction_type', ['consumption', 'wastage'])
                     .modify(function (queryBuilder) {
                          if (start_date) {
                               queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
@@ -2930,20 +3577,16 @@ export class InventoryAnalyticsController {
                const departmentConsumption = await connection('inv_inventory_transactions')
                     .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
                     .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-                    .leftJoin('inv_purchase_order_receipts', function () {
-                         this.on('inv_inventory_transactions.batch_number', 'inv_purchase_order_receipts.batch_number')
-                              .andOn('inv_inventory_transactions.expiry_date', 'inv_purchase_order_receipts.expiry_date')
-                    })
                     .select(
                          connection.raw('COALESCE(inv_inventory_transactions.performed_by, "Unknown") as performed_by'),
                          'roles.username',
                          'roles.role',
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN inv_inventory_transactions.quantity ELSE 0 END) as total_consumed'),
-                         connection.raw('COUNT(DISTINCT CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN inv_inventory_transactions.item_id END) as unique_items_used'),
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN COALESCE(inv_inventory_transactions.total_cost, inv_inventory_transactions.quantity * COALESCE(inv_purchase_order_receipts.unit_price, inv_inventory_transactions.unit_cost, 0)) ELSE 0 END) as consumption_value'),
-                         connection.raw('COUNT(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN 1 END) as transaction_count')
+                         connection.raw('SUM(inv_inventory_transactions.quantity) as total_consumed'),
+                         connection.raw('COUNT(DISTINCT inv_inventory_transactions.item_id) as unique_items_used'),
+                         connection.raw('SUM(inv_inventory_transactions.total_cost) as consumption_value'),
+                         connection.raw('COUNT(*) as transaction_count')
                     )
-                    .where('inv_inventory_transactions.transaction_type', 'consumption')
+                    .whereIn('inv_inventory_transactions.transaction_type', ['consumption', 'wastage'])
                     .modify(function (queryBuilder) {
                          if (start_date) {
                               queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
@@ -2961,18 +3604,14 @@ export class InventoryAnalyticsController {
                const categoryConsumption = await connection('inv_inventory_transactions')
                     .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
                     .leftJoin('inv_categories', 'inv_inventory_items.category_id', 'inv_categories.id')
-                    .leftJoin('inv_purchase_order_receipts', function () {
-                         this.on('inv_inventory_transactions.batch_number', 'inv_purchase_order_receipts.batch_number')
-                              .andOn('inv_inventory_transactions.expiry_date', 'inv_purchase_order_receipts.expiry_date')
-                    })
                     .select(
                          'inv_categories.name as category_name',
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN inv_inventory_transactions.quantity ELSE 0 END) as total_consumed'),
-                         connection.raw('COUNT(DISTINCT CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN inv_inventory_transactions.item_id END) as unique_items_used'),
-                         connection.raw('SUM(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN COALESCE(inv_inventory_transactions.total_cost, inv_inventory_transactions.quantity * COALESCE(inv_purchase_order_receipts.unit_price, inv_inventory_transactions.unit_cost, 0)) ELSE 0 END) as consumption_value'),
-                         connection.raw('COUNT(CASE WHEN inv_inventory_transactions.transaction_type = "consumption" THEN 1 END) as transaction_count')
+                         connection.raw('SUM(inv_inventory_transactions.quantity) as total_consumed'),
+                         connection.raw('COUNT(DISTINCT inv_inventory_transactions.item_id) as unique_items_used'),
+                         connection.raw('SUM(inv_inventory_transactions.total_cost) as consumption_value'),
+                         connection.raw('COUNT(*) as transaction_count')
                     )
-                    .where('inv_inventory_transactions.transaction_type', 'consumption')
+                    .whereIn('inv_inventory_transactions.transaction_type', ['consumption', 'wastage'])
                     .whereNotNull('inv_categories.name')
                     .modify(function (queryBuilder) {
                          if (start_date) {
@@ -2993,11 +3632,11 @@ export class InventoryAnalyticsController {
                     .select(
                          'inv_inventory_transactions.item_id',
                          'inv_inventory_items.name as item_name',
-                         connection.raw('AVG(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as avg_monthly_usage'),
-                         connection.raw('STDDEV(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as usage_stddev'),
-                         connection.raw('COUNT(CASE WHEN transaction_type = "consumption" THEN 1 END) as usage_count')
+                         connection.raw('AVG(inv_inventory_transactions.quantity) as avg_monthly_usage'),
+                         connection.raw('STDDEV(inv_inventory_transactions.quantity) as usage_stddev'),
+                         connection.raw('COUNT(*) as usage_count')
                     )
-                    .where('transaction_type', 'consumption')
+                    .whereIn('inv_inventory_transactions.transaction_type', ['consumption', 'wastage'])
                     .modify(function (queryBuilder) {
                          if (start_date) {
                               queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
@@ -3019,12 +3658,12 @@ export class InventoryAnalyticsController {
                          t.item_id,
                          i.name as item_name,
                          DATE_FORMAT(t.transaction_date, '%Y-%m-%d') as date,
-                         SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) as actual_usage,
+                         SUM(t.quantity) as actual_usage,
                          COALESCE((
                               SELECT AVG(sub_t.quantity)
                               FROM inv_inventory_transactions sub_t
                               WHERE sub_t.item_id = t.item_id
-                              AND sub_t.transaction_type = 'consumption'
+                              AND sub_t.transaction_type IN ('consumption', 'wastage')
                               AND sub_t.transaction_date < t.transaction_date
                               AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                          ), 0) as expected_usage,
@@ -3033,17 +3672,17 @@ export class InventoryAnalyticsController {
                                    SELECT AVG(sub_t.quantity)
                                    FROM inv_inventory_transactions sub_t
                                    WHERE sub_t.item_id = t.item_id
-                                   AND sub_t.transaction_type = 'consumption'
+                                   AND sub_t.transaction_type IN ('consumption', 'wastage')
                                    AND sub_t.transaction_date < t.transaction_date
                                    AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                               ), 0) > 0
                               THEN (
-                                   SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) -
+                                   SUM(t.quantity) -
                                    COALESCE((
                                         SELECT AVG(sub_t.quantity)
                                         FROM inv_inventory_transactions sub_t
                                         WHERE sub_t.item_id = t.item_id
-                                        AND sub_t.transaction_type = 'consumption'
+                                        AND sub_t.transaction_type IN ('consumption', 'wastage')
                                         AND sub_t.transaction_date < t.transaction_date
                                         AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                                    ), 0)
@@ -3051,7 +3690,7 @@ export class InventoryAnalyticsController {
                                    SELECT AVG(sub_t.quantity)
                                    FROM inv_inventory_transactions sub_t
                                    WHERE sub_t.item_id = t.item_id
-                                   AND sub_t.transaction_type = 'consumption'
+                                   AND sub_t.transaction_type IN ('consumption', 'wastage')
                                    AND sub_t.transaction_date < t.transaction_date
                                    AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                               ), 0) * 100
@@ -3059,7 +3698,7 @@ export class InventoryAnalyticsController {
                          END as deviation_percentage
                     FROM inv_inventory_transactions t
                     LEFT JOIN inv_inventory_items i ON i.id = t.item_id
-                    WHERE t.transaction_type = 'consumption'
+                    WHERE t.transaction_type IN ('consumption', 'wastage')
                     ${start_date ? `AND t.transaction_date >= '${start_date}'` : 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)'}
                     ${end_date ? `AND t.transaction_date <= '${end_date}'` : ''}
                     GROUP BY t.item_id, i.name, t.transaction_date
@@ -3107,14 +3746,14 @@ export class InventoryAnalyticsController {
                               r.username,
                               r.role,
                               DATE_FORMAT(t.transaction_date, '%Y-%m') as month,
-                              SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) as actual_usage,
+                              SUM(t.quantity) as actual_usage,
 
                               -- Expected usage using correlated subquery instead of window function
                               (
                                    SELECT ROUND(AVG(sub_t.quantity), 2)
                                    FROM inv_inventory_transactions sub_t
                                    WHERE sub_t.item_id = t.item_id
-                                   AND sub_t.transaction_type = 'consumption'
+                                   AND sub_t.transaction_type IN ('consumption', 'wastage')
                                    AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                                    AND sub_t.transaction_date < t.transaction_date
                               ) as expected_usage,
@@ -3125,17 +3764,17 @@ export class InventoryAnalyticsController {
                                         SELECT AVG(sub_t.quantity)
                                         FROM inv_inventory_transactions sub_t
                                         WHERE sub_t.item_id = t.item_id
-                                        AND sub_t.transaction_type = 'consumption'
+                                        AND sub_t.transaction_type IN ('consumption', 'wastage')
                                         AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                                         AND sub_t.transaction_date < t.transaction_date
                                    ) > 0
                                    THEN ROUND((
-                                        SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) -
+                                        SUM(t.quantity) -
                                         (
                                              SELECT AVG(sub_t.quantity)
                                              FROM inv_inventory_transactions sub_t
                                              WHERE sub_t.item_id = t.item_id
-                                             AND sub_t.transaction_type = 'consumption'
+                                             AND sub_t.transaction_type IN ('consumption', 'wastage')
                                              AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                                              AND sub_t.transaction_date < t.transaction_date
                                         )
@@ -3143,7 +3782,7 @@ export class InventoryAnalyticsController {
                                         SELECT AVG(sub_t.quantity)
                                         FROM inv_inventory_transactions sub_t
                                         WHERE sub_t.item_id = t.item_id
-                                        AND sub_t.transaction_type = 'consumption'
+                                        AND sub_t.transaction_type IN ('consumption', 'wastage')
                                         AND sub_t.transaction_date >= DATE_SUB(t.transaction_date, INTERVAL 30 DAY)
                                         AND sub_t.transaction_date < t.transaction_date
                                    ) * 100, 2)
@@ -3153,7 +3792,7 @@ export class InventoryAnalyticsController {
                          FROM inv_inventory_transactions t
                          LEFT JOIN inv_inventory_items i ON i.id = t.item_id
                          LEFT JOIN roles r ON t.performed_by = r.employeeid
-                         WHERE t.transaction_type = 'consumption'
+                         WHERE t.transaction_type IN ('consumption', 'wastage')
                          ${start_date ? `AND t.transaction_date >= '${start_date}'` : 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)'}
                          ${end_date ? `AND t.transaction_date <= '${end_date}'` : ''}
                          GROUP BY t.item_id, i.name, t.performed_by, r.employeeid, r.role, DATE_FORMAT(t.transaction_date, '%Y-%m'), t.transaction_date
@@ -3169,32 +3808,32 @@ export class InventoryAnalyticsController {
                          t.item_id,
                          i.name as item_name,
                          CASE
-                              WHEN t.quantity > (SELECT AVG(quantity) * 3 FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type = 'consumption' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) THEN 'High quantity spike'
+                              WHEN t.quantity > (SELECT AVG(quantity) * 3 FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type IN ('consumption', 'wastage') AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) THEN 'High quantity spike'
                               WHEN HOUR(t.transaction_date) < 6 OR HOUR(t.transaction_date) > 22 THEN 'Off-hours consumption'
                               WHEN t.performed_by IS NULL OR t.performed_by = '' THEN 'Undocumented transaction'
-                              WHEN t.quantity > 100 AND t.transaction_type = 'consumption' THEN 'Unusually large consumption'
+                              WHEN t.quantity > 100 AND t.transaction_type IN ('consumption', 'wastage') THEN 'Unusually large consumption'
                               ELSE 'Multiple small transactions'
                          END as risk_indicator,
                          CASE
-                              WHEN t.quantity > (SELECT AVG(quantity) * 5 FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type = 'consumption' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) THEN 'high'
-                              WHEN t.quantity > (SELECT AVG(quantity) * 3 FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type = 'consumption' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) THEN 'medium'
+                              WHEN t.quantity > (SELECT AVG(quantity) * 5 FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type IN ('consumption', 'wastage') AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) THEN 'high'
+                              WHEN t.quantity > (SELECT AVG(quantity) * 3 FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type IN ('consumption', 'wastage') AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)) THEN 'medium'
                               ELSE 'low'
                          END as risk_level,
                          MAX(t.transaction_date) as last_incident_date
                     FROM inv_inventory_transactions t
                     LEFT JOIN inv_inventory_items i ON i.id = t.item_id
-                    WHERE t.transaction_type = 'consumption'
+                    WHERE t.transaction_type IN ('consumption', 'wastage')
                     ${start_date ? `AND t.transaction_date >= '${start_date}'` : 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)'}
                     ${end_date ? `AND t.transaction_date <= '${end_date}'` : ''}
                     AND (
-                         t.quantity > (SELECT COALESCE(AVG(quantity) * 2, 10) FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type = 'consumption' AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))
+                         t.quantity > (SELECT COALESCE(AVG(quantity) * 2, 10) FROM inv_inventory_transactions WHERE item_id = t.item_id AND transaction_type IN ('consumption', 'wastage') AND transaction_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY))
                          OR HOUR(t.transaction_date) < 6
                          OR HOUR(t.transaction_date) > 22
                          OR t.performed_by IS NULL
                          OR t.performed_by = ''
                     )
                     GROUP BY t.item_id, i.name, risk_indicator, risk_level
-                    ORDER BY 
+                    ORDER BY
                          CASE risk_level WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 END,
                          last_incident_date DESC
                     LIMIT 10
@@ -3206,34 +3845,38 @@ export class InventoryAnalyticsController {
                          i.id as item_id,
                          i.name as item_name,
                          t.batch_number,
-                         t.expiry_date,
+                         por.expiry_date,
                          t.transaction_date as consumption_date,
-                         DATEDIFF(t.expiry_date, t.transaction_date) as days_until_expiry_at_consumption,
+                         DATEDIFF(por.expiry_date, t.transaction_date) as days_until_expiry_at_consumption,
                          CASE
-                              WHEN DATEDIFF(t.expiry_date, t.transaction_date) > 30 THEN 'low'
-                              WHEN DATEDIFF(t.expiry_date, t.transaction_date) > 7 THEN 'medium'
+                              WHEN DATEDIFF(por.expiry_date, t.transaction_date) > 30 THEN 'low'
+                              WHEN DATEDIFF(por.expiry_date, t.transaction_date) > 7 THEN 'medium'
                               ELSE 'high'
                          END as risk_level
                     FROM inv_inventory_transactions t
                     JOIN inv_inventory_items i ON t.item_id = i.id
-                    WHERE t.transaction_type = 'consumption'
+                    LEFT JOIN inv_purchase_order_receipts por ON t.batch_number = por.batch_number
+                    LEFT JOIN inv_purchase_order_items poi ON por.order_item_id = poi.id
+                    WHERE t.transaction_type IN ('consumption', 'wastage')
                     AND t.batch_number IS NOT NULL
-                    AND t.expiry_date IS NOT NULL
+                    AND por.expiry_date IS NOT NULL
+                    AND poi.inventory_item_id = t.item_id
                     ${start_date ? `AND t.transaction_date >= '${start_date}'` : ''}
                     ${end_date ? `AND t.transaction_date <= '${end_date}'` : ''}
-                    AND DATEDIFF(t.expiry_date, t.transaction_date) < (
-                         SELECT MIN(DATEDIFF(sub_t.expiry_date, sub_t.transaction_date))
+                    AND DATEDIFF(por.expiry_date, t.transaction_date) < (
+                         SELECT MIN(DATEDIFF(sub_por.expiry_date, sub_t.transaction_date))
                          FROM inv_inventory_transactions sub_t
+                         LEFT JOIN inv_purchase_order_receipts sub_por ON sub_t.batch_number = sub_por.batch_number
+                         LEFT JOIN inv_purchase_order_items sub_poi ON sub_por.order_item_id = sub_poi.id
                          WHERE sub_t.item_id = t.item_id
-                         AND sub_t.transaction_type = 'consumption'
+                         AND sub_t.transaction_type IN ('consumption', 'wastage')
                          AND DATE(sub_t.transaction_date) = DATE(t.transaction_date)
-                         AND sub_t.expiry_date IS NOT NULL
+                         AND sub_por.expiry_date IS NOT NULL
+                         AND sub_poi.inventory_item_id = sub_t.item_id
                     )
-                    ORDER BY DATEDIFF(t.expiry_date, t.transaction_date) ASC
+                    ORDER BY DATEDIFF(por.expiry_date, t.transaction_date) ASC
                     LIMIT 20
-               `) as any[];
-
-               // Critical alerts for expiry risk and wastage ratios
+               `) as any[];               // Critical alerts for expiry risk and wastage ratios
                const criticalAlerts = await connection.raw(`
                     -- Expiry risk alerts
                     SELECT
@@ -3289,134 +3932,310 @@ export class InventoryAnalyticsController {
                     LIMIT 30
                `) as any[];
 
-               // Detailed wastage analysis
-               const detailedWastageAnalysis = await connection.raw(`
+               // Detailed wastage analysis - broken down into smaller queries
+               // 1. Get wastage summary by item and reason
+               const wastageSummary = await connection.raw(`
                     SELECT
+                         i.id as item_id,
                          i.name as item_name,
-                         COALESCE(t.wastage_type, 'unspecified') as wastage_type,
+                         COALESCE(t.reason, 'unspecified') as wastage_type,
                          COUNT(*) as wastage_events,
                          SUM(t.quantity) as total_wasted_units,
-                         ROUND(AVG(t.quantity), 2) as avg_wastage_per_event,
-                         ROUND(
-                              (SUM(t.quantity) * 100.0 / (
-                                   SELECT SUM(sub_t.quantity)
-                                   FROM inv_inventory_transactions sub_t
-                                   WHERE sub_t.item_id = t.item_id
-                                   AND sub_t.transaction_type IN ('consumption', 'wastage')
-                              )),
-                              2
-                         ) as wastage_percentage
+                         ROUND(AVG(t.quantity), 2) as avg_wastage_per_event
                     FROM inv_inventory_transactions t
                     JOIN inv_inventory_items i ON t.item_id = i.id
                     WHERE t.transaction_type = 'wastage'
                     ${start_date ? `AND t.transaction_date >= '${start_date}'` : ''}
                     ${end_date ? `AND t.transaction_date <= '${end_date}'` : ''}
-                    GROUP BY i.name, t.wastage_type
+                    GROUP BY i.id, i.name, t.reason
                     ORDER BY total_wasted_units DESC
                     LIMIT 20
                `) as any[];
 
-               // Batch utilization analysis
-               const batchUtilizationAnalysis = await connection.raw(`
+               // 2. Get total used quantities per item for percentage calculation
+               const itemTotalUsed = await connection.raw(`
                     SELECT
+                         item_id,
+                         SUM(quantity) as total_used
+                    FROM inv_inventory_transactions
+                    WHERE transaction_type IN ('consumption', 'wastage')
+                    ${start_date ? `AND transaction_date >= '${start_date}'` : ''}
+                    ${end_date ? `AND transaction_date <= '${end_date}'` : ''}
+                    GROUP BY item_id
+               `) as any[];
+
+               // 3. Calculate wastage percentages
+               const detailedWastageAnalysis = wastageSummary[0].map((wastage: any) => {
+                    const totalUsed = itemTotalUsed[0].find((used: any) => used.item_id === wastage.item_id)?.total_used || 0;
+                    const wastagePercentage = totalUsed > 0 ? (parseFloat(wastage.total_wasted_units) / totalUsed) * 100 : 0;
+
+                    return {
+                         item_name: wastage.item_name,
+                         wastage_type: wastage.wastage_type,
+                         wastage_events: parseInt(wastage.wastage_events),
+                         total_wasted_units: parseInt(wastage.total_wasted_units),
+                         avg_wastage_per_event: parseFloat(wastage.avg_wastage_per_event) || 0,
+                         wastage_percentage: Math.round(wastagePercentage * 100) / 100
+                    };
+               });               // Batch utilization analysis - calculate per receipt, not per batch number
+               // 1. Get receipt-level batch data (each receipt has its own received quantity)
+               const batchData = await connection.raw(`
+                    SELECT
+                         r.id as receipt_id,
+                         oi.inventory_item_id as item_id,
                          i.name as item_name,
-                         t.batch_number,
-                         t.expiry_date,
-                         SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END) as total_received,
-                         SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) as total_consumed,
-                         SUM(CASE WHEN t.transaction_type = 'wastage' THEN t.quantity ELSE 0 END) as total_wasted,
-                         ROUND(
-                              (SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 /
-                              NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)),
-                              2
-                         ) as utilization_rate,
-                         GREATEST(0, DATEDIFF(t.expiry_date, CURDATE())) as days_to_expiry,
-                         CASE
-                              WHEN DATEDIFF(t.expiry_date, CURDATE()) < 0 THEN 'expired'
-                              WHEN ROUND((SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)), 2) >= 90 THEN 'excellent'
-                              WHEN ROUND((SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)), 2) >= 70 THEN 'good'
-                              WHEN ROUND((SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)), 2) >= 50 THEN 'poor'
-                              ELSE 'critical'
-                         END as utilization_status
-                    FROM inv_inventory_transactions t
-                    JOIN inv_inventory_items i ON t.item_id = i.id
-                    WHERE t.batch_number IS NOT NULL
-                    ${start_date ? `AND t.transaction_date >= '${start_date}'` : ''}
-                    ${end_date ? `AND t.transaction_date <= '${end_date}'` : ''}
-                    GROUP BY i.name, t.batch_number, t.expiry_date
-                    HAVING total_received > 0
-                    ORDER BY utilization_rate DESC, total_received DESC
+                         r.batch_number,
+                         r.expiry_date,
+                         r.quantity_received as total_received
+                    FROM inv_purchase_order_receipts r
+                    JOIN inv_purchase_order_items oi ON r.order_item_id = oi.id
+                    JOIN inv_inventory_items i ON oi.inventory_item_id = i.id
+                    WHERE r.batch_number IS NOT NULL AND r.batch_number != ''
+                    AND r.quantity_received > 0
+                    ${start_date ? `AND r.received_date >= '${start_date}'` : ''}
+                    ${end_date ? `AND r.received_date <= '${end_date}'` : ''}
+                    ORDER BY r.quantity_received DESC
                     LIMIT 30
                `) as any[];
 
-               // Stock turnover rates
-               const stockTurnoverRates = await connection.raw(`
+               // 2. Get consumption and wastage data per batch (aggregated across all receipts with same batch)
+               const batchUsageData = await connection.raw(`
                     SELECT
+                         batch_number,
+                         SUM(CASE WHEN transaction_type IN ('consumption', 'wastage') THEN quantity ELSE 0 END) as total_consumed,
+                         SUM(CASE WHEN transaction_type = 'wastage' THEN quantity ELSE 0 END) as total_wasted
+                    FROM inv_inventory_transactions
+                    WHERE batch_number IS NOT NULL AND batch_number != ''
+                    ${start_date ? `AND transaction_date >= '${start_date}'` : ''}
+                    ${end_date ? `AND transaction_date <= '${end_date}'` : ''}
+                    GROUP BY batch_number
+               `) as any[];
+
+               // 3. Calculate utilization metrics per receipt
+               const batchUtilizationAnalysis = batchData[0].map((receipt: any) => {
+                    // Find usage data for this batch (shared across receipts with same batch number)
+                    const usage = batchUsageData[0].find((u: any) => u.batch_number === receipt.batch_number) || { total_consumed: 0, total_wasted: 0 };
+
+                    const totalReceived = parseFloat(receipt.total_received) || 0;
+                    const totalConsumed = parseFloat(usage.total_consumed) || 0;
+                    const totalWasted = parseFloat(usage.total_wasted) || 0;
+
+                    // For receipts sharing the same batch, we need to prorate the usage
+                    // This is a simplified approach - in reality, we'd need batch-level tracking
+                    // For now, we'll distribute usage proportionally across receipts with same batch
+                    const receiptsWithSameBatch = batchData[0].filter((r: any) => r.batch_number === receipt.batch_number);
+                    const totalReceivedForBatch = receiptsWithSameBatch.reduce((sum: number, r: any) => sum + parseFloat(r.total_received || 0), 0);
+
+                    // Prorate usage based on this receipt's share of the total received for this batch
+                    const proratedConsumed = totalReceivedForBatch > 0 ? (totalConsumed * totalReceived) / totalReceivedForBatch : 0;
+                    const proratedWasted = totalReceivedForBatch > 0 ? (totalWasted * totalReceived) / totalReceivedForBatch : 0;
+                    const totalUsed = proratedConsumed + proratedWasted;
+
+                    const utilizationRate = totalReceived > 0 ? (totalUsed / totalReceived) * 100 : 0;
+                    const daysToExpiry = Math.max(0, Math.floor((new Date(receipt.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)));
+
+                    let utilizationStatus: 'excellent' | 'good' | 'poor' | 'critical' | 'expired' = 'critical';
+                    if (daysToExpiry < 0) {
+                         utilizationStatus = 'expired';
+                    } else if (utilizationRate >= 90) {
+                         utilizationStatus = 'excellent';
+                    } else if (utilizationRate >= 70) {
+                         utilizationStatus = 'good';
+                    } else if (utilizationRate >= 50) {
+                         utilizationStatus = 'poor';
+                    }
+
+                    return {
+                         item_name: receipt.item_name,
+                         batch_number: receipt.batch_number,
+                         expiry_date: receipt.expiry_date,
+                         total_received: totalReceived,
+                         total_consumed: Math.round(proratedConsumed * 100) / 100,
+                         total_wasted: Math.round(proratedWasted * 100) / 100,
+                         utilization_rate: Math.round(Math.min(utilizationRate, 100) * 100) / 100, // Cap at 100%
+                         days_to_expiry: daysToExpiry,
+                         utilization_status: utilizationStatus
+                    };
+               });
+
+               // Stock turnover rates - broken down into smaller queries
+               // 1. Get basic item quantities
+               const itemTurnoverData = await connection.raw(`
+                    SELECT
+                         i.id as item_id,
                          i.name as item_name,
-                         SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END) as total_added,
-                         SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) as total_consumed,
-                         SUM(CASE WHEN t.transaction_type = 'wastage' THEN t.quantity ELSE 0 END) as total_wasted,
-                         ROUND(
-                              (SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 /
-                              NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)),
-                              2
-                         ) as consumption_rate,
-                         ROUND(
-                              (SUM(CASE WHEN t.transaction_type = 'wastage' THEN t.quantity ELSE 0 END) * 100.0 /
-                              NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)),
-                              2
-                         ) as wastage_rate,
-                         CASE
-                              WHEN ROUND((SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)), 2) >= 90 THEN 'excellent'
-                              WHEN ROUND((SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)), 2) >= 75 THEN 'good'
-                              WHEN ROUND((SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 / NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)), 2) >= 60 THEN 'fair'
-                              ELSE 'poor'
-                         END as turnover_efficiency
-                    FROM inv_inventory_transactions t
-                    JOIN inv_inventory_items i ON t.item_id = i.id
-                    ${start_date || end_date ? `WHERE ${start_date ? `t.transaction_date >= '${start_date}'` : ''} ${start_date && end_date ? 'AND' : ''} ${end_date ? `t.transaction_date <= '${end_date}'` : ''}` : ''}
-                    GROUP BY i.name
-                    ORDER BY wastage_rate DESC
+                         COALESCE(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0) as total_added,
+                         COALESCE(used_totals.total_used, 0) as total_used,
+                         COALESCE(wasted_totals.total_wasted, 0) as total_wasted
+                    FROM inv_inventory_items i
+                    LEFT JOIN inv_inventory_transactions t ON i.id = t.item_id
+                         ${start_date || end_date ? `AND (${start_date ? `t.transaction_date >= '${start_date}'` : ''} ${start_date && end_date ? 'AND' : ''} ${end_date ? `t.transaction_date <= '${end_date}'` : ''})` : ''}
+                    LEFT JOIN (
+                         SELECT
+                              item_id,
+                              SUM(quantity) as total_used
+                         FROM inv_inventory_transactions
+                         WHERE transaction_type IN ('consumption', 'wastage')
+                         ${start_date ? `AND transaction_date >= '${start_date}'` : ''}
+                         ${end_date ? `AND transaction_date <= '${end_date}'` : ''}
+                         GROUP BY item_id
+                    ) used_totals ON i.id = used_totals.item_id
+                    LEFT JOIN (
+                         SELECT
+                              item_id,
+                              SUM(quantity) as total_wasted
+                         FROM inv_inventory_transactions
+                         WHERE transaction_type = 'wastage'
+                         ${start_date ? `AND transaction_date >= '${start_date}'` : ''}
+                         ${end_date ? `AND transaction_date <= '${end_date}'` : ''}
+                         GROUP BY item_id
+                    ) wasted_totals ON i.id = wasted_totals.item_id
+                    WHERE i.is_active = 1
+                    GROUP BY i.id, i.name, used_totals.total_used, wasted_totals.total_wasted
+                    HAVING total_added > 0
+                    ORDER BY total_wasted DESC
                     LIMIT 25
                `) as any[];
 
-               // Comprehensive usage summary
-               const comprehensiveUsageSummary = await connection.raw(`
+               // 2. Calculate turnover rates and efficiency
+               const stockTurnoverRates = itemTurnoverData[0].map((item: any) => {
+                    const totalAdded = parseFloat(item.total_added) || 0;
+                    const totalUsed = parseFloat(item.total_used) || 0;
+                    const totalWasted = parseFloat(item.total_wasted) || 0;
+
+                    const consumptionRate = totalAdded > 0 ? (totalUsed / totalAdded) * 100 : 0;
+                    const wastageRate = totalAdded > 0 ? (totalWasted / totalAdded) * 100 : 0;
+
+                    let turnoverEfficiency = 'poor';
+                    if (consumptionRate >= 90) turnoverEfficiency = 'excellent';
+                    else if (consumptionRate >= 75) turnoverEfficiency = 'good';
+                    else if (consumptionRate >= 60) turnoverEfficiency = 'fair';
+
+                    return {
+                         item_name: item.item_name,
+                         total_added: totalAdded,
+                         total_consumed: totalUsed,
+                         total_wasted: totalWasted,
+                         consumption_rate: Math.round(consumptionRate * 100) / 100,
+                         wastage_rate: Math.round(wastageRate * 100) / 100,
+                         turnover_efficiency: turnoverEfficiency as 'excellent' | 'good' | 'fair' | 'poor'
+                    };
+               });
+
+               // Comprehensive usage summary - broken down into smaller queries for better performance and maintainability
+               // 1. Get basic transaction counts per item
+               const itemTransactionCounts = await connection.raw(`
                     SELECT
+                         i.id as item_id,
                          i.name as item_name,
-                         COUNT(DISTINCT t.id) as total_transactions,
-                         SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END) as total_added,
-                         SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) as total_consumed,
-                         SUM(CASE WHEN t.transaction_type = 'wastage' THEN t.quantity ELSE 0 END) as total_wasted,
-                         ROUND(
-                              (SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 /
-                              NULLIF(SUM(CASE WHEN t.transaction_type IN ('consumption', 'wastage') THEN t.quantity ELSE 0 END), 0)),
-                              2
-                         ) as consumption_percentage,
-                         ROUND(
-                              (SUM(CASE WHEN t.transaction_type = 'wastage' THEN t.quantity ELSE 0 END) * 100.0 /
-                              NULLIF(SUM(CASE WHEN t.transaction_type IN ('consumption', 'wastage') THEN t.quantity ELSE 0 END), 0)),
-                              2
-                         ) as wastage_percentage,
-                         ROUND(
-                              SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) /
-                              NULLIF(COUNT(DISTINCT DATE(t.transaction_date)), 0),
-                              2
-                         ) as avg_daily_consumption,
-                         ROUND(
-                              (SUM(CASE WHEN t.transaction_type = 'consumption' THEN t.quantity ELSE 0 END) * 100.0 /
-                              NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)) -
-                              (SUM(CASE WHEN t.transaction_type = 'wastage' THEN t.quantity ELSE 0 END) * 100.0 /
-                              NULLIF(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0)),
-                              2
-                         ) as efficiency_score
+                         COUNT(DISTINCT t.id) as addition_transactions,
+                         COUNT(DISTINCT DATE(t.transaction_date)) as active_days
                     FROM inv_inventory_transactions t
                     JOIN inv_inventory_items i ON t.item_id = i.id
                     ${start_date || end_date ? `WHERE ${start_date ? `t.transaction_date >= '${start_date}'` : ''} ${start_date && end_date ? 'AND' : ''} ${end_date ? `t.transaction_date <= '${end_date}'` : ''}` : ''}
-                    GROUP BY i.name
-                    ORDER BY wastage_percentage DESC, total_wasted DESC
+                    GROUP BY i.id, i.name
+               `) as any[];
+
+               // 2. Get consumption and wastage transaction counts
+               const consumptionTransactionCounts = await connection.raw(`
+                    SELECT
+                         item_id,
+                         COUNT(DISTINCT id) as consumption_transactions
+                    FROM inv_inventory_transactions
+                    WHERE transaction_type IN ('consumption', 'wastage')
+                    ${start_date ? `AND transaction_date >= '${start_date}'` : ''}
+                    ${end_date ? `AND transaction_date <= '${end_date}'` : ''}
+                    GROUP BY item_id
+               `) as any[];
+
+               // 3. Get total quantities by type
+               const itemQuantities = await connection.raw(`
+                    SELECT
+                         i.id as item_id,
+                         i.name as item_name,
+                         COALESCE(SUM(CASE WHEN t.transaction_type = 'addition' THEN t.quantity ELSE 0 END), 0) as total_added,
+                         COALESCE(consumption_totals.total_consumed, 0) as total_consumed,
+                         COALESCE(wastage_totals.total_wasted, 0) as total_wasted
+                    FROM inv_inventory_items i
+                    LEFT JOIN inv_inventory_transactions t ON i.id = t.item_id
+                         ${start_date || end_date ? `AND (${start_date ? `t.transaction_date >= '${start_date}'` : ''} ${start_date && end_date ? 'AND' : ''} ${end_date ? `t.transaction_date <= '${end_date}'` : ''})` : ''}
+                    LEFT JOIN (
+                         SELECT
+                              item_id,
+                              SUM(quantity) as total_consumed
+                         FROM inv_inventory_transactions
+                         WHERE transaction_type IN ('consumption', 'wastage')
+                         ${start_date ? `AND transaction_date >= '${start_date}'` : ''}
+                         ${end_date ? `AND transaction_date <= '${end_date}'` : ''}
+                         GROUP BY item_id
+                    ) consumption_totals ON i.id = consumption_totals.item_id
+                    LEFT JOIN (
+                         SELECT
+                              item_id,
+                              SUM(quantity) as total_wasted
+                         FROM inv_inventory_transactions
+                         WHERE transaction_type = 'wastage'
+                         ${start_date ? `AND transaction_date >= '${start_date}'` : ''}
+                         ${end_date ? `AND transaction_date <= '${end_date}'` : ''}
+                         GROUP BY item_id
+                    ) wastage_totals ON i.id = wastage_totals.item_id
+                    WHERE i.is_active = 1
+                    GROUP BY i.id, i.name, consumption_totals.total_consumed, wastage_totals.total_wasted
+                    HAVING total_added > 0 OR total_consumed > 0 OR total_wasted > 0
+                    ORDER BY total_wasted DESC, total_consumed DESC
                     LIMIT 30
                `) as any[];
+
+               // 4. Calculate percentages and scores using the specified formulas
+               const comprehensiveUsageSummary = itemQuantities[0].map((item: any) => {
+                    const transactionCount = itemTransactionCounts[0].find((tc: any) => tc.item_id === item.item_id);
+                    const consumptionCount = consumptionTransactionCounts[0].find((cc: any) => cc.item_id === item.item_id);
+
+                    const totalTransactions = (transactionCount?.addition_transactions || 0) + (consumptionCount?.consumption_transactions || 0);
+                    const totalConsumed = parseFloat(item.total_consumed) || 0;
+                    const totalWasted = parseFloat(item.total_wasted) || 0;
+                    const totalAdded = parseFloat(item.total_added) || 0;
+                    const totalUsed = totalConsumed + totalWasted;
+
+                    // Calculate number of days in the transaction range (don't hard-code)
+                    let daysInRange = 90; // Default to 90 days if no date range specified
+                    if (start_date && end_date) {
+                         const start = new Date(start_date as string);
+                         const end = new Date(end_date as string);
+                         daysInRange = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                    } else if (start_date) {
+                         const start = new Date(start_date as string);
+                         const end = new Date();
+                         daysInRange = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+                    } else if (end_date) {
+                         // If only end_date provided, use 90 days back from end_date
+                         daysInRange = 90;
+                    }
+
+                    // Consumption % = total_consumed / total_added × 100 (Inventory Utilization Rate)
+                    const consumptionPercentage = totalAdded > 0 ? (totalConsumed / totalAdded) * 100 : 0;
+
+                    // Wastage % = total_wasted / total_added × 100
+                    const wastagePercentage = totalAdded > 0 ? (totalWasted / totalAdded) * 100 : 0;
+
+                    // Avg Daily Consumption = total_consumed / number of days in transactions range
+                    const avgDailyConsumption = totalConsumed / daysInRange;
+
+                    // Efficiency Score (simple version) = total_consumed / total_added × 100
+                    const efficiencyScore = totalAdded > 0 ? (totalConsumed / totalAdded) * 100 : 0;
+
+                    return {
+                         item_name: item.item_name,
+                         total_transactions: totalTransactions,
+                         total_added: totalAdded,
+                         total_consumed: totalConsumed,
+                         total_wasted: totalWasted,
+                         consumption_percentage: Math.round(consumptionPercentage * 100) / 100,
+                         wastage_percentage: Math.round(wastagePercentage * 100) / 100,
+                         avg_daily_consumption: Math.round(avgDailyConsumption * 100) / 100,
+                         efficiency_score: Math.round(efficiencyScore * 100) / 100
+                    };
+               });
 
                const analytics: UsageAnalytics = {
                     consumption_patterns: {
@@ -3451,11 +4270,11 @@ export class InventoryAnalyticsController {
                          }))
                     },
                     anomalies_red_flags: {
-                         unusual_usage_spikes: unusualUsage.map(row => ({
+                         unusual_usage_spikes: unusualUsage[0].map((row: any) => ({
                               item_id: row.item_id,
                               item_name: row.item_name,
                               date: row.date,
-                              actual_usage: parseInt(row.actual_usage),
+                              actual_usage: parseInt(row.actual_usage) || 0,
                               expected_usage: parseFloat(row.expected_usage) || 0,
                               deviation_percentage: parseFloat(row.deviation_percentage) || 0,
                               potential_cause: parseFloat(row.deviation_percentage) > 100 ? 'Significant spike' : 'Moderate increase'
@@ -3499,45 +4318,10 @@ export class InventoryAnalyticsController {
                     usage_efficiency: {
                          stock_utilization_rate: parseFloat(utilizationResult?.utilization_rate) || 0,
                          wastage_rate: parseFloat(wastageResult?.wastage_rate) || 0,
-                         detailed_wastage_analysis: detailedWastageAnalysis[0].map((row: any) => ({
-                              item_name: row.item_name,
-                              wastage_type: row.wastage_type,
-                              wastage_events: parseInt(row.wastage_events),
-                              total_wasted_units: parseInt(row.total_wasted_units),
-                              avg_wastage_per_event: parseFloat(row.avg_wastage_per_event) || 0,
-                              wastage_percentage: parseFloat(row.wastage_percentage) || 0
-                         })),
-                         batch_utilization_analysis: batchUtilizationAnalysis[0].map((row: any) => ({
-                              item_name: row.item_name,
-                              batch_number: row.batch_number,
-                              expiry_date: row.expiry_date,
-                              total_received: parseInt(row.total_received),
-                              total_consumed: parseInt(row.total_consumed),
-                              total_wasted: parseInt(row.total_wasted),
-                              utilization_rate: parseFloat(row.utilization_rate) || 0,
-                              days_to_expiry: parseInt(row.days_to_expiry) || 0,
-                              utilization_status: row.utilization_status as 'excellent' | 'good' | 'poor' | 'critical' | 'expired'
-                         })),
-                         stock_turnover_rates: stockTurnoverRates[0].map((row: any) => ({
-                              item_name: row.item_name,
-                              total_added: parseInt(row.total_added),
-                              total_consumed: parseInt(row.total_consumed),
-                              total_wasted: parseInt(row.total_wasted),
-                              consumption_rate: parseFloat(row.consumption_rate) || 0,
-                              wastage_rate: parseFloat(row.wastage_rate) || 0,
-                              turnover_efficiency: row.turnover_efficiency as 'excellent' | 'good' | 'fair' | 'poor'
-                         })),
-                         comprehensive_usage_summary: comprehensiveUsageSummary[0].map((row: any) => ({
-                              item_name: row.item_name,
-                              total_transactions: parseInt(row.total_transactions),
-                              total_added: parseInt(row.total_added),
-                              total_consumed: parseInt(row.total_consumed),
-                              total_wasted: parseInt(row.total_wasted),
-                              consumption_percentage: parseFloat(row.consumption_percentage) || 0,
-                              wastage_percentage: parseFloat(row.wastage_percentage) || 0,
-                              avg_daily_consumption: parseFloat(row.avg_daily_consumption) || 0,
-                              efficiency_score: parseFloat(row.efficiency_score) || 0
-                         })),
+                         detailed_wastage_analysis: detailedWastageAnalysis,
+                         batch_utilization_analysis: batchUtilizationAnalysis,
+                         stock_turnover_rates: stockTurnoverRates,
+                         comprehensive_usage_summary: comprehensiveUsageSummary,
                          optimal_ordering_patterns: [] // Placeholder - would need complex analysis
                     }
                };

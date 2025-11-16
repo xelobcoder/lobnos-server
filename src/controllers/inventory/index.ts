@@ -5,6 +5,7 @@ export { SupplierController } from './SupplierController';
 export { StorageLocationController } from './StorageLocationController';
 export { InventoryItemController } from './InventoryItemController';
 export { PurchaseOrderController } from './PurchaseOrderController';
-export { InventoryTransactionController } from './InventoryTransactionController';
+export { InventoryConsumptionController } from './InventoryConsumptionController';
+export { InventoryStockController } from './InventoryStockController';
 export { SupplierPaymentController } from './SupplierPaymentController';
 export { JournalController } from './JournalController';

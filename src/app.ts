@@ -42,6 +42,7 @@ import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
 import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 import complianceRouter from './controllers/compliance/routes';
+import { killProcessOnPort } from "./models/security/killport";
 
 
 
@@ -120,6 +121,6 @@ app.get("/", (req: Request, res: Response) => {
 const host = process.env.apphost || 'localhost';
 
 app.listen(Number(port), host, () => {
-	console.log(`Server is running on http://${host}:${port}`);
+	console.log(`Server is running at http://${host}:${port}`);
 });
 

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "node --watch --env-file=./.env ./dist/src/app.js",
     "tsdev": "npx tsc --w",
-    "start": " node --env-file=./.env ./dist/src/app.js",
+    "start": "npm run kill-port && node --env-file=./.env ./dist/src/app.js",
+    "kill-port": "node  --env-file=./.env ./dist/src/models/security/killport.js  ",
     "backup-scheduler:start": "node --env-file=./.env ./scripts/backup-scheduler.js start",
     "backup-scheduler:stop": "node --env-file=./.env ./scripts/backup-scheduler.js stop",
     "backup-scheduler:status": "node --env-file=./.env ./scripts/backup-scheduler.js status"

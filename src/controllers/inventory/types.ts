@@ -9,18 +9,7 @@ export interface InventoryAnalyticsSummary {
      total_locations: number;
 }
 
-export interface StockStatusAnalytics {
-     in_stock: number;
-     low_stock: number;
-     out_of_stock: number;
-     expired: number;
-     stock_value_by_status: {
-          in_stock: number;
-          low_stock: number;
-          out_of_stock: number;
-          expired: number;
-     };
-}
+
 
 export interface PurchaseOrderAnalytics {
      total_orders: number;
@@ -245,23 +234,127 @@ export interface SupplierAnalytics {
 }
 
 export interface TransactionAnalytics {
-     total_transactions: number;
-     additions: number;
-     consumptions: number;
-     adjustments: number;
-     transfers: number;
-     wastage: number;
-     transaction_trends: Array<{
-          date: string;
-          additions: number;
-          consumptions: number;
-          adjustments: number;
-     }>;
-     top_consumed_items: Array<{
-          item_id: string;
-          item_name: string;
-          total_consumed: number;
-     }>;
+     // EXECUTIVE SUMMARY - Key metrics business managers need to see first
+     executive_summary: {
+          total_inventory_value: number;
+          monthly_transaction_volume: number;
+          inventory_turnover_ratio: number;
+          stockout_risk_level: string;
+          supplier_performance_score: number;
+          cost_efficiency_rating: string;
+     };
+
+     // FINANCIAL IMPACT - Cost analysis and profitability insights
+     financial_impact: {
+          total_transaction_value: number;
+          average_transaction_value: number;
+          cost_savings_opportunities: number;
+          budget_impact_alerts: string;
+          profitability_indicators: {
+               high_value_transactions: number;
+               cost_per_unit_trend: number;
+               volume_vs_cost_efficiency: number;
+          };
+     };
+
+     // OPERATIONAL EFFICIENCY - How well the inventory system is performing
+     operational_efficiency: {
+          transaction_processing_speed: number;
+          inventory_accuracy_score: number;
+          process_bottlenecks: string;
+          automation_opportunities: number;
+          efficiency_trends: {
+               transaction_volume_trend: string;
+               error_rate: number;
+               processing_time_efficiency: string;
+          };
+     };
+
+     // RISK MANAGEMENT - Critical alerts and risk indicators
+     risk_management: {
+          critical_alerts: string[];
+          stockout_prevention_score: number;
+          supplier_reliability_score: number;
+          compliance_risks: number;
+          financial_risks: string;
+          operational_risks: string;
+     };
+
+     // BUSINESS INSIGHTS - Actionable recommendations
+     business_insights: {
+          top_opportunities: string[];
+          immediate_actions_needed: string[];
+          strategic_recommendations: string[];
+          cost_optimization_targets: Array<{
+               reason: string;
+               potential_savings: number;
+               priority: string;
+          }>;
+     };
+
+     // SIMPLIFIED METRICS - Easy to understand key indicators
+     key_performance_indicators: {
+          transactions_per_day: number;
+          inventory_turnover_days: number;
+          supplier_performance_rating: string;
+          process_efficiency_score: number;
+          cost_effectiveness_rating: string;
+     };
+
+     // DETAILED ANALYTICS - For deep dive when needed
+     detailed_analytics: {
+          core_metrics: {
+               transaction_volume: {
+                    total_transactions: number;
+                    total_quantity_moved: number;
+                    avg_quantity_per_transaction: number;
+                    total_transaction_value: number;
+               };
+               transaction_type_distribution: {
+                    consumption: number;
+                    addition: number;
+                    wastage: number;
+                    adjustment: number;
+                    transfer: number;
+               };
+               cost_analysis: {
+                    addition_cost: number;
+                    avg_addition_unit_cost: number;
+               };
+          } | null;
+          time_pattern_analysis: {
+               daily_patterns: Array<{
+                    date: string;
+                    transaction_count: number;
+                    total_quantity: number;
+               }>;
+               peak_hours: Array<{
+                    hour: number;
+                    transaction_count: number;
+               }>;
+          };
+          high_volume_transactions: Array<{
+               date: string;
+               transaction_count: number;
+               total_quantity: number;
+               total_cost: number;
+               unique_items_affected: number;
+               volume_category: string;
+               cost_category: string;
+               transaction_breakdown: {
+                    wastage: number;
+                    consumption: number;
+                    addition: number;
+                    adjustment: number;
+               };
+               quantity_breakdown: {
+                    wastage_quantity: number;
+                    consumption_quantity: number;
+                    addition_quantity: number;
+               };
+               notable_wastage: string[];
+          }>;
+     };
 }
 
 export interface CostAnalytics {

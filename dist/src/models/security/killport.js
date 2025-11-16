@@ -29,4 +29,5 @@ const killProcessOnPort = (port) => {
     });
 };
 exports.killProcessOnPort = killProcessOnPort;
-(0, exports.killProcessOnPort)(8000);
+const port = process.env.NODE_ENV == 'development' ? process.env.DEVELOPMENT_PORT : process.env.PORT || 5000;
+(0, exports.killProcessOnPort)(Number(port));

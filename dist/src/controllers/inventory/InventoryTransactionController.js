@@ -80,6 +80,58 @@ class InventoryTransactionController {
             };
         }
     }
+    async createConsumptionHistoryRecord(tenantId, consumptionData) {
+        const model = new InventoryTransaction_1.InventoryTransactionModel(tenantId);
+        const connection = await model.connection;
+        const consumptionHistoryId = `CH-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        let unitCost = consumptionData.unit_cost || 0;
+        let totalCost = consumptionData.total_cost || 0;
+        if (unitCost === 0 || totalCost === 0) {
+            if (consumptionData.batch_number) {
+                const batchReceipt = await connection('inv_purchase_order_receipts')
+                    .join('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                    .where('inv_purchase_order_receipts.batch_number', consumptionData.batch_number)
+                    .andWhere('inv_purchase_order_items.inventory_item_id', consumptionData.item_id)
+                    .select('inv_purchase_order_receipts.unit_price')
+                    .orderBy('inv_purchase_order_receipts.received_date', 'desc')
+                    .first();
+                if (batchReceipt && batchReceipt.unit_price) {
+                    unitCost = parseFloat(batchReceipt.unit_price);
+                    totalCost = unitCost * consumptionData.quantity_consumed;
+                }
+            }
+            if (unitCost === 0) {
+                const recentTransaction = await connection('inv_inventory_transactions')
+                    .where('item_id', consumptionData.item_id)
+                    .andWhere('unit_cost', '>', 0)
+                    .select('unit_cost')
+                    .orderBy('transaction_date', 'desc')
+                    .first();
+                if (recentTransaction && recentTransaction.unit_cost) {
+                    unitCost = parseFloat(recentTransaction.unit_cost);
+                    totalCost = unitCost * consumptionData.quantity_consumed;
+                }
+            }
+        }
+        await connection('inv_consumption_history').insert({
+            id: consumptionHistoryId,
+            item_id: consumptionData.item_id,
+            quantity_consumed: consumptionData.quantity_consumed,
+            consumed_by: consumptionData.consumed_by,
+            consumption_date: consumptionData.consumption_date || new Date(),
+            batch_number: consumptionData.batch_number,
+            brand_name: consumptionData.brand_name,
+            unit_cost: unitCost,
+            total_cost: totalCost,
+            consumption_reason: consumptionData.consumption_reason,
+            department: consumptionData.department,
+            patient_id: consumptionData.patient_id,
+            prescription_id: consumptionData.prescription_id,
+            notes: consumptionData.notes,
+            approved_by: consumptionData.approved_by
+        });
+        return consumptionHistoryId;
+    }
     validateConsumptionRequest(data) {
         const errors = [];
         if (!data.item_id || typeof data.item_id !== 'string') {
@@ -88,9 +140,6 @@ class InventoryTransactionController {
         if (!data.quantity || typeof data.quantity !== 'number' || data.quantity <= 0) {
             errors.push('Quantity must be a positive number');
         }
-        // if (data.quantity && data.quantity > 10000) {
-        //      errors.push('Quantity cannot exceed 10,000 units per transaction');
-        // }
         return { isValid: errors.length === 0, errors };
     }
     async recordTestConsumption(req, res) {
@@ -141,12 +190,26 @@ class InventoryTransactionController {
                     expiry_date = batchInfo.expiry_date;
                 }
             }
+            const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
+                item_id,
+                quantity_consumed: quantity_used,
+                consumed_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString(),
+                consumption_date: new Date(),
+                batch_number,
+                brand_name,
+                consumption_reason: `Test consumption - ${test_type}`,
+                department: 'laboratory',
+                patient_id,
+                prescription_id: test_id,
+                notes: notes || `Automatic consumption for test ${test_id}`,
+                approved_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString()
+            });
             const transactionData = {
                 item_id,
                 transaction_type: 'consumption',
                 quantity: quantity_used,
                 reason: `Test consumption - ${test_type}`,
-                reference_id: test_id,
+                reference_id: consumptionHistoryId,
                 patient_id,
                 ascension_id,
                 testid,
@@ -215,7 +278,6 @@ class InventoryTransactionController {
                 res.status(400).json(response);
                 return;
             }
-            // Check for duplicate wastage consumption
             const duplicateCheck = await this.validateNoDuplicateWastage(tenantId, item_id, batch_number, undefined, reason);
             if (!duplicateCheck.isValid) {
                 const response = {
@@ -236,11 +298,24 @@ class InventoryTransactionController {
                     expiry_date = batchInfo.expiry_date;
                 }
             }
+            const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
+                item_id,
+                quantity_consumed: quantity,
+                consumed_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString(),
+                consumption_date: new Date(),
+                batch_number,
+                brand_name,
+                consumption_reason: `Wastage - ${reason}`,
+                department: 'inventory',
+                notes,
+                approved_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString()
+            });
             const transactionData = {
                 item_id,
                 transaction_type: 'wastage',
                 quantity,
                 reason: `Wastage - ${reason}`,
+                reference_id: consumptionHistoryId,
                 batch_number,
                 brand_name,
                 expiry_date,
@@ -269,17 +344,86 @@ class InventoryTransactionController {
     async getConsumptionTransactions(req, res) {
         try {
             const model = this.getModel(req);
-            const filters = Object.assign(Object.assign({}, req.query), { transaction_type: 'consumption' });
-            const result = await model.findMany(filters);
+            const tenantId = this.getTenantId(req);
+            const { page = 1, count = 10, sortby = 'DESC', item_id, performed_by, startDate, endDate, reason } = req.query;
+            const connection = await model.connection;
+            const sortOrder = sortby.toUpperCase() === 'ASC' ? 'asc' : 'desc';
+            let query = connection('inv_consumption_history')
+                .leftJoin('inv_inventory_items', 'inv_consumption_history.item_id', 'inv_inventory_items.id')
+                .leftJoin('roles', 'inv_consumption_history.consumed_by', 'roles.employeeid')
+                .select('inv_consumption_history.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'roles.username', 'roles.email', 'roles.role as role_name', 'roles.employeeid as employee_id')
+                .orderBy('inv_consumption_history.consumption_date', sortOrder);
+            if (item_id) {
+                query = query.where('inv_consumption_history.item_id', item_id);
+            }
+            if (performed_by) {
+                query = query.where('inv_consumption_history.consumed_by', performed_by);
+            }
+            if (startDate) {
+                query = query.where('inv_consumption_history.consumption_date', '>=', startDate);
+            }
+            if (endDate) {
+                query = query.where('inv_consumption_history.consumption_date', '<=', endDate);
+            }
+            if (reason) {
+                query = query.where('inv_consumption_history.consumption_reason', 'like', `%${reason}%`);
+            }
+            // Get total count
+            const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
+            const totalResult = await totalQuery;
+            const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
+            // Apply pagination
+            const offset = (parseInt(page) - 1) * parseInt(count);
+            const rawData = await query.limit(parseInt(count)).offset(offset);
+            const transactions = rawData.map(consumption => ({
+                id: consumption.id,
+                item_id: consumption.item_id,
+                item_name: consumption.item_name || '',
+                item_sku: consumption.item_sku || '',
+                transaction_type: 'consumption', // All records in consumption_history are consumptions
+                quantity: consumption.quantity_consumed,
+                previous_stock: null, // Not available in consumption_history
+                new_stock: null, // Not available in consumption_history
+                batch_number: consumption.batch_number,
+                expiry_date: null, // Not directly available in consumption_history
+                unit_cost: consumption.unit_cost,
+                total_cost: consumption.total_cost,
+                brand_name: consumption.brand_name,
+                reason: consumption.consumption_reason,
+                reference_id: consumption.id, // The consumption_history ID itself
+                patient_id: consumption.patient_id,
+                ascension_id: null, // Not available in consumption_history
+                performed_by: consumption.consumed_by,
+                transaction_date: consumption.consumption_date,
+                notes: consumption.notes,
+                wastage_type: null, // Not available in consumption_history
+                created_at: consumption.consumption_date,
+                department: consumption.department,
+                prescription_id: consumption.prescription_id,
+                approved_by: consumption.approved_by,
+                consumed_by_details: {
+                    employee_id: consumption.employee_id,
+                    username: consumption.username,
+                    email: consumption.email,
+                    role_name: consumption.role_name
+                }
+            }));
             const response = {
                 success: true,
-                data: result,
+                data: {
+                    transactions,
+                    total,
+                    page: parseInt(page),
+                    count: parseInt(count),
+                    totalPages: Math.ceil(total / parseInt(count)),
+                    sortby: sortby.toUpperCase()
+                },
                 pagination: {
-                    page: result.page,
-                    count: result.count,
-                    total: result.total,
-                    totalPages: result.totalPages,
-                    sortby: result.sortby
+                    page: parseInt(page),
+                    count: parseInt(count),
+                    total,
+                    totalPages: Math.ceil(total / parseInt(count)),
+                    sortby: sortby.toUpperCase()
                 }
             };
             res.json(response);
@@ -299,62 +443,109 @@ class InventoryTransactionController {
     async getConsumptionReport(req, res) {
         try {
             const model = this.getModel(req);
+            const tenantId = this.getTenantId(req);
             const { page = 1, count = 10, sortby = 'DESC', consumption_type, item_id, performed_by, startDate, endDate, reason } = req.query;
-            const filters = {
-                page: parseInt(page),
-                count: parseInt(count),
-                sortby: sortby.toUpperCase(),
-                transaction_type: 'consumption',
-                item_id: item_id,
-                performed_by: performed_by ? parseInt(performed_by) : undefined,
-                startDate: startDate,
-                endDate: endDate
-            };
-            const result = await model.findMany(filters);
-            const allConsumptionTransactions = await model.findMany(Object.assign(Object.assign({}, filters), { page: 1, count: 10000 }));
+            const connection = await model.connection;
+            const sortOrder = sortby.toUpperCase() === 'ASC' ? 'asc' : 'desc';
+            let query = connection('inv_consumption_history')
+                .leftJoin('inv_inventory_items', 'inv_consumption_history.item_id', 'inv_inventory_items.id')
+                .leftJoin('roles', 'inv_consumption_history.consumed_by', 'roles.employeeid')
+                .select('inv_consumption_history.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'roles.username', 'roles.email', 'roles.role as role_name', 'roles.employeeid as employee_id')
+                .orderBy('inv_consumption_history.consumption_date', sortOrder);
+            if (item_id) {
+                query = query.where('inv_consumption_history.item_id', item_id);
+            }
+            if (performed_by) {
+                query = query.where('inv_consumption_history.consumed_by', performed_by);
+            }
+            if (startDate) {
+                query = query.where('inv_consumption_history.consumption_date', '>=', startDate);
+            }
+            if (endDate) {
+                query = query.where('inv_consumption_history.consumption_date', '<=', endDate);
+            }
+            if (reason) {
+                query = query.where('inv_consumption_history.consumption_reason', 'like', `%${reason}%`);
+            }
+            // Get total count
+            const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
+            const totalResult = await totalQuery;
+            const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
+            // Apply pagination
+            const offset = (parseInt(page) - 1) * parseInt(count);
+            const rawData = await query.limit(parseInt(count)).offset(offset);
+            // Get all consumption history for summary (without pagination)
+            const allConsumptionQuery = connection('inv_consumption_history')
+                .select('*')
+                .orderBy('consumption_date', sortOrder);
+            if (item_id) {
+                allConsumptionQuery.where('item_id', item_id);
+            }
+            if (performed_by) {
+                allConsumptionQuery.where('consumed_by', performed_by);
+            }
+            if (startDate) {
+                allConsumptionQuery.where('consumption_date', '>=', startDate);
+            }
+            if (endDate) {
+                allConsumptionQuery.where('consumption_date', '<=', endDate);
+            }
+            if (reason) {
+                allConsumptionQuery.where('consumption_reason', 'like', `%${reason}%`);
+            }
+            const allConsumptionData = await allConsumptionQuery;
             const summary = {
-                total_consumptions: allConsumptionTransactions.total,
-                manual_consumptions: allConsumptionTransactions.transactions.filter(t => t.transaction_type === 'consumption' && !(t.reason || '').toLowerCase().includes('test') && !(t.reason || '').toLowerCase().includes('wastage')).length,
-                test_consumptions: allConsumptionTransactions.transactions.filter(t => (t.reason || '').toLowerCase().includes('test')).length,
-                wastage_consumptions: allConsumptionTransactions.transactions.filter(t => t.transaction_type === 'wastage').length,
-                total_quantity_consumed: allConsumptionTransactions.transactions.reduce((sum, t) => sum + t.quantity, 0),
+                total_consumptions: total,
+                manual_consumptions: allConsumptionData.filter(c => { var _a, _b; return !((_a = c.consumption_reason) === null || _a === void 0 ? void 0 : _a.toLowerCase().includes('test')) && !((_b = c.consumption_reason) === null || _b === void 0 ? void 0 : _b.toLowerCase().includes('wastage')); }).length,
+                test_consumptions: allConsumptionData.filter(c => { var _a; return (_a = c.consumption_reason) === null || _a === void 0 ? void 0 : _a.toLowerCase().includes('test'); }).length,
+                wastage_consumptions: allConsumptionData.filter(c => { var _a; return (_a = c.consumption_reason) === null || _a === void 0 ? void 0 : _a.toLowerCase().includes('wastage'); }).length,
+                total_quantity_consumed: allConsumptionData.reduce((sum, c) => sum + c.quantity_consumed, 0),
                 period_start: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                 period_end: endDate || new Date().toISOString().split('T')[0]
             };
-            const consumptions = result.transactions.map(transaction => ({
-                id: transaction.id,
-                item_id: transaction.item_id,
-                item_name: transaction.item_name || '',
-                item_sku: transaction.item_sku || '',
-                consumption_type: this.determineConsumptionType(transaction),
-                quantity: transaction.quantity,
-                reason: transaction.reason,
-                batch_number: transaction.batch_number,
-                patient_id: transaction.patient_id,
-                ascension_id: transaction.ascension_id,
-                testid: transaction.testid,
-                performed_by: transaction.performed_by,
-                transaction_date: transaction.transaction_date,
-                notes: transaction.notes
+            const consumptions = rawData.map(consumption => ({
+                id: consumption.id,
+                item_id: consumption.item_id,
+                item_name: consumption.item_name || '',
+                item_sku: consumption.item_sku || '',
+                consumption_type: this.determineConsumptionTypeFromHistory(consumption),
+                quantity: consumption.quantity_consumed,
+                reason: consumption.consumption_reason,
+                batch_number: consumption.batch_number,
+                patient_id: consumption.patient_id,
+                prescription_id: consumption.prescription_id,
+                performed_by: consumption.consumed_by,
+                transaction_date: consumption.consumption_date,
+                notes: consumption.notes,
+                department: consumption.department,
+                unit_cost: consumption.unit_cost,
+                total_cost: consumption.total_cost,
+                approved_by: consumption.approved_by,
+                consumed_by_details: {
+                    employee_id: consumption.employee_id,
+                    username: consumption.username,
+                    email: consumption.email,
+                    role_name: consumption.role_name
+                }
             }));
             const consumptionReport = {
                 consumptions,
-                total: result.total,
-                page: result.page,
-                count: result.count,
-                totalPages: result.totalPages,
-                sortby: result.sortby,
+                total,
+                page: parseInt(page),
+                count: parseInt(count),
+                totalPages: Math.ceil(total / parseInt(count)),
+                sortby: sortby.toUpperCase(),
                 summary
             };
             const response = {
                 success: true,
                 data: consumptionReport,
                 pagination: {
-                    page: result.page,
-                    count: result.count,
-                    total: result.total,
-                    totalPages: result.totalPages,
-                    sortby: result.sortby
+                    page: parseInt(page),
+                    count: parseInt(count),
+                    total,
+                    totalPages: Math.ceil(total / parseInt(count)),
+                    sortby: sortby.toUpperCase()
                 }
             };
             res.json(response);
@@ -378,10 +569,17 @@ class InventoryTransactionController {
             return 'test';
         return 'manual';
     }
+    determineConsumptionTypeFromHistory(consumption) {
+        const reason = (consumption.consumption_reason || '').toLowerCase();
+        if (reason.includes('wastage'))
+            return 'wastage';
+        if (reason.includes('test'))
+            return 'test';
+        return 'manual';
+    }
     async validateNoDuplicateWastage(tenantId, itemId, batchNumber, wastageType, reason) {
         const model = new InventoryTransaction_1.InventoryTransactionModel(tenantId);
         try {
-            // Check if this batch/item combination has already been consumed as wastage with the same reason/type
             const filters = {
                 transaction_type: 'wastage',
                 count: 1
@@ -390,13 +588,11 @@ class InventoryTransactionController {
                 filters.batch_number = batchNumber;
             }
             const existingWastage = await model.findByItemId(itemId, filters);
-            // Filter transactions that match the same wastage reason/type
             const matchingWastage = existingWastage.transactions.filter((transaction) => {
                 const existingReason = (transaction.reason || '').toLowerCase();
                 const existingWastageType = (transaction.wastage_type || '').toLowerCase();
                 const currentReason = (reason || '').toLowerCase();
                 const currentWastageType = (wastageType || '').toLowerCase();
-                // Check if it's the same type of wastage
                 return existingWastageType === currentWastageType ||
                     (existingReason.includes('expired') && currentReason.includes('expired')) ||
                     (existingReason.includes('damage') && currentReason.includes('damage')) ||
@@ -413,7 +609,6 @@ class InventoryTransactionController {
         }
         catch (error) {
             console.error('Error checking for duplicate wastage:', error);
-            // If we can't check, allow the transaction to proceed (fail-safe)
             return { isValid: true };
         }
     }
@@ -453,6 +648,7 @@ class InventoryTransactionController {
         }
     }
     async consumeStockUnified(req, res) {
+        var _a, _b, _c, _d;
         try {
             const model = this.getModel(req);
             const { consumptions, item_id, quantity, transaction_type, wastage_type, reason, batch_number, brand_name, performed_by, notes } = req.body;
@@ -510,7 +706,6 @@ class InventoryTransactionController {
                     res.status(400).json(response);
                     return;
                 }
-                // Check for duplicate wastage consumption
                 if (consumption.transaction_type === 'wastage') {
                     const duplicateCheck = await this.validateNoDuplicateWastage(tenantId, consumption.item_id, consumption.batch_number, consumption.wastage_type, consumption.reason);
                     if (!duplicateCheck.isValid) {
@@ -575,6 +770,19 @@ class InventoryTransactionController {
                         performed_by: consumption.performed_by,
                         notes: consumption.notes
                     };
+                    const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
+                        item_id: consumption.item_id,
+                        quantity_consumed: consumption.quantity,
+                        consumed_by: (_a = consumption.performed_by) === null || _a === void 0 ? void 0 : _a.toString(),
+                        consumption_date: new Date(),
+                        batch_number: consumption.batch_number,
+                        brand_name: consumption.brand_name,
+                        consumption_reason: consumption.reason || 'Manual consumption',
+                        department: 'inventory',
+                        notes: consumption.notes,
+                        approved_by: (_b = consumption.performed_by) === null || _b === void 0 ? void 0 : _b.toString()
+                    });
+                    transactionData.reference_id = consumptionHistoryId;
                     const transaction = await model.create(transactionData);
                     console.log(`Manual consumption processed for item ${consumption.item_id}:`, {
                         quantity: consumption.quantity,
@@ -646,6 +854,19 @@ class InventoryTransactionController {
                             performed_by: consumption.performed_by,
                             notes: consumption.notes || `FIFO consumption from batch ${batchConsumption.batch_number} (${batchConsumption.quantity} units)`
                         };
+                        const batchConsumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
+                            item_id: consumption.item_id,
+                            quantity_consumed: batchConsumption.quantity,
+                            consumed_by: (_c = consumption.performed_by) === null || _c === void 0 ? void 0 : _c.toString(),
+                            consumption_date: new Date(),
+                            batch_number: batchConsumption.batch_number,
+                            brand_name: batchConsumption.brand_name,
+                            consumption_reason: consumption.reason || 'FIFO consumption',
+                            department: 'inventory',
+                            notes: consumption.notes || `FIFO consumption from batch ${batchConsumption.batch_number}`,
+                            approved_by: (_d = consumption.performed_by) === null || _d === void 0 ? void 0 : _d.toString()
+                        });
+                        batchTransactionData.reference_id = batchConsumptionHistoryId;
                         const transaction = await model.create(batchTransactionData);
                         console.log(`Created transaction ${transaction.id} for batch ${batchConsumption.batch_number}`);
                         fifoTransactions.push(Object.assign(Object.assign({}, transaction), { consumed_quantity: batchConsumption.quantity }));
@@ -739,30 +960,28 @@ class InventoryTransactionController {
             const model = this.getModel(req);
             const tenantId = this.getTenantId(req);
             const { page = 1, count = 10, sortby = 'DESC', item_id, batch_number, startDate, endDate, performed_by } = req.query;
-            // Custom query to include employee details
             const connection = await model.connection;
             const sortOrder = sortby.toUpperCase() === 'ASC' ? 'asc' : 'desc';
-            let query = connection('inv_inventory_transactions')
-                .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-                .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
-                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'roles.username', 'roles.email', 'roles.role as role_name', 'roles.employeeid as employee_id')
-                .where('inv_inventory_transactions.transaction_type', 'wastage')
-                .orderBy('inv_inventory_transactions.transaction_date', sortOrder);
-            // Apply filters
+            let query = connection('inv_consumption_history')
+                .leftJoin('inv_inventory_items', 'inv_consumption_history.item_id', 'inv_inventory_items.id')
+                .leftJoin('roles', 'inv_consumption_history.consumed_by', 'roles.employeeid')
+                .select('inv_consumption_history.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'roles.username', 'roles.email', 'roles.role as role_name', 'roles.employeeid as employee_id')
+                .where('inv_consumption_history.consumption_reason', 'like', '%wastage%')
+                .orderBy('inv_consumption_history.consumption_date', sortOrder);
             if (item_id) {
-                query = query.where('inv_inventory_transactions.item_id', item_id);
+                query = query.where('inv_consumption_history.item_id', item_id);
             }
             if (batch_number) {
-                query = query.where('inv_inventory_transactions.batch_number', batch_number);
+                query = query.where('inv_consumption_history.batch_number', batch_number);
             }
             if (performed_by) {
-                query = query.where('inv_inventory_transactions.performed_by', parseInt(performed_by));
+                query = query.where('inv_consumption_history.consumed_by', performed_by);
             }
             if (startDate) {
-                query = query.where('inv_inventory_transactions.transaction_date', '>=', startDate);
+                query = query.where('inv_consumption_history.consumption_date', '>=', startDate);
             }
             if (endDate) {
-                query = query.where('inv_inventory_transactions.transaction_date', '<=', endDate);
+                query = query.where('inv_consumption_history.consumption_date', '<=', endDate);
             }
             // Get total count
             const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
@@ -772,37 +991,38 @@ class InventoryTransactionController {
             const offset = (parseInt(page) - 1) * parseInt(count);
             const rawData = await query.limit(parseInt(count)).offset(offset);
             // Filter transactions that are expired wastage
-            const expiredConsumptionHistory = rawData.filter((transaction) => {
-                const reason = (transaction.reason || '').toLowerCase();
-                const wastageType = (transaction.wastage_type || '').toLowerCase();
-                return wastageType === 'expired' ||
-                    reason.includes('expired') ||
-                    reason.includes('expiry');
+            const expiredConsumptionHistory = rawData.filter((consumption) => {
+                const reason = (consumption.consumption_reason || '').toLowerCase();
+                return reason.includes('expired') || reason.includes('expiry');
             });
             // Calculate summary
-            const totalExpiredQuantity = expiredConsumptionHistory.reduce((sum, t) => sum + t.quantity, 0);
-            const uniqueBatches = new Set(expiredConsumptionHistory.map(t => t.batch_number).filter(Boolean)).size;
-            const uniqueItems = new Set(expiredConsumptionHistory.map(t => t.item_id)).size;
-            const expiredConsumptionData = expiredConsumptionHistory.map(transaction => ({
-                id: transaction.id,
-                item_id: transaction.item_id,
-                item_name: transaction.item_name || '',
-                item_sku: transaction.item_sku || '',
-                batch_number: transaction.batch_number,
-                brand_name: transaction.brand_name,
-                expiry_date: transaction.expiry_date,
-                quantity_consumed: transaction.quantity,
-                wastage_type: transaction.wastage_type,
-                reason: transaction.reason,
+            const totalExpiredQuantity = expiredConsumptionHistory.reduce((sum, c) => sum + c.quantity_consumed, 0);
+            const uniqueBatches = new Set(expiredConsumptionHistory.map(c => c.batch_number).filter(Boolean)).size;
+            const uniqueItems = new Set(expiredConsumptionHistory.map(c => c.item_id)).size;
+            const expiredConsumptionData = expiredConsumptionHistory.map(consumption => ({
+                id: consumption.id,
+                item_id: consumption.item_id,
+                item_name: consumption.item_name || '',
+                item_sku: consumption.item_sku || '',
+                batch_number: consumption.batch_number,
+                brand_name: consumption.brand_name,
+                expiry_date: null, // Not directly available in consumption_history
+                quantity_consumed: consumption.quantity_consumed,
+                wastage_type: 'expired', // Assuming expired based on filter
+                reason: consumption.consumption_reason,
                 performed_by: {
-                    employee_id: transaction.employee_id,
-                    username: transaction.username,
-                    email: transaction.email,
-                    role_name: transaction.role_name,
-                    full_name: transaction.username || 'Unknown User'
+                    employee_id: consumption.employee_id,
+                    username: consumption.username,
+                    email: consumption.email,
+                    role_name: consumption.role_name,
+                    full_name: consumption.username || 'Unknown User'
                 },
-                transaction_date: transaction.transaction_date,
-                notes: transaction.notes
+                transaction_date: consumption.consumption_date,
+                notes: consumption.notes,
+                department: consumption.department,
+                unit_cost: consumption.unit_cost,
+                total_cost: consumption.total_cost,
+                approved_by: consumption.approved_by
             }));
             const response = {
                 success: true,
@@ -851,62 +1071,63 @@ class InventoryTransactionController {
             const { page = 1, count = 10, sortby = 'DESC', item_id, batch_number, startDate, endDate, performed_by } = req.query;
             const connection = await model.connection;
             const sortOrder = sortby.toUpperCase() === 'ASC' ? 'asc' : 'desc';
-            let query = connection('inv_inventory_transactions')
-                .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-                .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
-                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'roles.username', 'roles.email', 'roles.role as role_name', 'roles.employeeid as employee_id')
-                .where('inv_inventory_transactions.transaction_type', 'wastage')
-                .orderBy('inv_inventory_transactions.transaction_date', sortOrder);
+            let query = connection('inv_consumption_history')
+                .leftJoin('inv_inventory_items', 'inv_consumption_history.item_id', 'inv_inventory_items.id')
+                .leftJoin('roles', 'inv_consumption_history.consumed_by', 'roles.employeeid')
+                .select('inv_consumption_history.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'roles.username', 'roles.email', 'roles.role as role_name', 'roles.employeeid as employee_id')
+                .where('inv_consumption_history.consumption_reason', 'like', '%wastage%')
+                .orderBy('inv_consumption_history.consumption_date', sortOrder);
             if (item_id) {
-                query = query.where('inv_inventory_transactions.item_id', item_id);
+                query = query.where('inv_consumption_history.item_id', item_id);
             }
             if (batch_number) {
-                query = query.where('inv_inventory_transactions.batch_number', batch_number);
+                query = query.where('inv_consumption_history.batch_number', batch_number);
             }
             if (performed_by) {
-                query = query.where('inv_inventory_transactions.performed_by', parseInt(performed_by));
+                query = query.where('inv_consumption_history.consumed_by', performed_by);
             }
             if (startDate) {
-                query = query.where('inv_inventory_transactions.transaction_date', '>=', startDate);
+                query = query.where('inv_consumption_history.consumption_date', '>=', startDate);
             }
             if (endDate) {
-                query = query.where('inv_inventory_transactions.transaction_date', '<=', endDate);
+                query = query.where('inv_consumption_history.consumption_date', '<=', endDate);
             }
             const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
             const totalResult = await totalQuery;
             const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
             const offset = (parseInt(page) - 1) * parseInt(count);
             const rawData = await query.limit(parseInt(count)).offset(offset);
-            const nonExpiredWastageHistory = rawData.filter((transaction) => {
-                const reason = (transaction.reason || '').toLowerCase();
-                const wastageType = (transaction.wastage_type || '').toLowerCase();
-                return !(wastageType === 'expired' ||
-                    reason.includes('expired') ||
-                    reason.includes('expiry'));
+            const nonExpiredWastageHistory = rawData.filter((consumption) => {
+                const reason = (consumption.consumption_reason || '').toLowerCase();
+                return !(reason.includes('expired') || reason.includes('expiry'));
             });
-            const totalNonExpiredQuantity = nonExpiredWastageHistory.reduce((sum, t) => sum + t.quantity, 0);
-            const uniqueBatches = new Set(nonExpiredWastageHistory.map(t => t.batch_number).filter(Boolean)).size;
-            const uniqueItems = new Set(nonExpiredWastageHistory.map(t => t.item_id)).size;
-            const nonExpiredWastageData = nonExpiredWastageHistory.map(transaction => ({
-                id: transaction.id,
-                item_id: transaction.item_id,
-                item_name: transaction.item_name || '',
-                item_sku: transaction.item_sku || '',
-                batch_number: transaction.batch_number,
-                brand_name: transaction.brand_name,
-                expiry_date: transaction.expiry_date,
-                quantity_wasted: transaction.quantity,
-                wastage_type: transaction.wastage_type,
-                reason: transaction.reason,
+            const totalNonExpiredQuantity = nonExpiredWastageHistory.reduce((sum, c) => sum + c.quantity_consumed, 0);
+            const uniqueBatches = new Set(nonExpiredWastageHistory.map(c => c.batch_number).filter(Boolean)).size;
+            const uniqueItems = new Set(nonExpiredWastageHistory.map(c => c.item_id)).size;
+            const nonExpiredWastageData = nonExpiredWastageHistory.map(consumption => ({
+                id: consumption.id,
+                item_id: consumption.item_id,
+                item_name: consumption.item_name || '',
+                item_sku: consumption.item_sku || '',
+                batch_number: consumption.batch_number,
+                brand_name: consumption.brand_name,
+                expiry_date: null, // Not directly available in consumption_history
+                quantity_wasted: consumption.quantity_consumed,
+                wastage_type: 'other', // Non-expired wastage
+                reason: consumption.consumption_reason,
                 performed_by: {
-                    employee_id: transaction.employee_id,
-                    username: transaction.username,
-                    email: transaction.email,
-                    role_name: transaction.role_name,
-                    full_name: transaction.username || 'Unknown User'
+                    employee_id: consumption.employee_id,
+                    username: consumption.username,
+                    email: consumption.email,
+                    role_name: consumption.role_name,
+                    full_name: consumption.username || 'Unknown User'
                 },
-                transaction_date: transaction.transaction_date,
-                notes: transaction.notes
+                transaction_date: consumption.consumption_date,
+                notes: consumption.notes,
+                department: consumption.department,
+                unit_cost: consumption.unit_cost,
+                total_cost: consumption.total_cost,
+                approved_by: consumption.approved_by
             }));
             const response = {
                 success: true,
