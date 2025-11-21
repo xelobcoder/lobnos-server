@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.expense_between_dates_query = exports.updateExpenseCategoryQuery = exports.createExpenseCategoryQuery = exports.isExpenseExistQuery = exports.getAllExpenseCategoryQuery = exports.updateExpenseDecisionQuery = exports.calculateYearlyExpenseQuery = exports.calCurrentMonthExpenseQuery = exports.calculateDailyExpenseQuery = exports.getExpenseImageListQuery = exports.isRecordExistQuery = exports.updateExpenseQuery = exports.getExpensesRecordQuery = exports.RECEIPTS_PATH = exports.generateNewExpenseQuery = void 0;
-exports.generateNewExpenseQuery = `INSERT INTO expensesrecord (name, amount, mode, employeeid, branchid, description, merchant, category, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+exports.generateNewExpenseQuery = `INSERT INTO expensesrecord (name, amount, employeeid, branchid, description, merchant, category, date, groupId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 exports.RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts";
 exports.getExpensesRecordQuery = `
 SELECT 
@@ -10,6 +10,7 @@ SELECT
     er.merchant,
     r.username,
     er.approved,
+    rb.username AS approvedby,
     er.date,
     er.createdon,
     CASE WHEN er.isassociatedservice AND er.merchant IS NOT NULL THEN
@@ -19,18 +20,20 @@ SELECT
     END AS merchant_name,
     er.id,
     er.employeeid,
+    er.rejectionmessage,
+    er.groupId,
     er.amount
 FROM expensesrecord AS er 
 INNER JOIN roles AS r ON r.employeeid = er.employeeid
 LEFT JOIN expense_merchants AS em ON em.id = er.merchant
 LEFT JOIN outsourcingorganization AS oo ON oo.outsourceid = er.merchant
+LEFT JOIN  roles AS rb ON rb.employeeid = er.approvedby
 `;
 exports.updateExpenseQuery = `
   UPDATE expensesrecord 
   SET 
     name = ?, 
     amount = ?, 
-    mode = ?, 
     employeeid = ?, 
     branchid = ?, 
     description = ?, 

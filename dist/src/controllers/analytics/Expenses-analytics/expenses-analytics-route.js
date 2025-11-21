@@ -7,41 +7,44 @@ const express_1 = require("express");
 const expenses_analytics_1 = __importDefault(require("./expenses-analytics"));
 const router = (0, express_1.Router)();
 const controller = new expenses_analytics_1.default();
-router.get('/api/v1/expenses-analytics/branch-monthly-expenses', controller.getBranchMonthlyExpensesHandler);
-router.get('/api/v1/expenses-analytics/employee-category-expenses', controller.getEmployeeCategoryExpensesHandler);
-router.get('/api/v1/expenses-analytics/approval-status-by-branch', controller.getApprovalStatusByBranchExpensesHandler);
-router.get('/api/v1/expenses-analytics/service-linked-expenses', controller.getServiceLinkedExpensesHandler);
-router.get('/api/v1/expenses-analytics/expense-details', controller.getExpenseDetailsExpensesHandler);
-router.get('/api/v1/expenses-analytics/monthly-expense-summary', controller.getMonthlyExpenseSummaryExpensesHandler);
-router.get('/api/v1/expenses-analytics/total-expenses-by-category', controller.getTotalExpensesByCategoryHandler);
-router.get('/api/v1/expenses-analytics/daily-expense-summary', controller.getDailyExpenseSummaryExpensesHandler);
-router.get('/api/v1/expenses-analytics/weekly-expense-summary', controller.getWeeklyExpenseSummaryExpensesHandler);
-router.get('/api/v1/expenses-analytics/yearly-expense-summary', controller.getYearlyExpenseSummaryExpensesHandler);
-router.get('/api/v1/expenses-analytics/hourly-expense-summary', controller.getHourlyExpenseSummaryForDateExpensesHandler);
-router.get('/api/v1/expenses-analytics/top-expense-categories', controller.getTopExpenseCategoriesExpensesHandler);
-router.get('/api/v1/expenses-analytics/employee-top-expenses', controller.getEmployeeTopExpensesHandler);
-router.get('/api/v1/expenses-analytics/expense-trend-by-category', controller.getExpenseTrendByCategoryExpensesHandler);
-router.get('/api/v1/expenses-analytics/pending-expenses-list', controller.getPendingExpensesListHandler);
-router.get('/api/v1/expenses-analytics/expense-count-by-status', controller.getExpenseCountByStatusExpensesHandler);
+// Daily Analytics
+router.get('/api/v1/expenses-analytics/daily', controller.getDailyExpenseAnalyticsHandler);
+// Hourly Analytics
+router.get('/api/v1/expenses-analytics/hourly', controller.getHourlyExpenseAnalyticsHandler);
+// Weekly Analytics
+router.get('/api/v1/expenses-analytics/weekly', controller.getWeeklyExpenseAnalyticsHandler);
+// Monthly Analytics
+router.get('/api/v1/expenses-analytics/monthly', controller.getMonthlyExpenseAnalyticsHandler);
+// Quarterly Analytics
+router.get('/api/v1/expenses-analytics/quarterly', controller.getQuarterlyExpenseAnalyticsHandler);
+// Yearly Analytics
+router.get('/api/v1/expenses-analytics/yearly', controller.getYearlyExpenseAnalyticsHandler);
+// Top Analytics
+router.get('/api/v1/expenses-analytics/top-categories', controller.getTopExpenseCategoriesHandler);
+router.get('/api/v1/expenses-analytics/top-merchants', controller.getTopExpenseMerchantsHandler);
+router.get('/api/v1/expenses-analytics/top-employees', controller.getTopExpenseEmployeesHandler);
+// Trends and Comparisons
+router.get('/api/v1/expenses-analytics/trends-by-category', controller.getExpenseTrendsByCategoryHandler);
+router.get('/api/v1/expenses-analytics/comparison-by-period', controller.getExpenseComparisonByPeriodHandler);
+// API Documentation
 router.get('/api/v1/expenses-analytics/routes', (req, res) => {
     const routes = [
-        { endpoint: '/api/v1/expenses-analytics/branch-monthly-expenses', description: 'Get branch monthly expenses.' },
-        { endpoint: '/api/v1/expenses-analytics/employee-category-expenses', description: 'Get employee category expenses.' },
-        { endpoint: '/api/v1/expenses-analytics/approval-status-by-branch', description: 'Get approval status by branch.' },
-        { endpoint: '/api/v1/expenses-analytics/service-linked-expenses', description: 'Get service linked expenses.' },
-        { endpoint: '/api/v1/expenses-analytics/expense-details', description: 'Get expense details.' },
-        { endpoint: '/api/v1/expenses-analytics/monthly-expense-summary', description: 'Get monthly expense summary.' },
-        { endpoint: '/api/v1/expenses-analytics/total-expenses-by-category', description: 'Get total expenses by category.' },
-        { endpoint: '/api/v1/expenses-analytics/daily-expense-summary', description: 'Get daily expense summary.' },
-        { endpoint: '/api/v1/expenses-analytics/weekly-expense-summary', description: 'Get weekly expense summary.' },
-        { endpoint: '/api/v1/expenses-analytics/yearly-expense-summary', description: 'Get yearly expense summary.' },
-        { endpoint: '/api/v1/expenses-analytics/hourly-expense-summary', description: 'Get hourly expense summary for a date.' },
-        { endpoint: '/api/v1/expenses-analytics/top-expense-categories', description: 'Get top expense categories.' },
-        { endpoint: '/api/v1/expenses-analytics/employee-top-expenses', description: 'Get employee top expenses.' },
-        { endpoint: '/api/v1/expenses-analytics/expense-trend-by-category', description: 'Get expense trend by category.' },
-        { endpoint: '/api/v1/expenses-analytics/pending-expenses-list', description: 'Get pending expenses list.' },
-        { endpoint: '/api/v1/expenses-analytics/expense-count-by-status', description: 'Get expense count by status.' },
+        { endpoint: '/api/v1/expenses-analytics/daily', description: 'Get daily expense analytics within date range', params: 'startDate, endDate' },
+        { endpoint: '/api/v1/expenses-analytics/hourly', description: 'Get hourly expense analytics for a specific date', params: 'targetDate (required)' },
+        { endpoint: '/api/v1/expenses-analytics/weekly', description: 'Get weekly expense analytics within date range', params: 'startDate, endDate' },
+        { endpoint: '/api/v1/expenses-analytics/monthly', description: 'Get monthly expense analytics within date range', params: 'startDate, endDate' },
+        { endpoint: '/api/v1/expenses-analytics/quarterly', description: 'Get quarterly expense analytics within date range', params: 'startDate, endDate' },
+        { endpoint: '/api/v1/expenses-analytics/yearly', description: 'Get yearly expense analytics', params: 'startYear, endYear (optional)' },
+        { endpoint: '/api/v1/expenses-analytics/top-categories', description: 'Get top expense categories by total amount', params: 'limitCount (optional, default: 10)' },
+        { endpoint: '/api/v1/expenses-analytics/top-merchants', description: 'Get top expense merchants by total amount', params: 'limitCount (optional, default: 10)' },
+        { endpoint: '/api/v1/expenses-analytics/top-employees', description: 'Get top expense employees by total amount', params: 'limitCount (optional, default: 10)' },
+        { endpoint: '/api/v1/expenses-analytics/trends-by-category', description: 'Get expense trends by category over time', params: 'categoryId (optional)' },
+        { endpoint: '/api/v1/expenses-analytics/comparison-by-period', description: 'Compare expenses between two periods', params: 'currentStartDate, currentEndDate, previousStartDate, previousEndDate (all required)' },
     ];
-    res.status(200).json(routes);
+    res.status(200).json({
+        message: "Expense Analytics API Endpoints",
+        commonParams: "branchid (required), startDate (required for time-based analytics), endDate (required for time-based analytics)",
+        routes: routes
+    });
 });
 exports.default = router;

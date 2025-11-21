@@ -1,5 +1,5 @@
-export const generateNewExpenseQuery = `INSERT INTO expensesrecord (name, amount, mode, employeeid, branchid, description, merchant, category, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-export const RECEIPTS_PATH ="/../../../../public/uploads/expenses/receipts"
+export const generateNewExpenseQuery = `INSERT INTO expensesrecord (name, amount, employeeid, branchid, description, merchant, category, date, groupId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+export const RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts"
 export const getExpensesRecordQuery = `
 SELECT 
     er.name,
@@ -7,6 +7,7 @@ SELECT
     er.merchant,
     r.username,
     er.approved,
+    rb.username AS approvedby,
     er.date,
     er.createdon,
     CASE WHEN er.isassociatedservice AND er.merchant IS NOT NULL THEN
@@ -16,11 +17,14 @@ SELECT
     END AS merchant_name,
     er.id,
     er.employeeid,
+    er.rejectionmessage,
+    er.groupId,
     er.amount
 FROM expensesrecord AS er 
 INNER JOIN roles AS r ON r.employeeid = er.employeeid
 LEFT JOIN expense_merchants AS em ON em.id = er.merchant
 LEFT JOIN outsourcingorganization AS oo ON oo.outsourceid = er.merchant
+LEFT JOIN  roles AS rb ON rb.employeeid = er.approvedby
 `;
 
 export const updateExpenseQuery = `
@@ -28,7 +32,6 @@ export const updateExpenseQuery = `
   SET 
     name = ?, 
     amount = ?, 
-    mode = ?, 
     employeeid = ?, 
     branchid = ?, 
     description = ?, 
@@ -38,7 +41,7 @@ export const updateExpenseQuery = `
   WHERE id = ?
 `;
 
-export const isRecordExistQuery =  `SELECT * FROM expensesrecord WHERE id = ?  limit 1`
+export const isRecordExistQuery = `SELECT * FROM expensesrecord WHERE id = ?  limit 1`
 
 export const getExpenseImageListQuery = `SELECT * FROM expensesrecord WHERE id = ?`;
 

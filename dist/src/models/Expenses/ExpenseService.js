@@ -9,6 +9,10 @@ const promises_1 = require("fs/promises");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const queries_1 = require("./queries");
 const path_1 = __importDefault(require("path"));
+const tenantConnections_1 = require("../../models/Tenancy/tenantConnections");
+const connection_1 = require("../../database/connection");
+const configuration_1 = require("../../hooks/configuration");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 class Expenses {
     constructor(employeeid, branchid, tenantId, expenseId = null) {
         this.employeeid = employeeid;
@@ -25,21 +29,24 @@ class Expenses {
             throw new Error('branchid or employeeid not provided');
         }
     }
-    async generateNewExpense(data) {
+    async generateNewExpense(data, groupId) {
         try {
             if (Object.keys(data).length === 0 || typeof data !== 'object') {
                 throw new TypeError('object with keys required');
             }
-            const { employeeid, branchid, name, date, merchant, amount, mode, description, category } = data;
+            const { employeeid, branchid, name, date, merchant, amount, description, category } = data;
             if (!employeeid || !branchid || !name) {
                 throw new Error('name, employeeid, branchid required');
             }
             if (category === 0 || !category) {
                 throw new Error('category id not provided');
             }
-            let inserted = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.generateNewExpenseQuery, [name, amount, mode, employeeid, branchid, description, merchant, category, date]);
-            inserted = (0, helper_1.rowAffected)(inserted);
-            return inserted;
+            const finalGroupId = groupId || this.generateGroupId();
+            const result = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
+            if ((0, helper_1.rowAffected)(result)) {
+                return result.insertId;
+            }
+            return null;
         }
         catch (err) {
             console.log(err);
@@ -47,38 +54,90 @@ class Expenses {
             throw new Error(err);
         }
     }
+    async generateBulkExpenses(expensesData, groupId) {
+        const results = {
+            success: [],
+            failed: [],
+            groupId: groupId || this.generateGroupId()
+        };
+        const pool = configuration_1.configuration.isMultiTenant
+            ? await (0, tenantConnections_1.primeTenancyConnector)(this.tenantId)
+            : connection_1.databaseConnectionPool;
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            for (const expenseData of expensesData) {
+                try {
+                    const { employeeid, branchid, name, date, merchant, amount, description, category } = expenseData;
+                    if (!employeeid || !branchid || !name) {
+                        throw new Error('name, employeeid, branchid required');
+                    }
+                    if (category === 0 || !category) {
+                        throw new Error('category id not provided');
+                    }
+                    const [result] = await connection.query(queries_1.generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, results.groupId]);
+                    if (result.insertId) {
+                        results.success.push(result.insertId);
+                    }
+                    else {
+                        throw new Error('Failed to create expense - no ID returned');
+                    }
+                }
+                catch (err) {
+                    results.failed.push({
+                        data: expenseData,
+                        error: err.message || 'Unknown error'
+                    });
+                    await connection.rollback();
+                    return results;
+                }
+            }
+            await connection.commit();
+            return results;
+        }
+        catch (err) {
+            await connection.rollback();
+            logger_1.default.error('Transaction error in bulk expenses:', err);
+            throw new Error('Transaction failed: ' + err.message);
+        }
+        finally {
+            connection.release();
+        }
+    }
     async getExpensesRecord(tenantId, employeeid, branchid, status, pageQuery = { count: 10, page: 1 }, from, to, state) {
         const record = await new user_1.default(null, null, null, null, null).userExistWithId(employeeid, tenantId);
-        let role;
+        if (!record || record.length === 0) {
+            throw new Error('User not found');
+        }
         let query = queries_1.getExpensesRecordQuery;
         let values = [];
-        if (record.length > 0) {
-            role = record[0]['role'];
-        }
-        if (!['admin', 'manager'].includes(role || '')) {
-            query += ` WHERE er.employeeid = ? AND er.branchid = ?`;
-            values = [employeeid, branchid];
-        }
-        else {
+        let hasWhereClause = false;
+        const role = record[0]['role'];
+        const isAdmin = (role === 'admin' || role === 'manager');
+        if (!isAdmin) {
             query += ` WHERE er.employeeid = ?`;
             values = [employeeid];
+            hasWhereClause = true;
         }
+        const addCondition = (condition, params = []) => {
+            query += ` ${hasWhereClause ? 'AND' : 'WHERE'} ${condition}`;
+            values.push(...params);
+            hasWhereClause = true;
+        };
         if (status === 'approved') {
-            query += ` AND er.approved = 1`;
+            addCondition('er.approved = 1');
         }
         else if (status === 'rejected') {
-            query += ` AND er.approved = 2`;
+            addCondition('er.approved = 2');
         }
         else if (status === 'pending') {
-            query += ` AND er.approved = 0`;
+            addCondition('er.approved = 0');
         }
         if (from && to) {
-            query += ` AND er.date BETWEEN ? AND ?`;
-            values.push(from, to);
+            addCondition('er.date BETWEEN ? AND ?', [from, to]);
         }
         if (state) {
-            query += ` AND er.state = ?`;
-            values.push(state);
+            addCondition('er.state = ?', [state]);
         }
         query += ` ORDER BY er.id DESC LIMIT ? OFFSET ?`;
         return await (0, helper_1.paginationQuery)(pageQuery, query, values, tenantId);
@@ -113,11 +172,10 @@ class Expenses {
             const isValidExpenseRecord = await this.isExpenseRecordAvailable();
             if (!isValidExpenseRecord)
                 return "such id not found" /* OperationsFailures.unfoundID */;
-            const { id, name, mode, date, amount, category, branchid, description, merchant, employeeid, } = expenseData;
+            const { id, name, amount, category, branchid, description, merchant, employeeid, date, } = expenseData;
             const queryParams = [
                 name,
                 amount,
-                mode,
                 employeeid,
                 branchid,
                 description,
@@ -205,34 +263,57 @@ class Expenses {
         }
         return report;
     }
-    async updateExpenseDecision(tenantId, status, expenseid, information, employeeid) {
-        if (!expenseid || !status || !employeeid) {
-            throw new Error('status, employeeid, and expenseid must be provided');
+    async updateExpenseDecision(tenantId, status, decisions) {
+        if (!decisions || decisions.length === 0 || !status) {
+            throw new Error('status and decisions must be provided');
         }
-        let statusNumber = undefined;
-        let values = [];
-        if (status === "pending") {
-            statusNumber = 0;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const conn = await connection.transaction();
+        try {
+            for (const decision of decisions) {
+                const { expenseid, information, employeeid } = decision;
+                let statusNumber = undefined;
+                if (status === "pending") {
+                    statusNumber = 0;
+                }
+                else if (status === "rejected") {
+                    statusNumber = 2;
+                }
+                else if (status === "approved") {
+                    statusNumber = 1;
+                }
+                else {
+                    statusNumber = undefined;
+                }
+                if (statusNumber === undefined) {
+                    throw new Error('Invalid status provided');
+                }
+                let query = queries_1.updateExpenseDecisionQuery;
+                let values = [];
+                values.push(statusNumber);
+                values.push(employeeid);
+                if (statusNumber === 2) {
+                    query += `, rejectionMessage = ?`;
+                    values.push(information);
+                }
+                query += ` WHERE id = ?`;
+                values.push(expenseid);
+                const [result] = await conn.raw(query, values);
+                if (result.affectedRows === 0) {
+                    throw new Error(`Failed to update expense ${expenseid}`);
+                }
+            }
+            await conn.commit();
+            return true;
         }
-        else if (status === "rejected") {
-            statusNumber = 2;
+        catch (err) {
+            await conn.rollback();
+            logger_1.default.error('Transaction error in bulk expense decisions:', err);
+            throw new Error('Transaction failed: ' + err.message);
         }
-        else if (status === "approved") {
-            statusNumber = 1;
+        finally {
+            conn.destroy();
         }
-        else {
-            statusNumber = undefined;
-        }
-        let query = queries_1.updateExpenseDecisionQuery;
-        values.push(statusNumber);
-        values.push(employeeid);
-        if (statusNumber === 2) {
-            query += `, rejectionMessage = ?`;
-            values.push(information);
-        }
-        query += ` WHERE id = ?`;
-        values.push(expenseid);
-        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
     }
     async getAllExpenseCategory() {
         return await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.getAllExpenseCategoryQuery);
@@ -267,6 +348,27 @@ class Expenses {
         if (!from || !to)
             throw new Error('Both from and to timestamps are required');
         return await (0, helper_1.promisifyQuery)(tenantId, queries_1.expense_between_dates_query, [from, to]);
+    }
+    async getExpensesByGroup(tenantId, groupId) {
+        try {
+            const query = `
+                    SELECT * FROM expensesrecord
+                    WHERE groupId = ?
+                    ORDER BY date DESC
+               `;
+            const expenses = await (0, helper_1.promisifyQuery)(tenantId, query, [groupId]);
+            return expenses;
+        }
+        catch (err) {
+            logger_1.default.error(err === null || err === void 0 ? void 0 : err.message);
+            throw new Error(err);
+        }
+    }
+    generateGroupId() {
+        const timestamp = Date.now();
+        const random = Math.random().toString(36).substring(2, 8);
+        const employeePart = this.employeeid.toString().padStart(4, '0');
+        return `EXP-${timestamp}-${employeePart}-${random}`.toUpperCase();
     }
 }
 exports.default = Expenses;

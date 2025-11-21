@@ -7,166 +7,104 @@ const helper_1 = require("../../../hooks/helper");
 const Expenses_Analytics_1 = __importDefault(require("../../../models/analytics/ExpensesAnalytics/Expenses-Analytics"));
 class ExpensesAnalyticsController {
     constructor() {
-        this.getBranchMonthlyExpensesHandler = async (req, res) => {
+        // Daily Expense Analytics Handler
+        this.getDailyExpenseAnalyticsHandler = async (req, res) => {
             try {
                 const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                 if (!expensesAnalytics)
                     return;
-                const monthlyExpenses = await expensesAnalytics.getBranchMonthlyExpenses();
-                res.status(200).json(monthlyExpenses);
-            }
-            catch (error) {
-                console.error("Error fetching monthly expenses:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getEmployeeCategoryExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const empId = req.query.employeeid ? parseInt(req.query.employeeid) : null;
-                if (!empId)
-                    return (0, helper_1.customError)("Employee ID is required.", 400, res);
-                const data = await expensesAnalytics.getEmployeeCategoryExpenses(empId);
+                const data = await expensesAnalytics.getDailyExpenseAnalytics();
                 res.status(200).json(data);
             }
             catch (error) {
-                console.error("Error fetching employee category expenses:", error);
+                console.error("Error fetching daily expense analytics:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         };
-        this.getApprovalStatusByBranchExpensesHandler = async (req, res) => {
+        // Hourly Expense Analytics Handler
+        this.getHourlyExpenseAnalyticsHandler = async (req, res) => {
             try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getApprovalStatusByBranchExpenses();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching approval status by branch:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getServiceLinkedExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getServiceLinkedExpenses();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching service linked expenses:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getExpenseDetailsExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const expenseId = req.query.expensesId ? parseInt(req.query.expensesId.toString()) : null;
-                if (!expenseId)
-                    return (0, helper_1.customError)("Expense ID is required.", 400, res);
-                const data = await expensesAnalytics.getExpenseDetailsExpenses(expenseId);
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching expense details:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getMonthlyExpenseSummaryExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getMonthlyExpenseSummaryExpenses();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching monthly expense summary:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getTotalExpensesByCategoryHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getTotalExpensesByCategory();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching total expenses by category:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getDailyExpenseSummaryExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                console.log("Expenses Analytics:", expensesAnalytics);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getDailyExpenseSummaryExpenses();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching daily expense summary:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getWeeklyExpenseSummaryExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getWeeklyExpenseSummaryExpenses();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching weekly expense summary:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getYearlyExpenseSummaryExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getYearlyExpenseSummaryExpenses();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching yearly expense summary:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getHourlyExpenseSummaryForDateExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
+                const { branchid } = req.query;
+                if (!branchid)
+                    return (0, helper_1.customError)("Branch ID is required.", 400, res);
                 const targetDate = req.query.targetDate;
                 if (!targetDate)
                     return (0, helper_1.customError)("Target date is required.", 400, res);
-                const data = await expensesAnalytics.getHourlyExpenseSummaryForDateExpenses(targetDate);
+                const pBranchId = parseInt(branchid);
+                const expensesAnalytics = new Expenses_Analytics_1.default(null, pBranchId, null, null, null);
+                const data = await expensesAnalytics.getHourlyExpenseAnalytics(targetDate);
                 res.status(200).json(data);
             }
             catch (error) {
-                console.error("Error fetching hourly expense summary:", error);
+                console.error("Error fetching hourly expense analytics:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         };
-        this.getTopExpenseCategoriesExpensesHandler = async (req, res) => {
+        // Weekly Expense Analytics Handler
+        this.getWeeklyExpenseAnalyticsHandler = async (req, res) => {
             try {
                 const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                 if (!expensesAnalytics)
                     return;
-                const limitCount = req.query.limitCount ? parseInt(req.query.limitCount) : 5;
-                const data = await expensesAnalytics.getTopExpenseCategoriesExpenses(limitCount);
+                const data = await expensesAnalytics.getWeeklyExpenseAnalytics();
+                res.status(200).json(data);
+            }
+            catch (error) {
+                console.error("Error fetching weekly expense analytics:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        };
+        // Monthly Expense Analytics Handler
+        this.getMonthlyExpenseAnalyticsHandler = async (req, res) => {
+            try {
+                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+                if (!expensesAnalytics)
+                    return;
+                const data = await expensesAnalytics.getMonthlyExpenseAnalytics();
+                res.status(200).json(data);
+            }
+            catch (error) {
+                console.error("Error fetching monthly expense analytics:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        };
+        // Quarterly Expense Analytics Handler
+        this.getQuarterlyExpenseAnalyticsHandler = async (req, res) => {
+            try {
+                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+                if (!expensesAnalytics)
+                    return;
+                const data = await expensesAnalytics.getQuarterlyExpenseAnalytics();
+                res.status(200).json(data);
+            }
+            catch (error) {
+                console.error("Error fetching quarterly expense analytics:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        };
+        // Yearly Expense Analytics Handler
+        this.getYearlyExpenseAnalyticsHandler = async (req, res) => {
+            try {
+                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+                if (!expensesAnalytics)
+                    return;
+                const startYear = req.query.startYear ? parseInt(req.query.startYear) : new Date().getFullYear() - 1;
+                const endYear = req.query.endYear ? parseInt(req.query.endYear) : new Date().getFullYear();
+                const data = await expensesAnalytics.getYearlyExpenseAnalytics(startYear, endYear);
+                res.status(200).json(data);
+            }
+            catch (error) {
+                console.error("Error fetching yearly expense analytics:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        };
+        // Top Expense Categories Handler
+        this.getTopExpenseCategoriesHandler = async (req, res) => {
+            try {
+                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+                if (!expensesAnalytics)
+                    return;
+                const data = await expensesAnalytics.getTopExpenseCategories();
                 res.status(200).json(data);
             }
             catch (error) {
@@ -174,78 +112,82 @@ class ExpensesAnalyticsController {
                 res.status(500).json({ error: "Internal Server Error" });
             }
         };
-        this.getEmployeeTopExpensesHandler = async (req, res) => {
+        // Top Expense Merchants Handler
+        this.getTopExpenseMerchantsHandler = async (req, res) => {
             try {
                 const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                 if (!expensesAnalytics)
                     return;
-                const limitCount = req.query.limitCount ? parseInt(req.query.limitCount) : 5;
-                const data = await expensesAnalytics.getEmployeeTopExpenses(limitCount);
+                const limitCount = req.query.limitCount ? parseInt(req.query.limitCount) : 10;
+                const data = await expensesAnalytics.getTopExpenseMerchants(limitCount);
                 res.status(200).json(data);
             }
             catch (error) {
-                console.error("Error fetching employee top expenses:", error);
+                console.error("Error fetching top expense merchants:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         };
-        this.getExpenseTrendByCategoryExpensesHandler = async (req, res) => {
+        // Top Expense Employees Handler
+        this.getTopExpenseEmployeesHandler = async (req, res) => {
             try {
                 const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                 if (!expensesAnalytics)
                     return;
-                const categoryId = req.query.categoryId ? parseInt(req.query.categoryId) : null;
-                const startDate = req.query.startDate;
-                const endDate = req.query.endDate;
-                if (!categoryId || !startDate || !endDate) {
-                    return (0, helper_1.customError)("Category ID, start date, and end date are required.", 400, res);
+                const limitCount = req.query.limitCount ? parseInt(req.query.limitCount) : 10;
+                const data = await expensesAnalytics.getTopExpenseEmployees(limitCount);
+                res.status(200).json(data);
+            }
+            catch (error) {
+                console.error("Error fetching top expense employees:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        };
+        // Expense Trends by Category Handler
+        this.getExpenseTrendsByCategoryHandler = async (req, res) => {
+            try {
+                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+                if (!expensesAnalytics)
+                    return;
+                const categoryId = req.query.categoryId ? parseInt(req.query.categoryId) : undefined;
+                const data = await expensesAnalytics.getExpenseTrendsByCategory(categoryId);
+                res.status(200).json(data);
+            }
+            catch (error) {
+                console.error("Error fetching expense trends by category:", error);
+                res.status(500).json({ error: "Internal Server Error" });
+            }
+        };
+        // Expense Comparison by Period Handler
+        this.getExpenseComparisonByPeriodHandler = async (req, res) => {
+            try {
+                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
+                if (!expensesAnalytics)
+                    return;
+                const { currentStartDate, currentEndDate, previousStartDate, previousEndDate } = req.query;
+                if (!currentStartDate || !currentEndDate || !previousStartDate || !previousEndDate) {
+                    return (0, helper_1.customError)("All date parameters (currentStartDate, currentEndDate, previousStartDate, previousEndDate) are required.", 400, res);
                 }
-                const data = await expensesAnalytics.getExpenseTrendByCategoryExpenses(categoryId, startDate, endDate);
+                const data = await expensesAnalytics.getExpenseComparisonByPeriod(currentStartDate, currentEndDate, previousStartDate, previousEndDate);
                 res.status(200).json(data);
             }
             catch (error) {
-                console.error("Error fetching expense trend by category:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getPendingExpensesListHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getPendingExpensesList();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching pending expenses list:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
-        this.getExpenseCountByStatusExpensesHandler = async (req, res) => {
-            try {
-                const expensesAnalytics = this.evaluateQueryParams(req.query, res);
-                if (!expensesAnalytics)
-                    return;
-                const data = await expensesAnalytics.getExpenseCountByStatusExpenses();
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching expense count by status:", error);
+                console.error("Error fetching expense comparison by period:", error);
                 res.status(500).json({ error: "Internal Server Error" });
             }
         };
     }
     evaluateQueryParams(query, response) {
-        const { branchid, employeeid, tenantId, expensesId, startDate, endDate } = query;
-        if (!branchid || !tenantId) {
-            return (0, helper_1.customError)("Branch ID and Tenant ID are required.", 400, response);
+        const { branchid, employeeid, expensesId, startDate, endDate, tenantId } = query;
+        if (!branchid) {
+            return (0, helper_1.customError)("Branch ID is required.", 400, response);
         }
-        const pTenantId = parseInt(tenantId);
         const pBranchId = parseInt(branchid);
         const pstartDate = startDate ? startDate : null;
+        const pTenantId = tenantId ? parseInt(tenantId) : null;
         const pendDate = endDate ? endDate : null;
         const pexpensesId = expensesId ? parseInt(expensesId.toString()) : null;
         const pEmployeeId = employeeid ? parseInt(employeeid.toString()) : null;
-        return new Expenses_Analytics_1.default(pBranchId, pTenantId, pexpensesId, pstartDate, pendDate);
+        return new Expenses_Analytics_1.default(pTenantId, pBranchId, pexpensesId, pstartDate, pendDate);
     }
 }
 exports.default = ExpensesAnalyticsController;

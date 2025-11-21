@@ -2,7 +2,8 @@ import { PrimeLimsTableexpensesrecord } from "../../../database/DatabaseTableSch
 import { ExpenseData, PaginationQuery } from "./types";
 
 export interface IExpenseRepository {
-    generateNewExpense(data: Omit<PrimeLimsTableexpensesrecord,'id'>): Promise<boolean>;
+    generateNewExpense(data: Omit<PrimeLimsTableexpensesrecord, 'id'>, groupId?: string): Promise<number | null>;
+    generateBulkExpenses(expensesData: Array<Omit<PrimeLimsTableexpensesrecord, 'id'>>, groupId?: string): Promise<{ success: number[]; failed: Array<{ data: any; error: string }>; groupId: string }>;
     getExpensesRecord(
         tenantId: number,
         employeeId: number,
@@ -21,9 +22,10 @@ export interface IExpenseRepository {
     calCurrentMonthExpense(tenantId: number, month?: number): Promise<number | null>;
     calculateYearlyExpense(tenantId: number, year?: number): Promise<number | null>;
     getMonthlySummary(tenantId: number): Promise<{ [key: number]: number | null }>;
-    updateExpenseDecision(tenantId: number, status: string, expenseId: number, information: string, employeeId: number): Promise<boolean>;
+    updateExpenseDecision(tenantId: number, status: string, decisions: Array<{ expenseid: number, information: string, employeeid: number }>): Promise<boolean>;
     getAllExpenseCategory(tenantId: number): Promise<any[]>;
     isExpenseExist(tenantId: number, category: string): Promise<boolean>;
     createExpenseCategory(tenantId: number, category: string, employeeId: number): Promise<string | boolean>;
     updateExpenseCategory(tenantId: number, editId: number, category: string): Promise<boolean>;
+    getExpensesByGroup(tenantId: number, groupId: string): Promise<any[]>;
 }

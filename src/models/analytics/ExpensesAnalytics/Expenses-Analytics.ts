@@ -6,7 +6,7 @@ export default class ExpensesAnalytics {
      private expenseId: number | null;
      private startdate: string | null;
      private enddate: string | null;
-     constructor(branchid: number, tenantId: number, expenseId: number | null, startdate: string | null, enddate: string | null) {
+     constructor(tenantId: number, branchid: number, expenseId: number | null, startdate: string | null, enddate: string | null) {
           this.branchid = branchid;
           this.tenantId = tenantId;
           this.expenseId = expenseId;
@@ -14,143 +14,69 @@ export default class ExpensesAnalytics {
           this.enddate = enddate;
      }
 
-     public async getBranchMonthlyExpenses() {
-          const result = await promisifyQuery(this.tenantId, `CALL BranchMonthlyExpenses(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
+     // Daily Expense Analytics
+     public async getDailyExpenseAnalytics() {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_DailyExpenseAnalytics(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getEmployeeCategoryExpenses(empId: number) {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL EmployeeCategoryExpenses(?, ?, ?, ?)`,
-               [empId, this.branchid, this.startdate, this.enddate]
-          );
+     // Hourly Expense Analytics
+     public async getHourlyExpenseAnalytics(targetDate: string) {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_HourlyExpenseAnalytics(?, ?)`, [this.branchid, targetDate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getApprovalStatusByBranchExpenses() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL ApprovalStatusByBranchExpenses(?)`,
-               [this.branchid]
-          );
+     // Weekly Expense Analytics
+     public async getWeeklyExpenseAnalytics() {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_WeeklyExpenseAnalytics(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getServiceLinkedExpenses() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL ServiceLinkedExpenses(?)`,
-               [this.branchid]
-          );
+     // Monthly Expense Analytics
+     public async getMonthlyExpenseAnalytics() {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_MonthlyExpenseAnalytics(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getExpenseDetailsExpenses(expenseId: number) {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL GetExpenseDetailsExpenses(?, ?)`,
-               [expenseId, this.branchid]
-          );
+     // Quarterly Expense Analytics
+     public async getQuarterlyExpenseAnalytics() {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_QuarterlyExpenseAnalytics(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getMonthlyExpenseSummaryExpenses() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL MonthlyExpenseSummaryExpenses(?)`,
-               [this.branchid]
-          );
+     // Yearly Expense Analytics
+     public async getYearlyExpenseAnalytics(startYear: number, endYear: number) {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_YearlyExpenseAnalytics(?, ?, ?)`, [this.branchid, startYear, endYear]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getTotalExpensesByCategory() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL TotalExpensesByCategory(?)`,
-               [this.branchid]
-          );
+     // Top Expense Categories
+     public async getTopExpenseCategories() {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_TopExpenseCategories(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getDailyExpenseSummaryExpenses() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL DailyExpenseSummaryExpenses(?,?,?)`,
-               [this.branchid, this.startdate, this.enddate]
-          );
+     // Top Expense Merchants
+     public async getTopExpenseMerchants(limitCount: number = 10) {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_TopExpenseMerchants(?, ?, ?, ?)`, [this.branchid, this.startdate, this.enddate, limitCount]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getWeeklyExpenseSummaryExpenses() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL WeeklyExpenseSummaryExpenses(?)`,
-               [this.branchid]
-          );
+     // Top Expense Employees
+     public async getTopExpenseEmployees(limitCount: number = 10) {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_TopExpenseEmployees(?, ?, ?, ?)`, [this.branchid, this.startdate, this.enddate, limitCount]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getYearlyExpenseSummaryExpenses() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL YearlyExpenseSummaryExpenses(?)`,
-               [this.branchid]
-          );
+     // Expense Trends by Category
+     public async getExpenseTrendsByCategory(categoryId?: number) {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_ExpenseTrendsByCategory(?, ?, ?, ?)`, [categoryId || null, this.branchid, this.startdate, this.enddate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
-     public async getHourlyExpenseSummaryForDateExpenses(targetDate: string) {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL HourlyExpenseSummaryForDateExpenses(?, ?)`,
-               [this.branchid, targetDate]
-          );
-          return Array.isArray(result) && result.length > 0 ? result[0] : [];
-     }
-
-     public async getTopExpenseCategoriesExpenses(limitCount: number) {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL TopExpenseCategoriesExpenses(?, ?)`,
-               [this.branchid, limitCount]
-          );
-          return Array.isArray(result) && result.length > 0 ? result[0] : [];
-     }
-
-     public async getEmployeeTopExpenses(limitCount: number) {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL EmployeeTopExpenses(?, ?)`,
-               [this.branchid, limitCount]
-          );
-          return Array.isArray(result) && result.length > 0 ? result[0] : [];
-     }
-
-     public async getExpenseTrendByCategoryExpenses(categoryId: number, startDate: string, endDate: string) {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL ExpenseTrendByCategoryExpenses(?, ?, ?, ?)`,
-               [this.branchid, categoryId, startDate, endDate]
-          );
-          return Array.isArray(result) && result.length > 0 ? result[0] : [];
-     }
-
-     public async getPendingExpensesList() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL PendingExpensesList(?)`,
-               [this.branchid]
-          );
-          return Array.isArray(result) && result.length > 0 ? result[0] : [];
-     }
-
-     public async getExpenseCountByStatusExpenses() {
-          const result = await promisifyQuery(
-               this.tenantId,
-               `CALL ExpenseCountByStatusExpenses(?)`,
-               [this.branchid]
-          );
+     // Expense Comparison by Period
+     public async getExpenseComparisonByPeriod(currentStartDate: string, currentEndDate: string, previousStartDate: string, previousEndDate: string) {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_ExpenseComparisonByPeriod(?, ?, ?, ?, ?)`, [this.branchid, currentStartDate, currentEndDate, previousStartDate, previousEndDate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 }

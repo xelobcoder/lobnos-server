@@ -24,6 +24,10 @@ import { IExpenseRepository } from "./interfaces/IExpenseRepository";
 import path from "path";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import { OperationsFailures } from "../operations/types";
+import { primeTenancyConnector } from '../../models/Tenancy/tenantConnections';
+import { databaseConnectionPool } from '../../database/connection';
+import { configuration } from '../../hooks/configuration';
+import KnexConnection from "../../database/KnexConnections";
 
 export default class Expenses implements IExpenseRepository {
      private employeeid: number;
@@ -51,14 +55,15 @@ export default class Expenses implements IExpenseRepository {
           }
      }
      async generateNewExpense(
-          data: Omit<PrimeLimsTableexpensesrecord, 'id'>
-     ): Promise<boolean> {
+          data: Omit<PrimeLimsTableexpensesrecord, 'id'>,
+          groupId?: string
+     ): Promise<number | null> {
           try {
                if (Object.keys(data).length === 0 || typeof data !== 'object') {
                     throw new TypeError('object with keys required');
                }
 
-               const { employeeid, branchid, name, date, merchant, amount, mode, description, category } = data;
+               const { employeeid, branchid, name, date, merchant, amount, description, category } = data;
 
                if (!employeeid || !branchid || !name) {
                     throw new Error('name, employeeid, branchid required');
@@ -67,10 +72,13 @@ export default class Expenses implements IExpenseRepository {
                     throw new Error('category id not provided');
                }
 
-               let inserted = await promisifyQuery(this.tenantId, generateNewExpenseQuery, [name, amount, mode, employeeid, branchid, description, merchant, category, date]);
+               const finalGroupId = groupId || this.generateGroupId();
+               const result = await promisifyQuery(this.tenantId, generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
 
-               inserted = rowAffected(inserted);
-               return inserted
+               if (rowAffected(result)) {
+                    return result.insertId;
+               }
+               return null;
           } catch (err: any) {
                console.log(err)
                logger.error(err?.message);
@@ -78,7 +86,65 @@ export default class Expenses implements IExpenseRepository {
           }
      }
 
-     async getExpensesRecord(
+     async generateBulkExpenses(
+          expensesData: Array<Omit<PrimeLimsTableexpensesrecord, 'id'>>,
+          groupId?: string
+     ): Promise<{ success: number[]; failed: Array<{ data: any; error: string }>; groupId: string }> {
+          const results = {
+               success: [] as number[],
+               failed: [] as Array<{ data: any; error: string }>,
+               groupId: groupId || this.generateGroupId()
+          };
+
+          const pool = configuration.isMultiTenant
+               ? await primeTenancyConnector(this.tenantId)
+               : databaseConnectionPool;
+
+          const connection = await pool.getConnection();
+
+          try {
+               await connection.beginTransaction();
+
+               for (const expenseData of expensesData) {
+                    try {
+                         const { employeeid, branchid, name, date, merchant, amount, description, category } = expenseData;
+
+                         if (!employeeid || !branchid || !name) {
+                              throw new Error('name, employeeid, branchid required');
+                         }
+                         if (category === 0 || !category) {
+                              throw new Error('category id not provided');
+                         }
+
+                         const [result] = await connection.query(generateNewExpenseQuery,
+                              [name, amount, employeeid, branchid, description, merchant, category, date, results.groupId]);
+
+                         if ((result as any).insertId) {
+                              results.success.push((result as any).insertId);
+                         } else {
+                              throw new Error('Failed to create expense - no ID returned');
+                         }
+                    } catch (err: any) {
+                         results.failed.push({
+                              data: expenseData,
+                              error: err.message || 'Unknown error'
+                         });
+                         await connection.rollback();
+                         return results;
+                    }
+               }
+
+               await connection.commit();
+               return results;
+
+          } catch (err: any) {
+               await connection.rollback();
+               logger.error('Transaction error in bulk expenses:', err);
+               throw new Error('Transaction failed: ' + err.message);
+          } finally {
+               connection.release();
+          }
+     } async getExpensesRecord(
           tenantId: number,
           employeeid: number,
           branchid: number,
@@ -90,38 +156,44 @@ export default class Expenses implements IExpenseRepository {
      ): Promise<any> {
           const record = await new User(null, null, null, null, null).userExistWithId(employeeid, tenantId);
 
-          let role: string | undefined;
+          if (!record || record.length === 0) {
+               throw new Error('User not found');
+          }
+
+
           let query = getExpensesRecordQuery;
           let values: (number | string)[] = [];
+          let hasWhereClause = false;
 
-          if (record.length > 0) {
-               role = record[0]['role'];
-          }
+          const role = record[0]['role'];
 
-          if (!['admin', 'manager'].includes(role || '')) {
-               query += ` WHERE er.employeeid = ? AND er.branchid = ?`;
-               values = [employeeid, branchid];
-          } else {
+          const isAdmin = (role === 'admin' || role === 'manager');
+          if (!isAdmin) {
                query += ` WHERE er.employeeid = ?`;
                values = [employeeid];
+               hasWhereClause = true;
           }
 
+          const addCondition = (condition: string, params: (number | string)[] = []) => {
+               query += ` ${hasWhereClause ? 'AND' : 'WHERE'} ${condition}`;
+               values.push(...params);
+               hasWhereClause = true;
+          };
+
           if (status === 'approved') {
-               query += ` AND er.approved = 1`;
+               addCondition('er.approved = 1');
           } else if (status === 'rejected') {
-               query += ` AND er.approved = 2`;
+               addCondition('er.approved = 2');
           } else if (status === 'pending') {
-               query += ` AND er.approved = 0`;
+               addCondition('er.approved = 0');
           }
 
           if (from && to) {
-               query += ` AND er.date BETWEEN ? AND ?`;
-               values.push(from, to);
+               addCondition('er.date BETWEEN ? AND ?', [from, to]);
           }
 
           if (state) {
-               query += ` AND er.state = ?`;
-               values.push(state);
+               addCondition('er.state = ?', [state]);
           }
 
           query += ` ORDER BY er.id DESC LIMIT ? OFFSET ?`;
@@ -168,21 +240,19 @@ export default class Expenses implements IExpenseRepository {
                const {
                     id,
                     name,
-                    mode,
-                    date,
                     amount,
                     category,
                     branchid,
                     description,
                     merchant,
                     employeeid,
+                    date,
                } = expenseData;
 
 
                const queryParams = [
                     name,
                     amount,
-                    mode,
                     employeeid,
                     branchid,
                     description,
@@ -279,37 +349,63 @@ export default class Expenses implements IExpenseRepository {
           return report;
      }
 
-     async updateExpenseDecision(tenantId: number, status: string, expenseid: number, information: string, employeeid: number): Promise<boolean> {
-          if (!expenseid || !status || !employeeid) {
-               throw new Error('status, employeeid, and expenseid must be provided');
+     async updateExpenseDecision(tenantId: number, status: string, decisions: Array<{ expenseid: number, information: string, employeeid: number }>): Promise<boolean> {
+          if (!decisions || decisions.length === 0 || !status) {
+               throw new Error('status and decisions must be provided');
           }
 
-          let statusNumber: number | undefined = undefined;
-          let values: Array<any> = [];
+          const connection = await KnexConnection(tenantId);
+          const conn = await connection.transaction();
 
-          if (status === "pending") {
-               statusNumber = 0;
-          } else if (status === "rejected") {
-               statusNumber = 2;
-          } else if (status === "approved") {
-               statusNumber = 1;
-          } else {
-               statusNumber = undefined;
+          try {
+
+               for (const decision of decisions) {
+                    const { expenseid, information, employeeid } = decision;
+
+                    let statusNumber: number | undefined = undefined;
+
+                    if (status === "pending") {
+                         statusNumber = 0;
+                    } else if (status === "rejected") {
+                         statusNumber = 2;
+                    } else if (status === "approved") {
+                         statusNumber = 1;
+                    } else {
+                         statusNumber = undefined;
+                    }
+
+                    if (statusNumber === undefined) {
+                         throw new Error('Invalid status provided');
+                    }
+
+                    let query = updateExpenseDecisionQuery;
+                    let values: Array<any> = [];
+                    values.push(statusNumber);
+                    values.push(employeeid);
+
+                    if (statusNumber === 2) {
+                         query += `, rejectionMessage = ?`;
+                         values.push(information);
+                    }
+                    query += ` WHERE id = ?`;
+                    values.push(expenseid);
+
+                    const [result] = await conn.raw(query, values);
+                    if ((result as any).affectedRows === 0) {
+                         throw new Error(`Failed to update expense ${expenseid}`);
+                    }
+               }
+
+               await conn.commit();
+               return true;
+
+          } catch (err: any) {
+               await conn.rollback();
+               logger.error('Transaction error in bulk expense decisions:', err);
+               throw new Error('Transaction failed: ' + err.message);
+          } finally {
+               conn.destroy();
           }
-
-          let query = updateExpenseDecisionQuery
-          values.push(statusNumber);
-          values.push(employeeid);
-
-          if (statusNumber === 2) {
-               query += `, rejectionMessage = ?`;
-               values.push(information);
-          }
-
-          query += ` WHERE id = ?`;
-          values.push(expenseid);
-
-          return rowAffected(await promisifyQuery(tenantId, query, values));
      }
 
      async getAllExpenseCategory(): Promise<PrimeLimsTableexpensesrecord[]> {
@@ -347,6 +443,28 @@ export default class Expenses implements IExpenseRepository {
      public static async getExpensesByCreatedOnRange(tenantId: number, from: string | Date, to: string | Date): Promise<PrimeLimsTableexpensesrecord[] | []> {
           if (!from || !to) throw new Error('Both from and to timestamps are required');
           return await promisifyQuery(tenantId, expense_between_dates_query, [from, to]);
+     }
+
+     async getExpensesByGroup(tenantId: number, groupId: string): Promise<any[]> {
+          try {
+               const query = `
+                    SELECT * FROM expensesrecord
+                    WHERE groupId = ?
+                    ORDER BY date DESC
+               `;
+               const expenses = await promisifyQuery(tenantId, query, [groupId]);
+               return expenses;
+          } catch (err: any) {
+               logger.error(err?.message);
+               throw new Error(err);
+          }
+     }
+
+     private generateGroupId(): string {
+          const timestamp = Date.now();
+          const random = Math.random().toString(36).substring(2, 8);
+          const employeePart = this.employeeid.toString().padStart(4, '0');
+          return `EXP-${timestamp}-${employeePart}-${random}`.toUpperCase();
      }
 
 }

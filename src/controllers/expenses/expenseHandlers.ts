@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import Expenses from "../../models/Expenses/ExpenseService";
+import ExpenseInvoiceRepo from "../../models/Expenses/ExpenseInvoiceRepo";
 import path from "node:path";
-import { customError, responseError } from "../../hooks/helper";
+import { customError, responseError, promisifyQuery } from "../../hooks/helper";
 import { RECEIPTS_PATH } from "../../models/Expenses/queries";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import ExpenseAuditLog from "../../models/Expenses/ExpenseAuditLog";
@@ -25,11 +26,76 @@ const initializeExpense = (requestQuery: ExpenseQueryType) => {
 	return new Expenses(pEmployeeid, pBranchId, pTenantId, expenseId);
 };
 
-export const generateNewExpense = async (req: Request, res: Response) => {
+export const createExpenses = async (req: Request, res: Response) => {
 	try {
-		const expenses = initializeExpense(req.query as unknown as ExpenseQueryType);
-		const status = await expenses.generateNewExpense(req.body);
-		res.send({ status });
+		const expensesInstance = initializeExpense(req.query as unknown as ExpenseQueryType);
+		const requestBody = req.body;
+
+		if (Array.isArray(requestBody)) {
+			if (requestBody.length === 0) {
+				return customError("Expenses array cannot be empty", 400, res);
+			}
+
+			if (requestBody.length > 50) {
+				return customError("Maximum 50 expenses can be created at once", 400, res);
+			}
+
+			const result = await expensesInstance.generateBulkExpenses(requestBody);
+			res.send(result);
+		} else if (typeof requestBody === 'object' && requestBody !== null) {
+			const expenseId = await expensesInstance.generateNewExpense(requestBody);
+			res.send({ status: expenseId });
+		} else {
+			return customError("Invalid request body. Expected expense object or array of expenses", 400, res);
+		}
+	} catch (err) {
+		console.log(err);
+		responseError(res);
+	}
+};
+
+export const generateBulkExpenses = async (req: Request, res: Response) => {
+	try {
+		const { expenses, groupId } = req.body;
+
+		if (!Array.isArray(expenses) || expenses.length === 0) {
+			return customError("Expenses array is required and cannot be empty", 400, res);
+		}
+
+		if (expenses.length > 50) {
+			return customError("Maximum 50 expenses can be created at once", 400, res);
+		}
+
+		const expensesInstance = initializeExpense(req.query as unknown as ExpenseQueryType);
+		const result = await expensesInstance.generateBulkExpenses(expenses, groupId);
+		res.send(result);
+	} catch (err) {
+		console.log(err);
+		responseError(res);
+	}
+};
+
+export const getExpensesByGroup = async (req: Request, res: Response) => {
+	try {
+		const { groupId } = req.params;
+		const { tenantId, employeeid, branchid } = req.query;
+
+		if (!groupId) {
+			return customError("Group ID is required", 400, res);
+		}
+
+		if (!tenantId || !employeeid || !branchid) {
+			return customError("Required query parameters missing", 400, res);
+		}
+
+		const expensesInstance = initializeExpense({
+			employeeid: parseInt(employeeid.toString()),
+			branchid: parseInt(branchid.toString()),
+			tenantId: parseInt(tenantId.toString()),
+			expenseId: null
+		});
+		const result = await expensesInstance.getExpensesByGroup(Number(tenantId), groupId);
+		res.send({ expenses: result });
 	} catch (err) {
 		console.log(err);
 		responseError(res);
@@ -196,27 +262,208 @@ export const updateExpenseDecision = async (req: Request, res: Response) => {
 		const { expenseid, employeeid, status, information, branchid } = req.body;
 		const { tenantId } = req.query;
 
-		if (!employeeid || !branchid || !expenseid || !status) {
-			return customError("Missing required decision parameters", 400, res);
+		if (Array.isArray(req.body)) {
+			const decisions = req.body;
+
+			if (decisions.length === 0) {
+				return customError("Decisions array cannot be empty", 400, res);
+			}
+
+			if (decisions.length > 50) {
+				return customError("Maximum 50 decisions can be processed at once", 400, res);
+			}
+
+			for (const decision of decisions) {
+				if (!decision.expenseid || !decision.status) {
+					return customError("Each decision must have expenseid and status", 400, res);
+				}
+				if (!['pending', 'approved', 'rejected'].includes(decision.status)) {
+					return customError("Status must be 'pending', 'approved', or 'rejected'", 400, res);
+				}
+			}
+
+			const decisionsByStatus: Record<string, Array<{ expenseid: number, information: string, employeeid: number, status: string }>> = {};
+			for (const decision of decisions) {
+				if (!decisionsByStatus[decision.status]) {
+					decisionsByStatus[decision.status] = [];
+				}
+				decisionsByStatus[decision.status].push(decision);
+			}
+
+			const expenses = initializeExpense({
+				employeeid: parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0'),
+				branchid: parseInt(branchid?.toString() || req.query.branchid?.toString() || '0'),
+				tenantId: parseInt(tenantId?.toString() || '0'),
+				expenseId: null
+			});
+
+			let approverEmployeeId = parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0');
+			let approverBranchId = parseInt(branchid?.toString() || req.query.branchid?.toString() || '0');
+
+			if (approverEmployeeId === 0 && decisions.length > 0) {
+				const firstExpenseQuery = 'SELECT employeeid, branchid FROM expensesrecord WHERE id = ?';
+				const firstExpense = await promisifyQuery(parseInt(tenantId.toString()), firstExpenseQuery, [decisions[0].expenseid]);
+				if (firstExpense.length > 0) {
+					approverEmployeeId = firstExpense[0].employeeid;
+					approverBranchId = firstExpense[0].branchid;
+				}
+			}
+
+			const results = [];
+			for (const [status, statusDecisions] of Object.entries(decisionsByStatus)) {
+				const decisionsForService = statusDecisions.map(({ status: _, ...rest }) => rest);
+				const result = await expenses.updateExpenseDecision(parseInt(tenantId.toString()), status, decisionsForService);
+
+				if (status === 'approved' && result) {
+					try {
+						const invoiceRepo = new ExpenseInvoiceRepo(
+							approverEmployeeId,
+							approverBranchId,
+							parseInt(tenantId.toString())
+						);
+
+						const approvedExpenseIds = statusDecisions.map(d => d.expenseid);
+						const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, approvedExpenseIds, true);
+
+						results.push({
+							status,
+							success: true,
+							count: statusDecisions.length,
+							invoices: invoiceResults,
+							message: "Expenses approved and invoices created"
+						});
+					} catch (invoiceError) {
+						results.push({
+							status,
+							success: true,
+							count: statusDecisions.length,
+							message: "Expenses approved, but invoice creation failed",
+							error: invoiceError.message
+						});
+					}
+				} else {
+					results.push({ status, success: result, count: statusDecisions.length });
+				}
+			}
+
+			res.send({ results });
+		} else if (req.body.decisions && Array.isArray(req.body.decisions)) {
+			const { status, decisions } = req.body;
+
+			if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+				return customError("Valid status is required for bulk decisions", 400, res);
+			}
+
+			if (decisions.length === 0) {
+				return customError("Decisions array cannot be empty", 400, res);
+			}
+
+			if (decisions.length > 50) {
+				return customError("Maximum 50 decisions can be processed at once", 400, res);
+			}
+
+			for (const decision of decisions) {
+				if (!decision.expenseid || typeof decision.employeeid !== 'number') {
+					return customError("Each decision must have expenseid and employeeid", 400, res);
+				}
+			}
+
+			const expenses = initializeExpense({
+				employeeid: parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0'),
+				branchid: parseInt(branchid?.toString() || req.query.branchid?.toString() || '0'),
+				tenantId: parseInt(tenantId?.toString() || '0'),
+				expenseId: null
+			});
+
+			let approverEmployeeId = parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0');
+			let approverBranchId = parseInt(branchid?.toString() || req.query.branchid?.toString() || '0');
+
+			if (approverEmployeeId === 0 && decisions.length > 0) {
+				const firstExpenseQuery = 'SELECT employeeid, branchid FROM expensesrecord WHERE id = ?';
+				const firstExpense = await promisifyQuery(parseInt(tenantId.toString()), firstExpenseQuery, [decisions[0].expenseid]);
+				if (firstExpense.length > 0) {
+					approverEmployeeId = firstExpense[0].employeeid;
+					approverBranchId = firstExpense[0].branchid;
+				}
+			}
+
+			const result = await expenses.updateExpenseDecision(parseInt(tenantId.toString()), status, decisions);
+
+			if (status === 'approved' && result) {
+				try {
+					const invoiceRepo = new ExpenseInvoiceRepo(
+						approverEmployeeId,
+						approverBranchId,
+						parseInt(tenantId.toString())
+					);
+					const approvedExpenseIds = decisions.map(d => d.expenseid);
+
+					const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, approvedExpenseIds, true);
+
+					res.send({
+						success: true,
+						count: decisions.length,
+						invoices: invoiceResults,
+						message: "Expenses approved and invoices created"
+					});
+				} catch (invoiceError) {
+					res.send({
+						success: true,
+						count: decisions.length,
+						message: "Expenses approved, but invoice creation failed",
+						error: invoiceError.message
+					});
+				}
+			} else {
+				res.send({ success: result, count: decisions.length });
+			}
+		} else {
+			if (!employeeid || !branchid || !expenseid || !status) {
+				return customError("Missing required decision parameters", 400, res);
+			}
+
+			const expenses = initializeExpense({
+				employeeid: parseInt(employeeid.toString()),
+				branchid: parseInt(branchid.toString()),
+				tenantId: parseInt(tenantId?.toString() || '0'),
+				expenseId: parseInt(expenseid.toString())
+			});
+
+			const decisions = [{ expenseid: parseInt(expenseid.toString()), information: information || '', employeeid: parseInt(employeeid.toString()) }];
+			const result = await expenses.updateExpenseDecision(
+				parseInt(tenantId?.toString() || '0'),
+				status,
+				decisions
+			);
+
+			if (status === 'approved' && result) {
+				try {
+					const invoiceRepo = new ExpenseInvoiceRepo(
+						parseInt(employeeid.toString()),
+						parseInt(branchid.toString()),
+						parseInt(tenantId?.toString() || '0')
+					);
+
+					const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, [parseInt(expenseid.toString())], false);
+
+					res.send({
+						success: true,
+						invoices: invoiceResults,
+						message: "Expense approved and invoice created"
+					});
+				} catch (invoiceError) {
+					res.send({
+						success: true,
+						message: "Expense approved, but invoice creation failed",
+						error: invoiceError.message
+					});
+				}
+			} else {
+				res.send({ success: result });
+			}
 		}
-
-		const expenses = initializeExpense({
-			employeeid: parseInt(employeeid.toString()),
-			branchid: parseInt(branchid.toString()),
-			tenantId: parseInt(tenantId.toString()),
-			expenseId: parseInt(expenseid.toString())
-		});
-
-		const result = await expenses.updateExpenseDecision(
-			parseInt(tenantId.toString()),
-			status,
-			expenseid,
-			information,
-			employeeid
-		);
-
-		res.send({ status: result });
 	} catch (err) {
+		console.log(err);
 		responseError(res);
 	}
 };
@@ -400,3 +647,258 @@ export const markCaseAsDone = async (request: Request, response: Response): Prom
 		responseError(response);
 	}
 };
+
+export const createExpensesAndInvoice = async (req: Request, res: Response) => {
+	try {
+		const { tenantId, employeeid, branchid } = req.query;
+		const { expenses, invoiceData } = req.body;
+
+		if (!tenantId || !employeeid || !branchid || !expenses) {
+			return customError("Required parameters missing", 400, res);
+		}
+
+		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
+		const result = await invoiceRepo.createExpensesAndInvoice(
+			expenses,
+			invoiceData || {}
+		);
+		res.send({ status: result });
+	} catch (err) {
+		console.log(err);
+		responseError(res);
+	}
+};
+
+export const createInvoice = async (req: Request, res: Response) => {
+	try {
+		const { tenantId, employeeid, branchid } = req.query;
+		const invoiceData = req.body;
+
+		if (!tenantId || !employeeid || !branchid || !invoiceData) {
+			return customError("Required parameters missing", 400, res);
+		}
+
+		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
+		const result = await invoiceRepo.createInvoice(invoiceData);
+		res.send({ status: result });
+	} catch (err: any) {
+		console.log('Invoice creation error:', err.message);
+
+		// Handle specific error types gracefully
+		if (err.message.includes('not found')) {
+			return customError(`Invoice cannot be created: ${err.message}`, 404, res);
+		} else if (err.message.includes('must be approved')) {
+			return customError(`Invoice cannot be created: ${err.message}`, 400, res);
+		} else if (err.message.includes('Unauthorized')) {
+			return customError('You do not have permission to create this invoice', 403, res);
+		} else if (err.message.includes('Required fields are missing')) {
+			return customError('Invoice data is incomplete. Please provide all required fields.', 400, res);
+		} else if (err.message.includes('must be unique')) {
+			return customError('Invoice number must be unique', 409, res);
+		} else {
+			return customError('An error occurred while creating the invoice. Please try again later.', 500, res);
+		}
+	}
+};
+
+export const getInvoices = async (req: Request, res: Response) => {
+	try {
+		const { tenantId, employeeid, branchid, page, count, status, from, to } = req.query;
+
+		if (!tenantId || !employeeid || !branchid) {
+			return customError("Required parameters missing", 400, res);
+		}
+
+		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
+		const result = await invoiceRepo.getInvoices({
+			page: page ? parseInt(page.toString()) : 1,
+			count: count ? parseInt(count.toString()) : 10,
+			status: status ? status.toString() : undefined,
+			from: from ? from.toString() : undefined,
+			to: to ? to.toString() : undefined,
+		});
+		res.send(result);
+	} catch (err: any) {
+		console.log('Invoice retrieval error:', err.message);
+
+		// Handle specific error types gracefully
+		if (err.message.includes('Unauthorized')) {
+			return customError('You do not have permission to view these invoices', 403, res);
+		} else {
+			return customError('An error occurred while retrieving invoices. Please try again later.', 500, res);
+		}
+	}
+};
+
+export const addPayment = async (req: Request, res: Response) => {
+	try {
+		const { tenantId, employeeid, branchid } = req.query;
+		const paymentData = req.body;
+
+		if (!tenantId || !employeeid || !branchid || !paymentData) {
+			return customError("Required parameters missing", 400, res);
+		}
+
+		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
+		const result = await invoiceRepo.addPayment(paymentData);
+		res.send({ status: result });
+	} catch (err: any) {
+		console.log('Payment creation error:', err.message);
+
+		// Handle specific error types gracefully
+		if (err.message.includes('not found in the system')) {
+			return customError(`Payment cannot be processed: ${err.message}`, 404, res);
+		} else if (err.message.includes('must be approved first')) {
+			return customError(`Payment cannot be processed: ${err.message}`, 400, res);
+		} else if (err.message.includes('Unauthorized')) {
+			return customError('You do not have permission to add payment for this expense', 403, res);
+		} else if (err.message.includes('Required fields are missing')) {
+			return customError('Payment data is incomplete. Please provide all required fields.', 400, res);
+		} else {
+			// For unexpected errors, return a generic message but don't crash the server
+			return customError('An error occurred while processing the payment. Please try again later.', 500, res);
+		}
+	}
+};
+
+export const getPayments = async (req: Request, res: Response) => {
+	try {
+		const { tenantId, employeeid, branchid, invoice_id, expense_id, status, page, count } = req.query;
+
+		if (!tenantId || !employeeid || !branchid) {
+			return customError("Required parameters missing", 400, res);
+		}
+
+		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
+		const result = await invoiceRepo.getPayments({
+			invoice_id: invoice_id ? parseInt(invoice_id.toString()) : undefined,
+			expense_id: expense_id ? parseInt(expense_id.toString()) : undefined,
+			status: status ? status.toString() : undefined,
+			page: page ? parseInt(page.toString()) : 1,
+			count: count ? parseInt(count.toString()) : 10,
+		});
+		res.send(result);
+	} catch (err: any) {
+		console.log('Payment retrieval error:', err.message);
+
+		// Handle specific error types gracefully
+		if (err.message.includes('Unauthorized')) {
+			return customError('You do not have permission to view these payments', 403, res);
+		} else {
+			// For unexpected errors, return a generic message
+			return customError('An error occurred while retrieving payments. Please try again later.', 500, res);
+		}
+	}
+};
+
+async function createInvoicesForApprovedExpenses(invoiceRepo: ExpenseInvoiceRepo, expenseIds: number[], isBulkApproval: boolean = false): Promise<Array<{ invoiceId: number, invoiceNumber: string, expenseIds: number[], groupId?: string }>> {
+	const invoiceResults: Array<{ invoiceId: number, invoiceNumber: string, expenseIds: number[], groupId?: string }> = [];
+
+	const groupQuery = `SELECT id, groupId FROM expensesrecord WHERE id IN (${expenseIds.map(() => '?').join(',')})`;
+	const expensesWithGroups = await promisifyQuery(invoiceRepo['tenantId'], groupQuery, expenseIds);
+
+	const expensesByGroup: Record<string, number[]> = {};
+	const expensesWithoutGroup: number[] = [];
+
+	for (const expense of expensesWithGroups) {
+		const groupId = expense.groupId;
+		if (groupId) {
+			if (!expensesByGroup[groupId]) {
+				expensesByGroup[groupId] = [];
+			}
+			expensesByGroup[groupId].push(expense.id);
+		} else {
+			expensesWithoutGroup.push(expense.id);
+		}
+	}
+
+	for (const [groupId, groupExpenseIds] of Object.entries(expensesByGroup)) {
+		const existingInvoicesQuery = `
+			SELECT DISTINCT ie.invoice_id, i.invoice_number
+			FROM invoice_expenses ie
+			JOIN invoices i ON ie.invoice_id = i.id
+			JOIN expensesrecord er ON ie.expense_id = er.id
+			WHERE er.groupId = ?
+		`;
+		const existingInvoices = await promisifyQuery(invoiceRepo['tenantId'], existingInvoicesQuery, [groupId]);
+
+		if (existingInvoices.length > 0) {
+			const invoiceId = existingInvoices[0].invoice_id;
+			const invoiceNumber = existingInvoices[0].invoice_number;
+
+			const invoicedExpenseIdsQuery = `
+				SELECT expense_id FROM invoice_expenses ie
+				JOIN expensesrecord er ON ie.expense_id = er.id
+				WHERE er.groupId = ?
+			`;
+			const invoicedExpenses = await promisifyQuery(invoiceRepo['tenantId'], invoicedExpenseIdsQuery, [groupId]);
+			const invoicedExpenseIds = new Set(invoicedExpenses.map(row => row.expense_id));
+			const uninvoicedExpenseIds = groupExpenseIds.filter(id => !invoicedExpenseIds.has(id));
+
+			if (uninvoicedExpenseIds.length > 0) {
+				try {
+					await invoiceRepo.addExpensesToInvoice(invoiceId, uninvoicedExpenseIds);
+				} catch (error) {
+					logger.log(`Failed to add expenses to existing invoice ${invoiceId} for group ${groupId}:`, error);
+					continue;
+				}
+			}
+
+			invoiceResults.push({
+				invoiceId,
+				invoiceNumber,
+				expenseIds: groupExpenseIds,
+				groupId
+			});
+		} else {
+			try {
+				const invoiceResult = await invoiceRepo.createInvoice({
+					invoice_date: new Date().toISOString().split('T')[0],
+					expense_ids: groupExpenseIds
+				});
+				invoiceResults.push({
+					invoiceId: invoiceResult.invoiceId,
+					invoiceNumber: invoiceResult.invoice_number,
+					expenseIds: groupExpenseIds,
+					groupId
+				});
+			} catch (error) {
+				logger.log(`Failed to create invoice for group ${groupId}:`, error);
+			}
+		}
+	}
+
+	for (const expenseId of expensesWithoutGroup) {
+		const existingInvoicesQuery = `
+			SELECT ie.invoice_id, i.invoice_number
+			FROM invoice_expenses ie
+			JOIN invoices i ON ie.invoice_id = i.id
+			WHERE ie.expense_id = ?
+		`;
+		const existingInvoices = await promisifyQuery(invoiceRepo['tenantId'], existingInvoicesQuery, [expenseId]);
+
+		if (existingInvoices.length > 0) {
+			invoiceResults.push({
+				invoiceId: existingInvoices[0].invoice_id,
+				invoiceNumber: existingInvoices[0].invoice_number,
+				expenseIds: [expenseId]
+			});
+		} else {
+			try {
+				const invoiceResult = await invoiceRepo.createInvoice({
+					invoice_date: new Date().toISOString().split('T')[0],
+					expense_ids: [expenseId]
+				});
+				invoiceResults.push({
+					invoiceId: invoiceResult.invoiceId,
+					invoiceNumber: invoiceResult.invoice_number,
+					expenseIds: [expenseId]
+				});
+			} catch (error) {
+				logger.log(`Failed to create invoice for expense ${expenseId}:`, error);
+			}
+		}
+	}
+
+	return invoiceResults;
+}

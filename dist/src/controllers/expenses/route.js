@@ -19,12 +19,11 @@ const storage = multer_1.default.diskStorage({
     },
 });
 const upload = (0, multer_1.default)({ storage: storage });
-// Expense Merchants routes
 router.post("/api/v1/expense/merchant", (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpenseMerchant));
 router.put("/api/v1/expense/merchant", (0, helper_1.handleOverLoad)(expenseHandlers_1.updateExpenseMerchant));
 router.get("/api/v1/expense/merchants", (0, helper_1.handleOverLoad)(expenseHandlers_1.getAllExpenseMerchants));
-// ...existing expense routes...
-router.post("/api/v1/expenses", expenseHandlers_1.generateNewExpense);
+router.post("/api/v1/expenses", (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpenses));
+router.get("/api/v1/expenses/group/:groupId", (0, helper_1.handleOverLoad)(expenseHandlers_1.getExpensesByGroup));
 router.put('/api/v1/expenses', (0, helper_1.handleOverLoad)(expenseHandlers_1.updateExpenseRecord));
 router.get("/api/v1/expenses/records", expenseHandlers_1.getExpensesRecord);
 router.get('/api/v1/expenses/audit/:expenseId', (0, helper_1.handleOverLoad)(expenseHandlers_1.getExpenseLog));
@@ -38,7 +37,11 @@ router.post("/api/v1/expense/pending/decision", expenseHandlers_1.updateExpenseD
 router.post("/api/v1/expense/new/category", (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpenseCategory));
 router.put("/api/v1/expense/new/category", expenseHandlers_1.updateExpenseCategory);
 router.get("/api/v1/expense/get/category", expenseHandlers_1.getAllExpenseCategory);
-// expense outsource spending 
 router.post('/api/v1/outsourced/cases/mark-expense', (0, helper_1.handleOverLoad)(expenseHandlers_1.markOutsourceCasesAsExpense));
 router.post('/api/v1/outsourced/cases/confirm-done', (0, helper_1.handleOverLoad)(expenseHandlers_1.markCaseAsDone));
+router.post('/api/v1/expenses/invoice/create-with-expenses', (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpensesAndInvoice));
+router.post('/api/v1/expenses/invoice', (0, helper_1.handleOverLoad)(expenseHandlers_1.createInvoice));
+router.get('/api/v1/expenses/invoices', (0, helper_1.handleOverLoad)(expenseHandlers_1.getInvoices));
+router.post('/api/v1/expenses/payment', (0, helper_1.handleOverLoad)(expenseHandlers_1.addPayment));
+router.get('/api/v1/expenses/payments', (0, helper_1.handleOverLoad)(expenseHandlers_1.getPayments));
 exports.default = router;

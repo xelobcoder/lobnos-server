@@ -5,10 +5,10 @@ export type PrimeLimsTableaccounts = {
   accountId: string;
   accountName: string;
   type: string;
-  isImmutable?: number ;
+  isImmutable?: number;
   normalBalance: string;
-  USER?: string ;
-  HOST?: string ;
+  USER?: string;
+  HOST?: string;
   CURRENT_CONNECTIONS: number;
   TOTAL_CONNECTIONS: number;
 };
@@ -46,11 +46,11 @@ export type PrimeLimsTableapplicationsettings = {
   smsSettings: string;
   emailNotification: number;
   includeTax: number;
-  patientIdPrefix?: string ;
-  fontFamily?: string ;
-  billingidPrefix?: string ;
-  services?: string ;
-  billingsettings?: string ;
+  patientIdPrefix?: string;
+  fontFamily?: string;
+  billingidPrefix?: string;
+  services?: string;
+  billingsettings?: string;
   regioncode: number;
   districtcode: number;
 };
@@ -59,7 +59,7 @@ export type PrimeLimsTableappointments = {
   refid: number;
   patientid: number;
   duration: number;
-  status?: string ;
+  status?: string;
   appointment_time: string;
   appointment_date: Date | string;
   inviteMethod: string;
@@ -68,14 +68,14 @@ export type PrimeLimsTableappointments = {
   preference: string;
   practioner: number;
   location: string;
-  notes?: string ;
+  notes?: string;
 };
 
 export type PrimeLimsTableattendancecycles = {
   id: number;
   cyclestart: Date | string;
   cycleend: Date | string;
-  description?: string ;
+  description?: string;
 };
 
 export type PrimeLimsTablebilling = {
@@ -88,8 +88,8 @@ export type PrimeLimsTablebilling = {
   clinician: number;
   type: string;
   outstanding: number;
-  taxIncluded?: string ;
-  taxValue?: number ;
+  taxIncluded?: string;
+  taxValue?: number;
   billedon: Date | string;
   branchid: number;
   clientstatus: string;
@@ -97,27 +97,27 @@ export type PrimeLimsTablebilling = {
   employeeid: number;
   year: number;
   month: number;
-  day?: number ;
-  totalTransactionCost?: number ;
+  day?: number;
+  totalTransactionCost?: number;
   totalcost: number;
   paid: number;
   totalrefunded: number;
   balance: number;
   amountIncurredDueTax: number;
   lastupdated: Date | string;
-  isPromo?: number ;
-  promoValue?: number ;
-  promoMethod?: string ;
-  promoCodeId?: number ;
+  isPromo?: number;
+  promoValue?: number;
+  promoMethod?: string;
+  promoCodeId?: number;
   status: string;
-  relatedBillingId?: number ;
-  isAdjustment?: number ;
-  adjustedBy?: number ;
-  adjustmentReason?: string ;
-  adjustmentType?: string ;
-  writeOff?: number ;
-  writeOffReason?: string ;
-  islocked?: number ;
+  relatedBillingId?: number;
+  isAdjustment?: number;
+  adjustedBy?: number;
+  adjustmentReason?: string;
+  adjustmentType?: string;
+  writeOff?: number;
+  writeOffReason?: string;
+  islocked?: number;
 };
 
 export type PrimeLimsTablebillinghx = {
@@ -133,19 +133,19 @@ export type PrimeLimsTablebillinghx = {
 export type PrimeLimsTablebillingstrategy = {
   strategyid: number;
   name: string;
-  description?: string ;
-  concessionMode?: string ;
-  concessionValue?: number ;
-  price_type?: string ;
+  description?: string;
+  concessionMode?: string;
+  concessionValue?: number;
+  price_type?: string;
   allconcessionApplied: number;
-  valid_from?: Date | string ;
-  valid_until?: Date | string ;
+  valid_from?: Date | string;
+  valid_until?: Date | string;
   is_expired: number;
   createdon: Date | string;
-  updatedon?: Date | string ;
+  updatedon?: Date | string;
   associatedid: number;
-  applicableOrganization?: string ;
-  applicableTest?: string ;
+  applicableOrganization?: string;
+  applicableTest?: string;
   isInsurance: number;
   isClinician: number;
   category: string;
@@ -178,26 +178,26 @@ export type PrimeLimsTablebillingtemporarytable = {
 
 export type PrimeLimsTablebilling_audit = {
   audit_id: number;
-  billingid?: number ;
-  patientid?: number ;
-  totalTransactionCost?: number ;
-  totalcost?: number ;
-  paid?: number ;
-  payable?: number ;
-  totalrefunded?: number ;
-  discount?: number ;
-  outstanding?: number ;
-  balance?: number ;
-  billedon?: Date | string ;
-  clientstatus?: string ;
-  year?: number ;
-  month?: number ;
-  day?: number ;
-  amountIncurredDueTax?: number ;
+  billingid?: number;
+  patientid?: number;
+  totalTransactionCost?: number;
+  totalcost?: number;
+  paid?: number;
+  payable?: number;
+  totalrefunded?: number;
+  discount?: number;
+  outstanding?: number;
+  balance?: number;
+  billedon?: Date | string;
+  clientstatus?: string;
+  year?: number;
+  month?: number;
+  day?: number;
+  amountIncurredDueTax?: number;
   lastupdated: Date | string;
-  action_type?: string ;
-  action_timestamp?: Date | string ;
-  actor?: string ;
+  action_type?: string;
+  action_timestamp?: Date | string;
+  actor?: string;
 };
 
 export type PrimeLimsTablebranch = {
@@ -205,8 +205,8 @@ export type PrimeLimsTablebranch = {
   name: string;
   date: Date | string;
   activation: number;
-  address?: string ;
-  email?: string ;
+  address?: string;
+  email?: string;
   contact: number;
   managerid: string;
 };
@@ -219,7 +219,7 @@ export type PrimeLimsTableclinicianbasicinfo = {
   address: string;
   occupation: string;
   organization: number;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   created_on: Date | string;
   phone: number;
   identifier: string;
@@ -229,16 +229,16 @@ export type PrimeLimsTableclinicianpaymentinfo = {
   ID: number;
   clinicianid: number;
   module: string;
-  momo?: number ;
-  bankname?: string ;
-  bankbranch?: string ;
-  accountnumber?: number ;
-  accountname?: string ;
+  momo?: number;
+  bankname?: string;
+  bankbranch?: string;
+  accountnumber?: number;
+  accountname?: string;
   organization: number;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   created_on: Date | string;
-  commission?: number ;
-  momoname?: string ;
+  commission?: number;
+  momoname?: string;
   id: number;
 };
 
@@ -250,21 +250,21 @@ export type PrimeLimsTableclinicianscredentials = {
   isAuthenticated: number;
   authenticationMode: string;
   authenticatedon: string;
-  ispasswordUpdated?: number ;
+  ispasswordUpdated?: number;
   identifier: string;
 };
 
 export type PrimeLimsTableclinician_daily_sales_summary = {
-  sale_date?: Date | string ;
+  sale_date?: Date | string;
   clinician_id: number;
   clinician_name: string;
   clinician_phone: string;
-  occupation?: string ;
-  organization?: number ;
+  occupation?: string;
+  organization?: number;
   total_services: number;
-  total_value?: number ;
-  additional_services_count?: number ;
-  test_panels_count?: number ;
+  total_value?: number;
+  additional_services_count?: number;
+  test_panels_count?: number;
 };
 
 export type PrimeLimsTableclinician_packages = {
@@ -279,7 +279,7 @@ export type PrimeLimsTablecommodity = {
   commodity: string;
   date: Date | string;
   category: string;
-  suppliedby?: string ;
+  suppliedby?: string;
 };
 
 export type PrimeLimsTablecompanydaystimeschedule = {
@@ -293,10 +293,10 @@ export type PrimeLimsTablecompanyprofile = {
   MOTTO: string;
   PHONENUMBER: number;
   ADDRESS: string;
-  ALTERNATIVENUMBER?: number ;
-  WEBSITE?: string ;
+  ALTERNATIVENUMBER?: number;
+  WEBSITE?: string;
   STREET: string;
-  ALTERNativenumber?: number ;
+  ALTERNativenumber?: number;
 };
 
 export type PrimeLimsTablecomposedemails = {
@@ -306,9 +306,9 @@ export type PrimeLimsTablecomposedemails = {
   target: string;
   ispublished: string;
   created_on: Date | string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   body: string;
-  scheduledate?: Date | string ;
+  scheduledate?: Date | string;
 };
 
 export type PrimeLimsTablecontrol_materials = {
@@ -316,13 +316,13 @@ export type PrimeLimsTablecontrol_materials = {
   name: string;
   lotNumber: string;
   sourceType: string;
-  manufacturer?: string ;
-  sourceName?: string ;
+  manufacturer?: string;
+  sourceName?: string;
   expiryDate: Date | string;
-  openedDate?: Date | string ;
+  openedDate?: Date | string;
   storageConditions: string;
   status: string;
-  notes?: string ;
+  notes?: string;
   deviceId: string;
   createdby: number;
   updatedby: number;
@@ -337,10 +337,10 @@ export type PrimeLimsTablecontrol_parameters = {
   parameter: string;
   value: number;
   unit: string;
-  standardDeviation?: number ;
-  warningLimit?: number ;
-  actionLimit?: number ;
-  validationNotes?: string ;
+  standardDeviation?: number;
+  warningLimit?: number;
+  actionLimit?: number;
+  validationNotes?: string;
   createdby: number;
   updatedby: number;
   createdAt: Date | string;
@@ -350,49 +350,49 @@ export type PrimeLimsTablecontrol_parameters = {
 export type PrimeLimsTablecustomtestcreation = {
   id: number;
   testid: number;
-  creationrule?: string ;
+  creationrule?: string;
   createdon: Date | string;
-  updatedon?: Date | string ;
+  updatedon?: Date | string;
 };
 
 export type PrimeLimsTabledaily_adjustments_impact = {
-  report_date?: Date | string ;
-  total_billed_without_night_adjustment?: number ;
-  amount_gained_from_night_adjustment?: number ;
-  total_billed_with_night_adjustment?: number ;
-  billed_without_night_adjustment_part_for_night_adjusted_services?: number ;
-  night_adjustment_uplift?: number ;
-  package_cases?: number ;
-  package_total_value?: number ;
+  report_date?: Date | string;
+  total_billed_without_night_adjustment?: number;
+  amount_gained_from_night_adjustment?: number;
+  total_billed_with_night_adjustment?: number;
+  billed_without_night_adjustment_part_for_night_adjusted_services?: number;
+  night_adjustment_uplift?: number;
+  package_cases?: number;
+  package_total_value?: number;
   total_cases: number;
-  clinician_referrals?: number ;
-  organization_referrals?: number ;
-  self_cases?: number ;
+  clinician_referrals?: number;
+  organization_referrals?: number;
+  self_cases?: number;
 };
 
 export type PrimeLimsTabledaily_analytics_snapshot = {
-  analytics_date?: Date | string ;
-  total_billing_amount?: number ;
-  total_payable_amount?: number ;
-  total_paid_amount?: number ;
+  analytics_date?: Date | string;
+  total_billing_amount?: number;
+  total_payable_amount?: number;
+  total_paid_amount?: number;
   total_services_rendered: number;
-  total_refunds_processed?: number ;
-  total_refund_payments_made?: number ;
-  total_outstanding_amount?: number ;
-  total_discounts_given?: number ;
-  total_tax_incurred?: number ;
+  total_refunds_processed?: number;
+  total_refund_payments_made?: number;
+  total_outstanding_amount?: number;
+  total_discounts_given?: number;
+  total_tax_incurred?: number;
   unique_patients_billed: number;
-  refund_completion_rate_percentage?: number ;
+  refund_completion_rate_percentage?: number;
 };
 
 export type PrimeLimsTabledaily_test_transaction_snap_shot = {
   serviceAddedOn: Date | string;
-  test_date?: Date | string ;
+  test_date?: Date | string;
   trackId: number;
-  serviceCategory?: string ;
-  test_panel_name?: string ;
+  serviceCategory?: string;
+  test_panel_name?: string;
   test_count: number;
-  total_amount?: number ;
+  total_amount?: number;
 };
 
 export type PrimeLimsTabledbosystemsecurity = {
@@ -413,18 +413,18 @@ export type PrimeLimsTabledbobillingrefundtable = {
   firstWitness: number;
   secondWitness: number;
   thirdWitness: number;
-  firstWitnessPurpose?: string ;
-  firstWitnessDate?: Date | string ;
-  secondWitnessDate?: Date | string ;
-  thirdWitnessDate?: Date | string ;
+  firstWitnessPurpose?: string;
+  firstWitnessDate?: Date | string;
+  secondWitnessDate?: Date | string;
+  thirdWitnessDate?: Date | string;
   isRefundCompleted: number;
   isRefundInitiated: number;
-  initiatedBy?: number ;
-  secondWitnessPurpose?: string ;
-  thirdWitnessPurpose?: string ;
+  initiatedBy?: number;
+  secondWitnessPurpose?: string;
+  thirdWitnessPurpose?: string;
   isRefundApproved: number;
   approvalDate: number;
-  approvedby?: number ;
+  approvedby?: number;
   amountRefunded: number;
 };
 
@@ -432,7 +432,7 @@ export type PrimeLimsTabledboexpensecategory = {
   id: number;
   category: string;
   createdon: Date | string;
-  updatedon?: Date | string ;
+  updatedon?: Date | string;
   employeeid: number;
 };
 
@@ -451,16 +451,16 @@ export type PrimeLimsTabledboservices = {
   trackId: number;
   cost: number;
   employeeid: number;
-  serviceCategory?: string ;
+  serviceCategory?: string;
   categoryTrackId: number;
-  clinicianId?: number ;
-  organizationId?: number ;
-  registrationType?: string ;
+  clinicianId?: number;
+  organizationId?: number;
+  registrationType?: string;
   branchid: number;
   isoutsourced: number;
-  outsourceid?: number ;
+  outsourceid?: number;
   serviceAddedOn: Date | string;
-  taxList?: string ;
+  taxList?: string;
   taxValue: number;
   amountIncurredDueTax: number;
   taxIncluded: number;
@@ -469,13 +469,13 @@ export type PrimeLimsTabledboservices = {
   totalpayable: number;
   isNHIS: number;
   isPHIS: number;
-  insuranceid?: string ;
-  claimCode?: string ;
+  insuranceid?: string;
+  claimCode?: string;
   hasNightAdjustment: number;
   nightAdjustmentValue: number;
   nightAdjustmentMode: string;
   isPackageUsed: number;
-  packageid?: number ;
+  packageid?: number;
   status: string;
   isRefunded: number;
   isLocked: number;
@@ -483,50 +483,50 @@ export type PrimeLimsTabledboservices = {
 
 export type PrimeLimsTabledboservices_audit = {
   audit_id: number;
-  serviceid?: number ;
-  billingid?: number ;
-  trackId?: number ;
-  cost?: number ;
-  employeeid?: number ;
-  serviceCategory?: string ;
-  categoryTrackId?: number ;
-  clinicianId?: number ;
-  organizationId?: number ;
-  registrationType?: string ;
-  branchid?: number ;
-  isoutsourced?: number ;
-  outsourceid?: number ;
-  serviceAddedOn?: Date | string ;
-  taxList?: string ;
-  taxValue?: number ;
-  amountIncurredDueTax?: number ;
-  taxIncluded?: number ;
-  discount?: number ;
-  totalcost?: number ;
-  totalpayable?: number ;
-  isNHIS?: number ;
-  isPHIS?: number ;
-  insuranceid?: string ;
-  claimCode?: string ;
-  hasNightAdjustment?: number ;
-  nightAdjustmentValue?: number ;
-  nightAdjustmentMode?: string ;
-  isPackageUsed?: number ;
-  packageid?: number ;
-  action_type?: string ;
-  action_timestamp?: Date | string ;
-  actor?: string ;
+  serviceid?: number;
+  billingid?: number;
+  trackId?: number;
+  cost?: number;
+  employeeid?: number;
+  serviceCategory?: string;
+  categoryTrackId?: number;
+  clinicianId?: number;
+  organizationId?: number;
+  registrationType?: string;
+  branchid?: number;
+  isoutsourced?: number;
+  outsourceid?: number;
+  serviceAddedOn?: Date | string;
+  taxList?: string;
+  taxValue?: number;
+  amountIncurredDueTax?: number;
+  taxIncluded?: number;
+  discount?: number;
+  totalcost?: number;
+  totalpayable?: number;
+  isNHIS?: number;
+  isPHIS?: number;
+  insuranceid?: string;
+  claimCode?: string;
+  hasNightAdjustment?: number;
+  nightAdjustmentValue?: number;
+  nightAdjustmentMode?: string;
+  isPackageUsed?: number;
+  packageid?: number;
+  action_type?: string;
+  action_timestamp?: Date | string;
+  actor?: string;
 };
 
 export type PrimeLimsTabledbotestresultapproval = {
   id: number;
   ascensionid: number;
   isapproved: number;
-  approvedBy?: string ;
+  approvedBy?: string;
   printCount: number;
   lastupdatedon: Date | string;
-  maxvalidation?: number ;
-  minvalidation?: number ;
+  maxvalidation?: number;
+  minvalidation?: number;
 };
 
 export type PrimeLimsTabledbovitalsigns = {
@@ -540,16 +540,16 @@ export type PrimeLimsTabledbovitalsigns = {
   date: Date | string;
   time: string;
   spo2: number;
-  isConsulation?: number ;
-  consultationid?: number ;
+  isConsulation?: number;
+  consultationid?: number;
 };
 
 export type PrimeLimsTabledepartmentconsumptionhx = {
   comsumeid: number;
   department: number;
   stockid: number;
-  batchnumber?: string ;
-  brand?: string ;
+  batchnumber?: string;
+  brand?: string;
   debit: number;
   date: Date | string;
   time: string;
@@ -563,13 +563,13 @@ export type PrimeLimsTabledepartmentmainstoresupplyproductorderlefttracking = {
   quantity: number;
   stockid: number;
   departmentid: number;
-  batchnumber?: string ;
+  batchnumber?: string;
   createdOn: Date | string;
-  brand?: string ;
+  brand?: string;
   expiredDisposed: number;
-  disposaldate?: Date | string ;
-  employeeid?: number ;
-  productordersid?: number ;
+  disposaldate?: Date | string;
+  employeeid?: number;
+  productordersid?: number;
 };
 
 export type PrimeLimsTabledepartmentrequisition = {
@@ -577,17 +577,17 @@ export type PrimeLimsTabledepartmentrequisition = {
   departmentid: number;
   stockid: number;
   quantity_requested: number;
-  quantity_approved?: number ;
+  quantity_approved?: number;
   comsumptionunit: string;
-  status?: string ;
+  status?: string;
   date: Date | string;
-  issue_message?: string ;
-  departmentReceived?: number ;
-  store_supplied?: number ;
-  quantityReceived?: number ;
+  issue_message?: string;
+  departmentReceived?: number;
+  store_supplied?: number;
+  quantityReceived?: number;
   requestingemployee: number;
   receivingemployee: number;
-  approvedon?: Date | string ;
+  approvedon?: Date | string;
   approvedTime: string;
   requestapprovedby: number;
 };
@@ -600,7 +600,7 @@ export type PrimeLimsTabledepartmentrequisitionhx = {
   status: string;
   qty: number;
   requisitionid: number;
-  receivedon?: Date | string ;
+  receivedon?: Date | string;
   departmentid: number;
   productordersid: number;
   employeeid: number;
@@ -613,10 +613,10 @@ export type PrimeLimsTabledepartments = {
   date: Date | string;
   employeeid: number;
   name: string;
-  description?: string ;
-  head_employee_id?: number ;
-  budget?: number ;
-  is_active?: number ;
+  description?: string;
+  head_employee_id?: number;
+  budget?: number;
+  is_active?: number;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -626,12 +626,12 @@ export type PrimeLimsTabledepartmentsmainsupply = {
   quantity: number;
   stockid: number;
   departmentid: number;
-  batchnumber?: string ;
+  batchnumber?: string;
   createdOn: Date | string;
-  brand?: string ;
+  brand?: string;
   expiredDisposed: number;
-  disposaldate?: Date | string ;
-  employeeid?: number ;
+  disposaldate?: Date | string;
+  employeeid?: number;
   productordersid: number;
 };
 
@@ -641,7 +641,7 @@ export type PrimeLimsTabledepartmentstocks = {
   stockid: number;
   quantityAvailable: number;
   date_added: Date | string;
-  dateupdated?: Date | string ;
+  dateupdated?: Date | string;
   comsumptionunit: string;
 };
 
@@ -657,7 +657,7 @@ export type PrimeLimsTabledevices = {
   createdby: number;
   location: string;
   status: string;
-  notes?: string ;
+  notes?: string;
   createdAt: Date | string;
   updatedAt: Date | string;
   updatedby: number;
@@ -667,22 +667,22 @@ export type PrimeLimsTabledistricts = {
   id: number;
   name: string;
   code: string;
-  regionid?: number ;
+  regionid?: number;
 };
 
 export type PrimeLimsTabledrugs = {
   id: number;
   drug: string;
-  category?: number ;
+  category?: number;
   createdby: number;
-  addedOn?: Date | string ;
+  addedOn?: Date | string;
 };
 
 export type PrimeLimsTabledrugscategory = {
   id: number;
   categoryName: string;
-  description?: string ;
-  createdOn?: Date | string ;
+  description?: string;
+  createdOn?: Date | string;
   createdBy: string;
 };
 
@@ -692,7 +692,7 @@ export type PrimeLimsTableemaillog = {
   type: string;
   success: number;
   date: Date | string;
-  reason?: string ;
+  reason?: string;
 };
 
 export type PrimeLimsTableemailpreference = {
@@ -702,7 +702,7 @@ export type PrimeLimsTableemailpreference = {
   rejection: string;
   approval: string;
   transactions: string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   birthday: string;
   billing: string;
 };
@@ -731,17 +731,17 @@ export type PrimeLimsTableexpensesrecord = {
   merchant: string;
   amount: number;
   category: number;
-  mode: number;
   description: string;
   employeeid: number;
   branchid: number;
   createdon: Date | string;
   approved: number;
   approvedby: number;
-  approvedon?: Date | string ;
-  rejectionmessage?: string ;
-  isassociatedservice?: number ;
-  serviceid?: number ;
+  approvedon?: Date | string;
+  rejectionmessage?: string;
+  isassociatedservice?: number;
+  serviceid?: number;
+  groupId?: string;
 };
 
 export type PrimeLimsTableexpensesrecord_audit_log = {
@@ -750,11 +750,11 @@ export type PrimeLimsTableexpensesrecord_audit_log = {
   operation: string;
   table_name: string;
   record_id: number;
-  old_data?: string ;
-  new_data?: string ;
-  changed_by?: number ;
-  changed_on?: Date | string ;
-  client_ip?: string ;
+  old_data?: string;
+  new_data?: string;
+  changed_by?: number;
+  changed_on?: Date | string;
+  client_ip?: string;
 };
 
 export type PrimeLimsTablefield_constraints = {
@@ -763,10 +763,10 @@ export type PrimeLimsTablefield_constraints = {
   fieldid: number;
   action: string;
   constraint_type: string;
-  replacement_text?: string ;
-  value?: string ;
-  prefix?: string ;
-  suffix?: string ;
+  replacement_text?: string;
+  value?: string;
+  prefix?: string;
+  suffix?: string;
 };
 
 export type PrimeLimsTablegeneralemailsettings = {
@@ -784,9 +784,9 @@ export type PrimeLimsTablegeneralledger = {
   id: number;
   transactionId: string;
   date: Date | string;
-  description?: string ;
+  description?: string;
   accountId: number;
-  subAccountId?: number ;
+  subAccountId?: number;
   type: string;
   amount: number;
   category: string;
@@ -801,10 +801,10 @@ export type PrimeLimsTablegeneralstocks = {
   quantity: number;
   alertlevel: number;
   materialcode: string;
-  updatedOn?: Date | string ;
+  updatedOn?: Date | string;
   date: Date | string;
-  warehouse?: number ;
-  shelf?: number ;
+  warehouse?: number;
+  shelf?: number;
   minimum_qty: number;
   maximum_qty: number;
 };
@@ -813,7 +813,7 @@ export type PrimeLimsTablegeneralstorecredithx = {
   id: number;
   productordersid: number;
   stockid: number;
-  credit?: number ;
+  credit?: number;
   brandid: number;
   batchnumber: string;
   creditDate: Date | string;
@@ -825,7 +825,7 @@ export type PrimeLimsTablegeneralstoredebithx = {
   brandid: number;
   debitdate: Date | string;
   batchnumber: string;
-  productordersid?: number ;
+  productordersid?: number;
   debitqty: number;
   departmentid: number;
   wastage: number;
@@ -834,74 +834,74 @@ export type PrimeLimsTablegeneralstoredebithx = {
 export type PrimeLimsTablehr_auditlogs = {
   auditid: number;
   employeeid: number;
-  action?: string ;
-  timestamp?: Date | string ;
-  digitalsignature?: string ;
+  action?: string;
+  timestamp?: Date | string;
+  digitalsignature?: string;
 };
 
 export type PrimeLimsTablehr_employeelogincredentials = {
   credentialid: number;
   employeeid: number;
   password: string;
-  pin?: number ;
-  authenticationmethod?: string ;
-  accountstatus?: string ;
+  pin?: number;
+  authenticationmethod?: string;
+  accountstatus?: string;
   activation: number;
-  refreshtoken?: string ;
-  lastlogin?: Date | string ;
-  emailauthenticated?: number ;
-  datecreated?: Date | string ;
-  timecreated?: string ;
-  updatedon?: Date | string ;
+  refreshtoken?: string;
+  lastlogin?: Date | string;
+  emailauthenticated?: number;
+  datecreated?: Date | string;
+  timecreated?: string;
+  updatedon?: Date | string;
 };
 
 export type PrimeLimsTablehr_employeemergencycontacts = {
   contactid: number;
   employeeid: number;
   contactname: string;
-  relationship?: string ;
-  contactphone?: string ;
-  contactemail?: string ;
+  relationship?: string;
+  contactphone?: string;
+  contactemail?: string;
 };
 
 export type PrimeLimsTablehr_performancemetrics = {
   metricid: number;
   employeeid: number;
-  samplesprocessed?: number ;
-  errorsreported?: number ;
-  qaoutcomes?: string ;
-  reportdate?: Date | string ;
+  samplesprocessed?: number;
+  errorsreported?: number;
+  qaoutcomes?: string;
+  reportdate?: Date | string;
 };
 
 export type PrimeLimsTablehr_rolespermissions = {
   roleid: number;
   employeeid: number;
   rolename: string;
-  permissions?: string ;
-  accessrights?: string ;
+  permissions?: string;
+  accessrights?: string;
 };
 
 export type PrimeLimsTablehr_trainingrecords = {
   trainingid: number;
   employeeid: number;
-  trainingname?: string ;
-  completiondate?: Date | string ;
-  refresherduedate?: Date | string ;
-  competencyscore?: number ;
-  certificationfileurl?: string ;
+  trainingname?: string;
+  completiondate?: Date | string;
+  refresherduedate?: Date | string;
+  competencyscore?: number;
+  certificationfileurl?: string;
 };
 
 export type PrimeLimsTablehr_workflowassignments = {
   assignmentid: number;
   employeeid: number;
-  workflowname?: string ;
-  instrumentname?: string ;
-  projectname?: string ;
+  workflowname?: string;
+  instrumentname?: string;
+  projectname?: string;
 };
 
 export type PrimeLimsTableinventoryanalyticssummary = {
   id: number;
-  settings?: string ;
+  settings?: string;
 };
 
 export type PrimeLimsTableinventorycustomization = {
@@ -916,23 +916,23 @@ export type PrimeLimsTablelimsautodeductionqueue = {
   branchid: number;
   departmentid: number;
   employeeid: number;
-  ascensionid?: number ;
+  ascensionid?: number;
   billingid: number;
-  resolved?: number ;
+  resolved?: number;
   created_at: Date | string;
 };
 
 export type PrimeLimsTablelimsintegrationinventorytemplate = {
   templateid: number;
   testid: number;
-  template?: string ;
+  template?: string;
   createdon: Date | string;
   createdBy: number;
   lastupdated: Date | string;
-  isDeductedAfterCompletion?: number ;
-  isPhebotomy?: number ;
-  isService?: number ;
-  isTest?: number ;
+  isDeductedAfterCompletion?: number;
+  isPhebotomy?: number;
+  isService?: number;
+  isTest?: number;
 };
 
 export type PrimeLimsTableloggingcriticalvaluealert = {
@@ -943,9 +943,9 @@ export type PrimeLimsTableloggingcriticalvaluealert = {
   statement: string;
   createdOn: Date | string;
   createdBy: number;
-  isSeen?: number ;
-  isSeenBy?: number ;
-  ascensionid?: number ;
+  isSeen?: number;
+  isSeenBy?: number;
+  ascensionid?: number;
 };
 
 export type PrimeLimsTableloginlogs = {
@@ -956,14 +956,14 @@ export type PrimeLimsTableloginlogs = {
   logoutTime: number;
   browserInformation: string;
   loggedout: number;
-  actualLogout?: number ;
+  actualLogout?: number;
 };
 
 export type PrimeLimsTablemainstoresupply = {
   id: number;
   stockid: number;
-  quantity?: number ;
-  brandid?: number ;
+  quantity?: number;
+  brandid?: number;
   updated_on: Date | string;
   batchnumber: string;
 };
@@ -971,8 +971,8 @@ export type PrimeLimsTablemainstoresupply = {
 export type PrimeLimsTablemainstoresupplyproductordertracking = {
   id: number;
   stockid: number;
-  quantity?: number ;
-  brandid?: number ;
+  quantity?: number;
+  brandid?: number;
   updated_on: Date | string;
   batchnumber: string;
   productordersid: number;
@@ -981,27 +981,27 @@ export type PrimeLimsTablemainstoresupplyproductordertracking = {
 export type PrimeLimsTablemanager_sample_descision = {
   sampleid: number;
   billingid: number;
-  action?: string ;
-  message?: string ;
-  manager?: string ;
+  action?: string;
+  message?: string;
+  manager?: string;
   date: Date | string;
   testid: number;
 };
 
 export type PrimeLimsTablemedicalinterfacingdevices = {
   id: number;
-  name?: string ;
-  ip?: string ;
-  dial_port?: string ;
-  listen_port?: string ;
-  connection_mode?: string ;
-  use_tls?: number ;
-  active?: number ;
+  name?: string;
+  ip?: string;
+  dial_port?: string;
+  listen_port?: string;
+  connection_mode?: string;
+  use_tls?: number;
+  active?: number;
   created_at: Date | string;
-  testid?: number ;
-  last_known_ip?: string ;
-  last_connected?: Date | string ;
-  device_info?: string ;
+  testid?: number;
+  last_known_ip?: string;
+  last_connected?: Date | string;
+  device_info?: string;
 };
 
 export type PrimeLimsTablemedicalrecords = {
@@ -1020,7 +1020,7 @@ export type PrimeLimsTablemedicalrecords = {
   created_at: Date | string;
   consulationby: number;
   patientid: number;
-  associatedTransactionid?: number ;
+  associatedTransactionid?: number;
 };
 
 export type PrimeLimsTablemedicalrecordsaudit = {
@@ -1043,34 +1043,34 @@ export type PrimeLimsTablemedicalrecordsaudit = {
 export type PrimeLimsTablenew_patients = {
   id: number;
   firstname: string;
-  email?: string ;
-  dob?: Date | string ;
+  email?: string;
+  dob?: Date | string;
   age: number;
-  gender?: string ;
-  marital_status?: string ;
-  mobile_number?: string ;
+  gender?: string;
+  marital_status?: string;
+  mobile_number?: string;
   agetype: string;
-  occupation?: string ;
+  occupation?: string;
   date: Date | string;
   activation_status: string;
   lastname: string;
-  middlename?: string ;
-  organization?: string ;
+  middlename?: string;
+  organization?: string;
   contactpointer: string;
-  patientid?: number ;
-  whatAppcontact?: string ;
+  patientid?: number;
+  whatAppcontact?: string;
   fullpatientid: string;
-  designation?: string ;
+  designation?: string;
 };
 
 export type PrimeLimsTableorderreceivedaccountsummary = {
-  orderTransactionid?: number ;
-  taxAmount?: number ;
+  orderTransactionid?: number;
+  taxAmount?: number;
   method: string;
   debit: number;
   credit: number;
   insertedOn: Date | string;
-  updatedOn?: Date | string ;
+  updatedOn?: Date | string;
   paymentmode: string;
   amountpaid: number;
 };
@@ -1085,73 +1085,73 @@ export type PrimeLimsTableorders = {
   purchaseunit: string;
   date: Date | string;
   quantity: number;
-  received?: string ;
-  quantityReceived?: number ;
-  batchnumber?: string ;
-  balance?: number ;
-  expirydate?: Date | string ;
-  receiveddate?: Date | string ;
-  status?: string ;
-  price?: number ;
-  totalamount?: number ;
-  productused?: string ;
+  received?: string;
+  quantityReceived?: number;
+  batchnumber?: string;
+  balance?: number;
+  expirydate?: Date | string;
+  receiveddate?: Date | string;
+  status?: string;
+  price?: number;
+  totalamount?: number;
+  productused?: string;
   pricing: string;
   brand: number;
-  expiredDisposed?: number ;
-  disposaldate?: Date | string ;
-  requestedby?: number ;
-  receivedby?: number ;
+  expiredDisposed?: number;
+  disposaldate?: Date | string;
+  requestedby?: number;
+  receivedby?: number;
   transactiondate: Date | string;
 };
 
 export type PrimeLimsTableorganization = {
   id: number;
-  name?: string ;
-  location?: string ;
-  street?: string ;
-  mobile?: number ;
-  address?: string ;
-  email?: string ;
-  region?: string ;
-  gpsmapping?: string ;
-  website?: string ;
-  type?: string ;
+  name?: string;
+  location?: string;
+  street?: string;
+  mobile?: number;
+  address?: string;
+  email?: string;
+  region?: string;
+  gpsmapping?: string;
+  website?: string;
+  type?: string;
 };
 
 export type PrimeLimsTableorganizationaccountinformation = {
   id: number;
   organizationid: number;
-  bankname?: string ;
-  branch?: string ;
-  accountname?: string ;
-  account?: string ;
-  module?: string ;
-  momoname?: string ;
-  momo?: number ;
+  bankname?: string;
+  branch?: string;
+  accountname?: string;
+  account?: string;
+  module?: string;
+  momoname?: string;
+  momo?: number;
   commission: number;
 };
 
 export type PrimeLimsTableorganizationalbillingtable = {
   id: number;
-  organizationid?: number ;
-  testpricing?: string ;
-  useCustomLetterHeadings?: number ;
-  concessionValue?: number ;
-  concessionMode?: string ;
-  haveDifferentPriceList?: number ;
-  addedon?: Date | string ;
-  updatedon?: Date | string ;
+  organizationid?: number;
+  testpricing?: string;
+  useCustomLetterHeadings?: number;
+  concessionValue?: number;
+  concessionMode?: string;
+  haveDifferentPriceList?: number;
+  addedon?: Date | string;
+  updatedon?: Date | string;
   hasConcessionAppliedAcross: number;
   createdby: number;
-  organizationBillingType?: string ;
+  organizationBillingType?: string;
 };
 
 export type PrimeLimsTableorganizationcontactperson = {
   id: number;
   organizationid: number;
-  name?: string ;
-  email?: string ;
-  mobile?: number ;
+  name?: string;
+  email?: string;
+  mobile?: number;
 };
 
 export type PrimeLimsTableorganization_packages = {
@@ -1169,46 +1169,46 @@ export type PrimeLimsTableoutsourcedtesttracking = {
   status: number;
   comments: string;
   createdOn: Date | string;
-  updatedOn?: Date | string ;
+  updatedOn?: Date | string;
   outsourceid: number;
-  completedconfirmedby?: number ;
+  completedconfirmedby?: number;
 };
 
 export type PrimeLimsTableoutsourceorganizationcontract = {
   outsourceServiceId: number;
-  startdate?: Date | string ;
-  enddate?: Date | string ;
-  outsourceid?: number ;
-  billingTerms?: string ;
-  discount?: number ;
-  addedon?: Date | string ;
-  updatedon?: Date | string ;
+  startdate?: Date | string;
+  enddate?: Date | string;
+  outsourceid?: number;
+  billingTerms?: string;
+  discount?: number;
+  addedon?: Date | string;
+  updatedon?: Date | string;
   createdby: number;
-  updatedby?: number ;
+  updatedby?: number;
 };
 
 export type PrimeLimsTableoutsourceorganizationservices = {
   outserviceid: number;
-  outsourceid?: number ;
-  generalTestId?: number ;
-  outsourcePrice?: number ;
-  addedon?: Date | string ;
-  updatedon?: Date | string ;
+  outsourceid?: number;
+  generalTestId?: number;
+  outsourcePrice?: number;
+  addedon?: Date | string;
+  updatedon?: Date | string;
   addedby: number;
-  updatedby?: number ;
+  updatedby?: number;
 };
 
 export type PrimeLimsTableoutsourcingorganization = {
   outsourceid: number;
-  name?: string ;
-  organizationType?: string ;
-  email?: string ;
-  address?: string ;
-  billingAddress?: string ;
-  contactNumber?: number ;
-  contactPerson?: string ;
-  addedon?: Date | string ;
-  updatedon?: Date | string ;
+  name?: string;
+  organizationType?: string;
+  email?: string;
+  address?: string;
+  billingAddress?: string;
+  contactNumber?: number;
+  contactPerson?: string;
+  addedon?: Date | string;
+  updatedon?: Date | string;
   outsourceCreatedBy: number;
 };
 
@@ -1225,7 +1225,7 @@ export type PrimeLimsTablepackage_tests = {
   package_id: number;
   test_id: number;
   concession_mode: string;
-  concession_value?: number ;
+  concession_value?: number;
 };
 
 export type PrimeLimsTablepageaccess = {
@@ -1244,11 +1244,11 @@ export type PrimeLimsTablepageaccess = {
 export type PrimeLimsTablepatientemmergencycontactinformation = {
   keyid: number;
   patientid: number;
-  emmergencyContactName?: string ;
-  emmergencyContactNumber?: string ;
-  relationship?: string ;
-  occupation?: string ;
-  address?: string ;
+  emmergencyContactName?: string;
+  emmergencyContactNumber?: string;
+  relationship?: string;
+  occupation?: string;
+  address?: string;
 };
 
 export type PrimeLimsTablepatientimages = {
@@ -1262,12 +1262,12 @@ export type PrimeLimsTablepatientimages = {
 export type PrimeLimsTablepatientsaddress = {
   keyid: number;
   patientid: number;
-  area?: string ;
-  region?: string ;
-  gpsLocation?: string ;
-  address?: string ;
-  country?: string ;
-  district?: string ;
+  area?: string;
+  region?: string;
+  gpsLocation?: string;
+  address?: string;
+  country?: string;
+  district?: string;
 };
 
 export type PrimeLimsTablepatients_credentials = {
@@ -1284,18 +1284,18 @@ export type PrimeLimsTablepatients_settings = {
   patientid: number;
   mode: string;
   method: string;
-  notify?: number ;
-  _read?: number ;
-  read_on?: Date | string ;
+  notify?: number;
+  _read?: number;
+  read_on?: Date | string;
   authenticated: number;
-  authenticationMode?: string ;
+  authenticationMode?: string;
   emailAuthenticated: string;
 };
 
 export type PrimeLimsTablepatient_clinical_history_ultrasound = {
   id: number;
   ascensionid: number;
-  clinical_history?: string ;
+  clinical_history?: string;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1310,27 +1310,27 @@ export type PrimeLimsTableprimesmscategorymappings = {
   category: string;
   tablename: string;
   idcolumn: string;
-  phonecolumn?: string ;
-  namecolumn?: string ;
-  additionalfields?: string ;
+  phonecolumn?: string;
+  namecolumn?: string;
+  additionalfields?: string;
 };
 
 export type PrimeLimsTableprimesmsevents = {
   eventid: number;
   code: string;
-  description?: string ;
+  description?: string;
   category: string;
   createdat: Date | string;
-  content?: string ;
+  content?: string;
   active: number;
-  placeholders?: string ;
+  placeholders?: string;
 };
 
 export type PrimeLimsTableprimesmseventtemplates = {
   id: number;
   eventid: number;
   templateid: number;
-  isactive?: number ;
+  isactive?: number;
 };
 
 export type PrimeLimsTableprimesmsjobrecipients = {
@@ -1338,23 +1338,23 @@ export type PrimeLimsTableprimesmsjobrecipients = {
   jobid: number;
   phonee164: string;
   personalizedbody: string;
-  deliverystatus?: string ;
-  sentat?: Date | string ;
-  errorcode?: string ;
+  deliverystatus?: string;
+  sentat?: Date | string;
+  errorcode?: string;
   refid: number;
-  messageid?: string ;
+  messageid?: string;
 };
 
 export type PrimeLimsTableprimesmsjobs = {
   jobid: number;
-  templateid?: number ;
-  custombody?: string ;
+  templateid?: number;
+  custombody?: string;
   category: string;
   recipientscope: string;
-  targetids?: string ;
+  targetids?: string;
   sendtype: string;
-  scheduledat?: Date | string ;
-  status?: string ;
+  scheduledat?: Date | string;
+  status?: string;
   createdby: number;
   createdat: Date | string;
 };
@@ -1365,7 +1365,7 @@ export type PrimeLimsTableprimesmsplaceholderrules = {
   placeholder: string;
   columnname: string;
   tablename: string;
-  description?: string ;
+  description?: string;
 };
 
 export type PrimeLimsTableprimesmstemplates = {
@@ -1381,31 +1381,31 @@ export type PrimeLimsTableprime_active_billing_strategy_assignments = {
   id: number;
   billing_strategy_id: number;
   entity_type: string;
-  track_id?: number ;
+  track_id?: number;
   applies_from: Date | string;
-  applies_to?: Date | string ;
+  applies_to?: Date | string;
 };
 
 export type PrimeLimsTableprime_billing_audit = {
   id: number;
   entity_type: string;
-  track_id?: number ;
+  track_id?: number;
   test_panel_id: number;
   base_price: number;
   final_price: number;
-  strategy_id?: number ;
-  price_id?: number ;
-  promo_code_id?: number ;
-  conditions_applied?: string ;
+  strategy_id?: number;
+  price_id?: number;
+  promo_code_id?: number;
+  conditions_applied?: string;
   calculated_at: Date | string;
 };
 
 export type PrimeLimsTableprime_billing_campaigns = {
   id: number;
   name: string;
-  description?: string ;
+  description?: string;
   start_date: Date | string;
-  end_date?: Date | string ;
+  end_date?: Date | string;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1413,15 +1413,15 @@ export type PrimeLimsTableprime_billing_campaigns = {
 export type PrimeLimsTableprime_billing_promo_codes = {
   id: number;
   code: string;
-  description?: string ;
-  campaign_id?: number ;
+  description?: string;
+  campaign_id?: number;
   discount_type: string;
   discount_value: number;
-  max_uses?: number ;
-  times_used?: number ;
-  is_active?: number ;
+  max_uses?: number;
+  times_used?: number;
+  is_active?: number;
   valid_from: Date | string;
-  valid_to?: Date | string ;
+  valid_to?: Date | string;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1429,11 +1429,11 @@ export type PrimeLimsTableprime_billing_promo_codes = {
 export type PrimeLimsTableprime_billing_strategies = {
   id: number;
   name: string;
-  description?: string ;
-  is_discount?: number ;
-  applies_to_all_tests?: number ;
-  priority?: number ;
-  apply_time_based?: number ;
+  description?: string;
+  is_discount?: number;
+  applies_to_all_tests?: number;
+  priority?: number;
+  apply_time_based?: number;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1442,26 +1442,26 @@ export type PrimeLimsTableprime_billing_strategy_assignments = {
   id: number;
   billing_strategy_id: number;
   entity_type: string;
-  track_id?: number ;
+  track_id?: number;
   applies_from: Date | string;
-  applies_to?: Date | string ;
+  applies_to?: Date | string;
 };
 
 export type PrimeLimsTableprime_billing_strategy_conditions = {
   id: number;
   billing_strategy_id: number;
   condition_type: string;
-  condition_value?: string ;
-  comparator?: string ;
-  start_time?: string ;
-  end_time?: string ;
-  timezone?: string ;
+  condition_value?: string;
+  comparator?: string;
+  start_time?: string;
+  end_time?: string;
+  timezone?: string;
 };
 
 export type PrimeLimsTableprime_billing_strategy_prices = {
   id: number;
   billing_strategy_id: number;
-  test_panel_id?: number ;
+  test_panel_id?: number;
   price_type: string;
   amount: number;
 };
@@ -1470,16 +1470,16 @@ export type PrimeLimsTableprivateinsurance = {
   id: number;
   insuranceName: string;
   insuranceCode: string;
-  insuranceType?: string ;
-  searchCode?: string ;
-  network?: string ;
-  tags?: string ;
-  mailingAddress?: string ;
-  city?: string ;
-  state?: string ;
-  county?: string ;
-  zipCode?: string ;
-  comments?: string ;
+  insuranceType?: string;
+  searchCode?: string;
+  network?: string;
+  tags?: string;
+  mailingAddress?: string;
+  city?: string;
+  state?: string;
+  county?: string;
+  zipCode?: string;
+  comments?: string;
   isDisabled: number;
 };
 
@@ -1489,25 +1489,25 @@ export type PrimeLimsTableproceduremanual = {
   proceduremanual: string;
   createdon: Date | string;
   createdby: number;
-  updatedon?: Date | string ;
+  updatedon?: Date | string;
   title: string;
 };
 
 export type PrimeLimsTableqc_readings = {
   id: string;
   sessionId: string;
-  parameterId?: string ;
+  parameterId?: string;
   parameter: string;
   value: string;
   status: string;
   createdAt: Date | string;
-  createdby?: number ;
+  createdby?: number;
 };
 
 export type PrimeLimsTableqc_sessions = {
   id: string;
   controlMaterialId: string;
-  comments?: string ;
+  comments?: string;
   createdby: number;
   updatedby: number;
   createdAt: Date | string;
@@ -1539,7 +1539,7 @@ export type PrimeLimsTableregistrationsettings = {
   id: number;
   fields: string;
   createdon: Date | string;
-  updatedon?: Date | string ;
+  updatedon?: Date | string;
   updatedby: number;
 };
 
@@ -1563,20 +1563,20 @@ export type PrimeLimsTableresultentrydrugsreaction = {
 export type PrimeLimsTableresultsettings = {
   id: number;
   resultsettings: string;
-  resultsEntrySettings?: string ;
+  resultsEntrySettings?: string;
 };
 
 export type PrimeLimsTableresult_comments = {
   keyid: number;
   testid: number;
   billingid: number;
-  comments?: string ;
+  comments?: string;
 };
 
 export type PrimeLimsTableresult_lock = {
   id: number;
   ascensionid: number;
-  isResultLock?: number ;
+  isResultLock?: number;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1586,20 +1586,20 @@ export type PrimeLimsTableroles = {
   username: string;
   role: string;
   password: string;
-  date_created?: Date | string ;
-  TIME?: string ;
-  refresh_token?: string ;
+  date_created?: Date | string;
+  TIME?: string;
+  refresh_token?: string;
   activation: number;
   email: string;
   permissions: string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   emailAuthenticated: string;
-  branch?: number ;
-  pin?: number ;
-  time?: string ;
+  branch?: number;
+  pin?: number;
+  time?: string;
   mobile: string;
-  alternativeMobile?: string ;
-  dob?: Date | string ;
+  alternativeMobile?: string;
+  dob?: Date | string;
 };
 
 export type PrimeLimsTablesales = {
@@ -1612,23 +1612,23 @@ export type PrimeLimsTablesales = {
 export type PrimeLimsTablesalessessionmanager = {
   sessionid: number;
   sessiondate: Date | string;
-  session_started_by?: number ;
-  sessionendedon?: Date | string ;
-  openingamount?: number ;
-  amountreceivedby?: number ;
-  branchid?: number ;
-  validatedby?: number ;
-  handingoveramount?: number ;
+  session_started_by?: number;
+  sessionendedon?: Date | string;
+  openingamount?: number;
+  amountreceivedby?: number;
+  branchid?: number;
+  validatedby?: number;
+  handingoveramount?: number;
 };
 
 export type PrimeLimsTablesamplecontainer = {
   id: number;
   name: string;
-  description?: string ;
-  volume_capacity?: number ;
-  material?: string ;
-  color?: string ;
-  is_reusable?: number ;
+  description?: string;
+  volume_capacity?: number;
+  material?: string;
+  color?: string;
+  is_reusable?: number;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1636,22 +1636,22 @@ export type PrimeLimsTablesamplecontainer = {
 export type PrimeLimsTablesamplestatus = {
   keyid: number;
   date: Date | string;
-  rejectionmessage?: string ;
+  rejectionmessage?: string;
   testid: number;
   billingid: number;
-  approvalstatus?: number ;
-  sampleMessage?: string ;
+  approvalstatus?: number;
+  sampleMessage?: string;
   phelobotomist: number;
   ascensionid: number;
-  redraw?: number ;
-  redrawOrderDate?: Date | string ;
-  samplevalidatedon?: Date | string ;
-  validatedby?: number ;
-  disputedby?: number ;
-  disputedon?: Date | string ;
-  disputereason?: string ;
-  resolution?: string ;
-  samplemessage?: string ;
+  redraw?: number;
+  redrawOrderDate?: Date | string;
+  samplevalidatedon?: Date | string;
+  validatedby?: number;
+  disputedby?: number;
+  disputedon?: Date | string;
+  disputereason?: string;
+  resolution?: string;
+  samplemessage?: string;
   isRedraw: number;
 };
 
@@ -1668,10 +1668,10 @@ export type PrimeLimsTablescanreport = {
   testid: number;
   scan: string;
   created_on: Date | string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   content: string;
   sonographer: string;
-  employeeid?: number ;
+  employeeid?: number;
 };
 
 export type PrimeLimsTableservicestracking = {
@@ -1681,8 +1681,8 @@ export type PrimeLimsTableservicestracking = {
   status: number;
   comments: string;
   createdOn: Date | string;
-  updatedOn?: Date | string ;
-  isConsulation?: number ;
+  updatedOn?: Date | string;
+  isConsulation?: number;
 };
 
 export type PrimeLimsTablesessiontracker = {
@@ -1696,9 +1696,9 @@ export type PrimeLimsTablesessiontracker = {
 export type PrimeLimsTablesetupliteraturereview = {
   id: number;
   testid: number;
-  literature?: string ;
+  literature?: string;
   created_on: Date | string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
 };
 
 export type PrimeLimsTableshelves = {
@@ -1713,10 +1713,10 @@ export type PrimeLimsTableshifts = {
   name: string;
   start_time: string;
   end_time: string;
-  break_duration_minutes?: number ;
-  is_active?: number ;
+  break_duration_minutes?: number;
+  is_active?: number;
   created_at: Date | string;
-  color?: string ;
+  color?: string;
   starttime: string;
   endtime: string;
 };
@@ -1724,10 +1724,10 @@ export type PrimeLimsTableshifts = {
 export type PrimeLimsTablesmsevents = {
   id: number;
   name: string;
-  description?: string ;
-  trigger?: string ;
+  description?: string;
+  trigger?: string;
   attachedscheduler: number;
-  messageheader?: string ;
+  messageheader?: string;
   activated: number;
   created_at: Date | string;
 };
@@ -1736,11 +1736,11 @@ export type PrimeLimsTablesms_schedules = {
   id: number;
   template_id: number;
   recipient_type: string;
-  recipient_ids?: string ;
+  recipient_ids?: string;
   send_at: Date | string;
-  frequency?: string ;
-  status?: string ;
-  created_by?: string ;
+  frequency?: string;
+  status?: string;
+  created_by?: string;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1749,9 +1749,9 @@ export type PrimeLimsTablesms_templates = {
   id: number;
   name: string;
   message_template: string;
-  description?: string ;
+  description?: string;
   category: string;
-  is_active?: number ;
+  is_active?: number;
   created_at: Date | string;
   updated_at: Date | string;
 };
@@ -1769,23 +1769,23 @@ export type PrimeLimsTablesubscriptions = {
   device_id: number;
   start_date: Date | string;
   end_date: Date | string;
-  is_active?: number ;
+  is_active?: number;
   license_key: string;
-  max_devices?: number ;
-  current_count?: number ;
+  max_devices?: number;
+  current_count?: number;
   created_at: Date | string;
 };
 
 export type PrimeLimsTabletasks = {
   id: number;
   name: string;
-  description?: string ;
+  description?: string;
   startDate: Date | string;
   endDate: Date | string;
   priority: string;
   frequency: string;
   assignedTo: string;
-  completed?: number ;
+  completed?: number;
 };
 
 export type PrimeLimsTabletax = {
@@ -1811,7 +1811,7 @@ export type PrimeLimsTabletestconditions = {
   conditionId: number;
   target: string;
   inRange: number;
-  createdBy?: string ;
+  createdBy?: string;
   updatedOn: Date | string;
   conditionConstraint: string;
 };
@@ -1820,23 +1820,23 @@ export type PrimeLimsTabletestcreationrules = {
   id: number;
   testid: number;
   name: string;
-  field?: string ;
-  value?: string ;
-  hasunits?: number ;
-  units?: string ;
+  field?: string;
+  value?: string;
+  hasunits?: number;
+  units?: string;
   plan: string;
-  plain?: string ;
-  ordering?: number ;
-  isValueTracked?: number ;
-  textReference?: string ;
-  upperlimit?: string ;
-  lowerlimit?: string ;
-  category?: string ;
-  options?: string ;
-  undercategory?: number ;
-  categoryid?: number ;
-  valueAlert?: string ;
-  alert?: string ;
+  plain?: string;
+  ordering?: number;
+  isValueTracked?: number;
+  textReference?: string;
+  upperlimit?: string;
+  lowerlimit?: string;
+  category?: string;
+  options?: string;
+  undercategory?: number;
+  categoryid?: number;
+  valueAlert?: string;
+  alert?: string;
 };
 
 export type PrimeLimsTabletestdetailcategory = {
@@ -1844,33 +1844,33 @@ export type PrimeLimsTabletestdetailcategory = {
   categoryname: string;
   testid: number;
   createdby: string;
-  updatedby?: string ;
+  updatedby?: string;
   created_at: Date | string;
   updated_at: Date | string;
-  deleted?: number ;
+  deleted?: number;
 };
 
 export type PrimeLimsTabletestdetails = {
   id: number;
-  testid?: number ;
-  testcost?: number ;
-  hasManual?: number ;
-  procedureCode?: string ;
-  pre_Tat?: number ;
-  tat?: number ;
-  post_Tat?: number ;
-  tatCount?: number ;
-  updatedon?: Date | string ;
+  testid?: number;
+  testcost?: number;
+  hasManual?: number;
+  procedureCode?: string;
+  pre_Tat?: number;
+  tat?: number;
+  post_Tat?: number;
+  tatCount?: number;
+  updatedon?: Date | string;
   updatedby: number;
   isoutsourced: number;
   showtrend: number;
-  testprice?: number ;
+  testprice?: number;
   hasGenderVariation: number;
   hasChildrenLimit: number;
   childrenlimit: string;
-  useLiterature?: number ;
+  useLiterature?: number;
   hasDrugs: number;
-  outSourcingList?: string ;
+  outSourcingList?: string;
   post_TatEvaluation: string;
   pre_TatEvaluation: string;
   tatEvaluation: string;
@@ -1880,9 +1880,9 @@ export type PrimeLimsTabletestsynchronization = {
   synid: number;
   status: string;
   requestedon: Date | string;
-  updatedon?: number ;
+  updatedon?: number;
   targetTest: string;
-  lastSyncdatetime?: Date | string ;
+  lastSyncdatetime?: Date | string;
   requestedby: number;
 };
 
@@ -1890,38 +1890,38 @@ export type PrimeLimsTabletest_ascension = {
   id: number;
   testid: number;
   billingid: number;
-  collection?: string ;
-  processing?: string ;
-  ready?: string ;
-  processing_date?: Date | string ;
-  collection_date?: Date | string ;
-  ready_date?: Date | string ;
-  printcount?: number ;
-  printedOn?: Date | string ;
+  collection?: string;
+  processing?: string;
+  ready?: string;
+  processing_date?: Date | string;
+  collection_date?: Date | string;
+  ready_date?: Date | string;
+  printcount?: number;
+  printedOn?: Date | string;
   approvalStatus: number;
-  Scientist?: number ;
-  ApprovedBy?: number ;
-  declineMessage?: string ;
-  actionPlan?: string ;
+  Scientist?: number;
+  ApprovedBy?: number;
+  declineMessage?: string;
+  actionPlan?: string;
   month: number;
   year: number;
   serviceid: number;
   ascension_date: Date | string;
-  collectionStartDate?: Date | string ;
-  collectionEndDate?: Date | string ;
-  processingStartDate?: Date | string ;
-  processingEndDate?: Date | string ;
-  resultEntryStart?: Date | string ;
-  resultEntryEnd?: Date | string ;
+  collectionStartDate?: Date | string;
+  collectionEndDate?: Date | string;
+  processingStartDate?: Date | string;
+  processingEndDate?: Date | string;
+  resultEntryStart?: Date | string;
+  resultEntryEnd?: Date | string;
   sampleCollectedBy: number;
-  sampleProcessedBy?: number ;
-  resultEnteredBy?: number ;
+  sampleProcessedBy?: number;
+  resultEnteredBy?: number;
 };
 
 export type PrimeLimsTabletest_billing = {
   billingid: number;
   patientid: number;
-  totalTransactionCost?: number ;
+  totalTransactionCost?: number;
   totalcost: number;
   paid: number;
   payable: number;
@@ -1934,7 +1934,7 @@ export type PrimeLimsTabletest_billing = {
   branchid: number;
   year: number;
   month: number;
-  day?: number ;
+  day?: number;
   amountIncurredDueTax: number;
   lastupdated: Date | string;
 };
@@ -1952,18 +1952,18 @@ export type PrimeLimsTabletest_dbobillingrefundtable = {
   firstWitness: number;
   secondWitness: number;
   thirdWitness: number;
-  firstWitnessPurpose?: string ;
-  firstWitnessDate?: Date | string ;
-  secondWitnessDate?: Date | string ;
-  thirdWitnessDate?: Date | string ;
+  firstWitnessPurpose?: string;
+  firstWitnessDate?: Date | string;
+  secondWitnessDate?: Date | string;
+  thirdWitnessDate?: Date | string;
   isRefundCompleted: number;
   isRefundInitiated: number;
-  initiatedBy?: number ;
-  secondWitnessPurpose?: string ;
-  thirdWitnessPurpose?: string ;
+  initiatedBy?: number;
+  secondWitnessPurpose?: string;
+  thirdWitnessPurpose?: string;
   isRefundApproved: number;
   approvalDate: number;
-  approvedby?: number ;
+  approvedby?: number;
   amountRefunded: number;
 };
 
@@ -1974,11 +1974,11 @@ export type PrimeLimsTabletest_panels = {
   price: number;
   created_on: Date | string;
   sample: number;
-  description?: string ;
+  description?: string;
   sample_container: string;
   unit: string;
-  qty_required?: string ;
-  shorttext?: string ;
+  qty_required?: string;
+  shorttext?: string;
   iscustom: number;
   id: number;
 };
@@ -1998,12 +1998,12 @@ export type PrimeLimsTabletest_results = {
   billingid: number;
   patientid: number;
   testid: number;
-  value?: string ;
-  originalvalue?: string ;
+  value?: string;
+  originalvalue?: string;
   created_on: Date | string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   employeeid: number;
-  entrymode?: string ;
+  entrymode?: string;
   fieldid: number;
 };
 
@@ -2014,11 +2014,11 @@ export type PrimeLimsTabletest_results_audit_log = {
   billingid: number;
   patientid: number;
   testid: number;
-  previous_value?: string ;
-  previous_originalvalue?: string ;
+  previous_value?: string;
+  previous_originalvalue?: string;
   employeeid: number;
   fieldid: number;
-  entrymode?: string ;
+  entrymode?: string;
   created_on: Date | string;
   action_type: string;
 };
@@ -2030,12 +2030,12 @@ export type PrimeLimsTabletest_results_ultrasound = {
   billingid: number;
   patientid: number;
   testid: number;
-  value?: string ;
-  originalvalue?: string ;
+  value?: string;
+  originalvalue?: string;
   created_on: Date | string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
   employeeid: number;
-  entrymode?: string ;
+  entrymode?: string;
   fieldid: number;
 };
 
@@ -2052,7 +2052,7 @@ export type PrimeLimsTableultrasoundtemplatesmapper = {
   keyid: number;
   testid: number;
   name: string;
-  associatedbodypart?: string ;
+  associatedbodypart?: string;
   createdOn: Date | string;
   createdby: number;
   visibletoAll: number;
@@ -2063,11 +2063,11 @@ export type PrimeLimsTableusers = {
   username: string;
   email: string;
   password_hash: string;
-  role?: string ;
-  is_active?: number ;
+  role?: string;
+  is_active?: number;
   created_at: Date | string;
   updated_at: Date | string;
-  USER?: string ;
+  USER?: string;
   CURRENT_CONNECTIONS: number;
   TOTAL_CONNECTIONS: number;
 };
@@ -2088,7 +2088,7 @@ export type PrimeLimsTablewarehouse = {
   id: number;
   name: string;
   created_on: Date | string;
-  updated_on?: Date | string ;
+  updated_on?: Date | string;
 };
 
 export type PrimeLimsTablewastagecount = {
