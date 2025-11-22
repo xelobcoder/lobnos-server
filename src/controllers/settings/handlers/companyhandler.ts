@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
+import { promises as fsPromises } from "fs";
 import logger from "../../../hooks/logger";
 import { insertCompanyProfile, truncateCompanyProfile, getAllCompanyProfiles } from "../../../models/settings/companyProfile";
 import { OperationsFailures } from "../../../models/operations/types";
@@ -35,15 +36,18 @@ export const getCompanyInfoHandler = async (request: Request, response: Response
 export const getCompanyImageHandler = async (request: Request, response: Response): Promise<void> => {
 	try {
 		const folderPath = path.resolve(process.cwd(), "dist", "asserts", "company");
-		if (!fs.existsSync(folderPath)) {
-			fs.mkdirSync(folderPath, { recursive: true });
+		// Performance optimization: Use async file operations instead of sync
+		try {
+			await fsPromises.access(folderPath);
+		} catch {
+			await fsPromises.mkdir(folderPath, { recursive: true });
 		}
-		const files = fs.readdirSync(folderPath);
+		const files = await fsPromises.readdir(folderPath);
 		const imageFile = files.find((file) => [".jpg", ".jpeg", ".png", ".gif"].includes(path.extname(file).toLowerCase()));
 
 		if (imageFile) {
 			const imagePath = path.join(folderPath, imageFile);
-			const image = fs.readFileSync(imagePath);
+			const image = await fsPromises.readFile(imagePath);
 			response.setHeader("Content-Type", "image/jpeg");
 			response.setHeader("Content-Length", image.length.toString());
 			response.send(image);
@@ -60,18 +64,22 @@ export const getCompanyImageHandler = async (request: Request, response: Respons
 
 export const handleUploadCompanyImage = async (request: Request, response: Response): Promise<void> => {
 	const destinationDir = path.resolve(process.cwd(), 'dist', 'asserts', 'company');
-	if (!fs.existsSync(destinationDir)) {
-		fs.mkdirSync(destinationDir, { recursive: true });
+	// Performance optimization: Use async file operations instead of sync
+	try {
+		await fsPromises.access(destinationDir);
+	} catch {
+		await fsPromises.mkdir(destinationDir, { recursive: true });
 	}
 	const field = "file";
 	try {
 		// Remove existing images before uploading new one
-		const files = fs.readdirSync(destinationDir);
-		files.forEach(file => {
-			if ([".jpg", ".jpeg", ".png", ".gif"].includes(path.extname(file).toLowerCase())) {
-				fs.unlinkSync(path.join(destinationDir, file));
-			}
-		});
+		const files = await fsPromises.readdir(destinationDir);
+		// Performance optimization: Use Promise.all to delete files in parallel
+		await Promise.all(
+			files
+				.filter(file => [".jpg", ".jpeg", ".png", ".gif"].includes(path.extname(file).toLowerCase()))
+				.map(file => fsPromises.unlink(path.join(destinationDir, file)))
+		);
 
 		const uploadResult = await uploadImageFile(request, response, destinationDir, field);
 

@@ -15,7 +15,7 @@ const literature_1 = __importDefault(require("../../testpanel/literature"));
 const resultEncryptionReferer_1 = __importDefault(require("../../models/creator/resultEncryptionReferer"));
 const creator_1 = __importDefault(require("../../models/creator/creator"));
 const billing_1 = require("../../models/billing/billing");
-const fs_1 = __importDefault(require("fs"));
+const fs_1 = require("fs");
 const path_1 = __importDefault(require("path"));
 const core_1 = __importDefault(require("../../EmailServices/core"));
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
@@ -424,12 +424,16 @@ const sendResultViaEmailHandler = async (request, response) => {
         }
         const fileTempDir = path_1.default.join(__dirname, '../../../views/result');
         const fileTempPath = path_1.default.join(fileTempDir, 'result.pdf');
-        if (!fs_1.default.existsSync(fileTempDir)) {
-            fs_1.default.mkdirSync(fileTempDir, { recursive: true });
+        // Performance optimization: Use async file operations
+        try {
+            await fs_1.promises.access(fileTempDir);
+        }
+        catch (_a) {
+            await fs_1.promises.mkdir(fileTempDir, { recursive: true });
         }
         const fileBuffer = await fileResponse.arrayBuffer();
         const pdfBuffer = Buffer.from(fileBuffer).toString();
-        fs_1.default.writeFileSync(fileTempPath, pdfBuffer);
+        await fs_1.promises.writeFile(fileTempPath, pdfBuffer);
         if (fileTempPath) {
             const mailResponse = await new core_1.default().createMailTransporter({
                 to: patientData['email'],

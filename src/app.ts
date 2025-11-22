@@ -65,6 +65,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(ValidateTenancyAgreement)
 // app.use(checkTokenExists)
+// Performance optimization: Removed duplicate middleware registrations
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
 app.use(SecurityRouter);
@@ -84,8 +85,6 @@ app.use(settingsRouter);
 app.use(operationsRouter);
 app.use(resultprintRouter);
 app.use(resultChecker);
-app.use(smsAnalytics);
-app.use(BillingRouter);
 app.use(clinicianRouter);
 app.use(insuranceRouters);
 app.use(SMSRouter);
@@ -94,7 +93,6 @@ app.use(branchesHandler);
 app.use(registrationRouter);
 app.use(applicationsettingsRouter);
 app.use(customerRouter);
-app.use(SecurityRouter);
 app.use(TestAscensionAnalytics)
 app.use(AttendanceRouter);
 app.use(BillingPackages);

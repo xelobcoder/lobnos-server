@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import path from 'path';
 import multer, { FileFilterCallback } from 'multer';
 import { validStoragePaths } from '../../controllers/uploads/uploadController';
@@ -7,10 +8,13 @@ import { validStoragePaths } from '../../controllers/uploads/uploadController';
 function createFileUploader(storagePath?: string) {
      const uploadDir = storagePath ? storagePath : path.resolve(__dirname, '../../public/uploads');
 
-     function ensureUploadDirExists(dirPath?: string): void {
+     // Performance optimization: Make this async for better performance
+     async function ensureUploadDirExists(dirPath?: string): Promise<void> {
           const targetDir = dirPath ? path.resolve(uploadDir, dirPath) : uploadDir;
-          if (!fs.existsSync(targetDir)) {
-               fs.mkdirSync(targetDir, { recursive: true });
+          try {
+               await fsPromises.access(targetDir);
+          } catch {
+               await fsPromises.mkdir(targetDir, { recursive: true });
           }
      }
 
@@ -29,13 +33,14 @@ function createFileUploader(storagePath?: string) {
           let targetDir = uploadDir;
           return multer({
                storage: multer.diskStorage({
-                    destination: (req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
+                    destination: async (req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
                          const category = (req as any).query.category as string;
                          targetDir = category ? path.join(uploadDir, category) : uploadDir;
-                         ensureUploadDirExists(targetDir);
+                         // Performance optimization: Use async ensureUploadDirExists
+                         await ensureUploadDirExists(targetDir);
                          cb(null, targetDir);
                     },
-                    filename: (req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
+                    filename: async (req: Express.Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
                          const evaluation = (req as any).query.ptid as string ?? 'unknown';
                          const category = (req as any).query.category as string ?? 'unknown';
                          if (!validStoragePaths.includes(category)) {
@@ -43,13 +48,18 @@ function createFileUploader(storagePath?: string) {
                               return;
                          }
 
-                         if (fs.existsSync(targetDir)) {
-                              const files = fs.readdirSync(targetDir);
-                              files.forEach(file => {
-                                   if (file.startsWith(`${category}_${evaluation}_`)) {
-                                        fs.unlinkSync(path.join(targetDir, file));
-                                   }
-                              });
+                         // Performance optimization: Use async file operations
+                         try {
+                              await fsPromises.access(targetDir);
+                              const files = await fsPromises.readdir(targetDir);
+                              // Use Promise.all for parallel deletion
+                              await Promise.all(
+                                   files
+                                        .filter(file => file.startsWith(`${category}_${evaluation}_`))
+                                        .map(file => fsPromises.unlink(path.join(targetDir, file)))
+                              );
+                         } catch (err) {
+                              // Directory doesn't exist, no files to delete
                          }
 
                          const newFilename = `${category}_${evaluation}_${Date.now()}${path.extname(file.originalname)}`;

@@ -1,6 +1,7 @@
 import KnexConnection from "../../../database/KnexConnections";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import * as path from 'path';
 
 interface BackupSecuritySettings {
@@ -131,7 +132,8 @@ export default class EncryptionManager {
 
                const { key, keyId } = keyInfo;
 
-               const fileData = fs.readFileSync(inputPath);
+               // Performance optimization: Use async file operations instead of sync
+               const fileData = await fsPromises.readFile(inputPath);
 
                const iv = crypto.randomBytes(16);
 
@@ -142,7 +144,7 @@ export default class EncryptionManager {
                     cipher.final() as any
                ]);
 
-               fs.writeFileSync(outputPath, encrypted as any);
+               await fsPromises.writeFile(outputPath, encrypted as any);
 
                return { success: true, keyId };
 
@@ -167,7 +169,8 @@ export default class EncryptionManager {
 
                const key = this.decryptWithMasterKey(keyRecord.encrypted_key);
 
-               const encryptedData = fs.readFileSync(inputPath);
+               // Performance optimization: Use async file operations instead of sync
+               const encryptedData = await fsPromises.readFile(inputPath);
 
                const iv = encryptedData.slice(0, 16);
                const encryptedContent = encryptedData.slice(16);
@@ -178,7 +181,7 @@ export default class EncryptionManager {
                     decipher.final() as any
                ]);
 
-               fs.writeFileSync(outputPath, decrypted as any);
+               await fsPromises.writeFile(outputPath, decrypted as any);
 
                return { success: true };
 
@@ -192,21 +195,24 @@ export default class EncryptionManager {
 
      static async secureDeleteFile(filePath: string, passes: number = 3): Promise<{ success: boolean; error?: string }> {
           try {
-               if (!fs.existsSync(filePath)) {
+               // Performance optimization: Use async file operations instead of sync
+               try {
+                    await fsPromises.access(filePath);
+               } catch {
                     return { success: false, error: 'File does not exist' };
                }
 
-               const stats = fs.statSync(filePath);
+               const stats = await fsPromises.stat(filePath);
                const fileSize = stats.size;
 
                for (let pass = 0; pass < passes; pass++) {
                     const pattern = this.getOverwritePattern(pass);
                     const data = Buffer.alloc(fileSize, pattern);
 
-                    fs.writeFileSync(filePath, data as any);
+                    await fsPromises.writeFile(filePath, data as any);
                }
 
-               fs.unlinkSync(filePath);
+               await fsPromises.unlink(filePath);
 
                return { success: true };
 

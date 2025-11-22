@@ -625,9 +625,13 @@ class Billing {
             return false;
         let verifiedTestPricing = [];
         const { billingid, organizationId, clinicianId, insuranceId } = servicesBillingData;
-        for (const item of data) {
+        // Performance optimization: Process verification in parallel first
+        const verifiedItems = await Promise.all(data.map(item => this.verificationAndReformatingOfTestAndPrice(tenantId, item, categoryTrackId, { insuranceId, organizationId, clinicianId })));
+        // Process insertions sequentially since they depend on previous insert IDs
+        for (let i = 0; i < data.length; i++) {
             try {
-                var { amountIncurredDueTax, discountedValue, serviceid, trackId, isOutsourced, outsourceid, ascensionId: prevAscensionId } = await this.verificationAndReformatingOfTestAndPrice(tenantId, item, categoryTrackId, { insuranceId, organizationId, clinicianId });
+                const item = data[i];
+                let { amountIncurredDueTax, discountedValue, serviceid, trackId, isOutsourced, outsourceid, ascensionId: prevAscensionId } = verifiedItems[i];
                 let ascensionId = null;
                 if (includeTax == 1) {
                     amountIncurredDueTax = discountedValue * (taxValue / 100);
@@ -1063,53 +1067,68 @@ class Billing {
     async loadMultipleServices(services, billingid, tenantId, trx) {
         const insertionErrors = [];
         const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
-        for (const item of services) {
-            try {
-                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
-                const outcome = await queryRunner("dboservices").insert({
-                    billingid,
-                    trackId,
-                    cost,
-                    employeeid,
-                    serviceCategory,
-                    categoryTrackId,
-                    clinicianId,
-                    organizationId,
-                    registrationType,
-                    branchid,
-                    isoutsourced,
-                    outsourceid,
-                    serviceAddedOn,
-                    taxList,
-                    taxValue,
-                    amountIncurredDueTax,
-                    taxIncluded,
-                    discount,
-                    totalcost,
-                    totalpayable,
-                    isNHIS,
-                    isPHIS,
-                    insuranceid,
-                    claimCode,
-                    hasNightAdjustment,
-                    nightAdjustmentMode,
-                    nightAdjustmentValue,
-                    isPackageUsed,
-                    packageid
-                });
-                if (outcome && item[5] != 5 && item[1]) {
-                    try {
-                        await this.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
-                    }
-                    catch (err) {
-                        throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);
-                    }
+        // Performance optimization: Batch insert services for better performance
+        // Group services into bulk insert and ascension updates
+        const serviceRecords = services.map(item => {
+            const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
+            return {
+                billingid,
+                trackId,
+                cost,
+                employeeid,
+                serviceCategory,
+                categoryTrackId,
+                clinicianId,
+                organizationId,
+                registrationType,
+                branchid,
+                isoutsourced,
+                outsourceid,
+                serviceAddedOn,
+                taxList,
+                taxValue,
+                amountIncurredDueTax,
+                taxIncluded,
+                discount,
+                totalcost,
+                totalpayable,
+                isNHIS,
+                isPHIS,
+                insuranceid,
+                claimCode,
+                hasNightAdjustment,
+                nightAdjustmentMode,
+                nightAdjustmentValue,
+                isPackageUsed,
+                packageid
+            };
+        });
+        try {
+            // Batch insert all services at once
+            const insertedIds = await queryRunner("dboservices").insert(serviceRecords);
+            // Now handle test ascension updates for non-service items
+            const ascensionPromises = services
+                .map((item, index) => {
+                const categoryTrackId = item[5];
+                const trackId = item[1];
+                // Calculate the actual inserted ID (works for MySQL auto-increment)
+                const serviceid = insertedIds[0] + index;
+                if (categoryTrackId != 5 && trackId) {
+                    return this.AddtoTestAscenstion(tenantId, serviceid, billingid, trackId, queryRunner)
+                        .catch(err => {
+                        console.error("Error adding to test ascension:", err);
+                        insertionErrors.push(err);
+                    });
                 }
-            }
-            catch (err) {
-                console.error("Error inserting service:", err);
-                insertionErrors.push(err);
-            }
+                return Promise.resolve();
+            })
+                .filter(p => p !== Promise.resolve());
+            // Execute all ascension updates in parallel
+            await Promise.all(ascensionPromises);
+        }
+        catch (err) {
+            console.error("Error inserting services:", err);
+            insertionErrors.push(err);
         }
         return insertionErrors;
     }

@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleUploadCompanyImage = exports.getCompanyImageHandler = exports.getCompanyInfoHandler = exports.AddCompanyInfoHandler = void 0;
 const path_1 = __importDefault(require("path"));
-const fs_1 = __importDefault(require("fs"));
+const fs_1 = require("fs");
 const logger_1 = __importDefault(require("../../../hooks/logger"));
 const companyProfile_1 = require("../../../models/settings/companyProfile");
 const imageUpload_1 = require("./imageUpload");
@@ -41,14 +41,18 @@ exports.getCompanyInfoHandler = getCompanyInfoHandler;
 const getCompanyImageHandler = async (request, response) => {
     try {
         const folderPath = path_1.default.resolve(process.cwd(), "dist", "asserts", "company");
-        if (!fs_1.default.existsSync(folderPath)) {
-            fs_1.default.mkdirSync(folderPath, { recursive: true });
+        // Performance optimization: Use async file operations instead of sync
+        try {
+            await fs_1.promises.access(folderPath);
         }
-        const files = fs_1.default.readdirSync(folderPath);
+        catch (_a) {
+            await fs_1.promises.mkdir(folderPath, { recursive: true });
+        }
+        const files = await fs_1.promises.readdir(folderPath);
         const imageFile = files.find((file) => [".jpg", ".jpeg", ".png", ".gif"].includes(path_1.default.extname(file).toLowerCase()));
         if (imageFile) {
             const imagePath = path_1.default.join(folderPath, imageFile);
-            const image = fs_1.default.readFileSync(imagePath);
+            const image = await fs_1.promises.readFile(imagePath);
             response.setHeader("Content-Type", "image/jpeg");
             response.setHeader("Content-Length", image.length.toString());
             response.send(image);
@@ -65,18 +69,21 @@ const getCompanyImageHandler = async (request, response) => {
 exports.getCompanyImageHandler = getCompanyImageHandler;
 const handleUploadCompanyImage = async (request, response) => {
     const destinationDir = path_1.default.resolve(process.cwd(), 'dist', 'asserts', 'company');
-    if (!fs_1.default.existsSync(destinationDir)) {
-        fs_1.default.mkdirSync(destinationDir, { recursive: true });
+    // Performance optimization: Use async file operations instead of sync
+    try {
+        await fs_1.promises.access(destinationDir);
+    }
+    catch (_a) {
+        await fs_1.promises.mkdir(destinationDir, { recursive: true });
     }
     const field = "file";
     try {
         // Remove existing images before uploading new one
-        const files = fs_1.default.readdirSync(destinationDir);
-        files.forEach(file => {
-            if ([".jpg", ".jpeg", ".png", ".gif"].includes(path_1.default.extname(file).toLowerCase())) {
-                fs_1.default.unlinkSync(path_1.default.join(destinationDir, file));
-            }
-        });
+        const files = await fs_1.promises.readdir(destinationDir);
+        // Performance optimization: Use Promise.all to delete files in parallel
+        await Promise.all(files
+            .filter(file => [".jpg", ".jpeg", ".png", ".gif"].includes(path_1.default.extname(file).toLowerCase()))
+            .map(file => fs_1.promises.unlink(path_1.default.join(destinationDir, file))));
         const uploadResult = await (0, imageUpload_1.uploadImageFile)(request, response, destinationDir, field);
         if (uploadResult) {
             response.status(200).json({
