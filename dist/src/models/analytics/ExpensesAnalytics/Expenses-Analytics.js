@@ -45,8 +45,8 @@ class ExpensesAnalytics {
         return Array.isArray(result) && result.length > 0 ? result[0] : [];
     }
     // Top Expense Merchants
-    async getTopExpenseMerchants(limitCount = 10) {
-        const result = await (0, helper_1.promisifyQuery)(this.tenantId, `CALL lims_anal_exp_TopExpenseMerchants(?, ?, ?, ?)`, [this.branchid, this.startdate, this.enddate, limitCount]);
+    async getTopExpenseMerchants() {
+        const result = await (0, helper_1.promisifyQuery)(this.tenantId, `CALL lims_anal_exp_TopExpenseMerchants(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
         return Array.isArray(result) && result.length > 0 ? result[0] : [];
     }
     // Top Expense Employees

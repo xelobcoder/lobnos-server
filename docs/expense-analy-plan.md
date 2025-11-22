@@ -237,7 +237,6 @@ All endpoints require the following query parameter:
 **Parameters:**
 - `startDate` (string, optional): Start date in YYYY-MM-DD format
 - `endDate` (string, optional): End date in YYYY-MM-DD format
-- `limitCount` (number, optional): Number of results to return (default: 10)
 
 **Response Structure:**
 ```json

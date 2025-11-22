@@ -395,12 +395,7 @@ class Refund {
             if (isRefundAmmountExceeded === true)
                 return "Refund Amount exceeded. Hence Refund cannot be done" /* OperationsFailures.refundAmmountExceeded */;
             if (isRefundAmmountExceeded === false) {
-                const approval_status = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_service_refund_update_is_cashout, [employeeid, refundAmount, serviceid]);
-                if (approval_status) {
-                    await new billing_1.Billing(null).insertBillingHistory(tenantId, selectedPaymentMode, billingid, refundAmount, employeeid, "debit");
-                    const is_bill_updated = await billing_1.Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
-                    return is_bill_updated;
-                }
+                return await billing_1.Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
             }
             return "Unauthorized access." /* OperationsFailures.unauthorized */;
         }

@@ -1,88 +1,107 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleSalesSummaryDailyBreakDown = exports.handleFinancialAnalyticsGetKeys = exports.handleFinancialAnalytics = void 0;
+exports.handleSalesSummaryDailyBreakDown = exports.handleFinancialAnalyticsGetKeys = exports.handleFinancialAnalytics = exports.UtilityOutsourcing = void 0;
 const TiifuWorkingClass_1 = require("../../../database/TiifuWorkingClass");
 const AnalyticsBilling_1 = require("../../../models/billing/sales/AnalyticsBilling");
+const outsourcingAnalqueries_1 = require("../../../models/billing/outsourcingAnalqueries");
 const extensive_daily_sales_breakdown_1 = require("./Extensive/extensive-daily-sales-breakdown");
+const helper_1 = require("../../../hooks/helper");
+async function UtilityOutsourcing(tenantId, key, branchid, startdate, enddate, year, outsourceId) {
+    // Special handling for hourly analytics - uses single target date
+    if (key === 'hourlyOutsourcingPattern') {
+        const params = [startdate, branchid, branchid, outsourceId, outsourceId];
+        return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalytics[key], params);
+    }
+    // Special handling for monthly analytics - uses year parameter if provided, otherwise startdate as year, otherwise current year
+    if (key === 'monthlyOutsourcedAmountLast12Months') {
+        const yearValue = year || (startdate ? startdate.toString() : new Date().getFullYear().toString());
+        const params = [yearValue, branchid, branchid, outsourceId, outsourceId];
+        return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalytics[key], params);
+    }
+    // For queries that support year parameter and year is provided, use date range for the specific year
+    if (year && !startdate && !enddate) {
+        if (['dailyOutsourcedAmountLast30Days', 'weeklyOutsourcedTrend', 'quarterlyOutsourcedTrend',
+            'top20OutsourcedFacilities', 'topFacilityPerMonth', 'grandSummaryDashboard'].includes(key)) {
+            // Convert year to date range for the entire year
+            const startOfYear = `${year}-01-01`;
+            const endOfYear = `${year}-12-31`;
+            const params = [startOfYear, endOfYear, branchid, branchid, outsourceId, outsourceId];
+            // Map keys to their date range equivalents
+            const dateRangeKey = key === 'top20OutsourcedFacilities' ? 'topFacilitiesByAmount' :
+                key === 'grandSummaryDashboard' ? 'summaryDashboard' : key;
+            return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalyticsWithDate[dateRangeKey], params);
+        }
+        // For yearlySummaryByFacility, keep using current year logic since it's specifically yearly
+        if (key === 'yearlySummaryByFacility') {
+            const params = [branchid, branchid, outsourceId, outsourceId];
+            return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalytics[key], params);
+        }
+    }
+    if (startdate && enddate) {
+        const params = [startdate, enddate, branchid, branchid, outsourceId, outsourceId];
+        return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalyticsWithDate[key], params);
+    }
+    const params = [branchid, branchid, outsourceId, outsourceId];
+    return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalytics[key], params);
+}
+exports.UtilityOutsourcing = UtilityOutsourcing;
 const analyticsFunctions = {
-    totalSalesByServiceCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByServiceCategory', branchid, startdate, enddate),
-    averageCostPerService: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'averageCostPerService', branchid, startdate, enddate),
-    totalSalesByBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranch', branchid, startdate, enddate),
-    totalSalesByClinician: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
-    totalSalesByOrganization: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOrganization', branchid, startdate, enddate),
-    totalSalesByRegistrationType: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByRegistrationType', branchid, startdate, enddate),
-    totalSalesByOutsourcedStatus: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
-    salesTrendByDate: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesTrendByDate', branchid, startdate, enddate),
-    numberOfServicesByCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'numberOfServicesByCategory', branchid, startdate, enddate),
-    salesByTaxStatus: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByTaxStatus', branchid, startdate, enddate),
-    salesByDiscountStatus: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByDiscountStatus', branchid, startdate, enddate),
-    totalSalesByBranchAndCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranchAndCategory', branchid, startdate, enddate),
-    totalSalesByEmployee: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByEmployee', branchid, startdate, enddate),
-    salesByOutsourceId: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByOutsourceId', branchid, startdate, enddate),
-    top10HighestCostServices: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'top10HighestCostServices', branchid, startdate, enddate),
-    totalTaxByServiceCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalTaxByServiceCategory', branchid, startdate, enddate),
-    totalSalesAndTaxValue: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesAndTaxValue', branchid, startdate, enddate),
-    averageTaxByBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'averageTaxByBranch', branchid, startdate, enddate),
-    salesWithHighestTaxIncluded: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesWithHighestTaxIncluded', branchid, startdate, enddate),
-    totalTaxByClinician: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalTaxByClinician', branchid, startdate, enddate),
-    totalDiscountByBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalDiscountByBranch', branchid, startdate, enddate),
-    averageDiscountPerService: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'averageDiscountPerService', branchid, startdate, enddate),
-    totalDiscountByClinician: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalDiscountByClinician', branchid, startdate, enddate),
-    totalDiscountByRegistrationType: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalDiscountByRegistrationType', branchid, startdate, enddate),
-    top10ServicesWithMaxDiscount: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'top10ServicesWithMaxDiscount', branchid, startdate, enddate),
-    mostPopularServiceBySales: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'mostPopularServiceBySales', branchid, startdate, enddate),
-    averageServiceCostByCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'averageServiceCostByCategory', branchid, startdate, enddate),
-    totalSalesByBillingid: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesBySalesBillingid', branchid, startdate, enddate),
-    numberOfServicesByEmployee: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'numberOfServicesByEmployee', branchid, startdate, enddate),
-    totalSalesByCategoryAndRegistration: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByCategoryAndRegistration', branchid, startdate, enddate),
-    monthlySalesTrend: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'monthlySalesTrend', branchid, startdate, enddate),
-    dailySalesTrend: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'dailySalesTrend', branchid, startdate, enddate),
-    weeklySalesTrend: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'weeklySalesTrend', branchid, startdate, enddate),
-    salesByMonthAndCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByMonthAndCategory', branchid, startdate, enddate),
-    salesByWeekAndBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByWeekAndBranch', branchid, startdate, enddate),
-    yearlySalesTrend: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'yearlySalesTrend', branchid, startdate, enddate),
-    salesByHourOfDay: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByHourOfDay', branchid, startdate, enddate),
-    totalSalesFromOutsourcedServices: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesFromOutsourcedServices', branchid, startdate, enddate),
-    salesFromOutsourcedByBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesFromOutsourcedByBranch', branchid, startdate, enddate),
-    numberOfOutsourcedServicesByOrg: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'numberOfOutsourcedServicesByOrg', branchid, startdate, enddate),
-    maxAndMinServiceCosts: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'maxAndMinServiceCosts', branchid, startdate, enddate),
-    serviceCostByCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'serviceCostByCategory', branchid, startdate, enddate),
-    costBreakdownByClinician: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'costBreakdownByClinician', branchid, startdate, enddate),
-    costPerServiceByCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'costPerServiceByCategory', branchid, startdate, enddate),
-    numberOfTransactionsByBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'numberOfTransactionsByBranch', branchid, startdate, enddate),
-    totalSalesByTransactionId: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByTransactionId', branchid, startdate, enddate),
-    transactionCountByEmployee: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'transactionCountByEmployee', branchid, startdate, enddate),
-    totalSalesAndTransactionsByDate: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesAndTransactionsByDate', branchid, startdate, enddate),
-    taxCollectedByTransaction: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'taxCollectedByTransaction', branchid, startdate, enddate),
-    taxValueByBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'taxValueByBranch', branchid, startdate, enddate),
-    totalSalesByTaxValueAndIncluded: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByTaxValueAndIncluded', branchid, startdate, enddate),
-    averageSalesPerDay: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'averageSalesPerDay', branchid, startdate, enddate),
-    salesByTaxableStatus: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByTaxableStatus', branchid, startdate, enddate),
-    totalSalesByEmployeeAndBranch: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByEmployeeAndBranch', branchid, startdate, enddate),
-    numberOfServicesByEmployeeAndDate: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'numberOfServicesByEmployeeAndDate', branchid, startdate, enddate),
-    salesAndTaxValueByRegistrationType: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesAndTaxValueByRegistrationType', branchid, startdate, enddate),
-    totalDiscountByServiceCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalDiscountByServiceCategory', branchid, startdate, enddate),
-    salesAndDiscountByClinician: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesAndDiscountByClinician', branchid, startdate, enddate),
-    totalSalesByTaxValue: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByTaxValue', branchid, startdate, enddate),
-    taxValueByClinician: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'taxValueByClinician', branchid, startdate, enddate),
-    totalSalesByOutsourceIdAndDate: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOutsourceIdAndDate', branchid, startdate, enddate),
-    salesByEmployeeAndClinician: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByEmployeeAndClinician', branchid, startdate, enddate),
-    salesAndDiscountByMonth: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesAndDiscountByMonth', branchid, startdate, enddate),
-    salesByEmployeeAndService: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByEmployeeAndService', branchid, startdate, enddate),
-    totalTaxValueByOutsourceStatus: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalTaxValueByOutsourceStatus', branchid, startdate, enddate),
-    totalSalesFromOutsourcedServicesByCategory: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesFromOutsourcedServicesByCategory', branchid, startdate, enddate),
-    totalSalesForAllCategories: (tenantId, branchid, startdate, enddate) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesForAllCategories', branchid, startdate, enddate),
+    totalSalesByBranch: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranch', branchid, startdate, enddate),
+    totalSalesByClinician: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
+    totalSalesByOrganization: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOrganization', branchid, startdate, enddate),
+    totalSalesByOutsourcedStatus: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
+    totalSalesByBranchAndCategory: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranchAndCategory', branchid, startdate, enddate),
+    totalSalesByEmployee: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByEmployee', branchid, startdate, enddate),
+    monthlySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'monthlySalesTrend', branchid, startdate, enddate),
+    dailySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'dailySalesTrend', branchid, startdate, enddate),
+    weeklySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'weeklySalesTrend', branchid, startdate, enddate),
+    salesByWeekAndBranch: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByWeekAndBranch', branchid, startdate, enddate),
+    yearlySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'yearlySalesTrend', branchid, startdate, enddate),
+    totalAmountRefunded: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalAmountRefunded', branchid, startdate, enddate),
+    // Outsourcing Analytics
+    dailyOutsourcedAmountLast30Days: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'dailyOutsourcedAmountLast30Days', branchid, startdate, enddate, year, outsourceId),
+    monthlyOutsourcedAmountLast12Months: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'monthlyOutsourcedAmountLast12Months', branchid, startdate, enddate, year, outsourceId),
+    yearlySummaryByFacility: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'yearlySummaryByFacility', branchid, startdate, enddate, year, outsourceId),
+    top20OutsourcedFacilities: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'top20OutsourcedFacilities', branchid, startdate, enddate, year, outsourceId),
+    hourlyOutsourcingPattern: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'hourlyOutsourcingPattern', branchid, startdate, enddate, year, outsourceId),
+    topFacilityPerMonth: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'topFacilityPerMonth', branchid, startdate, enddate, year, outsourceId),
+    grandSummaryDashboard: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'grandSummaryDashboard', branchid, startdate, enddate, year, outsourceId),
+    weeklyOutsourcedTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'weeklyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
+    quarterlyOutsourcedTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'quarterlyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
+    // Current Year Outsourcing Analytics
+    dailyOutsourcedAmountCurrentYear: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'dailyOutsourcedAmountLast30Days', branchid, startdate, enddate, year, outsourceId),
+    monthlyOutsourcedAmountCurrentYear: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'monthlyOutsourcedAmountLast12Months', branchid, startdate, enddate, year, outsourceId),
+    topFacilitiesCurrentYear: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'top20OutsourcedFacilities', branchid, startdate, enddate, year, outsourceId),
+    hourlyOutsourcingPatternCurrentYear: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'hourlyOutsourcingPattern', branchid, startdate, enddate, year, outsourceId),
+    weeklyOutsourcedTrendCurrentYear: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'weeklyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
+    quarterlyOutsourcedTrendCurrentYear: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'quarterlyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
+    // Date-Range Outsourcing Analytics
+    dailyOutsourcedAmount: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'dailyOutsourcedAmount', branchid, startdate, enddate, year, outsourceId),
+    monthlyOutsourcedAmount: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'monthlyOutsourcedAmount', branchid, startdate, enddate, year, outsourceId),
+    yearlySummaryByFacilityDateRange: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'yearlySummaryByFacility', branchid, startdate, enddate, year, outsourceId),
+    topFacilitiesByAmount: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'top20OutsourcedFacilities', branchid, startdate, enddate, year, outsourceId),
+    hourlyOutsourcingPatternDateRange: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'hourlyOutsourcingPattern', branchid, startdate, enddate, year, outsourceId),
+    topFacilityPerMonthDateRange: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'topFacilityPerMonth', branchid, startdate, enddate, year, outsourceId),
+    summaryDashboardDateRange: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'grandSummaryDashboard', branchid, startdate, enddate, year, outsourceId),
+    weeklyOutsourcedTrendDateRange: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'weeklyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
+    quarterlyOutsourcedTrendDateRange: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'quarterlyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
 };
 const handleFinancialAnalytics = async function (request, response) {
-    const { key, startDate = null, endDate = null, branchid, tenantId } = request.query;
+    const { key, startDate = null, endDate = null, branchid, tenantId, targetDate, year, outsourceId } = request.query;
     const tenantIdP = parseInt(tenantId.toString(), 10);
     const analyticsKey = key === null || key === void 0 ? void 0 : key.toString();
+    // Convert branchid to number or null
+    const branchIdNum = branchid ? parseInt(branchid.toString(), 10) : null;
+    // Convert year to number or null
+    const yearNum = year ? parseInt(year.toString(), 10) : null;
+    // Convert outsourceId to number or null
+    const outsourceIdNum = outsourceId ? parseInt(outsourceId.toString(), 10) : null;
     if (analyticsKey === 'all') {
         try {
             const allResults = {};
             for (const funcKey in analyticsFunctions) {
                 if (analyticsFunctions.hasOwnProperty(funcKey)) {
-                    const result = await analyticsFunctions[funcKey](tenantId, null, startDate, endDate);
+                    const result = await analyticsFunctions[funcKey](tenantId, null, startDate, endDate, yearNum, outsourceIdNum);
                     allResults[funcKey] = result;
                 }
             }
@@ -97,7 +116,9 @@ const handleFinancialAnalytics = async function (request, response) {
     }
     if (analyticsFunctions[analyticsKey]) {
         try {
-            const result = await analyticsFunctions[analyticsKey](tenantId, branchid, startDate, endDate);
+            // Special handling for hourly analytics - use targetDate if provided
+            const dateParam = (analyticsKey.includes('hourlyOutsourcingPattern') && targetDate) ? targetDate : startDate;
+            const result = await analyticsFunctions[analyticsKey](tenantId, branchIdNum, dateParam, endDate, yearNum, outsourceIdNum);
             return response.json(result);
         }
         catch (error) {

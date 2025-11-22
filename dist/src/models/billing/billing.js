@@ -723,7 +723,7 @@ class Billing {
     }
     static async updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records) {
         try {
-            const { billingid, refundAmount } = records;
+            const { billingid, refundAmount, serviceid, employeeid, selectedPaymentMode } = records;
             const isBillingIdValid = await Billing.checkValidityOfBillingid(tenantId, billingid);
             if (!isBillingIdValid)
                 return false;
@@ -751,13 +751,46 @@ class Billing {
                 else {
                     newOutstandingAmount = currentPayable - currentPaid;
                 }
-                const updateSuccess = await Billing.updateBillingInformation(tenantId, currentPayable, currentPaid, currentAmountIncurredDueTax, newOutstandingAmount, newBalanceAmount, currentDiscount, billingid, newRefundableAmount, currentTotalCost, totalTransactionCost);
-                return updateSuccess;
+                const conenction = await (0, KnexConnections_1.default)(tenantId);
+                const trx = await conenction.transaction();
+                await trx.raw(queries_1.q_update_Billing_Information, [
+                    currentPaid,
+                    currentPayable,
+                    newOutstandingAmount,
+                    currentDiscount,
+                    currentAmountIncurredDueTax,
+                    newBalanceAmount,
+                    newRefundableAmount,
+                    currentTotalCost,
+                    totalTransactionCost,
+                    billingid
+                ]);
+                await trx("dboservices")
+                    .update({
+                    isRefunded: 1,
+                    isLocked: 1,
+                    status: 'refunded',
+                    totalcost: 0,
+                    totalpayable: 0,
+                })
+                    .where({
+                    serviceid: serviceid
+                });
+                await trx("dbobillingrefundtable").update({
+                    isRefundCompleted: 1,
+                    isRefundMatterClosed: 1,
+                    refundedBy: employeeid,
+                    amountRefunded: refundAmount,
+                }).where({
+                    serviceid: serviceid
+                });
+                await trx.raw(queries_1.insertbillHistoryQuery, [billingid, selectedPaymentMode, refundAmount, employeeid, 'debit']);
+                await trx.commit();
+                return true;
             }
         }
         catch (err) {
             throw err;
-            ;
         }
     }
     static async removeDuplicateServiceFromNewCart(tenantId, services, categoryTrackId, billingid) {

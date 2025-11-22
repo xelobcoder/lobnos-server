@@ -118,8 +118,7 @@ class ExpensesAnalyticsController {
                 const expensesAnalytics = this.evaluateQueryParams(req.query, res);
                 if (!expensesAnalytics)
                     return;
-                const limitCount = req.query.limitCount ? parseInt(req.query.limitCount) : 10;
-                const data = await expensesAnalytics.getTopExpenseMerchants(limitCount);
+                const data = await expensesAnalytics.getTopExpenseMerchants();
                 res.status(200).json(data);
             }
             catch (error) {

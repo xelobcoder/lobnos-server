@@ -36,7 +36,7 @@ router.get('/api/v1/expenses-analytics/routes', (req, res) => {
         { endpoint: '/api/v1/expenses-analytics/quarterly', description: 'Get quarterly expense analytics within date range', params: 'startDate, endDate' },
         { endpoint: '/api/v1/expenses-analytics/yearly', description: 'Get yearly expense analytics', params: 'startYear, endYear (optional)' },
         { endpoint: '/api/v1/expenses-analytics/top-categories', description: 'Get top expense categories by total amount', params: 'limitCount (optional, default: 10)' },
-        { endpoint: '/api/v1/expenses-analytics/top-merchants', description: 'Get top expense merchants by total amount', params: 'limitCount (optional, default: 10)' },
+        { endpoint: '/api/v1/expenses-analytics/top-merchants', description: 'Get top expense merchants by total amount' },
         { endpoint: '/api/v1/expenses-analytics/top-employees', description: 'Get top expense employees by total amount', params: 'limitCount (optional, default: 10)' },
         { endpoint: '/api/v1/expenses-analytics/trends-by-category', description: 'Get expense trends by category over time', params: 'categoryId (optional)' },
         { endpoint: '/api/v1/expenses-analytics/comparison-by-period', description: 'Compare expenses between two periods', params: 'currentStartDate, currentEndDate, previousStartDate, previousEndDate (all required)' },

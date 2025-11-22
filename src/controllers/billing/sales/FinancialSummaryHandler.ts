@@ -1,209 +1,164 @@
 import { Request, Response } from "express";
 import { TiifuWorkingClass } from "../../../database/TiifuWorkingClass";
 import { UtilityFinancial } from "../../../models/billing/sales/AnalyticsBilling";
+import { OutsourcingAnalytics, OutsourcingAnalyticsWithDate } from "../../../models/billing/outsourcingAnalqueries";
 import { getDailyAnalyticsDashboard } from "./Extensive/extensive-daily-sales-breakdown";
+import { promisifyQuery } from '../../../hooks/helper';
+
+export async function UtilityOutsourcing(tenantId: number, key: string, branchid: number | null, startdate: string | Date, enddate: string | Date, year?: number | null, outsourceId?: number | null) {
+	// Special handling for hourly analytics - uses single target date
+	if (key === 'hourlyOutsourcingPattern') {
+		const params = [startdate, branchid, branchid, outsourceId, outsourceId];
+		return await promisifyQuery(tenantId, OutsourcingAnalytics[key], params);
+	}
+
+	// Special handling for monthly analytics - uses year parameter if provided, otherwise startdate as year, otherwise current year
+	if (key === 'monthlyOutsourcedAmountLast12Months') {
+		const yearValue = year || (startdate ? startdate.toString() : new Date().getFullYear().toString());
+		const params = [yearValue, branchid, branchid, outsourceId, outsourceId];
+		return await promisifyQuery(tenantId, OutsourcingAnalytics[key], params);
+	}
+
+	// For queries that support year parameter and year is provided, use date range for the specific year
+	if (year && !startdate && !enddate) {
+		if (['dailyOutsourcedAmountLast30Days', 'weeklyOutsourcedTrend', 'quarterlyOutsourcedTrend',
+			'top20OutsourcedFacilities', 'topFacilityPerMonth', 'grandSummaryDashboard'].includes(key)) {
+			// Convert year to date range for the entire year
+			const startOfYear = `${year}-01-01`;
+			const endOfYear = `${year}-12-31`;
+			const params = [startOfYear, endOfYear, branchid, branchid, outsourceId, outsourceId];
+
+			// Map keys to their date range equivalents
+			const dateRangeKey = key === 'top20OutsourcedFacilities' ? 'topFacilitiesByAmount' :
+							   key === 'grandSummaryDashboard' ? 'summaryDashboard' : key;
+			return await promisifyQuery(tenantId, OutsourcingAnalyticsWithDate[dateRangeKey], params);
+		}
+		// For yearlySummaryByFacility, keep using current year logic since it's specifically yearly
+		if (key === 'yearlySummaryByFacility') {
+			const params = [branchid, branchid, outsourceId, outsourceId];
+			return await promisifyQuery(tenantId, OutsourcingAnalytics[key], params);
+		}
+	}
+
+	if (startdate && enddate) {
+		const params = [startdate, enddate, branchid, branchid, outsourceId, outsourceId];
+		return await promisifyQuery(tenantId, OutsourcingAnalyticsWithDate[key], params);
+	}
+	const params = [branchid, branchid, outsourceId, outsourceId];
+	return await promisifyQuery(tenantId, OutsourcingAnalytics[key], params);
+}
 
 const analyticsFunctions: { [key: string]: Function } = {
-	totalSalesByServiceCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByServiceCategory', branchid, startdate, enddate),
-
-	averageCostPerService: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'averageCostPerService', branchid, startdate, enddate),
-
-	totalSalesByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	totalSalesByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByBranch', branchid, startdate, enddate),
 
-	totalSalesByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	totalSalesByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
 
-	totalSalesByOrganization: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	totalSalesByOrganization: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByOrganization', branchid, startdate, enddate),
 
-	totalSalesByRegistrationType: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByRegistrationType', branchid, startdate, enddate),
-
-	totalSalesByOutsourcedStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	totalSalesByOutsourcedStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
 
-	salesTrendByDate: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesTrendByDate', branchid, startdate, enddate),
-
-	numberOfServicesByCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'numberOfServicesByCategory', branchid, startdate, enddate),
-
-	salesByTaxStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByTaxStatus', branchid, startdate, enddate),
-
-	salesByDiscountStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByDiscountStatus', branchid, startdate, enddate),
-
-	totalSalesByBranchAndCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	totalSalesByBranchAndCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByBranchAndCategory', branchid, startdate, enddate),
 
-	totalSalesByEmployee: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	totalSalesByEmployee: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByEmployee', branchid, startdate, enddate),
 
-	salesByOutsourceId: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByOutsourceId', branchid, startdate, enddate),
-
-	top10HighestCostServices: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'top10HighestCostServices', branchid, startdate, enddate),
-
-	totalTaxByServiceCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalTaxByServiceCategory', branchid, startdate, enddate),
-
-	totalSalesAndTaxValue: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesAndTaxValue', branchid, startdate, enddate),
-
-	averageTaxByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'averageTaxByBranch', branchid, startdate, enddate),
-
-	salesWithHighestTaxIncluded: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesWithHighestTaxIncluded', branchid, startdate, enddate),
-
-	totalTaxByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalTaxByClinician', branchid, startdate, enddate),
-
-	totalDiscountByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalDiscountByBranch', branchid, startdate, enddate),
-
-	averageDiscountPerService: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'averageDiscountPerService', branchid, startdate, enddate),
-
-	totalDiscountByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalDiscountByClinician', branchid, startdate, enddate),
-
-	totalDiscountByRegistrationType: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalDiscountByRegistrationType', branchid, startdate, enddate),
-
-	top10ServicesWithMaxDiscount: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'top10ServicesWithMaxDiscount', branchid, startdate, enddate),
-
-	mostPopularServiceBySales: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'mostPopularServiceBySales', branchid, startdate, enddate),
-
-	averageServiceCostByCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'averageServiceCostByCategory', branchid, startdate, enddate),
-
-	totalSalesByBillingid: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesBySalesBillingid', branchid, startdate, enddate),
-
-	numberOfServicesByEmployee: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'numberOfServicesByEmployee', branchid, startdate, enddate),
-
-	totalSalesByCategoryAndRegistration: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByCategoryAndRegistration', branchid, startdate, enddate),
-
-	monthlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	monthlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'monthlySalesTrend', branchid, startdate, enddate),
 
-	dailySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	dailySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'dailySalesTrend', branchid, startdate, enddate),
 
-	weeklySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	weeklySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'weeklySalesTrend', branchid, startdate, enddate),
 
-	salesByMonthAndCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByMonthAndCategory', branchid, startdate, enddate),
-
-	salesByWeekAndBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	salesByWeekAndBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'salesByWeekAndBranch', branchid, startdate, enddate),
 
-	yearlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
+	yearlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'yearlySalesTrend', branchid, startdate, enddate),
 
-	salesByHourOfDay: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByHourOfDay', branchid, startdate, enddate),
+	totalAmountRefunded: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityFinancial(tenantId, 'totalAmountRefunded', branchid, startdate, enddate),
 
-	totalSalesFromOutsourcedServices: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesFromOutsourcedServices', branchid, startdate, enddate),
+	// Outsourcing Analytics
+	dailyOutsourcedAmountLast30Days: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'dailyOutsourcedAmountLast30Days', branchid, startdate, enddate, year, outsourceId),
 
-	salesFromOutsourcedByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesFromOutsourcedByBranch', branchid, startdate, enddate),
+	monthlyOutsourcedAmountLast12Months: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'monthlyOutsourcedAmountLast12Months', branchid, startdate, enddate, year, outsourceId),
 
-	numberOfOutsourcedServicesByOrg: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'numberOfOutsourcedServicesByOrg', branchid, startdate, enddate),
+	yearlySummaryByFacility: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'yearlySummaryByFacility', branchid, startdate, enddate, year, outsourceId),
 
-	maxAndMinServiceCosts: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'maxAndMinServiceCosts', branchid, startdate, enddate),
+	top20OutsourcedFacilities: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'top20OutsourcedFacilities', branchid, startdate, enddate, year, outsourceId),
 
-	serviceCostByCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'serviceCostByCategory', branchid, startdate, enddate),
+	hourlyOutsourcingPattern: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'hourlyOutsourcingPattern', branchid, startdate, enddate, year, outsourceId),
 
-	costBreakdownByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'costBreakdownByClinician', branchid, startdate, enddate),
+	topFacilityPerMonth: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'topFacilityPerMonth', branchid, startdate, enddate, year, outsourceId),
 
-	costPerServiceByCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'costPerServiceByCategory', branchid, startdate, enddate),
+	grandSummaryDashboard: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'grandSummaryDashboard', branchid, startdate, enddate, year, outsourceId),
 
-	numberOfTransactionsByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'numberOfTransactionsByBranch', branchid, startdate, enddate),
+	weeklyOutsourcedTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'weeklyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
 
-	totalSalesByTransactionId: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByTransactionId', branchid, startdate, enddate),
+	quarterlyOutsourcedTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'quarterlyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
 
-	transactionCountByEmployee: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'transactionCountByEmployee', branchid, startdate, enddate),
+	// Current Year Outsourcing Analytics
+	dailyOutsourcedAmountCurrentYear: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'dailyOutsourcedAmountLast30Days', branchid, startdate, enddate, year, outsourceId),
 
-	totalSalesAndTransactionsByDate: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesAndTransactionsByDate', branchid, startdate, enddate),
+	monthlyOutsourcedAmountCurrentYear: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'monthlyOutsourcedAmountLast12Months', branchid, startdate, enddate, year, outsourceId),
 
-	taxCollectedByTransaction: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'taxCollectedByTransaction', branchid, startdate, enddate),
+	topFacilitiesCurrentYear: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'top20OutsourcedFacilities', branchid, startdate, enddate, year, outsourceId),
 
-	taxValueByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'taxValueByBranch', branchid, startdate, enddate),
+	hourlyOutsourcingPatternCurrentYear: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'hourlyOutsourcingPattern', branchid, startdate, enddate, year, outsourceId),
 
-	totalSalesByTaxValueAndIncluded: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByTaxValueAndIncluded', branchid, startdate, enddate),
+	weeklyOutsourcedTrendCurrentYear: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'weeklyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
 
-	averageSalesPerDay: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'averageSalesPerDay', branchid, startdate, enddate),
+	quarterlyOutsourcedTrendCurrentYear: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'quarterlyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
 
-	salesByTaxableStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByTaxableStatus', branchid, startdate, enddate),
+	// Date-Range Outsourcing Analytics
+	dailyOutsourcedAmount: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'dailyOutsourcedAmount', branchid, startdate, enddate, year, outsourceId),
 
-	totalSalesByEmployeeAndBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByEmployeeAndBranch', branchid, startdate, enddate),
+	monthlyOutsourcedAmount: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'monthlyOutsourcedAmount', branchid, startdate, enddate, year, outsourceId),
 
-	numberOfServicesByEmployeeAndDate: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'numberOfServicesByEmployeeAndDate', branchid, startdate, enddate),
+	yearlySummaryByFacilityDateRange: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'yearlySummaryByFacility', branchid, startdate, enddate, year, outsourceId),
 
-	salesAndTaxValueByRegistrationType: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesAndTaxValueByRegistrationType', branchid, startdate, enddate),
+	topFacilitiesByAmount: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'top20OutsourcedFacilities', branchid, startdate, enddate, year, outsourceId),
 
-	totalDiscountByServiceCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalDiscountByServiceCategory', branchid, startdate, enddate),
+	hourlyOutsourcingPatternDateRange: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'hourlyOutsourcingPattern', branchid, startdate, enddate, year, outsourceId),
 
-	salesAndDiscountByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesAndDiscountByClinician', branchid, startdate, enddate),
+	topFacilityPerMonthDateRange: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'topFacilityPerMonth', branchid, startdate, enddate, year, outsourceId),
 
-	totalSalesByTaxValue: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByTaxValue', branchid, startdate, enddate),
+	summaryDashboardDateRange: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'grandSummaryDashboard', branchid, startdate, enddate, year, outsourceId),
 
-	taxValueByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'taxValueByClinician', branchid, startdate, enddate),
+	weeklyOutsourcedTrendDateRange: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'weeklyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
 
-	totalSalesByOutsourceIdAndDate: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesByOutsourceIdAndDate', branchid, startdate, enddate),
-
-	salesByEmployeeAndClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByEmployeeAndClinician', branchid, startdate, enddate),
-
-	salesAndDiscountByMonth: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesAndDiscountByMonth', branchid, startdate, enddate),
-
-	salesByEmployeeAndService: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'salesByEmployeeAndService', branchid, startdate, enddate),
-
-	totalTaxValueByOutsourceStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalTaxValueByOutsourceStatus', branchid, startdate, enddate),
-
-	totalSalesFromOutsourcedServicesByCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesFromOutsourcedServicesByCategory', branchid, startdate, enddate),
-
-	totalSalesForAllCategories: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null) =>
-		UtilityFinancial(tenantId, 'totalSalesForAllCategories', branchid, startdate, enddate),
+	quarterlyOutsourcedTrendDateRange: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+		UtilityOutsourcing(tenantId, 'quarterlyOutsourcedTrend', branchid, startdate, enddate, year, outsourceId),
 };
 
 
@@ -212,11 +167,23 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 	startDate: string,
 	tenantId: number,
 	endDate: string,
-	branchid: number
+	branchid: number,
+	targetDate: string,
+	year: number,
+	outsourceId: number
 }>, response: Response): Promise<Response> {
-	const { key, startDate = null, endDate = null, branchid, tenantId } = request.query;
+	const { key, startDate = null, endDate = null, branchid, tenantId, targetDate, year, outsourceId } = request.query;
 	const tenantIdP = parseInt(tenantId.toString(), 10);
 	const analyticsKey = key?.toString();
+
+	// Convert branchid to number or null
+	const branchIdNum = branchid ? parseInt(branchid.toString(), 10) : null;
+
+	// Convert year to number or null
+	const yearNum = year ? parseInt(year.toString(), 10) : null;
+
+	// Convert outsourceId to number or null
+	const outsourceIdNum = outsourceId ? parseInt(outsourceId.toString(), 10) : null;
 
 
 	if (analyticsKey === 'all') {
@@ -224,7 +191,7 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 			const allResults: { [key: string]: any } = {};
 			for (const funcKey in analyticsFunctions) {
 				if (analyticsFunctions.hasOwnProperty(funcKey)) {
-					const result = await analyticsFunctions[funcKey](tenantId, null, startDate, endDate);
+					const result = await analyticsFunctions[funcKey](tenantId, null, startDate, endDate, yearNum, outsourceIdNum);
 					allResults[funcKey] = result;
 				}
 			}
@@ -240,7 +207,9 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 
 	if (analyticsFunctions[analyticsKey]) {
 		try {
-			const result = await analyticsFunctions[analyticsKey](tenantId, branchid, startDate, endDate);
+			// Special handling for hourly analytics - use targetDate if provided
+			const dateParam = (analyticsKey.includes('hourlyOutsourcingPattern') && targetDate) ? targetDate : startDate;
+			const result = await analyticsFunctions[analyticsKey](tenantId, branchIdNum, dateParam, endDate, yearNum, outsourceIdNum);
 			return response.json(result);
 		} catch (error) {
 			return response.status(500).json({

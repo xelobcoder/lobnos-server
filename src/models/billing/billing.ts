@@ -1003,7 +1003,7 @@ export class Billing {
 		records: updateRefundCashRequestBodyType
 	): Promise<boolean> {
 		try {
-			const { billingid, refundAmount } = records;
+			const { billingid, refundAmount, serviceid, employeeid,selectedPaymentMode } = records;
 			const isBillingIdValid: boolean = await Billing.checkValidityOfBillingid(tenantId, billingid);
 			if (!isBillingIdValid) return false;
 
@@ -1038,26 +1038,56 @@ export class Billing {
 				}
 
 
-				const updateSuccess: boolean = await Billing.updateBillingInformation(
-					tenantId,
-					currentPayable,
+				const conenction = await KnexConnection(tenantId);
+				const trx = await conenction.transaction();
+
+				await trx.raw(q_update_Billing_Information, [
 					currentPaid,
-					currentAmountIncurredDueTax,
+					currentPayable,
 					newOutstandingAmount,
-					newBalanceAmount,
 					currentDiscount,
-					billingid,
+					currentAmountIncurredDueTax,
+					newBalanceAmount,
 					newRefundableAmount,
 					currentTotalCost,
-					totalTransactionCost
-				)
-				return updateSuccess;
+					totalTransactionCost,
+					billingid
+				])
 
+
+				await trx("dboservices")
+					.update({
+						isRefunded: 1,
+						isLocked: 1,
+						status: 'refunded',
+						totalcost: 0,
+						totalpayable: 0,
+					})
+					.where({
+						serviceid: serviceid
+					})
+
+
+				await trx("dbobillingrefundtable").update({
+					isRefundCompleted: 1,
+					isRefundMatterClosed: 1,
+					refundedBy: employeeid,
+					amountRefunded: refundAmount,
+				}).where({
+					serviceid: serviceid
+				});
+
+
+				await trx.raw(insertbillHistoryQuery, [billingid, selectedPaymentMode, refundAmount, employeeid, 'debit']);
+
+				await trx.commit();
+
+				return true;
 			}
 
 		}
 		catch (err) {
-			throw err;;
+			throw err;
 		}
 	}
 

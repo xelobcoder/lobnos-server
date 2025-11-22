@@ -475,13 +475,7 @@ export class Refund {
 			if (isRefundAmmountExceeded === true) return OperationsFailures.refundAmmountExceeded;
 
 			if (isRefundAmmountExceeded === false) {
-				const approval_status = await promisifyQuery(tenantId, q_service_refund_update_is_cashout, [employeeid, refundAmount, serviceid]);
-
-				if (approval_status) {
-					await new Billing(null).insertBillingHistory(tenantId, selectedPaymentMode, billingid, refundAmount, employeeid, "debit");
-					const is_bill_updated = await Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
-					return is_bill_updated
-				}
+				return await Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
 			}
 
 			return OperationsFailures.unauthorized;

@@ -57,8 +57,8 @@ export default class ExpensesAnalytics {
      }
 
      // Top Expense Merchants
-     public async getTopExpenseMerchants(limitCount: number = 10) {
-          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_TopExpenseMerchants(?, ?, ?, ?)`, [this.branchid, this.startdate, this.enddate, limitCount]);
+     public async getTopExpenseMerchants() {
+          const result = await promisifyQuery(this.tenantId, `CALL lims_anal_exp_TopExpenseMerchants(?, ?, ?)`, [this.branchid, this.startdate, this.enddate]);
           return Array.isArray(result) && result.length > 0 ? result[0] : [];
      }
 
