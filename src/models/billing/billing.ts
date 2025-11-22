@@ -1467,73 +1467,58 @@ export class Billing {
 		const insertionErrors = [];
 		const queryRunner = trx || await KnexConnection(tenantId);
 
-		// Performance optimization: Batch insert services for better performance
-		// Group services into bulk insert and ascension updates
-		const serviceRecords = services.map(item => {
-			const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
-			return {
-				billingid,
-				trackId,
-				cost,
-				employeeid,
-				serviceCategory,
-				categoryTrackId,
-				clinicianId,
-				organizationId,
-				registrationType,
-				branchid,
-				isoutsourced,
-				outsourceid,
-				serviceAddedOn,
-				taxList,
-				taxValue,
-				amountIncurredDueTax,
-				taxIncluded,
-				discount,
-				totalcost,
-				totalpayable,
-				isNHIS,
-				isPHIS,
-				insuranceid,
-				claimCode,
-				hasNightAdjustment,
-				nightAdjustmentMode,
-				nightAdjustmentValue,
-				isPackageUsed,
-				packageid
-			};
+		// Performance optimization: Process inserts in parallel when possible
+		// Note: Must keep sequential for services that need the insert ID for ascension
+		const insertPromises = services.map(async (item) => {
+			try {
+				const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
+				const outcome = await queryRunner("dboservices").insert({
+					billingid,
+					trackId,
+					cost,
+					employeeid,
+					serviceCategory,
+					categoryTrackId,
+					clinicianId,
+					organizationId,
+					registrationType,
+					branchid,
+					isoutsourced,
+					outsourceid,
+					serviceAddedOn,
+					taxList,
+					taxValue,
+					amountIncurredDueTax,
+					taxIncluded,
+					discount,
+					totalcost,
+					totalpayable,
+					isNHIS,
+					isPHIS,
+					insuranceid,
+					claimCode,
+					hasNightAdjustment,
+					nightAdjustmentMode,
+					nightAdjustmentValue,
+					isPackageUsed,
+					packageid
+				});
+
+				if (outcome && item[5] != 5 && item[1]) {
+					try {
+						await this.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+					} catch (err) {
+						throw new Error(billErrors.unableToLoadTestAscension);
+					}
+				}
+			} catch (err) {
+				console.error("Error inserting service:", err);
+				insertionErrors.push(err);
+			}
 		});
 
-		try {
-			// Batch insert all services at once
-			const insertedIds = await queryRunner("dboservices").insert(serviceRecords);
-			
-			// Now handle test ascension updates for non-service items
-			const ascensionPromises = services
-				.map((item, index) => {
-					const categoryTrackId = item[5];
-					const trackId = item[1];
-					// Calculate the actual inserted ID (works for MySQL auto-increment)
-					const serviceid = insertedIds[0] + index;
-					
-					if (categoryTrackId != 5 && trackId) {
-						return this.AddtoTestAscenstion(tenantId, serviceid, billingid, trackId, queryRunner)
-							.catch(err => {
-								console.error("Error adding to test ascension:", err);
-								insertionErrors.push(err);
-							});
-					}
-					return Promise.resolve();
-				})
-				.filter(p => p !== Promise.resolve());
-			
-			// Execute all ascension updates in parallel
-			await Promise.all(ascensionPromises);
-			
-		} catch (err) {
-			console.error("Error inserting services:", err);
-			insertionErrors.push(err);
-		}
+		// Performance optimization: Execute all service insertions in parallel
+		await Promise.all(insertPromises);
 
 		return insertionErrors;
 	}
