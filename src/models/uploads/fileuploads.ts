@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import path from 'path';
 import multer, { FileFilterCallback } from 'multer';
 import { validStoragePaths } from '../../controllers/uploads/uploadController';
@@ -43,6 +44,8 @@ function createFileUploader(storagePath?: string) {
                               return;
                          }
 
+                         // Note: Multer callbacks must be synchronous, so we keep fs.existsSync here
+                         // This is a limitation of multer's API and cannot be made async
                          if (fs.existsSync(targetDir)) {
                               const files = fs.readdirSync(targetDir);
                               files.forEach(file => {

@@ -867,28 +867,42 @@ export class Billing {
 		let verifiedTestPricing = [];
 		const { billingid, organizationId, clinicianId, insuranceId } = servicesBillingData;
 
-		for (const item of data) {
-			try {
-				var { amountIncurredDueTax, discountedValue, serviceid, trackId, isOutsourced, outsourceid, ascensionId: prevAscensionId } = await this.verificationAndReformatingOfTestAndPrice(
+		// Performance optimization: Process verification in parallel first
+		const verifiedItems = await Promise.all(
+			data.map(item => 
+				this.verificationAndReformatingOfTestAndPrice(
 					tenantId,
-					item, categoryTrackId, { insuranceId, organizationId, clinicianId });
+					item, 
+					categoryTrackId, 
+					{ insuranceId, organizationId, clinicianId }
+				)
+			)
+		);
+
+		// Process insertions sequentially since they depend on previous insert IDs
+		for (let i = 0; i < data.length; i++) {
+			try {
+				const item = data[i];
+				const verified = verifiedItems[i];
+				let { amountIncurredDueTax, discountedValue } = verified;
+				const { serviceid, trackId, isOutsourced, outsourceid, ascensionId: prevAscensionId } = verified;
 
 				let ascensionId = null;
 
 				if (includeTax == 1) {
 					amountIncurredDueTax = discountedValue * (taxValue / 100);
 				}
-				let loadingValues = { ...servicesBillingData, taxIncluded: includeTax, taxValue, amountIncurredDueTax, taxList }
+				const loadingValues = { ...servicesBillingData, taxIncluded: includeTax, taxValue, amountIncurredDueTax, taxList }
 
 				const totalCost = amountIncurredDueTax + discountedValue;
 
-				serviceid = await this.insertTestBillingAsAServices(tenantId, discountedValue, trackId, isOutsourced, outsourceid, totalCost, loadingValues);
-				if (typeof serviceid == "boolean" && !serviceid) {
+				const insertedServiceId = await this.insertTestBillingAsAServices(tenantId, discountedValue, trackId, isOutsourced, outsourceid, totalCost, loadingValues);
+				if (typeof insertedServiceId == "boolean" && !insertedServiceId) {
 					throw new Error('services not inserted');
 				}
 
-				if (typeof serviceid == 'number') {
-					ascensionId = await this.AddtoTestAscenstion(tenantId, serviceid, billingid, trackId);
+				if (typeof insertedServiceId == 'number') {
+					ascensionId = await this.AddtoTestAscenstion(tenantId, insertedServiceId, billingid, trackId);
 				}
 
 				if (!ascensionId) throw new Error("test ascensionid not added");
@@ -1455,7 +1469,9 @@ export class Billing {
 		const insertionErrors = [];
 		const queryRunner = trx || await KnexConnection(tenantId);
 
-		for (const item of services) {
+		// Performance optimization: Process inserts in parallel when possible
+		// Note: Must keep sequential for services that need the insert ID for ascension
+		const insertPromises = services.map(async (item) => {
 			try {
 				const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
 				const outcome = await queryRunner("dboservices").insert({
@@ -1501,7 +1517,10 @@ export class Billing {
 				console.error("Error inserting service:", err);
 				insertionErrors.push(err);
 			}
-		}
+		});
+
+		// Performance optimization: Execute all service insertions in parallel
+		await Promise.all(insertPromises);
 
 		return insertionErrors;
 	}

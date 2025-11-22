@@ -1,5 +1,6 @@
 import KnexConnection from "../../../database/KnexConnections";
 import * as fs from 'fs';
+import { promises as fsPromises } from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -116,16 +117,22 @@ export default class BackupManager {
                const useSecureDeletion = securitySettings?.secure_deletion_enabled || false;
                const deletionPasses = securitySettings?.deletion_passes || 3;
 
+               // Performance optimization: Use async file operations
                // Delete physical file if it exists
-               if (backup.backup_path && fs.existsSync(backup.backup_path)) {
-                    if (useSecureDeletion) {
-                         const result = await EncryptionManager.secureDeleteFile(backup.backup_path, deletionPasses);
-                         if (!result.success) {
-                              console.warn(`Secure deletion failed for backup ${id}:`, result.error);
-                              // Continue with database deletion even if file deletion fails
+               if (backup.backup_path) {
+                    try {
+                         await fsPromises.access(backup.backup_path);
+                         if (useSecureDeletion) {
+                              const result = await EncryptionManager.secureDeleteFile(backup.backup_path, deletionPasses);
+                              if (!result.success) {
+                                   console.warn(`Secure deletion failed for backup ${id}:`, result.error);
+                                   // Continue with database deletion even if file deletion fails
+                              }
+                         } else {
+                              await fsPromises.unlink(backup.backup_path);
                          }
-                    } else {
-                         fs.unlinkSync(backup.backup_path);
+                    } catch {
+                         // File doesn't exist, continue
                     }
                }
 
@@ -157,8 +164,11 @@ export default class BackupManager {
           const startTime = Date.now();
 
           try {
-               if (!fs.existsSync(backupPath)) {
-                    fs.mkdirSync(backupPath, { recursive: true });
+               // Performance optimization: Use async file operations
+               try {
+                    await fsPromises.access(backupPath);
+               } catch {
+                    await fsPromises.mkdir(backupPath, { recursive: true });
                }
 
                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
@@ -197,7 +207,7 @@ export default class BackupManager {
 
                await execAsync(command);
 
-               const stats = fs.statSync(fullPath);
+               const stats = await fsPromises.stat(fullPath);
                let size = stats.size;
                const duration = Math.floor((Date.now() - startTime) / 1000);
 
@@ -216,7 +226,7 @@ export default class BackupManager {
                          encryptionKeyId = encryptionResult.keyId;
 
                          // Update file size to encrypted size
-                         const encryptedStats = fs.statSync(finalBackupPath);
+                         const encryptedStats = await fsPromises.stat(finalBackupPath);
                          size = encryptedStats.size;
                     } else {
                          console.warn('Backup encryption failed, proceeding with unencrypted backup:', encryptionResult.error);
@@ -284,8 +294,11 @@ export default class BackupManager {
           const startTime = Date.now();
 
           try {
-               if (!fs.existsSync(backupPath)) {
-                    fs.mkdirSync(backupPath, { recursive: true });
+               // Performance optimization: Use async file operations
+               try {
+                    await fsPromises.access(backupPath);
+               } catch {
+                    await fsPromises.mkdir(backupPath, { recursive: true });
                }
 
                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
@@ -295,7 +308,7 @@ export default class BackupManager {
                const command = `tar -czf "${fullPath}" -C "${sourcePath}" .`;
                await execAsync(command);
 
-               const stats = fs.statSync(fullPath);
+               const stats = await fsPromises.stat(fullPath);
                let size = stats.size;
                const duration = Math.floor((Date.now() - startTime) / 1000);
 
@@ -314,7 +327,7 @@ export default class BackupManager {
                          encryptionKeyId = encryptionResult.keyId;
 
                          // Update file size to encrypted size
-                         const encryptedStats = fs.statSync(finalBackupPath);
+                         const encryptedStats = await fsPromises.stat(finalBackupPath);
                          size = encryptedStats.size;
                     } else {
                          console.warn('Backup encryption failed, proceeding with unencrypted backup:', encryptionResult.error);
@@ -602,21 +615,27 @@ export default class BackupManager {
                const useSecureDeletion = securitySettings?.secure_deletion_enabled || false;
                const deletionPasses = securitySettings?.deletion_passes || 3;
 
+               // Performance optimization: Use async file operations and process deletions in parallel
                // Delete physical files and database records
-               for (const backup of oldBackups) {
+               await Promise.all(oldBackups.map(async (backup) => {
                     try {
-                         if (backup.backup_path && fs.existsSync(backup.backup_path)) {
-                              if (useSecureDeletion) {
-                                   await EncryptionManager.secureDeleteFile(backup.backup_path, deletionPasses);
-                              } else {
-                                   fs.unlinkSync(backup.backup_path);
+                         if (backup.backup_path) {
+                              try {
+                                   await fsPromises.access(backup.backup_path);
+                                   if (useSecureDeletion) {
+                                        await EncryptionManager.secureDeleteFile(backup.backup_path, deletionPasses);
+                                   } else {
+                                        await fsPromises.unlink(backup.backup_path);
+                                   }
+                              } catch {
+                                   // File doesn't exist, continue
                               }
                          }
                          await this.delete(tenantId, backup.id);
                     } catch (error) {
                          console.error(`Failed to cleanup backup ${backup.id}:`, error);
                     }
-               }
+               }));
           } catch (error) {
                console.error('Error during backup cleanup:', error);
           }

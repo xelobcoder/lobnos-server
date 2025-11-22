@@ -63,6 +63,7 @@ app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use(validateTenancy_1.ValidateTenancyAgreement);
 // app.use(checkTokenExists)
+// Performance optimization: Removed duplicate middleware registrations
 app.use(outsourcedTestTracking_routes_1.default);
 app.use(route_18.default);
 app.use(route_16.default);
@@ -82,8 +83,6 @@ app.use(route_8.default);
 app.use(route_3.default);
 app.use(routes_2.default);
 app.use(route_2.default);
-app.use(route_18.default);
-app.use(index_1.default);
 app.use(route_6.default);
 app.use(routes_1.default);
 app.use(route_7.default);
@@ -92,7 +91,6 @@ app.use(route_1.default);
 app.use(route_4.default);
 app.use(route_11.default);
 app.use(route_17.default);
-app.use(route_16.default);
 app.use(routes_4.default);
 app.use(attendancerouters_1.default);
 app.use(packages_1.default);

@@ -16,6 +16,7 @@ import Creator from "../../models/creator/creator";
 import { Billing } from "../../models/billing/billing";
 import { PrimeLimsTabletest_ascension, PrimeLimsTabletest_panels } from "../../database/DatabaseTableSchema";
 import fs from 'fs'
+import { promises as fsPromises } from 'fs'
 import path from 'path'
 import Core from "../../EmailServices/core";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
@@ -545,14 +546,17 @@ export const sendResultViaEmailHandler = async (request: Request, response: Resp
 		const fileTempDir = path.join(__dirname, '../../../views/result');
 		const fileTempPath = path.join(fileTempDir, 'result.pdf');
 
-		if (!fs.existsSync(fileTempDir)) {
-			fs.mkdirSync(fileTempDir, { recursive: true });
+		// Performance optimization: Use async file operations
+		try {
+			await fsPromises.access(fileTempDir);
+		} catch {
+			await fsPromises.mkdir(fileTempDir, { recursive: true });
 		}
 
 		const fileBuffer = await fileResponse.arrayBuffer();
 		const pdfBuffer = Buffer.from(fileBuffer).toString();
 
-		fs.writeFileSync(fileTempPath, pdfBuffer);
+		await fsPromises.writeFile(fileTempPath, pdfBuffer);
 
 		if (fileTempPath) {
 			const mailResponse = await new Core().createMailTransporter({

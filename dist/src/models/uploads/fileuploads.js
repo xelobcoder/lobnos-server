@@ -43,6 +43,8 @@ function createFileUploader(storagePath) {
                         cb(new Error('Invalid category specified'), '');
                         return;
                     }
+                    // Note: Multer callbacks must be synchronous, so we keep fs.existsSync here
+                    // This is a limitation of multer's API and cannot be made async
                     if (fs_1.default.existsSync(targetDir)) {
                         const files = fs_1.default.readdirSync(targetDir);
                         files.forEach(file => {

@@ -28,7 +28,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
 const crypto = __importStar(require("crypto"));
-const fs = __importStar(require("fs"));
+const fs_1 = require("fs");
 class EncryptionManager {
     static async getSecuritySettings(tenantId) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
@@ -104,7 +104,8 @@ class EncryptionManager {
                 }
             }
             const { key, keyId } = keyInfo;
-            const fileData = fs.readFileSync(inputPath);
+            // Performance optimization: Use async file operations instead of sync
+            const fileData = await fs_1.promises.readFile(inputPath);
             const iv = crypto.randomBytes(16);
             const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
             const encrypted = Buffer.concat([
@@ -112,7 +113,7 @@ class EncryptionManager {
                 cipher.update(fileData),
                 cipher.final()
             ]);
-            fs.writeFileSync(outputPath, encrypted);
+            await fs_1.promises.writeFile(outputPath, encrypted);
             return { success: true, keyId };
         }
         catch (error) {
@@ -132,7 +133,8 @@ class EncryptionManager {
                 return { success: false, error: 'Encryption key not found' };
             }
             const key = this.decryptWithMasterKey(keyRecord.encrypted_key);
-            const encryptedData = fs.readFileSync(inputPath);
+            // Performance optimization: Use async file operations instead of sync
+            const encryptedData = await fs_1.promises.readFile(inputPath);
             const iv = encryptedData.slice(0, 16);
             const encryptedContent = encryptedData.slice(16);
             const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
@@ -140,7 +142,7 @@ class EncryptionManager {
                 decipher.update(encryptedContent),
                 decipher.final()
             ]);
-            fs.writeFileSync(outputPath, decrypted);
+            await fs_1.promises.writeFile(outputPath, decrypted);
             return { success: true };
         }
         catch (error) {
@@ -152,17 +154,21 @@ class EncryptionManager {
     }
     static async secureDeleteFile(filePath, passes = 3) {
         try {
-            if (!fs.existsSync(filePath)) {
+            // Performance optimization: Use async file operations instead of sync
+            try {
+                await fs_1.promises.access(filePath);
+            }
+            catch (_a) {
                 return { success: false, error: 'File does not exist' };
             }
-            const stats = fs.statSync(filePath);
+            const stats = await fs_1.promises.stat(filePath);
             const fileSize = stats.size;
             for (let pass = 0; pass < passes; pass++) {
                 const pattern = this.getOverwritePattern(pass);
                 const data = Buffer.alloc(fileSize, pattern);
-                fs.writeFileSync(filePath, data);
+                await fs_1.promises.writeFile(filePath, data);
             }
-            fs.unlinkSync(filePath);
+            await fs_1.promises.unlink(filePath);
             return { success: true };
         }
         catch (error) {
