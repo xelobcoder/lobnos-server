@@ -883,24 +883,26 @@ export class Billing {
 		for (let i = 0; i < data.length; i++) {
 			try {
 				const item = data[i];
-				let { amountIncurredDueTax, discountedValue, serviceid, trackId, isOutsourced, outsourceid, ascensionId: prevAscensionId } = verifiedItems[i];
+				const verified = verifiedItems[i];
+				let { amountIncurredDueTax, discountedValue } = verified;
+				const { serviceid, trackId, isOutsourced, outsourceid, ascensionId: prevAscensionId } = verified;
 
 				let ascensionId = null;
 
 				if (includeTax == 1) {
 					amountIncurredDueTax = discountedValue * (taxValue / 100);
 				}
-				let loadingValues = { ...servicesBillingData, taxIncluded: includeTax, taxValue, amountIncurredDueTax, taxList }
+				const loadingValues = { ...servicesBillingData, taxIncluded: includeTax, taxValue, amountIncurredDueTax, taxList }
 
 				const totalCost = amountIncurredDueTax + discountedValue;
 
-				serviceid = await this.insertTestBillingAsAServices(tenantId, discountedValue, trackId, isOutsourced, outsourceid, totalCost, loadingValues);
-				if (typeof serviceid == "boolean" && !serviceid) {
+				const insertedServiceId = await this.insertTestBillingAsAServices(tenantId, discountedValue, trackId, isOutsourced, outsourceid, totalCost, loadingValues);
+				if (typeof insertedServiceId == "boolean" && !insertedServiceId) {
 					throw new Error('services not inserted');
 				}
 
-				if (typeof serviceid == 'number') {
-					ascensionId = await this.AddtoTestAscenstion(tenantId, serviceid, billingid, trackId);
+				if (typeof insertedServiceId == 'number') {
+					ascensionId = await this.AddtoTestAscenstion(tenantId, insertedServiceId, billingid, trackId);
 				}
 
 				if (!ascensionId) throw new Error("test ascensionid not added");
