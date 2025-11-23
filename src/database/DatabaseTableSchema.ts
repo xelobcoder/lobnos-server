@@ -2084,13 +2084,6 @@ export type PrimeLimsTableview_billing_summary = {
   services_rendered: number;
 };
 
-export type PrimeLimsTablewarehouse = {
-  id: number;
-  name: string;
-  created_on: Date | string;
-  updated_on?: Date | string;
-};
-
 export type PrimeLimsTablewastagecount = {
   id: number;
   amount: number;

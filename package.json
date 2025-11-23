@@ -10,7 +10,8 @@
     "kill-port": "node  --env-file=./.env ./dist/src/models/security/killport.js  ",
     "backup-scheduler:start": "node --env-file=./.env ./scripts/backup-scheduler.js start",
     "backup-scheduler:stop": "node --env-file=./.env ./scripts/backup-scheduler.js stop",
-    "backup-scheduler:status": "node --env-file=./.env ./scripts/backup-scheduler.js status"
+    "backup-scheduler:status": "node --env-file=./.env ./scripts/backup-scheduler.js status",
+    "migrate-sql": "npx ts-node src/cron/command-line-tool-database/migrate.ts"
   },
   "keywords": [
     "high performance laboratory information system",
@@ -47,6 +48,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.1",
     "@types/multer": "^1.4.12",
+    "ts-node": "^10.9.2",
     "typescript": "^5.4.5"
   }
 }

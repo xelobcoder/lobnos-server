@@ -5,7 +5,7 @@ module.exports = {
                host: 'localhost',
                user: 'primelab',
                password: 'Barcelona45##',
-               database: 'primetenant3',
+               database: 'primetenant005',
                port: 3306
           },
           migrations: {

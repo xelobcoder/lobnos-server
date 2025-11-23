@@ -127,7 +127,6 @@ exports.up = async function (knex) {
     await knex.schema.createTable('shelves', function (table) {
         table.increments('id');
         table.string('name', 100).notNullable();
-        table.integer('warehouse').notNullable();
         table
             .datetime('created_on', { precision: 6 })
             .notNullable()
