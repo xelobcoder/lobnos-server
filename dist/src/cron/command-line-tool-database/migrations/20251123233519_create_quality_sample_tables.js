@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
     // Create privateinsurance table
-    await knex.schema.createTable('privateinsurance', (table) => {
+    await knex.schema.createTableIfNotExists('privateinsurance', (table) => {
         table.increments('id').primary();
         table.string('insuranceName', 255).notNullable();
         table.string('insuranceCode', 50).notNullable();
@@ -26,7 +26,7 @@ async function up(knex) {
           ADD CONSTRAINT privateinsurance_insuranceName_unique UNIQUE (insuranceName)
      `);
     // Create proceduremanual table
-    await knex.schema.createTable('proceduremanual', (table) => {
+    await knex.schema.createTableIfNotExists('proceduremanual', (table) => {
         table.increments('id').primary();
         table.integer('testid').notNullable();
         table.text('proceduremanual').notNullable();
@@ -41,7 +41,7 @@ async function up(knex) {
           ADD CONSTRAINT proceduremanual_testid_unique UNIQUE (testid)
      `);
     // Create control_materials table (before qc_sessions due to foreign key)
-    await knex.schema.createTable('control_materials', (table) => {
+    await knex.schema.createTableIfNotExists('control_materials', (table) => {
         table.string('id', 36).notNullable().defaultTo(knex.raw('UUID()')).primary();
         table.string('name', 255).notNullable();
         table.string('lotNumber', 255).notNullable();
@@ -68,7 +68,7 @@ async function up(knex) {
         table.foreign('deviceId').references('id').inTable('devices').onDelete('CASCADE');
     });
     // Create control_parameters table
-    await knex.schema.createTable('control_parameters', (table) => {
+    await knex.schema.createTableIfNotExists('control_parameters', (table) => {
         table.string('id', 36).notNullable().defaultTo(knex.raw('UUID()')).primary();
         table.string('controlMaterialId', 36).notNullable();
         table.string('parameter', 255).notNullable();
@@ -90,7 +90,7 @@ async function up(knex) {
         table.foreign('controlMaterialId').references('id').inTable('control_materials').onDelete('CASCADE');
     });
     // Create qc_sessions table (before qc_readings due to foreign key)
-    await knex.schema.createTable('qc_sessions', (table) => {
+    await knex.schema.createTableIfNotExists('qc_sessions', (table) => {
         table.string('id', 36).notNullable().defaultTo(knex.raw('UUID()')).primary().comment('UUID');
         table.string('controlMaterialId', 36).notNullable().comment('UUID, FK to control_materials(id)');
         table.text('comments').nullable();
@@ -103,7 +103,7 @@ async function up(knex) {
         // Note: Foreign key to control_materials will be added when that table exists
     });
     // Create qc_readings table
-    await knex.schema.createTable('qc_readings', (table) => {
+    await knex.schema.createTableIfNotExists('qc_readings', (table) => {
         table.string('id', 36).notNullable().defaultTo(knex.raw('UUID()')).primary().comment('UUID');
         table.string('sessionId', 36).notNullable().comment('UUID, FK to qc_sessions(id)');
         table.string('parameterId', 36).nullable().comment('FK to control_parameters(id)');
@@ -120,7 +120,7 @@ async function up(knex) {
         table.foreign('sessionId').references('id').inTable('qc_sessions').onDelete('CASCADE');
     });
     // Create referralcoding table
-    await knex.schema.createTable('referralcoding', (table) => {
+    await knex.schema.createTableIfNotExists('referralcoding', (table) => {
         table.increments('id').primary();
         table.integer('entity_id', 11).notNullable();
         table.enum('entity_type', ['organization', 'clinician', 'insurance']).notNullable();
@@ -133,7 +133,7 @@ async function up(knex) {
           ADD CONSTRAINT referralcoding_code_unique UNIQUE (code)
      `);
     // Create salessessionmanager table
-    await knex.schema.createTable('salessessionmanager', (table) => {
+    await knex.schema.createTableIfNotExists('salessessionmanager', (table) => {
         table.increments('sessionid').primary();
         table.timestamp('sessiondate').notNullable().defaultTo(knex.fn.now());
         table.integer('session_started_by', 11).nullable();
@@ -148,7 +148,7 @@ async function up(knex) {
         // Note: Foreign keys to roles table will be added when that table exists
     });
     // Create samplestatus table
-    await knex.schema.createTable('samplestatus', (table) => {
+    await knex.schema.createTableIfNotExists('samplestatus', (table) => {
         table.increments('keyid').primary();
         table.datetime('date', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
         table.string('rejectionmessage', 255).nullable();
@@ -170,7 +170,7 @@ async function up(knex) {
         table.index('ascensionid');
     });
     // Create sampletype table
-    await knex.schema.createTable('sampletype', (table) => {
+    await knex.schema.createTableIfNotExists('sampletype', (table) => {
         table.increments('id').primary();
         table.string('name', 50).notNullable();
         table.date('addedon').notNullable().defaultTo(knex.raw('current_timestamp()'));

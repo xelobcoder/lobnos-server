@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create invoices table
-     await knex.schema.createTable('invoices', (table) => {
+     await knex.schema.createTableIfNotExists('invoices', (table) => {
           table.increments('id').primary();
           table.string('invoice_number', 50).notNullable();
           table.datetime('invoice_date').notNullable();
@@ -28,7 +28,7 @@ export async function up(knex: Knex): Promise<void> {
      // Note: invoice_expenses table already exists in expense management migration
 
      // Create registrationsettings table
-     await knex.schema.createTable('registrationsettings', (table) => {
+     await knex.schema.createTableIfNotExists('registrationsettings', (table) => {
           table.increments('id').primary();
           table.text('fields').notNullable().defaultTo('{}');
           table.datetime('createdon', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
@@ -43,7 +43,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create rejectedsampledisputelog table
-     await knex.schema.createTable('rejectedsampledisputelog', (table) => {
+     await knex.schema.createTableIfNotExists('rejectedsampledisputelog', (table) => {
           table.increments('id').primary();
           table.integer('ascensionid').notNullable();
           table.text('disputereason').notNullable();
@@ -54,7 +54,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create tat_analysis_archive table
-     await knex.schema.createTable('tat_analysis_archive', (table) => {
+     await knex.schema.createTableIfNotExists('tat_analysis_archive', (table) => {
           table.increments('id').primary();
           table.integer('ascensionid', 11).notNullable();
           table.datetime('billedon').nullable();
@@ -94,7 +94,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create tat_audit_log table
-     await knex.schema.createTable('tat_audit_log', (table) => {
+     await knex.schema.createTableIfNotExists('tat_audit_log', (table) => {
           table.increments('id').primary();
           table.integer('ascensionid', 11).nullable();
           table.string('testname', 255).nullable();
@@ -123,7 +123,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create tax table
-     await knex.schema.createTable('tax', (table) => {
+     await knex.schema.createTableIfNotExists('tax', (table) => {
           table.string('name', 50).notNullable();
           table.float('value').notNullable();
           table.datetime('createdOn', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
@@ -132,7 +132,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create testconditiondefinitions table (before testconditions due to foreign key)
-     await knex.schema.createTable('testconditiondefinitions', (table) => {
+     await knex.schema.createTableIfNotExists('testconditiondefinitions', (table) => {
           table.increments('id').primary();
           table.string('conditionName', 255).notNullable();
           table.integer('testId', 11).notNullable();
@@ -143,7 +143,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create testcreationrules table
-     await knex.schema.createTable('testcreationrules', (table) => {
+     await knex.schema.createTableIfNotExists('testcreationrules', (table) => {
           table.increments('id').primary();
           table.integer('testid', 20).notNullable();
           table.string('name', 255).notNullable();
@@ -172,7 +172,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create field_constraints table
-     await knex.schema.createTable('field_constraints', (table) => {
+     await knex.schema.createTableIfNotExists('field_constraints', (table) => {
           table.increments('id').primary();
           table.integer('rule_id', 11).notNullable();
           table.string('field_name', 255).notNullable();
@@ -187,7 +187,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create testconditions table
-     await knex.schema.createTable('testconditions', (table) => {
+     await knex.schema.createTableIfNotExists('testconditions', (table) => {
           table.increments('id').primary();
           table.integer('testId', 11).notNullable();
           table.string('parameter', 255).notNullable();
@@ -204,7 +204,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create testdetails table
-     await knex.schema.createTable('testdetails', (table) => {
+     await knex.schema.createTableIfNotExists('testdetails', (table) => {
           table.increments('id').primary();
           table.integer('testid').nullable();
           table.integer('testcost').nullable();
@@ -243,7 +243,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create testsynchronization table
-     await knex.schema.createTable('testsynchronization', (table) => {
+     await knex.schema.createTableIfNotExists('testsynchronization', (table) => {
           table.increments('synid').primary();
           table.string('status', 50).notNullable().defaultTo('pending');
           table.datetime('requestedon', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
@@ -255,7 +255,7 @@ export async function up(knex: Knex): Promise<void> {
 
      // Create test_ascension table with partitioning (using raw SQL for partitioning)
      await knex.raw(`
-          CREATE TABLE test_ascension (
+          CREATE TABLE IF NOT EXISTS test_ascension (
                id int(20) NOT NULL AUTO_INCREMENT,
                testid int(11) NOT NULL,
                serviceid int(11) NOT NULL,

@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
     // Create drugscategory table (before drugs due to foreign key)
-    await knex.schema.createTable('drugscategory', (table) => {
+    await knex.schema.createTableIfNotExists('drugscategory', (table) => {
         table.increments('id').primary();
         table.string('categoryName', 255).notNullable();
         table.text('description').nullable();
@@ -16,7 +16,7 @@ async function up(knex) {
           ADD CONSTRAINT drugscategory_categoryname_unique UNIQUE (categoryName)
      `);
     // Create drugs table
-    await knex.schema.createTable('drugs', (table) => {
+    await knex.schema.createTableIfNotExists('drugs', (table) => {
         table.increments('id').primary();
         table.string('drug', 255).notNullable();
         table.integer('category', 10).nullable();
@@ -31,7 +31,7 @@ async function up(knex) {
           ADD CONSTRAINT drug_unique UNIQUE (drug, category)
      `);
     // Create regions table (before districts due to foreign key)
-    await knex.schema.createTable('regions', (table) => {
+    await knex.schema.createTableIfNotExists('regions', (table) => {
         table.increments('id').primary();
         table.string('name', 255).notNullable();
         table.string('regioncode', 5).notNullable();
@@ -42,7 +42,7 @@ async function up(knex) {
           ADD CONSTRAINT regions_name_unique UNIQUE (name)
      `);
     // Create districts table
-    await knex.schema.createTable('districts', (table) => {
+    await knex.schema.createTableIfNotExists('districts', (table) => {
         table.increments('id').primary();
         table.string('name', 255).notNullable();
         table.string('code', 10).notNullable();
@@ -57,7 +57,7 @@ async function up(knex) {
           ADD CONSTRAINT name_region_unique UNIQUE (name, code, regionid)
      `);
     // Create employeepreferredshifts table
-    await knex.schema.createTable('employeepreferredshifts', (table) => {
+    await knex.schema.createTableIfNotExists('employeepreferredshifts', (table) => {
         table.integer('employeeid', 11).notNullable();
         table.integer('shiftid', 11).notNullable();
         table.increments('preferenceid').primary();
@@ -69,7 +69,7 @@ async function up(knex) {
           ADD CONSTRAINT employeepreferredshifts_employee_shift_unique UNIQUE (employeeid, shiftid)
      `);
     // Create employeeunavailabledays table
-    await knex.schema.createTable('employeeunavailabledays', (table) => {
+    await knex.schema.createTableIfNotExists('employeeunavailabledays', (table) => {
         table.integer('employeeid', 11).notNullable();
         table.string('dayofweek', 20).notNullable();
         table.increments('unavailableid').primary();
@@ -80,7 +80,7 @@ async function up(knex) {
           ADD CONSTRAINT employeeunavailabledays_employeeid_unique UNIQUE (employeeid)
      `);
     // Create encryption_keys table
-    await knex.schema.createTable('encryption_keys', (table) => {
+    await knex.schema.createTableIfNotExists('encryption_keys', (table) => {
         table.increments('id').primary();
         table.string('key_id', 255).notNullable();
         table.text('encrypted_key').notNullable();
@@ -100,14 +100,11 @@ async function up(knex) {
           ADD CONSTRAINT encryption_keys_key_id_unique UNIQUE (key_id)
      `);
     // Create event_template_map table
-    await knex.schema.createTable('event_template_map', (table) => {
+    await knex.schema.createTableIfNotExists('event_template_map', (table) => {
         table.bigInteger('event_id').unsigned().notNullable();
         table.integer('template_id', 11).notNullable();
         table.primary(['event_id', 'template_id']);
         table.index('template_id', 'fk_template');
-        // Foreign keys (will be added when referenced tables exist)
-        // table.foreign('event_id').references('id').inTable('smsevents').onDelete('CASCADE');
-        // table.foreign('template_id').references('id').inTable('sms_templates').onDelete('CASCADE');
     });
 }
 exports.up = up;

@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create loggingcriticalvaluealert table
-     await knex.schema.createTable('loggingcriticalvaluealert', (table) => {
+     await knex.schema.createTableIfNotExists('loggingcriticalvaluealert', (table) => {
           table.increments('crkeyId').primary();
           table.integer('billingid').notNullable();
           table.integer('testid').notNullable();
@@ -22,7 +22,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create loginlogs table
-     await knex.schema.createTable('loginlogs', (table) => {
+     await knex.schema.createTableIfNotExists('loginlogs', (table) => {
           table.increments('keyid').primary();
           table.datetime('loginTime', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
           table.integer('employeeid', 10).notNullable();
@@ -40,7 +40,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create medicalrecords table
-     await knex.schema.createTable('medicalrecords', (table) => {
+     await knex.schema.createTableIfNotExists('medicalrecords', (table) => {
           table.increments('id').primary();
           table.text('complaints').notNullable();
           table.text('hpc').notNullable();
@@ -65,7 +65,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create medicalrecordsaudit table
-     await knex.schema.createTable('medicalrecordsaudit', (table) => {
+     await knex.schema.createTableIfNotExists('medicalrecordsaudit', (table) => {
           table.increments('auditid').primary();
           table.text('complaints').notNullable();
           table.text('hpc').notNullable();

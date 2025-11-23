@@ -140,9 +140,6 @@ shifts
 sessiontracker
 servicestracking
 setupliteraturereview
-sms_schedules
-sms_templates
-smsevents
 staffattendance
 tat_analysis_archive
 tat_audit_log
@@ -161,4 +158,3 @@ testdetails
 testsynchronization
 ultrasoundtemplates
 ultrasoundtemplatesmapper
-view_billing_summary

@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create drugscategory table (before drugs due to foreign key)
-     await knex.schema.createTable('drugscategory', (table) => {
+     await knex.schema.createTableIfNotExists('drugscategory', (table) => {
           table.increments('id').primary();
           table.string('categoryName', 255).notNullable();
           table.text('description').nullable();
@@ -17,7 +17,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create drugs table
-     await knex.schema.createTable('drugs', (table) => {
+     await knex.schema.createTableIfNotExists('drugs', (table) => {
           table.increments('id').primary();
           table.string('drug', 255).notNullable();
           table.integer('category', 10).nullable();
@@ -35,7 +35,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create regions table (before districts due to foreign key)
-     await knex.schema.createTable('regions', (table) => {
+     await knex.schema.createTableIfNotExists('regions', (table) => {
           table.increments('id').primary();
           table.string('name', 255).notNullable();
           table.string('regioncode', 5).notNullable();
@@ -48,7 +48,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create districts table
-     await knex.schema.createTable('districts', (table) => {
+     await knex.schema.createTableIfNotExists('districts', (table) => {
           table.increments('id').primary();
           table.string('name', 255).notNullable();
           table.string('code', 10).notNullable();
@@ -66,7 +66,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create employeepreferredshifts table
-     await knex.schema.createTable('employeepreferredshifts', (table) => {
+     await knex.schema.createTableIfNotExists('employeepreferredshifts', (table) => {
           table.integer('employeeid', 11).notNullable();
           table.integer('shiftid', 11).notNullable();
           table.increments('preferenceid').primary();
@@ -81,7 +81,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create employeeunavailabledays table
-     await knex.schema.createTable('employeeunavailabledays', (table) => {
+     await knex.schema.createTableIfNotExists('employeeunavailabledays', (table) => {
           table.integer('employeeid', 11).notNullable();
           table.string('dayofweek', 20).notNullable();
           table.increments('unavailableid').primary();
@@ -94,7 +94,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create encryption_keys table
-     await knex.schema.createTable('encryption_keys', (table) => {
+     await knex.schema.createTableIfNotExists('encryption_keys', (table) => {
           table.increments('id').primary();
           table.string('key_id', 255).notNullable();
           table.text('encrypted_key').notNullable();
@@ -117,16 +117,12 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create event_template_map table
-     await knex.schema.createTable('event_template_map', (table) => {
+     await knex.schema.createTableIfNotExists('event_template_map', (table) => {
           table.bigInteger('event_id').unsigned().notNullable();
           table.integer('template_id', 11).notNullable();
 
           table.primary(['event_id', 'template_id']);
           table.index('template_id', 'fk_template');
-
-          // Foreign keys (will be added when referenced tables exist)
-          // table.foreign('event_id').references('id').inTable('smsevents').onDelete('CASCADE');
-          // table.foreign('template_id').references('id').inTable('sms_templates').onDelete('CASCADE');
      });
 }
 

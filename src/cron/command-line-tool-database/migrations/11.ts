@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create expensesrecord table
-     await knex.schema.createTable('expensesrecord', (table) => {
+     await knex.schema.createTableIfNotExists('expensesrecord', (table) => {
           table.increments('id').primary();
           table.string('name', 255).notNullable();
           table.datetime('date', { precision: 6 }).notNullable();
@@ -30,7 +30,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create expensesrecord_audit_log table
-     await knex.schema.createTable('expensesrecord_audit_log', (table) => {
+     await knex.schema.createTableIfNotExists('expensesrecord_audit_log', (table) => {
           table.increments('audit_id').primary();
           table.string('uid', 36).notNullable();
           table.enum('operation', ['INSERT', 'UPDATE', 'DELETE']).notNullable();
@@ -51,7 +51,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create expense_merchants table
-     await knex.schema.createTable('expense_merchants', (table) => {
+     await knex.schema.createTableIfNotExists('expense_merchants', (table) => {
           table.increments('id').primary();
           table.string('name', 255).notNullable();
           table.string('email', 255).nullable();
@@ -66,7 +66,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create expense_payments table
-     await knex.schema.createTable('expense_payments', (table) => {
+     await knex.schema.createTableIfNotExists('expense_payments', (table) => {
           table.increments('id').primary();
           table.integer('expense_id', 11).notNullable();
           table.integer('invoice_id', 11).nullable();
@@ -87,7 +87,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create invoice_expenses table
-     await knex.schema.createTable('invoice_expenses', (table) => {
+     await knex.schema.createTableIfNotExists('invoice_expenses', (table) => {
           table.increments('id').primary();
           table.integer('invoice_id', 11).notNullable();
           table.integer('expense_id', 11).notNullable();

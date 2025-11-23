@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
     // Create incidents table
-    await knex.schema.createTable('incidents', (table) => {
+    await knex.schema.createTableIfNotExists('incidents', (table) => {
         table.string('id', 50).notNullable().primary();
         table.enum('type', ['patient-safety', 'quality', 'security', 'compliance']).notNullable();
         table.string('title', 255).notNullable();
@@ -44,7 +44,7 @@ async function up(knex) {
           ADD CONSTRAINT incidents_investigation_notes_check CHECK (json_valid(investigation_notes))
      `);
     // Create incident_audit_trail table
-    await knex.schema.createTable('incident_audit_trail', (table) => {
+    await knex.schema.createTableIfNotExists('incident_audit_trail', (table) => {
         table.string('id', 50).notNullable().primary();
         table.string('incident_id', 50).notNullable();
         table.timestamp('timestamp').notNullable().defaultTo(knex.fn.now());

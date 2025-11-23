@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // hr_auditlogs table
-     await knex.schema.createTable('hr_auditlogs', (table) => {
+     await knex.schema.createTableIfNotExists('hr_auditlogs', (table) => {
           table.increments('auditid');
           table.integer('employeeid').notNullable();
           table.string('action', 255);
@@ -12,7 +12,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // hr_employeelogincredentials table
-     await knex.schema.createTable('hr_employeelogincredentials', (table) => {
+     await knex.schema.createTableIfNotExists('hr_employeelogincredentials', (table) => {
           table.increments('credentialid');
           table.integer('employeeid').notNullable();
           table.string('password', 255).notNullable();
@@ -30,7 +30,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // hr_employeemergencycontacts table
-     await knex.schema.createTable('hr_employeemergencycontacts', (table) => {
+     await knex.schema.createTableIfNotExists('hr_employeemergencycontacts', (table) => {
           table.increments('contactid');
           table.integer('employeeid').notNullable();
           table.string('contactname', 255).notNullable();
@@ -41,7 +41,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // hr_performancemetrics table
-     await knex.schema.createTable('hr_performancemetrics', (table) => {
+     await knex.schema.createTableIfNotExists('hr_performancemetrics', (table) => {
           table.increments('metricid');
           table.integer('employeeid').notNullable();
           table.integer('samplesprocessed').defaultTo(0);
@@ -52,7 +52,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // hr_rolespermissions table
-     await knex.schema.createTable('hr_rolespermissions', (table) => {
+     await knex.schema.createTableIfNotExists('hr_rolespermissions', (table) => {
           table.increments('roleid');
           table.integer('employeeid').notNullable();
           table.string('rolename', 255).notNullable();
@@ -62,7 +62,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // hr_trainingrecords table
-     await knex.schema.createTable('hr_trainingrecords', (table) => {
+     await knex.schema.createTableIfNotExists('hr_trainingrecords', (table) => {
           table.increments('trainingid');
           table.integer('employeeid').notNullable();
           table.string('trainingname', 255);
@@ -74,7 +74,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // hr_workflowassignments table
-     await knex.schema.createTable('hr_workflowassignments', (table) => {
+     await knex.schema.createTableIfNotExists('hr_workflowassignments', (table) => {
           table.increments('assignmentid');
           table.integer('employeeid').notNullable();
           table.string('workflowname', 255);
@@ -84,7 +84,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // shifts table
-     await knex.schema.createTable('shifts', (table) => {
+     await knex.schema.createTableIfNotExists('shifts', (table) => {
           table.increments('id').primary();
           table.string('name', 50).notNullable();
           table.string('color', 7).nullable();

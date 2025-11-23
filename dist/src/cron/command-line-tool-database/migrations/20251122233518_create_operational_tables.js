@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
     // Create access_windows table
-    await knex.schema.createTable('access_windows', (table) => {
+    await knex.schema.createTableIfNotExists('access_windows', (table) => {
         table.increments('id', { primaryKey: false }).unsigned();
         table.integer('employeeid', 11).notNullable();
         table.enum('category', ['global', 'individual']).notNullable().defaultTo('individual');
@@ -16,7 +16,7 @@ async function up(knex) {
         table.primary(['id']);
     });
     // Create accounts table
-    await knex.schema.createTable('accounts', (table) => {
+    await knex.schema.createTableIfNotExists('accounts', (table) => {
         table.increments('id').primary();
         table.string('accountId', 255).notNullable();
         table.string('accountName', 255).notNullable();
@@ -30,7 +30,7 @@ async function up(knex) {
           ADD CONSTRAINT accounts_accountId_unique UNIQUE (accountId)
      `);
     // Create acc_journal_entry_lines table
-    await knex.schema.createTable('acc_journal_entry_lines', (table) => {
+    await knex.schema.createTableIfNotExists('acc_journal_entry_lines', (table) => {
         table.string('id', 50).notNullable().primary();
         table.string('account_id', 50).notNullable().comment('Account being debited or credited');
         table.decimal('debit_amount', 12, 2).defaultTo(0.00).comment('Debit amount (if any)');
@@ -56,7 +56,7 @@ async function up(knex) {
         table.index('updated_at', 'idx_journal_lines_updated_date');
     });
     // Create additionalservices table
-    await knex.schema.createTable('additionalservices', (table) => {
+    await knex.schema.createTableIfNotExists('additionalservices', (table) => {
         table.increments('keyid').primary();
         table.string('serviceName', 100).notNullable();
         table.integer('servicePrice').notNullable();
@@ -72,7 +72,7 @@ async function up(knex) {
           ADD CONSTRAINT additionalservices_serviceName_unique UNIQUE (serviceName)
      `);
     // Create applicationsettings table
-    await knex.schema.createTable('applicationsettings', (table) => {
+    await knex.schema.createTableIfNotExists('applicationsettings', (table) => {
         table.increments('keyid').primary();
         table.tinyint('bulkregistration').notNullable().defaultTo(0);
         table.string('fontsize', 14).notNullable().defaultTo('13px');
@@ -102,7 +102,7 @@ async function up(knex) {
           ADD CONSTRAINT applicationsettings_billingsettings_check CHECK (json_valid(billingsettings))
      `);
     // Create appointments table
-    await knex.schema.createTable('appointments', (table) => {
+    await knex.schema.createTableIfNotExists('appointments', (table) => {
         table.increments('refid').primary();
         table.integer('patientid').notNullable();
         table.integer('duration').notNullable();
@@ -118,7 +118,7 @@ async function up(knex) {
         table.string('notes', 500).nullable();
     });
     // Create phone_call_logs table
-    await knex.schema.createTable('phone_call_logs', (table) => {
+    await knex.schema.createTableIfNotExists('phone_call_logs', (table) => {
         table.increments('id').primary();
         table.integer('appointment_id', 11).nullable();
         table.integer('caller_id', 11).notNullable();
@@ -140,7 +140,7 @@ async function up(knex) {
         table.foreign('receiver_id').references('id').inTable('employees').onDelete('SET NULL').onUpdate('CASCADE');
     });
     // Create tasks table
-    await knex.schema.createTable('tasks', (table) => {
+    await knex.schema.createTableIfNotExists('tasks', (table) => {
         table.increments('id').primary();
         table.string('name', 255).notNullable();
         table.text('description').nullable();
@@ -153,14 +153,14 @@ async function up(knex) {
         table.index('assignedTo');
     });
     // Create attendancecycles table
-    await knex.schema.createTable('attendancecycles', (table) => {
+    await knex.schema.createTableIfNotExists('attendancecycles', (table) => {
         table.increments('id').primary();
         table.date('cyclestart').notNullable();
         table.date('cycleend').notNullable();
         table.text('description').nullable();
     });
     // Create backup_schedules table (before backup_logs due to foreign key)
-    await knex.schema.createTable('backup_schedules', (table) => {
+    await knex.schema.createTableIfNotExists('backup_schedules', (table) => {
         table.increments('id').primary();
         table.string('schedule_name', 255).notNullable();
         table.enum('frequency', ['daily', 'weekly', 'monthly', 'hourly']).notNullable();
@@ -179,7 +179,7 @@ async function up(knex) {
         // Note: Foreign key to 'roles' table will be added when that table exists
     });
     // Create backup_logs table
-    await knex.schema.createTable('backup_logs', (table) => {
+    await knex.schema.createTableIfNotExists('backup_logs', (table) => {
         table.increments('id').primary();
         table.string('backup_name', 255).notNullable();
         table.tinyint('is_successful').notNullable().defaultTo(0);
@@ -200,7 +200,7 @@ async function up(knex) {
         table.foreign('schedule_id').references('id').inTable('backup_schedules').onDelete('SET NULL');
     });
     // Create backup_security_settings table
-    await knex.schema.createTable('backup_security_settings', (table) => {
+    await knex.schema.createTableIfNotExists('backup_security_settings', (table) => {
         table.increments('id', { primaryKey: false }).unsigned();
         table.tinyint('encryption_enabled').notNullable().defaultTo(0);
         table.string('encryption_algorithm', 255).notNullable().defaultTo('AES-256');

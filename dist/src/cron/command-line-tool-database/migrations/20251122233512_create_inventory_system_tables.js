@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
     // Create inv_brands table
-    await knex.schema.createTable('inv_brands', (table) => {
+    await knex.schema.createTableIfNotExists('inv_brands', (table) => {
         table.string('id', 50).primary();
         table.string('name', 255).notNullable();
         table.timestamp('created_date').nullable().defaultTo(knex.fn.now());
@@ -16,7 +16,7 @@ async function up(knex) {
         table.index('created_date');
     });
     // Create inv_categories table
-    await knex.schema.createTable('inv_categories', (table) => {
+    await knex.schema.createTableIfNotExists('inv_categories', (table) => {
         table.string('id', 50).primary();
         table.string('name', 255).notNullable();
         table.text('description').nullable();
@@ -28,7 +28,7 @@ async function up(knex) {
         table.index('item_count');
     });
     // Create inv_storage_locations table
-    await knex.schema.createTable('inv_storage_locations', (table) => {
+    await knex.schema.createTableIfNotExists('inv_storage_locations', (table) => {
         table.string('id', 50).primary();
         table.string('name', 255).notNullable();
         table.text('description').nullable();
@@ -46,7 +46,7 @@ async function up(knex) {
         table.index('hazardous_materials');
     });
     // Create inv_suppliers table
-    await knex.schema.createTable('inv_suppliers', (table) => {
+    await knex.schema.createTableIfNotExists('inv_suppliers', (table) => {
         table.string('id', 50).primary();
         table.string('name', 255).notNullable();
         table.string('contact', 255).nullable();
@@ -61,7 +61,7 @@ async function up(knex) {
         table.index('email');
     });
     // Create inv_inventory_items table (depends on inv_categories, inv_storage_locations)
-    await knex.schema.createTable('inv_inventory_items', (table) => {
+    await knex.schema.createTableIfNotExists('inv_inventory_items', (table) => {
         table.string('id', 50).primary();
         table.string('name', 255).notNullable();
         table.string('sku', 100).notNullable();
@@ -89,7 +89,7 @@ async function up(knex) {
         table.foreign('location_id').references('id').inTable('inv_storage_locations').onDelete('SET NULL');
     });
     // Create inv_consumption_history table (depends on inv_inventory_items)
-    await knex.schema.createTable('inv_consumption_history', (table) => {
+    await knex.schema.createTableIfNotExists('inv_consumption_history', (table) => {
         table.string('id', 50).primary();
         table.string('item_id', 50).notNullable();
         table.integer('quantity_consumed').notNullable();
@@ -117,7 +117,7 @@ async function up(knex) {
         table.foreign('item_id').references('id').inTable('inv_inventory_items');
     });
     // Create inv_inventory_transactions table (depends on inv_inventory_items)
-    await knex.schema.createTable('inv_inventory_transactions', (table) => {
+    await knex.schema.createTableIfNotExists('inv_inventory_transactions', (table) => {
         table.string('id', 50).primary();
         table.string('item_id', 50).notNullable();
         table.enum('transaction_type', ['addition', 'consumption', 'adjustment', 'transfer', 'wastage']).notNullable();
@@ -146,7 +146,7 @@ async function up(knex) {
         table.foreign('item_id').references('id').inTable('inv_inventory_items');
     });
     // Create inv_purchase_orders table (depends on inv_suppliers)
-    await knex.schema.createTable('inv_purchase_orders', (table) => {
+    await knex.schema.createTableIfNotExists('inv_purchase_orders', (table) => {
         table.string('id', 50).primary();
         table.string('order_number', 100).notNullable();
         table.string('supplier_id', 50).notNullable();
@@ -168,7 +168,7 @@ async function up(knex) {
         table.foreign('supplier_id').references('id').inTable('inv_suppliers');
     });
     // Create inv_purchase_order_items table (depends on inv_purchase_orders, inv_inventory_items)
-    await knex.schema.createTable('inv_purchase_order_items', (table) => {
+    await knex.schema.createTableIfNotExists('inv_purchase_order_items', (table) => {
         table.string('id', 50).primary();
         table.string('order_id', 50).notNullable();
         table.string('inventory_item_id', 50).nullable();
@@ -190,7 +190,7 @@ async function up(knex) {
         table.foreign('order_id').references('id').inTable('inv_purchase_orders').onDelete('CASCADE');
     });
     // Create inv_purchase_order_receipts table (depends on inv_purchase_orders, inv_purchase_order_items)
-    await knex.schema.createTable('inv_purchase_order_receipts', (table) => {
+    await knex.schema.createTableIfNotExists('inv_purchase_order_receipts', (table) => {
         table.string('id', 50).primary();
         table.string('order_id', 50).notNullable();
         table.string('order_item_id', 50).notNullable();
@@ -218,7 +218,7 @@ async function up(knex) {
         table.foreign('order_item_id').references('id').inTable('inv_purchase_order_items');
     });
     // Create inv_supplier_payments table (depends on inv_suppliers, inv_purchase_orders)
-    await knex.schema.createTable('inv_supplier_payments', (table) => {
+    await knex.schema.createTableIfNotExists('inv_supplier_payments', (table) => {
         table.string('id', 50).primary();
         table.string('payment_id', 50).notNullable();
         table.string('supplier_id', 50).notNullable();
@@ -251,7 +251,7 @@ async function up(knex) {
         table.foreign('supplier_id').references('id').inTable('inv_suppliers');
     });
     // Create inv_supplier_payment_allocations table (depends on inv_supplier_payments, inv_purchase_orders, inv_purchase_order_items)
-    await knex.schema.createTable('inv_supplier_payment_allocations', (table) => {
+    await knex.schema.createTableIfNotExists('inv_supplier_payment_allocations', (table) => {
         table.string('id', 50).primary();
         table.string('payment_id', 50).notNullable();
         table.string('purchase_order_id', 50).notNullable();

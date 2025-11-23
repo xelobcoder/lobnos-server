@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
     // Create loggingcriticalvaluealert table
-    await knex.schema.createTable('loggingcriticalvaluealert', (table) => {
+    await knex.schema.createTableIfNotExists('loggingcriticalvaluealert', (table) => {
         table.increments('crkeyId').primary();
         table.integer('billingid').notNullable();
         table.integer('testid').notNullable();
@@ -21,7 +21,7 @@ async function up(knex) {
         table.index(['billingid', 'testid'], 'idx_billingid_testid');
     });
     // Create loginlogs table
-    await knex.schema.createTable('loginlogs', (table) => {
+    await knex.schema.createTableIfNotExists('loginlogs', (table) => {
         table.increments('keyid').primary();
         table.datetime('loginTime', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
         table.integer('employeeid', 10).notNullable();
@@ -37,7 +37,7 @@ async function up(knex) {
           ADD CONSTRAINT loginlogs_browserInformation_check CHECK (json_valid(browserInformation))
      `);
     // Create medicalrecords table
-    await knex.schema.createTable('medicalrecords', (table) => {
+    await knex.schema.createTableIfNotExists('medicalrecords', (table) => {
         table.increments('id').primary();
         table.text('complaints').notNullable();
         table.text('hpc').notNullable();
@@ -60,7 +60,7 @@ async function up(knex) {
         table.foreign('consulationby').references('employeeid').inTable('roles').onDelete('NO ACTION').onUpdate('NO ACTION');
     });
     // Create medicalrecordsaudit table
-    await knex.schema.createTable('medicalrecordsaudit', (table) => {
+    await knex.schema.createTableIfNotExists('medicalrecordsaudit', (table) => {
         table.increments('auditid').primary();
         table.text('complaints').notNullable();
         table.text('hpc').notNullable();

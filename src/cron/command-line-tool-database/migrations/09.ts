@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create dbotestresultapproval table
-     await knex.schema.createTable('dbotestresultapproval', (table) => {
+     await knex.schema.createTableIfNotExists('dbotestresultapproval', (table) => {
           table.increments('id').primary();
           table.integer('ascensionid', 10).notNullable();
           table.tinyint('isapproved').notNullable().defaultTo(0);
@@ -14,7 +14,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create resultentrydrugsreaction table
-     await knex.schema.createTable('resultentrydrugsreaction', (table) => {
+     await knex.schema.createTableIfNotExists('resultentrydrugsreaction', (table) => {
           table.increments('keyid').primary();
           table.integer('drugid', 20).notNullable();
           table.string('reaction', 40).notNullable();
@@ -26,7 +26,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create resultprintingtracking table
-     await knex.schema.createTable('resultprintingtracking', (table) => {
+     await knex.schema.createTableIfNotExists('resultprintingtracking', (table) => {
           table.increments('trackid').primary();
           table.integer('ascensionid', 11).notNullable();
           table.integer('employeeid', 11).notNullable();
@@ -35,14 +35,14 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create resultsettings table
-     await knex.schema.createTable('resultsettings', (table) => {
+     await knex.schema.createTableIfNotExists('resultsettings', (table) => {
           table.increments('id').primary();
           table.text('resultsettings').notNullable();
           table.text('resultsEntrySettings').nullable();
      });
 
      // Create result_comments table
-     await knex.schema.createTable('result_comments', (table) => {
+     await knex.schema.createTableIfNotExists('result_comments', (table) => {
           table.increments('keyid').primary();
           table.integer('testid', 50).notNullable();
           table.integer('billingid', 50).notNullable();
@@ -50,7 +50,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create result_lock table
-     await knex.schema.createTable('result_lock', (table) => {
+     await knex.schema.createTableIfNotExists('result_lock', (table) => {
           table.increments('id').unsigned().primary();
           table.integer('ascensionid', 11).notNullable();
           table.tinyint('isResultLock').defaultTo(0);
@@ -63,7 +63,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create test_results table (partitioning not supported in Knex - created without partitions)
-     await knex.schema.createTable('test_results', (table) => {
+     await knex.schema.createTableIfNotExists('test_results', (table) => {
           table.increments('id').primary();
           table.string('field', 100).notNullable();
           table.integer('ascensionid').unsigned().notNullable();
@@ -91,7 +91,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create test_results_audit_log table (partitioning not supported in Knex)
-     await knex.schema.createTable('test_results_audit_log', (table) => {
+     await knex.schema.createTableIfNotExists('test_results_audit_log', (table) => {
           table.increments('id').primary();
           table.string('field', 100).notNullable();
           table.integer('ascensionid').unsigned().notNullable();
@@ -119,7 +119,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create result_access_requests table (depends on new_patients and roles)
-     await knex.schema.createTable('result_access_requests', (table) => {
+     await knex.schema.createTableIfNotExists('result_access_requests', (table) => {
           table.increments('id').primary();
           table.integer('patientid', 11).notNullable();
           table.integer('staffid', 11).notNullable();

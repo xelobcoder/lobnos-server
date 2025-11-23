@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create access_windows table
-     await knex.schema.createTable('access_windows', (table) => {
+     await knex.schema.createTableIfNotExists('access_windows', (table) => {
           table.increments('id', { primaryKey: false }).unsigned();
           table.integer('employeeid', 11).notNullable();
           table.enum('category', ['global', 'individual']).notNullable().defaultTo('individual');
@@ -17,7 +17,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create accounts table
-     await knex.schema.createTable('accounts', (table) => {
+     await knex.schema.createTableIfNotExists('accounts', (table) => {
           table.increments('id').primary();
           table.string('accountId', 255).notNullable();
           table.string('accountName', 255).notNullable();
@@ -34,7 +34,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create acc_journal_entry_lines table
-     await knex.schema.createTable('acc_journal_entry_lines', (table) => {
+     await knex.schema.createTableIfNotExists('acc_journal_entry_lines', (table) => {
           table.string('id', 50).notNullable().primary();
           table.string('account_id', 50).notNullable().comment('Account being debited or credited');
           table.decimal('debit_amount', 12, 2).defaultTo(0.00).comment('Debit amount (if any)');
@@ -62,7 +62,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create additionalservices table
-     await knex.schema.createTable('additionalservices', (table) => {
+     await knex.schema.createTableIfNotExists('additionalservices', (table) => {
           table.increments('keyid').primary();
           table.string('serviceName', 100).notNullable();
           table.integer('servicePrice').notNullable();
@@ -81,7 +81,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create applicationsettings table
-     await knex.schema.createTable('applicationsettings', (table) => {
+     await knex.schema.createTableIfNotExists('applicationsettings', (table) => {
           table.increments('keyid').primary();
           table.tinyint('bulkregistration').notNullable().defaultTo(0);
           table.string('fontsize', 14).notNullable().defaultTo('13px');
@@ -113,7 +113,7 @@ export async function up(knex: Knex): Promise<void> {
      `);
 
      // Create appointments table
-     await knex.schema.createTable('appointments', (table) => {
+     await knex.schema.createTableIfNotExists('appointments', (table) => {
           table.increments('refid').primary();
           table.integer('patientid').notNullable();
           table.integer('duration').notNullable();
@@ -130,7 +130,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create phone_call_logs table
-     await knex.schema.createTable('phone_call_logs', (table) => {
+     await knex.schema.createTableIfNotExists('phone_call_logs', (table) => {
           table.increments('id').primary();
           table.integer('appointment_id', 11).nullable();
           table.integer('caller_id', 11).notNullable();
@@ -154,7 +154,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create tasks table
-     await knex.schema.createTable('tasks', (table) => {
+     await knex.schema.createTableIfNotExists('tasks', (table) => {
           table.increments('id').primary();
           table.string('name', 255).notNullable();
           table.text('description').nullable();
@@ -168,7 +168,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create attendancecycles table
-     await knex.schema.createTable('attendancecycles', (table) => {
+     await knex.schema.createTableIfNotExists('attendancecycles', (table) => {
           table.increments('id').primary();
           table.date('cyclestart').notNullable();
           table.date('cycleend').notNullable();
@@ -176,7 +176,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create backup_schedules table (before backup_logs due to foreign key)
-     await knex.schema.createTable('backup_schedules', (table) => {
+     await knex.schema.createTableIfNotExists('backup_schedules', (table) => {
           table.increments('id').primary();
           table.string('schedule_name', 255).notNullable();
           table.enum('frequency', ['daily', 'weekly', 'monthly', 'hourly']).notNullable();
@@ -197,7 +197,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create backup_logs table
-     await knex.schema.createTable('backup_logs', (table) => {
+     await knex.schema.createTableIfNotExists('backup_logs', (table) => {
           table.increments('id').primary();
           table.string('backup_name', 255).notNullable();
           table.tinyint('is_successful').notNullable().defaultTo(0);
@@ -220,7 +220,7 @@ export async function up(knex: Knex): Promise<void> {
      });
 
      // Create backup_security_settings table
-     await knex.schema.createTable('backup_security_settings', (table) => {
+     await knex.schema.createTableIfNotExists('backup_security_settings', (table) => {
           table.increments('id', { primaryKey: false }).unsigned();
           table.tinyint('encryption_enabled').notNullable().defaultTo(0);
           table.string('encryption_algorithm', 255).notNullable().defaultTo('AES-256');

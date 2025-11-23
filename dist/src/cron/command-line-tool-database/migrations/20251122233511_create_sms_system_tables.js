@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
     // Create primesmscategorymappings table
-    await knex.schema.createTable('primesmscategorymappings', (table) => {
+    await knex.schema.createTableIfNotExists('primesmscategorymappings', (table) => {
         table.bigIncrements('id').primary();
         table.enum('category', ['patient', 'clinician', 'organization']).notNullable();
         table.string('tablename', 100).notNullable();
@@ -13,7 +13,7 @@ async function up(knex) {
         table.text('additionalfields').nullable();
     });
     // Create primesmsevents table
-    await knex.schema.createTable('primesmsevents', (table) => {
+    await knex.schema.createTableIfNotExists('primesmsevents', (table) => {
         table.bigIncrements('eventid').primary();
         table.string('code', 100).notNullable();
         table.text('description').nullable();
@@ -25,7 +25,7 @@ async function up(knex) {
         table.index('code', null, 'unique');
     });
     // Create primesmstemplates table (needed before primesmseventtemplates)
-    await knex.schema.createTable('primesmstemplates', (table) => {
+    await knex.schema.createTableIfNotExists('primesmstemplates', (table) => {
         table.bigIncrements('templateid').primary();
         table.string('name', 100).notNullable();
         table.text('body').notNullable();
@@ -34,7 +34,7 @@ async function up(knex) {
         table.timestamp('createdat').notNullable().defaultTo(knex.fn.now());
     });
     // Create primesmseventtemplates table
-    await knex.schema.createTable('primesmseventtemplates', (table) => {
+    await knex.schema.createTableIfNotExists('primesmseventtemplates', (table) => {
         table.bigIncrements('id').primary();
         table.bigInteger('eventid').notNullable();
         table.bigInteger('templateid').notNullable();
@@ -45,7 +45,7 @@ async function up(knex) {
         table.foreign('templateid').references('templateid').inTable('primesmstemplates');
     });
     // Create primesmsjobs table
-    await knex.schema.createTable('primesmsjobs', (table) => {
+    await knex.schema.createTableIfNotExists('primesmsjobs', (table) => {
         table.bigIncrements('jobid').primary();
         table.bigInteger('templateid').nullable();
         table.text('custombody').nullable();
@@ -59,7 +59,7 @@ async function up(knex) {
         table.timestamp('createdat').notNullable().defaultTo(knex.fn.now());
     });
     // Create primesmsjobrecipients table
-    await knex.schema.createTable('primesmsjobrecipients', (table) => {
+    await knex.schema.createTableIfNotExists('primesmsjobrecipients', (table) => {
         table.bigIncrements('recid').primary();
         table.bigInteger('jobid').notNullable();
         table.string('phonee164', 20).notNullable();
@@ -75,7 +75,7 @@ async function up(knex) {
         table.foreign('jobid').references('jobid').inTable('primesmsjobs').onDelete('CASCADE');
     });
     // Create primesmsplaceholderrules table
-    await knex.schema.createTable('primesmsplaceholderrules', (table) => {
+    await knex.schema.createTableIfNotExists('primesmsplaceholderrules', (table) => {
         table.bigIncrements('id').primary();
         table.enum('category', ['patient', 'clinician', 'organization']).notNullable();
         table.string('placeholder', 100).notNullable();
@@ -83,45 +83,8 @@ async function up(knex) {
         table.string('tablename', 100).notNullable();
         table.text('description').nullable();
     });
-    // Create smsevents table
-    await knex.schema.createTable('smsevents', (table) => {
-        table.bigIncrements('id').unsigned().primary();
-        table.string('name', 255).notNullable();
-        table.text('description').nullable();
-        table.string('trigger', 255).nullable();
-        table.integer('attachedscheduler').notNullable();
-        table.string('messageheader', 255).nullable();
-        table.tinyint('activated').notNullable().defaultTo(0);
-        table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-    });
-    // Create sms_templates table (needed before sms_schedules)
-    await knex.schema.createTable('sms_templates', (table) => {
-        table.increments('id').primary();
-        table.string('name', 255).notNullable();
-        table.text('message_template').notNullable();
-        table.text('description').nullable();
-        table.enum('category', ['patient', 'billing', 'clinician', 'staff', 'organization', 'accession']).notNullable();
-        table.tinyint('is_active').defaultTo(1);
-        table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-        table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
-    });
-    // Create sms_schedules table
-    await knex.schema.createTable('sms_schedules', (table) => {
-        table.increments('id').primary();
-        table.integer('template_id').notNullable();
-        table.enum('recipient_type', ['single', 'multiple', 'all']).notNullable();
-        table.text('recipient_ids').nullable();
-        table.datetime('send_at').notNullable();
-        table.enum('frequency', ['once', 'daily', 'weekly', 'monthly']).defaultTo('once');
-        table.enum('status', ['pending', 'sent', 'failed', 'cancelled']).defaultTo('pending');
-        table.string('created_by', 255).nullable();
-        table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-        table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
-        table.index('template_id');
-        table.foreign('template_id').references('id').inTable('sms_templates');
-    });
     // Create composedemails table
-    await knex.schema.createTable('composedemails', (table) => {
+    await knex.schema.createTableIfNotExists('composedemails', (table) => {
         table.increments('id').primary();
         table.integer('employeeid', 10).notNullable();
         table.string('subject', 200).notNullable();
@@ -133,7 +96,7 @@ async function up(knex) {
         table.datetime('scheduledate', { precision: 6 }).nullable();
     });
     // Create emaillog table
-    await knex.schema.createTable('emaillog', (table) => {
+    await knex.schema.createTableIfNotExists('emaillog', (table) => {
         table.increments('id').primary();
         table.integer('target', 50).notNullable();
         table.string('type', 100).notNullable();
@@ -142,7 +105,7 @@ async function up(knex) {
         table.string('reason', 100).nullable();
     });
     // Create emailpreference table
-    await knex.schema.createTable('emailpreference', (table) => {
+    await knex.schema.createTableIfNotExists('emailpreference', (table) => {
         table.increments('id').primary();
         table.string('registration', 3).notNullable().defaultTo('No');
         table.string('result', 3).notNullable().defaultTo('No');
@@ -154,7 +117,7 @@ async function up(knex) {
         table.string('billing', 3).notNullable().defaultTo('Yes');
     });
     // Create generalemailsettings table
-    await knex.schema.createTable('generalemailsettings', (table) => {
+    await knex.schema.createTableIfNotExists('generalemailsettings', (table) => {
         table.increments('id').primary();
         table.string('provider', 50).notNullable();
         table.string('email', 100).notNullable();
@@ -173,9 +136,6 @@ async function down(knex) {
         'emailpreference',
         'emaillog',
         'composedemails',
-        'sms_schedules',
-        'sms_templates',
-        'smsevents',
         'primesmsplaceholderrules',
         'primesmsjobrecipients',
         'primesmsjobs',

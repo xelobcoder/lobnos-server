@@ -9,7 +9,7 @@ module.exports = {
                port: 3306
           },
           migrations: {
-               directory: "./src/migrations/KnexMigrations"
+               directory: "./src/cron/command-line-tool-database/migrations"
           },
           seeds: {
                directory: "./src/migrations/KnexMigrations/Seeds"
