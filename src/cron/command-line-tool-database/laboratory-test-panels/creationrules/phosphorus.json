@@ -1,0 +1,69 @@
+[
+     {
+          "name": "PHOSPHORUS",
+          "filename": "phosphorus.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Phosphorus (phosphate) measurement evaluates inorganic phosphorus levels in serum using colorimetric methods. Phosphorus is essential for bone mineralization, energy metabolism, and acid-base balance. Abnormal levels can indicate kidney disease, parathyroid disorders, and metabolic bone diseases.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "PO4",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "PHOSPHORUS (INORGANIC), SERUM",
+               "method": "Phosphomolybdate Complex Colorimetric Method",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Roche Cobas, Beckman Coulter, Abbott Architect"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 30,
+                    "categoryname": "PHOSPHATE METABOLISM",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Phosphorus",
+                    "hasunits": 1,
+                    "units": "mg/dL",
+                    "plan": "limits",
+                    "upperlimit": 4.5,
+                    "lowerlimit": 2.5,
+                    "categoryid": 30,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Phosphorus (phosphate) is essential for bone structure, energy storage (ATP), and cellular signaling. Serum phosphorus measurement uses colorimetric methods based on phosphomolybdate complex formation. Normal adult range is 2.5-4.5 mg/dL, with variations by age and sex. Hypophosphatemia (<2.5 mg/dL) occurs in malnutrition, vitamin D deficiency, hyperparathyroidism, and refeeding syndrome. Hyperphosphatemia (>4.5 mg/dL) is common in chronic kidney disease, hypoparathyroidism, and tumor lysis syndrome. Phosphorus homeostasis involves parathyroid hormone, vitamin D, and FGF-23. Levels fluctuate with meals, so fasting samples are preferred. Results should be interpreted with calcium, PTH, and vitamin D levels. Hemolysis can falsely elevate phosphorus due to red cell content."
+     }
+]

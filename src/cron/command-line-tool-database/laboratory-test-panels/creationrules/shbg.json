@@ -1,0 +1,69 @@
+[
+     {
+          "name": "SEX HORMONE BINDING GLOBULIN",
+          "filename": "shbg.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "SHBG measures sex hormone binding globulin levels and evaluates free androgen index, androgen excess, and metabolic disorders. This test assesses androgen bioavailability and liver function.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "SHBG",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "SEX HORMONE BINDING GLOBULIN (SHBG)",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 38,
+                    "categoryname": "HORMONES",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "SHBG",
+                    "hasunits": 1,
+                    "units": "nmol/L",
+                    "plan": "limits",
+                    "upperlimit": 50.0,
+                    "lowerlimit": 10.0,
+                    "categoryid": 38,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "SHBG (Sex Hormone Binding Globulin) binds testosterone and estradiol, regulating their bioavailability. Normal ranges: adult males 10-50 nmol/L, adult females 18-144 nmol/L (varies by age/menopausal status). Low SHBG levels increase free androgen activity, seen in polycystic ovary syndrome, obesity, hypothyroidism, and insulin resistance. High SHBG levels decrease free hormones, seen in hyperthyroidism, liver disease, and estrogen therapy. Chemiluminescent immunoassay provides accurate measurement. Free Androgen Index (FAI) = (Total Testosterone/SHBG) × 100. Used in evaluation of hirsutism, androgen excess, infertility, and metabolic syndrome. SHBG is produced by liver and influenced by insulin, thyroid hormones, and nutritional status."
+     }
+]

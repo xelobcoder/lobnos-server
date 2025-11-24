@@ -1,0 +1,95 @@
+[
+     {
+          "name": "ORAL GLUCOSE TOLERANCE TEST",
+          "filename": "ogtt.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Oral Glucose Tolerance Test (OGTT) evaluates glucose metabolism by measuring blood glucose before and after oral glucose administration. This comprehensive test diagnoses diabetes mellitus, impaired glucose tolerance, and gestational diabetes.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 4,
+          "shorttext": "OGTT",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "ORAL GLUCOSE TOLERANCE TEST",
+               "method": "Hexokinase Method (Enzymatic)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 37,
+                    "categoryname": "GLYCEMIA",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Fasting Glucose (0 min)",
+                    "hasunits": 1,
+                    "units": "mg/dL",
+                    "plan": "limits",
+                    "upperlimit": 100.0,
+                    "lowerlimit": 70.0,
+                    "categoryid": 37,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               },
+               {
+                    "testid": null,
+                    "name": "1 Hour Glucose",
+                    "hasunits": 1,
+                    "units": "mg/dL",
+                    "plan": "limits",
+                    "upperlimit": 180.0,
+                    "lowerlimit": 70.0,
+                    "categoryid": 37,
+                    "alert": null,
+                    "ordering": 2,
+                    "undercategory": 1
+               },
+               {
+                    "testid": null,
+                    "name": "2 Hour Glucose",
+                    "hasunits": 1,
+                    "units": "mg/dL",
+                    "plan": "limits",
+                    "upperlimit": 140.0,
+                    "lowerlimit": 70.0,
+                    "categoryid": 37,
+                    "alert": null,
+                    "ordering": 3,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Oral Glucose Tolerance Test (OGTT) is the gold standard for diagnosing diabetes mellitus and impaired glucose tolerance. Patient fasts overnight, then ingests 75g glucose dissolved in water. Blood samples drawn at 0, 1, and 2 hours. Normal: Fasting <100 mg/dL, 2-hour <140 mg/dL. Impaired glucose tolerance: 2-hour 140-199 mg/dL. Diabetes: Fasting ≥126 mg/dL or 2-hour ≥200 mg/dL. The test evaluates beta-cell function and insulin sensitivity. More sensitive than fasting glucose alone for detecting early glucose abnormalities. Used for gestational diabetes screening (50g load, 1-hour cutoff 140 mg/dL). Requires strict patient preparation and timing. Enzymatic hexokinase method ensures accuracy. Results interpreted with clinical context and symptoms."
+     }
+]

@@ -1,0 +1,69 @@
+[
+     {
+          "name": "ESTRADIOL (E2)",
+          "filename": "estradiol.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Estradiol (E2) is the most potent estrogen hormone, essential for female reproductive function and bone health. This test measures estradiol levels using chemiluminescent immunoassay. The test evaluates ovarian function, monitors fertility treatments, and assesses hormonal disorders in both women and men.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "E2",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "ESTRADIOL, SERUM",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 35,
+                    "categoryname": "ESTROGENS",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Estradiol",
+                    "hasunits": 1,
+                    "units": "pg/mL",
+                    "plan": "limits",
+                    "upperlimit": 400.0,
+                    "lowerlimit": 10.0,
+                    "categoryid": 35,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Estradiol (E2) is the primary estrogen hormone produced by ovarian granulosa cells. The test uses highly sensitive chemiluminescent immunoassays capable of measuring low concentrations. Levels vary dramatically by age, sex, and menstrual cycle phase. Adult female follicular phase: 20-150 pg/mL, ovulatory peak: up to 400 pg/mL, luteal phase: 70-300 pg/mL. Postmenopausal: <30 pg/mL. Adult male: 10-50 pg/mL. The test is essential for infertility evaluation, monitoring ovulation induction, assessing menopause, and evaluating hormonal disorders. Timing of sample collection is crucial for interpretation. Results should be correlated with FSH, LH, and clinical findings. Estradiol measurement helps assess ovarian reserve and response to fertility treatments."
+     }
+]

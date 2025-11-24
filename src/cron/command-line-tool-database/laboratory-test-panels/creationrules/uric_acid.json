@@ -1,0 +1,69 @@
+[
+     {
+          "name": "URIC ACID",
+          "filename": "uric_acid.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Uric acid measurement evaluates purine metabolism end-product levels in serum using enzymatic methods. Elevated uric acid can cause gout and is associated with kidney stones, metabolic syndrome, and cardiovascular disease. The test helps diagnose and monitor gout treatment.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "UA",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "URIC ACID, SERUM",
+               "method": "Uricase Enzymatic Method",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Roche Cobas, Beckman Coulter, Abbott Architect"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 31,
+                    "categoryname": "PURINE METABOLISM",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Uric Acid",
+                    "hasunits": 1,
+                    "units": "mg/dL",
+                    "plan": "limits",
+                    "upperlimit": 6.8,
+                    "lowerlimit": 3.5,
+                    "categoryid": 31,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Uric acid is the end product of purine metabolism, primarily excreted by kidneys. The test uses uricase enzymatic method for accurate measurement. Normal range is 3.5-7.2 mg/dL for men and 2.6-6.0 mg/dL for women (sex-dependent reference ranges). Hyperuricemia (>6.8 mg/dL) increases gout risk and is associated with metabolic syndrome, hypertension, and kidney disease. Causes include high purine diet, kidney impairment, certain medications, and genetic factors. Hypouricemia (<3.5 mg/dL) is less common but can occur in liver disease or medication use. Uric acid levels fluctuate with diet and hydration, so consistent conditions are important. The test is used for gout diagnosis, monitoring urate-lowering therapy, and assessing cardiovascular risk. Results should be interpreted with clinical context and may require 24-hour urine collection for comprehensive evaluation."
+     }
+]

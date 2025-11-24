@@ -1,0 +1,69 @@
+[
+     {
+          "name": "ANDROSTENEDIONE",
+          "filename": "androstenedione.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Androstenedione measures adrenal and gonadal androgen production and evaluates hirsutism, virilization, and androgen excess disorders. This test assesses androgen metabolism and adrenal function.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "ANDRO",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "ANDROSTENEDIONE",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 38,
+                    "categoryname": "HORMONES",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Androstenedione",
+                    "hasunits": 1,
+                    "units": "ng/dL",
+                    "plan": "limits",
+                    "upperlimit": 270.0,
+                    "lowerlimit": 40.0,
+                    "categoryid": 38,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Androstenedione is a weak androgen precursor produced by adrenal glands and gonads. It serves as an intermediate in testosterone and estrogen synthesis. Normal ranges: adult males 40-270 ng/dL, adult females 40-250 ng/dL. Elevated levels suggest polycystic ovary syndrome, congenital adrenal hyperplasia, adrenal tumors, or ovarian hyperthecosis. Low levels may indicate adrenal insufficiency. Chemiluminescent immunoassay provides reliable measurement. Androstenedione is used in evaluation of hirsutism, virilization, infertility, and androgen excess. It helps differentiate adrenal vs ovarian sources of androgen excess. Levels are higher in women with PCOS and may predict response to treatment."
+     }
+]

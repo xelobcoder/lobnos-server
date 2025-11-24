@@ -1,0 +1,69 @@
+[
+     {
+          "name": "SERUM INSULIN",
+          "filename": "serum_insulin.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Serum Insulin measures circulating insulin levels to evaluate pancreatic beta-cell function and insulin resistance. This test uses chemiluminescent immunoassay for precise quantification of insulin concentration.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "INSULIN",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "SERUM INSULIN",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 38,
+                    "categoryname": "HORMONES",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Serum Insulin",
+                    "hasunits": 1,
+                    "units": "µIU/mL",
+                    "plan": "limits",
+                    "upperlimit": 25.0,
+                    "lowerlimit": 2.6,
+                    "categoryid": 38,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Serum Insulin measures endogenous insulin production and helps evaluate insulin resistance and beta-cell function. Normal fasting range is 2.6-25 µIU/mL. Elevated levels suggest insulin resistance (pre-diabetes, metabolic syndrome). Low levels indicate beta-cell failure (type 1 diabetes). The chemiluminescent immunoassay provides high sensitivity and specificity. Samples must be fasting and handled carefully to prevent degradation. Insulin levels correlate with glucose levels and are used in HOMA-IR calculations for insulin resistance assessment. The test is valuable for differentiating diabetes types, monitoring insulin therapy, and assessing metabolic disorders. Results should be interpreted with concurrent glucose measurements and clinical context."
+     }
+]

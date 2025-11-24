@@ -1,0 +1,60 @@
+[
+     {
+          "name": "Coombs Direct",
+          "filename": "coombs_direct.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "The Direct Coombs Test (Direct Antiglobulin Test - DAT) detects antibodies or complement proteins attached to the surface of red blood cells. It is used to diagnose autoimmune hemolytic anemia, hemolytic disease of the newborn, and transfusion reactions.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 4,
+          "shorttext": "DCT",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 10,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "min",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "min",
+               "reporttitle": "Coombs Direct",
+               "method": "",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": ""
+          },
+          "testdetailcategory": [],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Direct Coombs Test",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "options",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": null,
+                    "alert": null,
+                    "options": "Positive,Negative",
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "The Direct Coombs Test (DAT) is a laboratory test used to detect immunoglobulin or complement proteins bound to the surface of red blood cells. A positive DAT indicates that antibodies or complement are attached to the patient's red blood cells, which can occur in autoimmune hemolytic anemia, hemolytic transfusion reactions, and hemolytic disease of the newborn. The test uses anti-human globulin serum to detect these bound proteins and is essential for diagnosing immune-mediated red cell destruction."
+     }
+]

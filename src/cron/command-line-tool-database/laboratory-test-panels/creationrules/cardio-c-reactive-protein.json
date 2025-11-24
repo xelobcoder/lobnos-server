@@ -1,0 +1,60 @@
+[
+     {
+          "name": "Cardio C-Reactive Protein",
+          "filename": "cardio_c_reactive_protein.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "High-Sensitivity C-Reactive Protein (hs-CRP) is a cardiac marker used to assess cardiovascular risk. It measures inflammation in the body and helps predict the risk of heart disease, heart attack, and stroke. hs-CRP levels help identify individuals who may benefit from preventive measures and lifestyle modifications.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 4,
+          "shorttext": "hs-CRP",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 10,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "min",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "min",
+               "reporttitle": "Cardio C-Reactive Protein",
+               "method": "",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": ""
+          },
+          "testdetailcategory": [],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "hs-CRP",
+                    "hasunits": 1,
+                    "units": "mg/L",
+                    "plan": "greaterLess",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": null,
+                    "textReference": "< 1.0",
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "------------------------------------------------------------\n| CARDIO CRP IN mg/L    | CARDIOVASCULAR RISK                  |\n|-----------------------|--------------------------------------|\n|           <1          | Low                                  |\n|-----------------------|--------------------------------------|\n|          1-3          | Average                              |\n|-----------------------|--------------------------------------|\n|          3-10         | High                                 |\n|-----------------------|--------------------------------------|\n|           >10         | Persistent elevation may represent   |\n|                       | Non cardiovascular inflammation      |"
+     }
+]

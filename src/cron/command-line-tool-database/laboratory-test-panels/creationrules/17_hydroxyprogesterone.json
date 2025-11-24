@@ -1,0 +1,69 @@
+[
+     {
+          "name": "17-HYDROXYPROGESTERONE",
+          "filename": "17_hydroxyprogesterone.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "17-Hydroxyprogesterone measures adrenal steroid intermediate and evaluates congenital adrenal hyperplasia (CAH), particularly 21-hydroxylase deficiency. This test assesses adrenal enzyme function and androgen production.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "17-OHP",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "17-HYDROXYPROGESTERONE",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 38,
+                    "categoryname": "HORMONES",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "17-Hydroxyprogesterone",
+                    "hasunits": 1,
+                    "units": "ng/dL",
+                    "plan": "limits",
+                    "upperlimit": 200.0,
+                    "lowerlimit": 6.0,
+                    "categoryid": 38,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "17-Hydroxyprogesterone (17-OHP) is an intermediate in adrenal steroidogenesis and glucocorticoid synthesis. Normal adult range is 6-200 ng/dL. Markedly elevated levels suggest congenital adrenal hyperplasia (CAH), particularly 21-hydroxylase deficiency. Mild elevations may occur in polycystic ovary syndrome or stress. Low levels are seen in adrenal insufficiency. Chemiluminescent immunoassay provides high sensitivity for neonatal screening and diagnosis. In newborns, levels >2000 ng/dL suggest CAH. Timing is important - follicular phase preferred in women. Used in evaluation of ambiguous genitalia, precocious puberty, hirsutism, and infertility. Critical for diagnosing and monitoring treatment of CAH patients."
+     }
+]

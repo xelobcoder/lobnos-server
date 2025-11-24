@@ -1,0 +1,69 @@
+[
+     {
+          "name": "VITAMIN B12",
+          "filename": "vitamin_b12.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Vitamin B12 (Cobalamin) is essential for red blood cell formation, neurological function, and DNA synthesis. This test measures vitamin B12 levels using chemiluminescent immunoassay. Vitamin B12 deficiency can cause megaloblastic anemia, neurological disorders, and various symptoms.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "B12",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "VITAMIN B12, SERUM",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 25,
+                    "categoryname": "B VITAMINS",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Vitamin B12",
+                    "hasunits": 1,
+                    "units": "pg/mL",
+                    "plan": "limits",
+                    "upperlimit": 900.0,
+                    "lowerlimit": 200.0,
+                    "categoryid": 25,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Vitamin B12 (cobalamin) is essential for hematopoiesis, neurological function, and DNA synthesis. The test uses competitive chemiluminescent immunoassays that measure total vitamin B12 in serum. Normal range is 200-900 pg/mL, with deficiency defined as <200 pg/mL. Vitamin B12 deficiency can cause megaloblastic anemia, peripheral neuropathy, cognitive impairment, and subacute combined degeneration of the spinal cord. Common causes include pernicious anemia, malabsorption syndromes, vegetarian/vegan diets, and gastrointestinal surgery. Early deficiency may be detected by elevated homocysteine and methylmalonic acid levels. The test is indicated for patients with macrocytic anemia, neurological symptoms, malabsorption disorders, and those on long-term metformin therapy. Results should be interpreted with clinical context, and confirmatory tests may be needed in borderline cases."
+     }
+]

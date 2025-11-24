@@ -1,0 +1,121 @@
+[
+     {
+          "name": "Hb Electrophoresis",
+          "filename": "hb_electrophoresis.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Hemoglobin Electrophoresis is a blood test that separates and identifies different types of hemoglobin in the blood. It is used to diagnose hemoglobinopathies such as sickle cell disease, thalassemia, and other genetic disorders affecting hemoglobin structure and function.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 4,
+          "shorttext": "HBE",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 10,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "min",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "min",
+               "reporttitle": "Hb Electrophoresis",
+               "method": "",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": ""
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 13,
+                    "categoryname": "HEMOGLOBIN VARIANTS",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Hb A",
+                    "hasunits": 1,
+                    "units": "%",
+                    "plan": "limits",
+                    "upperlimit": 100.0,
+                    "lowerlimit": 95.0,
+                    "categoryid": 13,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               },
+               {
+                    "testid": null,
+                    "name": "Hb A2",
+                    "hasunits": 1,
+                    "units": "%",
+                    "plan": "limits",
+                    "upperlimit": 3.5,
+                    "lowerlimit": 2.0,
+                    "categoryid": 13,
+                    "alert": null,
+                    "ordering": 2,
+                    "undercategory": 1
+               },
+               {
+                    "testid": null,
+                    "name": "Hb F",
+                    "hasunits": 1,
+                    "units": "%",
+                    "plan": "limits",
+                    "upperlimit": 2.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 13,
+                    "alert": null,
+                    "ordering": 3,
+                    "undercategory": 1
+               },
+               {
+                    "testid": null,
+                    "name": "Hb S",
+                    "hasunits": 1,
+                    "units": "%",
+                    "plan": "limits",
+                    "upperlimit": 0.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 13,
+                    "alert": null,
+                    "ordering": 4,
+                    "undercategory": 1
+               },
+               {
+                    "testid": null,
+                    "name": "Hb C",
+                    "hasunits": 1,
+                    "units": "%",
+                    "plan": "limits",
+                    "upperlimit": 0.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 13,
+                    "alert": null,
+                    "ordering": 5,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Hemoglobin electrophoresis is a diagnostic test that separates different hemoglobin types based on their electrical charge. It is essential for diagnosing hemoglobinopathies including sickle cell disease, thalassemia, and other inherited blood disorders. The test quantifies normal hemoglobin (Hb A) and abnormal variants (Hb S, Hb C, Hb F, etc.), helping clinicians determine the type and severity of hemoglobin disorders for appropriate patient management and genetic counseling."
+     }
+]

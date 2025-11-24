@@ -1,0 +1,69 @@
+[
+     {
+          "name": "POSTPRANDIAL GLUCOSE",
+          "filename": "postprandial_glucose.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Postprandial Glucose measures blood glucose levels 2 hours after a meal. This test evaluates glucose metabolism and insulin response following carbohydrate intake. Elevated levels indicate impaired glucose tolerance or diabetes mellitus.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "PPBS",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "POSTPRANDIAL BLOOD GLUCOSE, SERUM",
+               "method": "Hexokinase Method (Enzymatic)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 37,
+                    "categoryname": "GLYCEMIA",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Postprandial Blood Glucose",
+                    "hasunits": 1,
+                    "units": "mg/dL",
+                    "plan": "limits",
+                    "upperlimit": 140.0,
+                    "lowerlimit": 70.0,
+                    "categoryid": 37,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Postprandial Glucose (PPG) measures blood glucose 2 hours after a standardized meal (75g glucose load). Normal PPG is <140 mg/dL. Levels 140-199 mg/dL indicate impaired glucose tolerance, while ≥200 mg/dL suggests diabetes mellitus. The test evaluates carbohydrate metabolism and insulin response. PPG is more predictive of cardiovascular risk than fasting glucose. The hexokinase enzymatic method ensures accurate measurement. Timing is critical - must be exactly 2 hours post-meal. Results help diagnose diabetes, monitor treatment efficacy, and assess metabolic control. Should be interpreted alongside fasting glucose and HbA1c for comprehensive glycemic assessment."
+     }
+]

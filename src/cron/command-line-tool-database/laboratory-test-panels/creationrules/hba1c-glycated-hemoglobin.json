@@ -1,0 +1,59 @@
+[
+     {
+          "name": "HbA1c (Glycated Hemoglobin)",
+          "filename": "hba1c_glycated_hemoglobin.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "HbA1c (Glycated Hemoglobin) test measures the average blood glucose levels over the past 2-3 months. It reflects the percentage of hemoglobin that has become glycated (bound to glucose) and is used for diabetes diagnosis, monitoring, and management. HbA1c provides a reliable indicator of long-term glycemic control.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 4,
+          "shorttext": "HbA1c",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 10,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "min",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "min",
+               "reporttitle": "HbA1c (Glycated Hemoglobin)",
+               "method": "",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 1,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": ""
+          },
+          "testdetailcategory": [],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "HbA1c",
+                    "hasunits": 1,
+                    "units": "%",
+                    "plan": "limits",
+                    "upperlimit": 5.6,
+                    "lowerlimit": 4.0,
+                    "categoryid": null,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Hemoglobin A1c (HbA1c) is a form of hemoglobin that is chemically linked to glucose. The HbA1c test measures the percentage of hemoglobin that is glycated and reflects average blood glucose levels over the previous 2-3 months. It is the gold standard for monitoring long-term glycemic control in diabetic patients and for diabetes diagnosis. HbA1c levels below 5.7% are considered normal, 5.7-6.4% indicate prediabetes, and 6.5% or higher suggest diabetes. Regular HbA1c testing helps guide treatment decisions and assess diabetes management effectiveness."
+     }
+]

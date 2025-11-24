@@ -1,0 +1,70 @@
+[
+     {
+          "name": "HEPATITIS B SURFACE ANTIGEN (HBSAG)",
+          "filename": "hbsag.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Hepatitis B Surface Antigen (HBsAg) is a serological marker for active Hepatitis B virus infection. This test uses chemiluminescent immunoassay to detect HBsAg in serum. Positive results indicate current HBV infection and potential infectivity.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "HBsAg",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "HEPATITIS B SURFACE ANTIGEN (HBsAg), SERUM",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testdetailcategory": [
+               {
+                    "categoryid": 26,
+                    "categoryname": "VIRAL HEPATITIS",
+                    "testid": null,
+                    "created_at": "2025-11-24T00:00:00.000Z",
+                    "createdby": 1,
+                    "updatedby": 1,
+                    "updated_at": "2025-11-24T00:00:00.000Z"
+               }
+          ],
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "HBsAg",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "options",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 26,
+                    "options": "Negative,Positive",
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 1
+               }
+          ],
+          "literatureReview": "Hepatitis B Surface Antigen (HBsAg) is the hallmark of active Hepatitis B virus (HBV) infection. The test uses highly sensitive chemiluminescent immunoassays that detect HBsAg in serum. Positive HBsAg indicates current HBV infection and potential infectivity. The test is essential for HBV screening in high-risk populations, blood donors, pregnant women, and patients with liver disease. Positive results require confirmation and further testing for other HBV markers (HBeAg, anti-HBe, anti-HBc, HBV DNA) to determine infection phase and infectivity. HBsAg may be transiently positive during acute infection window period or chronically positive in carriers. Vaccination induces anti-HBs antibodies, not HBsAg. The test has high sensitivity and specificity, but false positives can occur rarely. Results should be interpreted with clinical context and may require repeat testing for confirmation."
+     }
+]
