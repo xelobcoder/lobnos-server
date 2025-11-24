@@ -228,7 +228,7 @@ async function up(knex) {
             table.index('receipt_number', null, 'unique');
             table.index('order_id');
             table.index('order_item_id');
-            table.index(['order_id', 'order_item_id', 'received_date', 'batch_number']);
+            table.index(['order_id', 'order_item_id', 'received_date', 'batch_number'], 'idx_receipts_order_item_date_batch');
             table.index(['batch_number', 'expiry_date'], 'idx_receipts_batch_expiry');
             table.foreign('order_id').references('id').inTable('inv_purchase_orders').onDelete('CASCADE').onUpdate('CASCADE');
             table.foreign('order_item_id').references('id').inTable('inv_purchase_order_items').onDelete('CASCADE').onUpdate('CASCADE');

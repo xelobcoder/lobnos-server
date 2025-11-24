@@ -40,7 +40,7 @@ async function up(knex) {
             table.string('qty_required', 100).nullable();
             table.string('shorttext', 15).nullable();
             table.tinyint('iscustom').notNullable().defaultTo(0);
-            table.integer('id', 20).notNullable();
+            table.integer('id').notNullable().unsigned();
             table.unique('name');
             table.index('id');
             table.index(['name', 'id'], 'name_id_index');
@@ -57,7 +57,7 @@ async function up(knex) {
             table.unique(['package_id', 'test_id']);
             table.index('test_id');
             table.foreign('package_id').references('id').inTable('packages').onDelete('CASCADE').onUpdate('CASCADE');
-            table.foreign('test_id').references('prim_key').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
+            table.foreign('test_id').references('id').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
         });
     }
     // Create clinicianbasicinfo table
@@ -153,7 +153,7 @@ async function up(knex) {
             table.unique(['categoryname', 'testid'], 'categoryname_testid_unique');
             table.index('testid');
             // Foreign key will be added after test_panels is created
-            table.foreign('testid').references('prim_key').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
+            table.foreign('testid').references('id').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
         });
     }
     if (!(await knex.schema.hasTable('organization'))) {
@@ -276,7 +276,7 @@ async function up(knex) {
             table.integer('updatedby', 11).nullable();
             table.index(['outsourceid', 'generalTestId'], null, 'unique');
             table.index('generalTestId');
-            table.foreign('generalTestId').references('prim_key').inTable('test_panels').onDelete('SET NULL').onUpdate('CASCADE');
+            table.foreign('generalTestId').references('id').inTable('test_panels').onDelete('SET NULL').onUpdate('CASCADE');
             table.foreign('outsourceid').references('outsourceid').inTable('outsourcingorganization').onDelete('SET NULL').onUpdate('CASCADE');
         });
     }

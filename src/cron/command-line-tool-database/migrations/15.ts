@@ -2,128 +2,136 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create drugscategory table (before drugs due to foreign key)
-     await knex.schema.createTableIfNotExists('drugscategory', (table) => {
-          table.increments('id').primary();
-          table.string('categoryName', 255).notNullable();
-          table.text('description').nullable();
-          table.datetime('createdOn').defaultTo(knex.fn.now());
-          table.string('createdBy', 255).notNullable();
-     });
+     if (!(await knex.schema.hasTable('drugscategory'))) {
+          await knex.schema.createTable('drugscategory', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('categoryName', 255).notNullable();
+               table.text('description').nullable();
+               table.datetime('createdOn').defaultTo(knex.fn.now());
+               table.string('createdBy', 255).notNullable();
 
-     // Add unique constraint for drugscategory.categoryName
-     await knex.raw(`
-          ALTER TABLE drugscategory
-          ADD CONSTRAINT drugscategory_categoryname_unique UNIQUE (categoryName)
-     `);
-
+               table.index('categoryName', 'drugscategory_categoryname_unique', 'unique');
+          });
+     }
+     // Create shifts table (before employeepreferredshifts due to foreign key)
+     if (!(await knex.schema.hasTable('shifts'))) {
+          await knex.schema.createTable('shifts', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('name', 50).notNullable();
+               table.string('color', 7).nullable();
+               table.time('starttime').notNullable();
+               table.time('endtime').notNullable();
+               table.unique('name');
+          });
+     }
      // Create drugs table
-     await knex.schema.createTableIfNotExists('drugs', (table) => {
-          table.increments('id').primary();
-          table.string('drug', 255).notNullable();
-          table.integer('category', 10).nullable();
-          table.integer('createdby', 10).notNullable();
-          table.datetime('addedOn', { precision: 6 }).defaultTo(knex.fn.now(6));
+     if (!(await knex.schema.hasTable('drugs'))) {
+          await knex.schema.createTable('drugs', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('drug', 255).notNullable();
+               table.integer('category', 10).unsigned().nullable();
+               table.integer('createdby', 10).notNullable();
+               table.datetime('addedOn', { precision: 6 }).defaultTo(knex.fn.now(6));
 
-          table.index('category', 'fk_drugs_map_category');
-          table.foreign('category').references('id').inTable('drugscategory');
-     });
-
-     // Add unique constraint for drugs (drug, category)
-     await knex.raw(`
-          ALTER TABLE drugs
-          ADD CONSTRAINT drug_unique UNIQUE (drug, category)
-     `);
+               table.index('category', 'fk_drugs_map_category');
+               table.index(['drug', 'category'], 'drug_unique', 'unique');
+               table.foreign('category').references('id').inTable('drugscategory');
+          });
+     }
 
      // Create regions table (before districts due to foreign key)
-     await knex.schema.createTableIfNotExists('regions', (table) => {
-          table.increments('id').primary();
-          table.string('name', 255).notNullable();
-          table.string('regioncode', 5).notNullable();
-     });
+     if (!(await knex.schema.hasTable('regions'))) {
+          await knex.schema.createTable('regions', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('name', 255).notNullable();
+               table.string('regioncode', 5).notNullable();
 
-     // Add unique constraint for regions.name
-     await knex.raw(`
-          ALTER TABLE regions
-          ADD CONSTRAINT regions_name_unique UNIQUE (name)
-     `);
+               table.index('name', 'regions_name_unique', 'unique');
+          });
+     }
 
      // Create districts table
-     await knex.schema.createTableIfNotExists('districts', (table) => {
-          table.increments('id').primary();
-          table.string('name', 255).notNullable();
-          table.string('code', 10).notNullable();
-          table.integer('regionid', 11).nullable();
+     if (!(await knex.schema.hasTable('districts'))) {
+          await knex.schema.createTable('districts', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('name', 255).notNullable();
+               table.string('code', 10).notNullable();
+               table.integer('regionid').unsigned().nullable();
 
-          table.index('regionid', 'region_id');
-          table.foreign('regionid').references('id').inTable('regions');
-     });
-
-     // Add unique constraints using raw SQL
-     await knex.raw(`
-          ALTER TABLE districts
-          ADD CONSTRAINT name_unique UNIQUE (name, code),
-          ADD CONSTRAINT name_region_unique UNIQUE (name, code, regionid)
-     `);
+               table.index('regionid', 'region_id');
+               table.index(['name', 'code'], 'name_unique', 'unique');
+               table.index(['name', 'code', 'regionid'], 'name_region_unique', 'unique');
+               table.foreign('regionid').references('id').inTable('regions');
+          });
+     }
 
      // Create employeepreferredshifts table
-     await knex.schema.createTableIfNotExists('employeepreferredshifts', (table) => {
-          table.integer('employeeid', 11).notNullable();
-          table.integer('shiftid', 11).notNullable();
-          table.increments('preferenceid').primary();
+     if (!(await knex.schema.hasTable('employeepreferredshifts'))) {
+          await knex.schema.createTable('employeepreferredshifts', (table) => {
+               table.integer('employeeid').notNullable().unsigned();
+               table.integer('shiftid').notNullable().unsigned();
+               table.increments('preferenceid').primary().unsigned();
 
-          table.index('shiftid');
-     });
+               table.index('shiftid');
+               table.index(['employeeid', 'shiftid'], 'employeepreferredshifts_employee_shift_unique', 'unique');
 
-     // Add unique constraint for employeepreferredshifts (employeeid, shiftid)
-     await knex.raw(`
-          ALTER TABLE employeepreferredshifts
-          ADD CONSTRAINT employeepreferredshifts_employee_shift_unique UNIQUE (employeeid, shiftid)
-     `);
+               table.foreign('employeeid').references('employeeid').inTable('roles').onUpdate('CASCADE');
+               table.foreign('shiftid').references('id').inTable('shifts').onUpdate('CASCADE').onDelete('CASCADE');
+          });
+     }
 
      // Create employeeunavailabledays table
-     await knex.schema.createTableIfNotExists('employeeunavailabledays', (table) => {
-          table.integer('employeeid', 11).notNullable();
-          table.string('dayofweek', 20).notNullable();
-          table.increments('unavailableid').primary();
-     });
+     if (!(await knex.schema.hasTable('employeeunavailabledays'))) {
+          await knex.schema.createTable('employeeunavailabledays', (table) => {
+               table.integer('employeeid').notNullable().unsigned();
+               table.string('dayofweek', 20).notNullable();
+               table.increments('unavailableid').primary().unsigned();
 
-     // Add unique constraint for employeeunavailabledays.employeeid
-     await knex.raw(`
-          ALTER TABLE employeeunavailabledays
-          ADD CONSTRAINT employeeunavailabledays_employeeid_unique UNIQUE (employeeid)
-     `);
+               table.index('employeeid', 'employeeunavailabledays_employeeid_unique', 'unique');
+
+               table.foreign('employeeid').references('employeeid').inTable('roles').onUpdate('CASCADE').onDelete('CASCADE');
+          });
+     }
 
      // Create encryption_keys table
-     await knex.schema.createTableIfNotExists('encryption_keys', (table) => {
-          table.increments('id').primary();
-          table.string('key_id', 255).notNullable();
-          table.text('encrypted_key').notNullable();
-          table.string('algorithm', 255).notNullable().defaultTo('aes-256-cbc');
-          table.date('expires_at').nullable();
-          table.tinyint('is_active').notNullable().defaultTo(1);
-          table.date('deactivated_at').nullable();
-          table.string('created_by', 255).nullable();
-          table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-          table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
+     if (!(await knex.schema.hasTable('encryption_keys'))) {
+          await knex.schema.createTable('encryption_keys', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('key_id', 255).notNullable();
+               table.text('encrypted_key').notNullable();
+               table.string('algorithm', 255).notNullable().defaultTo('aes-256-cbc');
+               table.date('expires_at').nullable();
+               table.tinyint('is_active').notNullable().defaultTo(1);
+               table.date('deactivated_at').nullable();
+               table.integer('created_by').unsigned().nullable();
+               table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
+               table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
 
-          table.index('key_id', 'idx_encryption_keys_key_id');
-          table.index('is_active', 'idx_encryption_keys_active');
-     });
+               table.index('key_id', 'idx_encryption_keys_key_id');
+               table.index('is_active', 'idx_encryption_keys_active');
+               table.index('key_id', 'encryption_keys_key_id_unique', 'unique');
 
-     // Add unique constraint for encryption_keys.key_id
-     await knex.raw(`
-          ALTER TABLE encryption_keys
-          ADD CONSTRAINT encryption_keys_key_id_unique UNIQUE (key_id)
-     `);
+
+               table.foreign('created_by').references('employeeid').inTable('roles').onUpdate('CASCADE')
+          });
+     }
+
+
 
      // Create event_template_map table
-     await knex.schema.createTableIfNotExists('event_template_map', (table) => {
-          table.bigInteger('event_id').unsigned().notNullable();
-          table.integer('template_id', 11).notNullable();
+     if (!(await knex.schema.hasTable('event_template_map'))) {
+          await knex.schema.createTable('event_template_map', (table) => {
+               table.integer('event_id').unsigned().notNullable();
+               table.integer('template_id').notNullable().unsigned();
 
-          table.primary(['event_id', 'template_id']);
-          table.index('template_id', 'fk_template');
-     });
+               table.primary(['event_id', 'template_id']);
+               table.index('template_id', 'fk_template');
+
+               // Note: Foreign keys will be added when referenced tables exist
+               // table.foreign('event_id').references('id').inTable('events').onDelete('CASCADE').onUpdate('CASCADE');
+               // table.foreign('template_id').references('id').inTable('email_templates').onDelete('CASCADE').onUpdate('CASCADE');
+          });
+     }
 }
 
 export async function down(knex: Knex): Promise<void> {
@@ -166,6 +174,7 @@ export async function down(knex: Knex): Promise<void> {
 
      // Drop tables in reverse order due to foreign key constraints
      await knex.schema.dropTableIfExists('event_template_map');
+     await knex.schema.dropTableIfExists('shifts');
      await knex.schema.dropTableIfExists('encryption_keys');
      await knex.schema.dropTableIfExists('employeeunavailabledays');
      await knex.schema.dropTableIfExists('employeepreferredshifts');

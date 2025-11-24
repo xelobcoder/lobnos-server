@@ -118,7 +118,7 @@ async function up(knex) {
             table.primary(['strategyid', 'testid']);
             table.index('testid');
             table.foreign('strategyid').references('strategyid').inTable('billingstrategy').onDelete('CASCADE');
-            table.foreign('testid').references('prim_key').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
+            table.foreign('testid').references('id').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
         });
     }
     // Create billing_audit table
@@ -303,7 +303,7 @@ async function up(knex) {
             table.index('serviceid', 'billingid');
             table.index('testid');
             table.index(['testid', 'serviceid'], 'testid_2');
-            table.foreign('testid').references('prim_key').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
+            table.foreign('testid').references('id').inTable('test_panels').onDelete('CASCADE').onUpdate('CASCADE');
             table.foreign('serviceid').references('serviceid').inTable('dboservices').onDelete('CASCADE').onUpdate('CASCADE');
             table.foreign('billingid').references('billingid').inTable('billing').onDelete('CASCADE').onUpdate('CASCADE');
         });
@@ -477,7 +477,7 @@ async function up(knex) {
             table.index('billing_strategy_id');
             table.index('test_panel_id');
             table.foreign('billing_strategy_id').references('id').inTable('prime_billing_strategies').onDelete('CASCADE');
-            table.foreign('test_panel_id').references('prim_key').inTable('test_panels').onDelete('SET NULL');
+            table.foreign('test_panel_id').references('id').inTable('test_panels').onDelete('SET NULL');
         });
     }
     // Create prime_billing_audit

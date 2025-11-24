@@ -2,90 +2,105 @@ import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
      // Create loggingcriticalvaluealert table
-     await knex.schema.createTableIfNotExists('loggingcriticalvaluealert', (table) => {
-          table.increments('crkeyId').primary();
-          table.integer('billingid').notNullable();
-          table.integer('testid').notNullable();
-          table.enum('constraint_type', ['null', 'less', 'greater', 'match', 'notmatch', 'between', 'contains']).notNullable();
-          table.text('statement').notNullable();
-          table.datetime('createdOn', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
-          table.integer('createdBy').notNullable();
-          table.integer('isSeen').nullable();
-          table.integer('isSeenBy').nullable();
-          table.integer('ascensionid').nullable();
+     if (!(await knex.schema.hasTable('loggingcriticalvaluealert'))) {
+          await knex.schema.createTable('loggingcriticalvaluealert', (table) => {
+               table.increments('crkeyId').primary().unsigned();
+               table.integer('billingid').notNullable().unsigned();
+               table.integer('testid').notNullable().unsigned();
+               table.enum('constraint_type', ['null', 'less', 'greater', 'match', 'notmatch', 'between', 'contains']).notNullable();
+               table.text('statement').notNullable();
+               table.datetime('createdOn', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
+               table.integer('createdBy').notNullable().unsigned();
+               table.integer('isSeen').nullable().defaultTo(0);
+               table.integer('isSeenBy').nullable().unsigned();
+               table.integer('ascensionid').nullable().unsigned();
 
-          // Indexes
-          table.index('billingid', 'idx_billingid');
-          table.index('ascensionid', 'idx_ascensionid');
-          table.index('testid', 'idx_testid');
-          table.index(['billingid', 'testid'], 'idx_billingid_testid');
-     });
+               // Indexes
+               table.index('billingid', 'idx_billingid');
+               table.index('ascensionid', 'idx_ascensionid');
+               table.index('testid', 'idx_testid');
+               table.index(['billingid', 'testid'], 'idx_billingid_testid');
+
+               // Foreign Keys
+               table.foreign('billingid').references('billingid').inTable('billing').onUpdate('CASCADE');
+               table.foreign('testid').references('id').inTable('test_panels').onUpdate('CASCADE').onDelete('CASCADE'); 
+               table.foreign('createdBy').references('employeeid').inTable('roles').onUpdate('CASCADE');
+               table.foreign('isSeenBy').references('employeeid').inTable('roles').onUpdate('CASCADE');
+               table.foreign('ascensionid').references('id').inTable('test_ascension').onUpdate('CASCADE').onDelete('CASCADE');
+          });
+     }
 
      // Create loginlogs table
-     await knex.schema.createTableIfNotExists('loginlogs', (table) => {
-          table.increments('keyid').primary();
-          table.datetime('loginTime', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
-          table.integer('employeeid', 10).notNullable();
-          table.string('loginSessionId', 100).notNullable();
-          table.bigInteger('logoutTime').notNullable();
-          table.text('browserInformation').notNullable().defaultTo('{}');
-          table.tinyint('loggedout').notNullable().defaultTo(0);
-          table.bigInteger('actualLogout').nullable();
-     });
+     if (!(await knex.schema.hasTable('loginlogs'))) {
+          await knex.schema.createTable('loginlogs', (table) => {
+               table.increments('keyid').primary().unsigned();
+               table.datetime('loginTime', { precision: 6 }).notNullable().defaultTo(knex.fn.now(6));
+               table.integer('employeeid').notNullable().unsigned();
+               table.string('loginSessionId', 100).notNullable();
+               table.bigInteger('logoutTime').notNullable();
+               table.text('browserInformation').notNullable().defaultTo('{}');
+               table.tinyint('loggedout').notNullable().defaultTo(0);
+               table.bigInteger('actualLogout').nullable();
+          });
+     }
 
      // Add JSON validation CHECK constraint
      await knex.raw(`
           ALTER TABLE loginlogs
-          ADD CONSTRAINT loginlogs_browserInformation_check CHECK (json_valid(browserInformation))
+          ADD CONSTRAINT IF NOT EXISTS loginlogs_browserInformation_check CHECK (json_valid(browserInformation))
      `);
 
      // Create medicalrecords table
-     await knex.schema.createTableIfNotExists('medicalrecords', (table) => {
-          table.increments('id').primary();
-          table.text('complaints').notNullable();
-          table.text('hpc').notNullable();
-          table.text('pmh').notNullable();
-          table.text('sh').notNullable();
-          table.text('odq').notNullable();
-          table.text('dhx').notNullable();
-          table.text('se').notNullable();
-          table.text('fh').notNullable();
-          table.text('obsGynecHistory').notNullable();
-          table.text('oe').notNullable();
-          table.enum('record_type', ['Old Record', 'In-Process (Today)', 'IPD Review', 'OPD New Cases']).notNullable();
-          table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-          table.integer('consulationby', 20).notNullable();
-          table.bigInteger('patientid').notNullable();
-          table.integer('associatedTransactionid', 20).nullable();
+     if (!(await knex.schema.hasTable('medicalrecords'))) {
+          await knex.schema.createTable('medicalrecords', (table) => {
+               table.increments('id').primary().unsigned();
+               table.text('complaints').notNullable();
+               table.text('hpc').notNullable();
+               table.text('pmh').notNullable();
+               table.text('sh').notNullable();
+               table.text('odq').notNullable();
+               table.text('dhx').notNullable();
+               table.text('se').notNullable();
+               table.text('fh').notNullable();
+               table.text('obsGynecHistory').notNullable();
+               table.text('oe').notNullable();
+               table.enum('record_type', ['Old Record', 'In-Process (Today)', 'IPD Review', 'OPD New Cases']).notNullable();
+               table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
+               table.integer('consulationby').notNullable().unsigned();
+               table.bigInteger('patientid').notNullable().unsigned();
+               table.integer('associatedTransactionid').nullable().unsigned();
 
-          // Index
-          table.index('consulationby', 'consultation_employee_map');
-          // Foreign key (roles table should exist)
-          table.foreign('consulationby').references('employeeid').inTable('roles').onDelete('NO ACTION').onUpdate('NO ACTION');
-     });
+               // Index
+               table.index('consulationby', 'consultation_employee_map');
+               // Foreign key (roles table should exist)
+               table.foreign('consulationby').references('employeeid').inTable('roles').onDelete('NO ACTION').onUpdate('NO ACTION');
+          });
+     }
 
      // Create medicalrecordsaudit table
-     await knex.schema.createTableIfNotExists('medicalrecordsaudit', (table) => {
-          table.increments('auditid').primary();
-          table.text('complaints').notNullable();
-          table.text('hpc').notNullable();
-          table.text('pmh').notNullable();
-          table.text('sh').notNullable();
-          table.text('odq').notNullable();
-          table.text('dhx').notNullable();
-          table.text('se').notNullable();
-          table.text('fh').notNullable();
-          table.text('obsGynecHistory').notNullable();
-          table.text('oe').notNullable();
-          table.enum('record_type', ['Old Record', 'In-Process (Today)', 'IPD Review', 'OPD New Cases']).notNullable();
-          table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-          table.integer('consulationby', 20).notNullable();
+     if (!(await knex.schema.hasTable('medicalrecordsaudit'))) {
+          await knex.schema.createTable('medicalrecordsaudit', (table) => {
+               table.increments('auditid').primary().unsigned();
+               table.text('complaints').notNullable();
+               table.text('hpc').notNullable();
+               table.text('pmh').notNullable();
+               table.text('sh').notNullable();
+               table.text('odq').notNullable();
+               table.text('dhx').notNullable();
+               table.text('se').notNullable();
+               table.text('fh').notNullable();
+               table.text('obsGynecHistory').notNullable();
+               table.text('oe').notNullable();
+               table.enum('record_type', ['Old Record', 'In-Process (Today)', 'IPD Review', 'OPD New Cases']).notNullable();
+               table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
+               table.integer('consulationby').notNullable().unsigned();
 
-          // Index
-          table.index('consulationby', 'consultation_employee_map');
-          // Foreign key (roles table should exist)
-          table.foreign('consulationby').references('employeeid').inTable('roles').onDelete('NO ACTION').onUpdate('NO ACTION');
-     });
+               // Index
+               table.index('consulationby', 'consultation_employee_map');
+               table.foreign('consulationby').references('employeeid').inTable('roles').onDelete('NO ACTION').onUpdate('NO ACTION');
+               
+          });
+     }
 }
 
 export async function down(knex: Knex): Promise<void> {
