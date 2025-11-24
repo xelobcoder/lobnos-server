@@ -1,0 +1,58 @@
+[
+     {
+          "name": "ANTI DIURETIC HORMONE (ADH) / VASOPRESSIN",
+          "filename": "adh.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Anti Diuretic Hormone (ADH/Vasopressin) regulates water balance and blood pressure. This test measures ADH levels to diagnose disorders of water metabolism and SIADH.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 3,
+          "shorttext": "ADH/VASOPRESSIN",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 7,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "ANTI DIURETIC HORMONE (VASOPRESSIN)",
+               "method": "Radioimmunoassay (RIA) / Chemiluminescent Immunoassay",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Immunoassay Analyzer"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "ADH/Vasopressin",
+                    "hasunits": 1,
+                    "units": "pg/mL",
+                    "plan": "quantitative",
+                    "upperlimit": 6.7,
+                    "lowerlimit": 0.3,
+                    "categoryid": 55,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "ADH (Vasopressin) regulates water reabsorption in kidneys. Normal: 0.3-6.7 pg/mL. Elevated in SIADH, renal failure, liver cirrhosis. Decreased in diabetes insipidus, hypopituitarism. Requires special collection (EDTA tube on ice). Unstable at room temperature. Used with serum osmolality and urine specific gravity for differential diagnosis. Critical for water metabolism disorders and posterior pituitary function assessment."
+     }
+]

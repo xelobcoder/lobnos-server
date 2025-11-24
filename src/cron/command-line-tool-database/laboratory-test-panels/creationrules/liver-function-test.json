@@ -38,35 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 4,
-                    "categoryname": "LIVER ENZYMES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 5,
-                    "categoryname": "BILIRUBIN",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 6,
-                    "categoryname": "PROTEINS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -79,7 +50,7 @@
                     "categoryid": 4,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -92,7 +63,7 @@
                     "categoryid": 4,
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -105,7 +76,7 @@
                     "categoryid": 4,
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -118,7 +89,7 @@
                     "categoryid": 4,
                     "alert": null,
                     "ordering": 4,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -131,7 +102,7 @@
                     "categoryid": 5,
                     "alert": null,
                     "ordering": 5,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -144,7 +115,7 @@
                     "categoryid": 5,
                     "alert": null,
                     "ordering": 6,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -157,7 +128,7 @@
                     "categoryid": 5,
                     "alert": null,
                     "ordering": 7,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -170,7 +141,7 @@
                     "categoryid": 6,
                     "alert": null,
                     "ordering": 8,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -183,7 +154,7 @@
                     "categoryid": 6,
                     "alert": null,
                     "ordering": 9,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -196,7 +167,7 @@
                     "categoryid": 6,
                     "alert": null,
                     "ordering": 10,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Liver Function Tests (LFTs) are blood tests used to help diagnose and monitor liver disease or damage. The tests measure the levels of certain enzymes and proteins in your blood. Some of these tests measure how well the liver is performing its normal functions of producing protein and clearing bilirubin, a blood waste product. Other liver function tests measure enzymes that liver cells release in response to damage or disease. Abnormal liver function test results don't always indicate liver disease. Your doctor will interpret your results in the context of your medical history, physical exam, and other tests."

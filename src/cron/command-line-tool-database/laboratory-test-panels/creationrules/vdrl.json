@@ -1,0 +1,58 @@
+[
+     {
+          "name": "VDRL",
+          "filename": "vdrl.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "VDRL (Venereal Disease Research Laboratory) test detects syphilis infection by measuring reagin antibodies in serum. This flocculation test is used for syphilis screening and monitoring.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "VDRL",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 1,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "VDRL TEST",
+               "method": "Flocculation Test (Cardiolipin Antigen)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Manual VDRL Kit"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "VDRL",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 50,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "VDRL test detects non-treponemal antibodies (reagins) to cardiolipin-lecithin-cholesterol antigen. Normal: non-reactive. Reactive: positive for syphilis. Quantitative results reported as titer (1:2, 1:4, etc.). Becomes positive 4-6 weeks after infection. False positives with autoimmune diseases, pregnancy, IV drug use, or recent vaccination. False negatives in early/late syphilis or prozone phenomenon. Confirm positive results with TPHA or FTA-ABS. Used for syphilis screening, treatment monitoring (4-fold titer decrease), and congenital syphilis diagnosis. Critical for STD screening and public health surveillance."
+     }
+]

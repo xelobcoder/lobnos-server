@@ -1,0 +1,71 @@
+[
+     {
+          "name": "URINE FOR MICROALBUMIN",
+          "filename": "urine_microalbumin.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Urine Microalbumin detects early kidney damage in diabetes and hypertension by measuring low levels of albumin excretion. This test identifies diabetic nephropathy and cardiovascular risk.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 5,
+          "shorttext": "MICROALBUMIN",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "URINE MICROALBUMIN",
+               "method": "Immunoturbidimetric Assay",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Microalbumin",
+                    "hasunits": 1,
+                    "units": "mg/L",
+                    "plan": "limits",
+                    "upperlimit": 20.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 48,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               },
+               {
+                    "testid": null,
+                    "name": "Albumin/Creatinine Ratio",
+                    "hasunits": 1,
+                    "units": "mg/g",
+                    "plan": "limits",
+                    "upperlimit": 30.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 48,
+                    "alert": null,
+                    "ordering": 2,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Urine Microalbumin detects early renal damage before proteinuria develops. Normal <20 mg/L or <30 mg/g creatinine. Microalbuminuria (20-200 mg/L) indicates incipient diabetic nephropathy and increased cardiovascular risk. Measured by immunoturbidimetric assay. Albumin/creatinine ratio preferred as it corrects for urine concentration. Annual screening recommended for diabetics and hypertensives. Early detection allows intervention to prevent progression to overt nephropathy. Also elevated in glomerulonephritis, preeclampsia, and urinary tract infections. Critical marker for renal and cardiovascular risk assessment."
+     }
+]

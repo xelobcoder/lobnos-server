@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 13,
-                    "categoryname": "HEMOGLOBIN VARIANTS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 13,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -74,7 +63,7 @@
                     "categoryid": 13,
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -87,7 +76,7 @@
                     "categoryid": 13,
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -100,7 +89,7 @@
                     "categoryid": 13,
                     "alert": null,
                     "ordering": 4,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -113,7 +102,7 @@
                     "categoryid": 13,
                     "alert": null,
                     "ordering": 5,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Hemoglobin electrophoresis is a diagnostic test that separates different hemoglobin types based on their electrical charge. It is essential for diagnosing hemoglobinopathies including sickle cell disease, thalassemia, and other inherited blood disorders. The test quantifies normal hemoglobin (Hb A) and abnormal variants (Hb S, Hb C, Hb F, etc.), helping clinicians determine the type and severity of hemoglobin disorders for appropriate patient management and genetic counseling."

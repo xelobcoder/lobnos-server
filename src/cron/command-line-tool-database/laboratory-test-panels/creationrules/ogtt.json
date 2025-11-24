@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 37,
-                    "categoryname": "GLYCEMIA",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 37,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -74,7 +63,7 @@
                     "categoryid": 37,
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -87,7 +76,7 @@
                     "categoryid": 37,
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Oral Glucose Tolerance Test (OGTT) is the gold standard for diagnosing diabetes mellitus and impaired glucose tolerance. Patient fasts overnight, then ingests 75g glucose dissolved in water. Blood samples drawn at 0, 1, and 2 hours. Normal: Fasting <100 mg/dL, 2-hour <140 mg/dL. Impaired glucose tolerance: 2-hour 140-199 mg/dL. Diabetes: Fasting ≥126 mg/dL or 2-hour ≥200 mg/dL. The test evaluates beta-cell function and insulin sensitivity. More sensitive than fasting glucose alone for detecting early glucose abnormalities. Used for gestational diabetes screening (50g load, 1-hour cutoff 140 mg/dL). Requires strict patient preparation and timing. Enzymatic hexokinase method ensures accuracy. Results interpreted with clinical context and symptoms."

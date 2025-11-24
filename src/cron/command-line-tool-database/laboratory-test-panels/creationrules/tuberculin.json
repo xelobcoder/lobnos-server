@@ -1,0 +1,58 @@
+[
+     {
+          "name": "TUBERCULIN TEST (TT) (Montoux Test)",
+          "filename": "tuberculin.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Tuberculin Test (PPD) detects Mycobacterium tuberculosis infection by measuring delayed-type hypersensitivity reaction. This test screens for latent tuberculosis infection and guides preventive therapy.",
+          "sample_container": 1,
+          "unit": "test",
+          "qty_required": 1,
+          "shorttext": "PPD",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 3,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 1,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "day",
+               "pre_TatEvaluation": "hour",
+               "tatEvaluation": "day",
+               "reporttitle": "TUBERCULIN SKIN TEST (PPD)",
+               "method": "Intradermal Injection with Reading at 48-72 Hours",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Manual Administration and Measurement"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "PPD Induration",
+                    "hasunits": 1,
+                    "units": "mm",
+                    "plan": "limits",
+                    "upperlimit": 5.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 47,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Tuberculin Skin Test (PPD) detects latent Mycobacterium tuberculosis infection. 0.1 mL (5 TU) purified protein derivative injected intradermally on forearm. Read at 48-72 hours by measuring induration (not erythema). Positive: ≥5 mm (HIV+), ≥10 mm (high risk), ≥15 mm (low risk). False negatives in immunocompromised, recent infection, or BCG vaccination. False positives with nontuberculous mycobacteria. Used for LTBI screening in high-risk groups, contact tracing, and pre-biologic therapy evaluation. Positive test indicates infection but not active disease. Follow-up with chest X-ray and consideration of LTBI treatment. Interferon-gamma release assays (IGRAs) are preferred in BCG-vaccinated individuals."
+     }
+]

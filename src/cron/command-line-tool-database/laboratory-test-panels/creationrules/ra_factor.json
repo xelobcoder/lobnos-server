@@ -1,0 +1,58 @@
+[
+     {
+          "name": "RA FACTOR",
+          "filename": "ra_factor.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Rheumatoid Factor (RF) detects autoantibodies against Fc portion of IgG. This test aids in rheumatoid arthritis diagnosis and monitoring disease activity.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "RA FACTOR",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 1,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "RHEUMATOID FACTOR",
+               "method": "Latex Agglutination Test",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "RF Test Kit, Immunoassay Analyzer"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Rheumatoid Factor",
+                    "hasunits": 1,
+                    "units": "IU/mL",
+                    "plan": "quantitative",
+                    "upperlimit": 14,
+                    "lowerlimit": 0,
+                    "categoryid": 51,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Rheumatoid Factor (RF) detects IgM antibodies against IgG Fc portion. Normal: <14 IU/mL. Positive: ≥14 IU/mL. Present in 70-80% of RA patients. Also positive in Sjögren's syndrome, SLE, scleroderma, and infections. Higher titers correlate with disease severity. Used with anti-CCP for RA diagnosis (ACR/EULAR criteria). False positives with age, infections, or other autoimmune diseases. Quantitative measurement preferred over qualitative. Critical for rheumatoid arthritis diagnosis and monitoring."
+     }
+]

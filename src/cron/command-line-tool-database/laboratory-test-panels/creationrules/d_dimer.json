@@ -1,0 +1,58 @@
+[
+     {
+          "name": "D-DIMER",
+          "filename": "d_dimer.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "D-Dimer measures fibrin degradation products and evaluates thrombotic disorders, pulmonary embolism, and disseminated intravascular coagulation. This test helps rule out venous thromboembolism.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "D-DIMER",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "D-DIMER",
+               "method": "Immunoturbidimetric Assay",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "D-Dimer",
+                    "hasunits": 1,
+                    "units": "ng/mL",
+                    "plan": "limits",
+                    "upperlimit": 500.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 43,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "D-Dimer is a fibrin degradation product formed during fibrinolysis. Normal <500 ng/mL (varies by assay). Elevated levels indicate active thrombosis and fibrinolysis. High negative predictive value for ruling out pulmonary embolism and deep vein thrombosis. Immunoturbidimetric assay provides rapid results. Used in evaluation of suspected VTE, DIC, stroke, and monitoring anticoagulation therapy. Also elevated in pregnancy, malignancy, infection, and trauma. Age-adjusted cutoffs improve specificity in elderly patients. Critical test for emergency department evaluation of chest pain and shortness of breath. Results must be interpreted with clinical probability and imaging studies."
+     }
+]

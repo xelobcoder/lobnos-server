@@ -38,35 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Siemens Clinitek, Sysmex UF-5000"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 12,
-                    "categoryname": "PHYSICAL EXAMINATION",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 13,
-                    "categoryname": "CHEMICAL EXAMINATION",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 14,
-                    "categoryname": "MICROSCOPIC EXAMINATION",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -80,7 +51,7 @@
                     "options": "Pale Yellow,Straw,Yellow,Dark Yellow,Amber,Red,Orange,Brown,Green,Black",
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -94,7 +65,7 @@
                     "options": "Clear,Hazy,Cloudy,Turbid",
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -107,7 +78,7 @@
                     "categoryid": 12,
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -120,7 +91,7 @@
                     "categoryid": 13,
                     "alert": null,
                     "ordering": 4,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -134,7 +105,7 @@
                     "options": "Negative,Trace,1+,2+,3+,4+",
                     "alert": null,
                     "ordering": 5,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -148,7 +119,7 @@
                     "options": "Negative,Trace,1+,2+,3+,4+",
                     "alert": null,
                     "ordering": 6,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -162,7 +133,7 @@
                     "options": "Negative,Trace,1+,2+,3+,4+",
                     "alert": null,
                     "ordering": 7,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -176,7 +147,7 @@
                     "options": "Negative,Trace,1+,2+,3+,4+",
                     "alert": null,
                     "ordering": 8,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -190,7 +161,7 @@
                     "options": "Negative,Small,Moderate,Large",
                     "alert": null,
                     "ordering": 9,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -204,7 +175,7 @@
                     "options": "Normal,Increased",
                     "alert": null,
                     "ordering": 10,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -218,7 +189,7 @@
                     "options": "Negative,Positive",
                     "alert": null,
                     "ordering": 11,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -232,7 +203,7 @@
                     "options": "Negative,Trace,1+,2+,3+",
                     "alert": null,
                     "ordering": 12,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -245,7 +216,7 @@
                     "categoryid": 14,
                     "alert": null,
                     "ordering": 13,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -258,7 +229,7 @@
                     "categoryid": 14,
                     "alert": null,
                     "ordering": 14,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -271,7 +242,7 @@
                     "categoryid": 14,
                     "alert": null,
                     "ordering": 15,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -284,7 +255,7 @@
                     "categoryid": 14,
                     "alert": null,
                     "ordering": 16,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -298,7 +269,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 17,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -312,7 +283,7 @@
                     "options": "Absent,Few,Moderate,Many",
                     "alert": null,
                     "ordering": 18,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -326,7 +297,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 19,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Urine Routine Examination (Urinalysis) is a comprehensive diagnostic test that evaluates multiple aspects of urine including physical properties, chemical composition, and microscopic elements. Modern automated systems combine dipstick analysis, flow cytometry, and digital microscopy for accurate and efficient testing. The examination assesses kidney function, detects urinary tract infections, metabolic disorders, and systemic diseases. Physical examination evaluates color, clarity, and specific gravity. Chemical analysis uses reagent strips to detect proteins, glucose, ketones, blood, bilirubin, urobilinogen, nitrites, and leukocyte esterase. Microscopic examination identifies cells, casts, crystals, bacteria, and other formed elements. This test is essential for routine health screening, monitoring chronic conditions, and investigating symptoms like dysuria, hematuria, or flank pain. Results should be correlated with clinical findings and patient history."

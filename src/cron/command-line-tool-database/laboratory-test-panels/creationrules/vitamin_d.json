@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, DiaSorin Liaison"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 24,
-                    "categoryname": "VITAMIN ASSAYS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 24,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "25-Hydroxyvitamin D [25(OH)D] is the major circulating form of vitamin D and the best indicator of vitamin D status. The test uses automated chemiluminescent immunoassays that measure both D2 and D3 forms. Vitamin D deficiency (<20 ng/mL) is associated with rickets, osteomalacia, increased fracture risk, and various health conditions. Insufficiency is 20-29 ng/mL, and sufficiency is ≥30 ng/mL. Optimal levels for certain conditions may be higher (≥40-50 ng/mL). Vitamin D testing is indicated for patients with bone disorders, malabsorption syndromes, obesity, limited sun exposure, and certain autoimmune diseases. Seasonal variation affects results, with lower levels in winter. Results should be interpreted considering clinical context, patient demographics, and supplementation status. Vitamin D binding protein and albumin levels may affect total 25(OH)D measurements in certain conditions."

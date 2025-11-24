@@ -38,26 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 9,
-                    "categoryname": "CHOLESTEROL",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 10,
-                    "categoryname": "TRIGLYCERIDES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -70,7 +50,7 @@
                     "categoryid": 9,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -83,7 +63,7 @@
                     "categoryid": 9,
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -96,7 +76,7 @@
                     "categoryid": 9,
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -109,7 +89,7 @@
                     "categoryid": 9,
                     "alert": null,
                     "ordering": 4,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -122,7 +102,7 @@
                     "categoryid": 9,
                     "alert": null,
                     "ordering": 5,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -135,7 +115,7 @@
                     "categoryid": 10,
                     "alert": null,
                     "ordering": 6,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "A basic Lipid Profile is a fundamental blood test that measures essential lipid parameters using enzymatic methods. This test assesses cardiovascular risk by measuring total cholesterol (CHO-POD method), triglycerides (GPO-POD method), HDL cholesterol (Enzymatic Immunoinhibition), direct LDL cholesterol (Enzymatic Selective Protection), calculated VLDL cholesterol, and non-HDL cholesterol. Non-HDL cholesterol represents the 'bad' cholesterol components and is calculated as total cholesterol minus HDL cholesterol. This basic profile provides essential information about heart health and helps determine if lifestyle changes or medications are needed to manage lipid levels. Regular lipid profile testing is recommended for adults, especially those with risk factors such as family history, smoking, diabetes, or hypertension."

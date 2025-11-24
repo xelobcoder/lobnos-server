@@ -1,0 +1,58 @@
+[
+     {
+          "name": "TROPONIN I",
+          "filename": "troponin_i.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Troponin I measures cardiac muscle injury and is the gold standard for diagnosing acute myocardial infarction. This high-sensitivity test detects myocardial damage with excellent specificity.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "TROP I",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "TROPONIN I",
+               "method": "High Sensitivity Chemiluminescent Immunoassay",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Troponin I",
+                    "hasunits": 1,
+                    "units": "ng/mL",
+                    "plan": "limits",
+                    "upperlimit": 0.04,
+                    "lowerlimit": 0.0,
+                    "categoryid": 42,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Troponin I is a cardiac-specific protein released from damaged myocardial cells. High sensitivity troponin I is the preferred biomarker for acute myocardial infarction diagnosis. Normal <0.04 ng/mL (99th percentile). Levels rise 3-6 hours after myocardial injury, peak at 12-24 hours, and remain elevated for 7-10 days. Chemiluminescent immunoassay provides excellent sensitivity and specificity. Used in chest pain evaluation, AMI diagnosis, and risk stratification. Serial measurements (0, 3, 6 hours) improve diagnostic accuracy. Also elevated in myocarditis, cardiac contusion, and cardiotoxic chemotherapy. Critical for rapid rule-out/rule-in of myocardial infarction in emergency settings."
+     }
+]

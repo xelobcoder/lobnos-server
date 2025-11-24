@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 36,
-                    "categoryname": "PREGNANCY HORMONES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 36,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Beta Human Chorionic Gonadotropin (β-hCG) is produced by syncytiotrophoblastic cells of the placenta and is the earliest marker of pregnancy. The test uses highly sensitive chemiluminescent immunoassays that detect β-hCG as early as 8-10 days after conception. Normal pregnancy levels double every 48 hours in early pregnancy. Non-pregnant: <5 mIU/mL. The test is used for pregnancy diagnosis, dating, monitoring ectopic pregnancy, and detecting gestational trophoblastic disease. Persistent low levels may indicate miscarriage or ectopic pregnancy. Very high levels suggest multiple gestation or gestational trophoblastic disease. The β-subunit is specific to hCG, avoiding cross-reactivity with LH. Results should be interpreted with clinical context and ultrasound findings."

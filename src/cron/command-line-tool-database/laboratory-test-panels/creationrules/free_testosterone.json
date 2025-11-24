@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Specialized Endocrine Laboratories"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 38,
-                    "categoryname": "HORMONES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 38,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Free Testosterone represents the biologically active fraction of testosterone not bound to SHBG or albumin. It constitutes only 2-3% of total testosterone but is responsible for androgenic effects. Normal ranges: adult males 5-25 pg/mL, adult females 0.3-1.9 pg/mL. Free testosterone is more accurate than total testosterone for assessing androgen status, especially in conditions affecting SHBG (obesity, thyroid disorders, liver disease). Low levels suggest hypogonadism, while high levels indicate androgen excess or ovarian hyperthecosis. Equilibrium dialysis with immunoassay is the gold standard method. Used in evaluation of infertility, hirsutism, erectile dysfunction, and testosterone replacement therapy monitoring. Free testosterone correlates better with clinical androgen effects than total testosterone."

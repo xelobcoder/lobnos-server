@@ -38,7 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [],
           "testcreationrules": [
                {
                     "testid": null,
@@ -51,7 +50,7 @@
                     "categoryid": null,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Hemoglobin A1c (HbA1c) is a form of hemoglobin that is chemically linked to glucose. The HbA1c test measures the percentage of hemoglobin that is glycated and reflects average blood glucose levels over the previous 2-3 months. It is the gold standard for monitoring long-term glycemic control in diabetic patients and for diabetes diagnosis. HbA1c levels below 5.7% are considered normal, 5.7-6.4% indicate prediabetes, and 6.5% or higher suggest diabetes. Regular HbA1c testing helps guide treatment decisions and assess diabetes management effectiveness."

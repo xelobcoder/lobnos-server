@@ -1,0 +1,58 @@
+[
+     {
+          "name": "FREE T4",
+          "filename": "free_t4.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Free T4 measures unbound thyroxine levels and evaluates thyroid function more accurately than total T4. This test assesses thyroid hormone production and thyroid-binding protein abnormalities.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "FT4",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "FREE T4",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Free T4",
+                    "hasunits": 1,
+                    "units": "ng/dL",
+                    "plan": "limits",
+                    "upperlimit": 1.8,
+                    "lowerlimit": 0.8,
+                    "categoryid": 44,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Free T4 (FT4) measures the unbound, biologically active fraction of thyroxine. Normal range 0.8-1.8 ng/dL. FT4 is preferred over total T4 because it reflects true thyroid hormone status, unaffected by thyroid-binding protein abnormalities. Low FT4 indicates hypothyroidism, high FT4 suggests hyperthyroidism. Chemiluminescent immunoassay provides high sensitivity and specificity. Used with TSH for comprehensive thyroid evaluation. FT4 helps distinguish thyroid disease from pituitary disorders and assess thyroid hormone replacement therapy. Critical in pregnancy where total T4 is unreliable due to estrogen effects on binding proteins. Results guide diagnosis and monitoring of thyroid disorders."
+     }
+]

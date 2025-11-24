@@ -1,0 +1,58 @@
+[
+     {
+          "name": "ASO TITRE",
+          "filename": "aso_titre.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "ASO (Anti-Streptolysin O) Titre measures antibodies against streptolysin O toxin produced by Streptococcus pyogenes. This test diagnoses recent streptococcal infections and post-streptococcal complications.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "ASO",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 1,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "ASO TITRE",
+               "method": "Hemolysis Inhibition Test",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "ASO Test Kit"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "ASO Titre",
+                    "hasunits": 1,
+                    "units": "IU/mL",
+                    "plan": "quantitative",
+                    "upperlimit": 200,
+                    "lowerlimit": 0,
+                    "categoryid": 50,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "ASO titre measures antibodies to streptolysin O toxin from Streptococcus pyogenes. Normal: <200 IU/mL (adults), <150 IU/mL (children). Elevated: recent streptococcal infection. Peaks 3-6 weeks post-infection, remains elevated 6-12 months. Used for diagnosing rheumatic fever, glomerulonephritis, and streptococcal pharyngitis. False negatives with early infection or immunosuppressive therapy. False positives with liver disease or streptococcal carriers. Rising titre more significant than single value. Critical for post-streptococcal complication diagnosis."
+     }
+]

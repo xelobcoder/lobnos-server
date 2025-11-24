@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 25,
-                    "categoryname": "B VITAMINS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 25,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Vitamin B12 (cobalamin) is essential for hematopoiesis, neurological function, and DNA synthesis. The test uses competitive chemiluminescent immunoassays that measure total vitamin B12 in serum. Normal range is 200-900 pg/mL, with deficiency defined as <200 pg/mL. Vitamin B12 deficiency can cause megaloblastic anemia, peripheral neuropathy, cognitive impairment, and subacute combined degeneration of the spinal cord. Common causes include pernicious anemia, malabsorption syndromes, vegetarian/vegan diets, and gastrointestinal surgery. Early deficiency may be detected by elevated homocysteine and methylmalonic acid levels. The test is indicated for patients with macrocytic anemia, neurological symptoms, malabsorption disorders, and those on long-term metformin therapy. Results should be interpreted with clinical context, and confirmatory tests may be needed in borderline cases."

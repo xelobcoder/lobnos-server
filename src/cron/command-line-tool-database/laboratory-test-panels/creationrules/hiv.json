@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 27,
-                    "categoryname": "RETROVIRAL INFECTIONS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -62,7 +51,7 @@
                     "options": "Negative,Positive,Indeterminate",
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "HIV I & II Antibody testing is the standard screening method for Human Immunodeficiency Virus infection. Modern chemiluminescent immunoassays detect antibodies against both HIV-1 and HIV-2 envelope and core proteins. The test has high sensitivity and specificity but requires confirmation of positive results. All positive or indeterminate results must be confirmed with Western blot, immunofluorescence assay, or HIV-1/HIV-2 differentiation immunoassay. The window period (time from infection to detectable antibodies) is typically 2-8 weeks but can be up to 3 months. HIV testing is recommended for high-risk individuals, blood donors, pregnant women, and patients with symptoms suggestive of acute HIV infection. Results should be interpreted with pre-test counseling and consideration of clinical context. Negative results do not rule out early infection, and repeat testing may be needed."

@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Roche Cobas, Beckman Coulter, Abbott Architect"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 29,
-                    "categoryname": "MINERAL METABOLISM",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 29,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Calcium is the most abundant mineral in the human body, primarily stored in bones and teeth. Serum calcium measurement uses colorimetric methods like Arsenazo III dye binding. Total calcium includes ionized (physiologically active) and protein-bound fractions. Normal range is 8.5-10.5 mg/dL, but must be interpreted with albumin levels for accurate assessment. Hypocalcemia (<8.5 mg/dL) occurs in hypoparathyroidism, vitamin D deficiency, chronic kidney disease, and malabsorption. Hypercalcemia (>10.5 mg/dL) is seen in hyperparathyroidism, malignancy, and granulomatous diseases. Calcium homeostasis involves parathyroid hormone, vitamin D, and calcitonin. Ionized calcium measurement is preferred in critically ill patients. Results should be correlated with phosphorus, alkaline phosphatase, PTH, and vitamin D levels for comprehensive evaluation."

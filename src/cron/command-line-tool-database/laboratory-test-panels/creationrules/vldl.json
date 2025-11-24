@@ -1,0 +1,58 @@
+[
+     {
+          "name": "VLDL CHOLESTEROL",
+          "filename": "vldl.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "VLDL Cholesterol measures very low-density lipoprotein particles in blood. This calculated parameter assesses cardiovascular risk and triglyceride metabolism.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "VLDL",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 1,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "VLDL CHOLESTEROL",
+               "method": "Calculated (Triglycerides/5)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Chemistry Analyzer"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "VLDL Cholesterol",
+                    "hasunits": 1,
+                    "units": "mg/dL",
+                    "plan": "quantitative",
+                    "upperlimit": 30,
+                    "lowerlimit": 0,
+                    "categoryid": 57,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "VLDL cholesterol is calculated as triglycerides divided by 5. Normal: <30 mg/dL. Elevated VLDL indicates increased cardiovascular risk and triglyceride-rich lipoproteins. VLDL transports endogenous triglycerides from liver to tissues. High VLDL associated with metabolic syndrome and diabetes. Used in lipid profile assessment for coronary heart disease risk stratification. Critical component of comprehensive lipid evaluation."
+     }
+]

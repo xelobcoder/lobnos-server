@@ -1,0 +1,71 @@
+[
+     {
+          "name": "LEPTOSPIRA ANTIBODY IGG & IGM",
+          "filename": "leptospira_combined.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Leptospira Antibody IgG & IgM detects antibodies against Leptospira interrogans. This serological test diagnoses leptospirosis and differentiates acute from past infection.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "LEPTOSPIRA IgG/IgM",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 1,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "LEPTOSPIRA ANTIBODY IgG & IgM",
+               "method": "ELISA (Enzyme-Linked Immunosorbent Assay)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "ELISA Reader"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Leptospira IgM",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 50,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               },
+               {
+                    "testid": null,
+                    "name": "Leptospira IgG",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 50,
+                    "alert": null,
+                    "ordering": 2,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Leptospira antibody testing detects IgM (acute infection) and IgG (past exposure). IgM appears 5-7 days post-infection, peaks at 2-3 weeks. IgG indicates past infection or vaccination. MAT (microscopic agglutination test) is gold standard but ELISA is more practical. Used for leptospirosis diagnosis in endemic areas. Cross-reacts with other spirochetes. Critical for febrile illness differential diagnosis."
+     }
+]

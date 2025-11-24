@@ -1,0 +1,58 @@
+[
+     {
+          "name": "ACTIVATED PARTIAL THROMBOPLASTIN TIME",
+          "filename": "aptt.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Activated Partial Thromboplastin Time (APTT) measures intrinsic coagulation pathway and evaluates heparin therapy, factor deficiencies, and lupus anticoagulant. This test assesses contact activation factors and common pathway.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "APTT",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "ACTIVATED PARTIAL THROMBOPLASTIN TIME (APTT)",
+               "method": "Clot-Based Coagulation Assay",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "APTT",
+                    "hasunits": 1,
+                    "units": "seconds",
+                    "plan": "limits",
+                    "upperlimit": 40.0,
+                    "lowerlimit": 20.0,
+                    "categoryid": 43,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Activated Partial Thromboplastin Time (APTT) measures the intrinsic coagulation pathway, assessing factors VIII, IX, XI, XII, and common pathway factors. Normal range 20-40 seconds. Prolonged APTT indicates heparin therapy, factor deficiencies (hemophilia), von Willebrand disease, or lupus anticoagulant. Clot-based assay using phospholipid and activator. Critical for monitoring unfractionated heparin (target 1.5-2.5 × normal). Used in screening for bleeding disorders and evaluation of prolonged PT/APTT. APTT is more sensitive to intrinsic pathway abnormalities than PT. Mixing studies help distinguish factor deficiencies from inhibitors. Essential test in coagulation workup and anticoagulation monitoring."
+     }
+]

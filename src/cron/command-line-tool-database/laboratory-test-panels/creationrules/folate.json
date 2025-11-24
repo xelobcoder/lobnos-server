@@ -1,0 +1,58 @@
+[
+     {
+          "name": "FOLATE",
+          "filename": "folate.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Folate measures vitamin B9 levels and evaluates megaloblastic anemia, nutritional deficiency, and malabsorption disorders. This test assesses folate status and monitors supplementation efficacy.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "FOLATE",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "SERUM FOLATE",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Folate",
+                    "hasunits": 1,
+                    "units": "ng/mL",
+                    "plan": "limits",
+                    "upperlimit": 20.0,
+                    "lowerlimit": 3.0,
+                    "categoryid": 40,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Folate (Vitamin B9) is essential for DNA synthesis and red blood cell production. Normal serum range is 3-20 ng/mL. Deficiency (<3 ng/mL) causes megaloblastic anemia, neural tube defects, and hyperhomocysteinemia. Common in malnutrition, malabsorption, pregnancy, and alcoholism. Chemiluminescent immunoassay provides sensitive measurement. Serum folate reflects recent intake, while red cell folate indicates tissue stores. Used in evaluation of anemia, nutritional assessment, and monitoring supplementation. Folate deficiency often coexists with vitamin B12 deficiency. Critical for preventing neural tube defects in pregnancy. Results guide dietary intervention and folate supplementation."
+     }
+]

@@ -1,0 +1,58 @@
+[
+     {
+          "name": "VITAMIN B6",
+          "filename": "vitamin_b6.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Vitamin B6 (Pyridoxal Phosphate) measures active form of vitamin B6 in blood. This test assesses vitamin B6 status and monitors supplementation in deficiency states.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "VIT B6",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 2,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "VITAMIN B6 (PYRIDOXAL PHOSPHATE)",
+               "method": "High Performance Liquid Chromatography (HPLC)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "HPLC System"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Vitamin B6",
+                    "hasunits": 1,
+                    "units": "ng/mL",
+                    "plan": "quantitative",
+                    "upperlimit": 30,
+                    "lowerlimit": 5,
+                    "categoryid": 56,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Vitamin B6 (pyridoxal phosphate) is essential for amino acid metabolism and neurotransmitter synthesis. Normal: 5-30 ng/mL. Deficiency causes peripheral neuropathy, dermatitis, and anemia. Elevated in supplementation. Measured as pyridoxal phosphate (active form). HPLC provides accurate quantification. Used for nutritional assessment and monitoring B6 supplementation. Critical for neurological symptom evaluation."
+     }
+]

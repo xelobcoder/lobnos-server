@@ -1,0 +1,58 @@
+[
+     {
+          "name": "TPHA (Treponema Pallidium Haemagglutination Assay)",
+          "filename": "tpha.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "TPHA detects Treponema pallidum antibodies and confirms syphilis infection. This test is used as a confirmatory assay for positive syphilis screening tests and monitors treatment response.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "TPHA",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "day",
+               "pre_TatEvaluation": "hour",
+               "tatEvaluation": "day",
+               "reporttitle": "TPHA (TREPONEMA PALLIDIUM HAEMAGGLUTINATION ASSAY)",
+               "method": "Passive Haemagglutination Assay",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Automated Immunoassay Systems"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "TPHA",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 46,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "TPHA (Treponema Pallidum Haemagglutination Assay) is a confirmatory test for syphilis. Positive result confirms Treponema pallidum infection. Used to confirm positive RPR/VDRL results. Remains positive for life even after successful treatment. Negative result rules out syphilis. Passive haemagglutination assay using red blood cells coated with T. pallidum antigens. High specificity and sensitivity. Used in syphilis diagnosis, screening blood donors, and monitoring treatment in high-risk populations. Cannot distinguish between active and treated infection. Should be interpreted with clinical findings and other syphilis tests."
+     }
+]

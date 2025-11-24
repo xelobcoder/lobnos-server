@@ -38,35 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 7,
-                    "categoryname": "RENAL MARKERS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 8,
-                    "categoryname": "ELECTROLYTES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 11,
-                    "categoryname": "MINERALS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -79,7 +50,7 @@
                     "categoryid": 7,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -92,7 +63,7 @@
                     "categoryid": 7,
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -105,7 +76,7 @@
                     "categoryid": 7,
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -118,7 +89,7 @@
                     "categoryid": 7,
                     "alert": null,
                     "ordering": 4,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -131,7 +102,7 @@
                     "categoryid": 7,
                     "alert": null,
                     "ordering": 5,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -144,7 +115,7 @@
                     "categoryid": 8,
                     "alert": null,
                     "ordering": 6,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -157,7 +128,7 @@
                     "categoryid": 8,
                     "alert": null,
                     "ordering": 7,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -170,7 +141,7 @@
                     "categoryid": 8,
                     "alert": null,
                     "ordering": 8,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -183,7 +154,7 @@
                     "categoryid": 8,
                     "alert": null,
                     "ordering": 9,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -196,7 +167,7 @@
                     "categoryid": 11,
                     "alert": null,
                     "ordering": 10,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -209,7 +180,7 @@
                     "categoryid": 11,
                     "alert": null,
                     "ordering": 11,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -222,7 +193,7 @@
                     "categoryid": 11,
                     "alert": null,
                     "ordering": 12,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Renal Function Tests (RFTs) are essential blood tests that evaluate kidney function by measuring waste products and electrolytes in the blood. The kidneys filter waste products from the blood and maintain the body's fluid and electrolyte balance. Abnormal RFT results can indicate kidney disease, dehydration, urinary tract obstruction, or other conditions affecting kidney function. Regular monitoring of renal function is important for patients with diabetes, hypertension, or known kidney disease."

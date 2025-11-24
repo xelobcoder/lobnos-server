@@ -1,0 +1,71 @@
+[
+     {
+          "name": "24 HRS. URINE METANEPHRINE",
+          "filename": "urine_metanephrine.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "24-Hour Urine Metanephrine measures catecholamine metabolites to diagnose pheochromocytoma and paraganglioma. This test assesses excess catecholamine production over 24 hours.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 50,
+          "shorttext": "24H METANEPHRINE",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 3,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "24-HOUR URINE METANEPHRINE",
+               "method": "High Performance Liquid Chromatography (HPLC) with Electrochemical Detection",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "HPLC System"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Metanephrine",
+                    "hasunits": 1,
+                    "units": "µg/24h",
+                    "plan": "quantitative",
+                    "upperlimit": 350,
+                    "lowerlimit": 0,
+                    "categoryid": 58,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               },
+               {
+                    "testid": null,
+                    "name": "Normetanephrine",
+                    "hasunits": 1,
+                    "units": "µg/24h",
+                    "plan": "quantitative",
+                    "upperlimit": 600,
+                    "lowerlimit": 0,
+                    "categoryid": 58,
+                    "alert": null,
+                    "ordering": 2,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "24-hour urine metanephrine measures O-methylated catecholamine metabolites. Normal: metanephrine <350 µg/24h, normetanephrine <600 µg/24h. Elevated in pheochromocytoma, paraganglioma, and neuroblastoma. More sensitive than plasma metanephrines. Requires 24-hour collection with acid preservative. HPLC with electrochemical detection provides accurate quantification. Used for adrenal tumor diagnosis and monitoring. Critical for catecholamine-secreting tumor detection."
+     }
+]

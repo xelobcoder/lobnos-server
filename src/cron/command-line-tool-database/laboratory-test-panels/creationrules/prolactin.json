@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 33,
-                    "categoryname": "PITUITARY HORMONES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 33,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Prolactin is secreted by lactotroph cells in the anterior pituitary gland and has diverse physiological roles beyond lactation. The test uses immunometric chemiluminescent assays for accurate measurement. Normal range is 2-20 ng/mL for non-pregnant adults, with slight variations by sex and age. Hyperprolactinemia (>20 ng/mL) can cause galactorrhea, amenorrhea, infertility, and reduced libido. Common causes include prolactinomas, medications (antipsychotics, antidepressants), hypothyroidism, and stress. Macroprolactin (biologically inactive prolactin-IgG complexes) can cause falsely elevated results. Morning sampling is preferred, and strenuous exercise should be avoided before testing. Results should be interpreted with clinical symptoms and may require pituitary imaging if persistently elevated."

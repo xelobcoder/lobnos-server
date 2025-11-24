@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 37,
-                    "categoryname": "GLYCEMIA",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 37,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Random Blood Glucose (RBG) provides a snapshot of blood glucose levels at any time, regardless of meal timing. The test uses the hexokinase enzymatic method for accurate measurement. Normal range is generally 70-140 mg/dL, but interpretation depends on timing relative to meals. Levels >200 mg/dL with symptoms suggest diabetes mellitus. The test is useful for screening in symptomatic patients, monitoring known diabetics, and emergency situations. Unlike fasting glucose, RBG is not standardized for diagnostic criteria but provides valuable clinical information. If elevated, should be followed by fasting glucose or oral glucose tolerance test for definitive diagnosis. Results can be affected by recent meals, medications, stress, and illness."

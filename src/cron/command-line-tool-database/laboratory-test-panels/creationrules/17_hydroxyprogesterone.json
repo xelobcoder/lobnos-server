@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 38,
-                    "categoryname": "HORMONES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 38,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "17-Hydroxyprogesterone (17-OHP) is an intermediate in adrenal steroidogenesis and glucocorticoid synthesis. Normal adult range is 6-200 ng/dL. Markedly elevated levels suggest congenital adrenal hyperplasia (CAH), particularly 21-hydroxylase deficiency. Mild elevations may occur in polycystic ovary syndrome or stress. Low levels are seen in adrenal insufficiency. Chemiluminescent immunoassay provides high sensitivity for neonatal screening and diagnosis. In newborns, levels >2000 ng/dL suggest CAH. Timing is important - follicular phase preferred in women. Used in evaluation of ambiguous genitalia, precocious puberty, hirsutism, and infertility. Critical for diagnosing and monitoring treatment of CAH patients."

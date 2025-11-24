@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 39,
-                    "categoryname": "METABOLIC",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 39,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "PTH (Parathyroid Hormone) regulates calcium and phosphorus metabolism through actions on bone, kidney, and intestine. Normal range is 10-65 pg/mL. Elevated PTH with high calcium suggests primary hyperparathyroidism. Elevated PTH with low calcium suggests secondary hyperparathyroidism (vitamin D deficiency, renal failure). Low PTH with low calcium indicates hypoparathyroidism. Chemiluminescent immunoassay measures intact PTH (1-84). Samples must be handled carefully to prevent degradation. PTH has pulsatile secretion, so single measurements may vary. Used with calcium, phosphorus, and vitamin D for comprehensive evaluation of mineral metabolism. Critical for diagnosing parathyroid disorders and monitoring treatment response."

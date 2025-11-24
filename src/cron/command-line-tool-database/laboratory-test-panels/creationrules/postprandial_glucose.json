@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 37,
-                    "categoryname": "GLYCEMIA",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 37,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Postprandial Glucose (PPG) measures blood glucose 2 hours after a standardized meal (75g glucose load). Normal PPG is <140 mg/dL. Levels 140-199 mg/dL indicate impaired glucose tolerance, while ≥200 mg/dL suggests diabetes mellitus. The test evaluates carbohydrate metabolism and insulin response. PPG is more predictive of cardiovascular risk than fasting glucose. The hexokinase enzymatic method ensures accurate measurement. Timing is critical - must be exactly 2 hours post-meal. Results help diagnose diabetes, monitor treatment efficacy, and assess metabolic control. Should be interpreted alongside fasting glucose and HbA1c for comprehensive glycemic assessment."

@@ -1,0 +1,58 @@
+[
+     {
+          "name": "FERRITIN",
+          "filename": "ferritin.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Ferritin measures iron stores in the body and evaluates iron deficiency, overload, and inflammatory conditions. This test assesses total body iron status and distinguishes between iron deficiency anemia and anemia of chronic disease.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "FERRITIN",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "FERRITIN",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Ferritin",
+                    "hasunits": 1,
+                    "units": "ng/mL",
+                    "plan": "limits",
+                    "upperlimit": 300.0,
+                    "lowerlimit": 15.0,
+                    "categoryid": 41,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Ferritin is the primary iron storage protein and reflects total body iron stores. Normal range is 15-300 ng/mL for adults (higher in males, lower in females). Low ferritin (<15 ng/mL) indicates iron deficiency, often before anemia develops. High ferritin (>300 ng/mL) suggests iron overload, inflammation, liver disease, or malignancy. Ferritin is an acute phase reactant, so levels rise in infection/inflammation even with iron deficiency (anemia of chronic disease). Chemiluminescent immunoassay provides accurate measurement. Used with iron, TIBC, and transferrin saturation for complete iron status evaluation. Critical for distinguishing iron deficiency from anemia of chronic disease. Monitoring parameter for iron supplementation and chelation therapy."
+     }
+]

@@ -1,0 +1,58 @@
+[
+     {
+          "name": "HEPATITIS C ANTIBODY (ANTI-HCV)",
+          "filename": "hcv.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Hepatitis C Antibody (Anti-HCV) detects antibodies against HCV. This screening test identifies past or current hepatitis C virus infection.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "ANTI-HCV",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 1,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "HEPATITIS C ANTIBODY",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Immunoassay Analyzer"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Anti-HCV",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 60,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Anti-HCV detects antibodies to hepatitis C virus. Normal: negative. Positive indicates past or current HCV infection. Takes 8-12 weeks to become positive after infection. False negatives in early infection or immunosuppression. Confirm positive results with HCV RNA. Used for HCV screening in high-risk populations. Critical for hepatitis C diagnosis and blood donor screening."
+     }
+]

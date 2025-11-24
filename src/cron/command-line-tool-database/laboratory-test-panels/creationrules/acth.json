@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Siemens Immulite"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 38,
-                    "categoryname": "HORMONES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 38,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "ACTH (Adrenocorticotropic Hormone) is produced by the pituitary gland and stimulates cortisol production by the adrenal cortex. Normal morning range is 7.2-46 pg/mL. Elevated levels suggest pituitary Cushing's disease or ectopic ACTH production. Low levels indicate pituitary insufficiency or exogenous steroid suppression. Chemiluminescent immunoassay provides high sensitivity for this low-concentration hormone. Samples must be collected in chilled EDTA tubes and centrifuged immediately to prevent degradation. ACTH has a pulsatile secretion pattern, so timing is important. Used with cortisol levels to differentiate causes of adrenal dysfunction. Critical for diagnosing pituitary vs adrenal pathology in cortisol disorders."

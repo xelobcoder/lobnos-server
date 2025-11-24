@@ -38,7 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [],
           "testcreationrules": [
                {
                     "testid": null,
@@ -51,7 +50,7 @@
                     "categoryid": null,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Normal range: 4.6-20.0 U/g Hb\nDeficiency: Values below 4.6 U/g Hb indicate G6PD deficiency\nClinical significance: Individuals with deficiency may experience hemolytic anemia when exposed to oxidative stress from certain drugs (primaquine, dapsone), foods, or infections\nTesting importance: Crucial before administering certain medications and for genetic counseling"

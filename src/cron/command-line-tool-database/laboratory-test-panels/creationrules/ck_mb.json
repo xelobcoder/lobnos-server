@@ -1,0 +1,71 @@
+[
+     {
+          "name": "CK-MB",
+          "filename": "ck_mb.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "CK-MB measures creatine kinase myocardial band and evaluates myocardial injury. This cardiac-specific isoenzyme helps diagnose acute myocardial infarction and assess cardiac muscle damage.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "CK-MB",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "CREATINE KINASE MB (CK-MB)",
+               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "CK-MB",
+                    "hasunits": 1,
+                    "units": "ng/mL",
+                    "plan": "limits",
+                    "upperlimit": 6.3,
+                    "lowerlimit": 0.0,
+                    "categoryid": 42,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               },
+               {
+                    "testid": null,
+                    "name": "CK-MB Index",
+                    "hasunits": 1,
+                    "units": "%",
+                    "plan": "limits",
+                    "upperlimit": 6.0,
+                    "lowerlimit": 0.0,
+                    "categoryid": 42,
+                    "alert": null,
+                    "ordering": 2,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "CK-MB is the myocardial-specific isoenzyme of creatine kinase, comprising 15-25% of total CK in heart tissue. Normal range <6.3 ng/mL. CK-MB index (%) = (CK-MB/total CK) × 100, normal <6%. Levels rise 3-6 hours after myocardial injury, peak at 12-24 hours, and return to normal in 48-72 hours. Chemiluminescent immunoassay provides high sensitivity. Used in AMI diagnosis, especially when troponin unavailable. Also elevated in myocarditis, cardiac surgery, and skeletal muscle injury. Less specific than troponin for myocardial damage. CK-MB/total CK ratio helps distinguish cardiac from skeletal muscle injury. Still useful in some clinical settings despite troponin's superiority."
+     }
+]

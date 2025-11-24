@@ -1,0 +1,58 @@
+[
+     {
+          "name": "URINE FOR OCCULT BLOOD",
+          "filename": "urine_occult_blood.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Urine Occult Blood detects hidden blood in urine and screens for urinary tract pathology including infection, stones, and malignancy. This test uses peroxidase-like activity of hemoglobin.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 10,
+          "shorttext": "OCCULT BLOOD",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 0,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "hour",
+               "reporttitle": "URINE OCCULT BLOOD",
+               "method": "Dipstick Method (Peroxidase Reaction)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "Urine Analyzer, Manual Dipstick"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Occult Blood",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 48,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Urine Occult Blood detects hemoglobin or myoglobin in urine. Normal: negative. Positive indicates urinary tract bleeding from infection, stones, trauma, glomerulonephritis, or malignancy. Dipstick uses tetramethylbenzidine peroxidase reaction. Semi-quantitative: trace, 1+, 2+, 3+. More sensitive than microscopic hematuria. False positives with menstrual blood, vigorous exercise, or oxidizing contaminants. False negatives with ascorbic acid or formaldehyde. Positive result requires urinalysis and microscopic examination. Used in screening for UTI, urolithiasis, and bladder cancer. Critical for early detection of urinary tract pathology."
+     }
+]

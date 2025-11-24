@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 38,
-                    "categoryname": "HORMONES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 38,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Follicle Stimulating Hormone (FSH) is a pituitary gonadotropin that regulates gametogenesis. In women, levels vary by cycle phase: follicular 3-12 mIU/mL, ovulatory 6-17 mIU/mL, luteal 1-9 mIU/mL. Postmenopausal levels rise to 25-135 mIU/mL. In men, normal range is 1.4-15.4 mIU/mL. Elevated FSH suggests primary gonadal failure, menopause, or premature ovarian failure. Low FSH indicates pituitary insufficiency or hypothalamic dysfunction. Chemiluminescent immunoassay provides high sensitivity. FSH:LH ratio helps evaluate reproductive disorders. Used in infertility workup, puberty assessment, and menopause confirmation. Critical for assessing ovarian reserve and predicting response to fertility treatments."

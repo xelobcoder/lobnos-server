@@ -38,35 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 1,
-                    "categoryname": "WHITE BLOOD CELLS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 2,
-                    "categoryname": "ERTHROCYTES COUNT",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 3,
-                    "categoryname": "PLATELETS COUNT",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -79,7 +50,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -92,7 +63,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -105,7 +76,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -118,7 +89,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 4,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -131,7 +102,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 5,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -144,7 +115,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 6,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -157,7 +128,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 7,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -170,7 +141,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 8,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -183,7 +154,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 9,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -196,7 +167,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 10,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -209,7 +180,7 @@
                     "categoryid": 1,
                     "alert": null,
                     "ordering": 11,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -222,7 +193,7 @@
                     "categoryid": 2,
                     "alert": null,
                     "ordering": 12,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -235,7 +206,7 @@
                     "categoryid": 2,
                     "alert": null,
                     "ordering": 13,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -248,7 +219,7 @@
                     "categoryid": 2,
                     "alert": null,
                     "ordering": 14,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -261,7 +232,7 @@
                     "categoryid": 2,
                     "alert": null,
                     "ordering": 15,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -274,7 +245,7 @@
                     "categoryid": 2,
                     "alert": null,
                     "ordering": 16,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -287,7 +258,7 @@
                     "categoryid": 2,
                     "alert": null,
                     "ordering": 17,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -300,7 +271,7 @@
                     "categoryid": 2,
                     "alert": null,
                     "ordering": 18,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -313,7 +284,7 @@
                     "categoryid": 3,
                     "alert": null,
                     "ordering": 19,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -326,7 +297,7 @@
                     "categoryid": 3,
                     "alert": null,
                     "ordering": 20,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -339,7 +310,7 @@
                     "categoryid": 3,
                     "alert": null,
                     "ordering": 21,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -352,7 +323,7 @@
                     "categoryid": 3,
                     "alert": null,
                     "ordering": 22,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "A Complete Blood Count (CBC) is a fundamental blood test that provides essential information about the types and numbers of cells in the blood, including red blood cells, white blood cells, and platelets. It is commonly used to assess overall health, diagnose various conditions such as anemia, infections, and many other disorders. The CBC test can help detect abnormalities in blood cell counts and provide insights into a patient's immune system and oxygen-carrying capacity."

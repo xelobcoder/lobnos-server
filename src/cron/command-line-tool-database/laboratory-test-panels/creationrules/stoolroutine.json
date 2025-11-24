@@ -38,35 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Light Microscopy, Centrifuge"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 15,
-                    "categoryname": "PHYSICAL EXAMINATION",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 16,
-                    "categoryname": "CHEMICAL EXAMINATION",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               },
-               {
-                    "categoryid": 17,
-                    "categoryname": "MICROSCOPIC EXAMINATION",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -80,7 +51,7 @@
                     "options": "Brown,Black,Green,Yellow,Red,Clay Colored,White",
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -94,7 +65,7 @@
                     "options": "Formed,Semi-formed,Soft,Loose,Watery,Mushy",
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -108,7 +79,7 @@
                     "options": "Normal,Foul,Fetid,Acidic",
                     "alert": null,
                     "ordering": 3,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -122,7 +93,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 4,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -136,7 +107,7 @@
                     "options": "Absent,Present (Occult),Present (Visible)",
                     "alert": null,
                     "ordering": 5,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -150,7 +121,7 @@
                     "options": "Negative,Positive",
                     "alert": null,
                     "ordering": 6,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -164,7 +135,7 @@
                     "options": "Negative,Positive",
                     "alert": null,
                     "ordering": 7,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -177,7 +148,7 @@
                     "categoryid": 16,
                     "alert": null,
                     "ordering": 8,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -190,7 +161,7 @@
                     "categoryid": 17,
                     "alert": null,
                     "ordering": 9,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -203,7 +174,7 @@
                     "categoryid": 17,
                     "alert": null,
                     "ordering": 10,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -216,7 +187,7 @@
                     "categoryid": 17,
                     "alert": null,
                     "ordering": 11,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -229,7 +200,7 @@
                     "categoryid": 17,
                     "alert": null,
                     "ordering": 12,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -243,7 +214,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 13,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -257,7 +228,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 14,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -271,7 +242,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 15,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -285,7 +256,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 16,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -299,7 +270,7 @@
                     "plain": "Not Seen",
                     "alert": null,
                     "ordering": 17,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -313,7 +284,7 @@
                     "plain": "Not Seen",
                     "alert": null,
                     "ordering": 18,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -327,7 +298,7 @@
                     "plain": "Not Seen",
                     "alert": null,
                     "ordering": 19,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -341,7 +312,7 @@
                     "options": "Absent,Present",
                     "alert": null,
                     "ordering": 20,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Stool Routine Examination is a comprehensive parasitological and microbiological assessment of fecal specimens. This test evaluates macroscopic characteristics (color, consistency, odor), chemical composition (occult blood, reducing substances, pH), and microscopic elements (cells, parasites, ova, cysts, food particles). The examination is crucial for diagnosing gastrointestinal infections, inflammatory bowel diseases, malabsorption syndromes, and parasitic infestations. Macroscopic examination provides initial clues about gastrointestinal pathology. Chemical tests detect occult blood (indicating gastrointestinal bleeding) and reducing substances (suggesting carbohydrate malabsorption). Microscopic examination identifies inflammatory cells, parasites, and undigested food particles. This test requires fresh specimens collected in appropriate containers and should be examined promptly to ensure accurate results. Multiple specimens may be needed for parasitic examination due to intermittent shedding."

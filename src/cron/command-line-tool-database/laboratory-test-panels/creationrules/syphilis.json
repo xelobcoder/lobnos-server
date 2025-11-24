@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 11,
-                    "categoryname": "SEROLOGY",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -62,7 +51,7 @@
                     "options": "Negative,Positive,Equivocal",
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Syphilis screening utilizes chemiluminescent immunoassay (CLIA) technology to detect antibodies against Treponema pallidum. This automated method provides high sensitivity and specificity for syphilis diagnosis. The test detects both IgM (indicating recent infection) and IgG (indicating past or chronic infection) antibodies. Results are reported as Negative, Positive, or Equivocal. Positive results should be confirmed with specific treponemal tests like TPHA or FTA-ABS. This screening test is essential for prenatal care, high-risk populations, and routine health assessments. Early detection allows for prompt treatment with penicillin, preventing progression to tertiary syphilis with its serious complications affecting the cardiovascular and nervous systems."

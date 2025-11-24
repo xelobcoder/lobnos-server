@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 21,
-                    "categoryname": "THYROID FUNCTION",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 21,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Thyroid Stimulating Hormone (TSH) is produced by the anterior pituitary gland and regulates thyroid hormone production and secretion. TSH measurement uses highly sensitive chemiluminescent immunoassay methods that can detect very low concentrations. The test is the most sensitive indicator of thyroid dysfunction. Low TSH levels suggest hyperthyroidism (overactive thyroid), while high TSH levels indicate hypothyroidism (underactive thyroid). Normal TSH range is 0.27-4.2 μIU/mL, but reference ranges may vary slightly by laboratory and assay method. TSH testing is recommended for evaluating thyroid nodules, monitoring thyroid hormone replacement therapy, screening high-risk populations, and investigating symptoms of thyroid dysfunction. The hypothalamic-pituitary-thyroid axis maintains tight feedback control, making TSH an excellent marker for thyroid status. Results should be interpreted in clinical context considering symptoms, physical examination findings, and other thyroid function tests."

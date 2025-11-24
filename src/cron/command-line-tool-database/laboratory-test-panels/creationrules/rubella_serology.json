@@ -1,0 +1,71 @@
+[
+     {
+          "name": "RUBELLA SEROLOGY",
+          "filename": "rubella_serology.json",
+          "category": 1,
+          "price": 0,
+          "sample": 1,
+          "description": "Rubella Serology detects rubella virus antibodies (IgM/IgG) to diagnose infection and assess immunity. This test screens for congenital rubella syndrome and vaccination status.",
+          "sample_container": 1,
+          "unit": "mls",
+          "qty_required": 2,
+          "shorttext": "RUBELLA SEROLOGY",
+          "iscustom": 0,
+          "testdeatils": {
+               "tatCount": 1,
+               "post_Tat": 0,
+               "tat": 1,
+               "testid": null,
+               "testcost": 0,
+               "hasManual": 0,
+               "procedureCode": 0,
+               "pre_Tat": 0,
+               "isoutsourced": 0,
+               "updatedby": 1,
+               "updatedon": "2025-11-24T00:00:00.000Z",
+               "testprice": 0,
+               "useLiteratureReview": 1,
+               "post_TatEvaluation": "hour",
+               "pre_TatEvaluation": "min",
+               "tatEvaluation": "day",
+               "reporttitle": "RUBELLA VIRUS SEROLOGY",
+               "method": "ELISA (Enzyme-Linked Immunosorbent Assay)",
+               "uselimiterature": 1,
+               "childrenlimit": null,
+               "outsourcingList": "",
+               "showtrend": 0,
+               "deviceInterfacingMapping": null,
+               "hasDrugs": 0,
+               "instrumentation": "ELISA Reader"
+          },
+          "testcreationrules": [
+               {
+                    "testid": null,
+                    "name": "Rubella IgM",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 50,
+                    "alert": null,
+                    "ordering": 1,
+                    "undercategory": 0
+               },
+               {
+                    "testid": null,
+                    "name": "Rubella IgG",
+                    "hasunits": 0,
+                    "units": "",
+                    "plan": "qualitative",
+                    "upperlimit": null,
+                    "lowerlimit": null,
+                    "categoryid": 50,
+                    "alert": null,
+                    "ordering": 2,
+                    "undercategory": 0
+               }
+          ],
+          "literatureReview": "Rubella serology detects IgM (acute infection) and IgG (immunity). IgM positive in recent infection or reinfection. IgG indicates immunity from vaccination or past infection. Used for prenatal screening and congenital rubella diagnosis. Critical for preventing congenital rubella syndrome."
+     }
+]

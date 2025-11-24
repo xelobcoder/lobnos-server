@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Siemens Immulite"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 38,
-                    "categoryname": "HORMONES",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 38,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Cortisol is the primary glucocorticoid hormone produced by the adrenal cortex. Morning levels (drawn 8-9 AM) normally range 5-25 µg/dL, with diurnal variation (highest morning, lowest midnight). Elevated levels suggest Cushing's syndrome, stress, depression, or exogenous steroid use. Low levels indicate Addison's disease, pituitary insufficiency, or congenital adrenal hyperplasia. Chemiluminescent immunoassay provides excellent sensitivity and specificity. Samples should be drawn in the morning for baseline assessment. For dynamic testing, ACTH stimulation or dexamethasone suppression tests may be needed. Cortisol plays crucial roles in metabolism, immune response, and stress adaptation. Results must be interpreted with clinical context and timing of collection."

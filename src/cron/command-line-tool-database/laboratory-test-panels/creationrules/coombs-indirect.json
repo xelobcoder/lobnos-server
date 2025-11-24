@@ -38,7 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": ""
           },
-          "testdetailcategory": [],
           "testcreationrules": [
                {
                     "testid": null,
@@ -52,7 +51,7 @@
                     "categoryid": null,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "The Indirect Coombs Test (IAT) is a laboratory procedure used to detect antibodies in a patient's serum that are capable of binding to red blood cells. It is routinely performed for pre-transfusion compatibility testing, antibody screening, and investigation of hemolytic anemias. The test involves incubating patient serum with reagent red cells, followed by the addition of anti-human globulin reagent. A positive result indicates the presence of clinically significant red cell antibodies."

@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 34,
-                    "categoryname": "PROGESTINS",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 34,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Progesterone is a steroid hormone produced by the corpus luteum in the ovary and placenta during pregnancy. The test uses competitive chemiluminescent immunoassays for accurate measurement. Levels vary significantly by menstrual cycle phase and pregnancy status. Follicular phase: <1.5 ng/mL, luteal phase: 3-25 ng/mL, pregnancy first trimester: 9-47 ng/mL. Low progesterone in luteal phase suggests inadequate ovulation or luteal phase defect. During pregnancy, low levels may indicate threatened abortion. The test is used for infertility evaluation, monitoring ovulation induction, and assessing pregnancy viability. Timing of sample collection is critical for interpretation. Results should be correlated with LH, estradiol, and clinical findings."

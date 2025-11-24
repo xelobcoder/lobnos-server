@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Bio-Rad Variant, Tosoh G8, Abbott Architect"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 23,
-                    "categoryname": "GLYCEMIC CONTROL",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 23,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                },
                {
                     "testid": null,
@@ -75,7 +64,7 @@
                     "plain": "Calculated from HbA1c",
                     "alert": null,
                     "ordering": 2,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Glycated Hemoglobin (HbA1c) is the gold standard for assessing long-term glycemic control in diabetes mellitus. The test measures the percentage of hemoglobin that has glucose attached, reflecting average blood glucose over the previous 8-12 weeks (red blood cell lifespan). HPLC is the reference method for HbA1c measurement, providing excellent precision and accuracy. Normal HbA1c is <5.7%, prediabetes is 5.7-6.4%, and diabetes is ≥6.5%. For diabetics, target HbA1c is <7.0% (or <8.0% in some cases). The test is unaffected by short-term factors like meals, stress, or acute illness, making it ideal for monitoring. Factors affecting results include hemoglobinopathies, anemia, and certain medications. Estimated Average Glucose (eAG) can be calculated from HbA1c using the formula: eAG = (28.7 × HbA1c) - 46.7. Regular HbA1c testing (every 3-6 months) is essential for diabetes management and reducing complications."

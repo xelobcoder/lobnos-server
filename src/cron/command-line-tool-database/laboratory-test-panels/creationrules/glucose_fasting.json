@@ -38,17 +38,6 @@
                "hasDrugs": 0,
                "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
           },
-          "testdetailcategory": [
-               {
-                    "categoryid": 22,
-                    "categoryname": "GLUCOSE METABOLISM",
-                    "testid": null,
-                    "created_at": "2025-11-24T00:00:00.000Z",
-                    "createdby": 1,
-                    "updatedby": 1,
-                    "updated_at": "2025-11-24T00:00:00.000Z"
-               }
-          ],
           "testcreationrules": [
                {
                     "testid": null,
@@ -61,7 +50,7 @@
                     "categoryid": 22,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 1
+                    "undercategory": 0
                }
           ],
           "literatureReview": "Fasting Blood Glucose (FBG) is the cornerstone of diabetes diagnosis and monitoring. The test requires a minimum 8-hour fast (preferably 12 hours) to ensure accurate basal glucose levels. Modern automated analyzers use the hexokinase method, which is highly specific and accurate. Normal fasting glucose is <100 mg/dL, prediabetes is 100-125 mg/dL, and diabetes is ≥126 mg/dL (confirmed on repeat testing). The test is recommended for diabetes screening in high-risk individuals, monitoring glycemic control in diabetics, and evaluating hypoglycemia. Factors affecting results include recent meals, medications, stress, and illness. Results should be interpreted with clinical context and may require confirmation with additional tests like HbA1c or oral glucose tolerance test. Proper pre-analytical conditions (fasting, sample type, transport) are crucial for accurate results."
