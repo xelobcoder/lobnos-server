@@ -1,4 +1,4 @@
-import { testspanels } from "../data/test_creation_metadata";
+import { testspanels } from "../../../migrations/data/test_creation_metadata";
 
 exports.seed = function (knex) {
      return knex('test_panels').del()

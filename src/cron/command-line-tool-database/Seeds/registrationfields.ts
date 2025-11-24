@@ -38,6 +38,5 @@ exports.seed = async function (knex) {
           }
      }
      const jsonify = JSON.stringify(registrationFields);
-     await knex('registrationsettings').del();
      await knex('registrationsettings').insert({ fields: jsonify })
 }

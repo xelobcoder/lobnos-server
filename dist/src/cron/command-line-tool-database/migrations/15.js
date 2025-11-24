@@ -56,7 +56,7 @@ async function up(knex) {
             table.index('regionid', 'region_id');
             table.index(['name', 'code'], 'name_unique', 'unique');
             table.index(['name', 'code', 'regionid'], 'name_region_unique', 'unique');
-            table.foreign('regionid').references('id').inTable('regions');
+            table.foreign('regionid').references('id').inTable('regions').onDelete('CASCADE').onUpdate('CASCADE');
         });
     }
     // Create employeepreferredshifts table
@@ -118,32 +118,32 @@ async function down(knex) {
     // Drop constraints first
     await knex.raw(`
           ALTER TABLE districts
-          DROP CONSTRAINT IF EXISTS name_unique,
-          DROP CONSTRAINT IF EXISTS name_region_unique
+          DROP INDEX IF EXISTS name_unique,
+          DROP INDEX IF EXISTS name_region_unique
      `);
     await knex.raw(`
           ALTER TABLE drugs
-          DROP CONSTRAINT IF EXISTS drug_unique
+          DROP INDEX IF EXISTS drug_unique
      `);
     await knex.raw(`
           ALTER TABLE drugscategory
-          DROP CONSTRAINT IF EXISTS drugscategory_categoryname_unique
+          DROP INDEX IF EXISTS drugscategory_categoryname_unique
      `);
     await knex.raw(`
           ALTER TABLE regions
-          DROP CONSTRAINT IF EXISTS regions_name_unique
+          DROP INDEX IF EXISTS regions_name_unique
      `);
     await knex.raw(`
           ALTER TABLE employeepreferredshifts
-          DROP CONSTRAINT IF EXISTS employeepreferredshifts_employee_shift_unique
+          DROP INDEX IF EXISTS employeepreferredshifts_employee_shift_unique
      `);
     await knex.raw(`
           ALTER TABLE employeeunavailabledays
-          DROP CONSTRAINT IF EXISTS employeeunavailabledays_employeeid_unique
+          DROP INDEX IF EXISTS employeeunavailabledays_employeeid_unique
      `);
     await knex.raw(`
           ALTER TABLE encryption_keys
-          DROP CONSTRAINT IF EXISTS encryption_keys_key_id_unique
+          DROP INDEX IF EXISTS encryption_keys_key_id_unique
      `);
     // Drop tables in reverse order due to foreign key constraints
     await knex.schema.dropTableIfExists('event_template_map');

@@ -1,6 +1,4 @@
 exports.seed = async function (knex) {
-     await knex('sampletype').del();
-
      return knex('sampletype').insert([
           { id: 1, name: 'urine', addedon: new Date() },
           { id: 2, name: 'blood', addedon: new Date() },

@@ -12,7 +12,7 @@ module.exports = {
                directory: "./src/cron/command-line-tool-database/migrations"
           },
           seeds: {
-               directory: "./src/migrations/KnexMigrations/Seeds"
+               directory: "./src/cron/command-line-tool-database/Seeds"
           }
      }
 };

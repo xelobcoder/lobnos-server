@@ -1,8 +1,7 @@
 exports.seed = async function (knex) {
-     await knex('departments').del();
      return knex('departments').insert([
           {
-               department: 'Clinical Chemistry',
+               department: 'BioChemistry',
                departmentManager: 'Tiifu Hamza Kojo Boronson',
                employeeid: 1,
           },
@@ -42,11 +41,6 @@ exports.seed = async function (knex) {
                employeeid: 1,
           },
           {
-               department: 'Blood Bank and Transfusion Medicine',
-               departmentManager: 'Tiifu Hamza Kojo Boronson',
-               employeeid: 1,
-          },
-          {
                department: 'Histopathology and Cytology',
                departmentManager: 'Tiifu Hamza Kojo Boronson',
                employeeid: 1,
@@ -62,17 +56,7 @@ exports.seed = async function (knex) {
                employeeid: 1,
           },
           {
-               department: 'Specialized Testing',
-               departmentManager: 'Tiifu Hamza Kojo Boronson',
-               employeeid: 1,
-          },
-          {
-               department: 'Functional and Wellness Testing',
-               departmentManager: 'Tiifu Hamza Kojo Boronson',
-               employeeid: 1,
-          },
-          {
-               department: 'Imaging and Radiology (Lab-Related)',
+               department: 'Ultrasound',
                departmentManager: 'Tiifu Hamza Kojo Boronson',
                employeeid: 1,
           },

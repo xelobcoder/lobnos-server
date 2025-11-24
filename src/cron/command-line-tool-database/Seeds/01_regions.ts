@@ -1,7 +1,5 @@
 
 exports.seed = async function (knex) {
-
-     await knex('regions').del();
      await knex('regions').insert([
           { name: 'ASHANTI REGION', regioncode: 'AS' },
           { name: 'BONO REGION', regioncode: 'BR' },

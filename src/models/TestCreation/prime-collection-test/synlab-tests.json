@@ -1,0 +1,614 @@
+[
+     {
+          "testname": "Liver Function Test"
+     },
+     {
+          "testname": "Bilirubin - Total"
+     },
+     {
+          "testname": "Bilirubin - Direct"
+     },
+     {
+          "testname": "Alkaline Phosphatase"
+     },
+     {
+          "testname": "Gamma GT"
+     },
+     {
+          "testname": "AST (GOT)"
+     },
+     {
+          "testname": "ALT (GPT)"
+     },
+     {
+          "testname": "Total Protein"
+     },
+     {
+          "testname": "Albumin"
+     },
+     {
+          "testname": "Protein Electrophoresis"
+     },
+     {
+          "testname": "Amylase"
+     },
+     {
+          "testname": "Lipase"
+     },
+     {
+          "testname": "Bence Jones Protein-Urine"
+     },
+     {
+          "testname": "Urea & Elect & Creatinine"
+     },
+     {
+          "testname": "Electrolytes"
+     },
+     {
+          "testname": "Creatinine"
+     },
+     {
+          "testname": "Urea"
+     },
+     {
+          "testname": "Creatinine Clearance"
+     },
+     {
+          "testname": "24hr. Urine Protein"
+     },
+     {
+          "testname": "Calcium (Corrected)"
+     },
+     {
+          "testname": "Magnesium"
+     },
+     {
+          "testname": "Phosphate"
+     },
+     {
+          "testname": "Osmolality - serum"
+     },
+     {
+          "testname": "Osmolality - urine"
+     },
+     {
+          "testname": "Uric Acid"
+     },
+     {
+          "testname": "Alpha-1-Antitrypsin - Faeces"
+     },
+     {
+          "testname": "CRP"
+     },
+     {
+          "testname": "Lipogram - fasting"
+     },
+     {
+          "testname": "Cholesterol"
+     },
+     {
+          "testname": "Triglycerides"
+     },
+     {
+          "testname": "HDL Cholesterol"
+     },
+     {
+          "testname": "GTT - 2hrs fasting"
+     },
+     {
+          "testname": "GTT - 3hrs fasting"
+     },
+     {
+          "testname": "Glucose 2hr. PP"
+     },
+     {
+          "testname": "Glucose Fasting"
+     },
+     {
+          "testname": "Glucose Random"
+     },
+     {
+          "testname": "HbA1 C/Glycosylated Hb."
+     },
+     {
+          "testname": "Fructosamine"
+     },
+     {
+          "testname": "C-Peptide Fasting"
+     },
+     {
+          "testname": "Insulin Fasting"
+     },
+     {
+          "testname": "24hr. Urine Microalbumin"
+     },
+     {
+          "testname": "FBC with Diff"
+     },
+     {
+          "testname": "FBC - no Diff"
+     },
+     {
+          "testname": "ESR"
+     },
+     {
+          "testname": "Reticulocytes"
+     },
+     {
+          "testname": "Malaria Parasite Smears"
+     },
+     {
+          "testname": "Malaria Antigen"
+     },
+     {
+          "testname": "Blood Parasites"
+     },
+     {
+          "testname": "Blood Group (ABO & Rh)"
+     },
+     {
+          "testname": "Coombs Indirect"
+     },
+     {
+          "testname": "Coombs Direct"
+     },
+     {
+          "testname": "Hb Electrophoresis Quantitative"
+     },
+     {
+          "testname": "Hb Electrophoresis & Sickling"
+     },
+     {
+          "testname": "G6PD"
+     },
+     {
+          "testname": "DIC Screen"
+     },
+     {
+          "testname": "Prothrombin Index (INR) & PT"
+     },
+     {
+          "testname": "PTT"
+     },
+     {
+          "testname": "Clotting Time"
+     },
+     {
+          "testname": "D- Dimer Quantitative"
+     },
+     {
+          "testname": "Fibrinogen"
+     },
+     {
+          "testname": "Anaemia Studies"
+     },
+     {
+          "testname": "Iron"
+     },
+     {
+          "testname": "TIBC"
+     },
+     {
+          "testname": "Ferritin"
+     },
+     {
+          "testname": "Vitamin B12"
+     },
+     {
+          "testname": "Serum Folate"
+     },
+     {
+          "testname": "Food Intolerance"
+     },
+     {
+          "testname": "AFP"
+     },
+     {
+          "testname": "Beta HCG Quantitative"
+     },
+     {
+          "testname": "CEA (GIT)"
+     },
+     {
+          "testname": "CA 19-9 (GIT/Pancreas)"
+     },
+     {
+          "testname": "CA 125 (Ovary)"
+     },
+     {
+          "testname": "CA 153 (Breast)"
+     },
+     {
+          "testname": "CA 72-4 (Gastric/Ovary)"
+     },
+     {
+          "testname": "Beta 2 Microglobulin"
+     },
+     {
+          "testname": "PSA"
+     },
+     {
+          "testname": "PSA Complexed"
+     },
+     {
+          "testname": "PSA Free & Ratio"
+     },
+     {
+          "testname": "ASOT"
+     },
+     {
+          "testname": "Septin 9 (CPDA tube)"
+     },
+     {
+          "testname": "PCA 3 (Urine)"
+     },
+     {
+          "testname": "Bilharzia IgG / IgM"
+     },
+     {
+          "testname": "Bilharzia PCR"
+     },
+     {
+          "testname": "CMV IgG & IgM"
+     },
+     {
+          "testname": "EBV Profile (Specify)"
+     },
+     {
+          "testname": "H Pylori Ab - serum"
+     },
+     {
+          "testname": "Herpes 1&2 IgG & IgM"
+     },
+     {
+          "testname": "Toxoplasma IgG"
+     },
+     {
+          "testname": "Toxoplasma IgM"
+     },
+     {
+          "testname": "Rubella IgG"
+     },
+     {
+          "testname": "Rubella IgM"
+     },
+     {
+          "testname": "Varicella IgG & IgM"
+     },
+     {
+          "testname": "RPR"
+     },
+     {
+          "testname": "TPHA"
+     },
+     {
+          "testname": "WIDAL"
+     },
+     {
+          "testname": "Quantiferon (Gold) (TB)"
+     },
+     {
+          "testname": "Complement C3 & C4"
+     },
+     {
+          "testname": "IgA, IgG, IgM"
+     },
+     {
+          "testname": "IgE"
+     },
+     {
+          "testname": "Specific Allegies"
+     },
+     {
+          "testname": "HIV"
+     },
+     {
+          "testname": "HIV (1 & 2) Elisa +P24"
+     },
+     {
+          "testname": "Western Blot"
+     },
+     {
+          "testname": "CD4 / CD8"
+     },
+     {
+          "testname": "HIV 1 Viral Load"
+     },
+     {
+          "testname": "HIV 2 Viral Load"
+     },
+     {
+          "testname": "ANF"
+     },
+     {
+          "testname": "Anti-DS DNA"
+     },
+     {
+          "testname": "Rheumatoid Factor (RF)"
+     },
+     {
+          "testname": "ENA"
+     },
+     {
+          "testname": "Angiotensin Conv. Enz (ACE)"
+     },
+     {
+          "testname": "Smooth Muscle Antibody"
+     },
+     {
+          "testname": "Mitochondrial Antibody"
+     },
+     {
+          "testname": "Auto Antibodies (Specify)"
+     },
+     {
+          "testname": "Hep. A IgG Antibody"
+     },
+     {
+          "testname": "Hep. A IgM Antibody"
+     },
+     {
+          "testname": "Hep. B surface Antigen"
+     },
+     {
+          "testname": "Hep. B surface Antibody"
+     },
+     {
+          "testname": "Hep. B core Antibodies"
+     },
+     {
+          "testname": "Hep. B core IgM Antibody"
+     },
+     {
+          "testname": "Hep. B e Antigen"
+     },
+     {
+          "testname": "Hep. B e Antibody"
+     },
+     {
+          "testname": "Hep. B Viral Load"
+     },
+     {
+          "testname": "Hep. Bs Ag Confirmatory"
+     },
+     {
+          "testname": "Hep. Bs Ag Quantitative"
+     },
+     {
+          "testname": "Hep. C Screen"
+     },
+     {
+          "testname": "Hep. C Viral Load"
+     },
+     {
+          "testname": "Thyroid Function"
+     },
+     {
+          "testname": "Free T3"
+     },
+     {
+          "testname": "Free T4"
+     },
+     {
+          "testname": "TSH"
+     },
+     {
+          "testname": "Thyroglobulin"
+     },
+     {
+          "testname": "Thyriod Antibodies"
+     },
+     {
+          "testname": "LH"
+     },
+     {
+          "testname": "FSH"
+     },
+     {
+          "testname": "Progesterone"
+     },
+     {
+          "testname": "Prolactin"
+     },
+     {
+          "testname": "Oestradiol (E2)"
+     },
+     {
+          "testname": "Testosterone"
+     },
+     {
+          "testname": "Cortisol - serum"
+     },
+     {
+          "testname": "17-OH-Progesterone"
+     },
+     {
+          "testname": "DHEA-S"
+     },
+     {
+          "testname": "Growth Hormone"
+     },
+     {
+          "testname": "Aldosterone - serum"
+     },
+     {
+          "testname": "Androstenedione - serum"
+     },
+     {
+          "testname": "Renin"
+     },
+     {
+          "testname": "Anti-Mullerian Hormone"
+     },
+     {
+          "testname": "Down Syndrome Triple Sc."
+     },
+     {
+          "testname": "Pregnancy Test - serum"
+     },
+     {
+          "testname": "Pregnancy Test - urine"
+     },
+     {
+          "testname": "LDH"
+     },
+     {
+          "testname": "CK -Total"
+     },
+     {
+          "testname": "CK-MB Mass"
+     },
+     {
+          "testname": "Troponin T(High Sensitive)"
+     },
+     {
+          "testname": "Troponin I"
+     },
+     {
+          "testname": "Pro BNP"
+     },
+     {
+          "testname": "CKMB (POCT)"
+     },
+     {
+          "testname": "Troponin T (POCT)"
+     },
+     {
+          "testname": "Chlamydia / Gonorrhoea PCR"
+     },
+     {
+          "testname": "Vaginal Micro &Culture"
+     },
+     {
+          "testname": "Cervical PAP- smear"
+     },
+     {
+          "testname": "Cervical PAP- liquid"
+     },
+     {
+          "testname": "PAP Liquid & HPV"
+     },
+     {
+          "testname": "Self Sampling HPV"
+     },
+     {
+          "testname": "Carbamazepine"
+     },
+     {
+          "testname": "Digoxin"
+     },
+     {
+          "testname": "Lithium"
+     },
+     {
+          "testname": "Phenobarbitone"
+     },
+     {
+          "testname": "Phenytoin"
+     },
+     {
+          "testname": "Theophylline"
+     },
+     {
+          "testname": "Valproic Acid"
+     },
+     {
+          "testname": "Drug Abuse Screen"
+     },
+     {
+          "testname": "Confirmation of drug Abuse"
+     },
+     {
+          "testname": "Urine Examination - routine"
+     },
+     {
+          "testname": "Bilharzia (Microscopy)"
+     },
+     {
+          "testname": "Urine Culture & Sens."
+     },
+     {
+          "testname": "Cytology"
+     },
+     {
+          "testname": "Microscopy, C & S (No AFB)"
+     },
+     {
+          "testname": "TB Exam (AFB only)"
+     },
+     {
+          "testname": "AFB Culture"
+     },
+     {
+          "testname": "Microscopy, Ova, Cyst & Parasites (OCP)"
+     },
+     {
+          "testname": "Culture & sensitivity"
+     },
+     {
+          "testname": "Occult Blood"
+     },
+     {
+          "testname": "H Pylori Antigen"
+     },
+     {
+          "testname": "Swab Culture & sensitivity"
+     },
+     {
+          "testname": "Strep A Rapid Test"
+     },
+     {
+          "testname": "Fungal Microscopy, (KOH)"
+     },
+     {
+          "testname": "Fungal Culture"
+     },
+     {
+          "testname": "Microscopy & Chemistry"
+     },
+     {
+          "testname": "Culture"
+     },
+     {
+          "testname": "Body Fluid Cytology"
+     },
+     {
+          "testname": "Cryptococcal"
+     },
+     {
+          "testname": "Oligoclonal Bands"
+     },
+     {
+          "testname": "Blood Culture"
+     },
+     {
+          "testname": "Mantoux"
+     },
+     {
+          "testname": "Skin Snip (Onco)"
+     },
+     {
+          "testname": "Semen Analysis + Leucocyte Screen"
+     },
+     {
+          "testname": "Semen Microscopy, C & S"
+     },
+     {
+          "testname": "SpermMar IgG Test"
+     },
+     {
+          "testname": "Chlamydia / Gonorrhoea - urine PCR"
+     },
+     {
+          "testname": "Newborn Screen"
+     },
+     {
+          "testname": "Neobona (NIPT)"
+     },
+     {
+          "testname": "Paternity Testing"
+     },
+     {
+          "testname": "NIPT with Sickle Cell"
+     }
+]
