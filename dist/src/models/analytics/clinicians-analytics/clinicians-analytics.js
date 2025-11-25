@@ -9,11 +9,11 @@ const clinicians_analtyics_qs_1 = require("./clinicians-analtyics-qs");
 class ClinicianAnalytics {
     static async getClinicianCommission(tenantId, clinicianId, startDate, endDate) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_get_clinician_commission, [clinicianId, startDate, endDate]);
-        return Array.isArray(result) && result.length > 0 ? result[0] : {};
+        return Array.isArray(result) && result.length > 0 ? result : {};
     }
     static async getClinicianCommissionByDate(tenantId, startDate, endDate) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_get_clinicians_commission_by_date, [startDate, endDate]);
-        return Array.isArray(result) && result.length > 0 ? result[0] : [];
+        return Array.isArray(result) && result.length > 0 ? result : [];
     }
     static percentage_of_revenue_by_clinician(clinician_total_payable, total_payable) {
         if (!total_payable || total_payable === 0)

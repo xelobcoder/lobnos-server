@@ -1,7 +1,7 @@
 import bcrypt from "bcrypt";
 
 exports.seed = async function (knex) {
-     const superAdminPassword = await bcrypt.hash("tiifu", 10);
+     const superAdminPassword = await bcrypt.hash("primelab", 10);
      const adminPassword = await bcrypt.hash("admin", 10);
 
      return knex('roles').insert([

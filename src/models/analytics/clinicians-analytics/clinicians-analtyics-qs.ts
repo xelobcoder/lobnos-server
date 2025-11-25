@@ -1,7 +1,10 @@
+const constraints = ` (dboservices.status='active' AND AND dboservices.isRefund = 0 AND dboservices.clinicianId IS NOT NULL AND dbsoervices.serveiceCategory='CLINICIAN_SPECIAL_BILLING' AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
+
+
 export const q_can_overallTotals = `
 SELECT COUNT(*) AS total_rows, SUM(cost) AS total_cost, SUM(totalpayable)AS payable, SUM(amountIncurredDueTax) AS amountIncurredDueTax
 FROM \`dboservices\` AS RF
-WHERE clinicianId = ?;
+WHERE clinicianId = ? AND ${constraints}
 `;
 
 export const q_can_monthlyTotals = `
@@ -12,7 +15,7 @@ SELECT
     SUM(totalpayable) AS total_payable, 
     SUM(amountIncurredDueTax) AS total_tax 
 FROM \`dboservices\` AS RF 
-WHERE clinicianId = ? 
+WHERE clinicianId = ? AND ${constraints}
 AND YEAR(serviceAddedOn) = ?
 GROUP BY MONTH(serviceAddedOn)
 ORDER BY MONTH(serviceAddedOn);
@@ -26,7 +29,7 @@ SELECT
     SUM(totalpayable) AS total_payable, 
     SUM(amountIncurredDueTax) AS total_tax 
 FROM \`dboservices\` AS RF 
-WHERE clinicianId = ?
+WHERE clinicianId = ? AND ${constraints}
 GROUP BY YEAR(serviceAddedOn)
 ORDER BY YEAR(serviceAddedOn);
 `;
@@ -58,7 +61,7 @@ export const q_can_caseSummaryMonthly = `
         SUM(totalpayable) AS clinicians_revenue_generated,
         SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated
     FROM dboservices
-    WHERE  YEAR(serviceAddedOn) = ? 
+    WHERE  YEAR(serviceAddedOn) = ? AND ${constraints}
     AND serviceAddedOn IS NOT NULL AND clinicianId IS NOT NULL
     GROUP BY DATE_FORMAT(serviceAddedOn, '%Y-%m')
     ORDER BY period; 
@@ -78,7 +81,7 @@ SELECT
     SUM(amountIncurredDueTax) AS total_tax,
     (SUM(CASE WHEN clinicianId = ? THEN totalpayable END) / NULLIF(SUM(totalpayable), 0)) * 100 AS percentage_revenue
 FROM \`dboservices\`
-WHERE YEAR(createdAt) = YEAR(?)
+WHERE YEAR(createdAt) = YEAR(?) AND ${constraints}
 GROUP BY YEAR(createdAt);
 `;
 
@@ -144,7 +147,7 @@ SELECT
     previous_day_revenue,
     COALESCE(percentage_change, 0) AS percentage_change,
     COALESCE(percentage_revenue_change, 0) AS percentage_revenue_change
-FROM DailyChange
+FROM DailyChange WHERE ${constraints}
 ORDER BY date
 
 
@@ -439,11 +442,87 @@ FROM previous, current;
 `;
 
 export const q_get_clinician_commission = `
-CALL cl_get_single_clinician_commission(?, ?, ?)`;
+    SELECT
+        DATE(s.serviceAddedOn) AS service_date,
+        c.id AS clinician_id,
+        c.name AS clinician_name,
+        s.serviceid,
+        c.phone AS clinician_phone,
+        c.occupation,
+        c.organization,
+        COUNT(*) AS total_services,
+        SUM(s.totalpayable) AS total_payable,
+        SUM(s.paidamount) AS total_paid,
+        COALESCE(cp.commission, 0) AS commission_percent,
+        ROUND(SUM(s.totalpayable) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_amount_payable,
+        ROUND(SUM(s.paidamount) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_paid_amount
+    FROM dboservices s
+    INNER JOIN clinicianbasicinfo c
+        ON s.clinicianId = c.id
+    LEFT JOIN clinicianpaymentinfo cp 
+        ON cp.clinicianid = c.id
+    WHERE
+        s.clinicianId = ?
+        AND s.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
+        AND s.status = 'active'
+        AND s.isAdjustment = 0
+        AND s.serviceAddedOn >= ?
+        AND s.isRefunded=0
+        AND s.paymentstatus !='pending'
+        AND s.serviceAddedOn < ?
+    GROUP BY 
+        service_date,
+        c.id, 
+        c.name,
+        c.phone,
+        c.occupation,
+        c.organization,
+        cp.commission
+    ORDER BY 
+        service_date DESC
+`;
 
 
 export const q_get_clinicians_commission_by_date = `
-CALL cl_get_clinician_commission(?, ?)`;
+    SELECT
+        DATE(s.serviceAddedOn) AS service_date,
+        c.id AS clinician_id,
+        c.name AS clinician_name,
+        c.phone AS clinician_phone,
+        s.serviceid,
+        c.occupation,
+        c.organization,
+        COUNT(*) AS total_services,
+        SUM(s.totalpayable) AS total_payable,
+        SUM(s.paidamount) AS total_paid,
+        COALESCE(cp.commission, 0) AS commission_percent,
+        ROUND(SUM(s.totalpayable) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_amount_payable,
+        ROUND(SUM(s.paidamount) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_paid_amount
+    FROM dboservices s
+    INNER JOIN clinicianbasicinfo c
+        ON s.clinicianId = c.id
+    LEFT JOIN clinicianpaymentinfo cp 
+        ON cp.clinicianid = c.id
+    WHERE
+        s.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
+        AND s.status = 'active'
+        AND s.isRefunded=0
+        AND s.paymentstatus !='pending'
+        AND s.serviceAddedOn >= ?
+        AND s.serviceAddedOn < ?
+        AND s.clinicianId IS NOT NULL
+    GROUP BY 
+        service_date,
+        c.id, 
+        c.name,
+        c.phone,
+        c.occupation,
+        c.organization,
+        cp.commission
+    ORDER BY 
+        service_date DESC, 
+        c.id DESC;
+`;
 
 
 

@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const bcrypt_1 = __importDefault(require("bcrypt"));
 exports.seed = async function (knex) {
-    const superAdminPassword = await bcrypt_1.default.hash("tiifu", 10);
+    const superAdminPassword = await bcrypt_1.default.hash("primelab", 10);
     const adminPassword = await bcrypt_1.default.hash("admin", 10);
     return knex('roles').insert([
         {

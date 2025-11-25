@@ -43,6 +43,7 @@ import smsAnalytics from './controllers/analytics/sms-analytics/route';
 import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 import complianceRouter from './controllers/compliance/routes';
 import { killProcessOnPort } from "./models/security/killport";
+import CommissionPaymentsRouter from './controllers/commission/index';
 
 
 
@@ -108,6 +109,7 @@ app.use(ExcelParser);
 app.use(InterfacingDevicesRouter)
 app.use(complianceRouter)
 app.use('/api/v1/inventory', InventoryRouter);
+app.use(CommissionPaymentsRouter);
 
 
 

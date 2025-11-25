@@ -38,12 +38,12 @@ type monthly_case_summary_rate = {
 class ClinicianAnalytics {
      public static async getClinicianCommission(tenantId: number, clinicianId: number, startDate: string, endDate: string) {
           const result = await promisifyQuery(tenantId, q_get_clinician_commission, [clinicianId, startDate, endDate]);
-          return Array.isArray(result) && result.length > 0 ? result[0] : {};
+          return Array.isArray(result) && result.length > 0 ? result : {};
      }
 
      public static async getClinicianCommissionByDate(tenantId: number, startDate: string, endDate: string) {
           const result = await promisifyQuery(tenantId, q_get_clinicians_commission_by_date, [startDate, endDate]);
-          return Array.isArray(result) && result.length > 0 ? result[0] : [];
+          return Array.isArray(result) && result.length > 0 ? result : [];
      }
 
      private static percentage_of_revenue_by_clinician(clinician_total_payable: number, total_payable: number) {
