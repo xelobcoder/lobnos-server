@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "Vit D",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "hour",
-               "reporttitle": "25-HYDROXYVITAMIN D, SERUM",
+               "reportitle": "25-HYDROXYVITAMIN D, SERUM",
                "method": "Chemiluminescent Immunoassay (CLIA)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 1,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, DiaSorin Liaison"
           },

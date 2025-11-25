@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "HBV DNA PCR",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 3,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "day",
-               "reporttitle": "HEPATITIS B VIRUS DNA QUALITATIVE PCR",
+               "reportitle": "HEPATITIS B VIRUS DNA QUALITATIVE PCR",
                "method": "Real-time Polymerase Chain Reaction (PCR)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Real-time PCR System"
           },

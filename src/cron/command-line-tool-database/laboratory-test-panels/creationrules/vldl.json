@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "VLDL",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 1,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "day",
-               "reporttitle": "VLDL CHOLESTEROL",
+               "reportitle": "VLDL CHOLESTEROL",
                "method": "Calculated (Triglycerides/5)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Chemistry Analyzer"
           },

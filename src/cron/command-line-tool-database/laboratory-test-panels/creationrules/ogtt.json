@@ -11,7 +11,7 @@
           "qty_required": 4,
           "shorttext": "OGTT",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "hour",
-               "reporttitle": "ORAL GLUCOSE TOLERANCE TEST",
+               "reportitle": "ORAL GLUCOSE TOLERANCE TEST",
                "method": "Hexokinase Method (Enzymatic)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Beckman Coulter, Roche Cobas, Abbott Architect"
           },

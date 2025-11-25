@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "TOXO IgG",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "day",
                "pre_TatEvaluation": "hour",
                "tatEvaluation": "day",
-               "reporttitle": "TOXOPLASMA IgG ANTIBODY",
+               "reportitle": "TOXOPLASMA IgG ANTIBODY",
                "method": "Chemiluminescent Immunoassay (CLIA)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Abbott Architect, Roche Elecsys, Beckman Coulter"
           },

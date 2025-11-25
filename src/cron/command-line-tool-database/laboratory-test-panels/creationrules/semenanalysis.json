@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "SA",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 2,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "hour",
-               "reporttitle": "SEMEN ANALYSIS",
+               "reportitle": "SEMEN ANALYSIS",
                "method": "Manual Microscopy, Computer-Aided Sperm Analysis (CASA)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Phase Contrast Microscope, Sperm Analyzer"
           },

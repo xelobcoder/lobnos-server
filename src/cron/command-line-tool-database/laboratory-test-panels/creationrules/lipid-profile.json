@@ -11,7 +11,7 @@
           "qty_required": 4,
           "shorttext": "LP",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 10,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "min",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "min",
-               "reporttitle": "LIPID PROFILE, BASIC, SERUM",
+               "reportitle": "LIPID PROFILE, BASIC, SERUM",
                "method": "Enzymatic Methods (CHO-POD, GPO-POD, Immunoinhibition, Selective Protection)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 1,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": ""
           },

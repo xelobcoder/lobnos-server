@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "VIT B6",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 2,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "day",
-               "reporttitle": "VITAMIN B6 (PYRIDOXAL PHOSPHATE)",
+               "reportitle": "VITAMIN B6 (PYRIDOXAL PHOSPHATE)",
                "method": "High Performance Liquid Chromatography (HPLC)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "HPLC System"
           },

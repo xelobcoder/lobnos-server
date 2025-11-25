@@ -10,6 +10,9 @@ exports.seed = async function (knex) {
     await knex('paymentmodes').del();
     await knex('sampletype').del();
     await knex('registrationsettings').del();
+    await knex("test_panels").del();
+    await knex('testcreationrules').del();
+    await knex("testdetails").del();
     // Then alter auto-increment for all tables
     await knex.raw('ALTER TABLE branch AUTO_INCREMENT = 1');
     await knex.raw('ALTER TABLE departments AUTO_INCREMENT = 1');
@@ -19,6 +22,9 @@ exports.seed = async function (knex) {
     await knex.raw('ALTER TABLE paymentmodes AUTO_INCREMENT = 1');
     await knex.raw('ALTER TABLE sampletype AUTO_INCREMENT = 1');
     await knex.raw('ALTER TABLE registrationsettings AUTO_INCREMENT = 1');
+    await knex.raw('ALTER TABLE test_panels AUTO_INCREMENT = 1');
+    await knex.raw('ALTER TABLE testcreationrules AUTO_INCREMENT = 1');
+    await knex.raw('ALTER TABLE testdetails AUTO_INCREMENT = 1');
     // Re-enable foreign key checks
     await knex.raw('SET FOREIGN_KEY_CHECKS = 1');
     return knex('branch').insert([

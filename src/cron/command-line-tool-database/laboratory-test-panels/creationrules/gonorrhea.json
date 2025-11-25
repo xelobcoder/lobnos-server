@@ -11,7 +11,7 @@
           "qty_required": 1,
           "shorttext": "GONORRHEA",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 1,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "day",
-               "reporttitle": "GONORRHEA DETECTION",
+               "reportitle": "GONORRHEA DETECTION",
                "method": "Real-time PCR (Polymerase Chain Reaction)",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Real-time PCR System"
           },

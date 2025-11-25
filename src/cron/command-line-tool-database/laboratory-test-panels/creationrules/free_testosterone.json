@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "FREE T",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "hour",
-               "reporttitle": "FREE TESTOSTERONE",
+               "reportitle": "FREE TESTOSTERONE",
                "method": "Equilibrium Dialysis with RIA/CLIA",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Specialized Endocrine Laboratories"
           },

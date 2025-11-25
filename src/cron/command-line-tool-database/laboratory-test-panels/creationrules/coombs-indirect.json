@@ -11,7 +11,7 @@
           "qty_required": 4,
           "shorttext": "ICT",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 10,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "min",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "min",
-               "reporttitle": "Coombs Indirect",
+               "reportitle": "Coombs Indirect",
                "method": "",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 1,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": ""
           },

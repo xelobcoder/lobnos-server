@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "TPHA",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "day",
                "pre_TatEvaluation": "hour",
                "tatEvaluation": "day",
-               "reporttitle": "TPHA (TREPONEMA PALLIDIUM HAEMAGGLUTINATION ASSAY)",
+               "reportitle": "TPHA (TREPONEMA PALLIDIUM HAEMAGGLUTINATION ASSAY)",
                "method": "Passive Haemagglutination Assay",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Automated Immunoassay Systems"
           },

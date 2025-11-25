@@ -11,7 +11,7 @@
           "qty_required": 3,
           "shorttext": "PROTEIN PROFILE",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 2,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "day",
-               "reporttitle": "SERUM PROTEIN ELECTROPHORESIS",
+               "reportitle": "SERUM PROTEIN ELECTROPHORESIS",
                "method": "Capillary Electrophoresis",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 0,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Capillary Electrophoresis System"
           },

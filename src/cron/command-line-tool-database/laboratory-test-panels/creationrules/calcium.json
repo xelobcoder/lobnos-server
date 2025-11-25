@@ -11,7 +11,7 @@
           "qty_required": 2,
           "shorttext": "Ca",
           "iscustom": 0,
-          "testdeatils": {
+          "testdetails": {
                "tatCount": 1,
                "post_Tat": 0,
                "tat": 0,
@@ -28,13 +28,13 @@
                "post_TatEvaluation": "hour",
                "pre_TatEvaluation": "min",
                "tatEvaluation": "hour",
-               "reporttitle": "CALCIUM, SERUM",
+               "reportitle": "CALCIUM, SERUM",
                "method": "Arsenazo III Colorimetric Method",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
                "showtrend": 1,
-               "deviceInterfacingMapping": null,
+               "deviceInterfaceMapping": null,
                "hasDrugs": 0,
                "instrumentation": "Roche Cobas, Beckman Coulter, Abbott Architect"
           },
