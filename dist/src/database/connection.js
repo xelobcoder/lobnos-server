@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.singleTenantKnexInstance = exports.databaseConnectionPool = void 0;
+exports.systemConfigConnection = exports.singleTenantKnexInstance = exports.databaseConnectionPool = void 0;
 const promise_1 = __importDefault(require("mysql2/promise"));
 const knex_1 = __importDefault(require("knex"));
 const environment = process.env.NODE_ENV || "development";
@@ -45,3 +45,21 @@ const singleTenantKnexInstance = (0, knex_1.default)({
     }
 });
 exports.singleTenantKnexInstance = singleTenantKnexInstance;
+const systemConfigConnection = (0, knex_1.default)({
+    client: "mysql2",
+    connection: {
+        host: process.env.SYSTEM_CONFIG_DB_HOST,
+        user: process.env.SYSTEM_CONFIG_DB_USERNAME,
+        password: process.env.SYSTEM_CONFIG_DB_PASSWORD,
+        database: process.env.SYSTEM_CONFIG_DATABASE,
+        port: Number(process.env.SYSTEM_CONFIG_DB_PORT),
+    },
+    pool: {
+        min: 2,
+        max: 10,
+        afterCreate: (conn, done) => {
+            done(null, conn);
+        }
+    }
+});
+exports.systemConfigConnection = systemConfigConnection;

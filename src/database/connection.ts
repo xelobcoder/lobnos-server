@@ -15,10 +15,10 @@ interface DBConfig {
 const config: Record<string, DBConfig> = {
 	development: {
 		host: process.env.DB_HOST!,
-          user: process.env.DB_USERNAME!,
-          password: process.env.DB_PASSWORD!,
-          database: process.env.DATABASE!,
-          port: Number(process.env.DB_PORT!),
+		user: process.env.DB_USERNAME!,
+		password: process.env.DB_PASSWORD!,
+		database: process.env.DATABASE!,
+		port: Number(process.env.DB_PORT!),
 		connectionLimit: 10,
 	},
 	production: {
@@ -52,4 +52,23 @@ const singleTenantKnexInstance = knex({
 });
 
 
-export { databaseConnectionPool, singleTenantKnexInstance };
+
+const systemConfigConnection = knex({
+	client: "mysql2",
+	connection: {
+		host: process.env.SYSTEM_CONFIG_DB_HOST!,
+		user: process.env.SYSTEM_CONFIG_DB_USERNAME!,
+		password: process.env.SYSTEM_CONFIG_DB_PASSWORD!,
+		database: process.env.SYSTEM_CONFIG_DATABASE!,
+		port: Number(process.env.SYSTEM_CONFIG_DB_PORT!),
+	}
+	,pool: {
+		min: 2,
+		max: 10,
+		afterCreate: (conn: any, done: Function) => {
+			done(null, conn);
+		}
+	}
+})
+
+export { databaseConnectionPool, singleTenantKnexInstance, systemConfigConnection };

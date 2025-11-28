@@ -20,14 +20,9 @@ export const parseCookies = (cookieHeader?: string): Record<string, string> => {
 }
 
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
-     const bypassRoutes = [
-          '/api/v1/prime/login',
-          '/api/v1/settings/companyprofile/images'
-     ]
+     const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword'];
 
-     if (bypassRoutes.some(route => request.path.startsWith(route))) {
-          return next();
-     }
+     if (bypassRoutes.some(route => request.path.startsWith(route))) return next();
      const cookieHeader = request.headers['cookie'] as string;
      const cookiesObj = parseCookies(cookieHeader);
 
@@ -48,14 +43,12 @@ export const ValidateTenancyAgreement = async (request: Request<{}, {}, {}, { te
      try {
           if (configuration.isMultiTenant) {
                const { tenantId } = request.query;
-               if (!tenantId) {
-                    return customError(OperationsFailures.invalidResquestQuery + ' TenantId not found', 404, response);
-               }
+               if (!tenantId) return customError(OperationsFailures.invalidResquestQuery + ' TenantId not found', 404, response);
                const status = await new TenancyRepository().validateTenantStanding(tenantId);
                if (!status) return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           } else {
                if (!request.query.tenantId) {
-                    request.query.tenantId = 1;
+                    request.query.tenantId = 3;
                }
           }
           next();

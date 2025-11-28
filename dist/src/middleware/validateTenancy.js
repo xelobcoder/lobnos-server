@@ -20,13 +20,9 @@ const parseCookies = (cookieHeader) => {
 };
 exports.parseCookies = parseCookies;
 const checkTokenExists = async (request, response, next) => {
-    const bypassRoutes = [
-        '/api/v1/prime/login',
-        '/api/v1/settings/companyprofile/images'
-    ];
-    if (bypassRoutes.some(route => request.path.startsWith(route))) {
+    const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword'];
+    if (bypassRoutes.some(route => request.path.startsWith(route)))
         return next();
-    }
     const cookieHeader = request.headers['cookie'];
     const cookiesObj = (0, exports.parseCookies)(cookieHeader);
     const currentUserToken = cookiesObj['pls-prime-tenant-session'];
@@ -51,16 +47,15 @@ const ValidateTenancyAgreement = async (request, response, next) => {
     try {
         if (configuration_1.configuration.isMultiTenant) {
             const { tenantId } = request.query;
-            if (!tenantId) {
+            if (!tenantId)
                 return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + ' TenantId not found', 404, response);
-            }
             const status = await new tenancyRepo_1.TenancyRepository().validateTenantStanding(tenantId);
             if (!status)
                 return (0, helper_1.customError)("You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
         }
         else {
             if (!request.query.tenantId) {
-                request.query.tenantId = 1;
+                request.query.tenantId = 3;
             }
         }
         next();

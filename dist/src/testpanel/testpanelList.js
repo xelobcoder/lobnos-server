@@ -8,6 +8,7 @@ const categories_1 = require("./categories");
 const queries_1 = require("./queries");
 const helper_1 = require("../hooks/helper");
 const logger_1 = __importDefault(require("../hooks/logger"));
+const MasterTestPanelRepository_1 = __importDefault(require("../models/system-admin/MasterTestPanelRepository"));
 exports.testpanel = {
     listquery: `SELECT 
       tp.name,
@@ -320,20 +321,15 @@ exports.testpanel = {
             response.send(err);
         }
     },
-    getpanelsbulk: async (tenantId, request, response) => {
+    getpanelsbulk: async (tenantId, grouping) => {
         const query = `SELECT * FROM test_panels`;
         try {
-            let result = await (0, helper_1.promisifyQuery)(tenantId, query);
-            if (result.length > 0) {
-                result = result.map((item) => {
-                    return (0, helper_1.convertKeysToLowerCase)(Object.assign(Object.assign({}, item), { sampleid: null }));
-                });
-            }
-            response.send({ message: "Success", statusCode: 200, status: "success", data: result });
+            let result = grouping == "master" ? await new MasterTestPanelRepository_1.default().getMasterPanels() : await (0, helper_1.promisifyQuery)(tenantId, query);
+            return result;
         }
         catch (err) {
             logger_1.default.error(err);
-            response.send({ message: err.message, statusCode: 500, status: "error" });
+            return false;
         }
     },
     getPanelBulKLessInformation: async function (request, response) {

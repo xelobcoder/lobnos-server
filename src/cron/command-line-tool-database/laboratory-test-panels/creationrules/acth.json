@@ -29,7 +29,7 @@
                "pre_TatEvaluation": "min",
                "tatEvaluation": "hour",
                "reportitle": "ADRENOCORTICOTROPIC HORMONE (ACTH)",
-               "method": "Chemiluminescent Immunoassay (CLIA)",
+               "method": "Enzyme linked Immunosorbent Assay ( ELISA )",
                "uselimiterature": 1,
                "childrenlimit": null,
                "outsourcingList": "",
@@ -45,14 +45,14 @@
                     "hasunits": 1,
                     "units": "pg/mL",
                     "plan": "limits",
-                    "upperlimit": 46.0,
-                    "lowerlimit": 7.2,
+                    "upperlimit":9.0,
+                    "lowerlimit": 42.0,
                     "categoryid": 38,
                     "alert": null,
                     "ordering": 1,
                     "undercategory": 0
                }
           ],
-          "literatureReview": "ACTH (Adrenocorticotropic Hormone) is produced by the pituitary gland and stimulates cortisol production by the adrenal cortex. Normal morning range is 7.2-46 pg/mL. Elevated levels suggest pituitary Cushing's disease or ectopic ACTH production. Low levels indicate pituitary insufficiency or exogenous steroid suppression. Chemiluminescent immunoassay provides high sensitivity for this low-concentration hormone. Samples must be collected in chilled EDTA tubes and centrifuged immediately to prevent degradation. ACTH has a pulsatile secretion pattern, so timing is important. Used with cortisol levels to differentiate causes of adrenal dysfunction. Critical for diagnosing pituitary vs adrenal pathology in cortisol disorders."
-     }
-]
+                    "literatureReview": "High levels of ACTH may be a sign of:<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Addison&rsquo;s disease<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Adrenal hyperplasia<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Cushing&rsquo;s disease<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Ectopic tumor which produces ACTH<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Adrenoleukodystrophy (very rare)<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Nelson&rsquo;s syndrome (very rare)<br />&nbsp;<br />Low levels of ACTH may be a sign of:<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Adrenal tumor<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Exogenous Cushing syndrome<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Hypopituitarism<br /><!--[if !supportLists]-->&middot;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <!--[endif]-->Taking steroid medications"
+               }
+          ]

@@ -44,13 +44,14 @@
                     "name": "Sickle Cell Test",
                     "hasunits": 0,
                     "units": "",
-                    "plan": "plain",
+                    "plan": "options",
                     "upperlimit": null,
                     "lowerlimit": null,
                     "categoryid": 17,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 0
+                    "undercategory": 0,
+                    "options": "Positive,Negative"
                }
           ],
           "literatureReview": "Sickle cell disease is a group of inherited red blood cell disorders caused by abnormal hemoglobin (hemoglobin S). The sickling test is a simple screening method that detects the presence of sickle hemoglobin by inducing red blood cell sickling under low oxygen conditions. A positive test indicates the presence of HbS and requires confirmatory testing. Early detection through newborn screening and carrier testing is crucial for managing sickle cell disease and providing genetic counseling."

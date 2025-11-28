@@ -44,11 +44,12 @@
                     "name": "OX-2 (Typhus Group)",
                     "hasunits": 0,
                     "units": "",
-                    "plan": "qualitative",
+                    "plan": "options",
                     "upperlimit": null,
                     "lowerlimit": null,
                     "categoryid": 50,
                     "alert": null,
+                    "options": "No Aggliutination,1:20,1:40,1:80,1:160,1:320,1:640,1:1280,1:2560",
                     "ordering": 1,
                     "undercategory": 0
                },
@@ -57,7 +58,8 @@
                     "name": "OX-19 (Typhus/Spotted Fever)",
                     "hasunits": 0,
                     "units": "",
-                    "plan": "qualitative",
+                    "plan": "options",
+                    "options": "No Aggliutination,1:20,1:40,1:80,1:160,1:320,1:640,1:1280,1:2560",
                     "upperlimit": null,
                     "lowerlimit": null,
                     "categoryid": 50,
@@ -70,7 +72,8 @@
                     "name": "OX-K (Spotted Fever Group)",
                     "hasunits": 0,
                     "units": "",
-                    "plan": "qualitative",
+                    "plan": "options",
+                    "options": "No Aggliutination,1:20,1:40,1:80,1:160,1:320,1:640,1:1280,1:2560",
                     "upperlimit": null,
                     "lowerlimit": null,
                     "categoryid": 50,
@@ -79,6 +82,6 @@
                     "undercategory": 0
                }
           ],
-          "literatureReview": "Weil Felix test detects cross-reacting antibodies to Proteus vulgaris OX antigens. Normal: <1:80 titer. Significant: ≥1:160 titer. OX-2: epidemic typhus, OX-19: murine typhus/scrub typhus, OX-K: spotted fever group. Becomes positive 7-10 days after infection. Low sensitivity and specificity. False positives with other infections. Confirm with immunofluorescence or PCR. Used in resource-limited settings for rickettsial disease diagnosis. Critical for typhus fever diagnosis in endemic areas."
+          "literatureReview": "<table border=\"1\" cellpadding=\"5\" cellspacing=\"0\" style=\"width:500px\"><thead><tr><th scope=\"col\">Disease</th><th scope=\"col\">OX19</th><th scope=\"col\">OX2</th><th scope=\"col\">OXK</th></tr></thead><tbody><tr><td>Epidemic typhus</td><td>Agglutination +</td><td>Low titre /No agglutination</td><td>No agglutination</td></tr><tr><td>Endemic typhus</td><td>Agglutination +</td><td>No agglutination</td><td>No agglutination</td></tr><tr><td>Tickborne spotted fever</td><td>Agglutination +</td><td>Agglutination +</td><td>No agglutination</td></tr><tr><td>Scrub typhus</td><td>No agglutination</td><td>No agglutination</td><td>Agglutination +</td></tr><tr><td>Brill-Zinsser disease</td><td>No agglutination/Low titre</td><td>No agglutination/Low titre</td><td>No agglutination</td></tr></tbody></table>"
      }
 ]

@@ -18,7 +18,7 @@ export class CommissionPaymentsController {
           if (totalAmountPaid >= commissionDue) {
                return 'paid';
           }
-          return 'pending'; // Partial payments remain pending
+          return 'pending'; 
      }
 
      async createCommissionPayment(request: Request, response: Response) {
@@ -46,42 +46,25 @@ export class CommissionPaymentsController {
                     return customError("type must be either 'clinician' or 'organization'", 400, response);
                }
 
-               // Check if commission payment already exists for this service
+
                try {
                     const existingPayments = await controller.repo.getCommissionPaymentsByService(serviceid);
                     if (existingPayments.length > 0) {
-                         const existingPayment = existingPayments[0]; // Get the first (and should be only) payment
-
-                         // Debug logging
-                         console.log('Existing payment found:', {
-                              id: existingPayment.id,
-                              serviceid: existingPayment.serviceid,
-                              total_amount_paid: existingPayment.total_amount_paid,
-                              commission_due: existingPayment.commission_due,
-                              status: existingPayment.status,
-                              type: typeof existingPayment.total_amount_paid,
-                              type2: typeof existingPayment.commission_due
-                         });
-
-                         // Check if payment is already complete
+                         const existingPayment = existingPayments[0];
                          const totalPaid = parseFloat(existingPayment.total_amount_paid?.toString() || '0');
                          const commissionDue = parseFloat(existingPayment.commission_due?.toString() || '0');
 
-                         console.log('Comparison:', { totalPaid, commissionDue, isFullyPaid: totalPaid >= commissionDue });
-
-                         // Check if status needs to be corrected
                          const correctStatus = controller.determinePaymentStatus(totalPaid, commissionDue);
                          if (existingPayment.status !== correctStatus) {
-                              console.log(`Correcting status from ${existingPayment.status} to ${correctStatus}`);
                               await controller.repo.updateCommissionPaymentStatus(existingPayment.id, correctStatus);
-                              existingPayment.status = correctStatus; // Update local object
+                              existingPayment.status = correctStatus;
                          }
 
                          if (totalPaid >= commissionDue) {
                               return customError("Commission payment is already fully paid for this service", 400, response);
                          }
 
-                         // If amount_paid is provided and payment is not complete, add a transaction
+
                          if (amount_paid && amount_paid > 0) {
                               await controller.repo.createCommissionPaymentTransaction({
                                    commission_payment_id: existingPayment.id,
@@ -106,7 +89,6 @@ export class CommissionPaymentsController {
                }
 
                try {
-                    // Determine initial status (always start with 0 paid)
                     const status = controller.determinePaymentStatus(0, commission_due);
 
                     const paymentId = await controller.repo.createCommissionPayment({
@@ -116,7 +98,6 @@ export class CommissionPaymentsController {
                          status
                     });
 
-                    // If amount_paid is provided, create a transaction
                     if (amount_paid && amount_paid > 0) {
                          await controller.repo.createCommissionPaymentTransaction({
                               commission_payment_id: paymentId,

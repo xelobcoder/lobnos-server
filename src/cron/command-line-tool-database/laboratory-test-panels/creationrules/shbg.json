@@ -44,13 +44,14 @@
                     "name": "SHBG",
                     "hasunits": 1,
                     "units": "nmol/L",
-                    "plan": "limits",
+                    "plan": "textReference",
                     "upperlimit": 50.0,
                     "lowerlimit": 10.0,
                     "categoryid": 38,
                     "alert": null,
                     "ordering": 1,
-                    "undercategory": 0
+                    "undercategory": 0,
+                    "textReference":"Male (20 - 49 years): 18.3 - 54.1 , Male (50+ years): 20.6 - 76.7"
                }
           ],
           "literatureReview": "SHBG (Sex Hormone Binding Globulin) binds testosterone and estradiol, regulating their bioavailability. Normal ranges: adult males 10-50 nmol/L, adult females 18-144 nmol/L (varies by age/menopausal status). Low SHBG levels increase free androgen activity, seen in polycystic ovary syndrome, obesity, hypothyroidism, and insulin resistance. High SHBG levels decrease free hormones, seen in hyperthyroidism, liver disease, and estrogen therapy. Chemiluminescent immunoassay provides accurate measurement. Free Androgen Index (FAI) = (Total Testosterone/SHBG) × 100. Used in evaluation of hirsutism, androgen excess, infertility, and metabolic syndrome. SHBG is produced by liver and influenced by insulin, thyroid hormones, and nutritional status."

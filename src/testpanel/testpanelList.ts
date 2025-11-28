@@ -6,6 +6,7 @@ import { promisifyQuery, customError, rowAffected, convertKeysToLowerCase, respo
 import logger from "../hooks/logger";
 import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import { PrimeLimsTabletestdetails } from "../database/DatabaseTableSchema";
+import MasterTestPanelRepository from "../models/system-admin/MasterTestPanelRepository";
 
 interface TestPanel {
 	id: number;
@@ -387,20 +388,15 @@ export const testpanel = {
 		}
 	},
 
-	getpanelsbulk: async (tenantId: number, request: Request, response: Response) => {
+	getpanelsbulk: async (tenantId: number, grouping: 'client' | 'master') => {
 		const query = `SELECT * FROM test_panels`;
-
 		try {
-			let result = await promisifyQuery(tenantId, query);
-			if (result.length > 0) {
-				result = result.map((item: any) => {
-					return convertKeysToLowerCase({ ...item, sampleid: null });
-				});
-			}
-			response.send({ message: "Success", statusCode: 200, status: "success", data: result });
+			let result = grouping == "master" ? await new MasterTestPanelRepository().getMasterPanels() : await promisifyQuery(tenantId, query);
+			return result;
 		} catch (err) {
 			logger.error(err);
-			response.send({ message: (err as Error).message, statusCode: 500, status: "error" });
+			return false
+
 		}
 	},
 

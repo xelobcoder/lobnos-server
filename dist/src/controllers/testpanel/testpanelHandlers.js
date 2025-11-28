@@ -10,6 +10,8 @@ const helper_1 = require("../../hooks/helper");
 const literature_1 = __importDefault(require("../../testpanel/literature"));
 const testpanelList_1 = require("../../testpanel/testpanelList");
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
+const logger_1 = __importDefault(require("../../hooks/logger"));
+const MasterTestPanelRepository_1 = __importDefault(require("../../models/system-admin/MasterTestPanelRepository"));
 // Category Handlers
 const getCategories = (req, res) => {
     (0, categories_1.getCategory)(req, res);
@@ -25,9 +27,17 @@ const getTestPanelList = (req, res) => {
     testpanelList_1.testpanel.getPanels(tenantId, req, res);
 };
 exports.getTestPanelList = getTestPanelList;
-const getBulkTestPanelList = (req, res) => {
-    const tenantId = parseInt(req.query.tenantId.toString());
-    testpanelList_1.testpanel.getpanelsbulk(tenantId, req, res);
+const getBulkTestPanelList = async (req, response) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const grouping = req.query.grouping || 'client';
+        const result = await testpanelList_1.testpanel.getpanelsbulk(tenantId, grouping);
+        response.send({ message: "Success", statusCode: 200, status: "success", data: result });
+    }
+    catch (err) {
+        logger_1.default.error(err);
+        response.send({ message: err.message, statusCode: 500, status: "error" });
+    }
 };
 exports.getBulkTestPanelList = getBulkTestPanelList;
 const postCreateCustomTestPanel = async (req, res) => {
@@ -198,12 +208,14 @@ const deleteTestPanel = async (req, res) => {
 exports.deleteTestPanel = deleteTestPanel;
 const getTestPanelCreationRule = async (req, res) => {
     try {
-        const { testid } = req.query;
+        const { testid, grouping } = req.query;
         if (!testid)
             return (0, helper_1.customError)("testid required", 404, res);
         const parsedTestId = parseInt(testid.toString());
         const tenantId = parseInt(req.query.tenantId.toString());
-        const rule = await new TestCreationRulesRepository_1.default(tenantId).findByTestId(parsedTestId);
+        const rule = grouping === 'master' ?
+            await new MasterTestPanelRepository_1.default().getTestCreationRulesByTestId(parsedTestId) :
+            await new TestCreationRulesRepository_1.default(tenantId).findByTestId(parsedTestId);
         res.send(rule);
     }
     catch (err) {

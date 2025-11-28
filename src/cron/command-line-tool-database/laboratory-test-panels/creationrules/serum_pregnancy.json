@@ -44,12 +44,13 @@
                     "name": "Quantitative hCG",
                     "hasunits": 1,
                     "units": "mIU/mL",
-                    "plan": "quantitative",
+                    "plan": "options",
                     "upperlimit": 5,
                     "lowerlimit": 0,
                     "categoryid": 49,
                     "alert": null,
                     "ordering": 1,
+                    "options":"Reactive,Non-Reactive",
                     "undercategory": 0
                }
           ],
