@@ -25,8 +25,8 @@ class ResultPrintingTrackingController {
             const page = Number(req.query.page) || 1;
             const pageSize = Number(req.query.count) || 20;
             const sortby = req.query.sortby;
-            const results = await repo.findAllByAscensionId(ascensionid, page, pageSize, sortby);
-            res.json(results);
+            const result = await repo.findAllByAscensionId(ascensionid, page, pageSize, sortby);
+            res.json(result);
         }
         catch (error) {
             res.status(400).json({ error: error.message });
@@ -36,8 +36,11 @@ class ResultPrintingTrackingController {
         try {
             const tenantId = Number(req.query.tenantId);
             const repo = new ResultPrintingTrackingRepository_1.default(tenantId);
-            const results = await repo.findAll();
-            res.json(results);
+            const page = Number(req.query.page) || 1;
+            const pageSize = Number(req.query.count) || 20;
+            const sortby = req.query.sortby;
+            const result = await repo.findAll(page, pageSize, sortby);
+            res.json(result);
         }
         catch (error) {
             res.status(400).json({ error: error.message });

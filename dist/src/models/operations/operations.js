@@ -77,7 +77,7 @@ class Operations {
     async getAllCasesResultEntryByMany(tenantId, requestQuery) {
         const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid, branchid } = requestQuery;
         try {
-            var { conditions, finalQuery } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false });
+            var { conditions, finalQuery } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false, organizationId: null, clinicianId: null });
             if (fullname) {
                 conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
             }
@@ -115,7 +115,7 @@ class Operations {
         }
     }
     static async generateAscensionQuery(queryParams) {
-        const { from, to, searchString, isUltrasound, stage } = queryParams;
+        const { from, to, searchString, isUltrasound, stage, clinicianId, organizationId } = queryParams;
         const startDate = new Date(from) || new Date();
         const enddate = new Date(to) || new Date();
         try {
@@ -142,6 +142,15 @@ class Operations {
                 const searchTerm = `%${searchString}%`;
                 conditions.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
             }
+            if (clinicianId) {
+                finalQuery += ` AND ds.clinicianId = ?`;
+                conditions.push(clinicianId);
+            }
+            if (organizationId) {
+                finalQuery += ` AND ds.organizationId = ?`;
+                conditions.push(organizationId);
+            }
+            console.log(finalQuery);
             return { conditions, finalQuery };
         }
         catch (err) {
@@ -215,11 +224,14 @@ class Operations {
     }
     static async getAscensionBasedOnStage(tenantId, queryParams) {
         try {
-            const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound, sortby } = queryParams;
+            const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound, sortby, clinicianId, organizationId } = queryParams;
             let query;
             let conditionValues = [];
             if (_dateFrom && _dateEnd) {
-                const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({ sortby, from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
+                const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
+                    sortby, from: _dateFrom, to: _dateEnd, stage,
+                    searchString, isUltrasound, clinicianId, organizationId
+                });
                 query = finalQuery;
                 conditionValues = conditionx;
             }

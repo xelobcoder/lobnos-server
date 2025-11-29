@@ -95,8 +95,21 @@ export default class TestResultsAuditLogRepository {
                               row.previous_originalvalue = decrypt_value(row.previous_originalvalue);
                          } catch { }
                     }
+
+                    if (row.new_value) {
+                         try {
+                              row.new_value = decrypt_value(row.new_value);
+                         } catch { }
+                    }
+
+                    if (row.new_originalvalue) {
+                         try {
+                              row.new_originalvalue = decrypt_value(row.new_originalvalue);
+                         } catch { }
+                    }
                     return row;
                });
+
 
                return { data, total, page, pageSize };
           } catch (error) {

@@ -28,6 +28,7 @@ const testFieldsCategoryClass_1 = __importDefault(require("../operations/testFie
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const encryptionModels_1 = require("../../utils/encryptionModels");
 const requestAcess_1 = __importDefault(require("../security/RequestAcessResult/requestAcess"));
+const RolesRepository_1 = __importDefault(require("../settings/users/RolesRepository"));
 class Creator {
     constructor(testid) {
         this.testid = testid;
@@ -258,7 +259,8 @@ class Creator {
         const insertUpdate = async function (trx, tenantId, fields, testid) {
             const { resources } = await (0, resultEncryptionReferer_1.default)(fields);
             const editSessionId = (0, uuid_1.v4)();
-            const iswithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantId, ascensionid, employeeid, "edit");
+            const isAdmin = await new RolesRepository_1.default(tenantId).getEmployeeRole(employeeid);
+            const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await requestAcess_1.default.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
             await Promise.all(resources.map(async (item, index) => {
                 const originalvalue = item.originalvalue;
                 const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);

@@ -13,6 +13,7 @@ interface AccessRequest {
      ascensionid: number;
      grantedAt?: Date;
      revokedAt?: Date;
+     employeeid: number;
      expiredAt?: Date;
      accessedAt?: Date;
      reason?: string;

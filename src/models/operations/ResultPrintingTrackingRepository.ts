@@ -63,20 +63,42 @@ export default class ResultPrintingTrackingRepository {
           page: number = 1,
           count: number = 20,
           sortby: 'ASC' | 'DESC' = 'DESC'
-     ): Promise<any[]> {
+     ): Promise<{ data: any[], pagination: { page: number, count: number, total: number, totalPages: number } }> {
           try {
                const conn = await this.connection;
-               return await conn(this.tableName)
+               const totalResult = await conn(this.tableName)
+                    .where(`${this.tableName}.ascensionid`, ascensionid)
+                    .count(`${this.tableName}.trackid as total`);
+               const total = Number(totalResult[0]?.total || 0);
+               const totalPages = Math.ceil(total / count);
+               
+               const data = await conn(this.tableName)
                     .leftJoin('roles', `${this.tableName}.employeeid`, 'roles.employeeid')
+                    .leftJoin('test_ascension', `${this.tableName}.ascensionid`, 'test_ascension.id')
+                    .leftJoin('test_panels', 'test_ascension.testid', 'test_panels.id')
                     .select(
                          `${this.tableName}.*`,
                          'roles.username as employee_name',
-                         'roles.role as employee_role'
+                         'roles.role as employee_role',
+                         'test_panels.name as test_name',
+                         'test_panels.shorttext as test_shorttext',
+                         'test_panels.category as test_category',
+                         'test_ascension.testid as test_id'
                     )
                     .where(`${this.tableName}.ascensionid`, ascensionid)
                     .orderBy(`${this.tableName}.actionon`, sortby)
                     .limit(count)
                     .offset((page - 1) * count);
+
+               return {
+                    data,
+                    pagination: {
+                         page,
+                         count,
+                         total,
+                         totalPages
+                    }
+               };
           } catch (error) {
                logger.error('Error finding result printing tracking by ascensionid:', error);
                throw error;
@@ -88,19 +110,43 @@ export default class ResultPrintingTrackingRepository {
           page: number = 1,
           count: number = 20,
           sortby: 'ASC' | 'DESC' = 'DESC'
-     ): Promise<any[]> {
+     ): Promise<{ data: any[], pagination: { page: number, count: number, total: number, totalPages: number } }> {
           try {
                const conn = await this.connection;
-               return await conn(this.tableName)
+
+               // Get total count
+               const totalResult = await conn(this.tableName)
+                    .count(`${this.tableName}.trackid as total`);
+               const total = Number(totalResult[0]?.total || 0);
+               const totalPages = Math.ceil(total / count);
+
+               // Get paginated data
+               const data = await conn(this.tableName)
                     .leftJoin('roles', `${this.tableName}.employeeid`, 'roles.employeeid')
+                    .leftJoin('test_ascension', `${this.tableName}.ascensionid`, 'test_ascension.id')
+                    .leftJoin('test_panels', 'test_ascension.testid', 'test_panels.id')
                     .select(
                          `${this.tableName}.*`,
                          'roles.username as employee_name',
-                         'roles.role as employee_role'
+                         'roles.role as employee_role',
+                         'test_panels.name as test_name',
+                         'test_panels.shorttext as test_shorttext',
+                         'test_panels.category as test_category',
+                         'test_ascension.testid as test_id'
                     )
                     .orderBy(`${this.tableName}.actionon`, sortby)
                     .limit(count)
                     .offset((page - 1) * count);
+
+               return {
+                    data,
+                    pagination: {
+                         page,
+                         count,
+                         total,
+                         totalPages
+                    }
+               };
           } catch (error) {
                logger.error('Error fetching all result printing tracking entries:', error);
                throw error;

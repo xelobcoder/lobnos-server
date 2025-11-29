@@ -141,6 +141,8 @@ export type ascensionStageRequestQueryTypes = {
 	to: (string | Date) | null,
 	stage: string,
 	sortby?: 'ASC' | 'DESC',
+	clinicianId: number,
+	organizationId: number,
 	searchString: string | null,
 	isUltrasound: boolean
 }

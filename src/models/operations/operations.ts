@@ -90,7 +90,7 @@ export default class Operations {
 		const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid, branchid } = requestQuery;
 
 		try {
-			var { conditions, finalQuery }: { conditions: (string | Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false });
+			var { conditions, finalQuery }: { conditions: (string | Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false,organizationId:null,clinicianId:null });
 
 			if (fullname) {
 				conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
@@ -135,7 +135,7 @@ export default class Operations {
 
 	private static async generateAscensionQuery(queryParams: ascensionStageRequestQueryTypes)
 		: Promise<{ conditions: (string | Date)[]; finalQuery: string; }> {
-		const { from, to, searchString, isUltrasound, stage } = queryParams
+		const { from, to, searchString, isUltrasound, stage, clinicianId, organizationId } = queryParams
 		const startDate = new Date(from) || new Date()
 		const enddate = new Date(to) || new Date();
 		try {
@@ -165,6 +165,19 @@ export default class Operations {
 				const searchTerm = `%${searchString}%`;
 				conditions.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
 			}
+
+
+			if (clinicianId) {
+				finalQuery += ` AND ds.clinicianId = ?`;
+				conditions.push(clinicianId as any as string);
+			}
+
+			if (organizationId) {
+				finalQuery += ` AND ds.organizationId = ?`;
+				conditions.push(organizationId as any as string);
+			}
+
+			console.log(finalQuery)
 			return { conditions, finalQuery };
 		} catch (err) {
 			return null;
@@ -234,8 +247,8 @@ export default class Operations {
 						console.log("Approval List: ", ascensionApprovalEmployeeList);
 						return { ...item, validators: ascensionApprovalEmployeeList };
 					}
-					
-				));
+
+					));
 				return approvalList;
 			}
 
@@ -265,14 +278,20 @@ export default class Operations {
 
 
 
-	public static async getAscensionBasedOnStage(tenantId: number, queryParams: { sortby: 'DESC' | 'ASC', _dateFrom: Date | string, _dateEnd: Date | string, stage: string, searchString: string, page: number, count: number, isUltrasound: boolean }) {
+	public static async getAscensionBasedOnStage(tenantId: number, queryParams: {
+		sortby: 'DESC' | 'ASC', _dateFrom: Date | string, _dateEnd: Date | string, stage: string,
+		searchString: string, page: number, count: number, isUltrasound: boolean, clinicianId: number, organizationId: number
+	}) {
 		try {
-			const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound, sortby } = queryParams;
+			const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound, sortby, clinicianId, organizationId } = queryParams;
 			let query: string | null;
 			let conditionValues = [];
 
 			if (_dateFrom && _dateEnd) {
-				const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({ sortby, from: _dateFrom, to: _dateEnd, stage, searchString, isUltrasound });
+				const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
+					sortby, from: _dateFrom, to: _dateEnd, stage,
+					searchString, isUltrasound, clinicianId, organizationId
+				});
 				query = finalQuery;
 				conditionValues = conditionx;
 			}

@@ -48,15 +48,32 @@ class ResultPrintingTrackingRepository {
         }
     }
     async findAllByAscensionId(ascensionid, page = 1, count = 20, sortby = 'DESC') {
+        var _a;
         try {
             const conn = await this.connection;
-            return await conn(this.tableName)
+            const totalResult = await conn(this.tableName)
+                .where(`${this.tableName}.ascensionid`, ascensionid)
+                .count(`${this.tableName}.trackid as total`);
+            const total = Number(((_a = totalResult[0]) === null || _a === void 0 ? void 0 : _a.total) || 0);
+            const totalPages = Math.ceil(total / count);
+            const data = await conn(this.tableName)
                 .leftJoin('roles', `${this.tableName}.employeeid`, 'roles.employeeid')
-                .select(`${this.tableName}.*`, 'roles.username as employee_name', 'roles.role as employee_role')
+                .leftJoin('test_ascension', `${this.tableName}.ascensionid`, 'test_ascension.id')
+                .leftJoin('test_panels', 'test_ascension.testid', 'test_panels.id')
+                .select(`${this.tableName}.*`, 'roles.username as employee_name', 'roles.role as employee_role', 'test_panels.name as test_name', 'test_panels.shorttext as test_shorttext', 'test_panels.category as test_category', 'test_ascension.testid as test_id')
                 .where(`${this.tableName}.ascensionid`, ascensionid)
                 .orderBy(`${this.tableName}.actionon`, sortby)
                 .limit(count)
                 .offset((page - 1) * count);
+            return {
+                data,
+                pagination: {
+                    page,
+                    count,
+                    total,
+                    totalPages
+                }
+            };
         }
         catch (error) {
             logger_1.default.error('Error finding result printing tracking by ascensionid:', error);
@@ -64,14 +81,32 @@ class ResultPrintingTrackingRepository {
         }
     }
     async findAll(page = 1, count = 20, sortby = 'DESC') {
+        var _a;
         try {
             const conn = await this.connection;
-            return await conn(this.tableName)
+            // Get total count
+            const totalResult = await conn(this.tableName)
+                .count(`${this.tableName}.trackid as total`);
+            const total = Number(((_a = totalResult[0]) === null || _a === void 0 ? void 0 : _a.total) || 0);
+            const totalPages = Math.ceil(total / count);
+            // Get paginated data
+            const data = await conn(this.tableName)
                 .leftJoin('roles', `${this.tableName}.employeeid`, 'roles.employeeid')
-                .select(`${this.tableName}.*`, 'roles.username as employee_name', 'roles.role as employee_role')
+                .leftJoin('test_ascension', `${this.tableName}.ascensionid`, 'test_ascension.id')
+                .leftJoin('test_panels', 'test_ascension.testid', 'test_panels.id')
+                .select(`${this.tableName}.*`, 'roles.username as employee_name', 'roles.role as employee_role', 'test_panels.name as test_name', 'test_panels.shorttext as test_shorttext', 'test_panels.category as test_category', 'test_ascension.testid as test_id')
                 .orderBy(`${this.tableName}.actionon`, sortby)
                 .limit(count)
                 .offset((page - 1) * count);
+            return {
+                data,
+                pagination: {
+                    page,
+                    count,
+                    total,
+                    totalPages
+                }
+            };
         }
         catch (error) {
             logger_1.default.error('Error fetching all result printing tracking entries:', error);

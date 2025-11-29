@@ -23,7 +23,7 @@ router.get("/api/v1/security/user/logout", handlers_1.logoutUser);
 router.get("/api/v1/security/users/logged/count", handlers_1.getLoggedUsersCount);
 router.get("/api/v1/security/users/getlogin/history", handlers_1.getLoginHistory);
 // access request routes
-router.post('/api/v1/security-features/request-access', result_acess_controller_1.ResultAccessController.requestAccess);
+router.post('/api/v1/security-features/request-access', (0, helper_1.handleOverLoad)(result_acess_controller_1.ResultAccessController.requestAccess));
 router.put('/api/v1/security-features/grant/:requestId', result_acess_controller_1.ResultAccessController.grantAccess);
 router.put('/api/v1/security-features/revoke/:requestId', result_acess_controller_1.ResultAccessController.revokeAccess);
 router.get('/api/v1/security-features/history', result_acess_controller_1.ResultAccessController.getAccessHistory);

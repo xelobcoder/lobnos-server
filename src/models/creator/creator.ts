@@ -34,6 +34,7 @@ import KnexConnection from "../../database/KnexConnections";
 import { encrypt_value } from "../../utils/encryptionModels";
 import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
+import RolesRepository from "../settings/users/RolesRepository";
 
 export default class Creator {
 	testid: number;
@@ -300,7 +301,8 @@ export default class Creator {
 		const insertUpdate = async function (trx: any, tenantId: number, fields: any[], testid: number) {
 			const { resources } = await resultEncrptionReferer(fields);
 			const editSessionId = uuidv4();
-			const iswithinWindow = await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, "edit");
+			const isAdmin = await new RolesRepository(tenantId).getEmployeeRole(employeeid);
+			const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
 
 			await Promise.all(
 				resources.map(async (item: any, index: number) => {
@@ -378,7 +380,7 @@ export default class Creator {
 			});
 			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
 			return true;
-			
+
 		} catch (error) {
 			throw error;
 		}

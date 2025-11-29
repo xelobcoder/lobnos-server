@@ -1,4 +1,4 @@
-import { request, Request, Response } from 'express';
+import { Request, Response } from 'express';
 import RequestAccess from '../../models/security/RequestAcessResult/requestAcess';
 import ResultAccessTableRepo from '../../models/security/RequestAcessResult/resultAcessTableRepo';
 
@@ -6,8 +6,14 @@ export class ResultAccessController {
      static async requestAccess(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const { patientid, staffid, requestType, ascensionid, reason, urgency } = req.body;
-               const id = await RequestAccess.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency });
+               const { patientid, staffid, requestType, ascensionid, reason, urgency, employeeid } = req.body;
+               if (!employeeid || !patientid || !staffid || !requestType || !ascensionid || !reason || !urgency) {
+                    return res.status(400).json({
+                         status: false,
+                         error: 'Missing required fields in the request body'
+                    });
+               }
+               const id = await RequestAccess.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency, employeeid });
                res.status(201).json({
                     status: true,
                     message: 'Access requested',
@@ -141,7 +147,7 @@ export class ResultAccessController {
                     count ? parseInt(count as string) : undefined,
                     page ? parseInt(page as string) : undefined,
                     sortby ? (sortby as string).toLowerCase() as 'asc' | 'desc' : undefined,
-                    parseInt(ascensionid) 
+                    parseInt(ascensionid)
                );
 
                res.json({

@@ -33,7 +33,7 @@ router.get("/api/v1/security/users/getlogin/history", getLoginHistory);
 
 
 // access request routes
-router.post('/api/v1/security-features/request-access', ResultAccessController.requestAccess);
+router.post('/api/v1/security-features/request-access', handleOverLoad(ResultAccessController.requestAccess));
 router.put('/api/v1/security-features/grant/:requestId', ResultAccessController.grantAccess);
 router.put('/api/v1/security-features/revoke/:requestId', ResultAccessController.revokeAccess);
 router.get('/api/v1/security-features/history', ResultAccessController.getAccessHistory);

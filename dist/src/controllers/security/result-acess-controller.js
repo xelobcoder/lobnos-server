@@ -10,8 +10,14 @@ class ResultAccessController {
     static async requestAccess(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const { patientid, staffid, requestType, ascensionid, reason, urgency } = req.body;
-            const id = await requestAcess_1.default.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency });
+            const { patientid, staffid, requestType, ascensionid, reason, urgency, employeeid } = req.body;
+            if (!employeeid || !patientid || !staffid || !requestType || !ascensionid || !reason || !urgency) {
+                return res.status(400).json({
+                    status: false,
+                    error: 'Missing required fields in the request body'
+                });
+            }
+            const id = await requestAcess_1.default.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency, employeeid });
             res.status(201).json({
                 status: true,
                 message: 'Access requested',

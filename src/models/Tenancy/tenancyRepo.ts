@@ -1,6 +1,4 @@
-import { tenancyConnection } from "../../database/tenancyConnection";
-import path from "path";
-import fs from "fs/promises";
+import { systemConfigConnection as tenancyConnection } from "../../database/connection";
 
 export class TenancyRepository {
      async createTenant(tenantInformation: Partial<PrimeLimsTenant>): Promise<number> {
@@ -9,7 +7,6 @@ export class TenancyRepository {
        VALUES (?, ?, NOW(), ?, NOW(), ?, ?) RETURNING tenantid`,
                [
                     tenantInformation.name,
-                    tenantInformation.type,
                     tenantInformation.isActive || 1,
                     tenantInformation.referedid,
                     tenantInformation.expirydate,
@@ -37,7 +34,6 @@ export class TenancyRepository {
        WHERE tenantid = ?`,
                [
                     tenantInformation.name,
-                    tenantInformation.type,
                     tenantInformation.referedid,
                     tenantInformation.expirydate,
                     tenantid,
@@ -99,29 +95,4 @@ export class TenancyRepository {
           return tenant && tenant['isActive'] == 1;
      }
 
-     async createTenancyFile(): Promise<void> {
-          const tenants = await this.getAllTenants();
-          const dirPath = path.join(__dirname, "../../database/tenants");
-          const filePath = path.join(dirPath, "tenants.json");
-          const jsonifiedTenants = JSON.stringify(tenants, null, 2);
-
-          try {
-               await fs.mkdir(dirPath, { recursive: true });
-               let shouldWrite = true;
-               try {
-                    const existingContent = await fs.readFile(filePath, "utf-8");
-                    if (existingContent === jsonifiedTenants) shouldWrite = false;
-               } catch (err) {
-                    shouldWrite = true;
-               }
-               if (shouldWrite) {
-                    await fs.writeFile(filePath, jsonifiedTenants);
-                    console.log(`Tenants file written to ${filePath}`);
-               } else {
-                    console.log(`Tenants file is already up-to-date at ${filePath}`);
-               }
-          } catch (err) {
-               console.error("Error creating tenancy file:", err);
-          }
-     }
 }

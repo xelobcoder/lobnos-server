@@ -67,6 +67,18 @@ class TestResultsAuditLogRepository {
                     }
                     catch (_b) { }
                 }
+                if (row.new_value) {
+                    try {
+                        row.new_value = (0, encryptionModels_1.decrypt_value)(row.new_value);
+                    }
+                    catch (_c) { }
+                }
+                if (row.new_originalvalue) {
+                    try {
+                        row.new_originalvalue = (0, encryptionModels_1.decrypt_value)(row.new_originalvalue);
+                    }
+                    catch (_d) { }
+                }
                 return row;
             });
             return { data, total, page, pageSize };

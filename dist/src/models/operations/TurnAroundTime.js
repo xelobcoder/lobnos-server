@@ -54,17 +54,19 @@ class TestAscensionTurnAroundTime {
                 return "N/A";
             const startTime = (0, moment_1.default)(start);
             const endTime = (0, moment_1.default)(end);
-            const diffMinutes = endTime.diff(startTime, "minutes");
+            const diffMs = endTime.diff(startTime);
+            const diffMinutes = diffMs / (1000 * 60);
             if (diffMinutes < 0)
                 return "N/A";
-            if (diffMinutes < 60) {
-                return `${diffMinutes} min`;
+            const roundedMinutes = Math.round(diffMinutes);
+            if (roundedMinutes < 60) {
+                return `${roundedMinutes} min`;
             }
-            else if (diffMinutes < 1440) {
-                return `${Math.floor(diffMinutes / 60)} hr ${diffMinutes % 60} min`;
+            else if (roundedMinutes < 1440) {
+                return `${Math.floor(roundedMinutes / 60)} hr ${roundedMinutes % 60} min`;
             }
             else {
-                return `${Math.floor(diffMinutes / 1440)} days ${Math.floor((diffMinutes % 1440) / 60)} hr`;
+                return `${Math.floor(roundedMinutes / 1440)} days ${Math.floor((roundedMinutes % 1440) / 60)} hr`;
             }
         }
         catch (e) {
@@ -78,8 +80,9 @@ class TestAscensionTurnAroundTime {
                 return null;
             const startTime = (0, moment_1.default)(start);
             const endTime = (0, moment_1.default)(end);
-            const diffMinutes = endTime.diff(startTime, "minutes");
-            return diffMinutes >= 0 ? diffMinutes : null;
+            const diffMs = endTime.diff(startTime);
+            const diffMinutes = diffMs / (1000 * 60);
+            return diffMinutes >= 0 ? Math.round(diffMinutes) : null;
         }
         catch (e) {
             return null;
@@ -140,17 +143,30 @@ class TestAscensionTurnAroundTime {
             totalTatActual > totalTatSet
             ? totalTatActual - totalTatSet
             : 0;
-        // Consistency check: sum of parts vs total
-        let sumParts = 0;
-        if (preTatActual != null)
-            sumParts += preTatActual;
-        if (processingTatActual != null)
-            sumParts += processingTatActual;
-        if (postTatActual != null)
-            sumParts += postTatActual;
-        const tatConsistencyWarning = totalTatActual != null && Math.abs(sumParts - totalTatActual) > 2
-            ? `Sum of parts (${sumParts} min) != total (${totalTatActual} min)`
-            : null;
+        // Consistency check: validate timestamp sequence and calculate waiting times
+        let tatConsistencyWarning = null;
+        if (totalTatActual != null) {
+            const collectionToProcessingGap = processingTatActual != null && preTatActual != null ?
+                TestAscensionTurnAroundTime.getMinutes(row.collectionEndDate, row.processingStartDate) : null;
+            const processingToResultGap = postTatActual != null && processingTatActual != null ?
+                TestAscensionTurnAroundTime.getMinutes(row.processingEndDate, row.resultEntryStart) : null;
+            // Check for backwards timestamps
+            if (preTatActual != null && preTatActual < 0) {
+                tatConsistencyWarning = "Collection end before collection start";
+            }
+            else if (processingTatActual != null && processingTatActual < 0) {
+                tatConsistencyWarning = "Processing end before processing start";
+            }
+            else if (postTatActual != null && postTatActual < 0) {
+                tatConsistencyWarning = "Result entry end before result entry start";
+            }
+            else if (collectionToProcessingGap != null && collectionToProcessingGap < 0) {
+                tatConsistencyWarning = "Processing started before collection ended";
+            }
+            else if (processingToResultGap != null && processingToResultGap < 0) {
+                tatConsistencyWarning = "Result entry started before processing ended";
+            }
+        }
         return {
             ascensionId: row.ascensionid,
             billedon: row.billedon,

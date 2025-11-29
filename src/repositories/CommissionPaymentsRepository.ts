@@ -23,6 +23,34 @@ interface CommissionPaymentTransaction {
      created_at?: Date;
 }
 
+interface CommissionBatchPayment {
+     id?: number;
+     batch_reference: string;
+     recipient_type: 'clinician' | 'organization';
+     recipient_id: number; // clinician or organization ID
+     start_date: Date;
+     end_date: Date;
+     total_commission_due: number;
+     amount_paid: number;
+     waived_amount: number;
+     status: 'pending' | 'completed' | 'cancelled';
+     payment_date?: Date;
+     notes?: string;
+     created_by: number;
+     created_at?: Date;
+     updated_at?: Date;
+}
+
+interface CommissionBatchPaymentService {
+     id?: number;
+     batch_payment_id: number;
+     serviceid: number;
+     commission_due: number;
+     amount_allocated: number;
+     status: 'paid' | 'waived' | 'partial';
+     created_at?: Date;
+}
+
 interface CommissionPaymentSummary {
      total_commission_due: number;
      total_amount_paid: number;
@@ -419,6 +447,340 @@ export class CommissionPaymentsRepository {
                });
           } catch (error) {
                logger.error('Error deleting commission payment transaction:', error);
+               throw error;
+          }
+     }
+
+     // Batch Payment Methods
+
+     async calculateCommissionForDateRange(
+          recipientType: 'clinician' | 'organization',
+          recipientId: number,
+          startDate: Date,
+          endDate: Date,
+          commissionPercentage: number
+     ): Promise<{ services: any[], totalCommission: number }> {
+          try {
+               const conn = await this.connection;
+
+               // Get services within the date range for the recipient
+               let servicesQuery = conn('dboservices as ds')
+                    .select(
+                         'ds.serviceid',
+                         'ds.totalpayable',
+                         'ds.created_at',
+                         'ds.status as service_status',
+                         'tp.name as test_name',
+                         'tp.category as test_category',
+                         'b.billedon',
+                         'b.patientid',
+                         'np.firstname',
+                         'np.middlename',
+                         'np.lastname'
+                    )
+                    .leftJoin('billing as b', 'ds.billingid', 'b.billingid')
+                    .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                    .leftJoin('new_patients as np', 'b.patientid', 'np.patientid')
+                    .whereBetween('ds.created_at', [startDate, endDate])
+                    .where('ds.status', 'completed')
+                    .orderBy('ds.created_at', 'asc');
+
+               if (recipientType === 'clinician') {
+                    servicesQuery = servicesQuery.where('ds.clinician', recipientId);
+               } else {
+                    servicesQuery = servicesQuery.where('ds.organization', recipientId);
+               }
+
+               const services = await servicesQuery;
+
+               // Calculate commission for each service
+               const servicesWithCommission = services.map(service => {
+                    const commissionDue = (parseFloat(service.totalpayable) * commissionPercentage) / 100;
+                    return {
+                         ...service,
+                         commission_due: commissionDue,
+                         commission_percentage: commissionPercentage
+                    };
+               });
+
+               const totalCommission = servicesWithCommission.reduce((sum, service) => sum + service.commission_due, 0);
+
+               return {
+                    services: servicesWithCommission,
+                    totalCommission
+               };
+          } catch (error) {
+               logger.error('Error calculating commission for date range:', error);
+               throw error;
+          }
+     }
+
+     async createBatchCommissionPayment(
+          batchData: Omit<CommissionBatchPayment, 'id' | 'created_at' | 'updated_at'>
+     ): Promise<number> {
+          try {
+               const conn = await this.connection;
+
+               // Generate batch reference if not provided
+               const batchReference = batchData.batch_reference || `BATCH_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+               const [id] = await conn('commission_batch_payments').insert({
+                    ...batchData,
+                    batch_reference: batchReference,
+                    created_at: conn.fn.now(),
+                    updated_at: conn.fn.now()
+               });
+
+               logger.info(`Batch commission payment created with ID: ${id}`);
+               return id;
+          } catch (error) {
+               logger.error('Error creating batch commission payment:', error);
+               throw error;
+          }
+     }
+
+     async applyBatchPaymentToServices(
+          batchPaymentId: number,
+          services: Array<{ serviceid: number, commission_due: number }>,
+          paymentAmount: number
+     ): Promise<{ allocatedServices: CommissionBatchPaymentService[], remainingAmount: number }> {
+          try {
+               const conn = await this.connection;
+
+               return await conn.transaction(async (trx) => {
+                    let remainingAmount = paymentAmount;
+                    const allocatedServices: CommissionBatchPaymentService[] = [];
+
+                    // Sort services by commission due (smallest first to ensure fair distribution)
+                    const sortedServices = services.sort((a, b) => a.commission_due - b.commission_due);
+
+                    for (const service of sortedServices) {
+                         if (remainingAmount <= 0) break;
+
+                         const amountToAllocate = Math.min(service.commission_due, remainingAmount);
+                         const status = amountToAllocate >= service.commission_due ? 'paid' : 'partial';
+
+                         const [serviceId] = await trx('commission_batch_payment_services').insert({
+                              batch_payment_id: batchPaymentId,
+                              serviceid: service.serviceid,
+                              commission_due: service.commission_due,
+                              amount_allocated: amountToAllocate,
+                              status,
+                              created_at: trx.fn.now()
+                         });
+
+                         allocatedServices.push({
+                              id: serviceId,
+                              batch_payment_id: batchPaymentId,
+                              serviceid: service.serviceid,
+                              commission_due: service.commission_due,
+                              amount_allocated: amountToAllocate,
+                              status,
+                              created_at: new Date()
+                         });
+
+                         remainingAmount -= amountToAllocate;
+
+                         // Create individual commission payment record for tracking
+                         await trx('commission_payments').insert({
+                              serviceid: service.serviceid,
+                              commission_due: service.commission_due,
+                              total_amount_paid: amountToAllocate,
+                              type: 'clinician', // This should be determined based on batch payment
+                              status: status === 'paid' ? 'paid' : 'pending',
+                              created_at: trx.fn.now(),
+                              updated_at: trx.fn.now()
+                         });
+                    }
+
+                    // If there's remaining amount after covering all services, mark it as waived
+                    if (remainingAmount > 0) {
+                         await trx('commission_batch_payments')
+                              .where({ id: batchPaymentId })
+                              .update({
+                                   waived_amount: remainingAmount,
+                                   status: 'completed',
+                                   payment_date: trx.fn.now(),
+                                   updated_at: trx.fn.now()
+                              });
+                    } else {
+                         await trx('commission_batch_payments')
+                              .where({ id: batchPaymentId })
+                              .update({
+                                   status: 'completed',
+                                   payment_date: trx.fn.now(),
+                                   updated_at: trx.fn.now()
+                              });
+                    }
+
+                    return { allocatedServices, remainingAmount };
+               });
+          } catch (error) {
+               logger.error('Error applying batch payment to services:', error);
+               throw error;
+          }
+     }
+
+     async getBatchCommissionPayments(
+          recipientType?: 'clinician' | 'organization',
+          recipientId?: number,
+          status?: 'pending' | 'completed' | 'cancelled',
+          limit?: number
+     ): Promise<any[]> {
+          try {
+               const conn = await this.connection;
+               let query = conn('commission_batch_payments as cbp')
+                    .select(
+                         'cbp.*',
+                         'r.username as created_by_name'
+                    )
+                    .leftJoin('roles as r', 'cbp.created_by', 'r.employeeid')
+                    .orderBy('cbp.created_at', 'desc');
+
+               if (recipientType) {
+                    query = query.where('cbp.recipient_type', recipientType);
+               }
+
+               if (recipientId) {
+                    query = query.where('cbp.recipient_id', recipientId);
+               }
+
+               if (status) {
+                    query = query.where('cbp.status', status);
+               }
+
+               if (limit) {
+                    query = query.limit(limit);
+               }
+
+               const batchPayments = await query;
+
+               // Get services for each batch payment
+               const paymentsWithServices = await Promise.all(
+                    batchPayments.map(async (payment) => {
+                         const services = await conn('commission_batch_payment_services as cbps')
+                              .select(
+                                   'cbps.*',
+                                   'ds.totalpayable',
+                                   'tp.name as test_name'
+                              )
+                              .leftJoin('dboservices as ds', 'cbps.serviceid', 'ds.serviceid')
+                              .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                              .where('cbps.batch_payment_id', payment.id);
+
+                         return {
+                              ...payment,
+                              services
+                         };
+                    })
+               );
+
+               return paymentsWithServices;
+          } catch (error) {
+               logger.error('Error fetching batch commission payments:', error);
+               throw error;
+          }
+     }
+
+     async getBatchCommissionPaymentById(id: number): Promise<any> {
+          try {
+               const conn = await this.connection;
+               const batchPayment = await conn('commission_batch_payments as cbp')
+                    .select(
+                         'cbp.*',
+                         'r.username as created_by_name'
+                    )
+                    .leftJoin('roles as r', 'cbp.created_by', 'r.employeeid')
+                    .where('cbp.id', id)
+                    .first();
+
+               if (batchPayment) {
+                    const services = await conn('commission_batch_payment_services as cbps')
+                         .select(
+                              'cbps.*',
+                              'ds.totalpayable',
+                              'tp.name as test_name',
+                              'b.billedon',
+                              'np.firstname',
+                              'np.middlename',
+                              'np.lastname'
+                         )
+                         .leftJoin('dboservices as ds', 'cbps.serviceid', 'ds.serviceid')
+                         .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                         .leftJoin('billing as b', 'ds.billingid', 'b.billingid')
+                         .leftJoin('new_patients as np', 'b.patientid', 'np.patientid')
+                         .where('cbps.batch_payment_id', id);
+
+                    return {
+                         ...batchPayment,
+                         services
+                    };
+               }
+
+               return null;
+          } catch (error) {
+               logger.error('Error fetching batch commission payment by ID:', error);
+               throw error;
+          }
+     }
+
+     async getServicesCoveredByBatchPayment(batchPaymentId: number): Promise<any[]> {
+          try {
+               const conn = await this.connection;
+               return await conn('commission_batch_payment_services as cbps')
+                    .select(
+                         'cbps.*',
+                         'ds.totalpayable',
+                         'ds.created_at as service_date',
+                         'tp.name as test_name',
+                         'b.billedon',
+                         'np.firstname',
+                         'np.middlename',
+                         'np.lastname'
+                    )
+                    .leftJoin('dboservices as ds', 'cbps.serviceid', 'ds.serviceid')
+                    .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                    .leftJoin('billing as b', 'ds.billingid', 'b.billingid')
+                    .leftJoin('new_patients as np', 'b.patientid', 'np.patientid')
+                    .where('cbps.batch_payment_id', batchPaymentId)
+                    .orderBy('ds.created_at', 'asc');
+          } catch (error) {
+               logger.error('Error fetching services covered by batch payment:', error);
+               throw error;
+          }
+     }
+
+     async cancelBatchCommissionPayment(id: number, reason?: string): Promise<number> {
+          try {
+               const conn = await this.connection;
+
+               return await conn.transaction(async (trx) => {
+                    // Update batch payment status
+                    const result = await trx('commission_batch_payments')
+                         .where({ id })
+                         .update({
+                              status: 'cancelled',
+                              notes: reason ? `Cancelled: ${reason}` : 'Cancelled',
+                              updated_at: trx.fn.now()
+                         });
+
+                    if (result > 0) {
+                         // Remove associated commission payments
+                         await trx('commission_payments')
+                              .whereRaw('serviceid IN (SELECT serviceid FROM commission_batch_payment_services WHERE batch_payment_id = ?)', [id])
+                              .del();
+
+                         // Remove batch payment services
+                         await trx('commission_batch_payment_services')
+                              .where({ batch_payment_id: id })
+                              .del();
+                    }
+
+                    logger.info(`Batch commission payment cancelled: ${id}`);
+                    return result;
+               });
+          } catch (error) {
+               logger.error('Error cancelling batch commission payment:', error);
                throw error;
           }
      }

@@ -10,7 +10,7 @@ const testApprovalClass_1 = require("../../models/operations/testApprovalClass")
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 async function ascensionStagingHandler(request, response) {
     try {
-        const { operationsStaging, dateFrom, dateEnd, searchString, page, count, isUltrasound, employeeid, tenantId } = request.query;
+        const { operationsStaging, dateFrom, dateEnd, searchString, page, count, isUltrasound, employeeid, tenantId, clinicianId, organizationId } = request.query;
         if (!employeeid)
             return response.send({ status: false, message: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */, action: 'Include employeeid in the query' });
         const parsedEmployeeId = parseInt(employeeid.toString());
@@ -21,7 +21,8 @@ async function ascensionStagingHandler(request, response) {
         if (operationsStaging === "VALIDATION" && !(await canValidateResults(parsedEmployeeId, tenantIdP))) {
             return response.send({ status: false, message: `${"You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */}. To validate Result` });
         }
-        const queryParams = createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound, sortby: request.query.sortby });
+        const queryParams = createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound, clinicianId, organizationId,
+            sortby: request.query.sortby });
         let list = await operations_1.default.getAscensionBasedOnStage(tenantIdP, queryParams);
         if (operationsStaging === 'VALIDATION' && Array.isArray(list)) {
             list = await filterApprovedAscensionList(list, parsedEmployeeId, tenantIdP);
@@ -52,7 +53,7 @@ async function canValidateResults(employeeId, tenantId) {
         Array.isArray(validationSettings.staffQualifiedToValidationResult) &&
         validationSettings.staffQualifiedToValidationResult.includes(employeeId));
 }
-function createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound, sortby }) {
+function createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound, sortby, clinicianId, organizationId }) {
     return {
         _dateFrom: dateFrom.toString(),
         _dateEnd: dateEnd.toString(),
@@ -61,7 +62,9 @@ function createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString,
         count: parseInt(count.toString()),
         page: parseInt(page.toString()),
         isUltrasound: isUltrasound === "true",
-        sortby: sortby || "DESC"
+        sortby: sortby || "DESC",
+        clinicianId,
+        organizationId
     };
 }
 async function filterApprovedAscensionList(list, employeeId, tenantId) {
