@@ -1,7 +1,7 @@
 import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`DeleteTriggersForBilling\` AFTER DELETE ON \`billing\`
      FOR EACH ROW BEGIN
         DELETE FROM billinghx WHERE billingid = OLD.BILLINGID;
@@ -9,14 +9,14 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`afinliteraturereview\` AFTER INSERT ON \`test_panels\`
      FOR EACH ROW BEGIN
               INSERT INTO setupliteraturereview (testid) VALUES (NEW.id);
       END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`after_medicalrecord_update\` AFTER UPDATE ON \`medicalrecords\`
      FOR EACH ROW BEGIN
         INSERT INTO medicalrecordsaudit (
@@ -54,7 +54,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`after_test_ascension_insert_result_lock\` AFTER INSERT ON \`test_ascension\`
      FOR EACH ROW BEGIN
         INSERT INTO result_lock (ascensionid, isResultLock, created_at, updated_at)
@@ -62,7 +62,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`after_test_results_delete\` AFTER DELETE ON \`test_results\`
      FOR EACH ROW BEGIN
         INSERT INTO test_results_audit_log (
@@ -97,7 +97,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`after_test_results_update\` AFTER UPDATE ON \`test_results\`
      FOR EACH ROW BEGIN
         INSERT INTO test_results_audit_log (
@@ -132,7 +132,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`autoAddClients\` AFTER INSERT ON \`new_patients\`
      FOR EACH ROW BEGIN
         INSERT INTO patients_credentials(PATIENTID,USERNAME,PASSWORD)
@@ -146,7 +146,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`autoDeleteClient\` AFTER DELETE ON \`new_patients\`
      FOR EACH ROW BEGIN
         DELETE FROM patientemmergencycontactinformation WHERE patientid = OLD.PATIENTID;
@@ -159,7 +159,7 @@ export async function up(knex: Knex): Promise<void> {
      END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`createIndentifier\` BEFORE INSERT ON \`clinicianbasicinfo\`
      FOR EACH ROW BEGIN
         DECLARE last_id INT;
@@ -177,7 +177,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`expensesrecord_after_update\` AFTER UPDATE ON \`expensesrecord\`
      FOR EACH ROW BEGIN
       INSERT INTO \`expensesrecord_audit_log\` (
@@ -235,7 +235,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`insertIntoContactNaccount\` AFTER INSERT ON \`organization\`
      FOR EACH ROW BEGIN
         INSERT INTO organizationcontactperson(organizationid) VALUE(NEW.id);
@@ -243,7 +243,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`insertIntoDboTestApprovalTable2\` AFTER INSERT ON \`test_ascension\`
      FOR EACH ROW BEGIN
         DECLARE settings_json JSON;
@@ -274,7 +274,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`insertIntoServicesTracking\` AFTER INSERT ON \`dboservices\`
      FOR EACH ROW BEGIN
         IF (NEW.serviceCategory = 'SERVICES' AND NEW.categoryTrackId = 5)
@@ -285,7 +285,64 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
+    DROP TRIGGER IF EXISTS \`create_commission_payment\``);
+
+  await knex.raw(`
+    CREATE TRIGGER \`create_commission_payment\` AFTER INSERT ON \`dboservices\`
+     FOR EACH ROW BEGIN
+        DECLARE commission_percentage DECIMAL(5,2) DEFAULT 0;
+        DECLARE commission_type VARCHAR(20);
+        DECLARE recipient_id INT;
+
+        -- Check if service has a clinician or organization
+        IF NEW.clinicianId IS NOT NULL THEN
+            -- Get commission percentage from clinician payment info
+            SELECT COALESCE(commission, 0) INTO commission_percentage
+            FROM clinicianpaymentinfo
+            WHERE clinicianid = NEW.clinicianId
+            LIMIT 1;
+
+            SET commission_type = 'clinician';
+            SET recipient_id = NEW.clinicianId;
+
+        ELSEIF NEW.organizationId IS NOT NULL THEN
+            -- Get commission percentage from organization account info
+            SELECT COALESCE(commission, 0) INTO commission_percentage
+            FROM organizationaccountinformation
+            WHERE organizationid = NEW.organizationId
+            LIMIT 1;
+
+            SET commission_type = 'organization';
+            SET recipient_id = NEW.organizationId;
+        END IF;
+
+        -- Only create commission payment if we have a recipient (regardless of commission percentage)
+        IF recipient_id IS NOT NULL THEN
+            INSERT INTO commission_tracking (
+                serviceid,
+                commission_percentage,
+                commission_due,
+                type,
+                recipient_id,
+                calculated_at,
+                created_at,
+                updated_at
+            ) VALUES (
+                NEW.serviceid,
+                commission_percentage,
+                (NEW.totalpayable * commission_percentage / 100),
+                commission_type,
+                recipient_id,
+                NOW(),
+                NOW(),
+                NOW()
+            );
+        END IF;
+    END
+  `);
+
+  await knex.raw(`
     CREATE TRIGGER \`insertintooutsourceTraking\` AFTER INSERT ON \`dboservices\`
      FOR EACH ROW BEGIN
         IF (NEW.isoutsourced = 1 AND NEW.outsourceid > 0)
@@ -294,7 +351,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`inserttestdetails\` AFTER INSERT ON \`test_panels\`
      FOR EACH ROW BEGIN
         INSERT INTO testdetails (testid,testcost)VALUES(NEW.id,NEW.price);
@@ -305,21 +362,21 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`inserttogeneraleditcounttable\` AFTER INSERT ON \`test_ascension\`
      FOR EACH ROW BEGIN
         INSERT INTO dbogeneraltesteditcount (ascensionid,billingid) VALUES(NEW.id, NEW.billingid);
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`onDelete\` AFTER DELETE ON \`test_ascension\`
      FOR EACH ROW BEGIN
         DELETE FROM samplestatus WHERE ascensionid = OLD.id;
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`onDeleteClinician\` AFTER DELETE ON \`clinicianbasicinfo\`
      FOR EACH ROW BEGIN
         DELETE FROM clinicianpaymentinfo WHERE CLINICIANID = OLD.ID;
@@ -327,7 +384,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`onInsertClinician\` AFTER INSERT ON \`clinicianbasicinfo\`
      FOR EACH ROW BEGIN
         INSERT INTO clinicianpaymentinfo (clinicianid)
@@ -338,7 +395,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`ontestdelete\` AFTER DELETE ON \`test_panels\`
      FOR EACH ROW BEGIN
         DELETE FROM testdetails WHERE testid =  OLD.id;
@@ -349,7 +406,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`outsource_contract_trigger\` AFTER INSERT ON \`outsourcingorganization\`
      FOR EACH ROW BEGIN
         INSERT INTO outsourceorganizationcontract (outsourceid,createdby)
@@ -357,14 +414,14 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`samplestatus\` AFTER INSERT ON \`test_ascension\`
      FOR EACH ROW BEGIN
         INSERT INTO samplestatus(testid,approvalstatus,ascensionid) VALUES(NEW.testid,NULL,NEW.id);
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`testidgeneration\` BEFORE INSERT ON \`test_panels\`
      FOR EACH ROW BEGIN
         DECLARE last_id INT DEFAULT 101; -- Default starting value
@@ -393,7 +450,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`tr_expensesrecord_delete_audit\` AFTER DELETE ON \`expensesrecord\`
      FOR EACH ROW BEGIN
       INSERT INTO \`expensesrecord_audit_log\` (
@@ -431,7 +488,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`tr_expensesrecord_insert_audit\` AFTER INSERT ON \`expensesrecord\`
      FOR EACH ROW BEGIN
       INSERT INTO \`expensesrecord_audit_log\` (
@@ -469,7 +526,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`trg_billing_delete\` AFTER DELETE ON \`billing\`
      FOR EACH ROW BEGIN
         INSERT INTO billing_audit (
@@ -484,7 +541,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`trg_billing_insert\` AFTER INSERT ON \`billing\`
      FOR EACH ROW BEGIN
         INSERT INTO billing_audit (
@@ -499,7 +556,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`trg_billing_update\` AFTER UPDATE ON \`billing\`
      FOR EACH ROW BEGIN
         INSERT INTO billing_audit (
@@ -514,7 +571,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`trg_dboservices_delete\` AFTER DELETE ON \`dboservices\`
      FOR EACH ROW BEGIN
         INSERT INTO dboservices_audit (
@@ -535,7 +592,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`trg_dboservices_insert\` AFTER INSERT ON \`dboservices\`
      FOR EACH ROW BEGIN
         INSERT INTO dboservices_audit (
@@ -556,7 +613,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`trg_dboservices_update\` AFTER UPDATE ON \`dboservices\`
      FOR EACH ROW BEGIN
         INSERT INTO dboservices_audit (
@@ -577,7 +634,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`trg_update_patientfinancials_update\` AFTER UPDATE ON \`billing\`
      FOR EACH ROW BEGIN
       DECLARE billed_delta DECIMAL(10,2);
@@ -659,7 +716,7 @@ export async function up(knex: Knex): Promise<void> {
     END
   `);
 
-     await knex.raw(`
+  await knex.raw(`
     CREATE TRIGGER \`updateSessionTracker\` AFTER INSERT ON \`loginlogs\`
      FOR EACH ROW BEGIN
         INSERT INTO sessiontracker (employeeid,loginSessionId,logoutTime,loginhxid) VALUE(NEW.employeeid,NEW.loginSessionId,NEW.logoutTime,NEW.keyid);
@@ -668,37 +725,38 @@ export async function up(knex: Knex): Promise<void> {
 }
 
 export async function down(knex: Knex): Promise<void> {
-     await knex.raw('DROP TRIGGER IF EXISTS `DeleteTriggersForBilling`');
-     await knex.raw('DROP TRIGGER IF EXISTS `afinliteraturereview`');
-     await knex.raw('DROP TRIGGER IF EXISTS `after_medicalrecord_update`');
-     await knex.raw('DROP TRIGGER IF EXISTS `after_test_ascension_insert_result_lock`');
-     await knex.raw('DROP TRIGGER IF EXISTS `after_test_results_delete`');
-     await knex.raw('DROP TRIGGER IF EXISTS `after_test_results_update`');
-     await knex.raw('DROP TRIGGER IF EXISTS `autoAddClients`');
-     await knex.raw('DROP TRIGGER IF EXISTS `autoDeleteClient`');
-     await knex.raw('DROP TRIGGER IF EXISTS `createIndentifier`');
-     await knex.raw('DROP TRIGGER IF EXISTS `expensesrecord_after_update`');
-     await knex.raw('DROP TRIGGER IF EXISTS `insertIntoContactNaccount`');
-     await knex.raw('DROP TRIGGER IF EXISTS `insertIntoDboTestApprovalTable2`');
-     await knex.raw('DROP TRIGGER IF EXISTS `insertIntoServicesTracking`');
-     await knex.raw('DROP TRIGGER IF EXISTS `insertintooutsourceTraking`');
-     await knex.raw('DROP TRIGGER IF EXISTS `inserttestdetails`');
-     await knex.raw('DROP TRIGGER IF EXISTS `inserttogeneraleditcounttable`');
-     await knex.raw('DROP TRIGGER IF EXISTS `onDelete`');
-     await knex.raw('DROP TRIGGER IF EXISTS `onDeleteClinician`');
-     await knex.raw('DROP TRIGGER IF EXISTS `onInsertClinician`');
-     await knex.raw('DROP TRIGGER IF EXISTS `ontestdelete`');
-     await knex.raw('DROP TRIGGER IF EXISTS `outsource_contract_trigger`');
-     await knex.raw('DROP TRIGGER IF EXISTS `samplestatus`');
-     await knex.raw('DROP TRIGGER IF EXISTS `testidgeneration`');
-     await knex.raw('DROP TRIGGER IF EXISTS `tr_expensesrecord_delete_audit`');
-     await knex.raw('DROP TRIGGER IF EXISTS `tr_expensesrecord_insert_audit`');
-     await knex.raw('DROP TRIGGER IF EXISTS `trg_billing_delete`');
-     await knex.raw('DROP TRIGGER IF EXISTS `trg_billing_insert`');
-     await knex.raw('DROP TRIGGER IF EXISTS `trg_billing_update`');
-     await knex.raw('DROP TRIGGER IF EXISTS `trg_dboservices_delete`');
-     await knex.raw('DROP TRIGGER IF EXISTS `trg_dboservices_insert`');
-     await knex.raw('DROP TRIGGER IF EXISTS `trg_dboservices_update`');
-     await knex.raw('DROP TRIGGER IF EXISTS `trg_update_patientfinancials_update`');
-     await knex.raw('DROP TRIGGER IF EXISTS `updateSessionTracker`');
+  await knex.raw('DROP TRIGGER IF EXISTS `DeleteTriggersForBilling`');
+  await knex.raw('DROP TRIGGER IF EXISTS `afinliteraturereview`');
+  await knex.raw('DROP TRIGGER IF EXISTS `after_medicalrecord_update`');
+  await knex.raw('DROP TRIGGER IF EXISTS `after_test_ascension_insert_result_lock`');
+  await knex.raw('DROP TRIGGER IF EXISTS `after_test_results_delete`');
+  await knex.raw('DROP TRIGGER IF EXISTS `after_test_results_update`');
+  await knex.raw('DROP TRIGGER IF EXISTS `autoAddClients`');
+  await knex.raw('DROP TRIGGER IF EXISTS `autoDeleteClient`');
+  await knex.raw('DROP TRIGGER IF EXISTS `createIndentifier`');
+  await knex.raw('DROP TRIGGER IF EXISTS `expensesrecord_after_update`');
+  await knex.raw('DROP TRIGGER IF EXISTS `insertIntoContactNaccount`');
+  await knex.raw('DROP TRIGGER IF EXISTS `insertIntoDboTestApprovalTable2`');
+  await knex.raw('DROP TRIGGER IF EXISTS `insertIntoServicesTracking`');
+  await knex.raw('DROP TRIGGER IF EXISTS `create_commission_payment`');
+  await knex.raw('DROP TRIGGER IF EXISTS `insertintooutsourceTraking`');
+  await knex.raw('DROP TRIGGER IF EXISTS `inserttestdetails`');
+  await knex.raw('DROP TRIGGER IF EXISTS `inserttogeneraleditcounttable`');
+  await knex.raw('DROP TRIGGER IF EXISTS `onDelete`');
+  await knex.raw('DROP TRIGGER IF EXISTS `onDeleteClinician`');
+  await knex.raw('DROP TRIGGER IF EXISTS `onInsertClinician`');
+  await knex.raw('DROP TRIGGER IF EXISTS `ontestdelete`');
+  await knex.raw('DROP TRIGGER IF EXISTS `outsource_contract_trigger`');
+  await knex.raw('DROP TRIGGER IF EXISTS `samplestatus`');
+  await knex.raw('DROP TRIGGER IF EXISTS `testidgeneration`');
+  await knex.raw('DROP TRIGGER IF EXISTS `tr_expensesrecord_delete_audit`');
+  await knex.raw('DROP TRIGGER IF EXISTS `tr_expensesrecord_insert_audit`');
+  await knex.raw('DROP TRIGGER IF EXISTS `trg_billing_delete`');
+  await knex.raw('DROP TRIGGER IF EXISTS `trg_billing_insert`');
+  await knex.raw('DROP TRIGGER IF EXISTS `trg_billing_update`');
+  await knex.raw('DROP TRIGGER IF EXISTS `trg_dboservices_delete`');
+  await knex.raw('DROP TRIGGER IF EXISTS `trg_dboservices_insert`');
+  await knex.raw('DROP TRIGGER IF EXISTS `trg_dboservices_update`');
+  await knex.raw('DROP TRIGGER IF EXISTS `trg_update_patientfinancials_update`');
+  await knex.raw('DROP TRIGGER IF EXISTS `updateSessionTracker`');
 }

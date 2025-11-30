@@ -2,35 +2,37 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.down = exports.up = void 0;
 async function up(knex) {
-    if (!(await knex.schema.hasTable('commission_payments'))) {
-        await knex.schema.createTable('commission_payments', (table) => {
+    if (!(await knex.schema.hasTable('commission_tracking'))) {
+        await knex.schema.createTable('commission_tracking', (table) => {
             table.increments('id').primary().unsigned();
             table.integer('serviceid').notNullable().unsigned().unique();
+            table.decimal('commission_percentage', 5, 2).notNullable();
             table.decimal('commission_due', 10, 2).notNullable();
-            table.decimal('total_amount_paid', 10, 2).notNullable().defaultTo(0);
             table.enum("type", ["clinician", "organization"]).notNullable();
-            table.enum('status', ['pending', 'paid', 'overdue', 'cancelled']).notNullable().defaultTo('pending');
+            table.integer('recipient_id').notNullable().unsigned();
+            table.dateTime('calculated_at').notNullable().defaultTo(knex.fn.now());
             table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
             table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());
             table.index('serviceid');
-            table.index('status');
+            table.index('type');
+            table.index('recipient_id');
             table.foreign('serviceid').references('serviceid').inTable('dboservices').onDelete('CASCADE').onUpdate('CASCADE');
         });
     }
     if (!(await knex.schema.hasTable('commission_payment_transactions'))) {
         await knex.schema.createTable('commission_payment_transactions', (table) => {
             table.increments('id').primary().unsigned();
-            table.integer('commission_payment_id').notNullable().unsigned();
+            table.integer('batch_payment_service_id').notNullable().unsigned();
             table.decimal('amount_paid', 10, 2).notNullable();
-            table.integer('trackid').nullable().unsigned();
+            table.integer('trackid').nullable().unsigned(); // Reference to payment tracking record
             table.integer("paymentmode").nullable().unsigned();
             table.integer('paid_by').nullable().unsigned();
             table.text('notes').nullable();
             table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
-            table.index('commission_payment_id');
+            table.index('batch_payment_service_id');
             table.index('trackid');
             table.index('paid_by');
-            table.foreign('commission_payment_id').references('id').inTable('commission_payments').onDelete('CASCADE').onUpdate('CASCADE');
+            table.foreign('batch_payment_service_id').references('id').inTable('commission_batch_payment_services').onDelete('CASCADE').onUpdate('CASCADE');
             table.foreign('paid_by').references('employeeid').inTable('roles').onUpdate('CASCADE');
             table.foreign('paymentmode').references('KeyID').inTable('paymentmodes').onUpdate('CASCADE');
         });
@@ -39,6 +41,6 @@ async function up(knex) {
 exports.up = up;
 async function down(knex) {
     await knex.schema.dropTableIfExists('commission_payment_transactions');
-    await knex.schema.dropTableIfExists('commission_payments');
+    await knex.schema.dropTableIfExists('commission_tracking');
 }
 exports.down = down;

@@ -35,11 +35,12 @@ async function up(knex) {
             table.integer('serviceid').notNullable().unsigned();
             table.decimal('commission_due', 10, 2).notNullable();
             table.decimal('amount_allocated', 10, 2).notNullable();
-            table.enum('status', ['paid', 'partial']).notNullable();
+            table.decimal('waived_amount', 10, 2).notNullable().defaultTo(0);
+            table.enum('status', ['paid', 'partial', 'waived']).notNullable();
             table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
             table.index('batch_payment_id');
             table.index('serviceid');
-            table.unique(['batch_payment_id', 'serviceid']);
+            table.unique(['batch_payment_id', 'serviceid'], 'batch_svc_unique');
             table.foreign('batch_payment_id').references('id').inTable('commission_batch_payments').onDelete('CASCADE').onUpdate('CASCADE');
             table.foreign('serviceid').references('serviceid').inTable('dboservices').onDelete('CASCADE').onUpdate('CASCADE');
         });

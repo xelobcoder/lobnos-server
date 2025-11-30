@@ -14,7 +14,7 @@ class CommissionPaymentsRepository {
     async createCommissionPayment(paymentData) {
         try {
             const conn = await this.connection;
-            const [id] = await conn('commission_payments').insert(Object.assign(Object.assign({}, paymentData), { created_at: conn.fn.now(), updated_at: conn.fn.now() }));
+            const [id] = await conn('commission_tracking').insert(Object.assign(Object.assign({}, paymentData), { calculated_at: conn.fn.now(), created_at: conn.fn.now(), updated_at: conn.fn.now() }));
             logger_1.default.info(`Commission payment created with ID: ${id}`);
             return id;
         }
@@ -26,27 +26,8 @@ class CommissionPaymentsRepository {
     async createCommissionPaymentTransaction(transactionData) {
         try {
             const conn = await this.connection;
-            // Start transaction to ensure data consistency
             return await conn.transaction(async (trx) => {
-                var _a, _b;
                 const [id] = await trx('commission_payment_transactions').insert(Object.assign(Object.assign({}, transactionData), { created_at: trx.fn.now() }));
-                // Update the total_amount_paid in commission_payments
-                await trx('commission_payments')
-                    .where({ id: transactionData.commission_payment_id })
-                    .increment('total_amount_paid', transactionData.amount_paid);
-                // Update status if payment is now complete
-                const commissionPayment = await trx('commission_payments')
-                    .where({ id: transactionData.commission_payment_id })
-                    .first();
-                if (commissionPayment) {
-                    const totalPaid = parseFloat(((_a = commissionPayment.total_amount_paid) === null || _a === void 0 ? void 0 : _a.toString()) || '0');
-                    const commissionDue = parseFloat(((_b = commissionPayment.commission_due) === null || _b === void 0 ? void 0 : _b.toString()) || '0');
-                    if (totalPaid >= commissionDue) {
-                        await trx('commission_payments')
-                            .where({ id: transactionData.commission_payment_id })
-                            .update({ status: 'paid', updated_at: trx.fn.now() });
-                    }
-                }
                 logger_1.default.info(`Commission payment transaction created with ID: ${id}`);
                 return id;
             });
@@ -59,7 +40,9 @@ class CommissionPaymentsRepository {
     async getCommissionPaymentById(id) {
         try {
             const conn = await this.connection;
-            return await conn('commission_payments').where({ id }).first();
+            return await conn('commission_tracking')
+                .where({ id })
+                .first();
         }
         catch (error) {
             logger_1.default.error('Error fetching commission payment:', error);
@@ -69,31 +52,19 @@ class CommissionPaymentsRepository {
     async getCommissionPaymentsByService(serviceId) {
         try {
             const conn = await this.connection;
-            // Get commission payments for the service
-            const commissionPayments = await conn('commission_payments')
+            return await conn('commission_tracking')
                 .where({ serviceid: serviceId })
                 .orderBy('created_at', 'desc');
-            // For each commission payment, get its transactions
-            const paymentsWithTransactions = await Promise.all(commissionPayments.map(async (payment) => {
-                const transactions = await conn('commission_payment_transactions as cpt')
-                    .select('cpt.*', 'r.username as paid_by_name', 'pm.PaymentMode as payment_mode_description')
-                    .leftJoin('roles as r', 'cpt.paid_by', 'r.employeeid')
-                    .leftJoin('paymentmodes as pm', 'cpt.paymentmode', 'pm.KeyID')
-                    .where({ 'cpt.commission_payment_id': payment.id })
-                    .orderBy('cpt.created_at', 'desc');
-                return Object.assign(Object.assign({}, payment), { transactions: transactions });
-            }));
-            return paymentsWithTransactions;
         }
         catch (error) {
             logger_1.default.error('Error fetching commission payments by service:', error);
             throw error;
         }
     }
-    async getCommissionPaymentsByType(type, limit) {
+    async getCommissionTrackingByType(type, limit) {
         try {
             const conn = await this.connection;
-            let query = conn('commission_payments')
+            let query = conn('commission_tracking')
                 .where({ type })
                 .orderBy('created_at', 'desc');
             if (limit) {
@@ -102,236 +73,108 @@ class CommissionPaymentsRepository {
             return await query;
         }
         catch (error) {
-            logger_1.default.error('Error fetching commission payments by type:', error);
+            logger_1.default.error('Error fetching commission tracking by type:', error);
             throw error;
         }
     }
-    async getCommissionPaymentsByPaidBy(paidBy) {
+    async getCommissionTrackingByRecipient(recipientId, type, limit) {
         try {
             const conn = await this.connection;
-            return await conn('commission_payments')
-                .where({ paid_by: paidBy })
+            let query = conn('commission_tracking')
+                .where({ recipient_id: recipientId, type })
                 .orderBy('created_at', 'desc');
+            if (limit) {
+                query = query.limit(limit);
+            }
+            return await query;
         }
         catch (error) {
-            logger_1.default.error('Error fetching commission payments by paid_by:', error);
+            logger_1.default.error('Error fetching commission tracking by recipient:', error);
             throw error;
         }
     }
-    async updateCommissionPayment(id, updateData) {
+    async updateCommissionTracking(id, updateData) {
         try {
             const conn = await this.connection;
-            const result = await conn('commission_payments')
+            const result = await conn('commission_tracking')
                 .where({ id })
                 .update(Object.assign(Object.assign({}, updateData), { updated_at: conn.fn.now() }));
-            logger_1.default.info(`Commission payment updated: ${id}`);
+            logger_1.default.info(`Commission tracking updated: ${id}`);
             return result;
         }
         catch (error) {
-            logger_1.default.error('Error updating commission payment:', error);
+            logger_1.default.error('Error updating commission tracking:', error);
             throw error;
         }
     }
-    async updatePaymentAmount(id, amountPaid) {
-        try {
-            // This method is deprecated - use createCommissionPaymentTransaction instead
-            // For backward compatibility, we'll create a transaction with default values
-            return await this.createCommissionPaymentTransaction({
-                commission_payment_id: id,
-                amount_paid: amountPaid,
-                paid_by: null,
-                paymentmode: null,
-                trackid: null
-            });
-        }
-        catch (error) {
-            logger_1.default.error('Error updating payment amount:', error);
-            throw error;
-        }
-    }
-    async getCommissionPaymentSummary(type) {
+    async updateCommissionTrackingRatesForRecipient(recipientType, recipientId, newCommissionRate) {
         try {
             const conn = await this.connection;
-            let query = conn('commission_payments')
-                .select(conn.raw('SUM(COALESCE(total_amount_paid, 0)) as total_amount_paid'), conn.raw('SUM(commission_due) as total_commission_due'), conn.raw('SUM(commission_due - COALESCE(total_amount_paid, 0)) as total_outstanding'), conn.raw('COUNT(*) as payment_count'));
-            if (type) {
-                query = query.where({ type });
-            }
-            const result = await query.first();
-            return result || {
-                total_commission_due: 0,
-                total_amount_paid: 0,
-                total_outstanding: 0,
-                payment_count: 0
-            };
-        }
-        catch (error) {
-            logger_1.default.error('Error fetching commission payment summary:', error);
-            throw error;
-        }
-    }
-    async getUnpaidCommissionPayments(type) {
-        try {
-            const conn = await this.connection;
-            let query = conn('commission_payments')
-                .whereRaw('total_amount_paid < commission_due')
-                .orderBy('created_at', 'asc');
-            if (type) {
-                query = query.where({ type });
-            }
-            return await query;
-        }
-        catch (error) {
-            logger_1.default.error('Error fetching unpaid commission payments:', error);
-            throw error;
-        }
-    }
-    async getCommissionPaymentsByDateRange(startDate, endDate, type) {
-        try {
-            const conn = await this.connection;
-            let query = conn('commission_payments')
-                .whereBetween('created_at', [startDate, endDate])
-                .orderBy('created_at', 'desc');
-            if (type) {
-                query = query.where({ type });
-            }
-            return await query;
-        }
-        catch (error) {
-            logger_1.default.error('Error fetching commission payments by date range:', error);
-            throw error;
-        }
-    }
-    async deleteCommissionPayment(id) {
-        try {
-            const conn = await this.connection;
-            const result = await conn('commission_payments').where({ id }).del();
-            logger_1.default.info(`Commission payment deleted: ${id}`);
-            return result;
-        }
-        catch (error) {
-            logger_1.default.error('Error deleting commission payment:', error);
-            throw error;
-        }
-    }
-    async getCommissionPaymentsWithServiceDetails(limit) {
-        try {
-            const conn = await this.connection;
-            let query = conn('commission_payments as cp')
-                .select('cp.*', 'ds.serviceCategory', 'ds.totalpayable', 'ds.status as service_status', 'tp.name as test_name')
-                .leftJoin('dboservices as ds', 'cp.serviceid', 'ds.serviceid')
-                .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
-                .orderBy('cp.created_at', 'desc');
-            if (limit) {
-                query = query.limit(limit);
-            }
-            return await query;
-        }
-        catch (error) {
-            logger_1.default.error('Error fetching commission payments with service details:', error);
-            throw error;
-        }
-    }
-    async updateCommissionPaymentStatus(id, status) {
-        try {
-            const conn = await this.connection;
-            const result = await conn('commission_payments')
-                .where({ id })
-                .update({
-                status,
-                updated_at: conn.fn.now()
-            });
-            logger_1.default.info(`Commission payment status updated: ${id} to ${status}`);
-            return result;
-        }
-        catch (error) {
-            logger_1.default.error('Error updating commission payment status:', error);
-            throw error;
-        }
-    }
-    async getCommissionPaymentTransactions(commissionPaymentId) {
-        try {
-            const conn = await this.connection;
-            return await conn('commission_payment_transactions as cpt')
-                .select('cpt.*', 'r.username as paid_by_name', 'pm.PaymentMode as payment_mode_description')
-                .leftJoin('roles as r', 'cpt.paid_by', 'r.employeeid')
-                .leftJoin('paymentmodes as pm', 'cpt.paymentmode', 'pm.KeyID')
-                .where({ 'cpt.commission_payment_id': commissionPaymentId })
-                .orderBy('cpt.created_at', 'desc');
-        }
-        catch (error) {
-            logger_1.default.error('Error fetching commission payment transactions:', error);
-            throw error;
-        }
-    }
-    async getCommissionPaymentTransactionById(id) {
-        try {
-            const conn = await this.connection;
-            return await conn('commission_payment_transactions').where({ id }).first();
-        }
-        catch (error) {
-            logger_1.default.error('Error fetching commission payment transaction:', error);
-            throw error;
-        }
-    }
-    async getCommissionPaymentsByStatus(status, limit) {
-        try {
-            const conn = await this.connection;
-            let query = conn('commission_payments')
-                .where({ status })
-                .orderBy('created_at', 'desc');
-            if (limit) {
-                query = query.limit(limit);
-            }
-            return await query;
-        }
-        catch (error) {
-            logger_1.default.error('Error fetching commission payments by status:', error);
-            throw error;
-        }
-    }
-    async deleteCommissionPaymentTransaction(id) {
-        try {
-            const conn = await this.connection;
-            // Start transaction to ensure data consistency
             return await conn.transaction(async (trx) => {
-                var _a, _b;
-                // Get the transaction to know how much to subtract
-                const transaction = await trx('commission_payment_transactions')
-                    .where({ id })
-                    .first();
-                if (!transaction) {
-                    return 0;
+                // Find commission tracking records for this recipient that have zero commission
+                // and are not yet associated with any batch payment (haven't been paid)
+                const recordsToUpdate = await trx('commission_tracking as ct')
+                    .select('ct.id', 'ct.serviceid', 'ds.totalpayable')
+                    .leftJoin('dboservices as ds', 'ct.serviceid', 'ds.serviceid')
+                    .leftJoin('commission_batch_payment_services as cbps', 'ct.serviceid', 'cbps.serviceid')
+                    .where('ct.type', recipientType)
+                    .where('ct.recipient_id', recipientId)
+                    .where('ct.commission_percentage', 0)
+                    .whereNull('cbps.id'); // Not yet paid
+                if (recordsToUpdate.length === 0) {
+                    return { updatedRecords: 0, totalCommissionDue: 0 };
                 }
-                // Delete the transaction
-                const result = await trx('commission_payment_transactions')
-                    .where({ id })
-                    .del();
-                if (result > 0) {
-                    // Update the total_amount_paid in commission_payments
-                    await trx('commission_payments')
-                        .where({ id: transaction.commission_payment_id })
-                        .decrement('total_amount_paid', transaction.amount_paid);
-                    // Check if status needs to be updated back to pending
-                    const commissionPayment = await trx('commission_payments')
-                        .where({ id: transaction.commission_payment_id })
-                        .first();
-                    if (commissionPayment) {
-                        const totalPaid = parseFloat(((_a = commissionPayment.total_amount_paid) === null || _a === void 0 ? void 0 : _a.toString()) || '0');
-                        const commissionDue = parseFloat(((_b = commissionPayment.commission_due) === null || _b === void 0 ? void 0 : _b.toString()) || '0');
-                        if (totalPaid < commissionDue) {
-                            await trx('commission_payments')
-                                .where({ id: transaction.commission_payment_id })
-                                .update({ status: 'pending', updated_at: trx.fn.now() });
-                        }
-                    }
+                // Update each record with new commission rate and recalculated commission due
+                let totalCommissionDue = 0;
+                for (const record of recordsToUpdate) {
+                    const commissionDue = (parseFloat(record.totalpayable) * newCommissionRate) / 100;
+                    totalCommissionDue += commissionDue;
+                    await trx('commission_tracking')
+                        .where({ id: record.id })
+                        .update({
+                        commission_percentage: newCommissionRate,
+                        commission_due: commissionDue,
+                        updated_at: trx.fn.now()
+                    });
                 }
-                logger_1.default.info(`Commission payment transaction deleted: ${id}`);
-                return result;
+                logger_1.default.info(`Updated ${recordsToUpdate.length} commission tracking records for ${recipientType} ${recipientId} with new rate ${newCommissionRate}%`);
+                return { updatedRecords: recordsToUpdate.length, totalCommissionDue };
             });
         }
         catch (error) {
-            logger_1.default.error('Error deleting commission payment transaction:', error);
+            logger_1.default.error('Error updating commission tracking rates for recipient:', error);
+            throw error;
+        }
+    }
+    async getCommissionTrackingWithServiceDetails(limit, count, recipientType, recipient_id) {
+        try {
+            const conn = await this.connection;
+            let query = conn('commission_tracking as ct')
+                .select('ct.*', 'ds.serviceCategory', 'ds.totalpayable', 'ds.status as service_status', 'tp.name as test_name', conn.raw('COALESCE(cb.name, o.name) as recipient_name'))
+                .leftJoin('dboservices as ds', 'ct.serviceid', 'ds.serviceid')
+                .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                .leftJoin('clinicianbasicinfo as cb', function () {
+                this.on('ct.type', '=', conn.raw('?', ['clinician']))
+                    .andOn('ct.recipient_id', '=', 'cb.id');
+            })
+                .leftJoin('organization as o', function () {
+                this.on('ct.type', '=', conn.raw('?', ['organization']))
+                    .andOn('ct.recipient_id', '=', 'o.id');
+            })
+                .orderBy('ct.created_at', 'desc');
+            if (recipientType) {
+                query = query.where('ct.type', recipientType);
+            }
+            if (recipient_id) {
+                query = query.where('ct.recipient_id', recipient_id);
+            }
+            if (limit) {
+                query = query.limit(limit);
+            }
+            return await query;
+        }
+        catch (error) {
+            logger_1.default.error('Error fetching commission tracking records with service details:', error);
             throw error;
         }
     }
@@ -394,15 +237,39 @@ class CommissionPaymentsRepository {
                 // Sort services by commission due (smallest first to ensure fair distribution)
                 const sortedServices = services.sort((a, b) => a.commission_due - b.commission_due);
                 for (const service of sortedServices) {
-                    if (remainingAmount <= 0)
-                        break;
+                    if (remainingAmount <= 0) {
+                        // No more payment amount left - mark remaining services as waived
+                        const waivedAmount = service.commission_due;
+                        const [serviceId] = await trx('commission_batch_payment_services').insert({
+                            batch_payment_id: batchPaymentId,
+                            serviceid: service.serviceid,
+                            commission_due: service.commission_due,
+                            amount_allocated: 0,
+                            waived_amount: waivedAmount,
+                            status: 'waived',
+                            created_at: trx.fn.now()
+                        });
+                        allocatedServices.push({
+                            id: serviceId,
+                            batch_payment_id: batchPaymentId,
+                            serviceid: service.serviceid,
+                            commission_due: service.commission_due,
+                            amount_allocated: 0,
+                            waived_amount: waivedAmount,
+                            status: 'waived',
+                            created_at: new Date()
+                        });
+                        continue;
+                    }
                     const amountToAllocate = Math.min(service.commission_due, remainingAmount);
-                    const status = amountToAllocate >= service.commission_due ? 'paid' : 'partial';
+                    const waivedAmount = service.commission_due - amountToAllocate;
+                    const status = amountToAllocate >= service.commission_due ? 'paid' : (waivedAmount > 0 ? 'partial' : 'paid');
                     const [serviceId] = await trx('commission_batch_payment_services').insert({
                         batch_payment_id: batchPaymentId,
                         serviceid: service.serviceid,
                         commission_due: service.commission_due,
                         amount_allocated: amountToAllocate,
+                        waived_amount: waivedAmount,
                         status,
                         created_at: trx.fn.now()
                     });
@@ -412,46 +279,86 @@ class CommissionPaymentsRepository {
                         serviceid: service.serviceid,
                         commission_due: service.commission_due,
                         amount_allocated: amountToAllocate,
+                        waived_amount: waivedAmount,
                         status,
                         created_at: new Date()
                     });
                     remainingAmount -= amountToAllocate;
-                    // Create individual commission payment record for tracking
-                    await trx('commission_payments').insert({
-                        serviceid: service.serviceid,
-                        commission_due: service.commission_due,
-                        total_amount_paid: amountToAllocate,
-                        type: 'clinician', // This should be determined based on batch payment
-                        status: status === 'paid' ? 'paid' : 'pending',
-                        created_at: trx.fn.now(),
-                        updated_at: trx.fn.now()
-                    });
                 }
-                // If there's remaining amount after covering all services, mark it as waived
-                if (remainingAmount > 0) {
-                    await trx('commission_batch_payments')
-                        .where({ id: batchPaymentId })
-                        .update({
-                        waived_amount: remainingAmount,
-                        status: 'completed',
-                        payment_date: trx.fn.now(),
-                        updated_at: trx.fn.now()
-                    });
-                }
-                else {
-                    await trx('commission_batch_payments')
-                        .where({ id: batchPaymentId })
-                        .update({
-                        status: 'completed',
-                        payment_date: trx.fn.now(),
-                        updated_at: trx.fn.now()
-                    });
-                }
+                // Update batch payment status - always completed since facility made the payment decision
+                await trx('commission_batch_payments')
+                    .where({ id: batchPaymentId })
+                    .update({
+                    status: 'completed',
+                    payment_date: trx.fn.now(),
+                    updated_at: trx.fn.now()
+                });
                 return { allocatedServices, remainingAmount };
             });
         }
         catch (error) {
             logger_1.default.error('Error applying batch payment to services:', error);
+            throw error;
+        }
+    }
+    async applyBatchPaymentWithWaivers(batchPaymentId, serviceAllocations) {
+        try {
+            const conn = await this.connection;
+            return await conn.transaction(async (trx) => {
+                const allocatedServices = [];
+                for (const allocation of serviceAllocations) {
+                    // Validate that paid + waived = commission_due
+                    if (allocation.amount_to_pay + allocation.amount_to_waive !== allocation.commission_due) {
+                        throw new Error(`Invalid allocation for service ${allocation.serviceid}: paid + waived must equal commission due`);
+                    }
+                    let status;
+                    if (allocation.amount_to_pay === 0 && allocation.amount_to_waive === allocation.commission_due) {
+                        status = 'waived';
+                    }
+                    else if (allocation.amount_to_pay === allocation.commission_due) {
+                        status = 'paid';
+                    }
+                    else {
+                        status = 'partial';
+                    }
+                    const [serviceId] = await trx('commission_batch_payment_services').insert({
+                        batch_payment_id: batchPaymentId,
+                        serviceid: allocation.serviceid,
+                        commission_due: allocation.commission_due,
+                        amount_allocated: allocation.amount_to_pay,
+                        waived_amount: allocation.amount_to_waive,
+                        status,
+                        created_at: trx.fn.now()
+                    });
+                    allocatedServices.push({
+                        id: serviceId,
+                        batch_payment_id: batchPaymentId,
+                        serviceid: allocation.serviceid,
+                        commission_due: allocation.commission_due,
+                        amount_allocated: allocation.amount_to_pay,
+                        waived_amount: allocation.amount_to_waive,
+                        status,
+                        created_at: new Date()
+                    });
+                }
+                // Calculate total paid and waived for batch summary
+                const totalPaid = serviceAllocations.reduce((sum, s) => sum + s.amount_to_pay, 0);
+                const totalWaived = serviceAllocations.reduce((sum, s) => sum + s.amount_to_waive, 0);
+                // Update batch payment with totals
+                await trx('commission_batch_payments')
+                    .where({ id: batchPaymentId })
+                    .update({
+                    payment_amount: totalPaid,
+                    waived_amount: totalWaived,
+                    status: 'completed',
+                    payment_date: trx.fn.now(),
+                    updated_at: trx.fn.now()
+                });
+                return allocatedServices;
+            });
+        }
+        catch (error) {
+            logger_1.default.error('Error applying batch payment with waivers:', error);
             throw error;
         }
     }
@@ -547,7 +454,7 @@ class CommissionPaymentsRepository {
                 });
                 if (result > 0) {
                     // Remove associated commission payments
-                    await trx('commission_payments')
+                    await trx('commission_tracking')
                         .whereRaw('serviceid IN (SELECT serviceid FROM commission_batch_payment_services WHERE batch_payment_id = ?)', [id])
                         .del();
                     // Remove batch payment services
@@ -561,6 +468,28 @@ class CommissionPaymentsRepository {
         }
         catch (error) {
             logger_1.default.error('Error cancelling batch commission payment:', error);
+        }
+    }
+    async getBatchPaymentWaiverSummary(batchPaymentId) {
+        try {
+            const conn = await this.connection;
+            const services = await conn('commission_batch_payment_services as cbps')
+                .select('cbps.serviceid', 'cbps.commission_due', 'cbps.amount_allocated', 'cbps.waived_amount', 'cbps.status', 'tp.name as test_name')
+                .leftJoin('dboservices as ds', 'cbps.serviceid', 'ds.serviceid')
+                .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                .where('cbps.batch_payment_id', batchPaymentId);
+            const totalCommissionDue = services.reduce((sum, s) => sum + parseFloat(s.commission_due), 0);
+            const totalPaid = services.reduce((sum, s) => sum + parseFloat(s.amount_allocated), 0);
+            const totalWaived = services.reduce((sum, s) => sum + parseFloat(s.waived_amount), 0);
+            return {
+                totalCommissionDue,
+                totalPaid,
+                totalWaived,
+                services
+            };
+        }
+        catch (error) {
+            logger_1.default.error('Error getting batch payment waiver summary:', error);
             throw error;
         }
     }

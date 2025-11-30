@@ -274,6 +274,61 @@ async function up(knex) {
     END
   `);
     await knex.raw(`
+    DROP TRIGGER IF EXISTS \`create_commission_payment\``);
+    await knex.raw(`
+    CREATE TRIGGER \`create_commission_payment\` AFTER INSERT ON \`dboservices\`
+     FOR EACH ROW BEGIN
+        DECLARE commission_percentage DECIMAL(5,2) DEFAULT 0;
+        DECLARE commission_type VARCHAR(20);
+        DECLARE recipient_id INT;
+
+        -- Check if service has a clinician or organization
+        IF NEW.clinicianId IS NOT NULL THEN
+            -- Get commission percentage from clinician payment info
+            SELECT COALESCE(commission, 0) INTO commission_percentage
+            FROM clinicianpaymentinfo
+            WHERE clinicianid = NEW.clinicianId
+            LIMIT 1;
+
+            SET commission_type = 'clinician';
+            SET recipient_id = NEW.clinicianId;
+
+        ELSEIF NEW.organizationId IS NOT NULL THEN
+            -- Get commission percentage from organization account info
+            SELECT COALESCE(commission, 0) INTO commission_percentage
+            FROM organizationaccountinformation
+            WHERE organizationid = NEW.organizationId
+            LIMIT 1;
+
+            SET commission_type = 'organization';
+            SET recipient_id = NEW.organizationId;
+        END IF;
+
+        -- Only create commission payment if we have a recipient (regardless of commission percentage)
+        IF recipient_id IS NOT NULL THEN
+            INSERT INTO commission_tracking (
+                serviceid,
+                commission_percentage,
+                commission_due,
+                type,
+                recipient_id,
+                calculated_at,
+                created_at,
+                updated_at
+            ) VALUES (
+                NEW.serviceid,
+                commission_percentage,
+                (NEW.totalpayable * commission_percentage / 100),
+                commission_type,
+                recipient_id,
+                NOW(),
+                NOW(),
+                NOW()
+            );
+        END IF;
+    END
+  `);
+    await knex.raw(`
     CREATE TRIGGER \`insertintooutsourceTraking\` AFTER INSERT ON \`dboservices\`
      FOR EACH ROW BEGIN
         IF (NEW.isoutsourced = 1 AND NEW.outsourceid > 0)
@@ -650,6 +705,7 @@ async function down(knex) {
     await knex.raw('DROP TRIGGER IF EXISTS `insertIntoContactNaccount`');
     await knex.raw('DROP TRIGGER IF EXISTS `insertIntoDboTestApprovalTable2`');
     await knex.raw('DROP TRIGGER IF EXISTS `insertIntoServicesTracking`');
+    await knex.raw('DROP TRIGGER IF EXISTS `create_commission_payment`');
     await knex.raw('DROP TRIGGER IF EXISTS `insertintooutsourceTraking`');
     await knex.raw('DROP TRIGGER IF EXISTS `inserttestdetails`');
     await knex.raw('DROP TRIGGER IF EXISTS `inserttogeneraleditcounttable`');
