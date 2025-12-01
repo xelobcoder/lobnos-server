@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { CommissionTrackingController } from "./CommissionTrackingController";
-import { CommissionBatchServicesController } from "./commissionBatchServices";
+import { CommissionBatchServicesController } from "./commissionBatchServicesController";
 
 const router = Router();
 
@@ -24,4 +24,11 @@ router.post('/commission/batch/process-services', async (req, res) => {
      const controller = new CommissionBatchServicesController(tenantid);
      await controller.processServiceBatching(req, res);
 });
+
+router.get('/commission/batch/information', async (req, res) => {
+     const tenantid = parseInt(req.query.tenantId as string);
+     const controller = new CommissionBatchServicesController(tenantid);
+     await controller.getBatchInformation(req, res);
+});
+
 export default router;

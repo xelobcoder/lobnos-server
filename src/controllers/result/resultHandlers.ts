@@ -190,12 +190,17 @@ export const getResultPrintoutHandler = async (request: Request<
 		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
 		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
+		let isWithinWindow = false;
 
 		if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
 		const numAscensionId = parseInt(ascensionId.toString());
+		const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
 
-		const isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
-
+		if (userRole && ['admin', 'manager', 'super-admin'].includes(userRole.role.toLowerCase()) == false) {
+			isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
+		} else {
+			isWithinWindow = true
+		}
 		if (!isWithinWindow) {
 			return customError(OperationsFailures.accessWindowExpired, 403, response);
 		}
@@ -355,9 +360,16 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 			// check each for acess window or acess permission allowed
 
 			let accessPermissionTest = []
+			const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
+			const isPriviledgedUser = currentRole && ['admin', 'manager', 'super-admin'].includes(currentRole.role.toLowerCase());
 
 			for (let i = 0; i < qualifiedForPrintOut.length; i++) {
-				const isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+				let isWithinWindow = false;
+				if (isPriviledgedUser) {
+					isWithinWindow = true;
+				} else {
+					isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+				}
 				isWithinWindow ? accessPermissionTest.push(qualifiedForPrintOut[i]) : null;
 			}
 

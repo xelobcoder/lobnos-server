@@ -25,18 +25,26 @@ class CommissionBatchPaymentServicesRepo {
             throw error;
         }
     }
-    async isDateRangeBatched(startDate, endDate) {
+    async isDateRangeBatched(startDate, endDate, recipient_id, recipient_type) {
         try {
-            //  get all serivesid within the date range
+            //  get all serviceid within the date range
             const conn = await this.connection;
-            const results = await conn.raw(`
-                    SELECT * FROM dboservices
-                    WHERE DATE(serviceAddedOn) >= ? AND DATE(serviceAddedOn) <= ?
-               `, [startDate, endDate]);
-            if (results[0].length === 0) {
+            let query = conn('dboservices')
+                .whereRaw('DATE(serviceAddedOn) >= ?', [startDate])
+                .whereRaw('DATE(serviceAddedOn) <= ?', [endDate]);
+            const parsedId = parseInt(recipient_id, 10);
+            if (recipient_type === 'clinician') {
+                query = query.whereNotNull('clinicianId').andWhere('serviceCategory', 'CLINICIAN_SPECIAL_BILLING').andWhere('clinicianId', parsedId);
+            }
+            else if (recipient_type === 'organization') {
+                query = query.whereNotNull('organizationId').andWhere('serviceCategory', 'ORGANIZATION').andWhere('organizationId', parsedId);
+            }
+            console.log(query.toString());
+            const results = await query;
+            if (results.length === 0) {
                 throw new Error('No services found in the specified date range');
             }
-            const serviceIds = results[0].map((row) => row.serviceid);
+            const serviceIds = results.map((row) => row.serviceid);
             const isBatched = await conn('commission_batch_payment_services')
                 .whereIn('serviceid', serviceIds)
                 .first();
@@ -44,10 +52,9 @@ class CommissionBatchPaymentServicesRepo {
                 return true;
             const allNotCommissioned = await new CommissionTrackingRepository_1.CommissionTrackingRepo(this.tenantId).validateServiceTrackedMultiple(serviceIds);
             if (allNotCommissioned.length > 0) {
-                const createCommmission = await new CommissionTrackingRepository_1.CommissionTrackingRepo(this.tenantId).calculateCommissionDue(allNotCommissioned);
-                console.log("Commission created for untracked services during batching validation: ", createCommmission);
+                await new CommissionTrackingRepository_1.CommissionTrackingRepo(this.tenantId).calculateCommissionDue(allNotCommissioned);
             }
-            return false;
+            return serviceIds;
         }
         catch (error) {
             logger_1.default.error('Error validating date range:', error);

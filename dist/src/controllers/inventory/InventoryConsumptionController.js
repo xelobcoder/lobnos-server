@@ -195,89 +195,141 @@ class InventoryConsumptionController {
     async recordTestConsumption(req, res) {
         try {
             const model = this.getModel(req);
-            const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = req.body;
+            const consumptions = req.body.consumptions;
+            if (Array.isArray(consumptions) == false) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'Consumptions must be an array'
+                    }
+                };
+                res.status(400).json(response);
+                return;
+            }
+            let errors = [];
+            for (const consumptionEntry of consumptions) {
+                const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = consumptionEntry;
+                const validation = this.validateConsumptionRequest({ item_id, quantity: quantity_used });
+                if (!validation.isValid) {
+                    errors = errors.concat(validation.errors.map(err => `Test ID ${test_id || 'N/A'}: ${err}`));
+                }
+                if (!test_id || !item_id || !quantity_used || !test_type || !patient_id || !ascension_id || !performed_by) {
+                    errors.push(`Test ID ${test_id || 'N/A'}: Missing required fields: test_id, item_id, quantity_used, test_type, patient_id, ascension_id, performed_by`);
+                    continue;
+                }
+            }
+            if (errors.length > 0) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: errors.join(', ')
+                    }
+                };
+                res.status(400).json(response);
+                return;
+            }
             const tenantId = this.getTenantId(req);
-            if (!test_id || !item_id || !quantity_used || !test_type || !patient_id || !ascension_id || !performed_by) {
-                const response = {
-                    success: false,
-                    error: {
-                        code: 'VALIDATION_ERROR',
-                        message: 'Missing required fields: test_id, item_id, quantity_used, test_type, patient_id, ascension_id, performed_by'
+            const stockValidationErrors = [];
+            for (const consumptionEntry of consumptions) {
+                const { test_id, item_id, quantity_used, batch_number } = consumptionEntry;
+                const stockCheck = await this.validateStockAvailability(tenantId, item_id, quantity_used);
+                if (!stockCheck.isValid) {
+                    stockValidationErrors.push(`Test ID ${test_id}: Item ${item_id}: ${stockCheck.message}`);
+                }
+                if (batch_number) {
+                    const batchStockCheck = await this.validateBatchStockAvailability(tenantId, item_id, batch_number, quantity_used);
+                    if (!batchStockCheck.isValid) {
+                        stockValidationErrors.push(`Test ID ${test_id}: Batch ${batch_number} for item ${item_id}: ${batchStockCheck.message}`);
                     }
-                };
-                res.status(400).json(response);
-                return;
+                }
             }
-            const validation = this.validateConsumptionRequest({ item_id, quantity: quantity_used });
-            if (!validation.isValid) {
-                const response = {
-                    success: false,
-                    error: {
-                        code: 'VALIDATION_ERROR',
-                        message: validation.errors.join(', ')
-                    }
-                };
-                res.status(400).json(response);
-                return;
-            }
-            const stockCheck = await this.validateStockAvailability(tenantId, item_id, quantity_used);
-            if (!stockCheck.isValid) {
+            if (stockValidationErrors.length > 0) {
                 const response = {
                     success: false,
                     error: {
                         code: 'INSUFFICIENT_STOCK',
-                        message: stockCheck.message || 'Insufficient stock available'
+                        message: `Stock validation failed: ${stockValidationErrors.join('; ')}`
                     }
                 };
                 res.status(400).json(response);
                 return;
             }
-            let expiry_date;
-            if (batch_number) {
-                const stockDetails = await model.getAvailableStockDetails(item_id);
-                const batchInfo = stockDetails.available_batches.find(b => b.batch_number === batch_number);
-                if (batchInfo) {
-                    expiry_date = batchInfo.expiry_date;
+            const duplicateValidationErrors = [];
+            const connection = await model.connection;
+            for (const consumptionEntry of consumptions) {
+                const { test_id, item_id, ascension_id } = consumptionEntry;
+                const existingTransaction = await connection('inv_inventory_transactions')
+                    .where('item_id', item_id)
+                    .andWhere('ascension_id', ascension_id)
+                    .andWhere('transaction_type', 'consumption')
+                    .first();
+                if (existingTransaction) {
+                    duplicateValidationErrors.push(`Test ID ${test_id}: Item ${item_id} has already been consumed for ascension ${ascension_id} on ${new Date(existingTransaction.transaction_date).toLocaleDateString()}`);
                 }
             }
-            const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
-                item_id,
-                quantity_consumed: quantity_used,
-                consumed_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString(),
-                consumption_date: new Date(),
-                batch_number,
-                brand_name,
-                consumption_reason: `Test consumption - ${test_type}`,
-                department: 'laboratory',
-                patient_id,
-                prescription_id: test_id,
-                notes: notes || `Automatic consumption for test ${test_id}`,
-                approved_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString()
-            });
-            const transactionData = {
-                item_id,
-                transaction_type: 'consumption',
-                quantity: quantity_used,
-                reason: `Test consumption - ${test_type}`,
-                reference_id: consumptionHistoryId,
-                patient_id,
-                ascension_id,
-                testid,
-                batch_number,
-                brand_name,
-                expiry_date,
-                performed_by,
-                notes: notes || `Automatic consumption for test ${test_id}`
-            };
-            const transaction = await model.create(transactionData);
+            if (duplicateValidationErrors.length > 0) {
+                const response = {
+                    success: false,
+                    error: {
+                        code: 'DUPLICATE_CONSUMPTION',
+                        message: `Duplicate consumption validation failed: ${duplicateValidationErrors.join('; ')}`
+                    }
+                };
+                res.status(400).json(response);
+                return;
+            }
+            for (const consumptionEntry of consumptions) {
+                const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = consumptionEntry;
+                let expiry_date;
+                if (batch_number) {
+                    const stockDetails = await model.getAvailableStockDetails(item_id);
+                    const batchInfo = stockDetails.available_batches.find(b => b.batch_number === batch_number);
+                    if (batchInfo) {
+                        expiry_date = batchInfo.expiry_date;
+                    }
+                }
+                const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
+                    item_id,
+                    quantity_consumed: quantity_used,
+                    consumed_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString(),
+                    consumption_date: new Date(),
+                    batch_number,
+                    brand_name,
+                    consumption_reason: `Test consumption - ${test_type}`,
+                    department: 'laboratory',
+                    patient_id,
+                    prescription_id: test_id,
+                    notes: notes || `Automatic consumption for test ${test_id}`,
+                    approved_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString()
+                });
+                const transactionData = {
+                    item_id,
+                    transaction_type: 'consumption',
+                    quantity: quantity_used,
+                    reason: `Test consumption - ${test_type}`,
+                    reference_id: consumptionHistoryId,
+                    patient_id,
+                    ascension_id,
+                    testid,
+                    batch_number,
+                    brand_name,
+                    expiry_date,
+                    performed_by,
+                    notes: notes || `Automatic consumption for test ${test_id}`
+                };
+                await model.create(transactionData);
+            }
             const response = {
                 success: true,
-                data: Object.assign(Object.assign({}, transaction), { stock_remaining: stockCheck.currentStock - quantity_used })
+                data: {
+                    message: `Successfully recorded consumption for ${consumptions.length} test item(s)`
+                }
             };
             res.status(201).json(response);
         }
         catch (error) {
-            console.error('Error recording test consumption:', error);
             const response = {
                 success: false,
                 error: {
@@ -418,11 +470,9 @@ class InventoryConsumptionController {
             if (reason) {
                 query = query.where('inv_consumption_history.consumption_reason', 'like', `%${reason}%`);
             }
-            // Get total count
             const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
             const totalResult = await totalQuery;
             const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
-            // Apply pagination
             const offset = (parseInt(page) - 1) * parseInt(count);
             const rawData = await query.limit(parseInt(count)).offset(offset);
             const transactions = rawData.map(consumption => ({
@@ -430,23 +480,23 @@ class InventoryConsumptionController {
                 item_id: consumption.item_id,
                 item_name: consumption.item_name || '',
                 item_sku: consumption.item_sku || '',
-                transaction_type: 'consumption', // All records in consumption_history are consumptions
+                transaction_type: 'consumption',
                 quantity: consumption.quantity_consumed,
-                previous_stock: null, // Not available in consumption_history
-                new_stock: null, // Not available in consumption_history
+                previous_stock: null,
+                new_stock: null,
                 batch_number: consumption.batch_number,
-                expiry_date: null, // Not directly available in consumption_history
+                expiry_date: null,
                 unit_cost: consumption.unit_cost,
                 total_cost: consumption.total_cost,
                 brand_name: consumption.brand_name,
                 reason: consumption.consumption_reason,
-                reference_id: consumption.id, // The consumption_history ID itself
+                reference_id: consumption.id,
                 patient_id: consumption.patient_id,
-                ascension_id: null, // Not available in consumption_history
+                ascension_id: null,
                 performed_by: consumption.consumed_by,
                 transaction_date: consumption.consumption_date,
                 notes: consumption.notes,
-                wastage_type: null, // Not available in consumption_history
+                wastage_type: null,
                 created_at: consumption.consumption_date,
                 department: consumption.department,
                 prescription_id: consumption.prescription_id,
@@ -517,14 +567,11 @@ class InventoryConsumptionController {
             if (reason) {
                 query = query.where('inv_consumption_history.consumption_reason', 'like', `%${reason}%`);
             }
-            // Get total count
             const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
             const totalResult = await totalQuery;
             const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
-            // Apply pagination
             const offset = (parseInt(page) - 1) * parseInt(count);
             const rawData = await query.limit(parseInt(count)).offset(offset);
-            // Get all consumption history for summary (without pagination)
             let allConsumptionQuery = connection('inv_consumption_history')
                 .select('*')
                 .orderBy('consumption_date', sortOrder);
@@ -891,19 +938,15 @@ class InventoryConsumptionController {
             if (endDate) {
                 query = query.where('inv_consumption_history.consumption_date', '<=', new Date(endDate + ' 23:59:59'));
             }
-            // Get total count
             const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
             const totalResult = await totalQuery;
             const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
-            // Apply pagination
             const offset = (parseInt(page) - 1) * parseInt(count);
             const rawData = await query.limit(parseInt(count)).offset(offset);
-            // Filter transactions that are expired wastage
             const expiredConsumptionHistory = rawData.filter((consumption) => {
                 const reason = (consumption.consumption_reason || '').toLowerCase();
                 return reason.includes('expired') || reason.includes('expiry');
             });
-            // Calculate summary
             const totalExpiredQuantity = expiredConsumptionHistory.reduce((sum, c) => sum + c.quantity_consumed, 0);
             const uniqueBatches = new Set(expiredConsumptionHistory.map(c => c.batch_number).filter(Boolean)).size;
             const uniqueItems = new Set(expiredConsumptionHistory.map(c => c.item_id)).size;

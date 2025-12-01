@@ -133,8 +133,11 @@ class CommissionTrackingRepo {
                 }
             }
             if (insertData.length > 0) {
-                await conn('commission_tracking').insert(insertData);
-                return insertData.length;
+                const insertedCount = await conn.transaction(async (trx) => {
+                    await trx('commission_tracking').insert(insertData);
+                    return insertData.length;
+                });
+                return insertedCount;
             }
             return 0;
         }

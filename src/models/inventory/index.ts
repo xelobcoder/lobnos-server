@@ -4,6 +4,7 @@ export { CategoryModel } from './Category';
 export { SupplierModel } from './Supplier';
 export { StorageLocationModel } from './StorageLocation';
 export { InventoryItemModel } from './InventoryItem';
+export { InventoryTemplateModel } from './InventoryTemplates';
 export { PurchaseOrderModel } from './PurchaseOrder';
 export { PurchaseOrderItemModel } from './PurchaseOrderItem';
 export { InventoryTransactionModel } from './InventoryTransaction';

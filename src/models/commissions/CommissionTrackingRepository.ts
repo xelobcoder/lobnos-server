@@ -22,6 +22,16 @@ interface ServiceInfo {
      organizationId: number | null;
 }
 
+interface ClinicianCommission {
+     clinicianid: number;
+     commission: string;
+}
+
+interface OrgCommission {
+     organizationid: number;
+     commission: string;
+}
+
 export class CommissionTrackingRepo {
      private tenantId: number;
      private connection: any;
@@ -140,12 +150,12 @@ export class CommissionTrackingRepo {
                const clinicianIds = [...new Set(services.map(s => s.clinicianId).filter(id => id))];
                const orgIds = [...new Set(services.map(s => s.organizationId).filter(id => id))];
 
-               const clinicianInfos = clinicianIds.length > 0 ? await conn('clinicianpaymentinfo')
+               const clinicianInfos: ClinicianCommission[] = clinicianIds.length > 0 ? await conn('clinicianpaymentinfo')
                     .whereIn('clinicianid', clinicianIds)
                     .select('clinicianid', 'commission') : [];
 
 
-               const orgInfos = orgIds.length > 0 ? await conn('organizationaccountinformation')
+               const orgInfos: OrgCommission[] = orgIds.length > 0 ? await conn('organizationaccountinformation')
                     .whereIn('organizationid', orgIds)
                     .select('organizationid', 'commission') : [];
 
@@ -185,11 +195,14 @@ export class CommissionTrackingRepo {
 
 
                if (insertData.length > 0) {
-                    await conn('commission_tracking').insert(insertData);
-                    return insertData.length;
+                    const insertedCount = await conn.transaction(async trx => {
+                         await trx('commission_tracking').insert(insertData);
+                         return insertData.length;
+                    });
+                    return insertedCount;
                }
 
-               
+
                return 0;
           } catch (error) {
                logger.error('Error calculating commission due:', error);

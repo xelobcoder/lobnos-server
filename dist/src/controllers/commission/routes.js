@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const CommissionTrackingController_1 = require("./CommissionTrackingController");
-const commissionBatchServices_1 = require("./commissionBatchServices");
+const commissionBatchServicesController_1 = require("./commissionBatchServicesController");
 const router = (0, express_1.Router)();
 router.get('/detailed/list', async (req, res) => {
     const tenantid = parseInt(req.query.tenantId);
@@ -16,7 +16,12 @@ router.put('/commission/recipient/update-rates/:id', async (req, res) => {
 });
 router.post('/commission/batch/process-services', async (req, res) => {
     const tenantid = parseInt(req.query.tenantId);
-    const controller = new commissionBatchServices_1.CommissionBatchServicesController(tenantid);
+    const controller = new commissionBatchServicesController_1.CommissionBatchServicesController(tenantid);
     await controller.processServiceBatching(req, res);
+});
+router.get('/commission/batch/information', async (req, res) => {
+    const tenantid = parseInt(req.query.tenantId);
+    const controller = new commissionBatchServicesController_1.CommissionBatchServicesController(tenantid);
+    await controller.getBatchInformation(req, res);
 });
 exports.default = router;

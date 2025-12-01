@@ -7,13 +7,13 @@ exports.CommissionBatchServicesController = void 0;
 const CommissionBatchPaymentServicesRepo_1 = require("../../models/commissions/CommissionBatchPaymentServicesRepo");
 const helper_1 = require("../../hooks/helper");
 const logger_1 = __importDefault(require("../../hooks/logger"));
+const CommissionBatchPaymentsRepo_1 = require("../../models/commissions/CommissionBatchPaymentsRepo");
 class CommissionBatchServicesController {
     constructor(tenantId) {
         this.processServiceBatching = async (request, response) => {
             try {
                 const batchServicesRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(this.tenantId);
-                const { startDate, endDate, commissionDue, amountPaid } = request.body;
-                //  validate the dates andd ensure there are actual dates 
+                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, recipientid, recipient_type } = request.body;
                 const startDateObj = new Date(startDate);
                 const endDateObj = new Date(endDate);
                 if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
@@ -22,10 +22,23 @@ class CommissionBatchServicesController {
                 if (startDateObj > endDateObj) {
                     return (0, helper_1.customError)("Start date cannot be after end date", 400, response);
                 }
-                // get all services within the date range that match the commission type
-                const isBatched = await batchServicesRepo.isDateRangeBatched(startDate, endDate);
-                if (isBatched) {
+                const isBatched = await batchServicesRepo.isDateRangeBatched(startDate, endDate, recipientid, recipient_type);
+                if (typeof isBatched === "boolean" && isBatched === true) {
                     return (0, helper_1.customError)("Some services have in the specified date range have already been batched for commission payment and processed ", 400, response);
+                }
+                const processPayment = await new CommissionBatchPaymentsRepo_1.CommissionBatchPaymentsRepo(this.tenantId).createBatchPaymentWithServices({
+                    startDate: startDateObj,
+                    endDate: endDateObj,
+                    commissionDue,
+                    amountPaid,
+                    services: isBatched,
+                    employeeid,
+                    paymentMethod,
+                    recipientId: recipientid,
+                    recipientType: recipient_type
+                });
+                if (!processPayment) {
+                    return (0, helper_1.customError)("Failed to process service batching", 500, response);
                 }
                 return response.send({
                     status: true,

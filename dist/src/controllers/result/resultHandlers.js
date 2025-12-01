@@ -160,10 +160,17 @@ const getResultPrintoutHandler = async (request, response) => {
         const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
         const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
         const tenantIdP = parseInt(tenantId.toString());
+        let isWithinWindow = false;
         if (!ascensionId)
             return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + ". ascensionid not provided", 404, response);
         const numAscensionId = parseInt(ascensionId.toString());
-        const isWithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
+        const userRole = await new RolesRepository_1.default(tenantIdP).getRoleById(parseInt(employeeid.toString()));
+        if (userRole && ['admin', 'manager', 'super-admin'].includes(userRole.role.toLowerCase()) == false) {
+            isWithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
+        }
+        else {
+            isWithinWindow = true;
+        }
         if (!isWithinWindow) {
             return (0, helper_1.customError)("Access window period has expired." /* OperationsFailures.accessWindowExpired */, 403, response);
         }
@@ -297,8 +304,16 @@ const getResultPrintMultipleHandler = async (request, response) => {
             qualifiedForPrintOut = qualifiedForPrintOut.filter((item) => item === null || item === void 0 ? void 0 : item.ascensionid);
             // check each for acess window or acess permission allowed
             let accessPermissionTest = [];
+            const currentRole = await new RolesRepository_1.default(tenantIdP).getRoleById(pEmployeeId);
+            const isPriviledgedUser = currentRole && ['admin', 'manager', 'super-admin'].includes(currentRole.role.toLowerCase());
             for (let i = 0; i < qualifiedForPrintOut.length; i++) {
-                const isWithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+                let isWithinWindow = false;
+                if (isPriviledgedUser) {
+                    isWithinWindow = true;
+                }
+                else {
+                    isWithinWindow = await requestAcess_1.default.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+                }
                 isWithinWindow ? accessPermissionTest.push(qualifiedForPrintOut[i]) : null;
             }
             if (accessPermissionTest.length == 0) {

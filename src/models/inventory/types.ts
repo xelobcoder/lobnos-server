@@ -716,3 +716,75 @@ export interface ExpiredBatchesResponse {
      sortby: 'ASC' | 'DESC';
      summary: ExpiredBatchesSummary;
 }
+
+// Inventory Template interfaces
+export interface InventoryTemplate {
+     id: number;
+     name: string;
+     createby: number;
+     description?: string;
+     testId: string;
+     created_at: string;
+     updated_at: string;
+
+     // Joined data
+     creator_name?: string;
+     items_count?: number;
+     items?: InventoryTemplateItem[];
+}
+
+export interface InventoryTemplateItem {
+     id: number;
+     template_id: number;
+     itemId: string;
+     quantity: number;
+     created_at: string;
+
+     // Joined data
+     item_name?: string;
+     item_sku?: string;
+     unit?: InventoryUnit;
+}
+
+export interface CreateInventoryTemplateRequest {
+     name: string;
+     description?: string;
+     testId: string;
+     employeeid: number;
+     items: CreateInventoryTemplateItemRequest[];
+}
+
+export interface CreateInventoryTemplateItemRequest {
+     itemId: string;
+     quantity: number;
+}
+
+export interface UpdateInventoryTemplateRequest {
+     name?: string;
+     description?: string;
+     testId?: string;
+     items?: UpdateInventoryTemplateItemRequest[];
+}
+
+export interface UpdateInventoryTemplateItemRequest {
+     itemId?: string;
+     quantity?: number;
+}
+
+export interface InventoryTemplateListResponse {
+     templates: InventoryTemplate[];
+     total: number;
+     page: number;
+     count: number;
+     totalPages: number;
+     sortby: 'ASC' | 'DESC';
+}
+
+export interface InventoryTemplateFilters {
+     page?: number;
+     count?: number;
+     sortby?: 'ASC' | 'DESC';
+     testId?: string;
+     search?: string;
+     createby?: number;
+}

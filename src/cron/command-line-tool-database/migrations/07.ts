@@ -1,7 +1,6 @@
 import { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-     // Create inv_brands table
      if (!(await knex.schema.hasTable('inv_brands'))) {
           await knex.schema.createTable('inv_brands', (table) => {
                table.string('id', 50).primary();
@@ -18,7 +17,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_categories table
      if (!(await knex.schema.hasTable('inv_categories'))) {
           await knex.schema.createTable('inv_categories', (table) => {
                table.string('id', 50).primary();
@@ -33,7 +31,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_storage_locations table
      if (!(await knex.schema.hasTable('inv_storage_locations'))) {
           await knex.schema.createTable('inv_storage_locations', (table) => {
                table.string('id', 50).primary();
@@ -54,7 +51,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_suppliers table
      if (!(await knex.schema.hasTable('inv_suppliers'))) {
           await knex.schema.createTable('inv_suppliers', (table) => {
                table.string('id', 50).primary();
@@ -73,7 +69,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_inventory_items table (depends on inv_categories, inv_storage_locations)
      if (!(await knex.schema.hasTable('inv_inventory_items'))) {
           await knex.schema.createTable('inv_inventory_items', (table) => {
                table.string('id', 50).primary();
@@ -104,7 +99,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_consumption_history table (depends on inv_inventory_items)
      if (!(await knex.schema.hasTable('inv_consumption_history'))) {
           await knex.schema.createTable('inv_consumption_history', (table) => {
                table.string('id', 50).primary();
@@ -136,7 +130,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_inventory_transactions table (depends on inv_inventory_items)
      if (!(await knex.schema.hasTable('inv_inventory_transactions'))) {
           await knex.schema.createTable('inv_inventory_transactions', (table) => {
                table.string('id', 50).primary();
@@ -169,7 +162,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_purchase_orders table (depends on inv_suppliers)
      if (!(await knex.schema.hasTable('inv_purchase_orders'))) {
           await knex.schema.createTable('inv_purchase_orders', (table) => {
                table.string('id', 50).primary();
@@ -195,7 +187,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_purchase_order_items table (depends on inv_purchase_orders, inv_inventory_items)
      if (!(await knex.schema.hasTable('inv_purchase_order_items'))) {
           await knex.schema.createTable('inv_purchase_order_items', (table) => {
                table.string('id', 50).primary();
@@ -221,7 +212,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_purchase_order_receipts table (depends on inv_purchase_orders, inv_purchase_order_items)
      if (!(await knex.schema.hasTable('inv_purchase_order_receipts'))) {
           await knex.schema.createTable('inv_purchase_order_receipts', (table) => {
                table.string('id', 50).primary();
@@ -253,7 +243,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_supplier_payments table (depends on inv_suppliers, inv_purchase_orders)
      if (!(await knex.schema.hasTable('inv_supplier_payments'))) {
           await knex.schema.createTable('inv_supplier_payments', (table) => {
                table.string('id', 50).primary();
@@ -289,7 +278,6 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
-     // Create inv_supplier_payment_allocations table (depends on inv_supplier_payments, inv_purchase_orders, inv_purchase_order_items)
      if (!(await knex.schema.hasTable('inv_supplier_payment_allocations'))) {
           await knex.schema.createTable('inv_supplier_payment_allocations', (table) => {
                table.string('id', 50).primary();
@@ -310,11 +298,39 @@ export async function up(knex: Knex): Promise<void> {
                table.foreign('purchase_order_id').references('id').inTable('inv_purchase_orders').onDelete('CASCADE').onUpdate('CASCADE');
           });
      }
+
+     if (!(await knex.schema.hasTable('inv_inventory_templates'))) {
+          await knex.schema.createTable('inv_inventory_templates', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('name').notNullable().unique();
+               table.integer('createby').notNullable().unsigned();
+               table.text('description');
+               table.string('testId').notNullable();
+               table.timestamp('created_at').nullable().defaultTo(knex.fn.now());
+               table.timestamp('updated_at').nullable().defaultTo(knex.fn.now());
+
+               table.foreign('createby').references('employeeid').inTable('roles').onDelete('CASCADE').onUpdate('CASCADE');
+          });
+     }
+
+     if (!(await knex.schema.hasTable('inv_inventory_template_items'))) {
+          await knex.schema.createTable('inv_inventory_template_items', (table) => {
+               table.increments('id').primary().unsigned();
+               table.integer('template_id').unsigned();
+               table.string('itemId').notNullable();
+               table.decimal('quantity', 10, 2).notNullable();
+               table.timestamp('created_at').nullable().defaultTo(knex.fn.now());
+
+               table.foreign('itemId').references('id').inTable('inv_inventory_items').onDelete('CASCADE').onUpdate('CASCADE');
+               table.foreign('template_id').references('id').inTable('inv_inventory_templates').onDelete('CASCADE').onUpdate('CASCADE');
+          });
+     }
 }
 
 export async function down(knex: Knex): Promise<void> {
-     // Drop tables in reverse order due to foreign key constraints
      const tables = [
+          'inv_inventory_template_items',
+          'inv_inventory_templates',
           'inv_supplier_payment_allocations',
           'inv_supplier_payments',
           'inv_purchase_order_receipts',

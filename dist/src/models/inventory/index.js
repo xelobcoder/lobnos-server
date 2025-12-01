@@ -14,7 +14,7 @@ var __exportStar = (this && this.__exportStar) || function(m, exports) {
     for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports, p)) __createBinding(exports, m, p);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.SupplierPaymentModel = exports.InventoryTransactionModel = exports.PurchaseOrderItemModel = exports.PurchaseOrderModel = exports.InventoryItemModel = exports.StorageLocationModel = exports.SupplierModel = exports.CategoryModel = exports.BrandModel = void 0;
+exports.SupplierPaymentModel = exports.InventoryTransactionModel = exports.PurchaseOrderItemModel = exports.PurchaseOrderModel = exports.InventoryTemplateModel = exports.InventoryItemModel = exports.StorageLocationModel = exports.SupplierModel = exports.CategoryModel = exports.BrandModel = void 0;
 // Inventory Management Models
 var Brand_1 = require("./Brand");
 Object.defineProperty(exports, "BrandModel", { enumerable: true, get: function () { return Brand_1.BrandModel; } });
@@ -26,6 +26,8 @@ var StorageLocation_1 = require("./StorageLocation");
 Object.defineProperty(exports, "StorageLocationModel", { enumerable: true, get: function () { return StorageLocation_1.StorageLocationModel; } });
 var InventoryItem_1 = require("./InventoryItem");
 Object.defineProperty(exports, "InventoryItemModel", { enumerable: true, get: function () { return InventoryItem_1.InventoryItemModel; } });
+var InventoryTemplates_1 = require("./InventoryTemplates");
+Object.defineProperty(exports, "InventoryTemplateModel", { enumerable: true, get: function () { return InventoryTemplates_1.InventoryTemplateModel; } });
 var PurchaseOrder_1 = require("./PurchaseOrder");
 Object.defineProperty(exports, "PurchaseOrderModel", { enumerable: true, get: function () { return PurchaseOrder_1.PurchaseOrderModel; } });
 var PurchaseOrderItem_1 = require("./PurchaseOrderItem");
