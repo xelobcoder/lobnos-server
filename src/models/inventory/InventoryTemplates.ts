@@ -10,6 +10,7 @@ import {
      UpdateInventoryTemplateItemRequest
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
+import Operations from '../operations/operations';
 
 export class InventoryTemplateModel {
      private connection: Promise<Knex<any, any[]>>;
@@ -116,7 +117,7 @@ export class InventoryTemplateModel {
           };
      }
 
-     async findByTestId(testId: string, includeItems?: boolean): Promise<InventoryTemplate | null> {
+     async findByTestId(testId: string, includeItems?: boolean, ascensionid?: number): Promise<InventoryTemplate | null> {
           const connection = await this.connection;
           const result = await connection('inv_inventory_templates')
                .leftJoin('roles', 'inv_inventory_templates.createby', 'roles.employeeid')
@@ -135,16 +136,12 @@ export class InventoryTemplateModel {
                .count('* as count')
 
           if (includeItems) {
-               const items = await connection('inv_inventory_template_items')
-                    .leftJoin('inv_inventory_items', 'inv_inventory_template_items.itemId', 'inv_inventory_items.id')
-                    .select(
-                         'inv_inventory_template_items.*',
-                         'inv_inventory_items.name as item_name',
-                         'inv_inventory_items.sku as item_sku',
-                         'inv_inventory_items.unit'
-                    )
-                    .where('inv_inventory_template_items.template_id', result.id)
-                    .orderBy('inv_inventory_template_items.created_at', 'asc');
+               const items = await this.getTemplateItems(result.id);
+               // check if items are consumed based on ascensionid
+               for (const item of items) {
+                    await this.checkAscensionItemCompletionStatus(item, ascensionid, true);
+               }
+
                return {
                     id: result.id,
                     name: result.name,
@@ -163,7 +160,10 @@ export class InventoryTemplateModel {
                          created_at: item.created_at,
                          item_name: item.item_name,
                          item_sku: item.item_sku,
-                         unit: item.unit
+                         unit: item.unit,
+                         is_consumed: item.is_consumed || false,
+                         quantity_remaining: item.quantity_remaining || parseFloat(item.quantity.toString()),
+                         status: item.status
                     }))
                };
           }
@@ -180,6 +180,22 @@ export class InventoryTemplateModel {
                creator_name: result.creator_name,
                items_count: parseInt((itemsCount as any)?.count || 0)
           };
+     }
+
+     private async checkAscensionItemCompletionStatus(item: InventoryTemplateItem, ascensionid: number, checkQtyRemaining: boolean = false) {
+          const connection = await this.connection;
+          const consumptionRecord = await connection('inv_inventory_transactions')
+               .where('item_id', item.itemId)
+               .andWhere('ascension_id', ascensionid)
+               .first();
+          item.is_consumed = !!consumptionRecord;
+          if (checkQtyRemaining && consumptionRecord) {
+               const quantityConsumed = parseFloat(consumptionRecord.quantity);
+               item.quantity_remaining = parseFloat(item.quantity.toString()) - quantityConsumed
+               item.status = item.quantity_remaining === 0 ? 'completed' : (item.quantity_remaining < parseFloat(item.quantity.toString()) ? 'partial' : 'pending');
+          }
+
+          return item;
      }
 
      async findMany(filters: InventoryTemplateFilters): Promise<InventoryTemplateListResponse> {
@@ -551,6 +567,34 @@ export class InventoryTemplateModel {
                     items_count: parseInt((itemsCount as any)?.count || 0)
                };
           }));
+     }
+
+
+     async ascensionConsumptionStatus(ascension_id: number, testid: number): Promise<{ status: InventoryTemplateItem['status'] }> {
+          const data = await this.findByTestId(testid.toString(), true, ascension_id);
+          const items = data?.items;
+          if(!items) return { status: "unknown-template" };     
+          if (items.length === 0) return { status: "pending" };
+          const allCompleted = items.every(item => item.status === 'completed');
+          const anyPartial = items.some(item => item.status === 'partial');
+          return allCompleted ? { status: 'completed' } : (anyPartial ? { status: 'partial' } : { status: 'pending' });
+     }
+
+
+     async getAscensionDirectConsumption(tenantId: number, queryParams: {
+          sortby: 'DESC' | 'ASC', _dateFrom: Date | string, _dateEnd: Date | string, stage: string,
+          searchString: string, page: number, count: number, isUltrasound: boolean, clinicianId: number, organizationId: number
+     }) {
+          let list = await Operations.getAscensionBasedOnStage(tenantId, queryParams);
+          if (list && Array.isArray(list)) {
+               for (const item of list) {
+                    const { ascensionid, id } = item;
+                    const consumptionStatus = await this.ascensionConsumptionStatus(ascensionid, id);
+                    item.consumption_status = consumptionStatus.status;
+               }
+               return list;
+          }
+          return [];
      }
 }
 

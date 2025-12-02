@@ -205,7 +205,7 @@ class Appointment {
 			appointmentId
 		];
 
-		console.log(query, values); // Debugging line to check the query and values
+		
 		const result = await this.connection(tenantId, query, values);
 		return this._affectedRows(result);
 	}

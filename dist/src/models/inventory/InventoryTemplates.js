@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.InventoryTemplateModel = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const operations_1 = __importDefault(require("../operations/operations"));
 class InventoryTemplateModel {
     constructor(tenantId) {
         this.connection = (0, KnexConnections_1.default)(tenantId);
@@ -88,7 +89,7 @@ class InventoryTemplateModel {
             items_count: parseInt((itemsCount === null || itemsCount === void 0 ? void 0 : itemsCount.count) || 0)
         };
     }
-    async findByTestId(testId, includeItems) {
+    async findByTestId(testId, includeItems, ascensionid) {
         const connection = await this.connection;
         const result = await connection('inv_inventory_templates')
             .leftJoin('roles', 'inv_inventory_templates.createby', 'roles.employeeid')
@@ -102,11 +103,11 @@ class InventoryTemplateModel {
             .where('template_id', result.id)
             .count('* as count');
         if (includeItems) {
-            const items = await connection('inv_inventory_template_items')
-                .leftJoin('inv_inventory_items', 'inv_inventory_template_items.itemId', 'inv_inventory_items.id')
-                .select('inv_inventory_template_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit')
-                .where('inv_inventory_template_items.template_id', result.id)
-                .orderBy('inv_inventory_template_items.created_at', 'asc');
+            const items = await this.getTemplateItems(result.id);
+            // check if items are consumed based on ascensionid
+            for (const item of items) {
+                await this.checkAscensionItemCompletionStatus(item, ascensionid, true);
+            }
             return {
                 id: result.id,
                 name: result.name,
@@ -125,7 +126,10 @@ class InventoryTemplateModel {
                     created_at: item.created_at,
                     item_name: item.item_name,
                     item_sku: item.item_sku,
-                    unit: item.unit
+                    unit: item.unit,
+                    is_consumed: item.is_consumed || false,
+                    quantity_remaining: item.quantity_remaining || parseFloat(item.quantity.toString()),
+                    status: item.status
                 }))
             };
         }
@@ -140,6 +144,20 @@ class InventoryTemplateModel {
             creator_name: result.creator_name,
             items_count: parseInt((itemsCount === null || itemsCount === void 0 ? void 0 : itemsCount.count) || 0)
         };
+    }
+    async checkAscensionItemCompletionStatus(item, ascensionid, checkQtyRemaining = false) {
+        const connection = await this.connection;
+        const consumptionRecord = await connection('inv_inventory_transactions')
+            .where('item_id', item.itemId)
+            .andWhere('ascension_id', ascensionid)
+            .first();
+        item.is_consumed = !!consumptionRecord;
+        if (checkQtyRemaining && consumptionRecord) {
+            const quantityConsumed = parseFloat(consumptionRecord.quantity);
+            item.quantity_remaining = parseFloat(item.quantity.toString()) - quantityConsumed;
+            item.status = item.quantity_remaining === 0 ? 'completed' : (item.quantity_remaining < parseFloat(item.quantity.toString()) ? 'partial' : 'pending');
+        }
+        return item;
     }
     async findMany(filters) {
         const connection = await this.connection;
@@ -425,6 +443,29 @@ class InventoryTemplateModel {
                 items_count: parseInt((itemsCount === null || itemsCount === void 0 ? void 0 : itemsCount.count) || 0)
             };
         }));
+    }
+    async ascensionConsumptionStatus(ascension_id, testid) {
+        const data = await this.findByTestId(testid.toString(), true, ascension_id);
+        const items = data === null || data === void 0 ? void 0 : data.items;
+        if (!items)
+            return { status: "unknown-template" };
+        if (items.length === 0)
+            return { status: "pending" };
+        const allCompleted = items.every(item => item.status === 'completed');
+        const anyPartial = items.some(item => item.status === 'partial');
+        return allCompleted ? { status: 'completed' } : (anyPartial ? { status: 'partial' } : { status: 'pending' });
+    }
+    async getAscensionDirectConsumption(tenantId, queryParams) {
+        let list = await operations_1.default.getAscensionBasedOnStage(tenantId, queryParams);
+        if (list && Array.isArray(list)) {
+            for (const item of list) {
+                const { ascensionid, id } = item;
+                const consumptionStatus = await this.ascensionConsumptionStatus(ascensionid, id);
+                item.consumption_status = consumptionStatus.status;
+            }
+            return list;
+        }
+        return [];
     }
 }
 exports.InventoryTemplateModel = InventoryTemplateModel;

@@ -8,6 +8,7 @@ import {
      ConsumptionReportResponse,
      ConsumptionSummary
 } from '../../models/inventory/types';
+import { InventoryTemplateModel } from '../../models/inventory';
 
 export class InventoryConsumptionController {
      private getTenantId(req: Request): number {
@@ -314,6 +315,7 @@ export class InventoryConsumptionController {
                }
 
                const duplicateValidationErrors: string[] = [];
+               let unConsumedItems: any[] = [];
                const connection = await (model as any).connection;
 
                for (const consumptionEntry of consumptions) {
@@ -327,22 +329,14 @@ export class InventoryConsumptionController {
 
                     if (existingTransaction) {
                          duplicateValidationErrors.push(`Test ID ${test_id}: Item ${item_id} has already been consumed for ascension ${ascension_id} on ${new Date(existingTransaction.transaction_date).toLocaleDateString()}`);
+                    } else {
+                         unConsumedItems.push(consumptionEntry);
                     }
                }
 
-               if (duplicateValidationErrors.length > 0) {
-                    const response: ApiResponse = {
-                         success: false,
-                         error: {
-                              code: 'DUPLICATE_CONSUMPTION',
-                              message: `Duplicate consumption validation failed: ${duplicateValidationErrors.join('; ')}`
-                         }
-                    };
-                    res.status(400).json(response);
-                    return;
-               }
 
-               for (const consumptionEntry of consumptions) {
+
+               for (const consumptionEntry of unConsumedItems) {
                     const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = consumptionEntry;
 
                     let expiry_date: string | undefined;
@@ -388,10 +382,16 @@ export class InventoryConsumptionController {
                     await model.create(transactionData);
                }
 
+               let message = `Successfully recorded consumption for ${unConsumedItems.length} test item(s)`;
+
+               if (duplicateValidationErrors.length > 0) {
+                    message += `. Skipped ${duplicateValidationErrors.length} item(s) due to duplicate consumption: ${duplicateValidationErrors.join('; ')}`;
+               }
+
                const response: ApiResponse = {
                     success: true,
                     data: {
-                         message: `Successfully recorded consumption for ${consumptions.length} test item(s)`
+                         message
                     }
                };
 
@@ -585,23 +585,23 @@ export class InventoryConsumptionController {
                     item_id: consumption.item_id,
                     item_name: consumption.item_name || '',
                     item_sku: consumption.item_sku || '',
-                    transaction_type: 'consumption', 
+                    transaction_type: 'consumption',
                     quantity: consumption.quantity_consumed,
-                    previous_stock: null, 
-                    new_stock: null, 
+                    previous_stock: null,
+                    new_stock: null,
                     batch_number: consumption.batch_number,
-                    expiry_date: null, 
+                    expiry_date: null,
                     unit_cost: consumption.unit_cost,
                     total_cost: consumption.total_cost,
                     brand_name: consumption.brand_name,
                     reason: consumption.consumption_reason,
-                    reference_id: consumption.id, 
+                    reference_id: consumption.id,
                     patient_id: consumption.patient_id,
-                    ascension_id: null, 
+                    ascension_id: null,
                     performed_by: consumption.consumed_by,
                     transaction_date: consumption.consumption_date,
                     notes: consumption.notes,
-                    wastage_type: null, 
+                    wastage_type: null,
                     created_at: consumption.consumption_date,
                     department: consumption.department,
                     prescription_id: consumption.prescription_id,
@@ -1357,4 +1357,55 @@ export class InventoryConsumptionController {
                res.status(500).json(response);
           }
      }
+
+
+     async getAscensionDirectConsumption(req: Request, res: Response): Promise<void> {
+          try {
+               const tenantId = this.getTenantId(req);
+               const {
+                    sortby = 'DESC',
+                    dateFrom,
+                    dateEnd,
+                    operationsStaging,
+                    searchString = '',
+                    page = 1,
+                    count = 10,
+                    isUltrasound = false,
+                    clinicianId,
+                    organizationId
+               } = req.query;
+
+               const queryParams = {
+                    sortby: (sortby as string).toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+                    _dateFrom: dateFrom,
+                    _dateEnd: dateEnd,
+                    stage: operationsStaging || "COMPLETED",
+                    searchString: searchString as string,
+                    page: parseInt(page as string),
+                    count: parseInt(count as string),
+                    isUltrasound: isUltrasound === 'true',
+                    clinicianId: clinicianId ? parseInt(clinicianId as string) : undefined,
+                    organizationId: organizationId ? parseInt(organizationId as string) : undefined
+               };
+
+               const model = new InventoryTemplateModel(tenantId);
+               const list = await model.getAscensionDirectConsumption(tenantId, queryParams as any);
+               const response: ApiResponse = {
+                    success: true,
+                    data: list
+               };
+               res.json(response);
+          } catch (error: any) {
+               console.error('Error getting ascension direct consumption:', error);
+               const response: ApiResponse = {
+                    success: false,
+                    error: {
+                         code: 'INTERNAL_ERROR',
+                         message: error.message || 'Failed to get ascension direct consumption'
+                    }
+               };
+               res.status(500).json(response);
+          }
+     }
+
 }

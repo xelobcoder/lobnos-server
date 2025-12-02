@@ -188,7 +188,6 @@ class Appointment {
             (_m = validData.notes) !== null && _m !== void 0 ? _m : null,
             appointmentId
         ];
-        console.log(query, values); // Debugging line to check the query and values
         const result = await this.connection(tenantId, query, values);
         return this._affectedRows(result);
     }

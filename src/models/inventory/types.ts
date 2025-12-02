@@ -730,7 +730,9 @@ export interface InventoryTemplate {
      // Joined data
      creator_name?: string;
      items_count?: number;
+     is_consumed?: boolean;
      items?: InventoryTemplateItem[];
+
 }
 
 export interface InventoryTemplateItem {
@@ -739,7 +741,9 @@ export interface InventoryTemplateItem {
      itemId: string;
      quantity: number;
      created_at: string;
-
+     is_consumed?: boolean;
+     quantity_remaining?: number;
+     status?: 'completed' | 'partial' | 'pending' | 'unknown-template';
      // Joined data
      item_name?: string;
      item_sku?: string;

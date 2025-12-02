@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.InventoryConsumptionController = void 0;
 const InventoryTransaction_1 = require("../../models/inventory/InventoryTransaction");
 const InventoryItem_1 = require("../../models/inventory/InventoryItem");
+const inventory_1 = require("../../models/inventory");
 class InventoryConsumptionController {
     getTenantId(req) {
         const tenantId = parseInt(req.query.tenantId);
@@ -257,6 +258,7 @@ class InventoryConsumptionController {
                 return;
             }
             const duplicateValidationErrors = [];
+            let unConsumedItems = [];
             const connection = await model.connection;
             for (const consumptionEntry of consumptions) {
                 const { test_id, item_id, ascension_id } = consumptionEntry;
@@ -268,19 +270,11 @@ class InventoryConsumptionController {
                 if (existingTransaction) {
                     duplicateValidationErrors.push(`Test ID ${test_id}: Item ${item_id} has already been consumed for ascension ${ascension_id} on ${new Date(existingTransaction.transaction_date).toLocaleDateString()}`);
                 }
+                else {
+                    unConsumedItems.push(consumptionEntry);
+                }
             }
-            if (duplicateValidationErrors.length > 0) {
-                const response = {
-                    success: false,
-                    error: {
-                        code: 'DUPLICATE_CONSUMPTION',
-                        message: `Duplicate consumption validation failed: ${duplicateValidationErrors.join('; ')}`
-                    }
-                };
-                res.status(400).json(response);
-                return;
-            }
-            for (const consumptionEntry of consumptions) {
+            for (const consumptionEntry of unConsumedItems) {
                 const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = consumptionEntry;
                 let expiry_date;
                 if (batch_number) {
@@ -321,10 +315,14 @@ class InventoryConsumptionController {
                 };
                 await model.create(transactionData);
             }
+            let message = `Successfully recorded consumption for ${unConsumedItems.length} test item(s)`;
+            if (duplicateValidationErrors.length > 0) {
+                message += `. Skipped ${duplicateValidationErrors.length} item(s) due to duplicate consumption: ${duplicateValidationErrors.join('; ')}`;
+            }
             const response = {
                 success: true,
                 data: {
-                    message: `Successfully recorded consumption for ${consumptions.length} test item(s)`
+                    message
                 }
             };
             res.status(201).json(response);
@@ -1115,6 +1113,42 @@ class InventoryConsumptionController {
                 error: {
                     code: 'INTERNAL_ERROR',
                     message: error.message || 'Failed to get non-expired wastage history'
+                }
+            };
+            res.status(500).json(response);
+        }
+    }
+    async getAscensionDirectConsumption(req, res) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const { sortby = 'DESC', dateFrom, dateEnd, operationsStaging, searchString = '', page = 1, count = 10, isUltrasound = false, clinicianId, organizationId } = req.query;
+            const queryParams = {
+                sortby: sortby.toUpperCase() === 'ASC' ? 'ASC' : 'DESC',
+                _dateFrom: dateFrom,
+                _dateEnd: dateEnd,
+                stage: operationsStaging || "COMPLETED",
+                searchString: searchString,
+                page: parseInt(page),
+                count: parseInt(count),
+                isUltrasound: isUltrasound === 'true',
+                clinicianId: clinicianId ? parseInt(clinicianId) : undefined,
+                organizationId: organizationId ? parseInt(organizationId) : undefined
+            };
+            const model = new inventory_1.InventoryTemplateModel(tenantId);
+            const list = await model.getAscensionDirectConsumption(tenantId, queryParams);
+            const response = {
+                success: true,
+                data: list
+            };
+            res.json(response);
+        }
+        catch (error) {
+            console.error('Error getting ascension direct consumption:', error);
+            const response = {
+                success: false,
+                error: {
+                    code: 'INTERNAL_ERROR',
+                    message: error.message || 'Failed to get ascension direct consumption'
                 }
             };
             res.status(500).json(response);

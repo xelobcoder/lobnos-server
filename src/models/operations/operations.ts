@@ -177,7 +177,7 @@ export default class Operations {
 				conditions.push(organizationId as any as string);
 			}
 
-			console.log(finalQuery)
+		
 			return { conditions, finalQuery };
 		} catch (err) {
 			return null;
@@ -295,6 +295,7 @@ export default class Operations {
 				query = finalQuery;
 				conditionValues = conditionx;
 			}
+		
 			if (query == null) return null;
 
 			query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;

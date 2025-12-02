@@ -39,7 +39,6 @@ class CommissionBatchPaymentServicesRepo {
             else if (recipient_type === 'organization') {
                 query = query.whereNotNull('organizationId').andWhere('serviceCategory', 'ORGANIZATION').andWhere('organizationId', parsedId);
             }
-            console.log(query.toString());
             const results = await query;
             if (results.length === 0) {
                 throw new Error('No services found in the specified date range');

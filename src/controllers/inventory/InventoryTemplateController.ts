@@ -264,10 +264,22 @@ export class InventoryTemplateController {
           try {
                const tenantId = this.getTenantId(req);
                const { testId } = req.params;
-               const { includeItems } = req.query;
+               const { includeItems, ascensionid } = req.query;
+
+               if (isNaN(parseInt(ascensionid as string)) || parseInt(ascensionid as string) <= 0) {
+                    const response: ApiResponse = {
+                         success: false,
+                         error: {
+                              code: 'VALIDATION_ERROR',
+                              message: 'Invalid ascension ID'
+                         }
+                    };
+                    res.status(400).json(response);
+                    return;
+               }
 
                const inventoryTemplateModel = new InventoryTemplateModel(tenantId);
-               const inventoryTemplate = await inventoryTemplateModel.findByTestId(testId, includeItems === 'true');
+               const inventoryTemplate = await inventoryTemplateModel.findByTestId(testId, includeItems === 'true', ascensionid);
 
                if (!inventoryTemplate) {
                     const response: ApiResponse = {
