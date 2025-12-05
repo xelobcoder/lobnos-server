@@ -279,7 +279,7 @@ export class InventoryTemplateController {
                }
 
                const inventoryTemplateModel = new InventoryTemplateModel(tenantId);
-               const inventoryTemplate = await inventoryTemplateModel.findByTestId(testId, includeItems === 'true', ascensionid);
+               const inventoryTemplate = await inventoryTemplateModel.findByTestId(testId, includeItems === 'true', parseInt(ascensionid as string));
 
                if (!inventoryTemplate) {
                     const response: ApiResponse = {

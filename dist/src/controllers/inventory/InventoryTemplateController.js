@@ -240,7 +240,7 @@ class InventoryTemplateController {
                 return;
             }
             const inventoryTemplateModel = new inventory_1.InventoryTemplateModel(tenantId);
-            const inventoryTemplate = await inventoryTemplateModel.findByTestId(testId, includeItems === 'true', ascensionid);
+            const inventoryTemplate = await inventoryTemplateModel.findByTestId(testId, includeItems === 'true', parseInt(ascensionid));
             if (!inventoryTemplate) {
                 const response = {
                     success: false,
