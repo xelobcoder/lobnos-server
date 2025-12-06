@@ -1,5 +1,5 @@
 import KnexConnection from "../../../database/KnexConnections";
-import { Lead, PaginatedResponse } from "./dev/types";
+import { Lead, PaginatedResponse, CreateLeadSchema, UpdateLeadSchema } from "./dev/types";
 
 
 
@@ -15,33 +15,41 @@ export class CustomersLeads {
 
     async create(lead: Omit<Lead, 'id' | 'created_at' | 'updated_at'>) {
         try {
-            return await this.connection("customersleads").insert({
-                ...lead,
-                created_at: this.connection.raw('now()'),
-                updated_at: this.connection.raw('now()')
+            const connection = await this.connection;
+            const validatedLead = CreateLeadSchema.parse(lead);
+            return await connection("leads").insert({
+                ...validatedLead,
+                created_at: connection.raw('now()'),
+                updated_at: connection.raw('now()')
             }).returning('*');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Lead creation error:', error);
+            if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) {
+                throw new Error('A lead with this email address already exists');
+            }
             throw error;
         }
     }
 
-    async findById(id: string) {
+    async findById(id: number) {
         try {
-            return await this.connection("customersleads").where({ id }).first();
+            const connection = await this.connection;
+            return await connection("leads").where({ id }).first();
         } catch (error) {
             console.error('Lead find error:', error);
             throw error;
         }
     }
 
-    async update(id: string, updates: Partial<Lead>) {
+    async update(id: number, updates: Partial<Lead>) {
         try {
-            return await this.connection("customersleads")
+            const connection = await this.connection;
+            const validatedUpdates = UpdateLeadSchema.parse(updates);
+            return await connection("leads")
                 .where({ id })
                 .update({
-                    ...updates,
-                    updated_at: this.connection.raw('now()')
+                    ...validatedUpdates,
+                    updated_at: connection.raw('now()')
                 });
         } catch (error) {
             console.error('Lead update error:', error);
@@ -49,9 +57,10 @@ export class CustomersLeads {
         }
     }
 
-    async delete(id: string) {
+    async delete(id: number) {
         try {
-            return await this.connection("customersleads").where({ id }).delete();
+            const connection = await this.connection;
+            return await connection("leads").where({ id }).delete();
         } catch (error) {
             console.error('Lead delete error:', error);
             throw error;
@@ -60,7 +69,8 @@ export class CustomersLeads {
 
     async findByStatus(status: Lead['status']) {
         try {
-            return await this.connection("customersleads")
+            const connection = await this.connection;
+            return await connection("leads")
                 .where({ status })
                 .orderBy('created_at', 'desc');
         } catch (error) {
@@ -71,10 +81,11 @@ export class CustomersLeads {
 
     async findAllPaginated(page: number = 1, count: number = 10): Promise<PaginatedResponse<Lead>> {
         try {
-            const [total] = await this.connection("customersleads").count('id as count');
+            const connection = await this.connection;
+            const [total] = await connection("leads").count('id as count');
             const offset = (page - 1) * count;
-            
-            const data = await this.connection
+
+            const data = await connection("leads")
                 .orderBy('created_at', 'desc')
                 .limit(count)
                 .offset(offset);
@@ -93,18 +104,21 @@ export class CustomersLeads {
 
     async searchByName(searchTerm: string) {
         try {
-            return await this.connection("customersleads")
-                .where('name', 'like', `%${searchTerm}%`)
-                .orderBy('name', 'asc');
+            const connection = await this.connection;
+            return await connection("leads")
+                .where('firstname', 'like', `%${searchTerm}%`)
+                .orWhere('lastname', 'like', `%${searchTerm}%`)
+                .orderBy('firstname', 'asc');
         } catch (error) {
             console.error('Lead search by name error:', error);
             throw error;
         }
     }
 
-    async findByAssignedUser(userId: string) {
+    async findByAssignedUser(userId: number) {
         try {
-            return await this.connection("customersleads")
+            const connection = await this.connection;
+            return await connection("leads")
                 .where({ assigned_to: userId })
                 .orderBy('priority', 'desc');
         } catch (error) {
@@ -113,29 +127,3 @@ export class CustomersLeads {
         }
     }
 }
-
-
-
-
-
-// Migration files would be created separately. Example for leads table:
-export const up = knex => knex.schema.createTable('leads', table => {
-     table.uuid('id').primary();
-     table.string('name').notNullable();
-     table.string('contact_person').notNullable();
-     table.string('contact_email').notNullable();
-     table.string('contact_phone').notNullable();
-     table.string('company_name');
-     table.string('industry_type').notNullable();
-     table.string('lead_source').notNullable();
-     table.string('service_interest').notNullable();
-     table.enum('status', ['new', 'contacted', 'qualified', 'converted', 'lost']).defaultTo('new');
-     table.enum('priority', ['low', 'medium', 'high']).defaultTo('medium');
-     table.string('location').notNullable();
-     table.uuid('assigned_to').references('id').inTable('users');
-     table.text('notes');
-     table.timestamp('created_at').defaultTo(knex.fn.now());
-     table.timestamp('updated_at').defaultTo(knex.fn.now());
-});
-
-export const down = knex => knex.schema.dropTable('leads');

@@ -3,8 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.down = exports.up = exports.CustomersLeads = void 0;
+exports.CustomersLeads = void 0;
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
+const types_1 = require("./dev/types");
 class CustomersLeads {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -12,16 +13,22 @@ class CustomersLeads {
     }
     async create(lead) {
         try {
-            return await this.connection("customersleads").insert(Object.assign(Object.assign({}, lead), { created_at: this.connection.raw('now()'), updated_at: this.connection.raw('now()') })).returning('*');
+            const connection = await this.connection;
+            const validatedLead = types_1.CreateLeadSchema.parse(lead);
+            return await connection("leads").insert(Object.assign(Object.assign({}, validatedLead), { created_at: connection.raw('now()'), updated_at: connection.raw('now()') })).returning('*');
         }
         catch (error) {
             console.error('Lead creation error:', error);
+            if (error.code === 'ER_DUP_ENTRY' || error.errno === 1062) {
+                throw new Error('A lead with this email address already exists');
+            }
             throw error;
         }
     }
     async findById(id) {
         try {
-            return await this.connection("customersleads").where({ id }).first();
+            const connection = await this.connection;
+            return await connection("leads").where({ id }).first();
         }
         catch (error) {
             console.error('Lead find error:', error);
@@ -30,9 +37,11 @@ class CustomersLeads {
     }
     async update(id, updates) {
         try {
-            return await this.connection("customersleads")
+            const connection = await this.connection;
+            const validatedUpdates = types_1.UpdateLeadSchema.parse(updates);
+            return await connection("leads")
                 .where({ id })
-                .update(Object.assign(Object.assign({}, updates), { updated_at: this.connection.raw('now()') }));
+                .update(Object.assign(Object.assign({}, validatedUpdates), { updated_at: connection.raw('now()') }));
         }
         catch (error) {
             console.error('Lead update error:', error);
@@ -41,7 +50,8 @@ class CustomersLeads {
     }
     async delete(id) {
         try {
-            return await this.connection("customersleads").where({ id }).delete();
+            const connection = await this.connection;
+            return await connection("leads").where({ id }).delete();
         }
         catch (error) {
             console.error('Lead delete error:', error);
@@ -50,7 +60,8 @@ class CustomersLeads {
     }
     async findByStatus(status) {
         try {
-            return await this.connection("customersleads")
+            const connection = await this.connection;
+            return await connection("leads")
                 .where({ status })
                 .orderBy('created_at', 'desc');
         }
@@ -61,9 +72,10 @@ class CustomersLeads {
     }
     async findAllPaginated(page = 1, count = 10) {
         try {
-            const [total] = await this.connection("customersleads").count('id as count');
+            const connection = await this.connection;
+            const [total] = await connection("leads").count('id as count');
             const offset = (page - 1) * count;
-            const data = await this.connection
+            const data = await connection("leads")
                 .orderBy('created_at', 'desc')
                 .limit(count)
                 .offset(offset);
@@ -81,9 +93,11 @@ class CustomersLeads {
     }
     async searchByName(searchTerm) {
         try {
-            return await this.connection("customersleads")
-                .where('name', 'like', `%${searchTerm}%`)
-                .orderBy('name', 'asc');
+            const connection = await this.connection;
+            return await connection("leads")
+                .where('firstname', 'like', `%${searchTerm}%`)
+                .orWhere('lastname', 'like', `%${searchTerm}%`)
+                .orderBy('firstname', 'asc');
         }
         catch (error) {
             console.error('Lead search by name error:', error);
@@ -92,7 +106,8 @@ class CustomersLeads {
     }
     async findByAssignedUser(userId) {
         try {
-            return await this.connection("customersleads")
+            const connection = await this.connection;
+            return await connection("leads")
                 .where({ assigned_to: userId })
                 .orderBy('priority', 'desc');
         }
@@ -103,25 +118,3 @@ class CustomersLeads {
     }
 }
 exports.CustomersLeads = CustomersLeads;
-// Migration files would be created separately. Example for leads table:
-const up = knex => knex.schema.createTable('leads', table => {
-    table.uuid('id').primary();
-    table.string('name').notNullable();
-    table.string('contact_person').notNullable();
-    table.string('contact_email').notNullable();
-    table.string('contact_phone').notNullable();
-    table.string('company_name');
-    table.string('industry_type').notNullable();
-    table.string('lead_source').notNullable();
-    table.string('service_interest').notNullable();
-    table.enum('status', ['new', 'contacted', 'qualified', 'converted', 'lost']).defaultTo('new');
-    table.enum('priority', ['low', 'medium', 'high']).defaultTo('medium');
-    table.string('location').notNullable();
-    table.uuid('assigned_to').references('id').inTable('users');
-    table.text('notes');
-    table.timestamp('created_at').defaultTo(knex.fn.now());
-    table.timestamp('updated_at').defaultTo(knex.fn.now());
-});
-exports.up = up;
-const down = knex => knex.schema.dropTable('leads');
-exports.down = down;

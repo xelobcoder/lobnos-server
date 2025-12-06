@@ -2,9 +2,8 @@ import { Request, Response } from "express";
 import { allFieldsHasValues } from "./categories";
 import { OperationsFailures } from "../models/operations/types";
 import { q_ultrasound_list } from "./queries";
-import { promisifyQuery, customError, rowAffected, convertKeysToLowerCase, responseError, hasSpecialCharacters } from "../hooks/helper";
+import { promisifyQuery, customError, rowAffected, responseError, hasSpecialCharacters } from "../hooks/helper";
 import logger from "../hooks/logger";
-import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import { PrimeLimsTabletestdetails } from "../database/DatabaseTableSchema";
 import MasterTestPanelRepository from "../models/system-admin/MasterTestPanelRepository";
 

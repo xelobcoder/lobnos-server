@@ -48,6 +48,8 @@ const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/
 const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
 const routes_7 = __importDefault(require("./controllers/compliance/routes"));
 const index_3 = __importDefault(require("./controllers/commission/index"));
+const route_19 = __importDefault(require("./controllers/crm/leads/route"));
+const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -108,6 +110,8 @@ app.use(medicalInterfacingDevicesRoute_1.default);
 app.use(routes_7.default);
 app.use('/api/v1/inventory', index_2.default);
 app.use(index_3.default);
+app.use('/api/v1/leads', route_19.default);
+app.use('/api/v1/followups', followups_route_1.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });

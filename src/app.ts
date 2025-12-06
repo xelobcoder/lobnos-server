@@ -44,6 +44,8 @@ import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfaci
 import complianceRouter from './controllers/compliance/routes';
 import { killProcessOnPort } from "./models/security/killport";
 import CommissionPaymentsRouter from './controllers/commission/index';
+import leadsRouter from './controllers/crm/leads/route';
+import followupsRouter from './controllers/crm/leads/followups.route';
 
 
 
@@ -110,6 +112,8 @@ app.use(InterfacingDevicesRouter)
 app.use(complianceRouter)
 app.use('/api/v1/inventory', InventoryRouter);
 app.use(CommissionPaymentsRouter);
+app.use('/api/v1/leads', leadsRouter);
+app.use('/api/v1/followups', followupsRouter);
 
 
 
