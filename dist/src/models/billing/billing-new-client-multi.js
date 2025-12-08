@@ -24,19 +24,22 @@ const customerBillingCheckout_1 = require("./multi/customerBillingCheckout");
 const OutsourcedTestTrackingRepo_1 = require("../operations/OutsourcedTestTrackingRepo");
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
+        var _a, _b, _c, _d;
         const paidamount = (typeof item.paidamount !== 'undefined' && !isNaN(item.paidamount) && typeof parseFloat(item.paidamount.toString()) === 'number')
             ? Number(item.paidamount)
             : 0;
         let paymentstatus;
+        const p_totalpayable = isNaN(parseInt(((_a = item.totalpayable) === null || _a === void 0 ? void 0 : _a.toString()) || '0')) ? 0 : parseFloat(((_b = item.totalpayable) === null || _b === void 0 ? void 0 : _b.toString()) || '0');
+        const p_paidamount = isNaN(parseInt(((_c = item.paidamount) === null || _c === void 0 ? void 0 : _c.toString()) || '0')) ? 0 : parseFloat(((_d = item.paidamount) === null || _d === void 0 ? void 0 : _d.toString()) || '0');
+        const outstanding = p_totalpayable - p_paidamount;
         if (item.paymentstatus) {
             paymentstatus = item.paymentstatus;
         }
-        else if (typeof item.paidamount !== 'undefined' && !isNaN(item.paidamount) && typeof parseFloat(item.paidamount.toString()) === 'number') {
-            const paidVal = Number(item.paidamount);
-            if (typeof item.totalpayable === 'number' && paidVal === item.totalpayable) {
+        else if (p_paidamount) {
+            if (p_totalpayable && p_paidamount === p_totalpayable) {
                 paymentstatus = 'paid';
             }
-            else if (paidVal > 0) {
+            else if (p_paidamount > 0) {
                 paymentstatus = 'partial';
             }
             else {
@@ -46,7 +49,7 @@ class SubmitCustomerBilling {
         else {
             paymentstatus = 'pending';
         }
-        return { paidamount, paymentstatus };
+        return { paidamount, paymentstatus, outstanding };
     }
     constructor(payload, tenantId) {
         this.payload = payload;
@@ -78,7 +81,6 @@ class SubmitCustomerBilling {
                 entitytype,
                 tenantId
             });
-            console.log(checkoutResult, '------------------');
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
             }
@@ -121,7 +123,7 @@ class SubmitCustomerBilling {
             const taxValue = updatedBillingData.taxValue || 0;
             const taxList = updatedBillingData.taxList || null;
             const taxIncluded = updatedBillingData.taxIncluded || false;
-            const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList);
+            const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList, trx);
             const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(updatedBillingData, (updatedBillingData.servicesProvided || []).map(service => (Object.assign(Object.assign({}, service), { amountPaid: typeof service.amountPaid === 'number' ? service.amountPaid : 0, status: service.status || 'pending' }))), billingID, taxValue, taxList);
             const allEntries = [...processNonTestServices, ...processTestCart];
             const Multi = new billing_shared_1.BillingSharedRepo();
@@ -277,7 +279,7 @@ class SubmitCustomerBilling {
         }
         return true;
     }
-    static async processTestCartWithoutRecalculation(billingData, billingID, taxValue, taxIncluded, taxList = null) {
+    static async processTestCartWithoutRecalculation(billingData, billingID, taxValue, taxIncluded, taxList = null, trx) {
         let entityType = "general";
         let entityId = 0;
         let organizationId = null;
@@ -315,8 +317,8 @@ class SubmitCustomerBilling {
             registrationType = "self";
         }
         const result = await Promise.all(billingData.cart.map(async (item) => {
-            const { paidamount, paymentstatus } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
-            return {
+            const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
+            const data = {
                 billingid: billingID,
                 trackId: item.testid,
                 cost: item.actualPrice,
@@ -344,11 +346,22 @@ class SubmitCustomerBilling {
                 hasNightAdjustment: item.hasNightAdjustment,
                 nightAdjustmentMode: item.nightAdjustmentMode,
                 nightAdjustmentValue: item.nightAdjustmentValue || 0,
+                outstanding,
                 isPackageUsed: billingData.isPackageUsed ? 1 : 0,
                 packageid: billingData.packageid || null,
                 paidamount,
                 paymentstatus: paymentstatus,
             };
+            if (item.isoutsourced == 1 && item.outsourceid) {
+                const result = await trx('outsourceorganizationservices')
+                    .where({ outsourceid: data.outsourceid, generalTestId: item.testid })
+                    .first();
+                if (!result) {
+                    throw new Error("Invalid outsource organization");
+                }
+                data['outsourceprice'] = result.outsourcePrice;
+            }
+            return data;
         }));
         return result;
     }
@@ -376,7 +389,7 @@ class SubmitCustomerBilling {
         const { employeeid, branchid, taxIncluded, billingSource, isPackageUsed } = billingData;
         return await Promise.all(servicesProvided
             .map(async (item) => {
-            const { paidamount, paymentstatus } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
+            const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
             return {
                 billingid: billingID,
                 trackId: item.keyid,
@@ -389,7 +402,9 @@ class SubmitCustomerBilling {
                 registrationType,
                 branchid,
                 isoutsourced: 0,
+                outstanding,
                 outsourceid: 0,
+                outsourceprice: 0,
                 serviceAddedOn: new Date(),
                 taxList,
                 taxValue,
@@ -408,7 +423,7 @@ class SubmitCustomerBilling {
                 isPackageUsed: isPackageUsed ? 1 : 0,
                 packageid: item.packageid || null,
                 paymentstatus: paymentstatus,
-                paidamount: paidamount
+                paidamount: paidamount,
             };
         }));
     }

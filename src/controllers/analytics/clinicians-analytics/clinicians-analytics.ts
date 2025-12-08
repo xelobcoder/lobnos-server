@@ -265,13 +265,6 @@ export default class ClinicianAnalyticsHandlers {
           });
      }
 
-     public async getCaseSummaryOverall(req: BaseAnalyticsRequest, res: Response) {
-          const { tenantId } = req.query
-          return this.handleRequest(res, async () => {
-               const clinicianId = this.validateClinicianId(req.params.clinicianId);
-               return await ClinicianAnalytics.getCaseSummaryOverall(parseInt(tenantId), clinicianId);
-          });
-     }
 
      public async getCaseSummaryMonthly(req: BaseAnalyticsRequest, res: Response) {
           const { tenantId } = req.query
@@ -303,9 +296,8 @@ export default class ClinicianAnalyticsHandlers {
           const { tenantId } = req.query
           return this.handleRequest(res, async () => {
                const clinicianId = this.validateClinicianId(req.params.clinicianId);
-               const page = parseInt(req.query.page) || 1
-               const count = parseInt(req.query.count) || 10
-               return await ClinicianAnalytics.getDailyCaseChange(parseInt(tenantId), clinicianId, count, page);
+               const year = this.validateYear(req.query.year);
+               return await ClinicianAnalytics.getDailyCaseChange(parseInt(tenantId), clinicianId, year);
           });
      }
 
@@ -313,7 +305,8 @@ export default class ClinicianAnalyticsHandlers {
           const { tenantId } = req.query
           return this.handleRequest(res, async () => {
                const clinicianId = this.validateClinicianId(req.params.clinicianId);
-               return await ClinicianAnalytics.getMonthlyCaseChange(parseInt(tenantId), clinicianId);
+               const year = this.validateYear(req.query.year);
+               return await ClinicianAnalytics.getMonthlyCaseChange(parseInt(tenantId), clinicianId, year);
           });
      }
 
@@ -388,7 +381,7 @@ export default class ClinicianAnalyticsHandlers {
           });
      }
 
-     public  async getClinicianCommissionHandler(request: Request, response: Response) {
+     public async getClinicianCommissionHandler(request: Request, response: Response) {
           const { tenantId, clinicianId, startDate, endDate } = request.query;
           if (!startDate || !endDate) {
                return response.status(400).json({
@@ -463,12 +456,11 @@ export default class ClinicianAnalyticsHandlers {
                     ClinicianAnalytics.getOverallTotal(parsedTenantId, clinicianId),
                     ClinicianAnalytics.getMonthlyTotals(parsedTenantId, clinicianId, year),
                     ClinicianAnalytics.getYearlyTotals(parsedTenantId, clinicianId),
-                    ClinicianAnalytics.getCaseSummaryOverall(parsedTenantId, clinicianId),
                     ClinicianAnalytics.getCaseSummaryMonthly(parsedTenantId, clinicianId, year),
                     ClinicianAnalytics.getCaseSummaryYearly(parsedTenantId, clinicianId),
                     ClinicianAnalytics.getCaseSummaryDailyRecent(parsedTenantId, clinicianId, year),
-                    ClinicianAnalytics.getDailyCaseChange(parsedTenantId, clinicianId, count, page),
-                    ClinicianAnalytics.getMonthlyCaseChange(parsedTenantId, clinicianId),
+                    ClinicianAnalytics.getDailyCaseChange(parsedTenantId, clinicianId, year),
+                    ClinicianAnalytics.getMonthlyCaseChange(parsedTenantId, clinicianId, year),
                     ClinicianAnalytics.getYearlyCaseChange(parsedTenantId, clinicianId),
                     ClinicianAnalytics.getClinicianRevenueVsTotal(parsedTenantId, clinicianId),
                     ClinicianAnalytics.getPaymentTypeSummary(parsedTenantId, clinicianId),
@@ -476,7 +468,8 @@ export default class ClinicianAnalyticsHandlers {
                     ClinicianAnalytics.getCasesByOutsourced(parsedTenantId, clinicianId),
                     ClinicianAnalytics.getYearlyGrowthStats(parsedTenantId, clinicianId),
                     ClinicianAnalytics.getMonthlyTestBreakdown(parsedTenantId, clinicianId),
-                    ClinicianAnalytics.getTopOutsourcedTests(parsedTenantId, clinicianId)
+                    ClinicianAnalytics.getTopOutsourcedTests(parsedTenantId, clinicianId),
+                    Promise.resolve(null)
                ]);
 
                const dashboard: DashboardResponse = {

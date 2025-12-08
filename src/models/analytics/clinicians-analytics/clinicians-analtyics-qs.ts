@@ -1,4 +1,4 @@
-const constraints = ` (dboservices.status='active' AND AND dboservices.isRefund = 0 AND dboservices.clinicianId IS NOT NULL AND dbsoervices.serveiceCategory='CLINICIAN_SPECIAL_BILLING' AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
+const constraints = ` (dboservices.status='active' AND dboservices.isRefunded = 0 AND dboservices.clinicianId IS NOT NULL AND dboservices.serviceCategory='CLINICIAN_SPECIAL_BILLING' AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
 
 
 export const q_can_overallTotals = `
@@ -9,49 +9,36 @@ WHERE clinicianId = ? AND ${constraints}
 
 export const q_can_monthlyTotals = `
 SELECT 
-    MONTH(serviceAddedOn) AS month, 
+    MONTH(dboservices.serviceAddedOn) AS month, 
     COUNT(*) AS total_rows, 
-    SUM(cost) AS total_cost, 
-    SUM(totalpayable) AS total_payable, 
-    SUM(amountIncurredDueTax) AS total_tax 
-FROM \`dboservices\` AS RF 
-WHERE clinicianId = ? AND ${constraints}
-AND YEAR(serviceAddedOn) = ?
-GROUP BY MONTH(serviceAddedOn)
-ORDER BY MONTH(serviceAddedOn);
+    SUM(dboservices.cost) AS total_cost, 
+    SUM(dboservices.totalpayable) AS total_payable, 
+    SUM(dboservices.amountIncurredDueTax) AS total_tax 
+FROM \`dboservices\` 
+WHERE dboservices.clinicianId = ? AND ${constraints}
+AND YEAR(dboservices.serviceAddedOn) = ?
+GROUP BY MONTH(dboservices.serviceAddedOn)
+ORDER BY MONTH(dboservices.serviceAddedOn);
 `;
 
 export const q_can_yearlyTotals = `
 SELECT 
-    YEAR(serviceAddedOn) AS year, 
+    YEAR(dboservices.serviceAddedOn) AS year, 
     COUNT(*) AS total_rows, 
-    SUM(cost) AS total_cost, 
-    SUM(totalpayable) AS total_payable, 
-    SUM(amountIncurredDueTax) AS total_tax 
-FROM \`dboservices\` AS RF 
-WHERE clinicianId = ? AND ${constraints}
-GROUP BY YEAR(serviceAddedOn)
-ORDER BY YEAR(serviceAddedOn);
+    SUM(dboservices.cost) AS total_cost, 
+    SUM(dboservices.totalpayable) AS total_payable, 
+    SUM(dboservices.amountIncurredDueTax) AS total_tax 
+FROM \`dboservices\`
+WHERE dboservices.clinicianId = ? AND ${constraints}
+GROUP BY YEAR(dboservices.serviceAddedOn)
+ORDER BY YEAR(dboservices.serviceAddedOn) DESC;
 `;
 
 
 
 
 
-export const q_can_caseSummaryOverall = `
-SELECT 
-    COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
-    COUNT(*) AS total_cases,
-    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases,
-    SUM(CASE WHEN clinicianId = ? THEN cost END) AS clinician_total_cost,
-    SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS clinician_total_payable,
-    SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS clinician_total_tax,
-    SUM(cost) AS total_cost,
-    SUM(totalpayable) AS total_payable,
-    SUM(amountIncurredDueTax) AS total_tax,
-    (SUM(CASE WHEN clinicianId = ? THEN totalpayable END) / NULLIF(SUM(totalpayable), 0)) * 100 AS percentage_revenue
-FROM \`dboservices\`;
-`;
+
 
 export const q_can_caseSummaryMonthly = `
     SELECT 
@@ -118,84 +105,118 @@ ORDER BY DATE(serviceAddedOn);
 export const q_can_dailyCaseChange = `
 
 WITH DailyCases AS (
-    SELECT 
-        DATE(serviceAddedOn) AS date,
-        COUNT(CASE WHEN serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND clinicianId > 0 THEN 1 END) AS clinician_cases,
-        SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
-        SUM(CASE WHEN serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND clinicianId > 0 THEN totalpayable ELSE 0 END) AS clinicians_revenue_generated
+    SELECT
+        DATE(dboservices.serviceAddedOn) AS date,
+        COUNT(CASE WHEN dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND dboservices.clinicianId > 0 THEN 1 END) AS clinician_cases,
+        SUM(CASE WHEN dboservices.clinicianId = ? THEN dboservices.totalpayable ELSE 0 END) AS clinician_accrual_revenue,
+        SUM(CASE WHEN dboservices.clinicianId = ? THEN dboservices.paidamount ELSE 0 END) AS clinician_actual_revenue,
+        SUM(CASE WHEN dboservices.clinicianId = ? THEN (dboservices.totalpayable - dboservices.paidamount) ELSE 0 END) AS clinician_outstanding_debt,
+        SUM(CASE WHEN dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND dboservices.clinicianId > 0 THEN dboservices.totalpayable ELSE 0 END) AS clinicians_accrual_revenue,
+        SUM(CASE WHEN dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND dboservices.clinicianId > 0 THEN dboservices.paidamount ELSE 0 END) AS clinicians_actual_revenue,
+        SUM(CASE WHEN dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND dboservices.clinicianId > 0 THEN (dboservices.totalpayable - dboservices.paidamount) ELSE 0 END) AS clinicians_outstanding_debt
     FROM dboservices
-    GROUP BY DATE(serviceAddedOn)
+    WHERE ${constraints} AND YEAR(dboservices.serviceAddedOn) = ?
+    GROUP BY DATE(dboservices.serviceAddedOn)
 ),
 DailyChange AS (
-    SELECT 
+    SELECT
         date,
         clinician_cases,
-        clinician_revenue_generated,
-        clinicians_revenue_generated,
+        clinician_accrual_revenue,
+        clinician_actual_revenue,
+        clinician_outstanding_debt,
+        clinicians_accrual_revenue,
+        clinicians_actual_revenue,
+        clinicians_outstanding_debt,
         LAG(clinician_cases) OVER (ORDER BY date) AS previous_day_cases,
-        LAG(clinician_revenue_generated) OVER (ORDER BY date) AS previous_day_revenue,
+        LAG(clinician_accrual_revenue) OVER (ORDER BY date) AS previous_day_accrual_revenue,
+        LAG(clinician_actual_revenue) OVER (ORDER BY date) AS previous_day_actual_revenue,
+        LAG(clinician_outstanding_debt) OVER (ORDER BY date) AS previous_day_outstanding_debt,
         ((clinician_cases - LAG(clinician_cases) OVER (ORDER BY date)) / NULLIF(LAG(clinician_cases) OVER (ORDER BY date), 0)) * 100 AS percentage_change,
-        ((clinician_revenue_generated - LAG(clinician_revenue_generated) OVER (ORDER BY date)) / NULLIF(LAG(clinician_revenue_generated) OVER (ORDER BY date), 0)) * 100 AS percentage_revenue_change
+        ((clinician_accrual_revenue - LAG(clinician_accrual_revenue) OVER (ORDER BY date)) / NULLIF(LAG(clinician_accrual_revenue) OVER (ORDER BY date), 0)) * 100 AS percentage_accrual_revenue_change,
+        ((clinician_actual_revenue - LAG(clinician_actual_revenue) OVER (ORDER BY date)) / NULLIF(LAG(clinician_actual_revenue) OVER (ORDER BY date), 0)) * 100 AS percentage_actual_revenue_change,
+        ((clinician_outstanding_debt - LAG(clinician_outstanding_debt) OVER (ORDER BY date)) / NULLIF(LAG(clinician_outstanding_debt) OVER (ORDER BY date), 0)) * 100 AS percentage_outstanding_debt_change
     FROM DailyCases
 )
-SELECT 
-    date, 
-    clinician_cases, 
-    clinician_revenue_generated,
-    clinicians_revenue_generated,
-    previous_day_cases, 
-    previous_day_revenue,
+SELECT
+    date,
+    clinician_cases,
+    clinician_accrual_revenue,
+    clinician_actual_revenue,
+    clinician_outstanding_debt,
+    clinicians_accrual_revenue,
+    clinicians_actual_revenue,
+    clinicians_outstanding_debt,
+    previous_day_cases,
+    previous_day_accrual_revenue,
+    previous_day_actual_revenue,
+    previous_day_outstanding_debt,
     COALESCE(percentage_change, 0) AS percentage_change,
-    COALESCE(percentage_revenue_change, 0) AS percentage_revenue_change
-FROM DailyChange WHERE ${constraints}
+    COALESCE(percentage_accrual_revenue_change, 0) AS percentage_accrual_revenue_change,
+    COALESCE(percentage_actual_revenue_change, 0) AS percentage_actual_revenue_change,
+    COALESCE(percentage_outstanding_debt_change, 0) AS percentage_outstanding_debt_change
+FROM DailyChange
 ORDER BY date
-
-
 `;
 
 
 export const q_can_monthlyCaseChange = `
 WITH MonthlyCases AS(
-    SELECT 
+    SELECT
         YEAR(serviceAddedOn) AS year,
     MONTH(serviceAddedOn) AS month,
     COUNT(*) AS clinician_cases,
-    SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_revenue_generated
+    SUM(CASE WHEN clinicianId = ? THEN totalpayable ELSE 0 END) AS clinician_accrual_revenue,
+    SUM(CASE WHEN clinicianId = ? THEN paidamount ELSE 0 END) AS clinician_actual_revenue,
+    SUM(CASE WHEN clinicianId = ? THEN (totalpayable - paidamount) ELSE 0 END) AS clinician_outstanding_debt
     FROM dboservices
+    WHERE ${constraints} AND  YEAR(serviceAddedOn) = ?
     GROUP BY YEAR(serviceAddedOn), MONTH(serviceAddedOn)
 ),
     MonthlyChange AS(
-        SELECT 
+        SELECT
         year,
         month,
         clinician_cases,
-        clinician_revenue_generated,
+        clinician_accrual_revenue,
+        clinician_actual_revenue,
+        clinician_outstanding_debt,
         LAG(clinician_cases) OVER(ORDER BY year, month) AS previous_month_cases,
-        LAG(clinician_revenue_generated) OVER(ORDER BY year, month) AS previous_month_revenue,
+        LAG(clinician_accrual_revenue) OVER(ORDER BY year, month) AS previous_month_accrual_revenue,
+        LAG(clinician_actual_revenue) OVER(ORDER BY year, month) AS previous_month_actual_revenue,
+        LAG(clinician_outstanding_debt) OVER(ORDER BY year, month) AS previous_month_outstanding_debt,
         ((clinician_cases - LAG(clinician_cases) OVER(ORDER BY year, month)) / NULLIF(LAG(clinician_cases) OVER(ORDER BY year, month), 0)) * 100 AS percentage_change,
-            ((clinician_revenue_generated - LAG(clinician_revenue_generated) OVER(ORDER BY year, month)) / NULLIF(LAG(clinician_revenue_generated) OVER (ORDER BY year, month), 0)) * 100 AS percentage_revenue_change
+        ((clinician_accrual_revenue - LAG(clinician_accrual_revenue) OVER(ORDER BY year, month)) / NULLIF(LAG(clinician_accrual_revenue) OVER(ORDER BY year, month), 0)) * 100 AS percentage_accrual_revenue_change,
+        ((clinician_actual_revenue - LAG(clinician_actual_revenue) OVER(ORDER BY year, month)) / NULLIF(LAG(clinician_actual_revenue) OVER(ORDER BY year, month), 0)) * 100 AS percentage_actual_revenue_change,
+        ((clinician_outstanding_debt - LAG(clinician_outstanding_debt) OVER(ORDER BY year, month)) / NULLIF(LAG(clinician_outstanding_debt) OVER(ORDER BY year, month), 0)) * 100 AS percentage_outstanding_debt_change
     FROM MonthlyCases
 )
 SELECT
 year,
     month,
     clinician_cases,
-    clinician_revenue_generated,
+    clinician_accrual_revenue,
+    clinician_actual_revenue,
+    clinician_outstanding_debt,
     previous_month_cases,
-    previous_month_revenue,
+    previous_month_accrual_revenue,
+    previous_month_actual_revenue,
+    previous_month_outstanding_debt,
     COALESCE(percentage_change, 0) AS percentage_change,
-        COALESCE(percentage_revenue_change, 0) AS percentage_revenue_change
+    COALESCE(percentage_accrual_revenue_change, 0) AS percentage_accrual_revenue_change,
+    COALESCE(percentage_actual_revenue_change, 0) AS percentage_actual_revenue_change,
+    COALESCE(percentage_outstanding_debt_change, 0) AS percentage_outstanding_debt_change
 FROM MonthlyChange
 ORDER BY year, month;
 `;
 
 export const q_can_yearlyCaseChange = `
 WITH YearlyCases AS(
-    SELECT 
+    SELECT
         YEAR(serviceAddedOn) AS year,
     COUNT(*) AS clinician_cases
     FROM dboservices
-    WHERE clinicianId = ?
+    WHERE clinicianId = ? AND ${constraints}
     GROUP BY YEAR(serviceAddedOn)
 ),
     YearlyChange AS(
@@ -220,11 +241,11 @@ ORDER BY year;
 
 export const q_can_yearlyCaseComparison = `
 WITH YearlyCases AS(
-    SELECT 
+    SELECT
         YEAR(serviceAddedOn) AS year,
     COUNT(*) AS clinician_cases
     FROM \`dboservices\`
-    WHERE clinicianId = ?
+    WHERE clinicianId = ? AND ${constraints}
     GROUP BY YEAR(serviceAddedOn)
 ),
 YearlyComparison AS (
@@ -257,22 +278,22 @@ SELECT
     COUNT(*) AS total_cases,
     ROUND(AVG(COUNT(*)) OVER(), 2) AS avg_cases_per_day
 FROM dboservices
-WHERE clinicianId = ?
+WHERE clinicianId = ? AND ${constraints}
 GROUP BY DAYNAME(serviceAddedOn)
 ORDER BY FIELD(DAYNAME(serviceAddedOn), 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday');
 `;
 
 export const q_can_clinicianRevenueVsTotal = `
 WITH ClinicianRevenue AS (
-    SELECT 
+    SELECT
         clinicianId,
         SUM(totalpayable) AS clinician_revenue
     FROM dboservices
-    WHERE clinicianId = ?
+    WHERE clinicianId = ? AND ${constraints}
     GROUP BY clinicianId
 ),
 TotalRevenue AS (
-    SELECT SUM(totalpayable) AS hospital_total_revenue FROM dboservices
+    SELECT SUM(totalpayable) AS hospital_total_revenue FROM dboservices WHERE ${constraints}
 )
 SELECT 
     cr.clinicianId,
@@ -292,7 +313,7 @@ SELECT
     COUNT(*) AS total_cases,
     SUM(totalpayable) AS total_revenue
 FROM dboservices
-WHERE clinicianId = ?
+WHERE clinicianId = ? AND ${constraints}
 GROUP BY payment_type;
 `;
 
@@ -304,7 +325,7 @@ SELECT
     END AS shift_type,
     COUNT(*) AS total_cases
 FROM dboservices
-WHERE clinicianId = ?
+WHERE clinicianId = ? AND ${constraints}
 GROUP BY shift_type;
 `;
 
@@ -314,18 +335,18 @@ SELECT
     COUNT(*) AS total_cases,
     SUM(totalpayable) AS total_revenue
 FROM dboservices
-WHERE clinicianId = ?
+WHERE clinicianId = ? AND ${constraints}
 GROUP BY isoutsourced;
 `;
 
 export const q_can_yearlyGrowthStats = `
 WITH YearlyStats AS (
-    SELECT 
+    SELECT
         YEAR(serviceAddedOn) AS year,
         COUNT(*) AS total_cases,
         SUM(totalpayable) AS total_revenue
     FROM dboservices
-    WHERE clinicianId = ?
+    WHERE clinicianId = ? AND ${constraints}
     GROUP BY YEAR(serviceAddedOn)
 )
 SELECT 
@@ -354,7 +375,7 @@ SELECT
     SUM(CASE WHEN ss.hasNightAdjustment = 1 THEN ss.nightAdjustmentValue ELSE 0 END) as total_night_adjustment
 FROM dboservices AS ss 
 INNER JOIN test_panels AS tp ON tp.id = ss.trackId
-WHERE ss.clinicianId = ?
+WHERE ss.clinicianId = ? AND ${constraints}
 GROUP BY tp.name, tp.id, YEAR(ss.serviceAddedOn), MONTH(ss.serviceAddedOn)
 ORDER BY year DESC, month DESC;
 `;

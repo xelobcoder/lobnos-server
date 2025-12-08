@@ -11,8 +11,10 @@ class FinancialAnalyticsPrimeLabSystem {
 }
 exports.default = FinancialAnalyticsPrimeLabSystem;
 async function UtilityFinancial(tenantId, key, branchid, startdate, enddate) {
-    if (startdate && enddate)
-        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate[key], [startdate, enddate]);
+    if (startdate && enddate) {
+        const params = key === 'dailySalesTrend' ? [startdate, enddate, startdate, enddate] : [startdate, enddate];
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate[key], params);
+    }
     return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalytics[key]);
 }
 exports.UtilityFinancial = UtilityFinancial;

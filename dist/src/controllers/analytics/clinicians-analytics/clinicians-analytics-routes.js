@@ -11,7 +11,6 @@ const clinicianAnalyticsHandlers = new clinicians_analytics_1.default();
 router.get(`${baseUrl}/overall/:clinicianId`, clinicianAnalyticsHandlers.getOverallTotal.bind(clinicianAnalyticsHandlers));
 router.get(`${baseUrl}/monthly/:clinicianId`, clinicianAnalyticsHandlers.getMonthlyTotals.bind(clinicianAnalyticsHandlers));
 router.get(`${baseUrl}/yearly/:clinicianId`, clinicianAnalyticsHandlers.getYearlyTotals.bind(clinicianAnalyticsHandlers));
-router.get(`${baseUrl}/case-summary/overall/:clinicianId`, clinicianAnalyticsHandlers.getCaseSummaryOverall.bind(clinicianAnalyticsHandlers));
 router.get(`${baseUrl}/case-summary/monthly/:clinicianId`, clinicianAnalyticsHandlers.getCaseSummaryMonthly.bind(clinicianAnalyticsHandlers));
 router.get(`${baseUrl}/case-summary/yearly/:clinicianId`, clinicianAnalyticsHandlers.getCaseSummaryYearly.bind(clinicianAnalyticsHandlers));
 router.get(`${baseUrl}/case-summary/daily/:clinicianId`, clinicianAnalyticsHandlers.getCaseSummaryDailyRecent.bind(clinicianAnalyticsHandlers));

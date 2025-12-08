@@ -22,10 +22,6 @@ router.get(
      clinicianAnalyticsHandlers.getYearlyTotals.bind(clinicianAnalyticsHandlers)
 );
 
-router.get(
-     `${baseUrl}/case-summary/overall/:clinicianId`,
-     clinicianAnalyticsHandlers.getCaseSummaryOverall.bind(clinicianAnalyticsHandlers)
-);
 
 router.get(
      `${baseUrl}/case-summary/monthly/:clinicianId`,

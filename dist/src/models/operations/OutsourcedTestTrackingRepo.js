@@ -6,12 +6,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.OutsourcedTestTrackingRepo = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 class OutsourcedTestTrackingRepo {
-    /**
-     * Aggregate profit per test: (outsourcePrice - totalpayable) grouped by testid
-     * Joins outsourceorganizationservices and dboservices
-     */
+    constructor(tenantId) {
+        this.tenantId = tenantId;
+        this.connection = (0, KnexConnections_1.default)(tenantId);
+    }
     async getProfitPerTestByOutsource(outsourceid) {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         let query = conn('outsourcedtesttracking')
             .innerJoin('outsourceorganizationservices', function () {
             this.on('outsourcedtesttracking.outsourceid', '=', 'outsourceorganizationservices.outsourceid')
@@ -25,14 +25,8 @@ class OutsourcedTestTrackingRepo {
         }
         return await query;
     }
-    constructor(tenantId) {
-        this.tenantId = tenantId;
-    }
-    async getConn() {
-        return await (0, KnexConnections_1.default)(this.tenantId);
-    }
     async create(data, trx) {
-        const conn = trx || await this.getConn();
+        const conn = trx || await this.connection;
         if (!data.serviceid || !data.testid || !data.employeeid || !data.outsourceid) {
             throw new Error("Missing required fields: serviceid, testid, employeeid, or outsourceid");
         }
@@ -49,35 +43,35 @@ class OutsourcedTestTrackingRepo {
         });
         return id;
     }
-    async getById(id) {
-        const conn = await this.getConn();
+    async getById(id, trx) {
+        const conn = trx || await this.connection;
         const row = await conn("outsourcedtesttracking").where({ id }).first();
         return row || null;
     }
-    async update(id, data) {
-        const conn = await this.getConn();
+    async update(id, data, trx) {
+        const conn = trx || await this.connection;
         await conn("outsourcedtesttracking").where({ id }).update(data);
-        return await this.getById(id);
+        return await this.getById(id, trx);
     }
     async delete(id) {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         return await conn("outsourcedtesttracking").where({ id }).del();
     }
     async list(filter = {}) {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         return await conn("outsourcedtesttracking").where(filter);
     }
     // Analytics
     async countByStatus(status) {
         var _a;
-        const conn = await this.getConn();
+        const conn = await this.connection;
         const result = await conn("outsourcedtesttracking")
             .where({ status })
             .count("id as count");
         return ((_a = result[0]) === null || _a === void 0 ? void 0 : _a.count) || 0;
     }
     async getByOutsourceOrg(outsourceid) {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         return await conn("outsourcedtesttracking")
             .innerJoin('outsourcedorgs', 'outsourcedtesttracking.outsourceid', 'outsourcedorgs.id')
             .select('outsourcedtesttracking.*', 'outsourcedorgs.name as outsourceOrgName')
@@ -85,14 +79,14 @@ class OutsourcedTestTrackingRepo {
             .orderBy('outsourcedtesttracking.createdOn', 'desc');
     }
     async getTestOutsourcedCountAndFinances() {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         return await conn("outsourcedtesttracking")
             .innerJoin('test_panels', 'outsourcedtesttracking.testid', 'test_panels.id')
             .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
             .select('outsourcedtesttracking.*', 'test_panels.name as testName', 'dboservices.totalpayable');
     }
     async getTotalAmountByTestOutsourced(outsourcedid) {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         let query = conn('outsourcedtesttracking')
             .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
             .select('outsourcedtesttracking.testid')
@@ -104,14 +98,17 @@ class OutsourcedTestTrackingRepo {
         return await query;
     }
     async getOursourcedTestCasesPaginated(page = 1, limit = 10, sortby = 'DESC') {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         return await conn('outsourcedtesttracking')
             .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
             .innerJoin('outsourceorganizationservices', function () {
             this.on('outsourcedtesttracking.outsourceid', '=', 'outsourceorganizationservices.outsourceid')
                 .andOn('outsourcedtesttracking.testid', '=', 'outsourceorganizationservices.generalTestId');
         })
-            .select('outsourcedtesttracking.*', 'dboservices.*', 'outsourceorganizationservices.*')
+            .leftJoin("roles", "outsourcedtesttracking.employeeid", "roles.employeeid")
+            .leftJoin("roles as confirmer", "outsourcedtesttracking.completedconfirmedby", "confirmer.employeeid")
+            .leftJoin("test_panels", "outsourcedtesttracking.testid", "test_panels.id")
+            .select('outsourcedtesttracking.*', 'dboservices.trackId', "dboservices.serviceAddedOn", 'dboservices.serviceCategory', 'test_panels.name as testName', 'outsourceorganizationservices.*', "roles.username as employeeName", "confirmer.username as confirmerName")
             .orderBy(`outsourcedtesttracking.createdOn`, sortby)
             .limit(limit)
             .offset((page - 1) * limit);
@@ -121,7 +118,7 @@ class OutsourcedTestTrackingRepo {
      * Profit = totalpayable - outsourcePrice
      */
     async getProfitByOutsourcedTest(outsourceid, testid) {
-        const conn = await this.getConn();
+        const conn = await this.connection;
         let query = conn('outsourcedtesttracking')
             .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
             .innerJoin('outsourceorganizationservices', function () {

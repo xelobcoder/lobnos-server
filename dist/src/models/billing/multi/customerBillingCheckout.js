@@ -89,9 +89,6 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             entityid,
             entitytype
         });
-        console.log('-------------------------------------');
-        console.log('Recalculated 2', recalculatedServicesList, recalculatedCart);
-        console.log('-------------------------------------');
         const { subtotal, totaldiscount, totalpayable, totalAmountIncurredDueTax, totalServiceAmount } = PrimeBillingEnterprise_1.PrimeBillingEnterprise.calculateBillingTotals({
             usedPackage,
             recalculatedPackageList,

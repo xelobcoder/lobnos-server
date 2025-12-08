@@ -72,6 +72,7 @@ export interface BillingTestItem {
      paymentstatus: 'pending' | 'partial' | 'paid' | string;
      hasNightAdjustment: boolean;
      id: number;
+     outsourceprice?: number;
      isoutsourced: number;
      name: string;
      totalpayable: number;

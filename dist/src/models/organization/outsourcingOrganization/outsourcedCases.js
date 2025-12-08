@@ -4,6 +4,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
+const logger_1 = __importDefault(require("../../../hooks/logger"));
+const ExpenseInvoiceRepo_1 = __importDefault(require("../../Expenses/ExpenseInvoiceRepo"));
 class OutsourcedCases {
     static async getOutsourcedCases(tenantId, pagination) {
         const { count, page, orderby = 'DESC' } = pagination;
@@ -32,8 +34,45 @@ class OutsourcedCases {
     }
     static async markOutsourceCasesAsExpense(tenantId, data) {
         try {
-            const { branchid, employeeid, testid, serviceid, trackingid } = data;
+            const { branchid, employeeid, testid, serviceid, trackingid, outsourcedid } = data;
             const connection = await (0, KnexConnections_1.default)(tenantId);
+            // check merchants to ensure outsource is a valid merchant, if not  create it
+            const dboexpensecategoryRecord = await connection('dboexpensecategory')
+                .where({ category: "outsourcing" })
+                .first();
+            let category = null;
+            if (!dboexpensecategoryRecord) {
+                const [newCategoryId] = await connection('dboexpensecategory')
+                    .insert({
+                    category: "outsourcing",
+                    createdon: new Date(),
+                    employeeid,
+                });
+                category = newCategoryId;
+            }
+            else {
+                category = dboexpensecategoryRecord.id;
+            }
+            //  ensure merchant exists or create it
+            const merchantRecord = await connection('expense_merchants')
+                .where({ name: "outsourcing" })
+                .first();
+            let merchantid = null;
+            if (!merchantRecord) {
+                const [newMerchantId] = await connection('expense_merchants')
+                    .insert({
+                    name: "outsourcing",
+                    email: "system",
+                    phone: "0000000000",
+                    notes: "Auto created merchant for outsourcing",
+                    created_at: new Date(),
+                    created_by: employeeid,
+                });
+                merchantid = newMerchantId;
+            }
+            else {
+                merchantid = merchantRecord.id;
+            }
             //  load the information from dboservices 
             const serviceInformation = await connection('dboservices')
                 .select('isoutsourced', 'outsourceid')
@@ -53,35 +92,34 @@ class OutsourcedCases {
                 isassociatedservice: 1,
                 serviceid: data.serviceid,
                 branchid,
-                category: outsourceid,
+                category,
                 employeeid,
                 amount: outsourcePrice,
-                mode: 1,
-                merchant: outsourceid,
+                merchant: merchantid,
                 date: new Date(),
-                name: 'Outsource Expense',
+                id: null,
+                createdon: new Date(),
+                approvedby: null,
+                approved: 0,
+                approvedon: null,
+                name: 'Outsource Expense for service ' + data.serviceid,
                 description: 'Outsource Expense Due to service ' + data.serviceid + ' at ' + new Date() + ' by employee with ID' + employeeid
             };
-            // Check for existing expense record with same serviceid
-            const existingExpense = await connection('expensesrecord')
-                .where({ serviceid: data.serviceid })
-                .first();
-            let result;
-            if (existingExpense) {
-                // Update the existing expense record
-                result = await connection('expensesrecord')
-                    .where({ serviceid: data.serviceid })
-                    .update(expenseRecord);
-                return result > 0;
-            }
-            else {
-                // Insert the expense record
-                result = await connection('expensesrecord').insert(expenseRecord);
-                return Array.isArray(result) && result.length > 0;
-            }
+            const invoiceRepo = new ExpenseInvoiceRepo_1.default(employeeid, branchid, tenantId);
+            const expense = await invoiceRepo.createExpensesAndInvoice([expenseRecord], {
+                invoice_number: null,
+                invoice_date: new Date(),
+                due_date: new Date(),
+                merchant_id: merchantid,
+                tax_amount: 0,
+                total_amount: outsourcePrice,
+                status: 'Pending'
+            });
+            return expense;
         }
         catch (err) {
-            console.error("Error fetching service information: ", err);
+            logger_1.default.error('Error in markOutsourceCasesAsExpense:', err);
+            throw err;
         }
     }
 }

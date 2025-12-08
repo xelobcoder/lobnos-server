@@ -544,7 +544,7 @@ exports.getAllExpenseMerchants = getAllExpenseMerchants;
 const markOutsourceCasesAsExpense = async (request, response) => {
     try {
         const tenantId = parseInt(request.query.tenantId.toString());
-        const { testid, serviceid, tracking_id, employeeid, branchid } = request.body;
+        const { testid, serviceid, tracking_id, employeeid, branchid, outsourcedid } = request.body;
         if (!testid || !serviceid || !employeeid || !branchid)
             return (0, helper_1.customError)("Required parameters missing", 400, response);
         const result = await outsourcedCases_1.default.markOutsourceCasesAsExpense(tenantId, {
@@ -552,7 +552,8 @@ const markOutsourceCasesAsExpense = async (request, response) => {
             testid: testid,
             trackingid: tracking_id,
             branchid,
-            employeeid
+            employeeid,
+            outsourcedid
         });
         console.log(result);
         response.send({ status: result });
@@ -574,7 +575,6 @@ const markCaseAsDone = async (request, response) => {
             employeeId: employeeid,
             comments,
         });
-        console.log(result);
         response.send({ status: result });
     }
     catch (err) {

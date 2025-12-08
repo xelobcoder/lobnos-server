@@ -14,12 +14,18 @@ export interface OutsourcedTestTracking {
 }
 
 export class OutsourcedTestTrackingRepo {
-     /**
-      * Aggregate profit per test: (outsourcePrice - totalpayable) grouped by testid
-      * Joins outsourceorganizationservices and dboservices
-      */
+
+     private tenantId: number;
+     private connection: any;
+     constructor(tenantId: number) {
+          this.tenantId = tenantId;
+          this.connection = KnexConnection(tenantId);
+     }
+
+
+
      async getProfitPerTestByOutsource(outsourceid?: number) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           let query = conn('outsourcedtesttracking')
                .innerJoin('outsourceorganizationservices', function () {
                     this.on('outsourcedtesttracking.outsourceid', '=', 'outsourceorganizationservices.outsourceid')
@@ -38,17 +44,9 @@ export class OutsourcedTestTrackingRepo {
           }
           return await query;
      }
-     private tenantId: number;
-     constructor(tenantId: number) {
-          this.tenantId = tenantId;
-     }
-
-     private async getConn() {
-          return await KnexConnection(this.tenantId);
-     }
 
      async create(data: OutsourcedTestTracking, trx?: any): Promise<number> {
-          const conn = trx || await this.getConn();
+          const conn = trx || await this.connection;
           if (!data.serviceid || !data.testid || !data.employeeid || !data.outsourceid) {
                throw new Error("Missing required fields: serviceid, testid, employeeid, or outsourceid");
           }
@@ -66,31 +64,31 @@ export class OutsourcedTestTrackingRepo {
           return id;
      }
 
-     async getById(id: number): Promise<OutsourcedTestTracking | null> {
-          const conn = await this.getConn();
+     async getById(id: number, trx?: any): Promise<OutsourcedTestTracking | null> {
+          const conn = trx || await this.connection;
           const row = await conn("outsourcedtesttracking").where({ id }).first();
           return row || null;
      }
 
-     async update(id: number, data: Partial<OutsourcedTestTracking>) {
-          const conn = await this.getConn();
+     async update(id: number, data: Partial<OutsourcedTestTracking>, trx?: any) {
+          const conn = trx || await this.connection;
           await conn("outsourcedtesttracking").where({ id }).update(data);
-          return await this.getById(id);
+          return await this.getById(id, trx);
      }
 
      async delete(id: number) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           return await conn("outsourcedtesttracking").where({ id }).del();
      }
 
      async list(filter: Partial<OutsourcedTestTracking> = {}) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           return await conn("outsourcedtesttracking").where(filter);
      }
 
      // Analytics
      async countByStatus(status: number) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           const result = await conn("outsourcedtesttracking")
                .where({ status })
                .count("id as count");
@@ -98,7 +96,7 @@ export class OutsourcedTestTrackingRepo {
      }
 
      async getByOutsourceOrg(outsourceid: number) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           return await conn("outsourcedtesttracking")
                .innerJoin('outsourcedorgs', 'outsourcedtesttracking.outsourceid', 'outsourcedorgs.id')
                .select('outsourcedtesttracking.*', 'outsourcedorgs.name as outsourceOrgName')
@@ -107,7 +105,7 @@ export class OutsourcedTestTrackingRepo {
      }
 
      async getTestOutsourcedCountAndFinances() {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           return await conn("outsourcedtesttracking")
                .innerJoin('test_panels', 'outsourcedtesttracking.testid', 'test_panels.id')
                .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
@@ -118,7 +116,7 @@ export class OutsourcedTestTrackingRepo {
 
 
      async getTotalAmountByTestOutsourced(outsourcedid?: number) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           let query = conn('outsourcedtesttracking')
                .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
                .select('outsourcedtesttracking.testid')
@@ -135,14 +133,20 @@ export class OutsourcedTestTrackingRepo {
           limit: number = 10,
           sortby: 'ASC' | 'DESC' = 'DESC',
      ) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           return await conn('outsourcedtesttracking')
                .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
                .innerJoin('outsourceorganizationservices', function () {
                     this.on('outsourcedtesttracking.outsourceid', '=', 'outsourceorganizationservices.outsourceid')
                          .andOn('outsourcedtesttracking.testid', '=', 'outsourceorganizationservices.generalTestId');
                })
-               .select('outsourcedtesttracking.*', 'dboservices.*', 'outsourceorganizationservices.*')
+               .leftJoin("roles", "outsourcedtesttracking.employeeid", "roles.employeeid")
+               .leftJoin("roles as confirmer", "outsourcedtesttracking.completedconfirmedby", "confirmer.employeeid")
+               .leftJoin("test_panels", "outsourcedtesttracking.testid", "test_panels.id")
+               .select('outsourcedtesttracking.*', 'dboservices.trackId',
+                    "dboservices.serviceAddedOn", 'dboservices.serviceCategory',
+                    'test_panels.name as testName',
+                    'outsourceorganizationservices.*', "roles.username as employeeName", "confirmer.username as confirmerName")
                .orderBy(`outsourcedtesttracking.createdOn`, sortby)
                .limit(limit)
                .offset((page - 1) * limit);
@@ -153,7 +157,7 @@ export class OutsourcedTestTrackingRepo {
       * Profit = totalpayable - outsourcePrice
       */
      async getProfitByOutsourcedTest(outsourceid?: number, testid?: number) {
-          const conn = await this.getConn();
+          const conn = await this.connection;
           let query = conn('outsourcedtesttracking')
                .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
                .innerJoin('outsourceorganizationservices', function () {

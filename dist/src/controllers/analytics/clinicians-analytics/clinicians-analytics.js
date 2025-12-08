@@ -209,13 +209,6 @@ class ClinicianAnalyticsHandlers {
             return await clinicians_analytics_1.default.getYearlyTotals(parseInt(tenantId), clinicianId);
         });
     }
-    async getCaseSummaryOverall(req, res) {
-        const { tenantId } = req.query;
-        return this.handleRequest(res, async () => {
-            const clinicianId = this.validateClinicianId(req.params.clinicianId);
-            return await clinicians_analytics_1.default.getCaseSummaryOverall(parseInt(tenantId), clinicianId);
-        });
-    }
     async getCaseSummaryMonthly(req, res) {
         const { tenantId } = req.query;
         return this.handleRequest(res, async () => {
@@ -243,16 +236,16 @@ class ClinicianAnalyticsHandlers {
         const { tenantId } = req.query;
         return this.handleRequest(res, async () => {
             const clinicianId = this.validateClinicianId(req.params.clinicianId);
-            const page = parseInt(req.query.page) || 1;
-            const count = parseInt(req.query.count) || 10;
-            return await clinicians_analytics_1.default.getDailyCaseChange(parseInt(tenantId), clinicianId, count, page);
+            const year = this.validateYear(req.query.year);
+            return await clinicians_analytics_1.default.getDailyCaseChange(parseInt(tenantId), clinicianId, year);
         });
     }
     async getMonthlyCaseChange(req, res) {
         const { tenantId } = req.query;
         return this.handleRequest(res, async () => {
             const clinicianId = this.validateClinicianId(req.params.clinicianId);
-            return await clinicians_analytics_1.default.getMonthlyCaseChange(parseInt(tenantId), clinicianId);
+            const year = this.validateYear(req.query.year);
+            return await clinicians_analytics_1.default.getMonthlyCaseChange(parseInt(tenantId), clinicianId, year);
         });
     }
     async getYearlyCaseChange(req, res) {
@@ -370,12 +363,11 @@ class ClinicianAnalyticsHandlers {
                 clinicians_analytics_1.default.getOverallTotal(parsedTenantId, clinicianId),
                 clinicians_analytics_1.default.getMonthlyTotals(parsedTenantId, clinicianId, year),
                 clinicians_analytics_1.default.getYearlyTotals(parsedTenantId, clinicianId),
-                clinicians_analytics_1.default.getCaseSummaryOverall(parsedTenantId, clinicianId),
                 clinicians_analytics_1.default.getCaseSummaryMonthly(parsedTenantId, clinicianId, year),
                 clinicians_analytics_1.default.getCaseSummaryYearly(parsedTenantId, clinicianId),
                 clinicians_analytics_1.default.getCaseSummaryDailyRecent(parsedTenantId, clinicianId, year),
-                clinicians_analytics_1.default.getDailyCaseChange(parsedTenantId, clinicianId, count, page),
-                clinicians_analytics_1.default.getMonthlyCaseChange(parsedTenantId, clinicianId),
+                clinicians_analytics_1.default.getDailyCaseChange(parsedTenantId, clinicianId, year),
+                clinicians_analytics_1.default.getMonthlyCaseChange(parsedTenantId, clinicianId, year),
                 clinicians_analytics_1.default.getYearlyCaseChange(parsedTenantId, clinicianId),
                 clinicians_analytics_1.default.getClinicianRevenueVsTotal(parsedTenantId, clinicianId),
                 clinicians_analytics_1.default.getPaymentTypeSummary(parsedTenantId, clinicianId),
@@ -383,7 +375,8 @@ class ClinicianAnalyticsHandlers {
                 clinicians_analytics_1.default.getCasesByOutsourced(parsedTenantId, clinicianId),
                 clinicians_analytics_1.default.getYearlyGrowthStats(parsedTenantId, clinicianId),
                 clinicians_analytics_1.default.getMonthlyTestBreakdown(parsedTenantId, clinicianId),
-                clinicians_analytics_1.default.getTopOutsourcedTests(parsedTenantId, clinicianId)
+                clinicians_analytics_1.default.getTopOutsourcedTests(parsedTenantId, clinicianId),
+                Promise.resolve(null)
             ]);
             const dashboard = {
                 overallTotals,

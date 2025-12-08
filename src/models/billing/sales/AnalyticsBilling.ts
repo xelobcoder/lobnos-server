@@ -14,6 +14,9 @@ export default class FinancialAnalyticsPrimeLabSystem {
 
 
 export async function UtilityFinancial(tenantId: number, key: string, branchid: number | null, startdate: string | Date, enddate: string | Date) {
-	if (startdate && enddate) return await promisifyQuery(tenantId, BillingAnalyticsWithDate[key], [startdate, enddate])
+	if (startdate && enddate) {
+		const params = key === 'dailySalesTrend' ? [startdate, enddate, startdate, enddate] : [startdate, enddate];
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate[key], params);
+	}
 	return await promisifyQuery(tenantId, BillingAnalytics[key])
 }

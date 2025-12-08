@@ -604,7 +604,7 @@ export const getAllExpenseMerchants = async (req: Request, res: Response) => {
 export const markOutsourceCasesAsExpense = async (request: Request, response: Response): Promise<any> => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString());
-		const { testid, serviceid, tracking_id, employeeid, branchid } = request.body;
+		const { testid, serviceid, tracking_id, employeeid, branchid,outsourcedid } = request.body;
 
 		if (!testid || !serviceid || !employeeid || !branchid) return customError("Required parameters missing", 400, response);
 
@@ -613,7 +613,8 @@ export const markOutsourceCasesAsExpense = async (request: Request, response: Re
 			testid: testid,
 			trackingid: tracking_id,
 			branchid,
-			employeeid
+			employeeid,
+			outsourcedid
 		});
 
 		console.log(result);
@@ -639,8 +640,6 @@ export const markCaseAsDone = async (request: Request, response: Response): Prom
 			comments,
 
 		});
-
-		console.log(result);
 		response.send({ status: result });
 	} catch (err) {
 		console.log(err);

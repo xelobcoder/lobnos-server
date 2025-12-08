@@ -728,7 +728,7 @@ export type PrimeLimsTableexpensesrecord = {
   id: number;
   name: string;
   date: Date | string;
-  merchant: string;
+  merchant: number;
   amount: number;
   category: number;
   description: string;

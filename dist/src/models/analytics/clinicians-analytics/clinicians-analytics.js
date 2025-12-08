@@ -32,9 +32,6 @@ class ClinicianAnalytics {
     static async getYearlyTotals(tenantId, clinicianId) {
         return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_yearlyTotals, [clinicianId]);
     }
-    static async getCaseSummaryOverall(tenantId, clinicianId) {
-        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryOverall, [clinicianId, clinicianId]);
-    }
     static async getCaseSummaryMonthly(tenantId, clinicianId, year) {
         const clinicianDetails = await this.getClinicianInfo(tenantId, clinicianId);
         const monthlyCaseSummary = await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryMonthly, [clinicianId, clinicianId, year]);
@@ -61,11 +58,11 @@ class ClinicianAnalytics {
     static async getCaseSummaryDailyAll(tenantId, clinicianId) {
         return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryDailyAll, [clinicianId, clinicianId]);
     }
-    static async getDailyCaseChange(tenantId, clinicianId, count, page) {
-        return await (0, helper_1.paginationQuery)({ count, page }, clinicians_analtyics_qs_1.q_can_dailyCaseChange, [clinicianId], tenantId);
+    static async getDailyCaseChange(tenantId, clinicianId, year) {
+        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_dailyCaseChange, [clinicianId, clinicianId, clinicianId, year]);
     }
-    static async getMonthlyCaseChange(tenantId, clinicianId) {
-        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_monthlyCaseChange, [clinicianId]);
+    static async getMonthlyCaseChange(tenantId, clinicianId, year) {
+        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_monthlyCaseChange, [clinicianId, clinicianId, clinicianId, year]);
     }
     static async getYearlyCaseChange(tenantId, clinicianId) {
         return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_yearlyCaseChange, [clinicianId]);

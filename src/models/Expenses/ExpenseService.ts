@@ -56,7 +56,8 @@ export default class Expenses implements IExpenseRepository {
      }
      async generateNewExpense(
           data: Omit<PrimeLimsTableexpensesrecord, 'id'>,
-          groupId?: string
+          groupId?: string,
+          trx?: any
      ): Promise<number | null> {
           try {
                if (Object.keys(data).length === 0 || typeof data !== 'object') {
@@ -73,8 +74,7 @@ export default class Expenses implements IExpenseRepository {
                }
 
                const finalGroupId = groupId || this.generateGroupId();
-               const result = await promisifyQuery(this.tenantId, generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
-
+               const result = trx ? await trx.raw(generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]) : await promisifyQuery(this.tenantId, generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
                if (rowAffected(result)) {
                     return result.insertId;
                }

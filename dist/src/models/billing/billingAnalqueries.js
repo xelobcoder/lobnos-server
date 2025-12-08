@@ -87,12 +87,36 @@ BillingAnalyticsWithDate.monthlySalesTrend = `
         WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints} GROUP BY MONTH(serviceAddedOn) ORDER BY MONTH(serviceAddedOn);
     `;
 BillingAnalyticsWithDate.dailySalesTrend = `
-        SELECT DATE(serviceAddedOn) AS date, SUM(totalcost) AS totalCost, SUM(paidamount) AS totalPaid, SUM(totalpayable) AS totalPayable, SUM(discount) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded
-        FROM dboservices
-        LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
-        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
-        GROUP BY date
-        ORDER BY date;
+        WITH sales AS (
+            SELECT DATE(serviceAddedOn) AS date, 
+            SUM(totalcost) AS totalCost, 
+            SUM(paidamount) AS totalPaid, 
+            SUM(totalpayable) AS totalPayable, 
+            SUM(discount) AS totalDiscount, 
+            COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded
+            FROM dboservices
+            LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
+            WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
+            GROUP BY DATE(serviceAddedOn)
+        ),
+        expenses AS (
+            SELECT DATE(payment_date) AS date, SUM(amount) AS total_expenses
+            FROM expense_payments
+            WHERE DATE(payment_date) BETWEEN ? AND ?
+            GROUP BY DATE(payment_date)
+        )
+        SELECT s.date, 
+        s.totalCost, 
+        s.totalPaid AS actual_revenue, 
+        s.totalPayable AS accrued_revenue, 
+        s.totalDiscount AS total_discount,
+        s.totalRefunded,
+        COALESCE(e.total_expenses, 0) AS total_expenses,
+        (s.totalPaid - COALESCE(e.total_expenses, 0)) AS net_revenue,
+        (s.totalPayable - s.totalPaid) AS outstanding_debt
+        FROM sales s
+        LEFT JOIN expenses e ON s.date = e.date
+        ORDER BY s.date;
     `;
 BillingAnalyticsWithDate.weeklySalesTrend = `
      SELECT *

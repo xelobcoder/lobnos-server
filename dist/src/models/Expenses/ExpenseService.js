@@ -29,7 +29,7 @@ class Expenses {
             throw new Error('branchid or employeeid not provided');
         }
     }
-    async generateNewExpense(data, groupId) {
+    async generateNewExpense(data, groupId, trx) {
         try {
             if (Object.keys(data).length === 0 || typeof data !== 'object') {
                 throw new TypeError('object with keys required');
@@ -42,7 +42,7 @@ class Expenses {
                 throw new Error('category id not provided');
             }
             const finalGroupId = groupId || this.generateGroupId();
-            const result = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
+            const result = trx ? await trx.raw(queries_1.generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]) : await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
             if ((0, helper_1.rowAffected)(result)) {
                 return result.insertId;
             }

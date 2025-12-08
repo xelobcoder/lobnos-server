@@ -10,11 +10,7 @@ SELECT
     rb.username AS approvedby,
     er.date,
     er.createdon,
-    CASE WHEN er.isassociatedservice AND er.merchant IS NOT NULL THEN
-        CONCAT('Outsource - ', oo.name)
-    ELSE
-        em.name
-    END AS merchant_name,
+    em.name AS merchant_name,
     er.id,
     er.employeeid,
     er.rejectionmessage,

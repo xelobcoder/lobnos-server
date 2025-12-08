@@ -108,9 +108,6 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                entityid,
                entitytype
           });
-          console.log('-------------------------------------')
-          console.log('Recalculated 2', recalculatedServicesList,recalculatedCart);
-          console.log('-------------------------------------')
           const {
                subtotal,
                totaldiscount,

@@ -5,7 +5,6 @@ import {
      q_can_overallTotals,
      q_can_monthlyTotals,
      q_can_yearlyTotals,
-     q_can_caseSummaryOverall,
      q_can_caseSummaryMonthly,
      q_can_caseSummaryYearly,
      q_can_caseSummaryDailyRecent,
@@ -67,9 +66,7 @@ class ClinicianAnalytics {
           return await promisifyQuery(tenantId, q_can_yearlyTotals, [clinicianId]);
      }
 
-     public static async getCaseSummaryOverall(tenantId: number, clinicianId: number) {
-          return await promisifyQuery(tenantId, q_can_caseSummaryOverall, [clinicianId, clinicianId]);
-     }
+
 
      public static async getCaseSummaryMonthly(tenantId: number, clinicianId: number, year: number) {
 
@@ -115,12 +112,12 @@ class ClinicianAnalytics {
           return await promisifyQuery(tenantId, q_can_caseSummaryDailyAll, [clinicianId, clinicianId]);
      }
 
-     public static async getDailyCaseChange(tenantId: number, clinicianId: number, count: number, page: number) {
-          return await paginationQuery({ count, page }, q_can_dailyCaseChange, [clinicianId], tenantId);
+     public static async getDailyCaseChange(tenantId: number, clinicianId: number,year:number) {
+          return await promisifyQuery(tenantId, q_can_dailyCaseChange, [clinicianId, clinicianId, clinicianId,year]);
      }
 
-     public static async getMonthlyCaseChange(tenantId: number, clinicianId: number) {
-          return await promisifyQuery(tenantId, q_can_monthlyCaseChange, [clinicianId]);
+     public static async getMonthlyCaseChange(tenantId: number, clinicianId: number,year:number) {
+          return await promisifyQuery(tenantId, q_can_monthlyCaseChange, [clinicianId, clinicianId, clinicianId, year]);
      }
 
      public static async getYearlyCaseChange(tenantId: number, clinicianId: number) {
