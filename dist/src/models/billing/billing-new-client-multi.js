@@ -150,6 +150,7 @@ class SubmitCustomerBilling {
                 totaldiscount = data.totaldiscount || 0;
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
                 totalOutstanding = Math.max(amountPayable - updatedBillingData.paid, 0);
+                console.log("AMOUNT PAYABLE", amountPayable, "paid", updatedBillingData.paid);
                 balance = totalOutstanding > 0 ? 0 : updatedBillingData.paid - totalAmountPayable;
                 const updateData = {
                     totalTransactionCost: totalcost,
@@ -337,7 +338,7 @@ class SubmitCustomerBilling {
                 amountIncurredDueTax: item.amountIncurredDueTax,
                 taxIncluded: taxIncluded == true ? 1 : 0,
                 discount: item.discount,
-                totalcost: item.totalcost,
+                totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
                 totalpayable: item.totalpayable,
                 isNHIS: billingData.billingSource === 4 ? 1 : 0,
                 isPHIS: billingData.billingSource === 3 ? 1 : 0,
@@ -411,7 +412,7 @@ class SubmitCustomerBilling {
                 amountIncurredDueTax: item.amountIncurredDueTax,
                 taxIncluded,
                 discount: item.discount,
-                totalcost: item.totalcost,
+                totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
                 totalpayable: item.totalpayable,
                 isNHIS: billingSource === 4 ? 1 : 0,
                 isPHIS: billingSource === 3 ? 1 : 0,

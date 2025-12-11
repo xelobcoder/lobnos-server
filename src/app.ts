@@ -30,7 +30,6 @@ import TestAscensionAnalytics from './controllers/analytics/test-ascension-analy
 import sampleContainerRouter from "./controllers/routes/sampleContainerRoutes";
 import FileUploadsRouter from './controllers/uploads/uploadController';
 import IndividualPatientAnalyticRouter from './controllers/registration/patient/routes';
-import ExpensesAnalyticsRouter from './controllers/analytics/Expenses-analytics/expenses-analytics-route';
 import qualityControlRoutes from './controllers/QualityControl/qualityControlRoutes';
 import ExcelParser from './controllers/utilities/excelparserHandler';
 import OutsourcedTestTracking from './controllers/analytics/outsourcedTestTracking.routes'
@@ -104,7 +103,6 @@ app.use(BillingPackages);
 app.use(ClinicianAnalyticsRouter);
 app.use(IndividualPatientAnalyticRouter);
 app.use(PatientAnalytics);
-app.use(ExpensesAnalyticsRouter);
 app.use(qualityControlRoutes);
 app.use(smsPrimeRouter);
 app.use(ExcelParser);

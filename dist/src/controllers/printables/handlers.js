@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBillingReceipt = exports.getTransactionApprovedTest = exports.getBillingInvoice = exports.makeDecisionOnResult = exports.checkApproval = exports.getResultEntryScientist = exports.getPreviewComments = exports.previewReport = exports.updatePayment = exports.getClientTransactionHistory = exports.getPaymentModes = exports.clearClientOutstandingDebt = exports.getClientBulkOutstanding = exports.getClientTransactionInfo = exports.getSummaryReadyPage = exports.updatePrintCount = exports.getResultById = exports.getAdvancedTablesSearch = exports.getResultReady = void 0;
+exports.getBillingReceipt = exports.getTransactionApprovedTest = exports.getBillingInvoice = exports.makeDecisionOnResult = exports.checkApproval = exports.getResultEntryScientist = exports.getPreviewComments = exports.previewReport = exports.updatePayment = exports.getClientTransactionHistory = exports.getPaymentModes = exports.getClientBulkOutstanding = exports.getClientTransactionInfo = exports.getSummaryReadyPage = exports.updatePrintCount = exports.getResultById = exports.getAdvancedTablesSearch = exports.getResultReady = void 0;
 const resultPrint_1 = __importDefault(require("../../models/result/resultPrint"));
 const invoice_1 = require("../../models/invoice/invoice");
 const payments_1 = __importDefault(require("../../models/payments/payments"));
@@ -93,29 +93,6 @@ const getClientBulkOutstanding = async (req, res) => {
     }
 };
 exports.getClientBulkOutstanding = getClientBulkOutstanding;
-const clearClientOutstandingDebt = async (req, res) => {
-    try {
-        const { patientid, paymentmode, amountpaid, employeeid } = req.body;
-        if (!patientid || !paymentmode || !amountpaid || !employeeid) {
-            return (0, helper_1.customError)("include amountpaid, paymentmode, employeeid and patientid in request body", 404, res);
-        }
-        const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await payment.clearClientDebtBulk(tenantId, patientid, amountpaid, paymentmode, employeeid);
-        if (result === true) {
-            res.send({ message: "updated successfully", status: "success", statusCode: "200" });
-        }
-        else if (result === "No Exist") {
-            res.send({ message: "No debt available to clear", status: "error", statusCode: "500" });
-        }
-        else {
-            res.send({ message: result || "updated failed", status: "failed", statusCode: "500" });
-        }
-    }
-    catch (err) {
-        (0, helper_1.responseError)(res);
-    }
-};
-exports.clearClientOutstandingDebt = clearClientOutstandingDebt;
 const getPaymentModes = (req, res) => {
     payment.paymentMode(req, res);
 };

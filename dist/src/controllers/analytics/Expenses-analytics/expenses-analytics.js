@@ -1,10 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const helper_1 = require("../../../hooks/helper");
-const Expenses_Analytics_1 = __importDefault(require("../../../models/analytics/ExpensesAnalytics/Expenses-Analytics"));
 class ExpensesAnalyticsController {
     constructor() {
         // Daily Expense Analytics Handler
@@ -22,24 +18,6 @@ class ExpensesAnalyticsController {
             }
         };
         // Hourly Expense Analytics Handler
-        this.getHourlyExpenseAnalyticsHandler = async (req, res) => {
-            try {
-                const { branchid } = req.query;
-                if (!branchid)
-                    return (0, helper_1.customError)("Branch ID is required.", 400, res);
-                const targetDate = req.query.targetDate;
-                if (!targetDate)
-                    return (0, helper_1.customError)("Target date is required.", 400, res);
-                const pBranchId = parseInt(branchid);
-                const expensesAnalytics = new Expenses_Analytics_1.default(null, pBranchId, null, null, null);
-                const data = await expensesAnalytics.getHourlyExpenseAnalytics(targetDate);
-                res.status(200).json(data);
-            }
-            catch (error) {
-                console.error("Error fetching hourly expense analytics:", error);
-                res.status(500).json({ error: "Internal Server Error" });
-            }
-        };
         // Weekly Expense Analytics Handler
         this.getWeeklyExpenseAnalyticsHandler = async (req, res) => {
             try {
@@ -186,7 +164,7 @@ class ExpensesAnalyticsController {
         const pendDate = endDate ? endDate : null;
         const pexpensesId = expensesId ? parseInt(expensesId.toString()) : null;
         const pEmployeeId = employeeid ? parseInt(employeeid.toString()) : null;
-        return new Expenses_Analytics_1.default(pTenantId, pBranchId, pexpensesId, pstartDate, pendDate);
+        return new ExpensesAnalytics(pTenantId, pBranchId, pexpensesId, pstartDate, pendDate);
     }
 }
 exports.default = ExpensesAnalyticsController;

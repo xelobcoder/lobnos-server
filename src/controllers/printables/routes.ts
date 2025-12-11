@@ -1,13 +1,11 @@
-import  express  from "express"
-import  {
+import express from "express"
+import {
   getResultReady,
   getAdvancedTablesSearch,
   getResultById,
   updatePrintCount,
   getSummaryReadyPage,
   getClientTransactionInfo,
-  getClientBulkOutstanding,
-  clearClientOutstandingDebt,
   getPaymentModes,
   getClientTransactionHistory,
   updatePayment,
@@ -21,7 +19,8 @@ import  {
   // generatePDFResult,
   getTransactionApprovedTest,
   getBillingReceipt,
-}  from "./handlers"
+} from "./handlers"
+import { getPatientOutstandingPayments, processMultiServicePayment } from "./MultiPaymentHamdler";
 
 const router = express.Router();
 
@@ -31,8 +30,8 @@ router.get("/api/v1/result/ready/:id", getResultById);
 router.post("/api/v1/result/ready/updateprint/count", updatePrintCount);
 router.get("/api/v1/result/ready/crm/summary", getSummaryReadyPage);
 router.get("/api/v1/billing/payment/info/client", getClientTransactionInfo);
-router.get("/api/v1/billing/client/bulk/outstanding", getClientBulkOutstanding);
-router.post("/api/v1/billing/client/clear/outstandingdebt", clearClientOutstandingDebt);
+router.get("/api/v1/billing/client/bulk/outstanding", getPatientOutstandingPayments);
+router.post("/api/v1/billing/multi-service/payment", processMultiServicePayment);
 router.get("/api/v1/paymentmodes", getPaymentModes);
 router.get("/api/v1/billing/client/transactionhx", getClientTransactionHistory);
 router.post("/api/v1/billing/payment/update", updatePayment);

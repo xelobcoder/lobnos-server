@@ -148,6 +148,6 @@ exports.q_services_refund_status_is_approved = `SELECT * FROM dbobillingrefundta
 exports.q_services_refund_status_is_completed = `SELECT * FROM dbobillingrefundtable WHERE isRefundCompleted = 1 AND serviceid = ?`;
 exports.q_service_refund_update_is_cashout = `
 UPDATE dbobillingrefundtable SET isRefundCompleted = 1 , refundedBy = ?, amountRefunded = ? WHERE serviceid = ?`;
-exports.q_service_refundable_amount_exceeded = `SELECT ss.totalcost,ss.totalpayable,tt.amountRefunded FROM dboservices  AS ss INNER JOIN  dbobillingrefundtable  AS tt on tt.serviceid = ss.serviceid WHERE ss.serviceid = ? `;
+exports.q_service_refundable_amount_exceeded = `SELECT ss.totalcost,ss.totalpayable,tt.amountRefunded,ss.paidamount FROM dboservices  AS ss INNER JOIN  dbobillingrefundtable  AS tt on tt.serviceid = ss.serviceid WHERE ss.serviceid = ? `;
 exports.q_services_is_refund_matter_closed = `SELECT * FROM dbobillingrefundtable WHERE isRefundMatterClosed = 1 AND serviceid = ?`;
 exports.hasAmountRefunded = `SELECT COUNT(*) AS count FROM dbobillingrefundtable WHERE serviceid = ? AND amountRefunded > 0`;

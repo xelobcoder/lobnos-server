@@ -27,6 +27,7 @@ import {
   getPayments,
   getExpensesByGroup,
 } from "./expenseHandlers";
+import { ExpenseAnalyticsController } from "./ExpenseAnalyticsController";
 import { handleOverLoad } from "../../hooks/helper";
 
 const router = express.Router();
@@ -70,5 +71,23 @@ router.post('/api/v1/expenses/invoice', handleOverLoad(createInvoice));
 router.get('/api/v1/expenses/invoices', handleOverLoad(getInvoices));
 router.post('/api/v1/expenses/payment', handleOverLoad(addPayment));
 router.get('/api/v1/expenses/payments', handleOverLoad(getPayments));
+
+// Analytics routes
+router.get('/api/v1/expenses/analytics/daily', handleOverLoad(ExpenseAnalyticsController.getDailyExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/comparison', handleOverLoad(ExpenseAnalyticsController.getExpenseComparisonByPeriod));
+router.get('/api/v1/expenses/analytics/trends/category', handleOverLoad(ExpenseAnalyticsController.getExpenseTrendsByCategory));
+router.get('/api/v1/expenses/analytics/trends/employee', handleOverLoad(ExpenseAnalyticsController.getExpenseTrendsByEmployee));
+router.get('/api/v1/expenses/analytics/trends/merchant', handleOverLoad(ExpenseAnalyticsController.getExpenseTrendsByMerchant));
+router.get('/api/v1/expenses/analytics/hourly', handleOverLoad(ExpenseAnalyticsController.getHourlyExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/monthly', handleOverLoad(ExpenseAnalyticsController.getMonthlyExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/weekly', handleOverLoad(ExpenseAnalyticsController.getWeeklyExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/quarterly', handleOverLoad(ExpenseAnalyticsController.getQuarterlyExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/yearly', handleOverLoad(ExpenseAnalyticsController.getYearlyExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/branch', handleOverLoad(ExpenseAnalyticsController.getExpenseAnalyticsByBranch));
+router.get('/api/v1/expenses/analytics/top-categories', handleOverLoad(ExpenseAnalyticsController.getTopExpenseCategories));
+router.get('/api/v1/expenses/analytics/payment-status', handleOverLoad(ExpenseAnalyticsController.getExpensePaymentStatusAnalytics));
+router.get('/api/v1/expenses/analytics/buckets', handleOverLoad(ExpenseAnalyticsController.getExpenseBuckets));
+router.get('/api/v1/expenses/analytics/growth-rate', handleOverLoad(ExpenseAnalyticsController.getExpenseGrowthRateAnalytics));
+router.get('/api/v1/expenses/analytics/approval-timeline', handleOverLoad(ExpenseAnalyticsController.getExpenseApprovalTimelineAnalytics));
 
 export default router;

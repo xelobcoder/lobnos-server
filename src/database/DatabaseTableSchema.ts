@@ -458,8 +458,13 @@ export type PrimeLimsTabledboservices = {
   registrationType?: string;
   branchid: number;
   isoutsourced: number;
+  paidstatus: string;
+  paidamount: number;
+  outsourceprice: number;
+  paymentstatus: "paid" | "pending" | "partial";
   outsourceid?: number;
   serviceAddedOn: Date | string;
+  outstanding: number;
   taxList?: string;
   taxValue: number;
   amountIncurredDueTax: number;

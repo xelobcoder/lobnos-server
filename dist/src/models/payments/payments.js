@@ -3,12 +3,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-/*
- * Payment logic for handling debt clearing, partial and full payments, and atomic updates to dboservices.
- * - Ensures all dboservices are updated correctly for both full and partial payments.
- * - Free services (totalpayable = 0) are always marked as paid.
- * - All payment and service updates are transaction-safe.
- */
 const queries_1 = require("./queries");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const helper_1 = require("../../hooks/helper");
@@ -105,10 +99,12 @@ class Payment {
                 return (0, helper_1.promisifyQuery)(tenantId, model, [billingid, payment, amount, employeeid]);
             }
         };
-        this.clearClientDebtBulk = async (tenantId, patientid, amount, pymode, employeeid) => {
+        this.clearClientDebtBulk = async (data) => {
+            const { tenantId, patientid, amount, pymode, employeeid } = data;
             const conn = await (0, KnexConnections_1.default)(tenantId);
             const trx = await conn.transaction();
             try {
+                // 1. determiene if we are paying the full debt for all the oustanding debt or a transaction of a particular service
                 if (!patientid)
                     throw new Error("patientid is required");
                 const debts = await this.allClientDebtTransactions(tenantId, patientid);

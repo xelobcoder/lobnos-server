@@ -731,18 +731,26 @@ class Billing {
             if (previousBillingRecord.length === 0)
                 return false;
             let { paid, payable, totalcost, totalrefunded, totalTransactionCost, discount, amountIncurredDueTax } = previousBillingRecord[0];
-            const serviceInformation = await new TiifuWorkingClass_1.TiifuWorkingClass("dboservices").findOne(tenantId, "serviceid", records.serviceid);
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const serviceInformation = await connection("dboservices as s")
+                .join("dbobillingrefundtable as r", "s.serviceid", "r.serviceid")
+                .select("s.totalpayable", "s.totalcost", "s.discount", "s.amountIncurredDueTax", "s.paidamount", "r.amountRefunded")
+                .where("s.serviceid", serviceid)
+                .first();
             if (serviceInformation) {
-                const servicepayable = serviceInformation.totalpayable;
+                const servicepayable = parseFloat(serviceInformation.totalpayable.toString()) - parseFloat(refundAmount.toString());
                 const servicetotalcost = serviceInformation.totalcost;
                 const servicediscount = serviceInformation.discount;
                 const serviceAmountIncurredDueTax = serviceInformation.amountIncurredDueTax;
+                const servicepaidAmount = parseFloat(serviceInformation.paidamount.toString()) - parseFloat(refundAmount.toString());
+                const serviceTotalRefunded = parseFloat(serviceInformation.amountRefunded.toString()) + parseFloat(refundAmount.toString());
+                const serviceoutstanding = servicepayable - servicepaidAmount;
                 const newRefundableAmount = parseFloat(totalrefunded.toString()) + parseFloat(refundAmount.toString());
-                const currentPayable = parseFloat(payable.toString()) - parseFloat(servicepayable.toString());
-                const currentPaid = parseFloat(paid.toString()) - refundAmount;
-                const currentTotalCost = parseFloat(totalcost.toString()) - parseFloat(servicetotalcost.toString());
-                const currentDiscount = parseFloat(discount.toString()) - parseFloat(servicediscount.toString());
-                const currentAmountIncurredDueTax = parseFloat(amountIncurredDueTax.toString()) - parseFloat(serviceAmountIncurredDueTax.toString());
+                const currentPayable = parseFloat(payable.toString()) - parseFloat(refundAmount.toString());
+                const currentPaid = parseFloat(paid.toString()) - parseFloat(refundAmount.toString());
+                const currentTotalCost = parseFloat(totalcost.toString());
+                const currentDiscount = parseFloat(discount.toString());
+                const currentAmountIncurredDueTax = parseFloat(amountIncurredDueTax.toString()) - parseFloat(serviceInformation.amountIncurredDueTax.toString());
                 let newOutstandingAmount = 0;
                 let newBalanceAmount = 0;
                 if (currentPaid >= currentPayable) {
@@ -770,8 +778,10 @@ class Billing {
                     isRefunded: 1,
                     isLocked: 1,
                     status: 'refunded',
-                    totalcost: 0,
-                    totalpayable: 0,
+                    totalcost: servicetotalcost,
+                    paidamount: servicepaidAmount,
+                    totalpayable: servicepayable,
+                    outstanding: serviceoutstanding
                 })
                     .where({
                     serviceid: serviceid
@@ -780,7 +790,7 @@ class Billing {
                     isRefundCompleted: 1,
                     isRefundMatterClosed: 1,
                     refundedBy: employeeid,
-                    amountRefunded: refundAmount,
+                    amountRefunded: serviceTotalRefunded,
                 }).where({
                     serviceid: serviceid
                 });

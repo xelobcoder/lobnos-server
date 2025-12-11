@@ -6,7 +6,11 @@ import { customError } from '../../../hooks/helper';
 
 export const createLead = async (req: Request, res: Response) => {
      try {
-          const tenantId = parseInt(req.query.tenantId as string);
+          const tenantIdStr = req.query.tenantId as string;
+          if (!tenantIdStr || isNaN(Number(tenantIdStr))) {
+               return customError('Invalid tenant ID', 400, res);
+          }
+          const tenantId = parseInt(tenantIdStr, 10);
           const repo = new CustomersLeads(tenantId);
           const leadData = req.body;
           const newLead = await repo.create(leadData);

@@ -6,6 +6,7 @@ const AnalyticsBilling_1 = require("../../../models/billing/sales/AnalyticsBilli
 const outsourcingAnalqueries_1 = require("../../../models/billing/outsourcingAnalqueries");
 const extensive_daily_sales_breakdown_1 = require("./Extensive/extensive-daily-sales-breakdown");
 const helper_1 = require("../../../hooks/helper");
+const billingAnalqueries_1 = require("../../../models/billing/billingAnalqueries");
 async function UtilityOutsourcing(tenantId, key, branchid, startdate, enddate, year, outsourceId) {
     // Special handling for hourly analytics - uses single target date
     if (key === 'hourlyOutsourcingPattern') {
@@ -48,15 +49,25 @@ exports.UtilityOutsourcing = UtilityOutsourcing;
 const analyticsFunctions = {
     totalSalesByBranch: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranch', branchid, startdate, enddate),
     totalSalesByClinician: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
-    totalSalesByOrganization: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOrganization', branchid, startdate, enddate),
+    totalSalesByOrganization: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByOrganization'], [startdate, enddate]);
+    },
     totalSalesByOutsourcedStatus: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
     totalSalesByBranchAndCategory: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranchAndCategory', branchid, startdate, enddate),
-    totalSalesByEmployee: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByEmployee', branchid, startdate, enddate),
-    monthlySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'monthlySalesTrend', branchid, startdate, enddate),
+    totalSalesByEmployee: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByEmployee'], [startdate, enddate]);
+    },
+    monthlySalesTrend: async (tenantId, branchid, startdate, enddate, year) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['monthlySalesTrend'], [year, year]);
+    },
     dailySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'dailySalesTrend', branchid, startdate, enddate),
-    weeklySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'weeklySalesTrend', branchid, startdate, enddate),
+    weeklySalesTrend: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalytics['weeklySalesTrend'], [year, year]);
+    },
     salesByWeekAndBranch: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'salesByWeekAndBranch', branchid, startdate, enddate),
-    yearlySalesTrend: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'yearlySalesTrend', branchid, startdate, enddate),
+    yearlySalesTrend: async (tenantId, branchid, startdate, enddate, year) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['yearlySalesTrend'], [year, year]);
+    },
     totalAmountRefunded: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalAmountRefunded', branchid, startdate, enddate),
     // Outsourcing Analytics
     dailyOutsourcedAmountLast30Days: (tenantId, branchid, startdate, enddate, year, outsourceId) => UtilityOutsourcing(tenantId, 'dailyOutsourcedAmountLast30Days', branchid, startdate, enddate, year, outsourceId),
@@ -90,9 +101,7 @@ const handleFinancialAnalytics = async function (request, response) {
     const { key, startDate = null, endDate = null, branchid, tenantId, targetDate, year, outsourceId } = request.query;
     const tenantIdP = parseInt(tenantId.toString(), 10);
     const analyticsKey = key === null || key === void 0 ? void 0 : key.toString();
-    // Convert branchid to number or null
     const branchIdNum = branchid ? parseInt(branchid.toString(), 10) : null;
-    // Convert year to number or null
     const yearNum = year ? parseInt(year.toString(), 10) : null;
     // Convert outsourceId to number or null
     const outsourceIdNum = outsourceId ? parseInt(outsourceId.toString(), 10) : null;
@@ -101,7 +110,7 @@ const handleFinancialAnalytics = async function (request, response) {
             const allResults = {};
             for (const funcKey in analyticsFunctions) {
                 if (analyticsFunctions.hasOwnProperty(funcKey)) {
-                    const result = await analyticsFunctions[funcKey](tenantId, null, startDate, endDate, yearNum, outsourceIdNum);
+                    const result = await analyticsFunctions[funcKey](tenantId, branchIdNum, startDate, endDate, yearNum, outsourceIdNum);
                     allResults[funcKey] = result;
                 }
             }

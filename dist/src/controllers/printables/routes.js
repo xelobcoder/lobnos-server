@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const handlers_1 = require("./handlers");
+const MultiPaymentHamdler_1 = require("./MultiPaymentHamdler");
 const router = express_1.default.Router();
 router.get("/api/v1/result/ready", handlers_1.getResultReady);
 router.get("/api/v1/ready/crm/summary/advanced", handlers_1.getAdvancedTablesSearch);
@@ -12,8 +13,8 @@ router.get("/api/v1/result/ready/:id", handlers_1.getResultById);
 router.post("/api/v1/result/ready/updateprint/count", handlers_1.updatePrintCount);
 router.get("/api/v1/result/ready/crm/summary", handlers_1.getSummaryReadyPage);
 router.get("/api/v1/billing/payment/info/client", handlers_1.getClientTransactionInfo);
-router.get("/api/v1/billing/client/bulk/outstanding", handlers_1.getClientBulkOutstanding);
-router.post("/api/v1/billing/client/clear/outstandingdebt", handlers_1.clearClientOutstandingDebt);
+router.get("/api/v1/billing/client/bulk/outstanding", MultiPaymentHamdler_1.getPatientOutstandingPayments);
+router.post("/api/v1/billing/multi-service/payment", MultiPaymentHamdler_1.processMultiServicePayment);
 router.get("/api/v1/paymentmodes", handlers_1.getPaymentModes);
 router.get("/api/v1/billing/client/transactionhx", handlers_1.getClientTransactionHistory);
 router.post("/api/v1/billing/payment/update", handlers_1.updatePayment);

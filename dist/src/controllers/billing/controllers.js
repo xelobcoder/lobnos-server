@@ -286,6 +286,7 @@ async function verificationBeforeCashoutHandler(request, response) {
         response.send(refundInformation);
     }
     catch (err) {
+        console.log(err);
         logger_1.default.error(err);
         (0, helper_1.responseError)(response);
     }

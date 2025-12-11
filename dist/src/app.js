@@ -35,7 +35,6 @@ const routes_4 = __importDefault(require("./controllers/analytics/test-ascension
 const sampleContainerRoutes_1 = __importDefault(require("./controllers/routes/sampleContainerRoutes"));
 const uploadController_1 = __importDefault(require("./controllers/uploads/uploadController"));
 const routes_5 = __importDefault(require("./controllers/registration/patient/routes"));
-const expenses_analytics_route_1 = __importDefault(require("./controllers/analytics/Expenses-analytics/expenses-analytics-route"));
 const qualityControlRoutes_1 = __importDefault(require("./controllers/QualityControl/qualityControlRoutes"));
 const excelparserHandler_1 = __importDefault(require("./controllers/utilities/excelparserHandler"));
 const outsourcedTestTracking_routes_1 = __importDefault(require("./controllers/analytics/outsourcedTestTracking.routes"));
@@ -102,7 +101,6 @@ app.use(packages_1.default);
 app.use(clinicians_analytics_routes_1.default);
 app.use(routes_5.default);
 app.use(patient_analytics_route_1.default);
-app.use(expenses_analytics_route_1.default);
 app.use(qualityControlRoutes_1.default);
 app.use(routes_6.default);
 app.use(excelparserHandler_1.default);

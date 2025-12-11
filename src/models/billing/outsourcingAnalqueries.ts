@@ -1,47 +1,53 @@
-const outsourcing_constraints = `AND (d.isoutsourced = 1 AND d.status = 'active' AND d.isRefunded = 0) `;
+const outsourcing_constraints = `AND d.isoutsourced = 1 AND d.status IN ('active','refunded') `;
 
 export class OutsourcingAnalytics {
-     // Current year outsourcing analytics (following BillingAnalytics pattern)
-     public static dailyOutsourcedAmountLast30Days = `
+  // Current year outsourcing analytics (following BillingAnalytics pattern)
+  public static dailyOutsourcedAmountLast30Days = `
         SELECT
             DATE(d.serviceAddedOn) AS service_date,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS daily_amount
+           COALESCE(SUM(d.totalpayable), 0) AS daily_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS outsourced_daily_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS daily_profit_amount
         FROM dboservices d
         WHERE YEAR(d.serviceAddedOn) = YEAR(CURRENT_DATE) ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY service_date
-        ORDER BY service_date DESC, daily_amount DESC;
+        ORDER BY service_date DESC, daily_billed_amount DESC;
     `;
 
-     public static monthlyOutsourcedAmountLast12Months = `
+  public static monthlyOutsourcedAmountLast12Months = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             COUNT(*) AS total_services,
-            ROUND(SUM(d.totalpayable), 2) AS monthly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS monthly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS outsourced_monthly_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS monthly_profit_amount
         FROM dboservices d
         WHERE YEAR(d.serviceAddedOn) = ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY month
-        ORDER BY month DESC, monthly_amount DESC;
+        ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-     public static yearlySummaryByFacility = `
+  public static yearlySummaryByFacility = `
         SELECT
             YEAR(d.serviceAddedOn) AS year,
             COUNT(*) AS total_services,
-            ROUND(SUM(d.totalpayable), 2) AS yearly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS yearly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS outsourced_yearly_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS yearly_profit_amount
         FROM dboservices d
         WHERE YEAR(d.serviceAddedOn) = YEAR(CURRENT_DATE) ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY year
-        ORDER BY year DESC, yearly_amount DESC;
+        ORDER BY year DESC, yearly_billed_amount DESC;
     `;
 
-     public static top20OutsourcedFacilities = `
+  public static top20OutsourcedFacilities = `
         SELECT
             d.outsourceid,
             o.name AS facility_name,
@@ -49,23 +55,27 @@ export class OutsourcingAnalytics {
             o.contactPerson,
             o.contactNumber,
             COUNT(*) AS total_services,
-            ROUND(SUM(d.totalpayable), 2) AS total_amount_outsourced,
-            ROUND(AVG(d.totalpayable), 2) AS avg_per_service
+            COALESCE(SUM(d.totalpayable), 0) AS total_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS total_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS total_profit_amount,
+            COALESCE(AVG(d.totalpayable), 0) AS avg_billed_per_service
         FROM dboservices d
         JOIN outsourcingorganization o ON d.outsourceid = o.outsourceid
         WHERE YEAR(d.serviceAddedOn) = YEAR(CURRENT_DATE) ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY d.outsourceid, o.name, o.organizationType, o.contactPerson, o.contactNumber
-        ORDER BY total_amount_outsourced DESC
+        ORDER BY total_billed_amount DESC
         LIMIT 20;
     `;
 
-     public static hourlyOutsourcingPattern = `
+  public static hourlyOutsourcingPattern = `
         SELECT
             HOUR(d.serviceAddedOn) AS hour_of_day,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS total_amount
+            COALESCE(SUM(d.totalpayable), 0) AS total_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS total_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS total_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) = ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
@@ -74,25 +84,29 @@ export class OutsourcingAnalytics {
         ORDER BY hour_of_day;
     `;
 
-     public static topFacilityPerMonth = `
+  public static topFacilityPerMonth = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             o.name AS facility_name,
-            ROUND(SUM(d.totalpayable), 2) AS monthly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS monthly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS monthly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS monthly_profit_amount
         FROM dboservices d
         JOIN outsourcingorganization o ON d.outsourceid = o.outsourceid
         WHERE YEAR(d.serviceAddedOn) = YEAR(CURRENT_DATE) ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY month, d.outsourceid, o.name
-        ORDER BY month DESC, monthly_amount DESC;
+        ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-     public static grandSummaryDashboard = `
+  public static grandSummaryDashboard = `
         SELECT
             COUNT(*) AS total_outsourced_services,
-            ROUND(SUM(d.totalpayable), 2) AS grand_total_outsourced,
-            ROUND(AVG(d.totalpayable), 2) AS avg_service_cost,
+            COALESCE(SUM(d.totalpayable), 0) AS grand_total_billed,
+            COALESCE(SUM(d.outsourceprice), 0) AS grand_total_outsourced,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS grand_total_profit,
+            COALESCE(AVG(d.totalpayable), 0) AS avg_billed_per_service,
             COUNT(DISTINCT d.outsourceid) AS total_active_facilities,
             MIN(DATE(d.serviceAddedOn)) AS first_outsourced_date,
             MAX(DATE(d.serviceAddedOn)) AS latest_outsourced_date
@@ -102,12 +116,14 @@ export class OutsourcingAnalytics {
           AND (? IS NULL OR d.outsourceid = ?);
     `;
 
-     public static weeklyOutsourcedTrend = `
+  public static weeklyOutsourcedTrend = `
         SELECT
             WEEK(d.serviceAddedOn) AS week,
             YEAR(d.serviceAddedOn) AS year,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS weekly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS weekly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS weekly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS weekly_profit_amount
         FROM dboservices d
         WHERE YEAR(d.serviceAddedOn) = YEAR(CURRENT_DATE) ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
@@ -116,13 +132,15 @@ export class OutsourcingAnalytics {
         ORDER BY year DESC, week DESC;
     `;
 
-     public static quarterlyOutsourcedTrend = `
+  public static quarterlyOutsourcedTrend = `
         SELECT
             QUARTER(d.serviceAddedOn) AS quarter,
             YEAR(d.serviceAddedOn) AS year,
             CONCAT('Q', QUARTER(d.serviceAddedOn), ' ', YEAR(d.serviceAddedOn)) AS quarter_label,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS quarterly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS quarterly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS quarterly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS quarterly_profit_amount
         FROM dboservices d
         WHERE YEAR(d.serviceAddedOn) = YEAR(CURRENT_DATE) ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
@@ -134,50 +152,56 @@ export class OutsourcingAnalytics {
 
 // Date-range based outsourcing analytics queries
 export class OutsourcingAnalyticsWithDate {
-     // Daily Outsourced Amount with Date Range
-     public static dailyOutsourcedAmount = `
+  // Daily Outsourced Amount with Date Range
+  public static dailyOutsourcedAmount = `
         SELECT
             DATE(d.serviceAddedOn) AS service_date,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS daily_amount
+            COALESCE(SUM(d.totalpayable), 0) AS daily_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS daily_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS daily_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY service_date
-        ORDER BY service_date DESC, daily_amount DESC;
+        ORDER BY service_date DESC, daily_billed_amount DESC;
     `;
 
-     // Monthly Outsourced Amount with Date Range
-     public static monthlyOutsourcedAmount = `
+  // Monthly Outsourced Amount with Date Range
+  public static monthlyOutsourcedAmount = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             COUNT(*) AS total_services,
-            ROUND(SUM(d.totalpayable), 2) AS monthly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS monthly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS monthly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS monthly_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY month
-        ORDER BY month DESC, monthly_amount DESC;
+        ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-     // Yearly Summary by Facility with Date Range
-     public static yearlySummaryByFacility = `
+  // Yearly Summary by Facility with Date Range
+  public static yearlySummaryByFacility = `
         SELECT
             YEAR(d.serviceAddedOn) AS year,
             COUNT(*) AS total_services,
-            ROUND(SUM(d.totalpayable), 2) AS yearly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS yearly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS yearly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS yearly_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY year
-        ORDER BY year DESC, yearly_amount DESC;
+        ORDER BY year DESC, yearly_billed_amount DESC;
     `;
 
-     // Top Facilities within Date Range
-     public static topFacilitiesByAmount = `
+  // Top Facilities within Date Range
+  public static topFacilitiesByAmount = `
         SELECT
             d.outsourceid,
             o.name AS facility_name,
@@ -185,24 +209,28 @@ export class OutsourcingAnalyticsWithDate {
             o.contactPerson,
             o.contactNumber,
             COUNT(*) AS total_services,
-            ROUND(SUM(d.totalpayable), 2) AS total_amount_outsourced,
-            ROUND(AVG(d.totalpayable), 2) AS avg_per_service
+            COALESCE(SUM(d.totalpayable), 0) AS total_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS total_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS total_profit_amount,
+            COALESCE(AVG(d.totalpayable), 0) AS avg_billed_per_service
         FROM dboservices d
         JOIN outsourcingorganization o ON d.outsourceid = o.outsourceid
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY d.outsourceid, o.name, o.organizationType, o.contactPerson, o.contactNumber
-        ORDER BY total_amount_outsourced DESC
+        ORDER BY total_billed_amount DESC
         LIMIT 20;
     `;
 
-     // Hourly Pattern for Specific Date
-     public static hourlyOutsourcingPattern = `
+  // Hourly Pattern for Specific Date
+  public static hourlyOutsourcingPattern = `
         SELECT
             HOUR(d.serviceAddedOn) AS hour_of_day,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS total_amount
+            COALESCE(SUM(d.totalpayable), 0) AS total_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS total_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS total_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) = ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
@@ -211,27 +239,31 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY hour_of_day;
     `;
 
-     // Most Outsourced Facility Per Month within Date Range
-     public static topFacilityPerMonth = `
+  // Most Outsourced Facility Per Month within Date Range
+  public static topFacilityPerMonth = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             o.name AS facility_name,
-            ROUND(SUM(d.totalpayable), 2) AS monthly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS monthly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS monthly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS monthly_profit_amount
         FROM dboservices d
         JOIN outsourcingorganization o ON d.outsourceid = o.outsourceid
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
           AND (? IS NULL OR d.outsourceid = ?)
         GROUP BY month, d.outsourceid, o.name
-        ORDER BY month DESC, monthly_amount DESC;
+        ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-     // Summary Dashboard within Date Range
-     public static summaryDashboard = `
+  // Summary Dashboard within Date Range
+  public static summaryDashboard = `
         SELECT
             COUNT(*) AS total_outsourced_services,
-            ROUND(SUM(d.totalpayable), 2) AS total_outsourced_amount,
-            ROUND(AVG(d.totalpayable), 2) AS avg_service_cost,
+            COALESCE(SUM(d.totalpayable), 0) AS total_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS total_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS total_profit_amount,
+            COALESCE(AVG(d.totalpayable), 0) AS avg_billed_per_service,
             COUNT(DISTINCT d.outsourceid) AS active_facilities,
             MIN(DATE(d.serviceAddedOn)) AS period_start,
             MAX(DATE(d.serviceAddedOn)) AS period_end
@@ -241,13 +273,15 @@ export class OutsourcingAnalyticsWithDate {
           AND (? IS NULL OR d.outsourceid = ?);
     `;
 
-     // Weekly Outsourced Trend with Date Range
-     public static weeklyOutsourcedTrend = `
+  // Weekly Outsourced Trend with Date Range
+  public static weeklyOutsourcedTrend = `
         SELECT
             WEEK(d.serviceAddedOn) AS week,
             YEAR(d.serviceAddedOn) AS year,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS weekly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS weekly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS weekly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS weekly_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)
@@ -256,14 +290,16 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY year DESC, week DESC;
     `;
 
-     // Quarterly Outsourced Trend with Date Range
-     public static quarterlyOutsourcedTrend = `
+  // Quarterly Outsourced Trend with Date Range
+  public static quarterlyOutsourcedTrend = `
         SELECT
             QUARTER(d.serviceAddedOn) AS quarter,
             YEAR(d.serviceAddedOn) AS year,
             CONCAT('Q', QUARTER(d.serviceAddedOn), ' ', YEAR(d.serviceAddedOn)) AS quarter_label,
             COUNT(*) AS services_count,
-            ROUND(SUM(d.totalpayable), 2) AS quarterly_amount
+            COALESCE(SUM(d.totalpayable), 0) AS quarterly_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS quarterly_outsourced_amount,
+            COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS quarterly_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
           AND (? IS NULL OR d.branchid = ?)

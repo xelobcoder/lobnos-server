@@ -316,7 +316,8 @@ export async function verificationBeforeCashoutHandler(request: Request<{}, {}, 
 		}
 		response.send(refundInformation);
 	} catch (err) {
-		logger.error(err);
+		console.log(err)
+			logger.error(err);
 		responseError(response);
 	}
 }

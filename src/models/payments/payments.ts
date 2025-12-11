@@ -1,16 +1,23 @@
 
-/*
- * Payment logic for handling debt clearing, partial and full payments, and atomic updates to dboservices.
- * - Ensures all dboservices are updated correctly for both full and partial payments.
- * - Free services (totalpayable = 0) are always marked as paid.
- * - All payment and service updates are transaction-safe.
- */
 import { queries } from "./queries";
 import { TransactionRecord, TransactionData, ClientDebtTransaction } from "./interfaces";
 import logger from "../../hooks/logger";
 import { paginationQuery, promisifyQuery, rowAffected, customError } from "../../hooks/helper";
 import { billErrors } from "../billing/billingclientTypes";
 import KnexConnection from "../../database/KnexConnections";
+
+
+
+type PaymentRequestBody = {
+	tenantId: number,
+	patientid: number,
+	amount: number,
+	pymode: string,
+	employeeid: number,
+	paymentRequestType: "service" | "transaction" | "debtClearance",
+	billingid?: number,
+	serviceid?: number
+}
 
 class Payment {
 	private patientid: number;
@@ -196,10 +203,12 @@ class Payment {
 		}
 	};
 
-	clearClientDebtBulk = async (tenantId: number, patientid: number, amount: number, pymode: string, employeeid: number): Promise<boolean | string> => {
+	clearClientDebtBulk = async (data: PaymentRequestBody): Promise<boolean | string> => {
+		const { tenantId, patientid, amount, pymode, employeeid } = data;
 		const conn = await KnexConnection(tenantId);
 		const trx = await conn.transaction();
 		try {
+			// 1. determiene if we are paying the full debt for all the oustanding debt or a transaction of a particular service
 			if (!patientid) throw new Error("patientid is required");
 			const debts = await this.allClientDebtTransactions(tenantId, patientid);
 			if (debts.length === 0) { await trx.rollback(); return billErrors.noDebtToClear; }

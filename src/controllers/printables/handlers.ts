@@ -82,25 +82,7 @@ export const getClientBulkOutstanding = async (req: Request, res: Response) => {
 	}
 };
 
-export const clearClientOutstandingDebt = async (req: Request, res: Response) => {
-	try {
-		const { patientid, paymentmode, amountpaid, employeeid } = req.body;
-		if (!patientid || !paymentmode || !amountpaid || !employeeid) {
-			return customError("include amountpaid, paymentmode, employeeid and patientid in request body", 404, res);
-		}
-		const tenantId = parseInt(req.query.tenantId.toString())
-		const result = await payment.clearClientDebtBulk(tenantId, patientid, amountpaid, paymentmode, employeeid);
-		if (result === true) {
-			res.send({ message: "updated successfully", status: "success", statusCode: "200" });
-		} else if (result === "No Exist") {
-			res.send({ message: "No debt available to clear", status: "error", statusCode: "500" });
-		} else {
-			res.send({ message: result || "updated failed", status: "failed", statusCode: "500" });
-		}
-	} catch (err) {
-		responseError(res);
-	}
-};
+
 
 export const getPaymentModes = (req: Request, res: Response) => {
 	payment.paymentMode(req, res);

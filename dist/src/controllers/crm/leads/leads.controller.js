@@ -5,7 +5,11 @@ const LeadRepository_1 = require("../../../models/customers/leads/LeadRepository
 const helper_1 = require("../../../hooks/helper");
 const createLead = async (req, res) => {
     try {
-        const tenantId = parseInt(req.query.tenantId);
+        const tenantIdStr = req.query.tenantId;
+        if (!tenantIdStr || isNaN(Number(tenantIdStr))) {
+            return (0, helper_1.customError)('Invalid tenant ID', 400, res);
+        }
+        const tenantId = parseInt(tenantIdStr, 10);
         const repo = new LeadRepository_1.CustomersLeads(tenantId);
         const leadData = req.body;
         const newLead = await repo.create(leadData);

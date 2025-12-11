@@ -4,6 +4,7 @@ import { UtilityFinancial } from "../../../models/billing/sales/AnalyticsBilling
 import { OutsourcingAnalytics, OutsourcingAnalyticsWithDate } from "../../../models/billing/outsourcingAnalqueries";
 import { getDailyAnalyticsDashboard } from "./Extensive/extensive-daily-sales-breakdown";
 import { promisifyQuery } from '../../../hooks/helper';
+import { BillingAnalytics, BillingAnalyticsWithDate } from "../../../models/billing/billingAnalqueries";
 
 export async function UtilityOutsourcing(tenantId: number, key: string, branchid: number | null, startdate: string | Date, enddate: string | Date, year?: number | null, outsourceId?: number | null) {
 	// Special handling for hourly analytics - uses single target date
@@ -30,7 +31,7 @@ export async function UtilityOutsourcing(tenantId: number, key: string, branchid
 
 			// Map keys to their date range equivalents
 			const dateRangeKey = key === 'top20OutsourcedFacilities' ? 'topFacilitiesByAmount' :
-							   key === 'grandSummaryDashboard' ? 'summaryDashboard' : key;
+				key === 'grandSummaryDashboard' ? 'summaryDashboard' : key;
 			return await promisifyQuery(tenantId, OutsourcingAnalyticsWithDate[dateRangeKey], params);
 		}
 		// For yearlySummaryByFacility, keep using current year logic since it's specifically yearly
@@ -55,8 +56,9 @@ const analyticsFunctions: { [key: string]: Function } = {
 	totalSalesByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
 
-	totalSalesByOrganization: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'totalSalesByOrganization', branchid, startdate, enddate),
+	totalSalesByOrganization: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByOrganization'], [startdate, enddate]);
+	},
 
 	totalSalesByOutsourcedStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
@@ -64,23 +66,27 @@ const analyticsFunctions: { [key: string]: Function } = {
 	totalSalesByBranchAndCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByBranchAndCategory', branchid, startdate, enddate),
 
-	totalSalesByEmployee: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'totalSalesByEmployee', branchid, startdate, enddate),
+	totalSalesByEmployee: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByEmployee'], [startdate, enddate]);
+	},
 
-	monthlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'monthlySalesTrend', branchid, startdate, enddate),
+	monthlySalesTrend: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year: number) => {
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['monthlySalesTrend'], [year, year]);
+	},
 
 	dailySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'dailySalesTrend', branchid, startdate, enddate),
 
-	weeklySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'weeklySalesTrend', branchid, startdate, enddate),
+	weeklySalesTrend: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
+		return await promisifyQuery(tenantId, BillingAnalytics['weeklySalesTrend'], [year, year]);
+	},
 
 	salesByWeekAndBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'salesByWeekAndBranch', branchid, startdate, enddate),
 
-	yearlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'yearlySalesTrend', branchid, startdate, enddate),
+	yearlySalesTrend: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year: number) => {
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['yearlySalesTrend'], [year, year]);
+	},
 
 	totalAmountRefunded: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalAmountRefunded', branchid, startdate, enddate),
@@ -175,11 +181,7 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 	const { key, startDate = null, endDate = null, branchid, tenantId, targetDate, year, outsourceId } = request.query;
 	const tenantIdP = parseInt(tenantId.toString(), 10);
 	const analyticsKey = key?.toString();
-
-	// Convert branchid to number or null
 	const branchIdNum = branchid ? parseInt(branchid.toString(), 10) : null;
-
-	// Convert year to number or null
 	const yearNum = year ? parseInt(year.toString(), 10) : null;
 
 	// Convert outsourceId to number or null
@@ -191,7 +193,7 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 			const allResults: { [key: string]: any } = {};
 			for (const funcKey in analyticsFunctions) {
 				if (analyticsFunctions.hasOwnProperty(funcKey)) {
-					const result = await analyticsFunctions[funcKey](tenantId, null, startDate, endDate, yearNum, outsourceIdNum);
+					const result = await analyticsFunctions[funcKey](tenantId, branchIdNum, startDate, endDate, yearNum, outsourceIdNum);
 					allResults[funcKey] = result;
 				}
 			}

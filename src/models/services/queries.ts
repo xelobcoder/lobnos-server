@@ -172,7 +172,7 @@ UPDATE dbobillingrefundtable SET isRefundCompleted = 1 , refundedBy = ?, amountR
 
 
 
-export const q_service_refundable_amount_exceeded = `SELECT ss.totalcost,ss.totalpayable,tt.amountRefunded FROM dboservices  AS ss INNER JOIN  dbobillingrefundtable  AS tt on tt.serviceid = ss.serviceid WHERE ss.serviceid = ? `
+export const q_service_refundable_amount_exceeded = `SELECT ss.totalcost,ss.totalpayable,tt.amountRefunded,ss.paidamount FROM dboservices  AS ss INNER JOIN  dbobillingrefundtable  AS tt on tt.serviceid = ss.serviceid WHERE ss.serviceid = ? `
 
 
 export const q_services_is_refund_matter_closed = `SELECT * FROM dbobillingrefundtable WHERE isRefundMatterClosed = 1 AND serviceid = ?`;

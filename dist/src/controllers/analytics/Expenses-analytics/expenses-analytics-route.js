@@ -1,12 +1,7 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const expenses_analytics_1 = __importDefault(require("./expenses-analytics"));
 const router = (0, express_1.Router)();
-const controller = new expenses_analytics_1.default();
 // Daily Analytics
 router.get('/api/v1/expenses-analytics/daily', controller.getDailyExpenseAnalyticsHandler);
 // Hourly Analytics

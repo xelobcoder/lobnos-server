@@ -213,8 +213,9 @@ class PrimeBillingEnterprise {
             });
         }
         return tests.map(test => {
-            const preDiscountValue = test.discountedValue;
-            const taxAmount = Number(((preDiscountValue * taxValue) / 100).toFixed(2));
+            const preDiscountValue = Number(test.discountedValue);
+            const parsedTaxValue = Number(taxValue);
+            const taxAmount = parseFloat(((preDiscountValue * parsedTaxValue)).toFixed(2));
             const totalcost = Number((preDiscountValue + taxAmount).toFixed(2));
             return Object.assign(Object.assign({}, test), { amountIncurredDueTax: taxAmount, totalcost, totalpayable: totalcost, discountedValue: test.discountedValue });
         });
