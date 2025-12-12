@@ -6,13 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updatePatientImageHandler = exports.getNotificationSettingsHandler = exports.updateNotificationSettingsHandler = exports.updateCredentialsHandler = exports.getTransactionsByDateHandler = void 0;
 const helper_1 = require("../../hooks/helper");
 const logger_1 = __importDefault(require("../../hooks/logger"));
-const patientAnalytics_1 = __importDefault(require("../../models/patients/patientAnalytics"));
+const patientRepo_1 = __importDefault(require("../../models/patients/patientRepo"));
 const getTransactionsByDateHandler = async (request, response) => {
     const { patientid, from, to, tenantId } = request.query;
     if (!patientid) {
         return (0, helper_1.customError)("Patient ID not provided", 401, response);
     }
-    const init = new patientAnalytics_1.default(patientid);
+    const init = new patientRepo_1.default(patientid);
     try {
         const tenantIdNum = parseInt(tenantId, 10);
         const data = await init.getTransactionsByDate(tenantIdNum, patientid, from, to);
@@ -38,7 +38,7 @@ const updateCredentialsHandler = async (request, response) => {
         }
         const parsedPatientId = parseInt(patientid.toString(), 10);
         const parsedTenantId = parseInt(tenantId.toString(), 10);
-        const status = await new patientAnalytics_1.default(parsedPatientId).updateCredentials(parsedTenantId, request.body);
+        const status = await new patientRepo_1.default(parsedPatientId).updateCredentials(parsedTenantId, request.body);
         const message = status ? "patient credentials updated successfully" : "patient credentials not updated";
         const statusCode = status ? 200 : 401;
         const statusMessage = status ? "success" : "failed";
@@ -61,7 +61,7 @@ const updateNotificationSettingsHandler = async (request, response) => {
             return (0, helper_1.customError)(`mode of result, method of delivery and notification settings required`, 404, response);
         }
         const tenantId = parseInt(request.query.tenantId);
-        const status = await new patientAnalytics_1.default(patientid).updateNotificationSettings(tenantId, request.body);
+        const status = await new patientRepo_1.default(patientid).updateNotificationSettings(tenantId, request.body);
         const message = status ? "patient settings updated successfully" : "patient settings not updated";
         const statusCode = status ? 200 : 401;
         const statusMessage = status ? "success" : "failed";
@@ -84,7 +84,7 @@ const getNotificationSettingsHandler = async (request, response) => {
         }
         const parsedPatientId = parseInt(patientid.toString(), 10);
         const parsedTenantId = parseInt(tenantId.toString(), 10);
-        const notications = await new patientAnalytics_1.default(parsedPatientId).getPatientNotificationSettings(parsedTenantId, parsedPatientId);
+        const notications = await new patientRepo_1.default(parsedPatientId).getPatientNotificationSettings(parsedTenantId, parsedPatientId);
         response.send(notications);
     }
     catch (err) {
@@ -103,7 +103,7 @@ const updatePatientImageHandler = async (request, response) => {
         }
         const parsedPatientId = parseInt(patientid, 10);
         const parsedTenantId = parseInt(tenantId, 10);
-        const status = await new patientAnalytics_1.default(parsedPatientId).updatePatientImage(parsedTenantId, parsedPatientId, savedFilename);
+        const status = await new patientRepo_1.default(parsedPatientId).updatePatientImage(parsedTenantId, parsedPatientId, savedFilename);
         const statusState = status ? 'success' : 'error';
         const statusMessage = status ? 'Patient image updated successfully' : 'Patient image update failed';
         response.status(200).json({

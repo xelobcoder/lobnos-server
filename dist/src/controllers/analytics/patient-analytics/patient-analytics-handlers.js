@@ -1,13 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDayTotalRegisteredClientHandler = exports.getMonthlyPatientRegistrationTrendHandler = exports.getDashboardsHandler = exports.getDuplicateRecordsHandler = exports.getMissingDataAnalysisHandler = exports.getOccupationDistributionHandler = exports.getUniqueIdentifiersHandler = exports.getActivationStatusHandler = exports.getPatientRegistrationOverTimeHandler = exports.getMaritalStatusHandler = exports.getGenderDistributionHandler = exports.getAgeDistributionHandler = void 0;
+exports.getStaffRegistrationTrendsHandler = exports.getStaffRegistrationPerformanceHandler = exports.getContactCompletenessHandler = exports.getRegistrationByDayOfWeekHandler = exports.getDayTotalRegisteredClientHandler = exports.getMonthlyPatientRegistrationTrendHandler = exports.getDashboardsHandler = exports.getDuplicateRecordsHandler = exports.getMissingDataAnalysisHandler = exports.getOccupationDistributionHandler = exports.getUniqueIdentifiersHandler = exports.getActivationStatusHandler = exports.getPatientRegistrationOverTimeHandler = exports.getMaritalStatusHandler = exports.getGenderDistributionHandler = exports.getAgeDistributionHandler = void 0;
 const patients_analytics_class_1 = require("../../../models/analytics/patient-analytics/patients-analytics-class");
 const analytics = new patients_analytics_class_1.PatientAnalytics();
 const getAgeDistributionHandler = async (req, res) => {
     try {
-        const { tenantId, interval } = req.query;
-        const result = await analytics.getAgeDistribution(parseInt(tenantId.toString()), parseInt(interval.toString()));
-        res.status(200).json(Array.isArray(result) ? result[0] : []);
+        const { tenantId, interval, min_age, max_age } = req.query;
+        const result = await analytics.getAgeDistribution(parseInt(tenantId.toString()), parseInt((interval === null || interval === void 0 ? void 0 : interval.toString()) || '10'), parseInt((min_age === null || min_age === void 0 ? void 0 : min_age.toString()) || '0'), parseInt((max_age === null || max_age === void 0 ? void 0 : max_age.toString()) || '120'));
+        res.status(200).json(Array.isArray(result) ? result : []);
     }
     catch (error) {
         console.error(error);
@@ -47,7 +47,7 @@ const getPatientRegistrationOverTimeHandler = async (req, res) => {
             return;
         }
         const result = await analytics.getPatientRegistrationOverTime(parseInt(tenantId.toString()), new Date(startdate.toString()), new Date(enddate.toString()));
-        res.status(200).json(Array.isArray(result) ? result[0] : []);
+        res.status(200).json(Array.isArray(result) ? result : []);
     }
     catch (error) {
         console.error(error);
@@ -119,7 +119,7 @@ const getDashboardsHandler = async (req, res) => {
     try {
         const { tenantId } = req.query;
         const result = await analytics.getDashboards(parseInt(tenantId.toString()));
-        res.status(200).json(Array.isArray(result) ? result[0] : []);
+        res.status(200).json(Array.isArray(result) ? result : []);
     }
     catch (error) {
         console.error(error);
@@ -151,3 +151,51 @@ const getDayTotalRegisteredClientHandler = async (req, res) => {
     }
 };
 exports.getDayTotalRegisteredClientHandler = getDayTotalRegisteredClientHandler;
+const getRegistrationByDayOfWeekHandler = async (req, res) => {
+    try {
+        const { tenantId } = req.query;
+        const result = await analytics.getRegistrationByDayOfWeek(parseInt(tenantId.toString()));
+        res.status(200).json(result);
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error fetching registration by day of week data' });
+    }
+};
+exports.getRegistrationByDayOfWeekHandler = getRegistrationByDayOfWeekHandler;
+const getContactCompletenessHandler = async (req, res) => {
+    try {
+        const { tenantId } = req.query;
+        const result = await analytics.getContactCompleteness(parseInt(tenantId.toString()));
+        res.status(200).json(result);
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error fetching contact completeness data' });
+    }
+};
+exports.getContactCompletenessHandler = getContactCompletenessHandler;
+const getStaffRegistrationPerformanceHandler = async (req, res) => {
+    try {
+        const { tenantId } = req.query;
+        const result = await analytics.getStaffRegistrationPerformance(parseInt(tenantId.toString()));
+        res.status(200).json(result);
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error fetching staff registration performance data' });
+    }
+};
+exports.getStaffRegistrationPerformanceHandler = getStaffRegistrationPerformanceHandler;
+const getStaffRegistrationTrendsHandler = async (req, res) => {
+    try {
+        const { tenantId } = req.query;
+        const result = await analytics.getStaffRegistrationTrends(parseInt(tenantId.toString()));
+        res.status(200).json(result);
+    }
+    catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error fetching staff registration trends data' });
+    }
+};
+exports.getStaffRegistrationTrendsHandler = getStaffRegistrationTrendsHandler;

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { customError, responseError } from "../../hooks/helper";
 import logger from "../../hooks/logger";
-import Patient from "../../models/patients/patientAnalytics"
+import Patient from "../../models/patients/patientRepo"
 import { UpdateCredentialsRequest } from "../../models/patients/types";
 export const getTransactionsByDateHandler = async (request: Request<{}, {}, {}, {
      patientid?: number;

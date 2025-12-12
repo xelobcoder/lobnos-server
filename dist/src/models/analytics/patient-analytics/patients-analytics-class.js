@@ -4,8 +4,8 @@ exports.PatientAnalytics = void 0;
 const helper_1 = require("../../../hooks/helper");
 const patient_analytics_queries_1 = require("./patient-analytics-queries");
 class PatientAnalytics {
-    async getAgeDistribution(tenantId, interval = 10) {
-        return await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_age_distribution, [interval]);
+    async getAgeDistribution(tenantId, interval = 10, minAge = 0, maxAge = 120) {
+        return await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_age_distribution, [interval, minAge, maxAge]);
     }
     async getGenderDistribution(tenantId) {
         return await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_gender_distribution, []);
@@ -40,6 +40,18 @@ class PatientAnalytics {
     async getDayTotalRegisteredClient(tenantId) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_day_registered_client, []);
         return result[0]['count'];
+    }
+    async getRegistrationByDayOfWeek(tenantId) {
+        return await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_registration_by_day_of_week, []);
+    }
+    async getContactCompleteness(tenantId) {
+        return await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_contact_completeness, []);
+    }
+    async getStaffRegistrationPerformance(tenantId) {
+        return await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_staff_registration_performance, []);
+    }
+    async getStaffRegistrationTrends(tenantId) {
+        return await (0, helper_1.promisifyQuery)(tenantId, patient_analytics_queries_1.q_patient_analytics_staff_registration_trends, []);
     }
 }
 exports.PatientAnalytics = PatientAnalytics;

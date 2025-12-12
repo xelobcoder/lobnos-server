@@ -11,7 +11,7 @@ const logger_1 = __importDefault(require("./logger"));
 function customError(message, statusCode, response) {
     if (!response)
         throw new TypeError("Http response object required");
-    response.status(500).send({
+    response.status(statusCode || 500).send({
         message: message || "something wrong occurred",
         statusCode: statusCode || 500,
         status: "error",

@@ -5,9 +5,14 @@ const analytics = new PatientAnalytics();
 
 export const getAgeDistributionHandler = async (req: Request, res: Response): Promise<void> => {
      try {
-          const { tenantId, interval } = req.query;
-          const result = await analytics.getAgeDistribution(parseInt(tenantId.toString()), parseInt(interval.toString()));
-          res.status(200).json(Array.isArray(result) ? result[0] : []);
+          const { tenantId, interval, min_age, max_age } = req.query;
+          const result = await analytics.getAgeDistribution(
+               parseInt(tenantId.toString()),
+               parseInt(interval?.toString() || '10'),
+               parseInt(min_age?.toString() || '0'),
+               parseInt(max_age?.toString() || '120')
+          );
+          res.status(200).json(Array.isArray(result) ? result : []);
      } catch (error) {
           console.error(error);
           res.status(500).json({ error: 'Error fetching age distribution data' });
@@ -44,7 +49,7 @@ export const getPatientRegistrationOverTimeHandler = async (req: Request, res: R
                return;
           }
           const result = await analytics.getPatientRegistrationOverTime(parseInt(tenantId.toString()), new Date(startdate.toString()), new Date(enddate.toString()));
-          res.status(200).json(Array.isArray(result) ? result[0] : []);
+          res.status(200).json(Array.isArray(result) ? result : []);
      } catch (error) {
           console.error(error);
           res.status(500).json({ error: 'Error fetching patient registration over time data' });
@@ -115,7 +120,7 @@ export const getDashboardsHandler = async (req: Request, res: Response): Promise
      try {
           const { tenantId } = req.query;
           const result = await analytics.getDashboards(parseInt(tenantId.toString()));
-          res.status(200).json(Array.isArray(result) ? result[0] : []);
+          res.status(200).json(Array.isArray(result) ? result : []);
      } catch (error) {
           console.error(error);
           res.status(500).json({ error: 'Error fetching dashboards data' });
@@ -141,5 +146,49 @@ export const getDayTotalRegisteredClientHandler = async (req: Request, res: Resp
      } catch (error) {
           console.error(error);
           res.status(500).json({ error: 'Error fetching monthly patient registration trend data' });
+     }
+};
+
+export const getRegistrationByDayOfWeekHandler = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const { tenantId } = req.query;
+          const result = await analytics.getRegistrationByDayOfWeek(parseInt(tenantId.toString()));
+          res.status(200).json(result);
+     } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: 'Error fetching registration by day of week data' });
+     }
+};
+
+export const getContactCompletenessHandler = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const { tenantId } = req.query;
+          const result = await analytics.getContactCompleteness(parseInt(tenantId.toString()));
+          res.status(200).json(result);
+     } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: 'Error fetching contact completeness data' });
+     }
+};
+
+export const getStaffRegistrationPerformanceHandler = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const { tenantId } = req.query;
+          const result = await analytics.getStaffRegistrationPerformance(parseInt(tenantId.toString()));
+          res.status(200).json(result);
+     } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: 'Error fetching staff registration performance data' });
+     }
+};
+
+export const getStaffRegistrationTrendsHandler = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const { tenantId } = req.query;
+          const result = await analytics.getStaffRegistrationTrends(parseInt(tenantId.toString()));
+          res.status(200).json(result);
+     } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: 'Error fetching staff registration trends data' });
      }
 };

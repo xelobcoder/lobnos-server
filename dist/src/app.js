@@ -49,6 +49,7 @@ const routes_7 = __importDefault(require("./controllers/compliance/routes"));
 const index_3 = __importDefault(require("./controllers/commission/index"));
 const route_19 = __importDefault(require("./controllers/crm/leads/route"));
 const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
+const routes_8 = __importDefault(require("./controllers/payroll/routes"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -110,6 +111,7 @@ app.use('/api/v1/inventory', index_2.default);
 app.use(index_3.default);
 app.use('/api/v1/leads', route_19.default);
 app.use('/api/v1/followups', followups_route_1.default);
+app.use('/api/v1/payroll', routes_8.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });

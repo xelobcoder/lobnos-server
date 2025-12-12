@@ -11,6 +11,11 @@ import {
      getDuplicateRecordsHandler,
      getDashboardsHandler,
      getMonthlyPatientRegistrationTrendHandler,
+     getDayTotalRegisteredClientHandler,
+     getRegistrationByDayOfWeekHandler,
+     getContactCompletenessHandler,
+     getStaffRegistrationPerformanceHandler,
+     getStaffRegistrationTrendsHandler,
 } from './patient-analytics-handlers';
 
 const router = Router();
@@ -26,6 +31,11 @@ router.get('/api/v1/patient-analytics/missing-data-analysis', getMissingDataAnal
 router.get('/api/v1/patient-analytics/duplicate-records', getDuplicateRecordsHandler);
 router.get('/api/v1/patient-analytics/dashboards', getDashboardsHandler);
 router.get('/api/v1/patient-analytics/monthly-patient-registration-trend', getMonthlyPatientRegistrationTrendHandler);
+router.get('/api/v1/patient-analytics/day-registered-client', getDayTotalRegisteredClientHandler);
+router.get('/api/v1/patient-analytics/registration-by-day-of-week', getRegistrationByDayOfWeekHandler);
+router.get('/api/v1/patient-analytics/contact-completeness', getContactCompletenessHandler);
+router.get('/api/v1/patient-analytics/staff-registration-performance', getStaffRegistrationPerformanceHandler);
+router.get('/api/v1/patient-analytics/staff-registration-trends', getStaffRegistrationTrendsHandler);
 
 router.get('/api/v1/patient-analytics/routes', (req, res) => {
      const routes = [
@@ -42,6 +52,11 @@ router.get('/api/v1/patient-analytics/routes', (req, res) => {
           { endpoint: '/api/v1/patient-analytics/registration-date-vs-activation', description: 'Retrieve registration date versus activation status.' },
           { endpoint: '/api/v1/patient-analytics/dashboards', description: 'Retrieve dashboard metrics for patients.' },
           { endpoint: '/api/v1/patient-analytics/monthly-patient-registration-trend', description: 'Retrieve monthly patient registration trend data.' },
+          { endpoint: '/api/v1/patient-analytics/day-registered-client', description: 'Retrieve daily registered client count.' },
+          { endpoint: '/api/v1/patient-analytics/registration-by-day-of-week', description: 'Retrieve patient registration distribution by day of week.' },
+          { endpoint: '/api/v1/patient-analytics/contact-completeness', description: 'Retrieve contact information completeness analysis.' },
+          { endpoint: '/api/v1/patient-analytics/staff-registration-performance', description: 'Retrieve staff registration performance (staff tracking not available in current data).' },
+          { endpoint: '/api/v1/patient-analytics/staff-registration-trends', description: 'Retrieve daily registration trends for the last 30 days.' },
      ];
      res.status(200).json(routes);
 });

@@ -1,7 +1,7 @@
 import logger from "../../hooks/logger";
 import bcrypt from "bcrypt";
 import User from "../../LobnosAuth/user";
-import Registration from "../../models/registration/registration";
+import Registration from "../registration/registration";
 import { PatientQuery } from "./queries";
 import { promisifyQuery, customError, convertKeysToLowerCase, rowAffected } from "../../hooks/helper";
 import { OperationsFailures } from "../operations/types";

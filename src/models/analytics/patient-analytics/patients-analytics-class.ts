@@ -12,11 +12,15 @@ import {
      q_patient_analytics_dashboards,
      q_patient_analytics_monthly_patient_registration_trend,
      q_patient_analytics_day_registered_client,
+     q_patient_analytics_registration_by_day_of_week,
+     q_patient_analytics_contact_completeness,
+     q_patient_analytics_staff_registration_performance,
+     q_patient_analytics_staff_registration_trends,
 } from './patient-analytics-queries';
 
 export class PatientAnalytics {
-     async getAgeDistribution(tenantId: number, interval: number = 10): Promise<any> {
-          return await promisifyQuery(tenantId, q_patient_analytics_age_distribution, [interval]);
+     async getAgeDistribution(tenantId: number, interval: number = 10, minAge: number = 0, maxAge: number = 120): Promise<any> {
+          return await promisifyQuery(tenantId, q_patient_analytics_age_distribution, [interval, minAge, maxAge]);
      }
 
      async getGenderDistribution(tenantId: number): Promise<any> {
@@ -35,7 +39,7 @@ export class PatientAnalytics {
           return await promisifyQuery(tenantId, q_patient_analytics_activation_status, []);
      }
 
-  
+
 
      async getUniqueIdentifiers(tenantId: number): Promise<any> {
           return await promisifyQuery(tenantId, q_patient_analytics_unique_identifiers, []);
@@ -45,7 +49,7 @@ export class PatientAnalytics {
           return await promisifyQuery(tenantId, q_patient_analytics_occupation_distribution, []);
      }
 
-     
+
 
      async getMissingDataAnalysis(tenantId: number): Promise<any> {
           return await promisifyQuery(tenantId, q_patient_analytics_missing_data_analysis, []);
@@ -67,5 +71,21 @@ export class PatientAnalytics {
      async getDayTotalRegisteredClient(tenantId: number): Promise<any> {
           const result = await promisifyQuery(tenantId, q_patient_analytics_day_registered_client, []);
           return result[0]['count']
+     }
+
+     async getRegistrationByDayOfWeek(tenantId: number): Promise<any> {
+          return await promisifyQuery(tenantId, q_patient_analytics_registration_by_day_of_week, []);
+     }
+
+     async getContactCompleteness(tenantId: number): Promise<any> {
+          return await promisifyQuery(tenantId, q_patient_analytics_contact_completeness, []);
+     }
+
+     async getStaffRegistrationPerformance(tenantId: number): Promise<any> {
+          return await promisifyQuery(tenantId, q_patient_analytics_staff_registration_performance, []);
+     }
+
+     async getStaffRegistrationTrends(tenantId: number): Promise<any> {
+          return await promisifyQuery(tenantId, q_patient_analytics_staff_registration_trends, []);
      }
 }

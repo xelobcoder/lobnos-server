@@ -6,7 +6,7 @@ import logger from './logger';
 
 function customError(message: string, statusCode: number, response: any) {
 	if (!response) throw new TypeError("Http response object required");
-	response.status(500).send({
+	response.status(statusCode || 500).send({
 		message: message || "something wrong occurred",
 		statusCode: statusCode || 500,
 		status: "error",

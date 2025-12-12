@@ -45,6 +45,7 @@ import { killProcessOnPort } from "./models/security/killport";
 import CommissionPaymentsRouter from './controllers/commission/index';
 import leadsRouter from './controllers/crm/leads/route';
 import followupsRouter from './controllers/crm/leads/followups.route';
+import payrollRouter from './controllers/payroll/routes';
 
 
 
@@ -112,6 +113,7 @@ app.use('/api/v1/inventory', InventoryRouter);
 app.use(CommissionPaymentsRouter);
 app.use('/api/v1/leads', leadsRouter);
 app.use('/api/v1/followups', followupsRouter);
+app.use('/api/v1/payroll', payrollRouter);
 
 
 
