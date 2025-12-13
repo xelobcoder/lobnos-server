@@ -13,7 +13,7 @@ class CommissionBatchServicesController {
         this.processServiceBatching = async (request, response) => {
             try {
                 const batchServicesRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(this.tenantId);
-                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, recipientid, recipient_type } = request.body;
+                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, recipientid, recipient_type, services } = request.body;
                 const startDateObj = new Date(startDate);
                 const endDateObj = new Date(endDate);
                 if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
@@ -22,16 +22,17 @@ class CommissionBatchServicesController {
                 if (startDateObj > endDateObj) {
                     return (0, helper_1.customError)("Start date cannot be after end date", 400, response);
                 }
-                const isBatched = await batchServicesRepo.isDateRangeBatched(startDate, endDate, recipientid, recipient_type);
-                if (typeof isBatched === "boolean" && isBatched === true) {
-                    return (0, helper_1.customError)("Some services have in the specified date range have already been batched for commission payment and processed ", 400, response);
+                const eligibleServices = await batchServicesRepo.getUnbatchedServicesFromList(services);
+                if (eligibleServices.length === 0) {
+                    return (0, helper_1.customError)("No eligible services from the provided list", 400, response);
                 }
+                logger_1.default.info(`Processing batch payment for ${eligibleServices.length} eligible services: ${eligibleServices.join(', ')}`);
                 const processPayment = await new CommissionBatchPaymentsRepo_1.CommissionBatchPaymentsRepo(this.tenantId).createBatchPaymentWithServices({
                     startDate: startDateObj,
                     endDate: endDateObj,
                     commissionDue,
                     amountPaid,
-                    services: isBatched,
+                    services: eligibleServices,
                     employeeid,
                     paymentMethod,
                     recipientId: recipientid,
@@ -49,6 +50,22 @@ class CommissionBatchServicesController {
             catch (error) {
                 logger_1.default.error('Error processing service batching:', error);
                 return false;
+            }
+        };
+        this.getBatchBreakdown = async (request, response) => {
+            try {
+                const { batchid } = request.params;
+                const batchPaymentsRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(this.tenantId);
+                const batchBreakdown = await batchPaymentsRepo.getBatchPaymentServices(parseInt(batchid));
+                return response.send({
+                    status: true,
+                    message: "Batch breakdown retrieved successfully",
+                    data: batchBreakdown
+                });
+            }
+            catch (error) {
+                logger_1.default.error('Error fetching batch breakdown:', error);
+                return (0, helper_1.customError)("Failed to fetch batch breakdown", 500, response);
             }
         };
         this.tenantId = tenantId;
@@ -73,6 +90,22 @@ class CommissionBatchServicesController {
         catch (error) {
             logger_1.default.error('Error fetching batch information:', error);
             return (0, helper_1.customError)("Failed to fetch batch information", 500, response);
+        }
+    }
+    async getServiceCommissionPaymentHistory(request, response) {
+        try {
+            const { serviceid } = request.params;
+            const commissionTrackingRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(this.tenantId);
+            const paymentHistory = await commissionTrackingRepo.getsServicePaymentHistory(parseInt(serviceid));
+            return response.send({
+                status: true,
+                message: "Service commission payment history retrieved successfully",
+                data: paymentHistory
+            });
+        }
+        catch (error) {
+            logger_1.default.error('Error fetching service commission payment history:', error);
+            return (0, helper_1.customError)("Failed to fetch service commission payment history", 500, response);
         }
     }
 }

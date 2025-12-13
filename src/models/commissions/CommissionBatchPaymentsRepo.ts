@@ -158,9 +158,11 @@ export class CommissionBatchPaymentsRepo {
                if (startDate && endDate) {
                     batch = batch.where('start_date', '>=', startDate).andWhere('end_date', '<=', endDate);
                }
+               
                if (batchid) {
                     batch = batch.where('id', batchid);
                }
+
                if (recipient_id) {
                     batch = batch.where('recipient_id', recipient_id);
                }

@@ -482,23 +482,20 @@ export const q_get_clinician_commission = `
         ON s.clinicianId = c.id
     LEFT JOIN clinicianpaymentinfo cp 
         ON cp.clinicianid = c.id
+    LEFT JOIN commission_batch_payment_services AS cbps
+        ON cbps.serviceid = s.serviceid
     WHERE
         s.clinicianId = ?
         AND s.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
         AND s.status = 'active'
         AND s.isAdjustment = 0
-        AND s.serviceAddedOn >= ?
+        AND DATE(s.serviceAddedOn) >= ?
         AND s.isRefunded=0
         AND s.paymentstatus !='pending'
-        AND s.serviceAddedOn < ?
+        AND DATE(s.serviceAddedOn) <= ?
+        AND cbps.serviceid IS NULL
     GROUP BY 
-        service_date,
-        c.id, 
-        c.name,
-        c.phone,
-        c.occupation,
-        c.organization,
-        cp.commission
+       s.serviceid
     ORDER BY 
         service_date DESC
 `;
@@ -524,14 +521,17 @@ export const q_get_clinicians_commission_by_date = `
         ON s.clinicianId = c.id
     LEFT JOIN clinicianpaymentinfo cp 
         ON cp.clinicianid = c.id
+    LEFT JOIN commission_batch_payment_services AS cbps
+        ON cbps.serviceid = s.serviceid
     WHERE
         s.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
         AND s.status = 'active'
         AND s.isRefunded=0
         AND s.paymentstatus !='pending'
-        AND s.serviceAddedOn >= ?
-        AND s.serviceAddedOn < ?
+        AND DATE(s.serviceAddedOn) >= ?
+        AND DATE(s.serviceAddedOn) <= ?
         AND s.clinicianId IS NOT NULL
+        AND cbps.serviceid IS NULL
     GROUP BY 
         service_date,
         c.id, 

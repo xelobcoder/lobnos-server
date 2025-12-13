@@ -11,6 +11,7 @@ interface ServiceBatchingRequestBody {
      amountPaid: number;
      paymentMethod: string;
      employeeid: number;
+     services: Array<number>;
      recipientid: number;
      recipient_type: 'clinician' | 'organization'
 }
@@ -27,7 +28,7 @@ export class CommissionBatchServicesController {
      processServiceBatching = async (request: Request<{}, {}, ServiceBatchingRequestBody>, response: Response) => {
           try {
                const batchServicesRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
-               const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, recipientid, recipient_type } = request.body;
+               const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, recipientid, recipient_type, services } = request.body;
                const startDateObj = new Date(startDate);
                const endDateObj = new Date(endDate);
                if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
@@ -37,19 +38,20 @@ export class CommissionBatchServicesController {
                     return customError("Start date cannot be after end date", 400, response);
                }
 
-               const isBatched: boolean | Array<number> = await batchServicesRepo.isDateRangeBatched(startDate, endDate,recipientid,recipient_type);
+               const eligibleServices = await batchServicesRepo.getUnbatchedServicesFromList(services);
 
-               if (typeof isBatched === "boolean" && isBatched === true) {
-                    return customError("Some services have in the specified date range have already been batched for commission payment and processed ", 400, response);
+               if (eligibleServices.length === 0) {
+                    return customError("No eligible services from the provided list", 400, response);
                }
 
+               logger.info(`Processing batch payment for ${eligibleServices.length} eligible services: ${eligibleServices.join(', ')}`);
 
                const processPayment = await new CommissionBatchPaymentsRepo(this.tenantId).createBatchPaymentWithServices({
                     startDate: startDateObj,
                     endDate: endDateObj,
                     commissionDue,
                     amountPaid,
-                    services: isBatched as Array<number>,
+                    services: eligibleServices,
                     employeeid,
                     paymentMethod,
                     recipientId: recipientid,
@@ -75,7 +77,7 @@ export class CommissionBatchServicesController {
 
      async getBatchInformation(request: Request, response: Response) {
           try {
-               const { batchid, recipient_id, recipient_type,startDate,endDate } = request.query;
+               const { batchid, recipient_id, recipient_type, startDate, endDate } = request.query;
 
                const batchPaymentsRepo = new CommissionBatchPaymentsRepo(this.tenantId);
                const batchInfo = await batchPaymentsRepo.getBatch
@@ -97,6 +99,41 @@ export class CommissionBatchServicesController {
           catch (error) {
                logger.error('Error fetching batch information:', error);
                return customError("Failed to fetch batch information", 500, response);
+          }
+     }
+
+
+     async getServiceCommissionPaymentHistory(request: Request, response: Response) {
+          try {
+               const { serviceid } = request.params;
+               const commissionTrackingRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
+               const paymentHistory = await commissionTrackingRepo.getsServicePaymentHistory(parseInt(serviceid));
+               return response.send({
+                    status: true,
+                    message: "Service commission payment history retrieved successfully",
+                    data: paymentHistory
+               });
+          }
+          catch (error) {
+               logger.error('Error fetching service commission payment history:', error);
+               return customError("Failed to fetch service commission payment history", 500, response);
+          }
+     }
+
+
+     getBatchBreakdown = async (request: Request, response: Response) => {
+          try {
+               const { batchid } = request.params;
+               const batchPaymentsRepo = new CommissionBatchPaymentServicesRepo (this.tenantId);
+               const batchBreakdown = await batchPaymentsRepo.getBatchPaymentServices(parseInt(batchid));
+               return response.send({
+                    status: true,
+                    message: "Batch breakdown retrieved successfully",
+                    data: batchBreakdown
+               });
+          } catch (error) {
+               logger.error('Error fetching batch breakdown:', error);
+               return customError("Failed to fetch batch breakdown", 500, response);
           }
      }
 }

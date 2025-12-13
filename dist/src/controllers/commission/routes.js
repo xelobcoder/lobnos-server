@@ -24,4 +24,14 @@ router.get('/commission/batch/information', async (req, res) => {
     const controller = new commissionBatchServicesController_1.CommissionBatchServicesController(tenantid);
     await controller.getBatchInformation(req, res);
 });
+router.get('/commission/batch/information/:batchid/batch', async (req, res) => {
+    const tenantid = parseInt(req.query.tenantId);
+    const controller = new commissionBatchServicesController_1.CommissionBatchServicesController(tenantid);
+    await controller.getBatchBreakdown(req, res);
+});
+router.get("/service/:serviceid/commission/payment/history", async (req, res) => {
+    const tenantid = parseInt(req.query.tenantId);
+    const controller = new commissionBatchServicesController_1.CommissionBatchServicesController(tenantid);
+    await controller.getServiceCommissionPaymentHistory(req, res);
+});
 exports.default = router;
