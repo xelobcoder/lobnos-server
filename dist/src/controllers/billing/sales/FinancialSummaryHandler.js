@@ -53,7 +53,9 @@ const analyticsFunctions = {
         return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByOrganization'], [startdate, enddate]);
     },
     totalSalesByOutsourcedStatus: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
-    totalSalesByBranchAndCategory: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranchAndCategory', branchid, startdate, enddate),
+    totalSalesByBranchAndCategory: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByBranchAndCategory'], [startdate, enddate]);
+    },
     totalSalesByEmployee: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
         return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByEmployee'], [startdate, enddate]);
     },

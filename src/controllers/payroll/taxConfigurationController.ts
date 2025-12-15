@@ -27,7 +27,7 @@ export const createTaxConfigurationHandler = async (req: Request, res: Response)
           });
      } catch (error: any) {
           console.error('Create tax configuration error:', error);
-         customError('Failed to create tax configuration', 500, res);
+          customError('Failed to create tax configuration', 500, res);
      }
 };
 
@@ -37,7 +37,7 @@ export const createTaxConfigurationHandler = async (req: Request, res: Response)
 export const getAllTaxConfigurationsHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-        
+
 
           const repo = new TaxConfigurationRepository(tenantId);
           const connection = await repo['connection']; // Access private connection
@@ -81,6 +81,44 @@ export const getActiveTaxConfigurationHandler = async (req: Request, res: Respon
                result: config
           });
      } catch (error: any) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+/**
+ * Update tax configuration
+ */
+export const updateTaxConfigurationHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+
+
+          const id = parseInt(req.params.id);
+          if (!id) {
+               return customError('Valid tax configuration ID is required', 400, res);
+          }
+
+          const updates = req.body;
+
+          // Set updated_by if provided in request body
+          if (req.body.updated_by) {
+               updates.updated_by = req.body.updated_by;
+          }
+
+          const repo = new TaxConfigurationRepository(tenantId);
+          const success = await repo.update(id, updates);
+
+          if (!success) {
+               return customError('Tax configuration not found or update failed', 404, res);
+          }
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               message: 'Tax configuration updated successfully'
+          });
+     } catch (error: any) {
+          console.error('Update tax configuration error:', error);
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
@@ -145,37 +183,6 @@ export const getTaxConfigurationByYearHandler = async (req: Request, res: Respon
                statusCode: 200,
                message: 'Tax configuration retrieved successfully',
                result: config
-          });
-     } catch (error: any) {
-          PrimeSqlErrorHandler.handleError(error, res);
-     }
-};
-
-/**
- * Update tax configuration
- */
-export const updateTaxConfigurationHandler = async (req: Request, res: Response) => {
-     try {
-          const tenantId = parseInt(req.query.tenantId as string);
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
-
-          const id = parseInt(req.params.id);
-          if (!id) {
-               return customError('Valid tax configuration ID is required', 400, res);
-          }
-
-          const updateData: Partial<ITaxConfiguration> = req.body;
-
-          const repo = new TaxConfigurationRepository(tenantId);
-          const success = await repo.update(id, updateData);
-
-          res.json({
-               status: 'success',
-               statusCode: 200,
-               message: 'Tax configuration updated successfully',
-               result: { success }
           });
      } catch (error: any) {
           PrimeSqlErrorHandler.handleError(error, res);
@@ -253,6 +260,36 @@ export const deleteTaxConfigurationHandler = async (req: Request, res: Response)
                message: 'Tax configuration deleted successfully'
           });
      } catch (error: any) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+/**
+ * Get audit history for a tax configuration
+ */
+export const getTaxConfigurationAuditHistoryHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          if (!tenantId) {
+               return customError('Tenant ID is required', 400, res);
+          }
+
+          const id = parseInt(req.params.id);
+          if (!id) {
+               return customError('Valid tax configuration ID is required', 400, res);
+          }
+
+          const repo = new TaxConfigurationRepository(tenantId);
+          const auditHistory = await repo.getAuditHistory(id);
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               message: 'Tax configuration audit history retrieved successfully',
+               result: auditHistory
+          });
+     } catch (error: any) {
+          console.error('Get tax configuration audit history error:', error);
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };

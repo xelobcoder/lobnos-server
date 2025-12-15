@@ -63,8 +63,10 @@ const analyticsFunctions: { [key: string]: Function } = {
 	totalSalesByOutsourcedStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
 
-	totalSalesByBranchAndCategory: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'totalSalesByBranchAndCategory', branchid, startdate, enddate),
+	totalSalesByBranchAndCategory: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
+	{
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranchAndCategory'], [startdate, enddate]);
+	},
 
 	totalSalesByEmployee: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
 		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByEmployee'], [startdate, enddate]);

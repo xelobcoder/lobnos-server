@@ -440,7 +440,7 @@ export default class Expenses implements IExpenseRepository {
      }
 
 
-     public static async getExpensesByCreatedOnRange(tenantId: number, from: string | Date, to: string | Date): Promise<PrimeLimsTableexpensesrecord[] | []> {
+     public static async getExpensesByCreatedOnRange(tenantId: number,from: string | Date, to: string | Date): Promise<PrimeLimsTableexpensesrecord[] | []> {
           if (!from || !to) throw new Error('Both from and to timestamps are required');
           return await promisifyQuery(tenantId, expense_between_dates_query, [from, to]);
      }

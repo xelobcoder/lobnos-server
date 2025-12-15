@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { PayrollProcessingService } from '../../services/payroll/PayrollProcessingService';
 import { PayrollPeriodRepository } from '../../models/payroll/PayrollPeriodRepository';
 import { PayrollTransactionRepository } from '../../models/payroll/PayrollTransactionRepository';
+import { TaxConfigurationRepository } from '../../models/payroll/TaxConfigurationRepository';
 import { PrimeSqlErrorHandler } from '../../hooks/utility';
 import { customError } from '../../hooks/helper';
 
@@ -92,6 +93,15 @@ export const processPayrollHandler = async (req: Request, res: Response) => {
                return customError('Calculated by user ID is required', 400, res);
           }
 
+          const taxRepo = new TaxConfigurationRepository(tenantId);
+          const activeTaxConfig = await taxRepo.getActive();
+          if (!activeTaxConfig) {
+               return customError('No active tax configuration found', 400, res);
+          }
+
+          const periodRepo = new PayrollPeriodRepository(tenantId);
+          await periodRepo.update(periodId, { tax_configuration_id: activeTaxConfig.id });
+
           const service = new PayrollProcessingService(tenantId);
           const result = await service.processPayrollPeriod(periodId, employeeIds, calculated_by);
 
@@ -102,8 +112,8 @@ export const processPayrollHandler = async (req: Request, res: Response) => {
                result
           });
      } catch (error) {
-          console.error('Process payroll error:', error);
-          customError('Failed to process payroll', 500, res);
+          const errroMessage = (error as Error).message;
+          customError(errroMessage || 'Failed to process payroll', 500, res);
      }
 };
 

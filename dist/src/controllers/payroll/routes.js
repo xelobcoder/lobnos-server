@@ -65,6 +65,7 @@ payrollRouter.get('/tax-configurations/year/:taxYear', taxConfigurationControlle
 payrollRouter.put('/tax-configurations/:id', taxConfigurationController.updateTaxConfigurationHandler);
 payrollRouter.patch('/tax-configurations/:id/status', taxConfigurationController.toggleTaxConfigurationStatusHandler);
 payrollRouter.delete('/tax-configurations/:id', taxConfigurationController.deleteTaxConfigurationHandler);
+payrollRouter.get('/tax-configurations/:id/audit', taxConfigurationController.getTaxConfigurationAuditHistoryHandler);
 payrollRouter.post('/periods', payrollController.createPayrollPeriodHandler);
 payrollRouter.get('/periods', payrollController.getAllPayrollPeriodsHandler);
 payrollRouter.get('/periods/:id/status', payrollController.getPayrollStatusHandler);

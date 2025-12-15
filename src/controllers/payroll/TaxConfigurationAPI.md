@@ -8,8 +8,6 @@ The Tax Configuration API provides endpoints for managing tax rates, brackets, a
 /api/v1/payroll/tax-configurations
 ```
 
-## Authentication
-All endpoints require authentication via JWT token in the `pls-prime-tenant-session` cookie and tenant ID in query parameters.
 
 ## Data Models
 

@@ -17,6 +17,7 @@ import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterRe
 import PartitionManager from "../billing/partitioning";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import { TestApprovalClass } from "./testApprovalClass";
+import { parse } from "node:path";
 
 export default class Operations {
 	private billingid: number;
@@ -90,7 +91,7 @@ export default class Operations {
 		const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid, branchid } = requestQuery;
 
 		try {
-			var { conditions, finalQuery }: { conditions: (string | Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false,organizationId:null,clinicianId:null });
+			var { conditions, finalQuery }: { conditions: (string | Date)[]; finalQuery: string; } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false, organizationId: null, clinicianId: null });
 
 			if (fullname) {
 				conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
@@ -148,7 +149,7 @@ export default class Operations {
 				finalQuery = q_get_all_test_ready_for_various_stages_ultrasound(finalQuery, stage);
 			}
 
-			finalQuery = finalQuery + ` AND DATE(ascension_date) >= ? AND DATE(ascension_date ) <= ? `;
+			finalQuery = finalQuery + ` AND ta.ascension_date >= ? AND ta.ascension_date  <= ? `;
 			conditions.push(startDate);
 			conditions.push(enddate);
 
@@ -177,7 +178,7 @@ export default class Operations {
 				conditions.push(organizationId as any as string);
 			}
 
-		
+
 			return { conditions, finalQuery };
 		} catch (err) {
 			return null;
@@ -295,7 +296,7 @@ export default class Operations {
 				query = finalQuery;
 				conditionValues = conditionx;
 			}
-		
+
 			if (query == null) return null;
 
 			query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;
@@ -303,11 +304,8 @@ export default class Operations {
 			return await paginationQuery({ count, page }, query, conditionValues, tenantId);
 
 		} catch (err) {
-			if (err.errno === 1146 && err.code === "ER_NO_SUCH_TABLE" || err.code === "ER_PARTITION_CLAUSE_ON_NONPARTITIONED") {
-				await new PartitionManager('billing', 'billing').addYearPartition(tenantId, new Date().getFullYear());
-				await new PartitionManager('test_ascension', 'asc').addYearPartition(tenantId, new Date().getFullYear());
-			}
-			return []
+			console.log(err);
+			return [];
 		}
 	}
 }

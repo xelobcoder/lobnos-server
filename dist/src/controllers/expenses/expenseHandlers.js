@@ -653,7 +653,6 @@ const getInvoices = async (req, res) => {
     }
     catch (err) {
         console.log('Invoice retrieval error:', err.message);
-        // Handle specific error types gracefully
         if (err.message.includes('Unauthorized')) {
             return (0, helper_1.customError)('You do not have permission to view these invoices', 403, res);
         }
@@ -713,8 +712,6 @@ const getPayments = async (req, res) => {
         res.send(result);
     }
     catch (err) {
-        console.log('Payment retrieval error:', err.message);
-        // Handle specific error types gracefully
         if (err.message.includes('Unauthorized')) {
             return (0, helper_1.customError)('You do not have permission to view these payments', 403, res);
         }

@@ -1,80 +1,105 @@
-import { PrimeLimsTableexpensesrecord, PrimeLimsTablesalessessionmanager } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTablebilling, PrimeLimsTableexpensesrecord, PrimeLimsTablesalessessionmanager } from "../../../database/DatabaseTableSchema";
 import KnexConnection from "../../../database/KnexConnections";
+import ExpenseInvoiceRepo from "../../Expenses/ExpenseInvoiceRepo";
 import Expenses from "../../Expenses/ExpenseService";
 import { OperationsFailures } from "../../operations/types";
 import { SalesSessionRepo } from "./SalesSessionRepo";
 
+
+interface TotalPayableResult {
+     accrued_revenue: number;
+     totalCost: number;
+     actual_revenue: number;
+     outstanding_amount: number;
+     total_discount: number;
+     total_balance: number;
+     total_refunded: number;
+     total_billing_transactions: number;
+}
+
 export default class SalesSessionServices {
-     public static async getSessionFinancialSummary(tenantId: number, sessionId: number) {
+     public static async getSessionFinancialSummary(tenantId: number, employeeid: number, branchid: number, sessionId: number) {
           const session: PrimeLimsTablesalessessionmanager | null = await new SalesSessionRepo(tenantId).findById(sessionId);
           if (!session) return OperationsFailures.billingSessionNotFound;
-          const isSessionEnded = session.sessionendedon !== null;
-          if (isSessionEnded) return OperationsFailures.billingSessionAlreadyEnded
 
           const currentDate = new Date();
           const connection = await KnexConnection(tenantId);
 
-          const billingTransactions = await connection.raw(`
-                    SELECT * FROM billing
-                    WHERE billedon BETWEEN ? AND ?
-                    AND status != 'voided'
-                    AND status != 'written-off'
-                    AND (adjustmentType != 'void' OR adjustmentType IS NULL)
-               `, [session.sessiondate, currentDate]);
+          // Determine end date
+          let endDate: Date;
+          if (session.sessionendedon) {
+               endDate = new Date(session.sessionendedon);
+          } else {
+               // Find next session
+               const nextSession = await connection('salessessionmanager')
+                    .where('sessiondate', '>', session.sessiondate)
+                    .orderBy('sessiondate', 'asc')
+                    .first();
+               endDate = nextSession ? new Date(nextSession.sessiondate) : currentDate;
+          }
 
-          const totalPayable = await connection.raw(`
-                      SELECT SUM(payable) AS totalpayable,
-                      SUM(totalcost) AS totalCost,
-                      SUM(paid) AS totalPaid,
-                      SUM(outstanding) AS totalOutstanding,
-                      SUM(discount) AS totalDiscount,
-                      SUM(balance) AS totalbalance
-                       FROM billing
-                         WHERE billedon BETWEEN ? AND ?
-                         AND status != 'voided'
-                         AND status != 'written-off'
-                    AND (adjustmentType != 'void' OR adjustmentType IS NULL)
-                    `, [session.sessiondate, currentDate]);
+          const billingTransactions: TotalPayableResult = await connection('billing')
+               .where('branchid', branchid)
+               .whereBetween('billedon', [session.sessiondate, endDate])
+               .select(
+                    connection.sum('payable').as('accrued_revenue'),
+                    connection.sum('totalcost').as('totalCost'),
+                    connection.sum('paid').as('actual_revenue'),
+                    connection.sum('outstanding').as('outstanding_amount'),
+                    connection.sum('discount').as('total_discount'),
+                    connection.sum('balance').as('total_balance'),
+                    connection.sum('totalrefunded').as('total_refunded'),
+                    connection.count('billingid').as('total_billing_transactions')
+               )
+               .first() as TotalPayableResult;
+
+
+          const billingRecords: PrimeLimsTablebilling[] = await connection('billing')
+               .where('branchid', branchid)
+               .whereBetween('billedon', [session.sessiondate, endDate]);
+
 
           let expenseTransactions = await Expenses.getExpensesByCreatedOnRange(
                tenantId,
                session.sessiondate,
-               currentDate
+               endDate
           ) as PrimeLimsTableexpensesrecord[];
-          
-          expenseTransactions = expenseTransactions.filter(e => {
-               if (e.approved === null || e.approved === undefined) return false;
-               return parseInt(e.approved.toString()) === 1;
-          });
 
-          let totalExpense = 0;
-          if (expenseTransactions.length > 0) {
-               totalExpense = expenseTransactions.reduce(
-                    (acc: number, expense: PrimeLimsTableexpensesrecord) => acc + Number(expense.amount),
-                    0
-               );
-          }
 
-          const totalpayable = parseFloat(totalPayable[0][0]['totalpayable']) || 0;
-          const totaloutstanding = parseFloat(totalPayable[0][0]['totalOutstanding']) || 0;
-          const totalbalance = parseFloat(totalPayable[0][0]['totalbalance']) || 0;
-          const expectedAmount = totalpayable - (totalExpense) + parseFloat((session?.openingamount ?? '0').toString());
+          const expensePaymentsMadeRecords = await new ExpenseInvoiceRepo(employeeid, branchid, tenantId).getPaymentsBetweenDates(
+               tenantId,
+               session.sessiondate as string,
+               endDate as any
+          );
+
+
+
+
+          const expensePaymentsMade: number = await new ExpenseInvoiceRepo(employeeid, branchid, tenantId).getSumOfPayments(
+               tenantId,
+               session.sessiondate as string,
+               endDate as any
+          );
+
+          const netRevenue = billingTransactions.actual_revenue - expensePaymentsMade
+          const expectedAmount = netRevenue > 0 ? parseFloat(netRevenue.toString()) + parseFloat(session.openingamount.toString()) : session.openingamount
+
 
           return {
                sessionId,
                sessionDate: session.sessiondate,
                sessionStartTime: session.sessiondate,
-               sessionEndTime: currentDate,
-               totalBillingTransactions: billingTransactions[0],
-               totalbalance,
-               expenseTransactions,
-               totalPayable: totalPayable[0][0].totalpayable || 0,
-               totalCost: totalPayable[0][0].totalCost || 0,
-               totalPaid: totalPayable[0][0].totalPaid || 0,
-               totalOutstanding: totalPayable[0][0].totalOutstanding || 0,
-               totalDiscount: totalPayable[0][0].totalDiscount || 0,
-               totalExpense,
+               sessionEndTime: endDate,
+               totalBillingTransactions: billingTransactions.total_billing_transactions,
+               totalExpensesTransactions: expenseTransactions.length,
+               totalExpensePaymentsMade: expensePaymentsMade,
+               billingTransactions: billingRecords,
+               netRevenue,
                expectedAmount,
+               openingAmount: session.openingamount,
+               accruedRevenue: billingTransactions.accrued_revenue,
+               expenseRecordsDuringSession: expenseTransactions,
+               expensePaymentsMadeRecords,
           }
      }
 }

@@ -124,9 +124,9 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 
-const host = process.env.apphost || 'localhost';
+const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT	 || 'localhost';
 
-app.listen(Number(port), host, () => {
+app.listen(Number(port), host, (err) => {
 	console.log(`Server is running at http://${host}:${port}`);
 });
 

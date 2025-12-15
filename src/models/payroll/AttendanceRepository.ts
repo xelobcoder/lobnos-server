@@ -11,39 +11,32 @@ export interface IAttendance {
      total_hours?: number;
      shift_type: 'regular' | 'night' | 'weekend' | 'holiday';
      work_location: 'on-site' | 'remote' | 'field';
-     status: 'present' | 'absent' | 'half-day' | 'late' | 'early_departure';
+     status: 'present' | 'absent' | 'half_day' | 'late' | 'early_departure';
      late_minutes: number;
      overtime_hours: number;
      overtime_approved: boolean;
-     overtime_approved_by?: number;
+     overtime_approved_by?: number | null;
      remarks?: string;
+     created_at?: string;
+     created_by_name?: string;
+     overtime_approver_name?: string;
+     updated_at?: string;
 }
 
-// Zod validation schema
 const attendanceSchema = z.object({
      employeeid: z.number().positive('Employee ID must be a positive number'),
      attendance_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Attendance date must be in YYYY-MM-DD format'),
-     clock_in: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/, 'Clock in time must be in HH:MM:SS format').optional(),
-     clock_out: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/, 'Clock out time must be in HH:MM:SS format').optional(),
+     clock_in: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/, 'Clock in time must be in HH:MM or HH:MM:SS format').optional(),
+     clock_out: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/, 'Clock out time must be in HH:MM or HH:MM:SS format').optional(),
      total_hours: z.number().min(0, 'Total hours cannot be negative').max(24, 'Total hours cannot exceed 24').optional(),
      shift_type: z.enum(['regular', 'night', 'weekend', 'holiday']),
      work_location: z.enum(['on-site', 'remote', 'field']),
-     status: z.enum(['present', 'absent', 'half-day', 'late', 'early_departure']),
+     status: z.enum(['present', 'absent', 'half_day', 'late', 'early_departure']),
      late_minutes: z.number().min(0, 'Late minutes cannot be negative').max(1440, 'Late minutes cannot exceed 24 hours'),
      overtime_hours: z.number().min(0, 'Overtime hours cannot be negative').max(24, 'Overtime hours cannot exceed 24'),
      overtime_approved: z.boolean(),
-     overtime_approved_by: z.number().positive('Overtime approver ID must be a positive number').optional(),
+     overtime_approved_by: z.number().positive('Overtime approver ID must be a positive number').nullable().optional(),
      remarks: z.string().max(500, 'Remarks cannot exceed 500 characters').optional()
-}).refine((data) => {
-     if (data.clock_in && data.clock_out) {
-          const inTime = new Date(`2000-01-01T${data.clock_in}`);
-          const outTime = new Date(`2000-01-01T${data.clock_out}`);
-          return outTime > inTime;
-     }
-     return true;
-}, {
-     message: 'Clock out time must be after clock in time',
-     path: ['clock_out']
 }).refine((data) => {
      if (data.overtime_approved && (!data.overtime_approved_by || data.overtime_approved_by <= 0)) {
           return false;
@@ -61,18 +54,76 @@ export class AttendanceRepository {
           return KnexConnection(this.tenantId);
      }
 
+     private parseAttendanceRecord(record: any): IAttendance {
+          return {
+               id: record.id ? Number(record.id) : undefined,
+               employeeid: Number(record.employeeid),
+               attendance_date: String(record.attendance_date),
+               clock_in: record.clock_in ? this.extractTimeFromDateTime(record.clock_in) : undefined,
+               clock_out: record.clock_out ? this.extractTimeFromDateTime(record.clock_out) : undefined,
+               total_hours: record.total_hours ? Number(record.total_hours) : undefined,
+               shift_type: record.shift_type,
+               work_location: record.work_location,
+               status: record.status,
+               late_minutes: Number(record.late_minutes),
+               overtime_hours: Number(record.overtime_hours),
+               overtime_approved: Boolean(record.overtime_approved),
+               overtime_approved_by: record.overtime_approved_by ? Number(record.overtime_approved_by) : null,
+               remarks: record.remarks || undefined,
+               created_at: record.created_at,
+               created_by_name: record.created_by_name,
+               overtime_approver_name: record.overtime_approver_name || "",
+               updated_at: record.updated_at
+          };
+     }
+
+     private extractTimeFromDateTime(dateTime: string | Date): string {
+          if (!dateTime) return '';
+
+          if (typeof dateTime === 'string' && /^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/.test(dateTime)) {
+               return dateTime;
+          }
+
+          const date = new Date(dateTime);
+          const hours = date.getHours().toString().padStart(2, '0');
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          const seconds = date.getSeconds();
+
+          return seconds > 0 ? `${hours}:${minutes}:${seconds.toString().padStart(2, '0')}` : `${hours}:${minutes}`;
+     }
+
      async create(attendance: IAttendance): Promise<number> {
-          // Validate data using Zod schema
           attendanceSchema.parse(attendance);
 
           const connection = await this.connection;
-          const [id] = await connection('payroll_employee_attendance').insert(attendance);
-          return id;
+
+          const existing = await this.getByEmployeeAndDate(attendance.employeeid, attendance.attendance_date);
+
+          const dataToInsert = { ...attendance };
+
+          if (existing) {
+               await connection('payroll_employee_attendance')
+                    .where({ employeeid: attendance.employeeid, attendance_date: attendance.attendance_date })
+                    .update({ ...dataToInsert, updated_at: connection.fn.now() });
+               return existing.id!;
+          } else {
+               const [id] = await connection('payroll_employee_attendance').insert(dataToInsert);
+               return id;
+          }
      }
 
      async getById(id: number): Promise<IAttendance | undefined> {
           const connection = await this.connection;
-          return connection('payroll_employee_attendance').where({ id }).first();
+          const record = await connection('payroll_employee_attendance')
+               .leftJoin('roles', 'payroll_employee_attendance.overtime_approved_by', 'roles.employeeid')
+               .leftJoin('roles as creator ', 'payroll_employee_attendance.employeeid', 'creator.employeeid')
+               .select(
+                    'payroll_employee_attendance.*',
+                    'roles.username as overtime_approver_name',
+                    'creator.username as created_by_name'
+               )
+               .where({ id }).first();
+          return record ? this.parseAttendanceRecord(record) : undefined;
      }
 
      async getByEmployeeAndDate(
@@ -80,9 +131,10 @@ export class AttendanceRepository {
           attendance_date: string
      ): Promise<IAttendance | undefined> {
           const connection = await this.connection;
-          return connection('payroll_employee_attendance')
+          const record = await connection('payroll_employee_attendance')
                .where({ employeeid, attendance_date })
                .first();
+          return record ? this.parseAttendanceRecord(record) : undefined;
      }
 
      async getByEmployeeIdAndDateRange(
@@ -91,10 +143,11 @@ export class AttendanceRepository {
           endDate: string
      ): Promise<IAttendance[]> {
           const connection = await this.connection;
-          return connection('payroll_employee_attendance')
+          const records = await connection('payroll_employee_attendance')
                .where({ employeeid })
                .whereBetween('attendance_date', [startDate, endDate])
                .orderBy('attendance_date', 'asc');
+          return records.map(record => this.parseAttendanceRecord(record));
      }
 
      async update(id: number, attendance: Partial<IAttendance>): Promise<boolean> {
@@ -102,22 +155,28 @@ export class AttendanceRepository {
                throw new Error('Valid attendance ID is required for update');
           }
 
-          // Get existing record to validate complete data
           const existing = await this.getById(id);
           if (!existing) {
                throw new Error('Attendance record not found');
           }
 
-          // Merge with existing data for complete validation
-          const completeAttendance = { ...existing, ...attendance };
+          const cleanedExisting = {
+               ...existing,
+               remarks: existing.remarks ?? undefined,
+               overtime_approved_by: existing.overtime_approved_by ?? undefined
+          };
 
-          // Validate complete data using Zod schema
+          const completeAttendance = { ...cleanedExisting, ...attendance };
+
           attendanceSchema.parse(completeAttendance);
 
           const connection = await this.connection;
+
+          const dataToUpdate = { ...attendance };
+
           const affectedRows = await connection('payroll_employee_attendance')
                .where({ id })
-               .update({ ...attendance, updated_at: connection.fn.now() });
+               .update({ ...dataToUpdate, updated_at: connection.fn.now() });
           return affectedRows > 0;
      }
 
@@ -135,9 +194,10 @@ export class AttendanceRepository {
           }
 
           const connection = await this.connection;
-          return connection('payroll_employee_attendance')
+          const records = await connection('payroll_employee_attendance')
                .whereBetween('attendance_date', [startDate, endDate])
                .orderBy('attendance_date', 'asc');
+          return records.map(record => this.parseAttendanceRecord(record));
      }
 
      async getAttendanceSummary(
@@ -205,8 +265,8 @@ export class AttendanceRepository {
                throw new Error('Valid attendance date is required in YYYY-MM-DD format');
           }
 
-          if (!clock_in || typeof clock_in !== 'string' || !/^([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.test(clock_in)) {
-               throw new Error('Valid clock in time is required in HH:MM:SS format');
+          if (!clock_in || typeof clock_in !== 'string' || !/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/.test(clock_in)) {
+               throw new Error('Valid clock in time is required in HH:MM or HH:MM:SS format');
           }
 
           const connection = await this.connection;
@@ -214,7 +274,12 @@ export class AttendanceRepository {
           const existing = await this.getByEmployeeAndDate(employeeid, attendance_date);
 
           if (existing) {
-               await this.update(existing.id!, { clock_in });
+               await connection('payroll_employee_attendance')
+                    .where({ employeeid, attendance_date })
+                    .update({
+                         clock_in: clock_in,
+                         updated_at: connection.fn.now()
+                    });
                return existing.id!;
           } else {
                return this.create({
@@ -255,19 +320,28 @@ export class AttendanceRepository {
 
           const connection = await this.connection;
 
+          const regularHours = 8;
+          const overtimeHours = Math.max(0, total_hours - regularHours);
+
           const affectedRows = await connection('payroll_employee_attendance')
                .where({ employeeid, attendance_date })
-               .update({ clock_out, total_hours, updated_at: connection.fn.now() });
+               .update({
+                    clock_out: clock_out,
+                    total_hours,
+                    overtime_hours: overtimeHours,
+                    updated_at: connection.fn.now()
+               });
 
           return affectedRows > 0;
      }
 
      async getPendingOvertimeApprovals(): Promise<IAttendance[]> {
           const connection = await this.connection;
-          return connection('payroll_employee_attendance')
+          const records = await connection('payroll_employee_attendance')
                .where({ overtime_approved: false })
                .where('overtime_hours', '>', 0)
                .orderBy('attendance_date', 'desc');
+          return records.map(record => this.parseAttendanceRecord(record));
      }
 
      async approveOvertime(id: number, approved_by: number): Promise<boolean> {
@@ -295,12 +369,16 @@ export class AttendanceRepository {
                throw new Error('Attendance records array is required and cannot be empty');
           }
 
-          // Validate each record
           for (const record of attendanceRecords) {
                attendanceSchema.parse(record);
           }
 
           const connection = await this.connection;
-          return connection('payroll_employee_attendance').insert(attendanceRecords);
+          const dataToInsert = attendanceRecords.map(record => {
+               const data = { ...record };
+               return data;
+          });
+
+          return connection('payroll_employee_attendance').insert(dataToInsert);
      }
 }

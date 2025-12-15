@@ -386,9 +386,6 @@ export default class ExpenseInvoiceRepo {
           if (!record || record.length === 0) {
                throw new Error('User not found');
           }
-
-          console.log(filters, "Filters")
-
           const role = record[0]['role'];
           const isAdminOrManager = role === 'admin' || role === 'manager';
 
@@ -534,5 +531,33 @@ export default class ExpenseInvoiceRepo {
         `;
           const result = await promisifyQuery(this.tenantId, query, [expenseIds]);
           return result[0]?.total_amount || 0;
+     }
+
+
+     async getPaymentsBetweenDates(tenantId: number, from: string, to: string): Promise<any[]> {
+          const query = `
+               SELECT 
+               expense_payments.*,
+               expensesrecord.*,
+               expense_merchants.*,
+               roles.username AS paid_by
+               FROM expense_payments
+               LEFT JOIN expensesrecord ON expense_payments.expense_id = expensesrecord.id
+               LEFT JOIN expense_merchants ON expensesrecord.merchant = expense_merchants.id
+               LEFT JOIN roles ON expense_payments.created_by = roles.employeeid
+
+               WHERE payment_date BETWEEN ? AND ?
+          `;
+          return promisifyQuery(tenantId, query, [from, to]);
+     }
+
+
+     async getSumOfPayments(tenantId: number, start: string, end: string): Promise<number> {
+          const query = `
+               SELECT SUM(amount) as total_payments FROM expense_payments
+               WHERE payment_date BETWEEN ? AND ?
+          `;
+          const result = await promisifyQuery(tenantId, query, [start, end]);
+          return result[0]?.total_payments || 0;
      }
 }

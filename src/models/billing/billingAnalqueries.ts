@@ -108,7 +108,15 @@ export class BillingAnalyticsWithDate {
     `;
 
     public static totalSalesByBranchAndCategory = `
-        SELECT branchid, serviceCategory, COALESCE(SUM(totalcost), 0) AS totalCost, COALESCE(SUM(paidamount), 0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded
+        SELECT branchid,
+         serviceCategory,
+         COALESCE(SUM(totalcost),
+         0) AS totalCost,
+         COALESCE(SUM(paidamount),
+         0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable,
+          COALESCE(SUM(discount), 0) AS totalDiscount,
+           COALESCE(SUM(r.amountRefunded), 0)
+            AS totalRefunded
         FROM dboservices
         LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
         WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}

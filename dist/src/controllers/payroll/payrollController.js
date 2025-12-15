@@ -4,6 +4,7 @@ exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = expor
 const PayrollProcessingService_1 = require("../../services/payroll/PayrollProcessingService");
 const PayrollPeriodRepository_1 = require("../../models/payroll/PayrollPeriodRepository");
 const PayrollTransactionRepository_1 = require("../../models/payroll/PayrollTransactionRepository");
+const TaxConfigurationRepository_1 = require("../../models/payroll/TaxConfigurationRepository");
 const utility_1 = require("../../hooks/utility");
 const helper_1 = require("../../hooks/helper");
 /**
@@ -85,6 +86,13 @@ const processPayrollHandler = async (req, res) => {
         if (!calculated_by) {
             return (0, helper_1.customError)('Calculated by user ID is required', 400, res);
         }
+        const taxRepo = new TaxConfigurationRepository_1.TaxConfigurationRepository(tenantId);
+        const activeTaxConfig = await taxRepo.getActive();
+        if (!activeTaxConfig) {
+            return (0, helper_1.customError)('No active tax configuration found', 400, res);
+        }
+        const periodRepo = new PayrollPeriodRepository_1.PayrollPeriodRepository(tenantId);
+        await periodRepo.update(periodId, { tax_configuration_id: activeTaxConfig.id });
         const service = new PayrollProcessingService_1.PayrollProcessingService(tenantId);
         const result = await service.processPayrollPeriod(periodId, employeeIds, calculated_by);
         res.json({
@@ -95,8 +103,8 @@ const processPayrollHandler = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Process payroll error:', error);
-        (0, helper_1.customError)('Failed to process payroll', 500, res);
+        const errroMessage = error.message;
+        (0, helper_1.customError)(errroMessage || 'Failed to process payroll', 500, res);
     }
 };
 exports.processPayrollHandler = processPayrollHandler;

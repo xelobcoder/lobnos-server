@@ -10,10 +10,6 @@ export const createAttendanceHandler = async (req: Request, res: Response) => {
           const tenantId = parseInt(req.query.tenantId as string);
           const attendanceData = req.body;
 
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
-
           const repo = new AttendanceRepository(tenantId);
           const id = await repo.create(attendanceData);
 
@@ -24,7 +20,9 @@ export const createAttendanceHandler = async (req: Request, res: Response) => {
                result: { id }
           });
      } catch (error) {
-          return customError('Failed to create attendance record', 500, res);
+          const errorMessage = (error as Error).message.toString();
+          console.log('Create attendance error:', errorMessage);
+          return customError('Unable to create attendance record. Please check your input and try again.', 500, res);
      }
 };
 
@@ -36,8 +34,8 @@ export const getAttendanceByIdHandler = async (req: Request, res: Response) => {
           const tenantId = parseInt(req.query.tenantId as string);
           const id = parseInt(req.params.id);
 
-          if (!tenantId || !id) {
-               return customError('Tenant ID and Attendance ID are required', 400, res);
+          if (!id) {
+               return customError(' Attendance ID are required', 400, res);
           }
 
           const repo = new AttendanceRepository(tenantId);
@@ -153,8 +151,8 @@ export const getAttendanceByDateRangeHandler = async (req: Request, res: Respons
           const startDate = req.query.startDate as string;
           const endDate = req.query.endDate as string;
 
-          if (!tenantId || !startDate || !endDate) {
-               return customError('Tenant ID, Start Date, and End Date are required', 400, res);
+          if (!startDate || !endDate) {
+               return customError('Start Date and End Date are required', 400, res);
           }
 
           const repo = new AttendanceRepository(tenantId);
@@ -312,10 +310,10 @@ export const approveOvertimeHandler = async (req: Request, res: Response) => {
 export const bulkCreateAttendanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const attendanceRecords = req.body;
+          const attendanceRecords = req.body.attendance_records;
 
-          if (!tenantId || !Array.isArray(attendanceRecords)) {
-               return customError('Tenant ID and Attendance Records array are required', 400, res);
+          if (!Array.isArray(attendanceRecords)) {
+               return customError('Attendance Records array are required', 400, res);
           }
 
           const repo = new AttendanceRepository(tenantId);
@@ -328,6 +326,7 @@ export const bulkCreateAttendanceHandler = async (req: Request, res: Response) =
                result: { ids, count: ids.length }
           });
      } catch (error) {
+          console.log('Bulk create attendance error:', error);
           return customError('Failed to create attendance records', 500, res);
      }
 };

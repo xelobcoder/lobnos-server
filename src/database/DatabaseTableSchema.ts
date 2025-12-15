@@ -78,47 +78,78 @@ export type PrimeLimsTableattendancecycles = {
   description?: string;
 };
 
+
+export type BillingStatus =
+  | 'pending'
+  | 'partial'
+  | 'paid'
+  | 'corrected'
+  | 'voided'
+  | 'adjustment'
+  | 'written-off';
+
+export type PromoMethod =
+  | 'percentage'
+  | 'flat';
+
+export type AdjustmentType =
+  | 'addition'
+  | 'correction'
+  | 'void'
+  | 'written-off'
+  | 'referer-error';
+
+
+
+
 export type PrimeLimsTablebilling = {
   billingid: number;
   patientid: number;
-  paid_amount: number;
-  payable: number;
-  discount: number;
-  organization: number;
-  clinician: number;
-  type: string;
-  outstanding: number;
-  taxIncluded?: string;
-  taxValue?: number;
-  billedon: Date | string;
-  branchid: number;
-  clientstatus: string;
-  testcost: number;
-  employeeid: number;
-  year: number;
-  month: number;
-  day?: number;
-  totalTransactionCost?: number;
+
+  totalTransactionCost: number;
   totalcost: number;
   paid: number;
+  payable: number;
   totalrefunded: number;
+  discount: number;
+  outstanding: number;
   balance: number;
+
+  billedon: Date;
+
+  clientstatus: string;
+
+  year: number;
+  month: number;
+  day: number | null;
+
   amountIncurredDueTax: number;
-  lastupdated: Date | string;
-  isPromo?: number;
-  promoValue?: number;
-  promoMethod?: string;
-  promoCodeId?: number;
-  status: string;
-  relatedBillingId?: number;
-  isAdjustment?: number;
-  adjustedBy?: number;
-  adjustmentReason?: string;
-  adjustmentType?: string;
-  writeOff?: number;
-  writeOffReason?: string;
-  islocked?: number;
-};
+
+  lastupdated: Date;
+
+  branchid: number;
+
+  isPromo: boolean;
+  promoValue: number;
+  promoMethod: PromoMethod | null;
+  promoCodeId: number | null;
+
+  status: BillingStatus;
+
+  relatedBillingId: number | null;
+
+  isAdjustment: boolean;
+  adjustedBy: number | null;
+  adjustmentReason: string | null;
+  adjustmentType: AdjustmentType | null;
+  adjustmentdate: Date | null;
+  adjustmentamount: number | null;
+
+  islocked: boolean;
+
+  additionalinformation: string | null;
+  writeoff: number | null;
+}
 
 export type PrimeLimsTablebillinghx = {
   KeyID: number;

@@ -115,7 +115,7 @@ app.use('/api/v1/payroll', routes_8.default);
 app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
-const host = process.env.apphost || 'localhost';
-app.listen(Number(port), host, () => {
+const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
+app.listen(Number(port), host, (err) => {
     console.log(`Server is running at http://${host}:${port}`);
 });

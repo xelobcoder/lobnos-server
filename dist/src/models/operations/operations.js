@@ -1,10 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
-const partitioning_1 = __importDefault(require("../billing/partitioning"));
 const helper_1 = require("../../hooks/helper");
 const testApprovalClass_1 = require("./testApprovalClass");
 class Operations {
@@ -128,7 +124,7 @@ class Operations {
             else {
                 finalQuery = (0, queries_1.q_get_all_test_ready_for_various_stages_ultrasound)(finalQuery, stage);
             }
-            finalQuery = finalQuery + ` AND DATE(ascension_date) >= ? AND DATE(ascension_date ) <= ? `;
+            finalQuery = finalQuery + ` AND ta.ascension_date >= ? AND ta.ascension_date  <= ? `;
             conditions.push(startDate);
             conditions.push(enddate);
             if (searchString) {
@@ -241,10 +237,7 @@ class Operations {
             return await (0, helper_1.paginationQuery)({ count, page }, query, conditionValues, tenantId);
         }
         catch (err) {
-            if (err.errno === 1146 && err.code === "ER_NO_SUCH_TABLE" || err.code === "ER_PARTITION_CLAUSE_ON_NONPARTITIONED") {
-                await new partitioning_1.default('billing', 'billing').addYearPartition(tenantId, new Date().getFullYear());
-                await new partitioning_1.default('test_ascension', 'asc').addYearPartition(tenantId, new Date().getFullYear());
-            }
+            console.log(err);
             return [];
         }
     }

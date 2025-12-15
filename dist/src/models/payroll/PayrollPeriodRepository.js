@@ -21,6 +21,7 @@ const payrollPeriodSchema = zod_1.z.object({
     total_deductions: zod_1.z.number().min(0, 'Total deductions cannot be negative'),
     total_net_salary: zod_1.z.number().min(0, 'Total net salary cannot be negative'),
     employee_count: zod_1.z.number().min(0, 'Employee count cannot be negative').int('Employee count must be a whole number'),
+    tax_configuration_id: zod_1.z.number().positive('Tax configuration ID must be a positive number').optional(),
     calculated_by: zod_1.z.number().positive('Calculated by must be a positive number').optional(),
     calculated_at: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, 'Calculated at must be a valid datetime').optional(),
     approved_by: zod_1.z.number().positive('Approved by must be a positive number').optional(),
@@ -98,6 +99,53 @@ class PayrollPeriodRepository {
     get connection() {
         return this.trx ? Promise.resolve(this.trx) : (0, KnexConnections_1.default)(this.tenantId);
     }
+    parsePeriodDetails(period) {
+        return {
+            id: period.id ? Number(period.id) : undefined,
+            period_name: String(period.period_name),
+            period_year: Number(period.period_year),
+            period_month: Number(period.period_month),
+            period_start_date: period.period_start_date instanceof Date ?
+                period.period_start_date.toISOString().split('T')[0] :
+                String(period.period_start_date),
+            period_end_date: period.period_end_date instanceof Date ?
+                period.period_end_date.toISOString().split('T')[0] :
+                String(period.period_end_date),
+            payment_date: period.payment_date instanceof Date ?
+                period.payment_date.toISOString().split('T')[0] :
+                String(period.payment_date),
+            attendance_start_date: period.attendance_start_date instanceof Date ?
+                period.attendance_start_date.toISOString().split('T')[0] :
+                String(period.attendance_start_date),
+            attendance_end_date: period.attendance_end_date instanceof Date ?
+                period.attendance_end_date.toISOString().split('T')[0] :
+                String(period.attendance_end_date),
+            status: period.status,
+            total_gross_salary: Number(period.total_gross_salary) || 0,
+            total_deductions: Number(period.total_deductions) || 0,
+            total_net_salary: Number(period.total_net_salary) || 0,
+            employee_count: Number(period.employee_count) || 0,
+            tax_configuration_id: period.tax_configuration_id ? Number(period.tax_configuration_id) : undefined,
+            calculated_by: period.calculated_by ? Number(period.calculated_by) : undefined,
+            calculated_at: period.calculated_at ?
+                (period.calculated_at instanceof Date ?
+                    period.calculated_at.toISOString().slice(0, 19) :
+                    String(period.calculated_at)) :
+                undefined,
+            approved_by: period.approved_by ? Number(period.approved_by) : undefined,
+            approved_at: period.approved_at ?
+                (period.approved_at instanceof Date ?
+                    period.approved_at.toISOString().slice(0, 19) :
+                    String(period.approved_at)) :
+                undefined,
+            locked_by: period.locked_by ? Number(period.locked_by) : undefined,
+            locked_at: period.locked_at ?
+                (period.locked_at instanceof Date ?
+                    period.locked_at.toISOString().slice(0, 19) :
+                    String(period.locked_at)) :
+                undefined
+        };
+    }
     async create(period) {
         // Validate data using Zod schema
         payrollPeriodSchema.parse(period);
@@ -107,30 +155,35 @@ class PayrollPeriodRepository {
     }
     async getById(id) {
         const connection = await this.connection;
-        return connection('payroll_periods').where({ id }).first();
+        const period = await connection('payroll_periods').where({ id }).first();
+        return period ? this.parsePeriodDetails(period) : undefined;
     }
     async getByYearAndMonth(year, month) {
         const connection = await this.connection;
-        return connection('payroll_periods')
+        const period = await connection('payroll_periods')
             .where({ period_year: year, period_month: month })
             .first();
+        return period ? this.parsePeriodDetails(period) : undefined;
     }
     async getByYear(year) {
         const connection = await this.connection;
-        return connection('payroll_periods')
+        const periods = await connection('payroll_periods')
             .where({ period_year: year })
             .orderBy('period_month', 'asc');
+        return periods.map(p => this.parsePeriodDetails(p));
     }
     async getByStatus(status) {
         const connection = await this.connection;
-        return connection('payroll_periods')
+        const periods = await connection('payroll_periods')
             .where({ status })
             .orderBy([{ column: 'period_year', order: 'desc' }, { column: 'period_month', order: 'desc' }]);
+        return periods.map(p => this.parsePeriodDetails(p));
     }
     async getAll() {
         const connection = await this.connection;
-        return connection('payroll_periods')
+        const periods = await connection('payroll_periods')
             .orderBy([{ column: 'period_year', order: 'desc' }, { column: 'period_month', order: 'desc' }]);
+        return periods.map(p => this.parsePeriodDetails(p));
     }
     async update(id, period) {
         if (!id || typeof id !== 'number' || id <= 0) {

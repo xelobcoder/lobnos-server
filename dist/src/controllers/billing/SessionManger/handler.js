@@ -75,9 +75,17 @@ exports.hasSalesSessionAvailableHandler = hasSalesSessionAvailableHandler;
 const getSessionFinancialSummaryHandler = async function (request, response) {
     try {
         const { sessionid } = request.params;
-        const { tenantId } = request.query;
+        const { tenantId, employeeid, branchid } = request.query;
+        if (!sessionid || !employeeid || !branchid) {
+            return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + " sessionid, employeeid or branchid not provided", 404, response);
+        }
         const parsedTenantId = parseInt(tenantId.toString());
-        const result = await salesSessionService_1.default.getSessionFinancialSummary(parsedTenantId, parseInt(sessionid));
+        const parsedEmployeeId = parseInt(employeeid.toString());
+        const parsedBranchId = parseInt(branchid.toString());
+        if (isNaN(parseInt(sessionid)) || isNaN(parsedEmployeeId) || isNaN(parsedBranchId)) {
+            return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + " invalid sessionid, employeeid or branchid", 404, response);
+        }
+        const result = await salesSessionService_1.default.getSessionFinancialSummary(parsedTenantId, parsedEmployeeId, parsedBranchId, parseInt(sessionid));
         return response.send({ sessionid, result });
     }
     catch (err) {

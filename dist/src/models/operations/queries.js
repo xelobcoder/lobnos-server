@@ -82,7 +82,7 @@ exports.q_qualifiedToProcessByDepartment = `SELECT CONCAT(np.firstname,' ',np.mi
         WHERE ss.approvalstatus = 1 AND DATE(b.billedon) = CURRENT_DATE`;
 exports.q_log_result_entry = `UPDATE test_ascension SET ready_date = NOW(),ready = 'true'  WHERE billingid = ? AND testid = ?`;
 exports.q_get_all_result_entry_base = `
-  SELECT DISTINCT
+  SELECT 
     CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
     CONCAT(np.age, " ", np.agetype) AS age,
             np.patientid,
@@ -104,18 +104,16 @@ exports.q_get_all_result_entry_base = `
             dta.printCount,
             tp.id,
             b.clientstatus,
-  CASE WHEN ds.organizationId <> 0 THEN
-    (SELECT name FROM organization WHERE id = ds.organizationId)
-  END AS organization,
-  CASE WHEN ds.clinicianId <> 0 THEN
-    (SELECT name FROM clinicianbasicinfo WHERE id = ds.clinicianId)
-  END AS clinicianName
+            org.name AS organization,
+            clin.name AS clinicianName
   FROM dboServices AS ds
   INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
   LEFT JOIN departments AS d ON d.id = tp.category
+  LEFT JOIN organization AS org ON org.id = ds.organizationId
+  LEFT JOIN clinicianbasicinfo AS clin ON clin.id = ds.clinicianId
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
   WHERE ss.approvalstatus = 1
@@ -139,16 +137,14 @@ exports.q_get_all_result_entry_ultrasound_base = `
             ds.clinicianId,
             tp.id,
             b.clientstatus,
-  CASE WHEN ds.organizationId <> 0 THEN
-    (SELECT name FROM organization WHERE id = ds.organizationId)
-  END AS organization,
-  CASE WHEN ds.clinicianId <> 0 THEN
-    (SELECT name FROM clinicianbasicinfo WHERE id = ds.clinicianId)
-  END AS clinicianName
+            org.name AS organization,
+            clin.name AS clinicianName
   FROM dboServices AS ds
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN test_panels AS tp ON tp.id = ta.testid
   INNER JOIN departments AS d ON d.id = tp.category
+  LEFT JOIN organization AS org ON org.id = ds.organizationId
+  LEFT JOIN clinicianbasicinfo AS clin ON clin.id = ds.clinicianId
   INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
@@ -226,22 +222,16 @@ exports.q_get_all_result_entry_partitioning = `SELECT DISTINCT
     ss.approvalstatus,
     tp.id,
     b.clientstatus,
-    CASE
-      WHEN ds.organizationId <> 0 THEN
-        (SELECT name FROM organization WHERE id = ds.organizationId)
-      ELSE NULL
-    END AS organization,
-    CASE
-      WHEN ds.clinicianId <> 0 THEN
-        (SELECT name FROM clinicianbasicinfo WHERE id = ds.clinicianId)
-      ELSE NULL
-    END AS clinicianName
+    org.name AS organization,
+    clin.name AS clinicianName
 FROM billing PARTITION({billing_table}) AS b
 INNER JOIN test_ascension PARTITION ({asc_table}) AS ta ON ta.billingid = b.billingid
 INNER JOIN dboServices AS ds ON ds.billingid = b.billingid
 INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
 INNER JOIN test_panels AS tp ON tp.id = ss.testid
 INNER JOIN departments AS d ON d.id = tp.category
+LEFT JOIN organization AS org ON org.id = ds.organizationId
+LEFT JOIN clinicianbasicinfo AS clin ON clin.id = ds.clinicianId
 INNER JOIN new_patients AS np ON np.patientid = b.patientid
  INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
 WHERE ss.approvalstatus = 1
@@ -265,21 +255,15 @@ exports.q_get_all_result_entry_partitioning_ultrasound = `SELECT DISTINCT
             ds.clinicianId,
             tp.id,
             b.clientstatus,
-            CASE
-              WHEN ds.organizationId <> 0 THEN
-                (SELECT name FROM organization WHERE id = ds.organizationId)
-              ELSE NULL
-            END AS organization,
-            CASE
-              WHEN ds.clinicianId <> 0 THEN
-                (SELECT name FROM clinicianbasicinfo WHERE id = ds.clinicianId)
-              ELSE NULL
-            END AS clinicianName
+            org.name AS organization,
+            clin.name AS clinicianName
         FROM billing PARTITION({billing_table}) AS b
         INNER JOIN test_ascension PARTITION ({asc_table}) AS ta ON ta.billingid = b.billingid
         INNER JOIN dboServices AS ds ON ds.billingid = b.billingid
         INNER JOIN test_panels AS tp ON tp.id = ta.testid
         INNER JOIN departments AS d ON d.id = tp.category
+        LEFT JOIN organization AS org ON org.id = ds.organizationId
+        LEFT JOIN clinicianbasicinfo AS clin ON clin.id = ds.clinicianId
         INNER JOIN new_patients AS np ON np.patientid = b.patientid
          INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
         WHERE d.department = 'ULTRASOUND'

@@ -57,7 +57,44 @@ class PayrollTransactionRepository {
         return this.trx ? Promise.resolve(this.trx) : (0, KnexConnections_1.default)(this.tenantId);
     }
     parseTransactionDetails(transaction) {
-        return Object.assign(Object.assign({}, transaction), { allowances_detail: transaction.allowances_detail ? JSON.parse(transaction.allowances_detail) : [], bonuses_detail: transaction.bonuses_detail ? JSON.parse(transaction.bonuses_detail) : [], other_deductions_detail: transaction.other_deductions_detail ? JSON.parse(transaction.other_deductions_detail) : [] });
+        return {
+            id: transaction.id ? Number(transaction.id) : undefined,
+            payroll_period_id: Number(transaction.payroll_period_id),
+            employeeid: Number(transaction.employeeid),
+            basic_salary: Number(transaction.basic_salary) || 0,
+            hourly_earnings: Number(transaction.hourly_earnings) || 0,
+            overtime_earnings: Number(transaction.overtime_earnings) || 0,
+            commission_earnings: Number(transaction.commission_earnings) || 0,
+            total_allowances: Number(transaction.total_allowances) || 0,
+            total_bonuses: Number(transaction.total_bonuses) || 0,
+            gross_salary: Number(transaction.gross_salary) || 0,
+            income_tax: Number(transaction.income_tax) || 0,
+            employee_ssnit: Number(transaction.employee_ssnit) || 0,
+            employer_ssnit: Number(transaction.employer_ssnit) || 0,
+            employee_tier3: Number(transaction.employee_tier3) || 0,
+            employer_tier3: Number(transaction.employer_tier3) || 0,
+            nhis: Number(transaction.nhis) || 0,
+            total_other_deductions: Number(transaction.total_other_deductions) || 0,
+            total_deductions: Number(transaction.total_deductions) || 0,
+            net_salary: Number(transaction.net_salary) || 0,
+            employer_cost: Number(transaction.employer_cost) || 0,
+            days_worked: Number(transaction.days_worked) || 0,
+            hours_worked: Number(transaction.hours_worked) || 0,
+            overtime_hours: Number(transaction.overtime_hours) || 0,
+            days_absent: Number(transaction.days_absent) || 0,
+            days_leave: Number(transaction.days_leave) || 0,
+            status: transaction.status,
+            payment_date: transaction.payment_date ?
+                (transaction.payment_date instanceof Date ?
+                    transaction.payment_date.toISOString().split('T')[0] :
+                    String(transaction.payment_date)) :
+                undefined,
+            payment_method: transaction.payment_method || undefined,
+            payment_reference: transaction.payment_reference || undefined,
+            allowances_detail: transaction.allowances_detail ? JSON.parse(transaction.allowances_detail) : [],
+            bonuses_detail: transaction.bonuses_detail ? JSON.parse(transaction.bonuses_detail) : [],
+            other_deductions_detail: transaction.other_deductions_detail ? JSON.parse(transaction.other_deductions_detail) : []
+        };
     }
     async create(transaction) {
         // Prepare transaction data with stringified details
