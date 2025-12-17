@@ -102,12 +102,36 @@ class InventoryTemplateModel {
         const itemsCount = await connection('inv_inventory_template_items')
             .where('template_id', result.id)
             .count('* as count');
-        if (includeItems) {
+        if (includeItems && ascensionid) {
             const items = await this.getTemplateItems(result.id);
+            // we somtimes add items that are in the templates, we need to know if they are consumed based on ascensionid
+            const consumptionRecord = await connection('inv_inventory_transactions')
+                .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
+                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit as item_unit').where('ascension_id', ascensionid);
+            const manuallyCreatedRecords = [];
+            for (const record of consumptionRecord) {
+                if (!items.find(i => i.itemId === record.item_id)) {
+                    manuallyCreatedRecords.push(record);
+                }
+            }
+            const refinedManuallyCreatedRecords = manuallyCreatedRecords.map(record => ({
+                id: record.id,
+                template_id: result.id,
+                itemId: record.item_id,
+                quantity: parseFloat(record.quantity),
+                created_at: record.created_at,
+                item_name: record.item_name,
+                item_sku: record.item_sku,
+                unit: record.item_unit,
+                is_consumed: true,
+                quantity_remaining: 0,
+                status: 'completed'
+            }));
             // check if items are consumed based on ascensionid
             for (const item of items) {
                 await this.checkAscensionItemCompletionStatus(item, ascensionid, true);
             }
+            console.log('manuallyCreatedRecords', refinedManuallyCreatedRecords);
             return {
                 id: result.id,
                 name: result.name,
@@ -128,9 +152,9 @@ class InventoryTemplateModel {
                     item_sku: item.item_sku,
                     unit: item.unit,
                     is_consumed: item.is_consumed || false,
-                    quantity_remaining: item.quantity_remaining || parseFloat(item.quantity.toString()),
-                    status: item.status
-                }))
+                    quantity_remaining: item.quantity_remaining,
+                    status: item.status,
+                })).concat(refinedManuallyCreatedRecords)
             };
         }
         return {
@@ -154,8 +178,9 @@ class InventoryTemplateModel {
         item.is_consumed = !!consumptionRecord;
         if (checkQtyRemaining && consumptionRecord) {
             const quantityConsumed = parseFloat(consumptionRecord.quantity);
-            item.quantity_remaining = parseFloat(item.quantity.toString()) - quantityConsumed;
+            item.quantity_remaining = quantityConsumed > parseFloat(item.quantity.toString()) ? 0 : parseFloat((parseFloat(item.quantity.toString()) - quantityConsumed).toString());
             item.status = item.quantity_remaining === 0 ? 'completed' : (item.quantity_remaining < parseFloat(item.quantity.toString()) ? 'partial' : 'pending');
+            item.quantity = quantityConsumed;
         }
         return item;
     }

@@ -29,6 +29,7 @@ const payrollController = __importStar(require("./payrollController"));
 const salaryGradeController = __importStar(require("./salaryGradeController"));
 const attendanceController = __importStar(require("./attendanceController"));
 const taxConfigurationController = __importStar(require("./taxConfigurationController"));
+const payrollAnalyticsController = __importStar(require("./PayrollAnalyticsController"));
 const payrollRouter = (0, express_1.Router)();
 payrollRouter.post('/compensation', compensationController.createCompensationHandler);
 payrollRouter.get('/compensation/employee/:employeeid', compensationController.getCompensationByEmployeeHandler);
@@ -66,6 +67,15 @@ payrollRouter.put('/tax-configurations/:id', taxConfigurationController.updateTa
 payrollRouter.patch('/tax-configurations/:id/status', taxConfigurationController.toggleTaxConfigurationStatusHandler);
 payrollRouter.delete('/tax-configurations/:id', taxConfigurationController.deleteTaxConfigurationHandler);
 payrollRouter.get('/tax-configurations/:id/audit', taxConfigurationController.getTaxConfigurationAuditHistoryHandler);
+// Analytics routes - BEFORE parameterized routes
+payrollRouter.get('/analytics', payrollAnalyticsController.getPayrollAnalyticsHandler);
+payrollRouter.get('/analytics/periods', payrollAnalyticsController.getPayrollPeriodAnalyticsHandler);
+payrollRouter.get('/analytics/compensation', payrollAnalyticsController.getCompensationAnalyticsHandler);
+payrollRouter.get('/analytics/attendance', payrollAnalyticsController.getAttendanceAnalyticsHandler);
+payrollRouter.get('/analytics/leave', payrollAnalyticsController.getLeaveAnalyticsHandler);
+payrollRouter.get('/analytics/allowance-bonus', payrollAnalyticsController.getAllowanceBonusAnalyticsHandler);
+payrollRouter.get('/analytics/deductions', payrollAnalyticsController.getDeductionAnalyticsHandler);
+payrollRouter.get('/analytics/trend', payrollAnalyticsController.getPayrollTrendAnalyticsHandler);
 payrollRouter.post('/periods', payrollController.createPayrollPeriodHandler);
 payrollRouter.get('/periods', payrollController.getAllPayrollPeriodsHandler);
 payrollRouter.get('/periods/:id/status', payrollController.getPayrollStatusHandler);
@@ -138,7 +148,16 @@ payrollRouter.get('/routes', (req, res) => {
         { method: 'GET', path: '/api/v1/payroll/statutory-deductions/tin/:tinNumber', description: 'Get by TIN number' },
         // Employee endpoints
         { method: 'GET', path: '/api/v1/payroll/employee/:employeeid/history', description: 'Get payroll history' },
-        { method: 'GET', path: '/api/v1/payroll/employee/:employeeid/ytd', description: 'Get YTD totals' }
+        { method: 'GET', path: '/api/v1/payroll/employee/:employeeid/ytd', description: 'Get YTD totals' },
+        // Analytics endpoints
+        { method: 'GET', path: '/api/v1/payroll/analytics?startDate=X&endDate=Y&topEarnersLimit=10', description: 'Get comprehensive payroll analytics' },
+        { method: 'GET', path: '/api/v1/payroll/analytics/periods?startDate=X&endDate=Y', description: 'Get payroll period analytics' },
+        { method: 'GET', path: '/api/v1/payroll/analytics/compensation?startDate=X&endDate=Y', description: 'Get compensation distribution analytics' },
+        { method: 'GET', path: '/api/v1/payroll/analytics/attendance?startDate=X&endDate=Y', description: 'Get attendance analytics' },
+        { method: 'GET', path: '/api/v1/payroll/analytics/leave?startDate=X&endDate=Y', description: 'Get leave statistics' },
+        { method: 'GET', path: '/api/v1/payroll/analytics/allowance-bonus?startDate=X&endDate=Y', description: 'Get allowance and bonus analytics' },
+        { method: 'GET', path: '/api/v1/payroll/analytics/deductions?startDate=X&endDate=Y', description: 'Get deduction analytics (statutory and other)' },
+        { method: 'GET', path: '/api/v1/payroll/analytics/trend?startDate=X&endDate=Y', description: 'Get payroll trend over time' }
     ];
     res.json({
         status: 'success',

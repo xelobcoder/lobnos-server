@@ -11,6 +11,7 @@ import {
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
 import Operations from '../operations/operations';
+import { record } from 'zod';
 
 export class InventoryTemplateModel {
      private connection: Promise<Knex<any, any[]>>;
@@ -128,6 +129,7 @@ export class InventoryTemplateModel {
                .where('inv_inventory_templates.testId', testId)
                .first();
 
+
           if (!result) return null;
 
           // Get items count
@@ -135,12 +137,53 @@ export class InventoryTemplateModel {
                .where('template_id', result.id)
                .count('* as count')
 
-          if (includeItems) {
+          if (includeItems && ascensionid) {
                const items = await this.getTemplateItems(result.id);
+
+
+               // we somtimes add items that are in the templates, we need to know if they are consumed based on ascensionid
+
+               const consumptionRecord = await connection('inv_inventory_transactions')
+                    .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
+                    .select(
+                         'inv_inventory_transactions.*',
+                         'inv_inventory_items.name as item_name',
+                         'inv_inventory_items.sku as item_sku',
+                         'inv_inventory_items.unit as item_unit'
+
+                    ).where('ascension_id', ascensionid)
+
+
+               const manuallyCreatedRecords = []
+
+               for (const record of consumptionRecord) {
+                    if (!items.find(i => i.itemId === record.item_id)) {
+                         manuallyCreatedRecords.push(record);
+                    }
+               }
+
+
+               const refinedManuallyCreatedRecords = manuallyCreatedRecords.map(record => ({
+                    id: record.id,
+                    template_id: result.id,
+                    itemId: record.item_id,
+                    quantity: parseFloat(record.quantity),
+                    created_at: record.created_at,
+                    item_name: record.item_name,
+                    item_sku: record.item_sku,
+                    unit: record.item_unit,
+                    is_consumed: true,
+                    quantity_remaining: 0,
+                    status: 'completed'
+               }));
+
                // check if items are consumed based on ascensionid
                for (const item of items) {
                     await this.checkAscensionItemCompletionStatus(item, ascensionid, true);
                }
+
+
+               console.log('manuallyCreatedRecords', refinedManuallyCreatedRecords);
 
                return {
                     id: result.id,
@@ -162,9 +205,9 @@ export class InventoryTemplateModel {
                          item_sku: item.item_sku,
                          unit: item.unit,
                          is_consumed: item.is_consumed || false,
-                         quantity_remaining: item.quantity_remaining || parseFloat(item.quantity.toString()),
-                         status: item.status
-                    }))
+                         quantity_remaining: item.quantity_remaining ,
+                         status: item.status,
+                    })).concat(refinedManuallyCreatedRecords)
                };
           }
 
@@ -188,11 +231,13 @@ export class InventoryTemplateModel {
                .where('item_id', item.itemId)
                .andWhere('ascension_id', ascensionid)
                .first();
+
           item.is_consumed = !!consumptionRecord;
           if (checkQtyRemaining && consumptionRecord) {
                const quantityConsumed = parseFloat(consumptionRecord.quantity);
-               item.quantity_remaining = parseFloat(item.quantity.toString()) - quantityConsumed
+               item.quantity_remaining = quantityConsumed > parseFloat(item.quantity.toString()) ? 0 : parseFloat((parseFloat(item.quantity.toString()) - quantityConsumed).toString());
                item.status = item.quantity_remaining === 0 ? 'completed' : (item.quantity_remaining < parseFloat(item.quantity.toString()) ? 'partial' : 'pending');
+               item.quantity = quantityConsumed;
           }
 
           return item;
@@ -573,7 +618,7 @@ export class InventoryTemplateModel {
      async ascensionConsumptionStatus(ascension_id: number, testid: number): Promise<{ status: InventoryTemplateItem['status'] }> {
           const data = await this.findByTestId(testid.toString(), true, ascension_id);
           const items = data?.items;
-          if(!items) return { status: "unknown-template" };     
+          if (!items) return { status: "unknown-template" };
           if (items.length === 0) return { status: "pending" };
           const allCompleted = items.every(item => item.status === 'completed');
           const anyPartial = items.some(item => item.status === 'partial');

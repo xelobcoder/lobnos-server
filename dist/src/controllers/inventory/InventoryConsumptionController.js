@@ -276,44 +276,103 @@ class InventoryConsumptionController {
             }
             for (const consumptionEntry of unConsumedItems) {
                 const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = consumptionEntry;
-                let expiry_date;
+                // If batch_number is provided, use it directly
                 if (batch_number) {
+                    let expiry_date;
                     const stockDetails = await model.getAvailableStockDetails(item_id);
                     const batchInfo = stockDetails.available_batches.find(b => b.batch_number === batch_number);
                     if (batchInfo) {
                         expiry_date = batchInfo.expiry_date;
                     }
+                    const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
+                        item_id,
+                        quantity_consumed: quantity_used,
+                        consumed_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString(),
+                        consumption_date: new Date(),
+                        batch_number,
+                        brand_name,
+                        consumption_reason: `Test consumption - ${test_type}`,
+                        department: 'laboratory',
+                        patient_id,
+                        prescription_id: test_id,
+                        notes: notes || `Automatic consumption for test ${test_id}`,
+                        approved_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString()
+                    });
+                    const transactionData = {
+                        item_id,
+                        transaction_type: 'consumption',
+                        quantity: quantity_used,
+                        reason: `Test consumption - ${test_type}`,
+                        reference_id: consumptionHistoryId,
+                        patient_id,
+                        ascension_id,
+                        testid,
+                        batch_number,
+                        brand_name,
+                        expiry_date,
+                        performed_by,
+                        notes: notes || `Automatic consumption for test ${test_id}`
+                    };
+                    await model.create(transactionData);
                 }
-                const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
-                    item_id,
-                    quantity_consumed: quantity_used,
-                    consumed_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString(),
-                    consumption_date: new Date(),
-                    batch_number,
-                    brand_name,
-                    consumption_reason: `Test consumption - ${test_type}`,
-                    department: 'laboratory',
-                    patient_id,
-                    prescription_id: test_id,
-                    notes: notes || `Automatic consumption for test ${test_id}`,
-                    approved_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString()
-                });
-                const transactionData = {
-                    item_id,
-                    transaction_type: 'consumption',
-                    quantity: quantity_used,
-                    reason: `Test consumption - ${test_type}`,
-                    reference_id: consumptionHistoryId,
-                    patient_id,
-                    ascension_id,
-                    testid,
-                    batch_number,
-                    brand_name,
-                    expiry_date,
-                    performed_by,
-                    notes: notes || `Automatic consumption for test ${test_id}`
-                };
-                await model.create(transactionData);
+                else {
+                    // FIFO: Automatically select batches when batch_number not provided
+                    const stockDetails = await model.getAvailableStockDetails(item_id);
+                    if (stockDetails.available_batches.length === 0) {
+                        throw new Error(`No available batches found for FIFO consumption of item ${item_id} (Test ID: ${test_id})`);
+                    }
+                    const totalAvailableQuantity = stockDetails.available_batches.reduce((sum, batch) => sum + batch.available_quantity, 0);
+                    if (totalAvailableQuantity < quantity_used) {
+                        throw new Error(`Insufficient total stock for FIFO consumption. Test ID: ${test_id}, Item: ${item_id}, Requested: ${quantity_used}, Available: ${totalAvailableQuantity}`);
+                    }
+                    let remainingQuantity = quantity_used;
+                    const batchesToConsume = [];
+                    for (const batch of stockDetails.available_batches) {
+                        if (remainingQuantity <= 0)
+                            break;
+                        const consumeFromBatch = Math.min(remainingQuantity, batch.available_quantity);
+                        batchesToConsume.push({
+                            batch_number: batch.batch_number,
+                            brand_name: batch.brand_name,
+                            expiry_date: batch.expiry_date,
+                            quantity: consumeFromBatch
+                        });
+                        remainingQuantity -= consumeFromBatch;
+                    }
+                    // Process each batch consumption
+                    for (const batchConsumption of batchesToConsume) {
+                        const consumptionHistoryId = await this.createConsumptionHistoryRecord(tenantId, {
+                            item_id,
+                            quantity_consumed: batchConsumption.quantity,
+                            consumed_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString(),
+                            consumption_date: new Date(),
+                            batch_number: batchConsumption.batch_number,
+                            brand_name: batchConsumption.brand_name,
+                            consumption_reason: `Test consumption - ${test_type}`,
+                            department: 'laboratory',
+                            patient_id,
+                            prescription_id: test_id,
+                            notes: notes || `FIFO automatic consumption for test ${test_id} from batch ${batchConsumption.batch_number} (${batchConsumption.quantity} units)`,
+                            approved_by: performed_by === null || performed_by === void 0 ? void 0 : performed_by.toString()
+                        });
+                        const transactionData = {
+                            item_id,
+                            transaction_type: 'consumption',
+                            quantity: batchConsumption.quantity,
+                            reason: `Test consumption - ${test_type}`,
+                            reference_id: consumptionHistoryId,
+                            patient_id,
+                            ascension_id,
+                            testid,
+                            batch_number: batchConsumption.batch_number,
+                            brand_name: batchConsumption.brand_name,
+                            expiry_date: batchConsumption.expiry_date,
+                            performed_by,
+                            notes: notes || `FIFO automatic consumption for test ${test_id} from batch ${batchConsumption.batch_number} (${batchConsumption.quantity} units)`
+                        };
+                        await model.create(transactionData);
+                    }
+                }
             }
             let message = `Successfully recorded consumption for ${unConsumedItems.length} test item(s)`;
             if (duplicateValidationErrors.length > 0) {
