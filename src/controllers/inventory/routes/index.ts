@@ -11,6 +11,8 @@ import inventoryStockRoutes from './inventoryStockRoutes';
 import supplierPaymentRoutes from './supplierPaymentRoutes';
 import journalRoutes from './journalRoutes';
 import analyticsRoutes from './analyticsRoutes';
+import unitsRoutes from './unitsRoutes';
+import inventoryTransactionRoutes from './inventoryTransactionRoutes';
 
 
 const router = Router();
@@ -28,6 +30,8 @@ router.use('/transactions', inventoryStockRoutes);
 router.use('/supplier-payments', supplierPaymentRoutes);
 router.use('/', journalRoutes);
 router.use('/', analyticsRoutes);
+router.use('/', unitsRoutes);
+router.use('/transactions', inventoryTransactionRoutes);
 
 
 export default router;

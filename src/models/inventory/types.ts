@@ -18,6 +18,14 @@ export type InventoryUnit =
      | 'strips'
      | 'kits';
 
+export interface InventoryUnitInfo {
+     id: string;
+     name: string;
+     description?: string;
+     category?: 'count' | 'weight' | 'volume' | 'custom'; // Made optional for current schema compatibility
+     is_standard: boolean;
+}
+
 export type InventoryStatus = 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired';
 
 // Base entity interface
@@ -163,10 +171,10 @@ export interface InventoryItem extends BaseEntity {
      sku: string;
      description?: string;
      category_id?: string;
-     unit: InventoryUnit;
-     current_stock: number;
-     min_stock: number;
-     max_stock: number;
+     consumption_unit: string; // Unit you use/consume in (pieces, tubes, ml, etc.)
+     current_stock: number; // Always in consumption units
+     min_stock: number; // Always in consumption units
+     max_stock: number; // Always in consumption units
      location_id?: string;
      status: InventoryStatus;
      is_active: boolean;
@@ -175,6 +183,7 @@ export interface InventoryItem extends BaseEntity {
      // Joined data
      category_name?: string;
      location_name?: string;
+     consumption_unit_name?: string;
 }
 
 export interface CreateInventoryItemRequest {
@@ -182,10 +191,10 @@ export interface CreateInventoryItemRequest {
      sku: string;
      description?: string;
      category_id?: string;
-     unit?: InventoryUnit;
-     current_stock?: number;
-     min_stock?: number;
-     max_stock?: number;
+     consumption_unit: string; // Unit you use in
+     current_stock?: number; // In consumption units
+     min_stock?: number; // In consumption units
+     max_stock?: number; // In consumption units
      location_id?: string;
 }
 
@@ -194,7 +203,7 @@ export interface UpdateInventoryItemRequest {
      sku?: string;
      description?: string;
      category_id?: string;
-     unit?: InventoryUnit;
+     consumption_unit?: string;
      current_stock?: number;
      min_stock?: number;
      max_stock?: number;
@@ -465,6 +474,8 @@ export interface PurchaseOrderReceipt extends BaseEntity {
      quality_check_passed: boolean;
      notes?: string;
      image_url?: string;
+     purchase_unit?: string;
+     units_per_purchase_unit?: number;
 }
 
 export interface CreatePurchaseOrderReceiptRequest {
@@ -479,6 +490,8 @@ export interface CreatePurchaseOrderReceiptRequest {
      condition_status?: ConditionStatus;
      quality_check_passed?: boolean;
      notes?: string;
+     purchase_unit?: string;
+     units_per_purchase_unit?: number;
 }
 
 export interface PurchaseOrderReceiptListResponse {
@@ -501,6 +514,7 @@ export interface InventoryTransaction {
      item_id: string;
      transaction_type: TransactionType;
      quantity: number;
+     unit_type?: 'inventory' | 'base';
      previous_stock: number;
      new_stock: number;
      batch_number?: string;
@@ -522,20 +536,26 @@ export interface InventoryTransaction {
      // Joined data
      item_name?: string;
      item_sku?: string;
+     employee_username?: string;
+     employee_email?: string;
+     employee_role?: string;
 }
 
 export interface CreateInventoryTransactionRequest {
      item_id: string;
      transaction_type: TransactionType;
-     quantity: number;
+     quantity: number; // Quantity in the specified unit_type
+     unit_type: 'consumption' | 'purchase'; // Specify which unit system
+     purchase_unit?: string; // Required if unit_type is 'purchase'
+     units_per_purchase_unit?: number; // Required if unit_type is 'purchase'
      batch_number?: string;
      expiry_date?: string;
      unit_cost?: number;
      brand_name?: string;
      reason?: string;
      reference_id?: string;
-     patient_id?: number;
-     ascension_id?: number;
+     patientid?: number;
+     ascensionid?: number;
      testid?: number;
      performed_by?: number;
      notes?: string;
@@ -614,8 +634,8 @@ export interface TestConsumptionRequest {
      item_id: string;
      quantity_used: number;
      test_type: string;
-     patient_id: number;
-     ascension_id: number;
+     patientid: number;
+     ascensionid: number;
      testid?: number;
      batch_number?: string;
      brand_name?: string;
@@ -664,8 +684,8 @@ export interface ConsumptionReport {
      quantity: number;
      reason?: string;
      batch_number?: string;
-     patient_id?: number;
-     ascension_id?: number;
+     patientid?: number;
+     ascensionid?: number;
      testid?: number;
      performed_by?: number;
      transaction_date: string;
@@ -791,4 +811,56 @@ export interface InventoryTemplateFilters {
      testId?: string;
      search?: string;
      createby?: number;
+}
+
+// Package and Transaction interfaces
+export type PackageStatus = 'sealed' | 'opened' | 'empty' | 'expired' | 'damaged';
+export type PackageTransactionType = 'open' | 'consume' | 'transfer' | 'waste' | 'adjust';
+
+export interface InventoryPackage extends BaseEntity {
+     item_id: string;
+     package_identifier: string;
+     total_quantity: number;
+     remaining_quantity: number;
+     unit: string;
+     batch_number?: string;
+     expiry_date?: string;
+     opened_date?: string;
+     is_opened: boolean;
+     storage_location_id?: string;
+     supplier_id?: string;
+     purchase_order_id?: string;
+     cost_per_unit?: number;
+     status: PackageStatus;
+}
+
+export interface PackageTransaction extends BaseEntity {
+     package_id: string;
+     transaction_type: PackageTransactionType;
+     quantity: number;
+     previous_remaining: number;
+     new_remaining: number;
+     reason?: string;
+     performed_by?: string;
+     transaction_date: string;
+}
+
+export interface CreatePackageRequest {
+     item_id: string;
+     package_identifier: string;
+     total_quantity: number;
+     unit: string;
+     batch_number?: string;
+     expiry_date?: string;
+     storage_location_id?: string;
+     supplier_id?: string;
+     purchase_order_id?: string;
+     cost_per_unit?: number;
+}
+
+export interface PackageConsumptionRequest {
+     package_id: string;
+     quantity: number;
+     reason?: string;
+     performed_by: string;
 }

@@ -26,10 +26,10 @@ class InventoryItemController {
                 value: data.name
             });
         }
-        if (!data.category_id || typeof data.category_id !== 'string') {
+        if (data.category_id && typeof data.category_id !== 'string') {
             errors.push({
                 field: 'category_id',
-                message: 'Category ID is required',
+                message: 'Category ID must be a string if provided',
                 value: data.category_id
             });
         }
@@ -338,10 +338,10 @@ class InventoryItemController {
         try {
             const tenantId = this.getTenantId(req);
             const inventoryItemModel = new inventory_1.InventoryItemModel(tenantId);
-            const lowStockItems = await inventoryItemModel.getLowStockAlerts();
+            const lowStockItems = await inventoryItemModel.findMany({ low_stock_only: true });
             const response = {
                 success: true,
-                data: lowStockItems
+                data: lowStockItems.items
             };
             res.json(response);
         }

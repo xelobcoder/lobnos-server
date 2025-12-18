@@ -65,7 +65,7 @@ class PurchaseOrderItemModel {
         const connection = await this.connection;
         const result = await connection('inv_purchase_order_items')
             .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-            .select('inv_purchase_order_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit')
+            .select('inv_purchase_order_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit')
             .where('inv_purchase_order_items.id', id)
             .first();
         if (!result)
@@ -93,7 +93,7 @@ class PurchaseOrderItemModel {
         const connection = await this.connection;
         const results = await connection('inv_purchase_order_items')
             .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-            .select('inv_purchase_order_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit')
+            .select('inv_purchase_order_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit')
             .where('inv_purchase_order_items.order_id', orderId)
             .orderBy('inv_purchase_order_items.created_at', 'ASC');
         return results.map((result) => ({

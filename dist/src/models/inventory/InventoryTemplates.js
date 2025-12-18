@@ -107,7 +107,7 @@ class InventoryTemplateModel {
             // we somtimes add items that are in the templates, we need to know if they are consumed based on ascensionid
             const consumptionRecord = await connection('inv_inventory_transactions')
                 .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit as item_unit').where('ascension_id', ascensionid);
+                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit as item_unit').where('ascension_id', ascensionid);
             const manuallyCreatedRecords = [];
             for (const record of consumptionRecord) {
                 if (!items.find(i => i.itemId === record.item_id)) {
@@ -334,7 +334,7 @@ class InventoryTemplateModel {
         const connection = await this.connection;
         const results = await connection('inv_inventory_template_items')
             .leftJoin('inv_inventory_items', 'inv_inventory_template_items.itemId', 'inv_inventory_items.id')
-            .select('inv_inventory_template_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit')
+            .select('inv_inventory_template_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit')
             .where('inv_inventory_template_items.template_id', templateId)
             .orderBy('inv_inventory_template_items.created_at', 'asc');
         return results.map((result) => ({
@@ -375,7 +375,7 @@ class InventoryTemplateModel {
             // Get the created item with joined data
             const result = await trx('inv_inventory_template_items')
                 .leftJoin('inv_inventory_items', 'inv_inventory_template_items.itemId', 'inv_inventory_items.id')
-                .select('inv_inventory_template_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit')
+                .select('inv_inventory_template_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit')
                 .where('inv_inventory_template_items.id', itemId)
                 .first();
             return {
@@ -417,7 +417,7 @@ class InventoryTemplateModel {
             // Get updated item
             const updatedResult = await trx('inv_inventory_template_items')
                 .leftJoin('inv_inventory_items', 'inv_inventory_template_items.itemId', 'inv_inventory_items.id')
-                .select('inv_inventory_template_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit')
+                .select('inv_inventory_template_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit')
                 .where('inv_inventory_template_items.id', itemId)
                 .first();
             if (!updatedResult)

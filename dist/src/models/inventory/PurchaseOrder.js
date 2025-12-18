@@ -299,7 +299,8 @@ class PurchaseOrderModel {
         const connection = await this.connection;
         const results = await connection('inv_purchase_order_items')
             .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-            .select('inv_purchase_order_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.unit')
+            .leftJoin('inv_units as cu', 'inv_inventory_items.consumption_unit', 'cu.id')
+            .select('inv_purchase_order_items.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'cu.name as consumption_unit_name')
             .where('inv_purchase_order_items.order_id', orderId)
             .orderBy('inv_purchase_order_items.created_at', 'ASC');
         return results.map((result) => ({
@@ -318,6 +319,7 @@ class PurchaseOrderModel {
             updated_at: result.updated_at,
             item_name: result.item_name,
             item_sku: result.item_sku,
+            consumption_unit: result.consumption_unit_name,
             unit: result.unit
         }));
     }
@@ -407,8 +409,9 @@ class PurchaseOrderModel {
                     quality_check_passed: receiptData.quality_check_passed !== undefined ? receiptData.quality_check_passed : true,
                     notes: receiptData.notes || null,
                     image_url: null,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
+                    purchase_unit: receiptData.purchase_unit || null,
+                    units_per_purchase_unit: receiptData.units_per_purchase_unit || null,
+                    created_at: new Date().toISOString()
                 };
                 await trx('inv_purchase_order_receipts').insert(receipt);
                 receipts.push(receipt);
@@ -421,7 +424,10 @@ class PurchaseOrderModel {
                             throw new Error(`Inventory item ${orderItem.inventory_item_id} not found`);
                         }
                         const previousStock = inventoryItem.current_stock;
-                        const newStock = previousStock + receiptData.quantity_received;
+                        const consumptionQuantity = receiptData.purchase_unit && receiptData.units_per_purchase_unit
+                            ? receiptData.quantity_received * receiptData.units_per_purchase_unit
+                            : receiptData.quantity_received;
+                        const newStock = previousStock + consumptionQuantity;
                         await trx('inv_inventory_items')
                             .where('id', orderItem.inventory_item_id)
                             .update({
@@ -434,7 +440,10 @@ class PurchaseOrderModel {
                             id: this.generateTransactionId(),
                             item_id: orderItem.inventory_item_id,
                             transaction_type: 'addition',
-                            quantity: receiptData.quantity_received,
+                            unit_type: receiptData.purchase_unit ? 'purchase' : 'consumption',
+                            quantity: consumptionQuantity,
+                            purchase_unit: receiptData.purchase_unit || null,
+                            units_per_purchase_unit: receiptData.units_per_purchase_unit || null,
                             previous_stock: previousStock,
                             new_stock: newStock,
                             batch_number: receiptData.batch_number || null,
@@ -446,7 +455,9 @@ class PurchaseOrderModel {
                             reference_id: receipt.id,
                             performed_by: request.received_by,
                             transaction_date: new Date().toISOString(),
-                            notes: `Received ${receiptData.quantity_received} units from purchase order ${order.order_number}`,
+                            notes: receiptData.purchase_unit
+                                ? `Received ${receiptData.quantity_received} ${receiptData.purchase_unit} (${consumptionQuantity} ${inventoryItem.consumption_unit}) from purchase order ${order.order_number}`
+                                : `Received ${receiptData.quantity_received} units from purchase order ${order.order_number}`,
                             created_at: new Date().toISOString()
                         };
                         await trx('inv_inventory_transactions').insert(transaction);
@@ -516,7 +527,7 @@ class PurchaseOrderModel {
             .leftJoin('inv_purchase_order_receipts', 'inv_purchase_order_items.id', 'inv_purchase_order_receipts.order_item_id')
             .leftJoin('inv_inventory_transactions', 'inv_purchase_order_receipts.id', 'inv_inventory_transactions.reference_id')
             .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
-            .select('inv_purchase_orders.id as order_id', 'inv_purchase_orders.order_number', 'inv_purchase_orders.order_date', 'inv_purchase_orders.expected_delivery_date', 'inv_purchase_orders.status', 'inv_purchase_orders.total_amount', 'inv_purchase_orders.communication_method', 'inv_purchase_orders.communication_notes', 'inv_purchase_orders.notes', 'inv_purchase_orders.created_at as order_created_at', 'inv_purchase_orders.updated_at as order_updated_at', 'inv_suppliers.id as supplier_id', 'inv_suppliers.name as supplier_name', 'inv_suppliers.contact as supplier_contact', 'inv_suppliers.email as supplier_email', 'inv_suppliers.phone as supplier_phone', 'inv_suppliers.address as supplier_address', 'inv_purchase_order_items.id as item_id', 'inv_purchase_order_items.quantity_ordered', 'inv_purchase_order_items.quantity_received', 'inv_purchase_order_items.unit_price as item_unit_price', 'inv_purchase_order_items.tax_rate as item_tax_rate', 'inv_purchase_order_items.discount_rate as item_discount_rate', 'inv_purchase_order_items.line_total', 'inv_purchase_order_items.status as item_status', 'inv_purchase_order_items.notes as item_notes', 'inv_purchase_order_items.created_at as item_created_at', 'inv_inventory_items.name as inventory_name', 'inv_inventory_items.sku as inventory_sku', 'inv_inventory_items.unit as inventory_unit', 'inv_purchase_order_receipts.id as receipt_id', 'inv_purchase_order_receipts.receipt_number', 'inv_purchase_order_receipts.received_date', 'inv_purchase_order_receipts.received_by', 'inv_purchase_order_receipts.quantity_received as receipt_quantity', 'inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.unit_price as receipt_unit_price', 'inv_purchase_order_receipts.tax_rate as receipt_tax_rate', 'inv_purchase_order_receipts.discount_rate as receipt_discount_rate', 'inv_purchase_order_receipts.condition_status', 'inv_purchase_order_receipts.quality_check_passed', 'inv_purchase_order_receipts.notes as receipt_notes', 'inv_purchase_order_receipts.created_at as receipt_created_at', 'inv_inventory_transactions.id as transaction_id', 'inv_inventory_transactions.transaction_type', 'inv_inventory_transactions.quantity as transaction_quantity', 'inv_inventory_transactions.previous_stock', 'inv_inventory_transactions.new_stock', 'inv_inventory_transactions.unit_cost', 'inv_inventory_transactions.total_cost', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.reason', 'inv_inventory_transactions.performed_by', 'inv_inventory_transactions.transaction_date', 'inv_inventory_transactions.notes as transaction_notes', 'inv_inventory_transactions.created_at as transaction_created_at', 'roles.employeeid as employee_id', 'roles.username as employee_fullname', 'roles.email as employee_email', 'roles.role as employee_jobtitle')
+            .select('inv_purchase_orders.id as order_id', 'inv_purchase_orders.order_number', 'inv_purchase_orders.order_date', 'inv_purchase_orders.expected_delivery_date', 'inv_purchase_orders.status', 'inv_purchase_orders.total_amount', 'inv_purchase_orders.communication_method', 'inv_purchase_orders.communication_notes', 'inv_purchase_orders.notes', 'inv_purchase_orders.created_at as order_created_at', 'inv_purchase_orders.updated_at as order_updated_at', 'inv_suppliers.id as supplier_id', 'inv_suppliers.name as supplier_name', 'inv_suppliers.contact as supplier_contact', 'inv_suppliers.email as supplier_email', 'inv_suppliers.phone as supplier_phone', 'inv_suppliers.address as supplier_address', 'inv_purchase_order_items.id as item_id', 'inv_purchase_order_items.quantity_ordered', 'inv_purchase_order_items.quantity_received', 'inv_purchase_order_items.unit_price as item_unit_price', 'inv_purchase_order_items.tax_rate as item_tax_rate', 'inv_purchase_order_items.discount_rate as item_discount_rate', 'inv_purchase_order_items.line_total', 'inv_purchase_order_items.status as item_status', 'inv_purchase_order_items.notes as item_notes', 'inv_purchase_order_items.created_at as item_created_at', 'inv_inventory_items.name as inventory_name', 'inv_inventory_items.sku as inventory_sku', 'inv_inventory_items.consumption_unit as inventory_unit', 'inv_purchase_order_receipts.id as receipt_id', 'inv_purchase_order_receipts.receipt_number', 'inv_purchase_order_receipts.received_date', 'inv_purchase_order_receipts.received_by', 'inv_purchase_order_receipts.quantity_received as receipt_quantity', 'inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.unit_price as receipt_unit_price', 'inv_purchase_order_receipts.tax_rate as receipt_tax_rate', 'inv_purchase_order_receipts.discount_rate as receipt_discount_rate', 'inv_purchase_order_receipts.condition_status', 'inv_purchase_order_receipts.quality_check_passed', 'inv_purchase_order_receipts.notes as receipt_notes', 'inv_purchase_order_receipts.created_at as receipt_created_at', 'inv_inventory_transactions.id as transaction_id', 'inv_inventory_transactions.transaction_type', 'inv_inventory_transactions.quantity as transaction_quantity', 'inv_inventory_transactions.previous_stock', 'inv_inventory_transactions.new_stock', 'inv_inventory_transactions.unit_cost', 'inv_inventory_transactions.total_cost', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.reason', 'inv_inventory_transactions.performed_by', 'inv_inventory_transactions.transaction_date', 'inv_inventory_transactions.notes as transaction_notes', 'inv_inventory_transactions.created_at as transaction_created_at', 'roles.employeeid as employee_id', 'roles.username as employee_fullname', 'roles.email as employee_email', 'roles.role as employee_jobtitle')
             .where(function () {
             if (status) {
                 if (Array.isArray(status)) {

@@ -3,8 +3,10 @@ import {
      InventoryTransaction,
      CreateInventoryTransactionRequest,
      InventoryTransactionListResponse,
-     InventoryTransactionFilters} from './types';
+     InventoryTransactionFilters
+} from './types';
 import KnexConnection from '../../database/KnexConnections';
+import { UnitValidationService } from '../../services/UnitValidationService';
 
 export class InventoryTransactionModel {
      private connection: Promise<Knex<any, any[]>>;
@@ -30,18 +32,36 @@ export class InventoryTransactionModel {
                throw new Error('Inventory item not found or inactive');
           }
 
+          // Validate transaction unit conversion
+          const unitValidation = UnitValidationService.validateTransactionUnitConversion(
+               request.unit_type || 'consumption',
+               request.purchase_unit || null,
+               inventoryItem.consumption_unit,
+               request.units_per_purchase_unit || null
+          );
+
+          if (!unitValidation.isValid) {
+               throw new Error(unitValidation.error);
+          }
+
+          // Handle unit conversion - convert to consumption units for stock tracking
+          let quantityInConsumptionUnits = request.quantity;
+          if (request.unit_type === 'purchase' && request.units_per_purchase_unit) {
+               quantityInConsumptionUnits = request.quantity * request.units_per_purchase_unit;
+          }
+
           const previousStock = inventoryItem.current_stock;
 
           let newStock: number;
           switch (request.transaction_type) {
                case 'addition':
-                    newStock = previousStock + request.quantity;
+                    newStock = previousStock + quantityInConsumptionUnits;
                     break;
                case 'consumption':
                case 'adjustment':
                case 'transfer':
                case 'wastage':
-                    newStock = previousStock - request.quantity;
+                    newStock = previousStock - quantityInConsumptionUnits;
                     break;
                default:
                     throw new Error('Invalid transaction type');
@@ -59,7 +79,10 @@ export class InventoryTransactionModel {
                id: this.generateTransactionId(),
                item_id: request.item_id,
                transaction_type: request.transaction_type,
-               quantity: request.quantity,
+               quantity: request.quantity, // Original quantity as requested
+               unit_type: request.unit_type || 'consumption', // Store unit type
+               purchase_unit: request.purchase_unit || null,
+               units_per_purchase_unit: request.units_per_purchase_unit || null,
                previous_stock: previousStock,
                new_stock: newStock,
                batch_number: request.batch_number || null,
@@ -69,8 +92,8 @@ export class InventoryTransactionModel {
                brand_name: request.brand_name || null,
                reason: request.reason || null,
                reference_id: request.reference_id || null,
-               patient_id: request.patient_id || null,
-               ascension_id: request.ascension_id || null,
+               patientid: request.patientid || null,
+               ascensionid: request.ascensionid || null,
                performed_by: request.performed_by || null,
                transaction_date: new Date().toISOString(),
                notes: request.notes || null,
@@ -155,8 +178,8 @@ export class InventoryTransactionModel {
                          brand_name: request.brand_name || null,
                          reason: request.reason || null,
                          reference_id: request.reference_id || null,
-                         patient_id: request.patient_id || null,
-                         ascension_id: request.ascension_id || null,
+                         patientid: request.patientid || null,
+                         ascensionid: request.ascensionid || null,
                          performed_by: request.performed_by || null,
                          transaction_date: new Date().toISOString(),
                          notes: request.notes || null,
@@ -205,6 +228,7 @@ export class InventoryTransactionModel {
                item_id: result.item_id,
                transaction_type: result.transaction_type,
                quantity: result.quantity,
+               unit_type: result.unit_type,
                previous_stock: result.previous_stock,
                new_stock: result.new_stock,
                batch_number: result.batch_number,
@@ -214,8 +238,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
-               patient_id: result.patient_id,
-               ascension_id: result.ascension_id,
+               patientid: result.patientid,
+               ascensionid: result.ascensionid,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -286,8 +310,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
-               patient_id: result.patient_id,
-               ascension_id: result.ascension_id,
+               patientid: result.patientid,
+               ascensionid: result.ascensionid,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -391,24 +415,76 @@ export class InventoryTransactionModel {
           };
      }
 
-     async getItemStockHistory(itemId: string, days: number = 30): Promise<InventoryTransaction[]> {
+     async getItemStockHistory(itemId: string, options: { days?: number; startDate?: string; endDate?: string; type?: string; page?: number; count?: number } = {}): Promise<{ transactions: InventoryTransaction[], total: number }> {
           const connection = await this.connection;
+          const { days = 30, startDate, endDate, type, page = 1, count = 10 } = options;
 
-          const startDate = new Date();
-          startDate.setDate(startDate.getDate() - days);
+          // Get total count first
+          let countQuery = connection('inv_inventory_transactions')
+               .where('inv_inventory_transactions.item_id', itemId);
 
-          const results = await connection('inv_inventory_transactions')
+          // Apply date filtering to count query
+          if (startDate && endDate) {
+               countQuery = countQuery.whereBetween('inv_inventory_transactions.transaction_date', [startDate, endDate + ' 23:59:59']);
+          } else if (startDate) {
+               countQuery = countQuery.where('inv_inventory_transactions.transaction_date', '>=', startDate);
+          } else if (endDate) {
+               countQuery = countQuery.where('inv_inventory_transactions.transaction_date', '<=', endDate + ' 23:59:59');
+          } else {
+               // Default to days filter if no specific dates provided
+               const defaultStartDate = new Date();
+               defaultStartDate.setDate(defaultStartDate.getDate() - days);
+               countQuery = countQuery.where('inv_inventory_transactions.transaction_date', '>=', defaultStartDate.toISOString());
+          }
+
+          // Apply type filtering to count query
+          if (type) {
+               countQuery = countQuery.where('inv_inventory_transactions.transaction_type', type);
+          }
+
+          const totalResult = await countQuery.count('* as count').first();
+          const total = parseInt(totalResult?.count as string) || 0;
+
+          // Build main query with joins
+          let query = connection('inv_inventory_transactions')
                .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
+               .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
                .select(
                     'inv_inventory_transactions.*',
                     'inv_inventory_items.name as item_name',
-                    'inv_inventory_items.sku as item_sku'
+                    'inv_inventory_items.sku as item_sku',
+                    'roles.username as employee_username',
+                    'roles.email as employee_email',
+                    'roles.role as employee_role'
                )
-               .where('inv_inventory_transactions.item_id', itemId)
-               .where('inv_inventory_transactions.transaction_date', '>=', startDate.toISOString())
-               .orderBy('inv_inventory_transactions.transaction_date', 'ASC');
+               .where('inv_inventory_transactions.item_id', itemId);
 
-          return results.map((result: any) => ({
+          // Apply date filtering
+          if (startDate && endDate) {
+               query = query.whereBetween('inv_inventory_transactions.transaction_date', [startDate, endDate + ' 23:59:59']);
+          } else if (startDate) {
+               query = query.where('inv_inventory_transactions.transaction_date', '>=', startDate);
+          } else if (endDate) {
+               query = query.where('inv_inventory_transactions.transaction_date', '<=', endDate + ' 23:59:59');
+          } else {
+               // Default to days filter if no specific dates provided
+               const defaultStartDate = new Date();
+               defaultStartDate.setDate(defaultStartDate.getDate() - days);
+               query = query.where('inv_inventory_transactions.transaction_date', '>=', defaultStartDate.toISOString());
+          }
+
+          // Apply type filtering
+          if (type) {
+               query = query.where('inv_inventory_transactions.transaction_type', type);
+          }
+
+          // Apply pagination
+          const offset = (page - 1) * count;
+          query = query.limit(count).offset(offset);
+
+          const results = await query.orderBy('inv_inventory_transactions.transaction_date', 'ASC');
+
+          const transactions = results.map((result: any) => ({
                id: result.id,
                item_id: result.item_id,
                transaction_type: result.transaction_type,
@@ -430,8 +506,13 @@ export class InventoryTransactionModel {
                wastage_type: result.wastage_type,
                created_at: result.created_at,
                item_name: result.item_name,
-               item_sku: result.item_sku
+               item_sku: result.item_sku,
+               employee_username: result.employee_username,
+               employee_email: result.employee_email,
+               employee_role: result.employee_role
           }));
+
+          return { transactions, total };
      }
 
      async getBatchTransactions(batchNumber: string): Promise<InventoryTransaction[]> {

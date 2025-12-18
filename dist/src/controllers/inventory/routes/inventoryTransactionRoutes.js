@@ -1,16 +1,33 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
-const InventoryTransactionController_1 = require("../InventoryTransactionController");
+const inventory_1 = require("../../../models/inventory");
+const helper_1 = require("../../../hooks/helper");
 const router = (0, express_1.Router)();
-const controller = new InventoryTransactionController_1.InventoryTransactionController();
-router.post('/consume', (req, res) => controller.consumeStockUnified(req, res));
-router.post('/consume/test', (req, res) => controller.recordTestConsumption(req, res));
-router.get('/available-stock/:item_id', (req, res) => controller.getAvailableStockDetails(req, res));
-router.get('/consumption/list', (req, res) => controller.getConsumptionTransactions(req, res));
-router.get('/consumption/report', (req, res) => controller.getConsumptionReport(req, res));
-router.get('/expired-batches', (req, res) => controller.getExpiredBatches(req, res));
-router.get('/expired-batches/:item_id/items', (req, res) => controller.getExpiredBatchesForItem(req, res));
-router.get('/expired-consumption-history', (req, res) => controller.getExpiredConsumptionHistory(req, res));
-router.get('/non-expired-wastage-history', (req, res) => controller.getNonExpiredWastageHistory(req, res));
+const create = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        if (!tenantId || isNaN(tenantId)) {
+            return res.status(400).json({
+                success: false,
+                error: { code: 'VALIDATION_ERROR', message: 'Tenant ID is required' }
+            });
+        }
+        const model = new inventory_1.InventoryTransactionModel(tenantId);
+        const transaction = await model.create(req.body);
+        const response = {
+            success: true,
+            data: transaction
+        };
+        res.status(201).json(response);
+    }
+    catch (error) {
+        console.error('Transaction creation error:', error);
+        res.status(500).json({
+            success: false,
+            error: { code: 'INTERNAL_ERROR', message: error.message || 'Transaction creation failed' }
+        });
+    }
+};
+router.post('/create', (0, helper_1.handleOverLoad)(create));
 exports.default = router;

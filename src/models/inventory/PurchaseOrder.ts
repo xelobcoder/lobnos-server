@@ -388,11 +388,12 @@ export class PurchaseOrderModel {
 
           const results = await connection('inv_purchase_order_items')
                .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
+               .leftJoin('inv_units as cu', 'inv_inventory_items.consumption_unit', 'cu.id')
                .select(
                     'inv_purchase_order_items.*',
                     'inv_inventory_items.name as item_name',
                     'inv_inventory_items.sku as item_sku',
-                    'inv_inventory_items.unit'
+                    'cu.name as consumption_unit_name'
                )
                .where('inv_purchase_order_items.order_id', orderId)
                .orderBy('inv_purchase_order_items.created_at', 'ASC');
@@ -413,6 +414,7 @@ export class PurchaseOrderModel {
                updated_at: result.updated_at,
                item_name: result.item_name,
                item_sku: result.item_sku,
+               consumption_unit: result.consumption_unit_name,
                unit: result.unit
           }));
      }
@@ -518,8 +520,9 @@ export class PurchaseOrderModel {
                          quality_check_passed: receiptData.quality_check_passed !== undefined ? receiptData.quality_check_passed : true,
                          notes: receiptData.notes || null,
                          image_url: null,
-                         created_at: new Date().toISOString(),
-                         updated_at: new Date().toISOString()
+                         purchase_unit: receiptData.purchase_unit || null,
+                         units_per_purchase_unit: receiptData.units_per_purchase_unit || null,
+                         created_at: new Date().toISOString()
                     };
 
                     await trx('inv_purchase_order_receipts').insert(receipt);
@@ -536,7 +539,10 @@ export class PurchaseOrderModel {
                               }
 
                               const previousStock = inventoryItem.current_stock;
-                              const newStock = previousStock + receiptData.quantity_received;
+                              const consumptionQuantity = receiptData.purchase_unit && receiptData.units_per_purchase_unit
+                                   ? receiptData.quantity_received * receiptData.units_per_purchase_unit
+                                   : receiptData.quantity_received;
+                              const newStock = previousStock + consumptionQuantity;
 
                               await trx('inv_inventory_items')
                                    .where('id', orderItem.inventory_item_id)
@@ -551,7 +557,10 @@ export class PurchaseOrderModel {
                                    id: this.generateTransactionId(),
                                    item_id: orderItem.inventory_item_id,
                                    transaction_type: 'addition' as const,
-                                   quantity: receiptData.quantity_received,
+                                   unit_type: receiptData.purchase_unit ? 'purchase' : 'consumption',
+                                   quantity: consumptionQuantity,
+                                   purchase_unit: receiptData.purchase_unit || null,
+                                   units_per_purchase_unit: receiptData.units_per_purchase_unit || null,
                                    previous_stock: previousStock,
                                    new_stock: newStock,
                                    batch_number: receiptData.batch_number || null,
@@ -563,7 +572,9 @@ export class PurchaseOrderModel {
                                    reference_id: receipt.id,
                                    performed_by: request.received_by,
                                    transaction_date: new Date().toISOString(),
-                                   notes: `Received ${receiptData.quantity_received} units from purchase order ${order.order_number}`,
+                                   notes: receiptData.purchase_unit
+                                        ? `Received ${receiptData.quantity_received} ${receiptData.purchase_unit} (${consumptionQuantity} ${inventoryItem.consumption_unit}) from purchase order ${order.order_number}`
+                                        : `Received ${receiptData.quantity_received} units from purchase order ${order.order_number}`,
                                    created_at: new Date().toISOString()
                               };
 
@@ -687,7 +698,7 @@ export class PurchaseOrderModel {
                     'inv_purchase_order_items.created_at as item_created_at',
                     'inv_inventory_items.name as inventory_name',
                     'inv_inventory_items.sku as inventory_sku',
-                    'inv_inventory_items.unit as inventory_unit',
+                    'inv_inventory_items.consumption_unit as inventory_unit',
                     'inv_purchase_order_receipts.id as receipt_id',
                     'inv_purchase_order_receipts.receipt_number',
                     'inv_purchase_order_receipts.received_date',

@@ -93,7 +93,7 @@ export class PurchaseOrderItemModel {
                     'inv_purchase_order_items.*',
                     'inv_inventory_items.name as item_name',
                     'inv_inventory_items.sku as item_sku',
-                    'inv_inventory_items.unit'
+                    'inv_inventory_items.consumption_unit'
                )
                .where('inv_purchase_order_items.id', id)
                .first();
@@ -129,7 +129,7 @@ export class PurchaseOrderItemModel {
                     'inv_purchase_order_items.*',
                     'inv_inventory_items.name as item_name',
                     'inv_inventory_items.sku as item_sku',
-                    'inv_inventory_items.unit'
+                    'inv_inventory_items.consumption_unit'
                )
                .where('inv_purchase_order_items.order_id', orderId)
                .orderBy('inv_purchase_order_items.created_at', 'ASC');

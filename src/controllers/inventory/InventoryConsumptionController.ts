@@ -367,6 +367,7 @@ export class InventoryConsumptionController {
                          const transactionData: CreateInventoryTransactionRequest = {
                               item_id,
                               transaction_type: 'consumption',
+                              unit_type: 'consumption',
                               quantity: quantity_used,
                               reason: `Test consumption - ${test_type}`,
                               reference_id: consumptionHistoryId,
@@ -431,6 +432,7 @@ export class InventoryConsumptionController {
                               const transactionData: CreateInventoryTransactionRequest = {
                                    item_id,
                                    transaction_type: 'consumption',
+                                   unit_type: 'consumption',
                                    quantity: batchConsumption.quantity,
                                    reason: `Test consumption - ${test_type}`,
                                    reference_id: consumptionHistoryId,
@@ -559,6 +561,7 @@ export class InventoryConsumptionController {
                const transactionData: CreateInventoryTransactionRequest = {
                     item_id,
                     transaction_type: 'wastage',
+                    unit_type: 'consumption',
                     quantity,
                     reason: `Wastage - ${reason}`,
                     reference_id: consumptionHistoryId,
@@ -989,6 +992,7 @@ export class InventoryConsumptionController {
                          const transactionData: CreateInventoryTransactionRequest = {
                               item_id: consumption.item_id,
                               transaction_type: consumption.transaction_type,
+                              unit_type: 'consumption',
                               quantity: consumption.quantity,
                               wastage_type: consumption.wastage_type,
                               reason: consumption.reason || 'Manual consumption',
@@ -1091,6 +1095,7 @@ export class InventoryConsumptionController {
                               const batchTransactionData: CreateInventoryTransactionRequest = {
                                    item_id: consumption.item_id,
                                    transaction_type: consumption.transaction_type,
+                                   unit_type: 'consumption',
                                    quantity: batchConsumption.quantity,
                                    wastage_type: consumption.wastage_type,
                                    reason: consumption.reason || 'FIFO consumption',

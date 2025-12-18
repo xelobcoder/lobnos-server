@@ -37,10 +37,10 @@ export class InventoryItemController {
                });
           }
 
-          if (!data.category_id || typeof data.category_id !== 'string') {
+          if (data.category_id && typeof data.category_id !== 'string') {
                errors.push({
                     field: 'category_id',
-                    message: 'Category ID is required',
+                    message: 'Category ID must be a string if provided',
                     value: data.category_id
                });
           }
@@ -404,11 +404,11 @@ export class InventoryItemController {
                const tenantId = this.getTenantId(req);
 
                const inventoryItemModel = new InventoryItemModel(tenantId);
-               const lowStockItems = await inventoryItemModel.getLowStockAlerts();
+               const lowStockItems = await inventoryItemModel.findMany({ low_stock_only: true });
 
                const response: ApiResponse = {
                     success: true,
-                    data: lowStockItems
+                    data: lowStockItems.items
                };
 
                res.json(response);

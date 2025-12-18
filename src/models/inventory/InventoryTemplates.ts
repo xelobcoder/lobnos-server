@@ -149,7 +149,7 @@ export class InventoryTemplateModel {
                          'inv_inventory_transactions.*',
                          'inv_inventory_items.name as item_name',
                          'inv_inventory_items.sku as item_sku',
-                         'inv_inventory_items.unit as item_unit'
+                         'inv_inventory_items.consumption_unit as item_unit'
 
                     ).where('ascension_id', ascensionid)
 
@@ -205,7 +205,7 @@ export class InventoryTemplateModel {
                          item_sku: item.item_sku,
                          unit: item.unit,
                          is_consumed: item.is_consumed || false,
-                         quantity_remaining: item.quantity_remaining ,
+                         quantity_remaining: item.quantity_remaining,
                          status: item.status,
                     })).concat(refinedManuallyCreatedRecords)
                };
@@ -439,7 +439,7 @@ export class InventoryTemplateModel {
                     'inv_inventory_template_items.*',
                     'inv_inventory_items.name as item_name',
                     'inv_inventory_items.sku as item_sku',
-                    'inv_inventory_items.unit'
+                    'inv_inventory_items.consumption_unit'
                )
                .where('inv_inventory_template_items.template_id', templateId)
                .orderBy('inv_inventory_template_items.created_at', 'asc');
@@ -494,7 +494,7 @@ export class InventoryTemplateModel {
                          'inv_inventory_template_items.*',
                          'inv_inventory_items.name as item_name',
                          'inv_inventory_items.sku as item_sku',
-                         'inv_inventory_items.unit'
+                         'inv_inventory_items.consumption_unit'
                     )
                     .where('inv_inventory_template_items.id', itemId)
                     .first();
@@ -549,7 +549,7 @@ export class InventoryTemplateModel {
                          'inv_inventory_template_items.*',
                          'inv_inventory_items.name as item_name',
                          'inv_inventory_items.sku as item_sku',
-                         'inv_inventory_items.unit'
+                         'inv_inventory_items.consumption_unit'
                     )
                     .where('inv_inventory_template_items.id', itemId)
                     .first();

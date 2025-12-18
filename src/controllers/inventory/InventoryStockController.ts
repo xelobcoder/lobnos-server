@@ -330,4 +330,85 @@ export class InventoryStockController {
                res.status(500).json(response);
           }
      }
+
+     async getItemTransactions(req: Request, res: Response): Promise<void> {
+          try {
+               const model = this.getModel(req);
+               const { item_id } = req.params;
+               const { days = 30, startDate, endDate, type, page = 1, count = 10 } = req.query;
+
+               if (!item_id) {
+                    const response: ApiResponse = {
+                         success: false,
+                         error: {
+                              code: 'VALIDATION_ERROR',
+                              message: 'Item ID is required'
+                         }
+                    };
+                    res.status(400).json(response);
+                    return;
+               }
+
+               // Validate pagination parameters
+               const pageNum = parseInt(page as string);
+               const countNum = parseInt(count as string);
+
+               if (pageNum < 1) {
+                    const response: ApiResponse = {
+                         success: false,
+                         error: {
+                              code: 'VALIDATION_ERROR',
+                              message: 'Page must be greater than 0'
+                         }
+                    };
+                    res.status(400).json(response);
+                    return;
+               }
+
+               if (countNum < 1 || countNum > 100) {
+                    const response: ApiResponse = {
+                         success: false,
+                         error: {
+                              code: 'VALIDATION_ERROR',
+                              message: 'Count must be between 1 and 100'
+                         }
+                    };
+                    res.status(400).json(response);
+                    return;
+               }
+
+               const result = await model.getItemStockHistory(item_id, {
+                    days: parseInt(days as string) || 30,
+                    startDate: startDate as string,
+                    endDate: endDate as string,
+                    type: type as string,
+                    page: pageNum,
+                    count: countNum
+               });
+
+               const response: ApiResponse<any> = {
+                    success: true,
+                    data: {
+                         transactions: result.transactions,
+                         pagination: {
+                              page: pageNum,
+                              count: countNum,
+                              total: result.total,
+                              totalPages: Math.ceil(result.total / countNum)
+                         }
+                    }
+               };
+               res.json(response);
+          } catch (error: any) {
+               console.error('Error getting item transactions:', error);
+               const response: ApiResponse = {
+                    success: false,
+                    error: {
+                         code: 'INTERNAL_ERROR',
+                         message: error.message || 'Failed to get item transactions'
+                    }
+               };
+               res.status(500).json(response);
+          }
+     }
 }

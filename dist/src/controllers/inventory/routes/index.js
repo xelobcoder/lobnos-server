@@ -16,6 +16,8 @@ const inventoryStockRoutes_1 = __importDefault(require("./inventoryStockRoutes")
 const supplierPaymentRoutes_1 = __importDefault(require("./supplierPaymentRoutes"));
 const journalRoutes_1 = __importDefault(require("./journalRoutes"));
 const analyticsRoutes_1 = __importDefault(require("./analyticsRoutes"));
+const unitsRoutes_1 = __importDefault(require("./unitsRoutes"));
+const inventoryTransactionRoutes_1 = __importDefault(require("./inventoryTransactionRoutes"));
 const router = (0, express_1.Router)();
 // Mount all inventory routes
 router.use('/', brandRoutes_1.default);
@@ -30,4 +32,6 @@ router.use('/transactions', inventoryStockRoutes_1.default);
 router.use('/supplier-payments', supplierPaymentRoutes_1.default);
 router.use('/', journalRoutes_1.default);
 router.use('/', analyticsRoutes_1.default);
+router.use('/', unitsRoutes_1.default);
+router.use('/transactions', inventoryTransactionRoutes_1.default);
 exports.default = router;
