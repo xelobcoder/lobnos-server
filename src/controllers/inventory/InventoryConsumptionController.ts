@@ -107,7 +107,7 @@ export class InventoryConsumptionController {
           total_cost?: number;
           consumption_reason?: string;
           department?: string;
-          patient_id?: string;
+          patientid?: string;
           prescription_id?: string;
           notes?: string;
           approved_by?: string;
@@ -163,7 +163,7 @@ export class InventoryConsumptionController {
                total_cost: totalCost,
                consumption_reason: consumptionData.consumption_reason,
                department: consumptionData.department,
-               patient_id: consumptionData.patient_id,
+               patientid: consumptionData.patientid,
                prescription_id: consumptionData.prescription_id,
                notes: consumptionData.notes,
                approved_by: consumptionData.approved_by
@@ -337,7 +337,7 @@ export class InventoryConsumptionController {
 
 
                for (const consumptionEntry of unConsumedItems) {
-                    const { test_id, item_id, quantity_used, test_type, patient_id, ascension_id, testid, batch_number, brand_name, performed_by, notes } = consumptionEntry;
+                    const { test_id, item_id, quantity_used, test_type, patientid, ascensionid, testid, batch_number, brand_name, performed_by, notes } = consumptionEntry;
 
                     // If batch_number is provided, use it directly
                     if (batch_number) {
@@ -358,7 +358,7 @@ export class InventoryConsumptionController {
                               brand_name,
                               consumption_reason: `Test consumption - ${test_type}`,
                               department: 'laboratory',
-                              patient_id,
+                              patientid,
                               prescription_id: test_id,
                               notes: notes || `Automatic consumption for test ${test_id}`,
                               approved_by: performed_by?.toString()
@@ -371,8 +371,8 @@ export class InventoryConsumptionController {
                               quantity: quantity_used,
                               reason: `Test consumption - ${test_type}`,
                               reference_id: consumptionHistoryId,
-                              patient_id,
-                              ascension_id,
+                              patientid,
+                              ascensionid,
                               testid,
                               batch_number,
                               brand_name,
@@ -423,7 +423,7 @@ export class InventoryConsumptionController {
                                    brand_name: batchConsumption.brand_name,
                                    consumption_reason: `Test consumption - ${test_type}`,
                                    department: 'laboratory',
-                                   patient_id,
+                                   patientid: patientid,
                                    prescription_id: test_id,
                                    notes: notes || `FIFO automatic consumption for test ${test_id} from batch ${batchConsumption.batch_number} (${batchConsumption.quantity} units)`,
                                    approved_by: performed_by?.toString()
@@ -436,8 +436,8 @@ export class InventoryConsumptionController {
                                    quantity: batchConsumption.quantity,
                                    reason: `Test consumption - ${test_type}`,
                                    reference_id: consumptionHistoryId,
-                                   patient_id,
-                                   ascension_id,
+                                   patientid,
+                                   ascensionid,
                                    testid,
                                    batch_number: batchConsumption.batch_number,
                                    brand_name: batchConsumption.brand_name,
@@ -666,8 +666,8 @@ export class InventoryConsumptionController {
                     brand_name: consumption.brand_name,
                     reason: consumption.consumption_reason,
                     reference_id: consumption.id,
-                    patient_id: consumption.patient_id,
-                    ascension_id: null,
+                    patientid: consumption.patientid,
+                    ascensionid: null,
                     performed_by: consumption.consumed_by,
                     transaction_date: consumption.consumption_date,
                     notes: consumption.notes,
@@ -813,7 +813,7 @@ export class InventoryConsumptionController {
                     quantity: consumption.quantity_consumed,
                     reason: consumption.consumption_reason,
                     batch_number: consumption.batch_number,
-                    patient_id: consumption.patient_id,
+                    patientid: consumption.patientid,
                     prescription_id: consumption.prescription_id,
                     performed_by: consumption.consumed_by,
                     transaction_date: consumption.consumption_date,

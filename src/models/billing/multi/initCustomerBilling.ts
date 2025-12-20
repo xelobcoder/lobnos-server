@@ -38,7 +38,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           branchid: number;
           pricingcheckout?: boolean;
           billingSource: number;
-          referalCode: number | undefined;
+          referalCode: string | undefined;
      }): Promise<CustomerInitResponse | string | []> {
           const validationError = CustomerBillingInitSingleton.validateBillingInput({
                patientId: params.patientId,
@@ -152,10 +152,18 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
      private async handleReferralCode(defaultCustomerInitData: any) {
           if (defaultCustomerInitData.referalCode) {
-               const referalRepo = await new ReferralCodingRepo(this.tenantId).findByCode(parseInt(defaultCustomerInitData.referalCode.toString(), 10));
+               const referalRepo = await new ReferralCodingRepo(this.tenantId).findByCode(defaultCustomerInitData.referalCode);
                if (referalRepo) {
                     defaultCustomerInitData.entityType = referalRepo.entity_type;
                     defaultCustomerInitData.entityId = referalRepo.entity_id;
+
+                    if (referalRepo.entity_type && referalRepo.entity_id && referalRepo.entity_type == "clinician") {
+                         const entityInformation = await new ReferralCodingRepo(this.tenantId).getEnityInformation(referalRepo.entity_type, referalRepo.entity_id);
+                         if (entityInformation) {
+                              const entity_name = entityInformation.name;
+                              defaultCustomerInitData.referalName = entity_name;
+                         }
+                    }
                }
           }
      }

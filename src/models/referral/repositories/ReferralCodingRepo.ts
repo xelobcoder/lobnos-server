@@ -14,6 +14,7 @@ export class ReferralCodingRepo {
      private tenantId: number;
      private connection: any;
 
+
      constructor(tenantId: number) {
           this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
@@ -79,6 +80,25 @@ export class ReferralCodingRepo {
           }
      }
 
+
+     async getEnityInformation(entity_type: EntityType, entity_id: number): Promise<any> {
+          try {
+               const conn = await this.connection;
+               let result;
+               if (entity_type === 'organization') {
+                    result = await conn('organization').where({ id: entity_id }).first();
+               } else if (entity_type === 'clinician') {
+                    result = await conn('clinicianbasicinfo').where({ id: entity_id }).first();
+               } else if (entity_type === "insurance") {
+                    throw new Error('Unsupported entity type');
+               }
+               return result;
+          } catch (error) {
+               console.error('ReferralCoding getEntityInformation error:', error);
+               throw error;
+          }
+     }
+
      async create(data: Omit<ReferralCoding, 'id'>, trx?: any): Promise<number> {
           try {
                const conn = trx || await this.connection;
@@ -112,7 +132,7 @@ export class ReferralCodingRepo {
           }
      }
 
-     async findByCode(code: number): Promise<ReferralCoding | null> {
+     async findByCode(code: string): Promise<ReferralCoding | null> {
           try {
                const conn = await this.connection;
                const result = await conn('referralcoding').where({ code });

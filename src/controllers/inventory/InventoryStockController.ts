@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import { InventoryTransactionModel } from '../../models/inventory/InventoryTransaction';
-import { InventoryItemModel } from '../../models/inventory/InventoryItem';
 import {
      ApiResponse,
      AvailableStockDetails,

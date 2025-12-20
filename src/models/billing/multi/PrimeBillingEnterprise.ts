@@ -83,8 +83,8 @@ export class PrimeBillingEnterprise {
 		return result || null;
 	}
 
-	async getReferralByCode(referalCode: number) {
-		return await new ReferralCodingRepo(this.tenantId).findByCode(parseInt(referalCode.toString(), 10));
+	async getReferralByCode(referalCode: string) {
+		return await new ReferralCodingRepo(this.tenantId).findByCode(referalCode);
 	}
 
 	async getAllServices() {

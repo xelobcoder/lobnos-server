@@ -63,6 +63,26 @@ class ReferralCodingRepo {
             throw error;
         }
     }
+    async getEnityInformation(entity_type, entity_id) {
+        try {
+            const conn = await this.connection;
+            let result;
+            if (entity_type === 'organization') {
+                result = await conn('organization').where({ id: entity_id }).first();
+            }
+            else if (entity_type === 'clinician') {
+                result = await conn('clinicianbasicinfo').where({ id: entity_id }).first();
+            }
+            else if (entity_type === "insurance") {
+                throw new Error('Unsupported entity type');
+            }
+            return result;
+        }
+        catch (error) {
+            console.error('ReferralCoding getEntityInformation error:', error);
+            throw error;
+        }
+    }
     async create(data, trx) {
         try {
             const conn = trx || await this.connection;

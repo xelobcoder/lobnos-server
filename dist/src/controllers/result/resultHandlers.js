@@ -256,9 +256,10 @@ const getResultPrintoutHandler = async (request, response) => {
         dataset.validators = validators;
         dataset.lastupdatedon = lastupdatedon;
         dataset.resultentry = resultentry;
-        dataset.logourl = `http://${process.env.apphost}:${process.env.NODE_ENV === "development"
-            ? process.env.DEVELOPMENT_PORT
-            : process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`;
+        const hostname = process.env.NODE_ENV === 'development'
+            ? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
+            : process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
+        dataset.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`;
         dataset.enteredOn = enteredOn;
         if (employeeid) {
             const pEmployeeId = parseInt(employeeid.toString());
@@ -398,9 +399,10 @@ const getResultPrintMultipleHandler = async (request, response) => {
                 finalResult.patientInformation = await new registration_1.default().getPatientBasicData(tenantIdP, intPatientid);
                 finalResult.patientid = patientid;
                 finalResult.billingid = billingid;
-                finalResult.logourl = `http://${process.env.apphost}:${process.env.NODE_ENV === "development"
-                    ? process.env.DEVELOPMENT_PORT
-                    : process.env.PRODUCTION_PORT}/api/v1/settings/companyprofile/images`;
+                const hostname = process.env.NODE_ENV === 'development'
+                    ? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
+                    : process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
+                finalResult.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`;
                 if (employeeid) {
                     const employeedata = await new RolesRepository_1.default(tenantIdP).getRoleById(pEmployeeId);
                     const { employeeid, username, role, mobile } = employeedata;

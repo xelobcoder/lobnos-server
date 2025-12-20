@@ -44,7 +44,7 @@ const router = Router();
 // Billing Routes
 router.post("/api/v1/billing", handleNewBilling);
 router.post("/api/v1/billing/multi", handleMultiNewBilling);
-router.get("/api/v1/billing/multi/init", initializeBillingHandler);
+router.get("/api/v1/billing/multi/init", handleOverLoad(initializeBillingHandler));
 router.post("/api/v1/billing/multi/checkout", handleOverLoad(checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", handleOverLoad(submitBillingHandler));
 router.put('/api/v1/billing/multi', handleMultiUpdateBilling);

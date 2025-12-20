@@ -424,7 +424,7 @@ export async function getEntityInfoUsingSpecialCode(req: Request, res: Response)
         if (!specialCode) {
             return res.status(400).json({ message: 'Special code is required.' });
         }
-        const getEntityInfo: ReferralCoding | null = await new ReferralCodingRepo(tenantId).findByCode(parseInt(specialCode, 10));
+        const getEntityInfo: ReferralCoding | null = await new ReferralCodingRepo(tenantId).findByCode(specialCode);
 
         if (!getEntityInfo) {
             return res.status(404).json({ status: 'unfound', message: 'Entity information not found for the provided special code.' });

@@ -79,8 +79,8 @@ export class InventoryTransactionModel {
                id: this.generateTransactionId(),
                item_id: request.item_id,
                transaction_type: request.transaction_type,
-               quantity: request.quantity, // Original quantity as requested
-               unit_type: request.unit_type || 'consumption', // Store unit type
+               quantity: request.quantity,
+               unit_type: request.unit_type || 'consumption',
                purchase_unit: request.purchase_unit || null,
                units_per_purchase_unit: request.units_per_purchase_unit || null,
                previous_stock: previousStock,
@@ -394,8 +394,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
-               patient_id: result.patient_id,
-               ascension_id: result.ascension_id,
+               patientid: result.patientid,
+               ascensionid: result.ascensionid,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -444,8 +444,6 @@ export class InventoryTransactionModel {
 
           const totalResult = await countQuery.count('* as count').first();
           const total = parseInt(totalResult?.count as string) || 0;
-
-          // Build main query with joins
           let query = connection('inv_inventory_transactions')
                .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
                .leftJoin('roles', 'inv_inventory_transactions.performed_by', 'roles.employeeid')
@@ -498,8 +496,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
-               patient_id: result.patient_id,
-               ascension_id: result.ascension_id,
+               patientid: result.patientid,
+               ascensionid: result.ascensionid,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,
@@ -542,8 +540,8 @@ export class InventoryTransactionModel {
                brand_name: result.brand_name,
                reason: result.reason,
                reference_id: result.reference_id,
-               patient_id: result.patient_id,
-               ascension_id: result.ascension_id,
+               patientid: result.patientid,
+               ascensionid: result.ascensionid,
                performed_by: result.performed_by,
                transaction_date: result.transaction_date,
                notes: result.notes,

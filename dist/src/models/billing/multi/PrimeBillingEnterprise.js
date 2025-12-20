@@ -75,7 +75,7 @@ class PrimeBillingEnterprise {
         return result || null;
     }
     async getReferralByCode(referalCode) {
-        return await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).findByCode(parseInt(referalCode.toString(), 10));
+        return await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).findByCode(referalCode);
     }
     async getAllServices() {
         return await new services_1.default(0).getAllservices(this.tenantId, undefined, undefined);

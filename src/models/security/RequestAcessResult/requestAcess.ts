@@ -103,8 +103,16 @@ export default class RequestAccess {
 
      static async requestPermission(tenantId: number, request: Omit<AccessRequest, 'requestedAt' | 'status'>): Promise<number> {
           const connection = await KnexConnection(tenantId);
+          const body = {
+               patientid: request.patientid,
+               staffid: request.staffid,
+               requestType: request.requestType,
+               ascensionid: request.ascensionid,
+               reason: request.reason,
+               urgency: request.urgency,
+          }
           const [id] = await connection(this.TABLE_NAME).insert({
-               ...request,
+               ...body,
                requestedAt: new Date(),
                status: 'pending'
           });

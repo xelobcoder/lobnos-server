@@ -135,10 +135,17 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
     }
     async handleReferralCode(defaultCustomerInitData) {
         if (defaultCustomerInitData.referalCode) {
-            const referalRepo = await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).findByCode(parseInt(defaultCustomerInitData.referalCode.toString(), 10));
+            const referalRepo = await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).findByCode(defaultCustomerInitData.referalCode);
             if (referalRepo) {
                 defaultCustomerInitData.entityType = referalRepo.entity_type;
                 defaultCustomerInitData.entityId = referalRepo.entity_id;
+                if (referalRepo.entity_type && referalRepo.entity_id && referalRepo.entity_type == "clinician") {
+                    const entityInformation = await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).getEnityInformation(referalRepo.entity_type, referalRepo.entity_id);
+                    if (entityInformation) {
+                        const entity_name = entityInformation.name;
+                        defaultCustomerInitData.referalName = entity_name;
+                    }
+                }
             }
         }
     }

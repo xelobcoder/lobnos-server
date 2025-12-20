@@ -344,20 +344,31 @@ exports.getCategoryColumns = getCategoryColumns;
 const initializeBillingHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
-        const { entityId, entityType, isPackageUsed, packageid, patientId, billingid, branchid, ispricingcheckout, } = req.query;
+        const { entityId, entityType, isPackageUsed, packageid, patientId, referalCode, billingid, branchid, ispricingcheckout, } = req.query;
         const parsePatientId = parseInt(patientId, 10);
         const parseBillingId = billingid ? parseInt(billingid, 10) : undefined;
         const parseBranchId = branchid ? parseInt(branchid, 10) : undefined;
-        const parseEntityId = parseInt(entityId, 10);
+        let validatedEntityType = entityType;
+        let parseEntityId = parseInt(entityId, 10);
         const parsePackageId = packageid ? parseInt(packageid, 10) : undefined;
         const parseIsPackageUsed = typeof isPackageUsed === "string"
             ? isPackageUsed === "true" || isPackageUsed === "1"
             : !!isPackageUsed;
         const billingSource = req.query.billingSource ? parseInt(req.query.billingSource, 10) : undefined;
         const pricingcheckout = ispricingcheckout ? ispricingcheckout === "true" : false;
+        let referalData = null;
+        if (referalCode) {
+            // validate referal code
+            referalData = await customerBillingCheckout_1.CustomerBillingCheckout.getInstance(tenantId).getReferralByCode(referalCode);
+            if (!referalData) {
+                return res.status(400).json({ success: false, message: 'Invalid referal code' });
+            }
+            referalData.entity_id && (parseEntityId = parseInt(referalData.entity_id.toString(), 10));
+            referalData.entity_type && (validatedEntityType = referalData.entity_type);
+        }
         const parsed = {
             entityId: parseEntityId,
-            entityType: entityType,
+            entityType: validatedEntityType,
             patientId: parsePatientId,
             isPackageUsed: parseIsPackageUsed,
             billingid: parseBillingId,
@@ -366,7 +377,7 @@ const initializeBillingHandler = async (req, res) => {
             branchid: parseBranchId,
             billingSource: billingSource,
             pricingcheckout,
-            referalCode: req.query.referalCode ? parseInt(req.query.referalCode, 10) : undefined
+            referalCode: referalCode ? referalCode : undefined
         };
         const billingInit = initCustomerBilling_1.CustomerBillingInit.getInstance(tenantId);
         const result = await billingInit.init(parsed);

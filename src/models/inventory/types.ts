@@ -524,8 +524,8 @@ export interface InventoryTransaction {
      brand_name?: string;
      reason?: string;
      reference_id?: string;
-     patient_id?: number;
-     ascension_id?: number;
+     patientid?: number;
+     ascensionid?: number;
      testid?: number;
      performed_by?: number;
      transaction_date: string;
@@ -544,10 +544,10 @@ export interface InventoryTransaction {
 export interface CreateInventoryTransactionRequest {
      item_id: string;
      transaction_type: TransactionType;
-     quantity: number; // Quantity in the specified unit_type
-     unit_type: 'consumption' | 'purchase'; // Specify which unit system
-     purchase_unit?: string; // Required if unit_type is 'purchase'
-     units_per_purchase_unit?: number; // Required if unit_type is 'purchase'
+     quantity: number; 
+     unit_type: 'consumption' | 'purchase';
+     purchase_unit?: string; 
+     units_per_purchase_unit?: number; 
      batch_number?: string;
      expiry_date?: string;
      unit_cost?: number;

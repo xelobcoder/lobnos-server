@@ -29,13 +29,10 @@ class JournalController {
                 endDate: req.query.endDate,
                 sortby: req.query.sortby || 'DESC'
             };
-            // For now, we'll use a simple query. In a real implementation,
-            // you'd want to create a proper JournalModel class
             const connection = await (0, KnexConnections_1.default)(tenantId);
             let query = connection('acc_journal_entry_lines')
                 .select('*')
                 .orderBy('created_at', filters.sortby === 'ASC' ? 'asc' : 'desc');
-            // Apply filters
             if (filters.account_id) {
                 query = query.where('account_id', filters.account_id);
             }

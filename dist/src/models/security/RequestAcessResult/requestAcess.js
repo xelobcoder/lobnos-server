@@ -86,7 +86,15 @@ class RequestAccess {
     }
     static async requestPermission(tenantId, request) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const [id] = await connection(this.TABLE_NAME).insert(Object.assign(Object.assign({}, request), { requestedAt: new Date(), status: 'pending' }));
+        const body = {
+            patientid: request.patientid,
+            staffid: request.staffid,
+            requestType: request.requestType,
+            ascensionid: request.ascensionid,
+            reason: request.reason,
+            urgency: request.urgency,
+        };
+        const [id] = await connection(this.TABLE_NAME).insert(Object.assign(Object.assign({}, body), { requestedAt: new Date(), status: 'pending' }));
         return id;
     }
     static async getAccessHistory(tenantId, patientid, staffid, urgency, count, page, sortby, ascensionid) {
