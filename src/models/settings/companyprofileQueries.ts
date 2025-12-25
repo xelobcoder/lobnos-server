@@ -1,5 +1,5 @@
 export const q_get_company_information = `
-  SELECT name, email, motto, phonenumber, address, website, street, alternativenumber 
+  SELECT name, email, motto, phonenumber, address, website, street, alternativenumber, additionalInfo
   FROM companyprofile
 `;
 

@@ -13,7 +13,6 @@ export const AddCompanyInfoHandler = async (request: Request, response: Response
 		const tenantId = parseInt(request.query.tenantId.toString());
 		const hasNecessaryRequestBodyParams = name && motto && email && phonenumber;
 		if (!hasNecessaryRequestBodyParams) return customError(OperationsFailures.invalidRequestBodyType + ". Necessary request body params not included", 400, response);
-		await truncateCompanyProfile(tenantId);
 		await insertCompanyProfile(tenantId, request.body);
 		return response.send({ status: "success" });
 	} catch (err) {

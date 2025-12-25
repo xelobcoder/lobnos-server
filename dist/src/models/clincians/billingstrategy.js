@@ -420,10 +420,10 @@ class BillingStrategy {
             if (!entity_type) {
                 throw new Error('Entity type required.');
             }
-            if (entity_type !== "general" && !associatedid) {
-                throw new Error('Associated ID is required for non-general entities.');
+            if (entity_type !== "general" && !associatedid && entity_type != "nhis") {
+                throw new Error('Associated ID required for non-general entities.');
             }
-            if (entity_type === "general") {
+            if (entity_type === "general" || entity_type === "nhis") {
                 return this.mapTestsWithDefaults(await this.loadAllTests(tenantId));
             }
             const strategyList = await this.getBillingStrategyByEntity(tenantId, entity_type, associatedid);

@@ -75,6 +75,8 @@ export interface BillingTestItem {
      outsourceprice?: number;
      isoutsourced: number;
      name: string;
+     claimCode?: number;
+     registrationType?: string;
      totalpayable: number;
      totalcost: number;
      nightAdjustmentEndTime: string;
@@ -85,6 +87,8 @@ export interface BillingTestItem {
      price: number;
      pricingType: string;
      cost?: number;
+     nhismembershipid?: number;
+     claimscheckcode?: number;
      subtotal: number;
      testid: number;
      outsourceid?: number | null;

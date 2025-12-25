@@ -25,7 +25,7 @@ export interface IBillingStrategy {
   updatedon: string | null;
 }
 
-export type EntityType = 'clinician' | 'insurance' | 'organization' | 'general' | 'phis'
+export type EntityType = 'clinician' | 'insurance' | 'organization' | 'general' | 'phis' | "nhis"
 
 export interface ApplicableEntity {
   entity_type: EntityType;

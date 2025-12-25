@@ -66,6 +66,8 @@ export class SubmitCustomerBilling {
                 billingSource,
                 referalCode,
                 promoCode,
+                nhismembershipid,
+                claimscheckcode,
                 isPromo,
                 writeOffOutstanding,
                 isPackageUsed,
@@ -112,7 +114,12 @@ export class SubmitCustomerBilling {
             }
 
 
+            if (billingSource == 4 && (!nhismembershipid || !claimscheckcode || isNaN(nhismembershipid) || isNaN(claimscheckcode))) {
+                return { status: false, message: "Please Provide Valid NHIS MEMBERSHIP ID and Claims Check Code to continue " }
+            }
+
             let hasRelatedBilling = false;
+
             if (this.payload.billingid) {
                 const isBillingIdValid = await BillingSharedRepo.checkValidityOfBillingID(this.payload.billingid, this.tenantId);
                 if (!isBillingIdValid) return { status: false, message: billErrors.NoValidBilling };
@@ -182,7 +189,6 @@ export class SubmitCustomerBilling {
 
             const allEntries = [...processNonTestServices, ...processTestCart];
             const Multi = new BillingSharedRepo();
-
             if (allEntries.length > 0) {
                 const loadAllServices = await Multi
                     .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
@@ -387,7 +393,7 @@ export class SubmitCustomerBilling {
         let clinicianId = null;
         let insuranceId = null;
         let registrationType: string = "self";
-        if (billingData.billingSource > 1 && billingData.entityId) {
+        if (billingData.billingSource > 1 && billingData.billingSource != 4 && billingData.entityId) {
             entityId = parseInt(billingData.entityId.toString());
             switch (billingData.billingSource) {
                 case 2:
@@ -395,15 +401,10 @@ export class SubmitCustomerBilling {
                     organizationId = entityId;
                     registrationType = "organization";
                     break;
-                case 4:
-                    entityType = "insurance";
-                    insuranceId = entityId;
-                    registrationType = "insurance";
-                    break;
                 case 3:
-                    entityType = "insurance";
+                    entityType = "phis";
                     insuranceId = entityId;
-                    registrationType = "self";
+                    registrationType = "phis";
                     break;
                 case 6:
                     entityType = "clinician";
@@ -415,6 +416,9 @@ export class SubmitCustomerBilling {
             }
         } else if (!billingData.billingSource || billingData.billingSource === 0) {
             registrationType = "self";
+        } else if (billingData.billingSource === 4) {
+            entityType = "nhis";
+            registrationType = "nhis";
         }
 
         const result = await Promise.all(
@@ -440,7 +444,7 @@ export class SubmitCustomerBilling {
                     amountIncurredDueTax: item.amountIncurredDueTax,
                     taxIncluded: taxIncluded == true ? 1 : 0,
                     discount: item.discount,
-                    totalcost: item.totalcost + parseFloat(item.discount.toString() || "0") ,
+                    totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
                     totalpayable: item.totalpayable,
                     isNHIS: billingData.billingSource === 4 ? 1 : 0,
                     isPHIS: billingData.billingSource === 3 ? 1 : 0,
@@ -454,6 +458,8 @@ export class SubmitCustomerBilling {
                     packageid: billingData.packageid || null,
                     paidamount,
                     paymentstatus: paymentstatus,
+                    nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
+                    claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
                 };
 
                 if (item.isoutsourced == 1 && item.outsourceid) {
@@ -505,9 +511,11 @@ export class SubmitCustomerBilling {
                 registrationType = "organization";
                 break;
             case 3:
-            case 4:
                 insuranceId = entityId;
                 registrationType = "insurance";
+            case 4:
+                insuranceId = entityId;
+                registrationType = "nhis";
                 break;
             case 6:
                 clinicianId = entityId;
@@ -543,7 +551,7 @@ export class SubmitCustomerBilling {
                         amountIncurredDueTax: item.amountIncurredDueTax,
                         taxIncluded,
                         discount: item.discount,
-                        totalcost: item.totalcost + parseFloat(item.discount.toString() || "0") ,
+                        totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
                         totalpayable: item.totalpayable,
                         isNHIS: billingSource === 4 ? 1 : 0,
                         isPHIS: billingSource === 3 ? 1 : 0,
@@ -556,6 +564,8 @@ export class SubmitCustomerBilling {
                         packageid: item.packageid || null,
                         paymentstatus: paymentstatus,
                         paidamount: paidamount,
+                        nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
+                        claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
                     };
                 })
         );
@@ -597,7 +607,9 @@ export class SubmitCustomerBilling {
                     nightAdjustmentMode,
                     nightAdjustmentValue,
                     isPackageUsed,
-                    packageid
+                    packageid,
+                    nhismembershipid: item.nhismembershipid ? item.nhismembershipid : null,
+                    claimscheckcode: item.claimscheckcode ? item.claimscheckcode : null
                 });
 
                 if (isoutsourced && outsourceid) {
@@ -660,7 +672,9 @@ export class SubmitCustomerBilling {
                     service.nightAdjustmentMode,
                     service.nightAdjustmentValue,
                     service.isPackageUsed,
-                    service.packageid
+                    service.packageid,
+                    service.nhismembershipid ? service.nhismembershipid : null,
+                    service.claimscheckcode ? service.claimscheckcode : null
                 ];
             });
 

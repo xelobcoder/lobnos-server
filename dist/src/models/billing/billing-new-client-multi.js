@@ -63,7 +63,7 @@ class SubmitCustomerBilling {
     }
     async submit() {
         try {
-            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
+            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -83,6 +83,9 @@ class SubmitCustomerBilling {
             });
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
+            }
+            if (billingSource == 4 && (!nhismembershipid || !claimscheckcode || isNaN(nhismembershipid) || isNaN(claimscheckcode))) {
+                return { status: false, message: "Please Provide Valid NHIS MEMBERSHIP ID and Claims Check Code to continue " };
             }
             let hasRelatedBilling = false;
             if (this.payload.billingid) {
@@ -287,7 +290,7 @@ class SubmitCustomerBilling {
         let clinicianId = null;
         let insuranceId = null;
         let registrationType = "self";
-        if (billingData.billingSource > 1 && billingData.entityId) {
+        if (billingData.billingSource > 1 && billingData.billingSource != 4 && billingData.entityId) {
             entityId = parseInt(billingData.entityId.toString());
             switch (billingData.billingSource) {
                 case 2:
@@ -295,15 +298,10 @@ class SubmitCustomerBilling {
                     organizationId = entityId;
                     registrationType = "organization";
                     break;
-                case 4:
-                    entityType = "insurance";
-                    insuranceId = entityId;
-                    registrationType = "insurance";
-                    break;
                 case 3:
-                    entityType = "insurance";
+                    entityType = "phis";
                     insuranceId = entityId;
-                    registrationType = "self";
+                    registrationType = "phis";
                     break;
                 case 6:
                     entityType = "clinician";
@@ -316,6 +314,10 @@ class SubmitCustomerBilling {
         }
         else if (!billingData.billingSource || billingData.billingSource === 0) {
             registrationType = "self";
+        }
+        else if (billingData.billingSource === 4) {
+            entityType = "nhis";
+            registrationType = "nhis";
         }
         const result = await Promise.all(billingData.cart.map(async (item) => {
             const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
@@ -352,6 +354,8 @@ class SubmitCustomerBilling {
                 packageid: billingData.packageid || null,
                 paidamount,
                 paymentstatus: paymentstatus,
+                nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
+                claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
             };
             if (item.isoutsourced == 1 && item.outsourceid) {
                 const result = await trx('outsourceorganizationservices')
@@ -378,9 +382,11 @@ class SubmitCustomerBilling {
                 registrationType = "organization";
                 break;
             case 3:
-            case 4:
                 insuranceId = entityId;
                 registrationType = "insurance";
+            case 4:
+                insuranceId = entityId;
+                registrationType = "nhis";
                 break;
             case 6:
                 clinicianId = entityId;
@@ -425,6 +431,8 @@ class SubmitCustomerBilling {
                 packageid: item.packageid || null,
                 paymentstatus: paymentstatus,
                 paidamount: paidamount,
+                nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
+                claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
             };
         }));
     }
@@ -463,7 +471,9 @@ class SubmitCustomerBilling {
                     nightAdjustmentMode,
                     nightAdjustmentValue,
                     isPackageUsed,
-                    packageid
+                    packageid,
+                    nhismembershipid: item.nhismembershipid ? item.nhismembershipid : null,
+                    claimscheckcode: item.claimscheckcode ? item.claimscheckcode : null
                 });
                 if (isoutsourced && outsourceid) {
                     const outsourcedTestTrackingRepo = new OutsourcedTestTrackingRepo_1.OutsourcedTestTrackingRepo(tenantId);
@@ -523,7 +533,9 @@ class SubmitCustomerBilling {
                     service.nightAdjustmentMode,
                     service.nightAdjustmentValue,
                     service.isPackageUsed,
-                    service.packageid
+                    service.packageid,
+                    service.nhismembershipid ? service.nhismembershipid : null,
+                    service.claimscheckcode ? service.claimscheckcode : null
                 ];
             });
             const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);

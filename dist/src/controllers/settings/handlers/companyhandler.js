@@ -17,7 +17,6 @@ const AddCompanyInfoHandler = async (request, response) => {
         const hasNecessaryRequestBodyParams = name && motto && email && phonenumber;
         if (!hasNecessaryRequestBodyParams)
             return (0, helper_1.customError)("The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */ + ". Necessary request body params not included", 400, response);
-        await (0, companyProfile_1.truncateCompanyProfile)(tenantId);
         await (0, companyProfile_1.insertCompanyProfile)(tenantId, request.body);
         return response.send({ status: "success" });
     }

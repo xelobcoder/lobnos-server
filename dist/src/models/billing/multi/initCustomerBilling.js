@@ -151,14 +151,15 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
     }
     async handleApplicableTests(defaultCustomerInitData, appsettings, taxation, isPackageUsed) {
         let ApplicableTest = [];
-        if ((!defaultCustomerInitData.entityType || defaultCustomerInitData.entityType == "general") && (!defaultCustomerInitData.entityId && !defaultCustomerInitData.referalCode)) {
-            ApplicableTest = await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, 'general', null, true);
+        const generalOrNHIS = (!defaultCustomerInitData.entityType || defaultCustomerInitData.entityType == "general" || defaultCustomerInitData.entityType == "nhis");
+        const noEntityIdAndGeneralOrNHIS = (generalOrNHIS && !defaultCustomerInitData.entityId && !defaultCustomerInitData.referalCode);
+        if (noEntityIdAndGeneralOrNHIS) {
+            ApplicableTest = await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, true);
         }
         else {
             ApplicableTest = await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);
         }
         if (defaultCustomerInitData.promoCode && defaultCustomerInitData.promoCode.value && defaultCustomerInitData.promoCode.type) {
-            // Only apply promo, not regular discounts
             ApplicableTest = PrimeBillingEnterprise_1.PrimeBillingEnterprise.applyPromoToItems(ApplicableTest, defaultCustomerInitData.promoCode);
         }
         else {
@@ -215,9 +216,15 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
         defaultCustomerInitData.previousRecordsSummary = previousRecordsSummary;
         defaultCustomerInitData.paid = (previousRecordsSummary === null || previousRecordsSummary === void 0 ? void 0 : previousRecordsSummary.paid) || 0;
         defaultCustomerInitData.balance = (previousRecordsSummary === null || previousRecordsSummary === void 0 ? void 0 : previousRecordsSummary.balance) || 0;
-        if (!params.entityType || !params.entityId) {
+        const isNhisOrGeneral = (params.entityType == "nhis" || params.entityType == "general");
+        if (isNhisOrGeneral) {
+            defaultCustomerInitData.entityType = params.entityType;
+            defaultCustomerInitData.entityId = params.entityId;
+            defaultCustomerInitData.registrationType = params.entityType == "nhis" ? "nhis" : "self";
+        }
+        if (!params.entityType) {
             defaultCustomerInitData.entityType = "general";
-            defaultCustomerInitData.entityId = null;
+            defaultCustomerInitData.entityId = params.entityId ? params.entityId : null;
             defaultCustomerInitData.registrationType = "self";
         }
         defaultCustomerInitData.paymentModes = paymentModes;

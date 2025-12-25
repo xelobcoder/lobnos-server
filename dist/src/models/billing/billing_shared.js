@@ -496,7 +496,9 @@ class BillingSharedRepo {
                     service.paymentstatus,
                     service.paidamount,
                     service.outstanding,
-                    service.outsourceprice
+                    service.outsourceprice,
+                    service.nhismembershipid ? service.nhismembershipid : null,
+                    service.claimscheckcode ? service.claimscheckcode : null
                 ];
             });
             const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
@@ -512,7 +514,7 @@ class BillingSharedRepo {
         const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
         for (const item of services) {
             try {
-                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid, paymentstatus, paidamount, outstanding, outsourceprice] = item;
+                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode] = item;
                 const outcome = await queryRunner("dboservices").insert({
                     billingid,
                     trackId,
@@ -546,7 +548,9 @@ class BillingSharedRepo {
                     paymentstatus,
                     paidamount,
                     outstanding,
-                    outsourceprice
+                    outsourceprice,
+                    nhismembershipid,
+                    claimscheckcode
                 });
                 if (outcome && item[5] != 5 && item[1]) {
                     try {
@@ -573,10 +577,6 @@ class BillingSharedRepo {
             return isInserted.insertId;
         }
         catch (err) {
-            console.log(err);
-            if (err && err.code && err.errno == 1526 && err.code == 'ER_NO_PARTITION_FOR_GIVEN_VALUE'.trim()) {
-                const currentYear = new Date().getFullYear();
-            }
             return false;
         }
     }

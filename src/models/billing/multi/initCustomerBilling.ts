@@ -86,7 +86,6 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
 
           let defaultCustomerInitData = this.getDefaultCustomerInitData(params, previousRecordsSummary);
-
           if (params.isPackageUsed && params.packageid) {
                return await PackageBillingHelper.handlePackageInit({
                     tenantId: this.tenantId,
@@ -170,13 +169,14 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
      private async handleApplicableTests(defaultCustomerInitData: any, appsettings: any, taxation: any, isPackageUsed: boolean) {
           let ApplicableTest: BillingTestItem[] = [];
-          if ((!defaultCustomerInitData.entityType || defaultCustomerInitData.entityType == "general") && (!defaultCustomerInitData.entityId && !defaultCustomerInitData.referalCode)) {
-               ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, 'general', null, true);
+          const generalOrNHIS = (!defaultCustomerInitData.entityType || defaultCustomerInitData.entityType == "general" || defaultCustomerInitData.entityType == "nhis");
+          const noEntityIdAndGeneralOrNHIS = (generalOrNHIS && !defaultCustomerInitData.entityId && !defaultCustomerInitData.referalCode);
+          if (noEntityIdAndGeneralOrNHIS) {
+               ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, true);
           } else {
                ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);
           }
           if (defaultCustomerInitData.promoCode && defaultCustomerInitData.promoCode.value && defaultCustomerInitData.promoCode.type) {
-               // Only apply promo, not regular discounts
                ApplicableTest = PrimeBillingEnterprise.applyPromoToItems(ApplicableTest, defaultCustomerInitData.promoCode);
           } else {
                ApplicableTest = PrimeBillingEnterprise.applyDiscountsToTests(ApplicableTest);
@@ -236,11 +236,20 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           defaultCustomerInitData.previousRecordsSummary = previousRecordsSummary;
           defaultCustomerInitData.paid = previousRecordsSummary?.paid || 0;
           defaultCustomerInitData.balance = previousRecordsSummary?.balance || 0;
-          if (!params.entityType || !params.entityId) {
+          const isNhisOrGeneral = (params.entityType == "nhis" || params.entityType == "general");
+
+          if (isNhisOrGeneral) {
+               defaultCustomerInitData.entityType = params.entityType;
+               defaultCustomerInitData.entityId = params.entityId;
+               (defaultCustomerInitData as any).registrationType = params.entityType == "nhis" ? "nhis" : "self";
+          }
+
+          if (!params.entityType) {
                defaultCustomerInitData.entityType = "general" as EntityType;
-               defaultCustomerInitData.entityId = null;
+               defaultCustomerInitData.entityId = params.entityId ? params.entityId : null;
                (defaultCustomerInitData as any).registrationType = "self";
           }
+
           (defaultCustomerInitData as any).paymentModes = paymentModes;
      }
 
