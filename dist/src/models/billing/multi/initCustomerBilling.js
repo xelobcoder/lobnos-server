@@ -36,18 +36,17 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
                 NO_PATIENT_ID: billingTypes_1.BillingModuleCodes.MODULE_NO_PATIENT_ID,
                 NO_BRANCH_ID: billingTypes_1.BillingModuleCodes.BRANCH_ID_NOT_PROVIDED,
                 NO_BILLING_SOURCE: billingTypes_1.BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED,
-                CART_AND_SERVICES_EMPTY: "Cart and servicesList are both empty"
+                CART_AND_SERVICES_EMPTY: "Cart and servicesList are both empty",
             },
-            pricingcheckout: params.pricingcheckout
+            pricingcheckout: params.pricingcheckout,
+            nhismembershipid: params.nhismembershipid,
+            claimscheckcode: params.claimscheckcode
         });
         if (validationError)
             return validationError;
-        if (params.pricingcheckout === false && !params.patientId)
-            return billingTypes_1.BillingModuleCodes.MODULE_NO_PATIENT_ID;
-        if (params.billingSource === undefined || params.billingSource === null)
-            return billingTypes_1.BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
-        if (params.branchid === undefined || params.branchid === null)
-            return billingTypes_1.BillingModuleCodes.BRANCH_ID_NOT_PROVIDED;
+        // if (params.pricingcheckout === false && !params.patientId) return BillingModuleCodes.MODULE_NO_PATIENT_ID;
+        // if (params.billingSource === undefined || params.billingSource === null) return BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
+        // if (params.branchid === undefined || params.branchid === null) return BillingModuleCodes.BRANCH_ID_NOT_PROVIDED;
         const [sessionExists, hasDebt, appsettings, taxation, paymentModes] = await Promise.all([
             this.hasActiveSession(params.branchid),
             this.hasOutstandingDebt(params.patientId, params.pricingcheckout || false),
@@ -154,7 +153,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
         const generalOrNHIS = (!defaultCustomerInitData.entityType || defaultCustomerInitData.entityType == "general" || defaultCustomerInitData.entityType == "nhis");
         const noEntityIdAndGeneralOrNHIS = (generalOrNHIS && !defaultCustomerInitData.entityId && !defaultCustomerInitData.referalCode);
         if (noEntityIdAndGeneralOrNHIS) {
-            ApplicableTest = await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, true);
+            ApplicableTest = defaultCustomerInitData.entityType === "nhis" ? await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, false, true) : await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, true);
         }
         else {
             ApplicableTest = await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);

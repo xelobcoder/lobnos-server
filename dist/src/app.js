@@ -42,6 +42,7 @@ const index_2 = __importDefault(require("./controllers/inventory/routes/index"))
 // ANALYTICS 
 const patient_analytics_route_1 = __importDefault(require("./controllers/analytics/patient-analytics/patient-analytics-route"));
 const validateTenancy_1 = require("./middleware/validateTenancy");
+const requestLogger_1 = __importDefault(require("./middleware/requestLogger"));
 const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
 const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
@@ -64,6 +65,7 @@ app.use((0, cors_1.default)({
 app.use(express_1.default.static("public"));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
+app.use(requestLogger_1.default);
 app.use(validateTenancy_1.ValidateTenancyAgreement);
 // app.use(checkTokenExists)
 app.use(outsourcedTestTracking_routes_1.default);

@@ -13,4 +13,5 @@ exports.BillingModuleCodes = {
     INVALID_PACKAGE_PROVIDED: 'invalid package provided',
     BRANCH_ID_NOT_PROVIDED: 'branch id not provided',
     MODULE_NO_VALID_BILLING: 'Invalid Billing ID provided',
+    MODULE_MISSING_NHIS_INFO: 'Missing NHIS membership ID or claims check code',
 };

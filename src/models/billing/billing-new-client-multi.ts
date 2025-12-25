@@ -18,10 +18,8 @@ export class SubmitCustomerBilling {
         const p_totalpayable = isNaN(parseInt(item.totalpayable?.toString() || '0')) ? 0 : parseFloat(item.totalpayable?.toString() || '0');
         const p_paidamount = isNaN(parseInt(item.paidamount?.toString() || '0')) ? 0 : parseFloat(item.paidamount?.toString() || '0');
         const outstanding: number = p_totalpayable - p_paidamount;
-        if (item.paymentstatus) {
-            paymentstatus = item.paymentstatus;
-        } else if (p_paidamount) {
-            if (p_totalpayable && p_paidamount === p_totalpayable) {
+        if (p_paidamount != null) {
+            if ((p_totalpayable && p_paidamount === p_totalpayable) || p_totalpayable === 0) {
                 paymentstatus = 'paid';
             } else if (p_paidamount > 0) {
                 paymentstatus = 'partial';
@@ -424,7 +422,7 @@ export class SubmitCustomerBilling {
         const result = await Promise.all(
             billingData.cart.map(async (item: BillingTestItem) => {
                 const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
-
+                console.log({ paidamount, paymentstatus, outstanding })
                 const data = {
                     billingid: billingID,
                     trackId: item.testid,

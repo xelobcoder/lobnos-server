@@ -10,6 +10,7 @@ const billingstrategy_1 = __importDefault(require("../../clincians/billingstrate
 const ReferralCodingRepo_1 = require("../../referral/repositories/ReferralCodingRepo");
 const services_1 = __importDefault(require("../../services/services"));
 const SalesSessionRepo_1 = require("../repositories/SalesSessionRepo");
+const billingTypes_1 = require("./billingTypes");
 class PrimeBillingEnterprise {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -232,13 +233,16 @@ class PrimeBillingEnterprise {
         }
         return price;
     }
-    static validateBillingInput({ patientId, branchid, billingSource, errorCodes, pricingcheckout }) {
+    static validateBillingInput({ patientId, branchid, billingSource, errorCodes, pricingcheckout, nhismembershipid, claimscheckcode }) {
         if (!patientId && !pricingcheckout)
             return errorCodes.NO_PATIENT_ID;
         if (branchid === undefined || branchid === null)
             return errorCodes.NO_BRANCH_ID;
         if (billingSource === undefined || billingSource === null)
             return errorCodes.NO_BILLING_SOURCE;
+        if (billingSource === 4 && (!nhismembershipid || !claimscheckcode)) {
+            return billingTypes_1.BillingModuleCodes.MODULE_MISSING_NHIS_INFO;
+        }
         return null;
     }
     static reformatServicesList(servicesList, isNightTime, taxList, taxValue) {

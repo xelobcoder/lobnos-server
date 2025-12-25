@@ -344,7 +344,7 @@ exports.getCategoryColumns = getCategoryColumns;
 const initializeBillingHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
-        const { entityId, entityType, isPackageUsed, packageid, patientId, referalCode, billingid, branchid, ispricingcheckout, } = req.query;
+        const { entityId, entityType, isPackageUsed, packageid, patientId, referalCode, billingid, branchid, nhisMemberId, claimCheckCode, ispricingcheckout, } = req.query;
         const parsePatientId = parseInt(patientId, 10);
         const parseBillingId = billingid ? parseInt(billingid, 10) : undefined;
         const parseBranchId = branchid ? parseInt(branchid, 10) : undefined;
@@ -355,10 +355,12 @@ const initializeBillingHandler = async (req, res) => {
             ? isPackageUsed === "true" || isPackageUsed === "1"
             : !!isPackageUsed;
         const billingSource = req.query.billingSource ? parseInt(req.query.billingSource, 10) : undefined;
+        if (billingSource == 4 && (!nhisMemberId || !claimCheckCode)) {
+            return res.status(400).json({ success: false, message: 'Missing NHIS membership ID or claims check code' });
+        }
         const pricingcheckout = ispricingcheckout ? ispricingcheckout === "true" : false;
         let referalData = null;
         if (referalCode) {
-            // validate referal code
             referalData = await customerBillingCheckout_1.CustomerBillingCheckout.getInstance(tenantId).getReferralByCode(referalCode);
             if (!referalData) {
                 return res.status(400).json({ success: false, message: 'Invalid referal code' });
@@ -376,6 +378,8 @@ const initializeBillingHandler = async (req, res) => {
             includeServices: req.query.includeServices ? req.query.includeServices === "true" : false,
             branchid: parseBranchId,
             billingSource: billingSource,
+            claimscheckcode: claimCheckCode ? parseInt(claimCheckCode, 10) : undefined,
+            nhismembershipid: nhisMemberId ? parseInt(nhisMemberId, 10) : undefined,
             pricingcheckout,
             referalCode: referalCode ? referalCode : undefined
         };

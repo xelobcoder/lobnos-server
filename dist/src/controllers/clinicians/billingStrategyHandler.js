@@ -1,15 +1,4 @@
 "use strict";
-var __rest = (this && this.__rest) || function (s, e) {
-    var t = {};
-    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
-        t[p] = s[p];
-    if (s != null && typeof Object.getOwnPropertySymbols === "function")
-        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
-            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
-                t[p[i]] = s[p[i]];
-        }
-    return t;
-};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -17,9 +6,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getEntityInfoUsingSpecialCode = exports.getAllBillingStrategiesMini = exports.removeCategoryFromStrategy = exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
 const billingstrategy_1 = __importDefault(require("../../models/clincians/billingstrategy"));
 const ReferralCodingRepo_1 = require("../../models/referral/repositories/ReferralCodingRepo");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 async function createBillingStrategy(req, res) {
     try {
-        const { allconcessionApplied, concessionMode, concessionValue, price_type, name, applicableTest } = req.body;
+        const { allconcessionApplied, concessionMode, concessionValue, price_type, name, isNHIS, applicableTest } = req.body;
         if ([true, false].includes(allconcessionApplied) === false ||
             !name ||
             name.length > 100) {
@@ -39,14 +29,18 @@ async function createBillingStrategy(req, res) {
         }
         const strategyInstance = new billingstrategy_1.default();
         const tenantId = parseInt(req.query.tenantId.toString());
+        if (req.body.isNHIS) {
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const existingNHIS = await connection('billingstrategy').where({ isNHIS: 1 }).first();
+            if (existingNHIS) {
+                return res.status(400).json({ message: 'An NHIS billing strategy already exists. Only one NHIS strategy is allowed.' });
+            }
+        }
         const strategyId = await strategyInstance.insertBillingStrategy(tenantId, req.body);
         if (typeof strategyId === 'string') {
             res.status(400).json({ status: false, message: strategyId });
         }
         else {
-            if (applicableTest && applicableTest.length > 0 && !allconcessionApplied) {
-                await strategyInstance.addApplicableTests(tenantId, strategyId, applicableTest);
-            }
             res.status(201).json({ message: 'Billing strategy successfully created.', strategyId });
         }
     }
@@ -87,18 +81,32 @@ async function updateBillingStrategy(req, res) {
         const strategyId = parseInt(req.params.strategyid);
         const tenantId = parseInt(req.query.tenantId);
         if (isNaN(strategyId) || isNaN(tenantId)) {
-            res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
+            return res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
         }
-        else {
-            const strategyInstance = new billingstrategy_1.default();
-            const _a = req.body, { allconcessionApplied } = _a, rest = __rest(_a, ["allconcessionApplied"]);
-            const updateData = Object.assign(Object.assign({}, rest), { allconcessionApplied: allconcessionApplied ? 1 : 0 });
-            const result = await strategyInstance.updateBillingStrategy(tenantId, strategyId, updateData);
-            if (!result) {
-                return res.status(404).json({ message: 'Billing strategy not found or no changes made.' });
-            }
-            res.status(200).json({ message: 'Strategy updated successfully', result });
+        const { allconcessionApplied, concessionMode, concessionValue, price_type, name, applicableTest } = req.body;
+        if ([true, false].includes(allconcessionApplied) === false ||
+            !name ||
+            name.length > 100) {
+            return res.status(400).json({
+                message: 'Please provide all required fields: allconcessionApplied, name (max 100 characters).',
+            });
         }
+        if (allconcessionApplied && (!concessionMode || !concessionValue || !price_type)) {
+            return res.status(400).json({
+                message: 'Concession mode, concession value, and price type are required when all concessions are applied.',
+            });
+        }
+        if (allconcessionApplied && (concessionValue <= 0 || !concessionValue)) {
+            return res.status(400).json({
+                message: 'Concession value must be present and greater than zero.',
+            });
+        }
+        const strategyInstance = new billingstrategy_1.default();
+        const result = await strategyInstance.updateBillingStrategy(tenantId, strategyId, req.body);
+        if (result !== 'updated successfully') {
+            return res.status(400).json({ status: false, message: result });
+        }
+        res.status(200).json({ message: 'Billing strategy successfully updated.', strategyId });
     }
     catch (error) {
         res.status(500).json({

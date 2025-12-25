@@ -7,6 +7,8 @@ export interface BillingStrategyRequestBody {
   valid_until?: string;
   name: string;
   description?: string;
+  isNHIS: boolean;
+  applicableEntities?: { entity_type: EntityType; entity_id: number }[];
   applicableTest?: { testid: number; concessionValue: number; discountedValue: number; concessionMode: 'absolute' | 'percentage'; pricingType: 'discount' | 'surcharge'; actualPrice: number; originalPrice: number }[];
 }
 
@@ -23,6 +25,7 @@ export interface IBillingStrategy {
   is_expired: boolean;
   createdon: string;
   updatedon: string | null;
+  isNHIS: number;
 }
 
 export type EntityType = 'clinician' | 'insurance' | 'organization' | 'general' | 'phis' | "nhis"

@@ -355,6 +355,8 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 			referalCode,
 			billingid,
 			branchid,
+			nhisMemberId,
+			claimCheckCode,
 			ispricingcheckout,
 		} = req.query;
 
@@ -369,10 +371,12 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 				? isPackageUsed === "true" || isPackageUsed === "1"
 				: !!isPackageUsed;
 		const billingSource = req.query.billingSource ? parseInt(req.query.billingSource as string, 10) : undefined;
+		if (billingSource == 4 && (!nhisMemberId || !claimCheckCode)) {
+			return res.status(400).json({ success: false, message: 'Missing NHIS membership ID or claims check code' });
+		}
 		const pricingcheckout = ispricingcheckout ? ispricingcheckout === "true" : false;
 		let referalData = null;
 		if (referalCode) {
-			// validate referal code
 			referalData = await CustomerBillingCheckout.getInstance(tenantId).getReferralByCode(referalCode as string);
 			if (!referalData) {
 				return res.status(400).json({ success: false, message: 'Invalid referal code' });
@@ -390,6 +394,8 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 			includeServices: req.query.includeServices ? req.query.includeServices === "true" : false,
 			branchid: parseBranchId,
 			billingSource: billingSource,
+			claimscheckcode: claimCheckCode ? parseInt(claimCheckCode as string, 10) : undefined,
+			nhismembershipid: nhisMemberId ? parseInt(nhisMemberId as string, 10) : undefined,
 			pricingcheckout,
 			referalCode: referalCode ? referalCode as string : undefined
 		};

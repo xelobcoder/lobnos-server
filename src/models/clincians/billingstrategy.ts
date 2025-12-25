@@ -1,4 +1,5 @@
 import KnexConnection from '../../database/KnexConnections';
+import { getMySqlErrorMessage } from '../../database/databaseErrors';
 import InsuranceClass from '../insurance/Insurance';
 import { CustomTest } from '../resultentry/customTestEntry';
 import ClinicianClass from './clinicianClass';
@@ -10,6 +11,7 @@ import {
      IBillingStrategy
 } from './c.dev.type';
 import { OperationsFailures } from '../operations/types';
+import { error } from 'winston';
 
 export default class BillingStrategy {
      async entityExists(tenantId: number, entity_type: EntityType, entity_id: number): Promise<boolean> {
@@ -72,7 +74,7 @@ export default class BillingStrategy {
                if (entity_type === 'organization') {
                     return { id: item.id, name: item.name, entity_type: 'organization' };
                }
-               return item; // fallback, in case none match
+               return item;
           };
 
           if (Array.isArray(entityInfo)) {
@@ -100,43 +102,47 @@ export default class BillingStrategy {
           applicableTest: ApplicableTest[],
           allconcessionApplied: boolean
      ): Promise<ApplicableTest[] | null> {
-          if (!allconcessionApplied && !Array.isArray(applicableTest)) {
-               throw new TypeError("Expected 'applicableTest' to be an array.");
-          }
+          try {
+               if (!allconcessionApplied && !Array.isArray(applicableTest)) {
+                    throw new TypeError("Expected 'applicableTest' to be an array.");
+               }
 
-          if (!allconcessionApplied && applicableTest.length > 0) {
-               const connection = await KnexConnection(tenantId);
-               const validTests = await connection('test_panels')
-                    .select('id', 'price').whereIn('id', applicableTest.map(item => item.testid));
-               const mapped = applicableTest.filter(item => {
-                    const test = validTests.find((valid: { id: number }) => valid.id === item.testid);
-                    if (
-                         !test ||
-                         !item.testid ||
-                         typeof item.testid !== 'number' ||
-                         item.concessionValue < 0 ||
-                         item.concessionValue > 9999.99 ||
-                         !['absolute', 'percentage'].includes(item.concessionMode) ||
-                         !['discount', 'surcharge'].includes(item.pricingType)
-                    ) {
-                         return false;
-                    }
-                    const calculatedFinalPrice = this.calculateDiscountedValue(
-                         item.originalPrice,
-                         item.concessionMode,
-                         item.concessionValue,
-                         item.pricingType
-                    );
-                    return (
-                         Math.abs(item.discountedValue - calculatedFinalPrice) < 0.01 &&
-                         item.discountedValue <= 9999.99 &&
-                         item.actualPrice >= 0 &&
-                         item.originalPrice >= 0
-                    );
-               });
-               return mapped.length > 0 ? mapped : null;
+               if (!allconcessionApplied && applicableTest.length > 0) {
+                    const connection = await KnexConnection(tenantId);
+                    const validTests = await connection('test_panels')
+                         .select('id', 'price').whereIn('id', applicableTest.map(item => item.testid));
+                    const mapped = applicableTest.filter(item => {
+                         const test = validTests.find((valid: { id: number }) => valid.id === item.testid);
+                         if (
+                              !test ||
+                              !item.testid ||
+                              typeof item.testid !== 'number' ||
+                              item.concessionValue < 0 ||
+
+                              !['absolute', 'percentage'].includes(item.concessionMode) ||
+                              !['discount', 'surcharge'].includes(item.pricingType)
+                         ) {
+                              return false;
+                         }
+                         const calculatedFinalPrice = this.calculateDiscountedValue(
+                              item.originalPrice,
+                              item.concessionMode,
+                              item.concessionValue,
+                              item.pricingType
+                         );
+                         return (
+                              Math.abs(item.discountedValue - calculatedFinalPrice) < 0.01 &&
+                              item.discountedValue <= 9999.99 &&
+                              item.actualPrice >= 0 &&
+                              item.originalPrice >= 0
+                         );
+                    });
+                    return mapped.length > 0 ? mapped : null;
+               }
+               return null;
+          } catch (error) {
+               throw new Error('Error validating applicable tests: ' + error.message);
           }
-          return null;
      }
 
      private async validateApplicableEntities(
@@ -161,7 +167,7 @@ export default class BillingStrategy {
      private async sanitizeClinicianBillingData(
           tenantId: number,
           data: BillingStrategyRequestBody
-     ): Promise<IBillingStrategy & { applicableTest?: ApplicableTest[] } | string> {
+     ): Promise<IBillingStrategy & { applicableTest?: ApplicableTest[], isNHIS?: number } | string> {
           const {
                allconcessionApplied,
                concessionValue,
@@ -171,7 +177,8 @@ export default class BillingStrategy {
                valid_until,
                name,
                description,
-               applicableTest
+               applicableTest,
+               isNHIS
           } = data;
 
           if (!name || name.length > 100) {
@@ -182,8 +189,14 @@ export default class BillingStrategy {
                return 'Concession value must be between 0 and 9999.99.';
           }
 
+          let validatedApplicableTest: ApplicableTest[] | null = null;
+          if (applicableTest && applicableTest.length > 0) {
+               validatedApplicableTest = await this.validateApplicableTest(tenantId, applicableTest, allconcessionApplied);
+               if (validatedApplicableTest === null) {
+                    return 'Invalid applicable tests provided.';
+               }
+          }
 
-          let validatedApplicableTest: ApplicableTest[]
           return {
                allconcessionApplied: allconcessionApplied ? 1 : 0,
                concessionValue,
@@ -197,8 +210,22 @@ export default class BillingStrategy {
                createdon: new Date().toISOString(),
                updatedon: null,
                strategyid: 0,
-               applicableTest: validatedApplicableTest || []
+               applicableTest: validatedApplicableTest || [],
+               isNHIS: data.isNHIS ? 1 : 0
           };
+     }
+
+     private async checkNHISUniqueness(trx: any, isNHIS: number, strategyid?: number): Promise<void> {
+          if (isNHIS === 1) {
+               const query = trx('billingstrategy').where({ isNHIS: 1 });
+               if (strategyid) {
+                    query.whereNot('strategyid', strategyid);
+               }
+               const existingNHIS = await query.first();
+               if (existingNHIS) {
+                    throw new Error('A billing strategy with NHIS already exists.');
+               }
+          }
      }
 
      public async insertBillingStrategy(tenantId: number, requestBody: BillingStrategyRequestBody): Promise<number> {
@@ -208,7 +235,9 @@ export default class BillingStrategy {
                     const data = await this.sanitizeClinicianBillingData(tenantId, requestBody);
                     if (typeof data === 'string') throw new Error(data);
 
-                    const insertResult = await trx('billingstrategy')
+                    await this.checkNHISUniqueness(trx, data.isNHIS);
+
+                    const insertedStrategyId = await trx('billingstrategy')
                          .insert({
                               name: data.name,
                               description: data.description,
@@ -220,60 +249,32 @@ export default class BillingStrategy {
                               valid_until: data.valid_until,
                               is_expired: data.is_expired,
                               createdon: data.createdon,
-                              updatedon: data.updatedon
-                         })
-                         .onConflict('name')
-                         .merge({
-                              description: data.description,
-                              allconcessionApplied: data.allconcessionApplied,
-                              concessionValue: data.concessionValue,
-                              concessionMode: data.concessionMode,
-                              price_type: data.price_type,
-                              valid_from: data.valid_from,
-                              valid_until: data.valid_until,
-                              is_expired: data.is_expired,
-                              updatedon: trx.fn.now()
+                              updatedon: data.updatedon,
+                              isNHIS: data.isNHIS
                          });
-
-                    const [insertedStrategyId] = insertResult;
                     if (!insertedStrategyId) {
                          throw new Error('Failed to insert or update billing strategy.');
                     }
 
                     if (data.allconcessionApplied === 0 && data.applicableTest?.length > 0) {
-                         // 1. Prepare data
-                         const values = data.applicableTest.map(test => [
-                              insertedStrategyId,
-                              test.testid,
-                              test.concessionValue,
-                              test.discountedValue,
-                              test.concessionMode,
-                              test.pricingType
-                         ]);
+                         const insertData = data.applicableTest.map(test => ({
+                              strategyid: insertedStrategyId,
+                              testid: test.testid,
+                              concessionValue: test.concessionValue,
+                              discountedValue: test.discountedValue,
+                              concessionMode: test.concessionMode,
+                              pricingType: test.pricingType
+                         }));
 
-                         // 2. UPSERT: Insert or update existing
-                         await trx.raw(`
-                         INSERT INTO billingstrategy_tests 
-                         (strategyid, testid, concessionValue, discountedValue, concessionMode, pricingType)
-                         VALUES ${values.map(() => '(?, ?, ?, ?, ?, ?)').join(',')}
-                         ON DUPLICATE KEY UPDATE
-                         concessionValue = VALUES(concessionValue),
-                         discountedValue = VALUES(discountedValue),
-                         concessionMode = VALUES(concessionMode),
-                         pricingType = VALUES(pricingType)
-                    `, values.flat());
-
-                         // 3. DELETE: Remove tests no longer in the request
-                         const requestTestIds = data.applicableTest.map(test => test.testid);
                          await trx('billingstrategy_tests')
-                              .where({ strategyid: insertedStrategyId })
-                              .whereNotIn('testid', requestTestIds)
-                              .del();
-                    } else {
-                         // If allconcessionApplied is 1, clear old tests
-                         await trx('billingstrategy_tests')
-                              .where({ strategyid: insertedStrategyId })
-                              .del();
+                              .insert(insertData)
+                              .onConflict(['strategyid', 'testid'])
+                              .merge({
+                                   concessionValue: trx.raw('VALUES(concessionValue)'),
+                                   discountedValue: trx.raw('VALUES(discountedValue)'),
+                                   concessionMode: trx.raw('VALUES(concessionMode)'),
+                                   pricingType: trx.raw('VALUES(pricingType)')
+                              });
                     }
 
                     return insertedStrategyId;
@@ -281,7 +282,12 @@ export default class BillingStrategy {
 
                return parseInt(strategyId.toString());
           } catch (error) {
-               throw new Error(`Failed to insert billing strategy: ${error.message}`);
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(message);
+               } else {
+                    throw error;
+               }
           }
      }
 
@@ -307,7 +313,7 @@ export default class BillingStrategy {
                }
 
                await connection.transaction(async (trx) => {
-                    await trx('billingstrategy_tests').where({ strategyid }).del();
+                    await trx('billingstrategy_tests').where('strategyid', strategyid).del();
                     await trx('billingstrategy_tests').insert(
                          validatedApplicableTest.map(test => ({
                               strategyid,
@@ -322,7 +328,12 @@ export default class BillingStrategy {
                return true;
           } catch (error) {
                console.error(error);
-               throw new Error(`Failed to add applicable tests: ${error.message}`);
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(`Failed to add applicable tests: ${message}`);
+               } else {
+                    throw new Error(`Failed to add applicable tests: ${error.message}`);
+               }
           }
      }
 
@@ -353,10 +364,6 @@ export default class BillingStrategy {
                     .where({ strategyid, entity_type, entity_id: associatedid })
                     .first();
 
-               //      if (existingMapping) {
-               //      throw new Error(`Mapping for strategy ${strategyid} to ${entity_type} ID ${associatedid} already exists.`);
-               // }
-
                await connection('billingstrategy_mapping').insert({
                     strategyid,
                     entity_type,
@@ -368,7 +375,12 @@ export default class BillingStrategy {
                return true;
           } catch (error) {
                console.error(error);
-               throw new Error(`Failed to add category to strategy: ${error.message}`);
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(`Failed to add category to strategy: ${message}`);
+               } else {
+                    throw new Error(`Failed to add category to strategy: ${error.message}`);
+               }
           }
      }
 
@@ -453,20 +465,67 @@ export default class BillingStrategy {
      public async updateBillingStrategy(
           tenantId: number,
           strategyid: number,
-          updates: Partial<IBillingStrategy>
+          requestBody: BillingStrategyRequestBody
      ): Promise<string> {
+          const connection = await KnexConnection(tenantId);
           try {
-               const connection = await KnexConnection(tenantId);
-               const updated = await connection('billingstrategy')
-                    .where({ strategy_id: strategyid })
-                    .update({
-                         ...updates,
-                         is_expired: updates.valid_until ? new Date(updates.valid_until) < new Date() : false,
-                         updated_on: connection.fn.now(),
-                    });
-               return updated > 0 ? 'updated successfully' : 'no update occurred';
-          } catch (error: any) {
-               return error.message || 'unknown error occurred';
+               const result = await connection.transaction(async (trx) => {
+                    const existingStrategy = await trx('billingstrategy').where({ strategyid }).first();
+                    if (!existingStrategy) {
+                         throw new Error('Billing strategy not found.');
+                    }
+
+                    const data = await this.sanitizeClinicianBillingData(tenantId, requestBody);
+                    if (typeof data === 'string') throw new Error(data);
+
+                    await this.checkNHISUniqueness(trx, data.isNHIS, strategyid);
+
+                    await trx('billingstrategy')
+                         .where({ strategyid })
+                         .update({
+                              name: data.name,
+                              description: data.description,
+                              allconcessionApplied: data.allconcessionApplied,
+                              concessionValue: data.concessionValue,
+                              concessionMode: data.concessionMode,
+                              price_type: data.price_type,
+                              valid_from: data.valid_from,
+                              valid_until: data.valid_until,
+                              is_expired: data.is_expired,
+                              updatedon: trx.fn.now(),
+                         });
+
+                    if (data.allconcessionApplied === 0 && data.applicableTest?.length > 0) {
+                         const insertData = data.applicableTest.map(test => ({
+                              strategyid,
+                              testid: test.testid,
+                              concessionValue: test.concessionValue,
+                              discountedValue: test.discountedValue,
+                              concessionMode: test.concessionMode,
+                              pricingType: test.pricingType
+                         }));
+
+                         await trx('billingstrategy_tests').where('strategyid', strategyid).del();
+                         await trx('billingstrategy_tests').insert(insertData);
+                    } else {
+                         const itemTobeDeleted = Array.isArray(strategyid) ? strategyid : [strategyid];
+                         await trx('billingstrategy_tests')
+                              .whereIn('strategyid', itemTobeDeleted)
+                              .del();
+                    }
+
+                    return 'updated successfully';
+               });
+
+               return result;
+          } catch (error) {
+               console.error(error);
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    return message;
+               } else {
+                    return error.message;
+               }
           }
      }
 
@@ -474,14 +533,19 @@ export default class BillingStrategy {
           const connection = await KnexConnection(tenantId);
           try {
                await connection.transaction(async (trx) => {
-                    await trx('billingstrategy_tests').where({ strategyid }).del();
-                    await trx('billingstrategy_mapping').where({ strategyid }).del();
-                    await trx('billingstrategy').where({ strategyid }).del();
+                    await trx('billingstrategy_tests').where('strategyid', strategyid).del();
+                    await trx('billingstrategy_mapping').where('strategyid', strategyid).del();
+                    await trx('billingstrategy').where('strategyid', strategyid).del();
                });
                return true;
           } catch (error) {
                console.error(error);
-               throw new Error(`Failed to delete billing strategy: ${error.message}`);
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(message);
+               } else {
+                    throw error;
+               }
           }
      }
 
@@ -538,7 +602,6 @@ export default class BillingStrategy {
           return await new CustomTest(null, null).loadTestWithDetails(tenantId);
      }
 
-     // Helper to map tests with default pricing
      private mapTestsWithDefaults(tests: any[]) {
           return tests.map(({ price, name, testid, id, isoutsourced }) => ({
                discountedValue: price,
@@ -560,20 +623,35 @@ export default class BillingStrategy {
           tenantId: number,
           entity_type: EntityType,
           associatedid: number,
-          fallbackToDefault: boolean
+          fallbackToDefault: boolean,
+          isNHIS: boolean = false
      ): Promise<any> {
           try {
                if (!entity_type) {
                     throw new Error('Entity type required.');
                }
-               if (entity_type !== "general" && !associatedid && entity_type  != "nhis") {
+               if (entity_type !== "general" && !associatedid && entity_type != "nhis") {
                     throw new Error('Associated ID required for non-general entities.');
                }
-               if (entity_type === "general"  || entity_type === "nhis") {
+               if (entity_type === "general") {
                     return this.mapTestsWithDefaults(await this.loadAllTests(tenantId));
                }
 
-               const strategyList = await this.getBillingStrategyByEntity(tenantId, entity_type, associatedid);
+               let strategyList: any[] = [];
+               if (entity_type === "nhis") {
+                    const connection = await KnexConnection(tenantId);
+                    const nhisStrategy = await connection('billingstrategy').where({ isNHIS: 1 }).first();
+                    if (nhisStrategy) {
+                         strategyList = [await this.sanitizeToFieldsOfStrategy(nhisStrategy.strategyid, tenantId)];
+                    }
+               } else {
+                    strategyList = await this.getBillingStrategyByEntity(tenantId, entity_type, associatedid);
+               }
+
+               if (entity_type === "nhis") {
+                    console.log('NHIS strategyList:', strategyList);
+                    console.log('NHIS applicableTest:', strategyList[0]?.applicableTest);
+               }
 
                if (!strategyList.length && !fallbackToDefault) {
                     return `${OperationsFailures.billingStrategyNotFoundForEntity} or ${OperationsFailures.billingStrategyExpired}`;
@@ -582,7 +660,6 @@ export default class BillingStrategy {
                const allTest = await this.loadAllTests(tenantId);
                const testMap = new Map(allTest.map(test => [test.testid, test]));
 
-               // No strategy, fallback to default prices
                if (!strategyList.length && fallbackToDefault) {
                     return this.mapTestsWithDefaults(allTest);
                }
@@ -599,7 +676,6 @@ export default class BillingStrategy {
 
 
 
-               // CASE 1: All concession applies
                if (isTruthy(allconcessionApplied) && allTest.length) {
                     return allTest.map(({ price, name, testid, id }) => ({
                          discountedValue: this.calculateDiscountedValue(price, concessionMode, concessionValue, price_type),
@@ -614,7 +690,6 @@ export default class BillingStrategy {
                     }));
                }
 
-               // CASE 2: Specific applicable tests
                if (applicableTest && Array.isArray(applicableTest) && applicableTest.length > 0) {
                     const applicableTestIds = applicableTest.map(test => test.testid);
 
@@ -662,13 +737,27 @@ export default class BillingStrategy {
                               originalPrice: price
                          }));
 
-                    return [...formattedApplicableTest, ...remainingTests];
+                    if (entity_type === "nhis") {
+                         console.log('NHIS formattedApplicableTest:', formattedApplicableTest);
+                         return formattedApplicableTest;
+                    } else {
+                         return [...formattedApplicableTest, ...remainingTests];
+                    }
+               }
+
+               if (entity_type === "nhis") {
+                    return [];
                }
 
 
           } catch (error) {
                console.error('Error in getProvidentialBillingHandler:', error);
-               throw new Error('Internal server error.');
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(message);
+               } else {
+                    throw new Error('Internal server error.');
+               }
           }
      }
 
@@ -765,7 +854,12 @@ export default class BillingStrategy {
                return [];
           } catch (error) {
                console.error('Error in getStrategyBulkBillingData:', error);
-               throw new Error('Internal server error.');
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(message);
+               } else {
+                    throw new Error('Internal server error.');
+               }
           }
      }
 
@@ -823,7 +917,12 @@ export default class BillingStrategy {
                return null;
           } catch (error) {
                console.error('Error in getStrategySingleTestValue:', error);
-               throw new Error('Internal server error.');
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(message);
+               } else {
+                    throw new Error('Internal server error.');
+               }
           }
      }
 
@@ -840,7 +939,12 @@ export default class BillingStrategy {
                return strategy > 0;
           } catch (error) {
                console.error('Error in deleteStrategyApplicableEntities:', error);
-               throw new Error('Internal server error.');
+               if (error.code) {
+                    const { message } = getMySqlErrorMessage(error.code);
+                    throw new Error(message);
+               } else {
+                    throw new Error('Internal server error.');
+               }
           }
      }
 
@@ -852,7 +956,6 @@ export default class BillingStrategy {
           fallbackToDefault: boolean,
           trx: any = null
      ): Promise<number> {
-          // Helper to get the default price from test_panels
           const getDefaultPrice = async (): Promise<number> => {
                const connection = trx || await KnexConnection(tenantId);
                const test = await connection('test_panels').where({ id: testId }).first();
@@ -888,7 +991,6 @@ export default class BillingStrategy {
                return discounted;
           }
 
-          // Check for test-specific mapping
           if (Array.isArray(strategy.applicableTest)) {
                for (const t of strategy.applicableTest) {
                     if (t.testid === testId) {

@@ -6,6 +6,7 @@ import { ReferralCodingRepo } from "../../referral/repositories/ReferralCodingRe
 import Services from "../../services/services";
 import { EntityType } from "./billing_shared_types";
 import { SalesSessionRepo } from "../repositories/SalesSessionRepo";
+import { BillingModuleCodes } from "./billingTypes";
 
 export class PrimeBillingEnterprise {
 	protected tenantId: number;
@@ -270,7 +271,9 @@ export class PrimeBillingEnterprise {
 		branchid,
 		billingSource,
 		errorCodes,
-		pricingcheckout
+		pricingcheckout,
+		nhismembershipid,
+		claimscheckcode
 	}: {
 		patientId: number | undefined;
 		branchid: number | undefined;
@@ -284,10 +287,15 @@ export class PrimeBillingEnterprise {
 			CART_AND_SERVICES_EMPTY: string;
 		};
 		pricingcheckout?: boolean;
+		nhismembershipid?: number;
+		claimscheckcode?: number;
 	}) {
 		if (!patientId && !pricingcheckout) return errorCodes.NO_PATIENT_ID;
 		if (branchid === undefined || branchid === null) return errorCodes.NO_BRANCH_ID;
 		if (billingSource === undefined || billingSource === null) return errorCodes.NO_BILLING_SOURCE;
+		if (billingSource === 4 && (!nhismembershipid || !claimscheckcode)) {
+			return BillingModuleCodes.MODULE_MISSING_NHIS_INFO;
+		}
 		return null;
 	}
 	static reformatServicesList(servicesList: any[], isNightTime: boolean, taxList: string, taxValue: number): any[] {

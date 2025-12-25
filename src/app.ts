@@ -37,6 +37,7 @@ import InventoryRouter from './controllers/inventory/routes/index';
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
 import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
+import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
 import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
@@ -66,6 +67,7 @@ app.use(cors({
 app.use(express.static("public"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(requestLogger);
 app.use(ValidateTenancyAgreement)
 // app.use(checkTokenExists)
 app.use(OutsourcedTestTracking)
@@ -124,7 +126,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 
-const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT	 || 'localhost';
+const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
 
 app.listen(Number(port), host, (err) => {
 	console.log(`Server is running at http://${host}:${port}`);

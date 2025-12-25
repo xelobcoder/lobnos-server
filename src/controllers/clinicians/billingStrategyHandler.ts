@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { EntityType } from "../../models/clincians/c.dev.type";
 import BillingStrategy from "../../models/clincians/billingstrategy";
 import { ReferralCoding, ReferralCodingRepo } from "../../models/referral/repositories/ReferralCodingRepo";
+import KnexConnection from '../../database/KnexConnections';
 
 interface BillingStrategyRequestBody {
     allconcessionApplied: boolean;
@@ -12,6 +13,7 @@ interface BillingStrategyRequestBody {
     valid_until?: string;
     name: string;
     description?: string;
+    isNHIS: boolean;
     applicableEntities?: { entity_type: EntityType; entity_id: number }[];
     applicableTest?: { testid: number; concessionValue: number; discountedValue: number; concessionMode: 'absolute' | 'percentage'; pricingType: 'discount' | 'surcharge'; actualPrice: number; originalPrice: number }[];
 }
@@ -27,6 +29,7 @@ export async function createBillingStrategy(
             concessionValue,
             price_type,
             name,
+            isNHIS,
             applicableTest
         } = req.body;
 
@@ -54,14 +57,19 @@ export async function createBillingStrategy(
 
         const strategyInstance = new BillingStrategy();
         const tenantId = parseInt(req.query.tenantId.toString());
-        const strategyId = await strategyInstance.insertBillingStrategy(tenantId, req.body);
 
+        if (req.body.isNHIS) {
+            const connection = await KnexConnection(tenantId);
+            const existingNHIS = await connection('billingstrategy').where({ isNHIS: 1 }).first();
+            if (existingNHIS) {
+                return res.status(400).json({ message: 'An NHIS billing strategy already exists. Only one NHIS strategy is allowed.' });
+            }
+        }
+
+        const strategyId = await strategyInstance.insertBillingStrategy(tenantId, req.body);
         if (typeof strategyId === 'string') {
             res.status(400).json({ status: false, message: strategyId });
         } else {
-            if (applicableTest && applicableTest.length > 0 && !allconcessionApplied) {
-                await strategyInstance.addApplicableTests(tenantId, strategyId, applicableTest);
-            }
             res.status(201).json({ message: 'Billing strategy successfully created.', strategyId });
         }
     } catch (error: any) {
@@ -107,20 +115,48 @@ export async function updateBillingStrategy(
         const tenantId = parseInt(req.query.tenantId);
 
         if (isNaN(strategyId) || isNaN(tenantId)) {
-            res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
-        } else {
-            const strategyInstance = new BillingStrategy();
-            const { allconcessionApplied, ...rest } = req.body;
-            const updateData = {
-                ...rest,
-                allconcessionApplied: allconcessionApplied ? 1 : 0
-            };
-            const result = await strategyInstance.updateBillingStrategy(tenantId, strategyId, updateData);
-            if (!result) {
-                return res.status(404).json({ message: 'Billing strategy not found or no changes made.' });
-            }
-            res.status(200).json({ message: 'Strategy updated successfully', result });
+            return res.status(400).json({ message: 'Invalid strategy ID or tenant ID' });
         }
+
+        const {
+            allconcessionApplied,
+            concessionMode,
+            concessionValue,
+            price_type,
+            name,
+            applicableTest
+        } = req.body;
+
+        if (
+            [true, false].includes(allconcessionApplied) === false ||
+            !name ||
+            name.length > 100
+        ) {
+            return res.status(400).json({
+                message: 'Please provide all required fields: allconcessionApplied, name (max 100 characters).',
+            });
+        }
+
+        if (allconcessionApplied && (!concessionMode || !concessionValue || !price_type)) {
+            return res.status(400).json({
+                message: 'Concession mode, concession value, and price type are required when all concessions are applied.',
+            });
+        }
+
+        if (allconcessionApplied && (concessionValue <= 0 || !concessionValue)) {
+            return res.status(400).json({
+                message: 'Concession value must be present and greater than zero.',
+            });
+        }
+
+        const strategyInstance = new BillingStrategy();
+        const result = await strategyInstance.updateBillingStrategy(tenantId, strategyId, req.body);
+
+        if (result !== 'updated successfully') {
+            return res.status(400).json({ status: false, message: result });
+        }
+
+        res.status(200).json({ message: 'Billing strategy successfully updated.', strategyId });
     } catch (error: any) {
         res.status(500).json({
             message: 'Error updating billing strategy.',
