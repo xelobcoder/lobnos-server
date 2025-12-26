@@ -549,21 +549,28 @@ export interface BatchExpiryAnalytics {
           near_expiry_60_days: number;
           expired_items_count: number;
      };
-     batch_quality_issues: Array<{
-          batch_number: string;
-          item_name: string;
-          issue_type: 'qc_failure' | 'quarantined' | 'recall';
-          quantity_affected: number;
-          reported_date: string;
-          status: string;
+     batch_expiry_distribution: Array<{
+          expiry_range: string;
+          batch_count: number;
+          total_quantity: number;
      }>;
-     supplier_batch_performance: Array<{
-          supplier_id: string;
-          supplier_name: string;
-          total_batches: number;
-          expired_batches: number;
-          expiry_rate: number;
-          average_batch_lifespan_days: number;
+     items_with_multiple_batches: Array<{
+          item_id: string;
+          item_name: string;
+          batch_count: number;
+          total_quantity: number;
+          earliest_expiry: string;
+          latest_expiry: string;
+     }>;
+     batch_utilization: Array<{
+          batch_number: string;
+          expiry_date: string;
+          original_quantity: number;
+          item_id: string;
+          item_name: string;
+          consumed_quantity: number;
+          remaining_quantity: number;
+          utilization_percentage: number;
      }>;
 }
 
@@ -707,14 +714,6 @@ export interface ProcurementAnalytics {
 }
 
 export interface CostValuationAnalytics {
-     current_valuation: {
-          total_stock_value_fifo: number;
-          total_stock_value_lifo: number;
-          total_stock_value_weighted_avg: number;
-          slow_moving_value: number;
-          expired_stock_value: number;
-          near_expiry_value: number;
-     };
      cost_trends: Array<{
           month: string;
           additions_cost: number;
@@ -724,22 +723,9 @@ export interface CostValuationAnalytics {
      }>;
      profitability_impact: {
           cost_of_goods_issued: number;
+          expired_stock_value: number;
+          near_expiry_value: number;
           average_cost_per_unit: number;
-          cost_variance_analysis: Array<{
-               item_id: string;
-               item_name: string;
-               standard_cost: number;
-               actual_cost: number;
-               variance_percentage: number;
-               variance_type: 'favorable' | 'unfavorable';
-          }>;
-          procurement_savings: Array<{
-               period: string;
-               baseline_cost: number;
-               actual_cost: number;
-               savings_amount: number;
-               savings_percentage: number;
-          }>;
      };
 }
 

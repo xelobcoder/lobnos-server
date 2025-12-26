@@ -2,8 +2,10 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const InventoryAnalyticsController_1 = require("../InventoryAnalyticsController");
+const InventoryPaymentAnalyticsController_1 = require("../InventoryPaymentAnalyticsController");
 const router = (0, express_1.Router)();
 const analyticsController = new InventoryAnalyticsController_1.InventoryAnalyticsController();
+const paymentAnalyticsController = new InventoryPaymentAnalyticsController_1.InventoryPaymentAnalyticsController();
 router.get('/analytics/dashboard', (req, res) => analyticsController.getDashboardSummary(req, res));
 router.get('/analytics/purchase-orders', (req, res) => analyticsController.getPurchaseOrderAnalytics(req, res));
 router.get('/analytics/transactions', (req, res) => analyticsController.getTransactionAnalytics(req, res));
@@ -16,4 +18,5 @@ router.get('/analytics/batch-expiry', (req, res) => analyticsController.getBatch
 router.get('/analytics/procurement', (req, res) => analyticsController.getProcurementAnalytics(req, res));
 router.get('/analytics/cost-valuation', (req, res) => analyticsController.getCostValuationAnalytics(req, res));
 router.get('/analytics/usage', (req, res) => analyticsController.getUsageAnalytics(req, res));
+router.get('/analytics/payment-time', (req, res) => paymentAnalyticsController.getPaymentTimeAnalytics(req, res));
 exports.default = router;

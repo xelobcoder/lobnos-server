@@ -1749,8 +1749,6 @@ class InventoryAnalyticsController {
                 .where('current_stock', '>', 0)
                 .orderBy('current_stock', 'desc')
                 .limit(20);
-            // DEBUG: Log the raw results
-            console.log('DEBUG - Knex query results:', daysOfInventoryRemaining);
             // Predictive analytics (simplified) - FIXED: Proper daily consumption calculation
             let dailyConsumptionQuery2 = connection('inv_consumption_history')
                 .select('item_id', connection.raw('DATE(consumption_date) as consumption_date'), connection.raw('SUM(COALESCE(quantity_consumed, 0)) as daily_consumption'))
@@ -2553,7 +2551,7 @@ class InventoryAnalyticsController {
             const expiringBatches = await connection('inv_purchase_order_receipts')
                 .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
                 .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-                .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(inv_purchase_order_receipts.expiry_date, CURDATE()) as days_until_expiry'))
+                .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(inv_purchase_order_receipts.expiry_date, CURDATE()) as days_until_expiry'), connection.raw('(SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") as consumed_quantity'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', start_date);
@@ -2576,7 +2574,7 @@ class InventoryAnalyticsController {
             const expiredBatches = await connection('inv_purchase_order_receipts')
                 .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
                 .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-                .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(CURDATE(), inv_purchase_order_receipts.expiry_date) as days_expired'))
+                .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_purchase_order_receipts.unit_price', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(CURDATE(), inv_purchase_order_receipts.expiry_date) as days_expired'), connection.raw('(SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") as consumed_quantity'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<', start_date);
@@ -2670,22 +2668,43 @@ class InventoryAnalyticsController {
                     batch_number: row.batch_number,
                     item_id: row.item_id,
                     item_name: row.item_name,
-                    total_received: parseInt(row.batch_quantity), // Simplified
-                    total_consumed: 0, // Would need consumption tracking
-                    remaining_quantity: parseInt(row.batch_quantity),
+                    total_received: parseInt(row.batch_quantity),
+                    total_consumed: parseInt(row.consumed_quantity) || 0,
+                    remaining_quantity: Math.max(0, parseInt(row.batch_quantity) - (parseInt(row.consumed_quantity) || 0)),
                     expiry_date: row.expiry_date,
                     days_until_expiry: parseInt(row.days_until_expiry),
                     status: row.days_until_expiry <= 7 ? 'expired' : row.days_until_expiry <= 30 ? 'near_expiry' : 'fresh'
                 })),
                 expiry_summary: {
-                    expired_stock_value: 0, // Placeholder
+                    expired_stock_value: expiredBatches.reduce((sum, row) => sum + (Math.max(0, parseInt(row.batch_quantity) - (parseInt(row.consumed_quantity) || 0)) * parseFloat(row.unit_price || 0)), 0),
                     near_expiry_7_days: expiringBatches.filter(row => row.days_until_expiry <= 7).length,
                     near_expiry_30_days: expiringBatches.filter(row => row.days_until_expiry <= 30).length,
                     near_expiry_60_days: expiringBatches.filter(row => row.days_until_expiry <= 60).length,
                     expired_items_count: expiredBatches.length
                 },
-                batch_quality_issues: [], // Placeholder
-                supplier_batch_performance: [] // Placeholder
+                batch_expiry_distribution: batchExpiryDistribution.map(row => ({
+                    expiry_range: row.expiry_range,
+                    batch_count: parseInt(row.batch_count) || 0,
+                    total_quantity: parseInt(row.total_quantity) || 0
+                })),
+                items_with_multiple_batches: itemsWithMultipleBatches.map(row => ({
+                    item_id: row.item_id,
+                    item_name: row.item_name,
+                    batch_count: parseInt(row.batch_count) || 0,
+                    total_quantity: parseInt(row.total_quantity) || 0,
+                    earliest_expiry: row.earliest_expiry,
+                    latest_expiry: row.latest_expiry
+                })),
+                batch_utilization: batchUtilization.map(row => ({
+                    batch_number: row.batch_number,
+                    expiry_date: row.expiry_date,
+                    original_quantity: parseInt(row.original_quantity) || 0,
+                    item_id: row.item_id,
+                    item_name: row.item_name,
+                    consumed_quantity: parseInt(row.consumed_quantity) || 0,
+                    remaining_quantity: parseInt(row.remaining_quantity) || 0,
+                    utilization_percentage: parseFloat(row.utilization_percentage) || 0
+                }))
             };
             const response = {
                 success: true,
@@ -3023,88 +3042,37 @@ class InventoryAnalyticsController {
         }
     }
     async getCostValuationAnalytics(req, res) {
+        var _a, _b, _c, _d, _e;
         try {
             const tenantId = this.getTenantId(req);
             const connection = await (0, KnexConnections_1.default)(tenantId);
             const { start_date, end_date } = req.query;
-            // Current valuation (simplified - using most recent unit cost from transactions)
-            const [fifoValuation] = await connection.raw(`
-                    SELECT SUM(i.current_stock * COALESCE((
-                         SELECT COALESCE(por.unit_price, poi.unit_price, 0)
-                         FROM inv_purchase_order_items poi
-                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
-                         WHERE poi.inventory_item_id = i.id
-                         ORDER BY por.received_date DESC, poi.created_at DESC
-                         LIMIT 1
-                    ), 0)) as fifo_value
-                    FROM inv_inventory_items i
-                    WHERE i.is_active = 1
+            // Cost of goods issued (value of consumed products) - FIXED: Use purchase receipt unit_price
+            const [cogiResult] = await connection.raw(`
+                    SELECT SUM(t.quantity * COALESCE(r.unit_price, 0)) as cogi
+                    FROM inv_inventory_transactions t
+                    LEFT JOIN inv_purchase_order_receipts r ON r.batch_number = t.batch_number
+                    WHERE t.transaction_type IN ('consumption', 'wastage')
+                    ${start_date ? `AND t.transaction_date >= '${start_date}'` : 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)'}
+                    ${end_date ? `AND t.transaction_date <= '${end_date}'` : 'AND t.transaction_date <= CURDATE()'}
                `);
-            const [lifoValuation] = await connection.raw(`
-                    SELECT SUM(i.current_stock * COALESCE((
-                         SELECT COALESCE(por.unit_price, poi.unit_price, 0)
-                         FROM inv_purchase_order_items poi
-                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
-                         WHERE poi.inventory_item_id = i.id
-                         ORDER BY por.received_date DESC, poi.created_at DESC
-                         LIMIT 1
-                    ), 0)) as lifo_value
-                    FROM inv_inventory_items i
-                    WHERE i.is_active = 1
-               `); // Simplified - LIFO would need different calculation
-            const [weightedAvgValuation] = await connection.raw(`
-                    SELECT SUM(i.current_stock * COALESCE((
-                         SELECT AVG(COALESCE(por.unit_price, poi.unit_price, 0))
-                         FROM inv_purchase_order_items poi
-                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
-                         WHERE poi.inventory_item_id = i.id
-                         ${start_date ? 'AND por.received_date >= ?' : ''}
-                         ${end_date ? 'AND por.received_date <= ?' : ''}
-                         ${!start_date && !end_date ? 'AND por.received_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)' : ''}
-                    ), 0)) as weighted_avg_value
-                    FROM inv_inventory_items i
-                    WHERE i.is_active = 1
-               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
-            // Slow moving value
-            const [slowMovingValue] = await connection.raw(`
-                    SELECT SUM(CASE WHEN DATEDIFF(CURDATE(), MAX(t.transaction_date)) >= 90 THEN i.current_stock * COALESCE((
-                         SELECT COALESCE(por.unit_price, poi.unit_price, 0)
-                         FROM inv_purchase_order_items poi
-                         LEFT JOIN inv_purchase_order_receipts por ON poi.id = por.order_item_id
-                         WHERE poi.inventory_item_id = i.id
-                         ORDER BY por.received_date DESC, poi.created_at DESC
-                         LIMIT 1
-                    ), 0) ELSE 0 END) as slow_moving_value
-                    FROM inv_inventory_items i
-                    LEFT JOIN inv_inventory_transactions t ON i.id = t.item_id
-                    WHERE i.is_active = 1
-                    GROUP BY i.id
-               `);
-            // Expired stock value
+            // Expired stock value - FIXED: Use unit_price directly from receipts
             const [expiredValue] = await connection.raw(`
-                    SELECT SUM(CASE WHEN b.expiry_date < CURDATE() THEN b.quantity * COALESCE((
-                         SELECT t.unit_cost
-                         FROM inv_inventory_transactions t
-                         WHERE t.item_id = b.item_id AND t.transaction_type = 'addition' AND t.unit_cost IS NOT NULL
-                         ORDER BY t.transaction_date DESC
-                         LIMIT 1
-                    ), 0) ELSE 0 END) as expired_value
-                    FROM inv_inventory_batches b
-                    WHERE b.quantity > 0
+                    SELECT SUM(CASE WHEN r.expiry_date < CURDATE() THEN GREATEST(0, (r.quantity_received - COALESCE((
+                         SELECT SUM(quantity) FROM inv_inventory_transactions
+                         WHERE batch_number = r.batch_number AND transaction_type = 'consumption'
+                    ), 0))) * r.unit_price ELSE 0 END) as expired_value
+                    FROM inv_purchase_order_receipts r
+                    WHERE r.quantity_received > 0 AND r.expiry_date IS NOT NULL AND r.unit_price IS NOT NULL
                `);
-            // Near expiry value
+            // Near expiry value - FIXED: Total value of stock in batches expiring within 90 days
             const [nearExpiryValue] = await connection.raw(`
-                    SELECT SUM(CASE WHEN b.expiry_date >= CURDATE() AND b.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY) THEN b.quantity * COALESCE((
-                         SELECT t.unit_cost
-                         FROM inv_inventory_transactions t
-                         WHERE t.item_id = b.item_id AND t.transaction_type = 'addition' AND t.unit_cost IS NOT NULL
-                         ORDER BY t.transaction_date DESC
-                         LIMIT 1
-                    ), 0) ELSE 0 END) as near_expiry_value
-                    FROM inv_inventory_batches b
-                    WHERE b.quantity > 0
+                    SELECT SUM(r.quantity_received * r.unit_price) as near_expiry_value
+                    FROM inv_purchase_order_receipts r
+                    WHERE r.expiry_date >= CURDATE() AND r.expiry_date <= DATE_ADD(CURDATE(), INTERVAL 90 DAY)
+                    AND r.quantity_received > 0 AND r.unit_price IS NOT NULL
                `);
-            // Cost trends by month
+            // Cost trends by month (consumption vs additions)
             const costTrends = await connection.raw(`
                     SELECT
                          month,
@@ -3115,74 +3083,40 @@ class InventoryAnalyticsController {
                     FROM (
                          SELECT
                               DATE_FORMAT(t.transaction_date, '%Y-%m') as month,
-                              SUM(CASE WHEN t.transaction_type = 'addition' THEN COALESCE(t.total_cost, 0) ELSE 0 END) as additions_cost,
-                              0 as consumption_cost,
-                              SUM(CASE WHEN t.transaction_type = 'adjustment' THEN COALESCE(t.total_cost, 0) ELSE 0 END) as write_off_cost,
-                              SUM(COALESCE(t.total_cost, 0)) as net_cost_change
+                              SUM(CASE WHEN t.transaction_type = 'addition' THEN COALESCE(t.total_cost, t.quantity * t.unit_cost, 0) ELSE 0 END) as additions_cost,
+                              SUM(CASE WHEN t.transaction_type IN ('consumption', 'wastage') THEN COALESCE(t.total_cost, t.quantity * t.unit_cost, 0) ELSE 0 END) as consumption_cost,
+                              SUM(CASE WHEN t.transaction_type = 'adjustment' THEN COALESCE(t.total_cost, t.quantity * t.unit_cost, 0) ELSE 0 END) as write_off_cost,
+                              SUM(COALESCE(t.total_cost, t.quantity * t.unit_cost, 0)) as net_cost_change
                          FROM inv_inventory_transactions t
                          WHERE 1=1
                          ${start_date ? `AND t.transaction_date >= '${start_date}'` : 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'}
                          ${end_date ? `AND t.transaction_date <= '${end_date}'` : 'AND t.transaction_date <= CURDATE()'}
                          GROUP BY month
-
-                         UNION ALL
-
-                         SELECT
-                              DATE_FORMAT(ch.consumption_date, '%Y-%m') as month,
-                              0 as additions_cost,
-                              SUM(ch.total_cost) as consumption_cost,
-                              0 as write_off_cost,
-                              -SUM(ch.total_cost) as net_cost_change
-                         FROM inv_consumption_history ch
-                         WHERE ch.consumption_reason IN ('consumption', 'wastage')
-                         ${start_date ? `AND ch.consumption_date >= '${start_date}'` : 'AND ch.consumption_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'}
-                         ${end_date ? `AND ch.consumption_date <= '${end_date}'` : 'AND ch.consumption_date <= CURDATE()'}
-                         GROUP BY month
                     ) combined
                     GROUP BY month
                     ORDER BY month DESC
                `);
-            // Cost of goods issued
-            const [cogiResult] = await connection.raw(`
-                    SELECT SUM(total_cost) as cogi
-                    FROM inv_consumption_history
-                    WHERE consumption_reason IN ('consumption', 'wastage')
-                    ${start_date ? `AND consumption_date >= '${start_date}'` : 'AND consumption_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)'}
-                    ${end_date ? `AND consumption_date <= '${end_date}'` : 'AND consumption_date <= CURDATE()'}
-               `);
-            // Average cost per unit
+            // Average cost per unit for consumed items
             const [avgCostResult] = await connection.raw(`
-                    SELECT AVG(COALESCE((
-                         SELECT t.unit_cost
-                         FROM inv_inventory_transactions t
-                         WHERE t.item_id = i.id AND t.transaction_type = 'addition' AND t.unit_cost IS NOT NULL
-                         ORDER BY t.transaction_date DESC
-                         LIMIT 1
-                    ), 0)) as avg_cost
-                    FROM inv_inventory_items i
-                    WHERE i.is_active = 1 AND i.current_stock > 0
+                    SELECT AVG(COALESCE(t.unit_cost, 0)) as avg_cost
+                    FROM inv_inventory_transactions t
+                    WHERE t.transaction_type IN ('consumption', 'wastage') AND t.unit_cost IS NOT NULL AND t.unit_cost > 0
+                    ${start_date ? `AND t.transaction_date >= '${start_date}'` : 'AND t.transaction_date >= DATE_SUB(CURDATE(), INTERVAL 365 DAY)'}
+                    ${end_date ? `AND t.transaction_date <= '${end_date}'` : 'AND t.transaction_date <= CURDATE()'}
                `);
             const analytics = {
-                current_valuation: {
-                    total_stock_value_fifo: parseFloat(fifoValuation === null || fifoValuation === void 0 ? void 0 : fifoValuation.fifo_value) || 0,
-                    total_stock_value_lifo: parseFloat(lifoValuation === null || lifoValuation === void 0 ? void 0 : lifoValuation.lifo_value) || 0,
-                    total_stock_value_weighted_avg: parseFloat(weightedAvgValuation === null || weightedAvgValuation === void 0 ? void 0 : weightedAvgValuation.weighted_avg_value) || 0,
-                    slow_moving_value: parseFloat(slowMovingValue === null || slowMovingValue === void 0 ? void 0 : slowMovingValue.slow_moving_value) || 0,
-                    expired_stock_value: parseFloat(expiredValue === null || expiredValue === void 0 ? void 0 : expiredValue.expired_value) || 0,
-                    near_expiry_value: parseFloat(nearExpiryValue === null || nearExpiryValue === void 0 ? void 0 : nearExpiryValue.near_expiry_value) || 0
-                },
-                cost_trends: costTrends.map(row => ({
+                cost_trends: ((_a = costTrends[0]) === null || _a === void 0 ? void 0 : _a.map(row => ({
                     month: row.month,
                     additions_cost: parseFloat(row.additions_cost) || 0,
                     consumption_cost: parseFloat(row.consumption_cost) || 0,
                     write_off_cost: parseFloat(row.write_off_cost) || 0,
                     net_cost_change: parseFloat(row.net_cost_change) || 0
-                })),
+                }))) || [],
                 profitability_impact: {
-                    cost_of_goods_issued: parseFloat(cogiResult === null || cogiResult === void 0 ? void 0 : cogiResult.cogi) || 0,
-                    average_cost_per_unit: parseFloat(avgCostResult === null || avgCostResult === void 0 ? void 0 : avgCostResult.avg_cost) || 0,
-                    cost_variance_analysis: [], // Placeholder - would need standard vs actual cost comparison
-                    procurement_savings: [] // Placeholder - would need baseline vs actual cost analysis
+                    cost_of_goods_issued: parseFloat((_b = cogiResult[0]) === null || _b === void 0 ? void 0 : _b.cogi) || 0,
+                    expired_stock_value: parseFloat((_c = expiredValue[0]) === null || _c === void 0 ? void 0 : _c.expired_value) || 0,
+                    near_expiry_value: parseFloat((_d = nearExpiryValue[0]) === null || _d === void 0 ? void 0 : _d.near_expiry_value) || 0,
+                    average_cost_per_unit: parseFloat((_e = avgCostResult[0]) === null || _e === void 0 ? void 0 : _e.avg_cost) || 0
                 }
             };
             const response = {
