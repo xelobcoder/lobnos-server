@@ -2,7 +2,7 @@ import { promisifyQuery } from '../hooks/helper';
 import { q_tiifu_add_new_column, q_tiifu_find_many_using_list_in, q_tiifu_findColumn, q_tiifu_findColumn_many } from './queries';
 export class TiifuWorkingClass {
        public tableName: string;
-       private connection
+       private connection: any;
        constructor(tablename: string) {
               this.tableName = tablename;
               this.connection = promisifyQuery
@@ -123,16 +123,13 @@ export class TiifuWorkingClass {
               }
 
               const rows = await promisifyQuery(tenantId, query, queryParams);
-
-
               const sanitizedRows = rows.map((row: any) => {
                      if (tableSensitiveConfig) {
-                            tableSensitiveConfig.sensitiveColumns.forEach(col => delete row[col]);
+                            tableSensitiveConfig
+                                   .sensitiveColumns.forEach(col => delete row[col]);
                      }
-
                      return row;
               });
-              console.log(sanitizedRows)
               return sanitizedRows;
        }
 

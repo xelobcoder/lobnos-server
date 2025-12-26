@@ -2828,7 +2828,8 @@ export class InventoryAnalyticsController {
 
                // Expiring batches (next 90 days) - using inv_purchase_order_receipts instead of non-existent inv_inventory_batches
                const expiringBatches = await connection('inv_purchase_order_receipts')
-                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                    .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                     .select(
                          'inv_purchase_order_receipts.batch_number',
                          'inv_purchase_order_receipts.expiry_date',
@@ -2853,11 +2854,11 @@ export class InventoryAnalyticsController {
                     .whereNotNull('inv_purchase_order_receipts.batch_number')
                     .whereNotNull('inv_purchase_order_receipts.expiry_date')
                     .orderBy('days_until_expiry', 'asc')
-                    .limit(100) as any[];
 
                // Expired batches - using inv_purchase_order_receipts
                const expiredBatches = await connection('inv_purchase_order_receipts')
-                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                    .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                     .select(
                          'inv_purchase_order_receipts.batch_number',
                          'inv_purchase_order_receipts.expiry_date',
@@ -2877,7 +2878,7 @@ export class InventoryAnalyticsController {
                     .whereNotNull('inv_purchase_order_receipts.batch_number')
                     .whereNotNull('inv_purchase_order_receipts.expiry_date')
                     .orderBy('days_expired', 'desc')
-                    .limit(50) as any[];
+     
 
                // Batch expiry distribution - using inv_purchase_order_receipts
                const batchExpiryDistribution = await connection('inv_purchase_order_receipts')
@@ -2905,7 +2906,8 @@ export class InventoryAnalyticsController {
 
                // Items with multiple batches - using inv_purchase_order_receipts
                const itemsWithMultipleBatches = await connection('inv_purchase_order_receipts')
-                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                    .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                     .select(
                          'inv_inventory_items.id as item_id',
                          'inv_inventory_items.name as item_name',
@@ -2936,7 +2938,8 @@ export class InventoryAnalyticsController {
 
                // Batch utilization analysis - using inv_purchase_order_receipts and inv_inventory_transactions
                const batchUtilization = await connection('inv_purchase_order_receipts')
-                    .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                    .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                    .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                     .leftJoin('inv_inventory_transactions', function () {
                          this.on('inv_purchase_order_receipts.batch_number', '=', 'inv_inventory_transactions.batch_number')
                               .andOn('inv_inventory_transactions.transaction_type', '=', connection.raw("'consumption'"));

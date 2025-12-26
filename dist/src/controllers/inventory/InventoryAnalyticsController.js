@@ -2551,7 +2551,8 @@ class InventoryAnalyticsController {
             const { start_date, end_date } = req.query;
             // Expiring batches (next 90 days) - using inv_purchase_order_receipts instead of non-existent inv_inventory_batches
             const expiringBatches = await connection('inv_purchase_order_receipts')
-                .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                 .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(inv_purchase_order_receipts.expiry_date, CURDATE()) as days_until_expiry'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
@@ -2570,11 +2571,11 @@ class InventoryAnalyticsController {
                 .andWhere('inv_purchase_order_receipts.quantity_received', '>', 0)
                 .whereNotNull('inv_purchase_order_receipts.batch_number')
                 .whereNotNull('inv_purchase_order_receipts.expiry_date')
-                .orderBy('days_until_expiry', 'asc')
-                .limit(100);
+                .orderBy('days_until_expiry', 'asc');
             // Expired batches - using inv_purchase_order_receipts
             const expiredBatches = await connection('inv_purchase_order_receipts')
-                .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                 .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(CURDATE(), inv_purchase_order_receipts.expiry_date) as days_expired'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
@@ -2587,8 +2588,7 @@ class InventoryAnalyticsController {
                 .andWhere('inv_purchase_order_receipts.quantity_received', '>', 0)
                 .whereNotNull('inv_purchase_order_receipts.batch_number')
                 .whereNotNull('inv_purchase_order_receipts.expiry_date')
-                .orderBy('days_expired', 'desc')
-                .limit(50);
+                .orderBy('days_expired', 'desc');
             // Batch expiry distribution - using inv_purchase_order_receipts
             const batchExpiryDistribution = await connection('inv_purchase_order_receipts')
                 .select(connection.raw('CASE WHEN DATEDIFF(expiry_date, CURDATE()) <= 30 THEN "0-30_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 60 THEN "31-60_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 90 THEN "61-90_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 180 THEN "91-180_days" ELSE "181+_days" END as expiry_range'), connection.raw('COUNT(*) as batch_count'), connection.raw('SUM(quantity_received) as total_quantity'))
@@ -2612,7 +2612,8 @@ class InventoryAnalyticsController {
                 .groupBy('expiry_range');
             // Items with multiple batches - using inv_purchase_order_receipts
             const itemsWithMultipleBatches = await connection('inv_purchase_order_receipts')
-                .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                 .select('inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('COUNT(DISTINCT inv_purchase_order_receipts.batch_number) as batch_count'), connection.raw('SUM(inv_purchase_order_receipts.quantity_received) as total_quantity'), connection.raw('MIN(inv_purchase_order_receipts.expiry_date) as earliest_expiry'), connection.raw('MAX(inv_purchase_order_receipts.expiry_date) as latest_expiry'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
@@ -2637,7 +2638,8 @@ class InventoryAnalyticsController {
                 .limit(50);
             // Batch utilization analysis - using inv_purchase_order_receipts and inv_inventory_transactions
             const batchUtilization = await connection('inv_purchase_order_receipts')
-                .leftJoin('inv_inventory_items', 'inv_purchase_order_receipts.inventory_item_id', 'inv_inventory_items.id')
+                .leftJoin('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
+                .leftJoin('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
                 .leftJoin('inv_inventory_transactions', function () {
                 this.on('inv_purchase_order_receipts.batch_number', '=', 'inv_inventory_transactions.batch_number')
                     .andOn('inv_inventory_transactions.transaction_type', '=', connection.raw("'consumption'"));

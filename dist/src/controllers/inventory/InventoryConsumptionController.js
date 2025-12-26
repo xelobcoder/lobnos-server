@@ -857,21 +857,10 @@ class InventoryConsumptionController {
                     });
                     transactionData.reference_id = consumptionHistoryId;
                     const transaction = await model.create(transactionData);
-                    console.log(`Manual consumption processed for item ${consumption.item_id}:`, {
-                        quantity: consumption.quantity,
-                        batch_number: transactionData.batch_number,
-                        previous_stock: transaction.previous_stock,
-                        new_stock: transaction.new_stock
-                    });
                     results.push(Object.assign(Object.assign({}, transaction), { consumption_method: 'manual', consumed_from_batch: transactionData.batch_number, consumed_brand: transactionData.brand_name }));
                 }
                 else {
-                    console.log(`Starting FIFO consumption for item ${consumption.item_id}, quantity: ${consumption.quantity}`);
                     const stockDetails = await model.getAvailableStockDetails(consumption.item_id);
-                    console.log(`Stock details for FIFO:`, {
-                        total_available: stockDetails.available_batches.reduce((sum, b) => sum + b.available_quantity, 0),
-                        batches: stockDetails.available_batches.map(b => `${b.batch_number}: ${b.available_quantity}`)
-                    });
                     if (stockDetails.available_batches.length === 0) {
                         const response = {
                             success: false,
@@ -884,7 +873,6 @@ class InventoryConsumptionController {
                         return;
                     }
                     const totalAvailableQuantity = stockDetails.available_batches.reduce((sum, batch) => sum + batch.available_quantity, 0);
-                    console.log(`Total available quantity: ${totalAvailableQuantity}, requested: ${consumption.quantity}`);
                     if (totalAvailableQuantity < consumption.quantity) {
                         const response = {
                             success: false,
@@ -946,11 +934,6 @@ class InventoryConsumptionController {
                         fifoTransactions.push(Object.assign(Object.assign({}, transaction), { consumed_quantity: batchConsumption.quantity }));
                     }
                     const primaryTransaction = fifoTransactions[0];
-                    console.log(`FIFO consumption completed for item ${consumption.item_id}:`, {
-                        total_quantity: consumption.quantity,
-                        batches_consumed: batchesToConsume.map(b => `${b.batch_number}: ${b.quantity} units`),
-                        transactions_created: fifoTransactions.length
-                    });
                     results.push(Object.assign(Object.assign({}, primaryTransaction), { consumption_method: 'fifo', consumed_from_batch: primaryTransaction.batch_number, consumed_brand: primaryTransaction.brand_name, total_consumed: consumption.quantity, batch_breakdown: batchesToConsume }));
                 }
             }

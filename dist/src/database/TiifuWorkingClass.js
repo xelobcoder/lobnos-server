@@ -98,11 +98,11 @@ class TiifuWorkingClass {
         const rows = await (0, helper_1.promisifyQuery)(tenantId, query, queryParams);
         const sanitizedRows = rows.map((row) => {
             if (tableSensitiveConfig) {
-                tableSensitiveConfig.sensitiveColumns.forEach(col => delete row[col]);
+                tableSensitiveConfig
+                    .sensitiveColumns.forEach(col => delete row[col]);
             }
             return row;
         });
-        console.log(sanitizedRows);
         return sanitizedRows;
     }
     static isNumberPhoneNumber(phoneNumber) {

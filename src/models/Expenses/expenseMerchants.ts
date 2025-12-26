@@ -65,6 +65,7 @@ export default class expenseMerchants {
                .orderBy('expense_merchants.created_at', 'desc')
                .limit(limit)
                .offset(offset);
+               console.log(rows);
           return rows;
      }
 

@@ -271,14 +271,10 @@ export const TableFiltering = async (request: Request<{ tablename: string }, {},
 		if (!tablename.tablename || !value || value.trim().length <= 0 || isNaN(limit)) {
 			return customError(OperationsFailures.invalidRequestParams, 404, response);
 		}
-
 		const columnName = original && original.trim().length > 0 && original.trim() != "undefined" ? original : null
-
 		const tenantIdP: number = parseInt(request.query.tenantId as string, 10);
-
 		const result = await TiifuWorkingClass.filterDatabaseTable(tenantIdP,
 			tablename.tablename, columnName, value, parseInt(limit.toString()));
-
 		response.send(result)
 	} catch (err) {
 		if (err && err?.code == OperationsFailures.ER_NO_SUCH_TABLE) {
