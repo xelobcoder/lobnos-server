@@ -6,15 +6,6 @@ This document describes the item-specific analytics endpoints available in the L
 ```
 /api/v1/inventory/analytics/items/:itemId
 ```
-
-## Authentication
-All endpoints require authentication via JWT token in the `pls-prime-tenant-session` cookie.
-
-## Common Parameters
-
-### Required Query Parameters
-- `tenantId` (number): The tenant identifier for multi-tenant data isolation
-
 ### Path Parameters
 - `itemId` (string): The unique identifier of the inventory item
 
@@ -106,77 +97,265 @@ Retrieves order analytics grouped by daily, monthly, and yearly periods.
 
 Retrieves daily order analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only daily periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01-15",
+    "period_type": "daily",
+    "quantity": 100.00,
+    "amount": 5000.00
+  },
+  {
+    "period": "2025-01-16",
+    "period_type": "daily",
+    "quantity": 150.00,
+    "amount": 7500.00
+  }
+]
+```
 
 ### 4. Monthly Order Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/orders/monthly`
 
 Retrieves monthly order analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only monthly periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01",
+    "period_type": "monthly",
+    "quantity": 2500.00,
+    "amount": 125000.00
+  },
+  {
+    "period": "2025-02",
+    "period_type": "monthly",
+    "quantity": 2800.00,
+    "amount": 140000.00
+  }
+]
+```
 
 ### 5. Yearly Order Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/orders/yearly`
 
 Retrieves yearly order analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only yearly periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025",
+    "period_type": "yearly",
+    "quantity": 30000.00,
+    "amount": 1500000.00
+  },
+  {
+    "period": "2024",
+    "period_type": "yearly",
+    "quantity": 28000.00,
+    "amount": 1400000.00
+  }
+]
+```
 
 ### 6. Item Usage Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/usage`
 
 Retrieves consumption analytics grouped by daily, monthly, and yearly periods.
 
-**Response Data Structure:** Same as Item Order Analytics.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01-15",
+    "period_type": "daily",
+    "quantity": 25.50,
+    "amount": 1275.00
+  },
+  {
+    "period": "2025-01",
+    "period_type": "monthly",
+    "quantity": 650.00,
+    "amount": 32500.00
+  },
+  {
+    "period": "2025",
+    "period_type": "yearly",
+    "quantity": 7800.00,
+    "amount": 390000.00
+  }
+]
+```
 
 ### 7. Daily Consumption Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/usage/daily`
 
 Retrieves daily consumption analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only daily periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01-15",
+    "period_type": "daily",
+    "quantity": 25.50,
+    "amount": 1275.00
+  },
+  {
+    "period": "2025-01-16",
+    "period_type": "daily",
+    "quantity": 30.25,
+    "amount": 1512.50
+  }
+]
+```
 
 ### 8. Monthly Consumption Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/usage/monthly`
 
 Retrieves monthly consumption analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only monthly periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01",
+    "period_type": "monthly",
+    "quantity": 650.00,
+    "amount": 32500.00
+  },
+  {
+    "period": "2025-02",
+    "period_type": "monthly",
+    "quantity": 720.00,
+    "amount": 36000.00
+  }
+]
+```
 
 ### 9. Yearly Consumption Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/usage/yearly`
 
 Retrieves yearly consumption analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only yearly periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025",
+    "period_type": "yearly",
+    "quantity": 7800.00,
+    "amount": 390000.00
+  },
+  {
+    "period": "2024",
+    "period_type": "yearly",
+    "quantity": 7500.00,
+    "amount": 375000.00
+  }
+]
+```
 
 ### 10. Item Wastage Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/wastage`
 
 Retrieves wastage analytics grouped by daily, monthly, and yearly periods.
 
-**Response Data Structure:** Same as Item Order Analytics.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01-15",
+    "period_type": "daily",
+    "quantity": 2.50,
+    "amount": 125.00
+  },
+  {
+    "period": "2025-01",
+    "period_type": "monthly",
+    "quantity": 65.00,
+    "amount": 3250.00
+  },
+  {
+    "period": "2025",
+    "period_type": "yearly",
+    "quantity": 780.00,
+    "amount": 39000.00
+  }
+]
+```
 
 ### 11. Daily Wastage Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/wastage/daily`
 
 Retrieves daily wastage analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only daily periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01-15",
+    "period_type": "daily",
+    "quantity": 2.50,
+    "amount": 125.00
+  },
+  {
+    "period": "2025-01-16",
+    "period_type": "daily",
+    "quantity": 3.25,
+    "amount": 162.50
+  }
+]
+```
 
 ### 12. Monthly Wastage Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/wastage/monthly`
 
 Retrieves monthly wastage analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only monthly periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025-01",
+    "period_type": "monthly",
+    "quantity": 65.00,
+    "amount": 3250.00
+  },
+  {
+    "period": "2025-02",
+    "period_type": "monthly",
+    "quantity": 72.00,
+    "amount": 3600.00
+  }
+]
+```
 
 ### 13. Yearly Wastage Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/wastage/yearly`
 
 Retrieves yearly wastage analytics for the item.
 
-**Response Data Structure:** Same as Item Order Analytics but only yearly periods.
+**Response Data Structure:**
+```json
+[
+  {
+    "period": "2025",
+    "period_type": "yearly",
+    "quantity": 780.00,
+    "amount": 39000.00
+  },
+  {
+    "period": "2024",
+    "period_type": "yearly",
+    "quantity": 750.00,
+    "amount": 37500.00
+  }
+]
+```
 
 ### 14. Supplier-Specific Analytics
 **GET** `/api/v1/inventory/analytics/items/:itemId/suppliers`
