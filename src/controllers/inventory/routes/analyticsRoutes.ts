@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import { InventoryAnalyticsController } from '../InventoryAnalyticsController';
 import { InventoryPaymentAnalyticsController } from '../InventoryPaymentAnalyticsController';
+import { InventoryItemAnalyticsController } from '../InventoryItemAnalyticsController';
+
 
 const router = Router();
 const analyticsController = new InventoryAnalyticsController();
 const paymentAnalyticsController = new InventoryPaymentAnalyticsController();
+const itemAnalyticsController = new InventoryItemAnalyticsController();
 
 router.get('/analytics/dashboard', (req, res) => analyticsController.getDashboardSummary(req, res));
 
@@ -31,5 +34,41 @@ router.get('/analytics/cost-valuation', (req, res) => analyticsController.getCos
 router.get('/analytics/usage', (req, res) => analyticsController.getUsageAnalytics(req, res));
 
 router.get('/analytics/payment-time', (req, res) => paymentAnalyticsController.getPaymentTimeAnalytics(req, res));
+
+// Item-specific analytics routes
+router.get('/analytics/items/:itemId/summary', (req, res) => itemAnalyticsController.getItemAnalyticsSummary(req, res));
+
+router.get('/analytics/items/:itemId/orders', (req, res) => itemAnalyticsController.getItemOrderAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/orders/daily', (req, res) => itemAnalyticsController.getDailyOrderAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/orders/monthly', (req, res) => itemAnalyticsController.getMonthlyOrderAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/orders/yearly', (req, res) => itemAnalyticsController.getYearlyOrderAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/usage', (req, res) => itemAnalyticsController.getItemUsageAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/usage/daily', (req, res) => itemAnalyticsController.getDailyConsumptionAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/usage/monthly', (req, res) => itemAnalyticsController.getMonthlyConsumptionAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/usage/yearly', (req, res) => itemAnalyticsController.getYearlyConsumptionAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/wastage', (req, res) => itemAnalyticsController.getItemWastageAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/wastage/daily', (req, res) => itemAnalyticsController.getDailyWastageAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/wastage/monthly', (req, res) => itemAnalyticsController.getMonthlyWastageAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/wastage/yearly', (req, res) => itemAnalyticsController.getYearlyWastageAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/suppliers', (req, res) => itemAnalyticsController.getSupplierSpecificAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/supplier-performance', (req, res) => itemAnalyticsController.getSupplierPerformanceMetrics(req, res));
+
+router.get('/analytics/items/:itemId/test-consumption', (req, res) => itemAnalyticsController.getTestConsumptionAnalytics(req, res));
+
+router.get('/analytics/items/:itemId/average-consumption', (req, res) => itemAnalyticsController.getAverageConsumption(req, res));
+
 
 export default router;
