@@ -7,21 +7,25 @@ import {
      AuditTrailFilters
 } from '../../models/settings/compliance/types';
 import { IncidentValidation } from '../../models/settings/compliance/validation';
+import User from '../../LobnosAuth/user';
+import RolesRepository from '../../models/settings/users/RolesRepository';
 
 export class IncidentController {
      private getTenantId(req: Request): number {
-          return req.body.tenantId
+          return parseInt(req.query.tenantId as string);
      }
 
      private getUserContext(req: Request): { employeeId: number } {
           return {
-               employeeId: req.body.employeeId || (req as any).user?.employeeId || 0
-          };
+               employeeId: req.query.employeeId ? parseInt(req.query.employeeId as string) : 0
+          }
      }
 
      async getIncidents(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
+               const employeeId = parseInt(req.query.employeeId as string);
+               const requesterEmployeeId = this.getUserContext(req).employeeId;
                const filters: IncidentFilters = {
                     page: parseInt(req.query.page as string) || 1,
                     count: parseInt(req.query.count as string) || 10,
@@ -32,6 +36,17 @@ export class IncidentController {
                     startDate: req.query.start_date as string,
                     endDate: req.query.end_date as string
                };
+
+               // Check user role - only filter by employeeId for non-admin users
+               if (requesterEmployeeId && requesterEmployeeId !== 0) {
+                    const user = new User(null, null, null, null, null);
+                    const role = await new RolesRepository(tenantId).getEmployeeRole(requesterEmployeeId);
+                    if (['admin','super-admin'].includes(role) == false) {
+                         filters.reportedBy = requesterEmployeeId;
+                    }
+               } 
+
+               console.log('Filters applied:',requesterEmployeeId, filters);
 
                const validation = IncidentValidation.validateFilters(filters);
                if (!validation.isValid) {
@@ -72,7 +87,7 @@ export class IncidentController {
                }
 
                const incidentModel = new IncidentModel(tenantId);
-               const incident = await incidentModel.create(requestData, userContext.employeeId);
+               const incident = await incidentModel.create(requestData, userContext.employeeId, userContext);
 
                res.status(201).json({
                     success: true,

@@ -23,14 +23,12 @@ export default class AccessWindowsRepo {
           const connection = await KnexConnection(1);
 
           if (window.category === 'global') {
-               // Ensure only one global record exists
                const existingGlobal = await this.findGlobalSettings();
                if (existingGlobal) {
                     await this.update(existingGlobal.id!, window);
                     return existingGlobal.id!;
                }
           } else if (window.category === 'individual') {
-               // Ensure each employee has at most one individual record
                const existingIndividual = await this.findByEmployeeId(window.employeeid);
                if (existingIndividual) {
                     await this.update(existingIndividual.id!, window);
@@ -120,7 +118,6 @@ export default class AccessWindowsRepo {
      }
 
      static async getEffectiveSettings(employeeid: number): Promise<AccessWindow | undefined> {
-          // Try employee-specific settings first
           const employeeSettings = await this.findByEmployeeId(employeeid);
           if (employeeSettings) {
                return employeeSettings;

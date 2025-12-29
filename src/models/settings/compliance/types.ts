@@ -97,6 +97,7 @@ export interface IncidentFilters {
      status?: IncidentStatus;
      startDate?: string;
      endDate?: string;
+     reportedBy?: number;
 }
 
 export interface EscalationRules {

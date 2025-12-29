@@ -153,7 +153,6 @@ export default class Operations {
 			conditions.push(startDate);
 			conditions.push(enddate);
 
-
 			if (searchString) {
 				finalQuery += ` AND (CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ? 
 				OR np.patientid LIKE ? 

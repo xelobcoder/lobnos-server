@@ -303,7 +303,7 @@ export default class Creator {
 			const editSessionId = uuidv4();
 			const isAdmin = await new RolesRepository(tenantId).getEmployeeRole(employeeid);
 			const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
-
+console.log({ iswithinWindow });
 			await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;

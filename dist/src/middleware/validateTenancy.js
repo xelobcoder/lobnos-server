@@ -96,7 +96,7 @@ const isAuthorizedRoleAdmin = async (request, response, next) => {
         const parsedEmployeeid = parseInt(employeeid.toString());
         const userdata = await new RolesRepository_1.default(tenantIdP).getRoleById(parsedEmployeeid);
         const role = userdata ? userdata['role'].toLowerCase().trim() : '';
-        const allowedRoles = ['admin'];
+        const allowedRoles = ['admin', 'super-admin'];
         if (!allowedRoles.includes(role)) {
             return (0, helper_1.customError)("You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
         }

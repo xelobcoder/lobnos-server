@@ -87,7 +87,7 @@ export const isAuthorizedRoleAdmin = async (request: Request, response: Response
           const parsedEmployeeid = parseInt(employeeid.toString())
           const userdata = await new RolesRepository(tenantIdP).getRoleById(parsedEmployeeid);
           const role = userdata ? userdata['role'].toLowerCase().trim() : ''
-          const allowedRoles = ['admin'];
+          const allowedRoles = ['admin','super-admin'];
           if (!allowedRoles.includes(role)) {
                return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           }

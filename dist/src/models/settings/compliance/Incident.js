@@ -51,14 +51,20 @@ class IncidentModel {
             createdAt: incidentData.created_at,
             updatedAt: incidentData.updated_at
         };
-        await this.logAuditTrail({
-            incidentId: incident.id,
-            action: 'CREATE',
-            employeeId: (userContext === null || userContext === void 0 ? void 0 : userContext.employeeId) || 0,
-            oldValue: null,
-            newValue: JSON.stringify(incident),
-            details: `Incident created with type: ${request.type}, severity: ${request.severity}`
-        });
+        try {
+            await this.logAuditTrail({
+                incidentId: incident.id,
+                action: 'CREATE',
+                employeeId: (userContext === null || userContext === void 0 ? void 0 : userContext.employeeId) || 0,
+                oldValue: null,
+                newValue: JSON.stringify(incident),
+                details: `Incident created with type: ${request.type}, severity: ${request.severity}`
+            });
+        }
+        catch (auditError) {
+            console.error('Failed to log audit trail for incident creation:', auditError);
+            // Continue without failing the creation
+        }
         return incident;
     }
     async findById(id) {
@@ -102,7 +108,7 @@ class IncidentModel {
     }
     async findMany(filters) {
         const connection = await this.connection;
-        const { page = 1, count = 10, sortby = 'DESC', type, severity, status, startDate, endDate } = filters;
+        const { page = 1, count = 10, sortby = 'DESC', type, severity, status, startDate, endDate, reportedBy } = filters;
         let query = connection('incidents')
             .leftJoin('roles', 'incidents.reported_by', 'roles.employeeid')
             .select('incidents.*', 'roles.username as reportedByUsername', 'roles.email as reportedByEmail', 'roles.role as reportedByRole')
@@ -121,6 +127,9 @@ class IncidentModel {
         }
         if (endDate) {
             query = query.where('incidents.reported_at', '<=', endDate);
+        }
+        if (reportedBy) {
+            query = query.where('incidents.reported_by', reportedBy);
         }
         const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
         const totalResult = await totalQuery;
@@ -215,14 +224,20 @@ class IncidentModel {
             .update(dbUpdateData);
         const updatedIncident = await this.findById(id);
         if (userContext) {
-            await this.logAuditTrail({
-                incidentId: id,
-                action: 'UPDATE',
-                employeeId: userContext.employeeId,
-                oldValue: JSON.stringify(currentIncident),
-                newValue: JSON.stringify(updatedIncident),
-                details: `Incident updated: ${Object.keys(updates).join(', ')}`
-            });
+            try {
+                await this.logAuditTrail({
+                    incidentId: id,
+                    action: 'UPDATE',
+                    employeeId: userContext.employeeId,
+                    oldValue: JSON.stringify(currentIncident),
+                    newValue: JSON.stringify(updatedIncident),
+                    details: `Incident updated: ${Object.keys(updates).join(', ')}`
+                });
+            }
+            catch (auditError) {
+                console.error('Failed to log audit trail for incident update:', auditError);
+                // Continue without failing the update
+            }
         }
         return updatedIncident;
     }
@@ -233,14 +248,20 @@ class IncidentModel {
             .where({ id })
             .del();
         if (result > 0 && userContext && currentIncident) {
-            await this.logAuditTrail({
-                incidentId: id,
-                action: 'DELETE',
-                employeeId: userContext.employeeId,
-                oldValue: JSON.stringify(currentIncident),
-                newValue: null,
-                details: `Incident deleted: ${currentIncident.title}`
-            });
+            try {
+                await this.logAuditTrail({
+                    incidentId: id,
+                    action: 'DELETE',
+                    employeeId: userContext.employeeId,
+                    oldValue: JSON.stringify(currentIncident),
+                    newValue: null,
+                    details: `Incident deleted: ${currentIncident.title}`
+                });
+            }
+            catch (auditError) {
+                console.error('Failed to log audit trail for incident deletion:', auditError);
+                // Continue without failing the deletion
+            }
         }
         return result > 0;
     }

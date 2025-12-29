@@ -261,6 +261,7 @@ class Creator {
             const editSessionId = (0, uuid_1.v4)();
             const isAdmin = await new RolesRepository_1.default(tenantId).getEmployeeRole(employeeid);
             const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await requestAcess_1.default.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
+            console.log({ iswithinWindow });
             await Promise.all(resources.map(async (item, index) => {
                 const originalvalue = item.originalvalue;
                 const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);

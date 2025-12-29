@@ -138,8 +138,12 @@ exports.q_get_all_result_entry_ultrasound_base = `
             tp.id,
             b.clientstatus,
             org.name AS organization,
-            clin.name AS clinicianName
-  FROM dboServices AS ds
+            clin.name AS clinicianName,
+            entered_by.employeeid AS entered_by_employeeid,
+            entered_by.username AS entered_by_username,
+            entered_by.email AS entered_by_email,
+            entered_by.role AS entered_by_role
+  FROM dboservices AS ds
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN test_panels AS tp ON tp.id = ta.testid
   INNER JOIN departments AS d ON d.id = tp.category
@@ -148,6 +152,13 @@ exports.q_get_all_result_entry_ultrasound_base = `
   INNER JOIN billing AS b ON b.billingid = ds.billingid
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
+  LEFT JOIN (
+    SELECT tr.ascensionid, tr.employeeid, r.username, r.email, r.role
+    FROM test_results AS tr
+    LEFT JOIN roles AS r ON r.employeeid = tr.employeeid
+    GROUP BY tr.ascensionid
+    LIMIT 1
+  ) AS entered_by ON entered_by.ascensionid = ta.id
   WHERE d.department = 'ULTRASOUND'
 `;
 var OperationsStages;

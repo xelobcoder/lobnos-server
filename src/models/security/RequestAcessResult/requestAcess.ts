@@ -43,7 +43,6 @@ export default class RequestAccess {
 
      static async verifyWindowPeriod(tenantId: number, ascensionid: number, staffid: number, requestType: 'access' | 'edit'): Promise<boolean> {
           const existingRequests = await ResultAccessTableRepo.findLatestByAscensionAndStaff(tenantId, ascensionid, staffid);
-
           if (existingRequests && existingRequests.status === 'granted') {
                const window = await AccessWindowsRepo.getEffectiveSettings(staffid) || await AccessWindowsRepo.findGlobalSettings();
                const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
