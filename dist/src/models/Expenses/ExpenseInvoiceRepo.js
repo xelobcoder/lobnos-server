@@ -131,41 +131,67 @@ class ExpenseInvoiceRepo {
         return { invoiceId, invoice_number };
     }
     async getInvoices(filters = {}) {
+        var _a;
+        const connection = await (0, KnexConnections_1.default)(this.tenantId);
         const record = await new user_1.default(null, null, null, null, null).userExistWithId(this.employeeid, this.tenantId);
         if (!record || record.length === 0) {
             throw new Error('User not found');
         }
         const role = record[0]['role'];
         const isAdminOrManager = role === 'admin' || role === 'manager';
-        let query = `
-            SELECT i.*,er.id AS expense_id, em.name as merchant_name, COUNT(ie.expense_id) as expense_count, MIN(er.groupId) as groupId
-            FROM invoices i
-            LEFT JOIN expense_merchants em ON i.merchant_id = em.id
-            LEFT JOIN invoice_expenses ie ON i.id = ie.invoice_id
-            LEFT JOIN expensesrecord er ON ie.expense_id = er.id
-        `;
-        let values = [];
-        let hasWhere = false;
-        const addCondition = (condition, params = []) => {
-            query += ` ${hasWhere ? 'AND' : 'WHERE'} ${condition}`;
-            values.push(...params);
-            hasWhere = true;
-        };
+        let baseQuery = connection('invoices as i')
+            .leftJoin('expense_merchants as em', 'i.merchant_id', 'em.id')
+            .leftJoin('invoice_expenses as ie', 'i.id', 'ie.invoice_id')
+            .leftJoin('expensesrecord as er', 'ie.expense_id', 'er.id')
+            .select('i.*', 'er.id as expense_id', 'em.name as merchant_name', connection.raw('COUNT(ie.expense_id) as expense_count'), connection.raw('MIN(er.groupId) as groupId'));
         if (!isAdminOrManager) {
-            addCondition('i.employee_id = ?', [this.employeeid]);
+            baseQuery.where('i.employee_id', this.employeeid);
         }
         if (filters.status) {
-            addCondition('i.status = ?', [filters.status]);
+            baseQuery.where('i.status', filters.status);
         }
         if (filters.from && filters.to) {
-            addCondition('i.invoice_date BETWEEN ? AND ?', [filters.from, filters.to]);
+            baseQuery.whereBetween('i.invoice_date', [filters.from, filters.to]);
         }
         if (filters.search) {
-            addCondition('(i.invoice_number LIKE ? OR em.name LIKE ?)', [`%${filters.search}%`, `%${filters.search}%`]);
+            baseQuery.where(function () {
+                this.where('i.invoice_number', 'like', `%${filters.search}%`)
+                    .orWhere('em.name', 'like', `%${filters.search}%`);
+            });
         }
-        query += ' GROUP BY i.id ORDER BY i.created_on DESC';
-        const pageQuery = { count: filters.count || 10, page: filters.page || 1 };
-        return await (0, helper_1.paginationQuery)(pageQuery, query, values, this.tenantId);
+        baseQuery.groupBy('i.id').orderBy('i.created_on', ((_a = filters.sortby) === null || _a === void 0 ? void 0 : _a.toLowerCase()) || 'desc');
+        const countQuery = connection('invoices as i')
+            .leftJoin('expense_merchants as em', 'i.merchant_id', 'em.id')
+            .leftJoin('invoice_expenses as ie', 'i.id', 'ie.invoice_id')
+            .leftJoin('expensesrecord as er', 'ie.expense_id', 'er.id')
+            .select(connection.raw('COUNT(DISTINCT i.id) as total'));
+        if (!isAdminOrManager) {
+            countQuery.where('i.employee_id', this.employeeid);
+        }
+        if (filters.status) {
+            countQuery.where('i.status', filters.status);
+        }
+        if (filters.from && filters.to) {
+            countQuery.whereBetween('i.invoice_date', [filters.from, filters.to]);
+        }
+        if (filters.search) {
+            countQuery.where(function () {
+                this.where('i.invoice_number', 'like', `%${filters.search}%`)
+                    .orWhere('em.name', 'like', `%${filters.search}%`);
+            });
+        }
+        const totalResult = await countQuery.first();
+        const total = (totalResult === null || totalResult === void 0 ? void 0 : totalResult.total) || 0;
+        const page = filters.page || 1;
+        const count = filters.count || 10;
+        const results = await baseQuery.limit(count).offset((page - 1) * count);
+        return {
+            data: results,
+            total,
+            page,
+            count,
+            totalPages: Math.ceil(total / count)
+        };
     }
     async getInvoiceById(invoiceId) {
         const record = await new user_1.default(null, null, null, null, null).userExistWithId(this.employeeid, this.tenantId);

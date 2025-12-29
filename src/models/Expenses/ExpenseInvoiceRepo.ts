@@ -172,8 +172,11 @@ export default class ExpenseInvoiceRepo {
                from?: string;
                to?: string;
                search?: string;
+               sortby?: 'DESC' | 'ASC';
           } = {}
      ): Promise<any> {
+          const connection = await KnexConnection(this.tenantId);
+
           const record = await new User(null, null, null, null, null).userExistWithId(this.employeeid, this.tenantId);
           if (!record || record.length === 0) {
                throw new Error('User not found');
@@ -182,42 +185,78 @@ export default class ExpenseInvoiceRepo {
           const role = record[0]['role'];
           const isAdminOrManager = role === 'admin' || role === 'manager';
 
-          let query = `
-            SELECT i.*,er.id AS expense_id, em.name as merchant_name, COUNT(ie.expense_id) as expense_count, MIN(er.groupId) as groupId
-            FROM invoices i
-            LEFT JOIN expense_merchants em ON i.merchant_id = em.id
-            LEFT JOIN invoice_expenses ie ON i.id = ie.invoice_id
-            LEFT JOIN expensesrecord er ON ie.expense_id = er.id
-        `;
-          let values: (number | string)[] = [];
-          let hasWhere = false;
-
-          const addCondition = (condition: string, params: (number | string)[] = []) => {
-               query += ` ${hasWhere ? 'AND' : 'WHERE'} ${condition}`;
-               values.push(...params);
-               hasWhere = true;
-          };
+          let baseQuery = connection('invoices as i')
+               .leftJoin('expense_merchants as em', 'i.merchant_id', 'em.id')
+               .leftJoin('invoice_expenses as ie', 'i.id', 'ie.invoice_id')
+               .leftJoin('expensesrecord as er', 'ie.expense_id', 'er.id')
+               .select(
+                    'i.*',
+                    'er.id as expense_id',
+                    'em.name as merchant_name',
+                    connection.raw('COUNT(ie.expense_id) as expense_count'),
+                    connection.raw('MIN(er.groupId) as groupId')
+               );
 
           if (!isAdminOrManager) {
-               addCondition('i.employee_id = ?', [this.employeeid]);
+               baseQuery.where('i.employee_id', this.employeeid);
           }
 
           if (filters.status) {
-               addCondition('i.status = ?', [filters.status]);
+               baseQuery.where('i.status', filters.status);
           }
 
           if (filters.from && filters.to) {
-               addCondition('i.invoice_date BETWEEN ? AND ?', [filters.from, filters.to]);
+               baseQuery.whereBetween('i.invoice_date', [filters.from, filters.to]);
           }
 
           if (filters.search) {
-               addCondition('(i.invoice_number LIKE ? OR em.name LIKE ?)', [`%${filters.search}%`, `%${filters.search}%`]);
+               baseQuery.where(function () {
+                    this.where('i.invoice_number', 'like', `%${filters.search}%`)
+                         .orWhere('em.name', 'like', `%${filters.search}%`);
+               });
           }
 
-          query += ' GROUP BY i.id ORDER BY i.created_on DESC';
+          baseQuery.groupBy('i.id').orderBy('i.created_on', filters.sortby?.toLowerCase() || 'desc');
 
-          const pageQuery = { count: filters.count || 10, page: filters.page || 1 };
-          return await paginationQuery(pageQuery, query, values, this.tenantId);
+          const countQuery = connection('invoices as i')
+               .leftJoin('expense_merchants as em', 'i.merchant_id', 'em.id')
+               .leftJoin('invoice_expenses as ie', 'i.id', 'ie.invoice_id')
+               .leftJoin('expensesrecord as er', 'ie.expense_id', 'er.id')
+               .select(connection.raw('COUNT(DISTINCT i.id) as total'));
+
+          if (!isAdminOrManager) {
+               countQuery.where('i.employee_id', this.employeeid);
+          }
+
+          if (filters.status) {
+               countQuery.where('i.status', filters.status);
+          }
+
+          if (filters.from && filters.to) {
+               countQuery.whereBetween('i.invoice_date', [filters.from, filters.to]);
+          }
+
+          if (filters.search) {
+               countQuery.where(function () {
+                    this.where('i.invoice_number', 'like', `%${filters.search}%`)
+                         .orWhere('em.name', 'like', `%${filters.search}%`);
+               });
+          }
+
+          const totalResult = await countQuery.first() as any;
+          const total = totalResult?.total || 0;
+
+          const page = filters.page || 1;
+          const count = filters.count || 10;
+          const results = await baseQuery.limit(count).offset((page - 1) * count);
+
+          return {
+               data: results,
+               total,
+               page,
+               count,
+               totalPages: Math.ceil(total / count)
+          };
      }
 
      async getInvoiceById(invoiceId: number): Promise<any> {
@@ -398,7 +437,7 @@ export default class ExpenseInvoiceRepo {
 
                return { paymentId };
           } catch (error) {
-              console.error('Error in addPayment:', error);
+               console.error('Error in addPayment:', error);
                throw error;
           }
      }

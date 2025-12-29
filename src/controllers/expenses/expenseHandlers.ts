@@ -703,19 +703,23 @@ export const createInvoice = async (req: Request, res: Response) => {
 
 export const getInvoices = async (req: Request, res: Response) => {
 	try {
-		const { tenantId, employeeid, branchid, page, count, status, from, to } = req.query;
+		const { tenantId, employeeid, branchid, page, count, status, from, to, sortby } = req.query;
 
 		if (!tenantId || !employeeid || !branchid) {
 			return customError("Required parameters missing", 400, res);
 		}
 
 		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
+		const sortByValue = sortby?.toString().toUpperCase();
+		const validSortBy = (sortByValue === 'ASC' || sortByValue === 'DESC') ? sortByValue as 'ASC' | 'DESC' : 'DESC';
+
 		const result = await invoiceRepo.getInvoices({
 			page: page ? parseInt(page.toString()) : 1,
 			count: count ? parseInt(count.toString()) : 10,
 			status: status ? status.toString() : undefined,
 			from: from ? from.toString() : undefined,
 			to: to ? to.toString() : undefined,
+			sortby: validSortBy,
 		});
 		res.send(result);
 	} catch (err: any) {
