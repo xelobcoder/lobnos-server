@@ -9,7 +9,8 @@ exports.queries = {
   CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname,
   np.email,
   CONCAT('0', np.mobile_number) AS mobileNumber,
-  b.*
+  b.*,
+  (SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource
 FROM new_patients AS np
 INNER JOIN billing AS b ON np.patientid = b.patientid
   `,

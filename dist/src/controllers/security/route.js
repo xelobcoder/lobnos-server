@@ -12,11 +12,28 @@ const access_windows_controller_1 = require("./access-windows-controller");
 const backup_controller_1 = require("./backup-controller");
 const encryption_controller_1 = require("./encryption-controller");
 const helper_1 = require("../../hooks/helper");
+const PrimeWindowAccessController_1 = require("../settings/PrimeWindowAccessController");
+const PrimeWindowAccessRepository_1 = __importDefault(require("../../models/settings/users/PrimeWindowAccessRepository"));
 const router = express_1.default.Router();
 const authController = new authController_1.AuthController();
-router.post('/api/v1/prime/login', (req, res) => authController.login(req, res));
-router.get('/api/v1/prime/validate-token', validateTenancy_1.checkTokenExists, (req, res) => authController.validateToken(req, res));
-router.get('/api/v1/prime/validate-user-pin', (req, res) => authController.validateUserPinProvided(req, res));
+const checkLicenseAccess = async (req, res, next) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        if (!tenantId)
+            return res.status(400).json({ status: 'error', message: 'tenantId is required' });
+        const repo = new PrimeWindowAccessRepository_1.default(tenantId);
+        const isValid = await repo.validateLicense();
+        if (!isValid)
+            return res.status(403).json({ status: 'error', message: 'License expired or invalid' });
+        next();
+    }
+    catch (error) {
+        return res.status(500).json({ status: 'error', message: 'License validation failed: ' + error.message });
+    }
+};
+router.post('/api/v1/prime/login', (0, helper_1.handleOverLoad)(checkLicenseAccess), (req, res) => authController.login(req, res));
+router.get('/api/v1/prime/validate-token', (0, helper_1.handleOverLoad)(checkLicenseAccess), validateTenancy_1.checkTokenExists, (req, res) => authController.validateToken(req, res));
+router.get('/api/v1/prime/validate-user-pin', (0, helper_1.handleOverLoad)(checkLicenseAccess), (req, res) => authController.validateUserPinProvided(req, res));
 router.get("/api/v1/security/getloggedsessions", handlers_1.getLoggedSessions);
 router.get("/api/v1/security/getloggedsessions/update", handlers_1.updateLoggedSessions);
 router.get("/api/v1/security/user/logout", handlers_1.logoutUser);
@@ -61,4 +78,9 @@ router.post('/api/v1/security-features/backup/generate-key', (0, helper_1.handle
 router.get('/api/v1/security-features/backup/encryption-keys', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.getEncryptionKeys));
 router.post('/api/v1/security-features/backup/rotate-key', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.rotateEncryptionKey));
 router.post('/api/v1/security-features/backup/:id/decrypt', (0, helper_1.handleOverLoad)(encryption_controller_1.EncryptionController.decryptBackup));
+// prime window access routes
+router.post('/api/v1/security/license/add', (0, helper_1.handleOverLoad)(PrimeWindowAccessController_1.PrimeWindowAccessController.addLicense));
+router.put('/api/v1/security/license/revoke/:id', (0, helper_1.handleOverLoad)(PrimeWindowAccessController_1.PrimeWindowAccessController.revokeLicense));
+router.get('/api/v1/security/license/check', (0, helper_1.handleOverLoad)(PrimeWindowAccessController_1.PrimeWindowAccessController.checkLicense));
+router.get('/api/v1/security/license/data', (0, helper_1.handleOverLoad)(PrimeWindowAccessController_1.PrimeWindowAccessController.getLicenseData));
 exports.default = router;

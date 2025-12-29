@@ -16,34 +16,26 @@ class Payment {
                 if (!branchid) {
                     throw new Error('Branchid Not included in the query');
                 }
-                const values = [];
-                let modelQuery = queries_1.queries.getClientTransactionInformation;
+                const connection = await (0, KnexConnections_1.default)(tenantId);
+                let query = connection
+                    .select('np.patientid', 'np.fullpatientid', connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"), 'np.email', connection.raw("CONCAT('0', np.mobile_number) AS mobileNumber"), 'b.*', connection.raw("(SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource"))
+                    .from('new_patients AS np')
+                    .innerJoin('billing AS b', 'np.patientid', 'b.patientid');
                 if (patientid) {
-                    modelQuery += ` WHERE np.patientid = ?`;
-                    values.push(parseInt(patientid.toString()));
+                    query = query.where('np.patientid', parseInt(patientid.toString()));
                 }
-                if (from && patientid) {
-                    values.push(from);
+                if (from) {
                     if (to) {
-                        modelQuery += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
-                        values.push(to);
+                        query = query.whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [from, to]);
                     }
                     else {
-                        modelQuery += ` AND DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`;
+                        query = query.whereRaw('DATE(b.billedon) BETWEEN ? AND CURRENT_DATE', [from]);
                     }
                 }
-                else if (!patientid && from) {
-                    values.push(from);
-                    if (!to) {
-                        modelQuery += ` WHERE DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`;
-                    }
-                    else {
-                        modelQuery += ` WHERE DATE(b.billedon) BETWEEN ? AND ?`;
-                        values.push(to);
-                    }
-                }
-                modelQuery += ` ORDER BY b.billingid DESC LIMIT ? OFFSET ? `;
-                const result = await (0, helper_1.paginationQuery)({ count, page }, modelQuery, values, tenantId);
+                query = query.orderBy('b.billingid', 'desc');
+                const offset = (page - 1) * count;
+                query = query.limit(count).offset(offset);
+                const result = await query;
                 const summary = await this.summaryRangeOfDates(tenantId, from, to, branchid);
                 return { data: result, summary };
             }

@@ -169,6 +169,7 @@ export class Billing {
 
 					switch (categoryTrackId) {
 						case 1:
+						case 4:
 							let testname1 = await testpanel.getTestUsingTestid(tenantId, trackId);
 							return { ...item, outsourcingOrganization: outsouring_organization, name: testname1 };
 
@@ -193,7 +194,6 @@ export class Billing {
 						case 6:
 							let testname6 = await testpanel.getTestUsingTestid(tenantId, trackId);
 							return { ...item, name: testname6 };
-
 						default:
 							return [];
 					}
@@ -1030,7 +1030,7 @@ export class Billing {
 				const currentPayable = parseFloat(payable.toString()) - parseFloat(refundAmount.toString());
 				const currentPaid = parseFloat(paid.toString()) - parseFloat(refundAmount.toString());
 				const currentTotalCost = parseFloat(totalcost.toString())
-				const currentDiscount = parseFloat(discount.toString()) 
+				const currentDiscount = parseFloat(discount.toString())
 				const currentAmountIncurredDueTax = parseFloat(amountIncurredDueTax.toString()) - parseFloat(serviceInformation.amountIncurredDueTax.toString());
 
 

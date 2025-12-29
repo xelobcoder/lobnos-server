@@ -77,12 +77,16 @@ BillingAnalyticsWithDate.totalSalesByServiceCategory = `
         GROUP BY serviceCategory;
     `;
 BillingAnalyticsWithDate.totalSalesByBranch = `
-        SELECT db.branchid, COALESCE(SUM(db.totalcost), 0) AS totalCost, COALESCE(SUM(db.paidamount), 0) AS totalPaid, COALESCE(SUM(db.totalpayable), 0) AS totalPayable, COALESCE(SUM(db.discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded, b.name
-        FROM dboservices AS db
-        INNER JOIN branch AS b ON db.branchid = b.branchid
-        LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid
-        WHERE DATE(serviceAddedOn) BETWEEN ? AND ?  AND (db.isRefunded = 0 AND db.status ='active')
-        GROUP BY db.branchid;
+        SELECT dboservices.branchid, COALESCE(SUM(dboservices.totalcost), 0) AS totalCost, 
+        COALESCE(SUM(dboservices.paidamount), 0) actual_revenue,
+        COALESCE(SUM(dboservices.totalpayable), 0) AS accrued_revenue,
+        COALESCE(SUM(dboservices.discount), 0) AS ,
+        COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded, b.name
+        FROM dboservices
+        INNER JOIN branch AS b ON dboservices.branchid = b.branchid
+        LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
+        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
+        GROUP BY dboservices.branchid;
     `;
 BillingAnalyticsWithDate.totalSalesByOrganization = `
         SELECT organizationId, dboservices.status,

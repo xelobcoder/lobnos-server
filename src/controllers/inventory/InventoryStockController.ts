@@ -81,33 +81,26 @@ export class InventoryStockController {
                let query = connection('inv_purchase_order_receipts')
                     .join('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
                     .join('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-                    .leftJoin('inv_inventory_transactions', function () {
-                         this.on('inv_inventory_transactions.batch_number', '=', 'inv_purchase_order_receipts.batch_number')
-                              .andOn('inv_inventory_transactions.item_id', '=', 'inv_inventory_items.id');
-                    })
                     .select(
                          'inv_inventory_items.id as item_id',
                          'inv_inventory_items.name as item_name',
                          'inv_inventory_items.sku as item_sku',
                          'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.brand_name',
                          'inv_purchase_order_receipts.expiry_date',
                          'inv_purchase_order_receipts.unit_price',
                          connection.raw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received), 0) as total_received'),
-                         connection.raw('COALESCE(SUM(inv_inventory_transactions.quantity), 0) as total_consumed')
+                         connection.raw('(SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") as total_consumed')
                     )
-                    .where('inv_purchase_order_receipts.expiry_date', '<=', expiryThreshold.toISOString().split('T')[0])
-                    .andWhere('inv_purchase_order_receipts.expiry_date', '>=', new Date().toISOString().split('T')[0])
+                    .where('inv_purchase_order_receipts.expiry_date', '<', new Date().toISOString().split('T')[0])
                     .groupBy(
                          'inv_inventory_items.id',
                          'inv_inventory_items.name',
                          'inv_inventory_items.sku',
                          'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.brand_name',
                          'inv_purchase_order_receipts.expiry_date',
                          'inv_purchase_order_receipts.unit_price'
                     )
-                    .havingRaw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received), 0) > COALESCE(SUM(inv_inventory_transactions.quantity), 0)')
+                    .havingRaw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received), 0) + (SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") > 0')
                     .orderBy('inv_purchase_order_receipts.expiry_date', sortOrder);
 
                if (item_id) {
@@ -131,13 +124,13 @@ export class InventoryStockController {
                     item_name: batch.item_name,
                     item_sku: batch.item_sku,
                     batch_number: batch.batch_number,
-                    brand_name: batch.brand_name,
                     expiry_date: batch.expiry_date,
                     unit_price: parseFloat(batch.unit_price),
+                    units_per_purchase_unit: parseFloat(batch.units_per_purchase_unit),
                     total_received: parseInt(batch.total_received),
-                    total_consumed: Math.abs(parseInt(batch.total_consumed)),
-                    available_quantity: parseInt(batch.total_received) - Math.abs(parseInt(batch.total_consumed)),
-                    total_value: (parseInt(batch.total_received) - Math.abs(parseInt(batch.total_consumed))) * parseFloat(batch.unit_price),
+                    total_consumed: parseInt(batch.total_consumed),
+                    available_quantity: parseInt(batch.total_received) - parseInt(batch.total_consumed),
+                    total_value: (parseInt(batch.total_received) - parseInt(batch.total_consumed)) * parseFloat(batch.unit_price),
                     days_to_expiry: Math.ceil((new Date(batch.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
                }));
 
@@ -167,13 +160,6 @@ export class InventoryStockController {
                const response: ApiResponse = {
                     success: true,
                     data: expiredBatchesResponse,
-                    pagination: {
-                         page: parseInt(page as string),
-                         count: parseInt(count as string),
-                         total,
-                         totalPages: Math.ceil(total / parseInt(count as string)),
-                         sortby: (sortby as string).toUpperCase() as 'ASC' | 'DESC'
-                    }
                };
                res.json(response);
           } catch (error: any) {
@@ -234,25 +220,24 @@ export class InventoryStockController {
                          'inv_inventory_items.name as item_name',
                          'inv_inventory_items.sku as item_sku',
                          'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.brand_name',
                          'inv_purchase_order_receipts.expiry_date',
                          'inv_purchase_order_receipts.unit_price',
-                         connection.raw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received), 0) as total_received'),
-                         connection.raw('COALESCE(SUM(inv_inventory_transactions.quantity), 0) as total_consumed')
+                         'inv_purchase_order_receipts.units_per_purchase_unit',
+                         connection.raw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1)), 0) as total_received'),
+                         connection.raw('COALESCE(SUM(CASE WHEN inv_inventory_transactions.quantity < 0 THEN -inv_inventory_transactions.quantity / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1) ELSE 0 END), 0) as total_consumed')
                     )
                     .where('inv_inventory_items.id', item_id)
-                    .andWhere('inv_purchase_order_receipts.expiry_date', '<=', expiryThreshold.toISOString().split('T')[0])
-                    .andWhere('inv_purchase_order_receipts.expiry_date', '>=', new Date().toISOString().split('T')[0])
+                    .andWhere('inv_purchase_order_receipts.expiry_date', '<', new Date().toISOString().split('T')[0])
                     .groupBy(
                          'inv_inventory_items.id',
                          'inv_inventory_items.name',
                          'inv_inventory_items.sku',
                          'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.brand_name',
                          'inv_purchase_order_receipts.expiry_date',
-                         'inv_purchase_order_receipts.unit_price'
+                         'inv_purchase_order_receipts.unit_price',
+                         'inv_purchase_order_receipts.units_per_purchase_unit'
                     )
-                    .havingRaw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received), 0) > COALESCE(SUM(inv_inventory_transactions.quantity), 0)')
+                    .havingRaw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1)), 0) - COALESCE(SUM(CASE WHEN inv_inventory_transactions.quantity < 0 THEN -inv_inventory_transactions.quantity / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1) ELSE 0 END), 0) > 0')
                     .orderBy('inv_purchase_order_receipts.expiry_date', sortOrder);
 
                if (batch_number) {
@@ -273,13 +258,13 @@ export class InventoryStockController {
                     item_name: batch.item_name,
                     item_sku: batch.item_sku,
                     batch_number: batch.batch_number,
-                    brand_name: batch.brand_name,
                     expiry_date: batch.expiry_date,
                     unit_price: parseFloat(batch.unit_price),
+                    units_per_purchase_unit: parseFloat(batch.units_per_purchase_unit),
                     total_received: parseInt(batch.total_received),
-                    total_consumed: Math.abs(parseInt(batch.total_consumed)),
-                    available_quantity: parseInt(batch.total_received) - Math.abs(parseInt(batch.total_consumed)),
-                    total_value: (parseInt(batch.total_received) - Math.abs(parseInt(batch.total_consumed))) * parseFloat(batch.unit_price),
+                    total_consumed: parseInt(batch.total_consumed),
+                    available_quantity: parseInt(batch.total_received) - parseInt(batch.total_consumed),
+                    total_value: (parseInt(batch.total_received) - parseInt(batch.total_consumed)) * parseFloat(batch.unit_price),
                     days_to_expiry: Math.ceil((new Date(batch.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
                }));
 

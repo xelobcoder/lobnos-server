@@ -50,8 +50,9 @@ export async function UtilityOutsourcing(tenantId: number, key: string, branchid
 }
 
 const analyticsFunctions: { [key: string]: Function } = {
-	totalSalesByBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'totalSalesByBranch', branchid, startdate, enddate),
+	totalSalesByBranch: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranch'], [startdate, enddate]);
+	},
 
 	totalSalesByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
@@ -253,8 +254,10 @@ export const handleSalesSummaryDailyBreakDown = async function (request: Request
 }>, response: Response): Promise<void> {
 	try {
 		const { tenantId, targetDate, fromDate, toDate } = request.query;
-		const responseData = await getDailyAnalyticsDashboard(parseInt(tenantId.toString()), targetDate as string, fromDate as string, toDate as string);
+		const tennatId = parseInt(tenantId.toString());
+		const responseData = await getDailyAnalyticsDashboard(tennatId, targetDate as string, fromDate as string, toDate as string);
 		response.send(responseData);
+		
 	} catch (error) {
 		console.log(error)
 		response.status(500).json({

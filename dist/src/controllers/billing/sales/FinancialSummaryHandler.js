@@ -47,7 +47,9 @@ async function UtilityOutsourcing(tenantId, key, branchid, startdate, enddate, y
 }
 exports.UtilityOutsourcing = UtilityOutsourcing;
 const analyticsFunctions = {
-    totalSalesByBranch: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByBranch', branchid, startdate, enddate),
+    totalSalesByBranch: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByBranch'], [startdate, enddate]);
+    },
     totalSalesByClinician: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
     totalSalesByOrganization: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
         return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByOrganization'], [startdate, enddate]);
@@ -162,7 +164,8 @@ exports.handleFinancialAnalyticsGetKeys = handleFinancialAnalyticsGetKeys;
 const handleSalesSummaryDailyBreakDown = async function (request, response) {
     try {
         const { tenantId, targetDate, fromDate, toDate } = request.query;
-        const responseData = await (0, extensive_daily_sales_breakdown_1.getDailyAnalyticsDashboard)(parseInt(tenantId.toString()), targetDate, fromDate, toDate);
+        const tennatId = parseInt(tenantId.toString());
+        const responseData = await (0, extensive_daily_sales_breakdown_1.getDailyAnalyticsDashboard)(tennatId, targetDate, fromDate, toDate);
         response.send(responseData);
     }
     catch (error) {

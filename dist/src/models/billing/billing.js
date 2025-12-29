@@ -118,6 +118,7 @@ class Billing {
                 }
                 switch (categoryTrackId) {
                     case 1:
+                    case 4:
                         let testname1 = await testpanelList_1.testpanel.getTestUsingTestid(tenantId, trackId);
                         return Object.assign(Object.assign({}, item), { outsourcingOrganization: outsouring_organization, name: testname1 });
                     case 5:

@@ -7,20 +7,36 @@ import {
      getLoginHistory,
 } from "./handlers";
 import { AuthController } from "./authController";
-import { checkTokenExists } from "../../middleware/validateTenancy";
+import { checkTokenExists, isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { ResultAccessController } from "./result-acess-controller";
 import { AccessWindowsController } from "./access-windows-controller";
 import { BackupController } from "./backup-controller";
 import { EncryptionController } from "./encryption-controller";
 import { handleOverLoad } from "../../hooks/helper";
+import { PrimeWindowAccessController } from "../settings/PrimeWindowAccessController";
+import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 
 
 const router: Router = express.Router();
 
 const authController = new AuthController();
-router.post('/api/v1/prime/login', (req, res) => authController.login(req, res));
-router.get('/api/v1/prime/validate-token', checkTokenExists, (req, res) => authController.validateToken(req, res));
-router.get('/api/v1/prime/validate-user-pin', (req, res) => authController.validateUserPinProvided(req as unknown as any, res));
+
+
+const checkLicenseAccess = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          if (!tenantId) return res.status(400).json({ status: 'error', message: 'tenantId is required' });
+          const repo = new PrimeWindowAccessRepository(tenantId);
+          const isValid = await repo.validateLicense();
+          if (!isValid) return res.status(403).json({ status: 'error', message: 'License expired or invalid' });
+          next();
+     } catch (error) {
+          return res.status(500).json({ status: 'error', message: 'License validation failed: ' + (error as Error).message });
+     }
+};
+router.post('/api/v1/prime/login', handleOverLoad(checkLicenseAccess), (req, res) => authController.login(req, res));
+router.get('/api/v1/prime/validate-token', handleOverLoad(checkLicenseAccess), checkTokenExists, (req, res) => authController.validateToken(req, res));
+router.get('/api/v1/prime/validate-user-pin', handleOverLoad(checkLicenseAccess), (req, res) => authController.validateUserPinProvided(req as unknown as any, res));
 
 
 
@@ -75,5 +91,12 @@ router.post('/api/v1/security-features/backup/generate-key', handleOverLoad(Encr
 router.get('/api/v1/security-features/backup/encryption-keys', handleOverLoad(EncryptionController.getEncryptionKeys));
 router.post('/api/v1/security-features/backup/rotate-key', handleOverLoad(EncryptionController.rotateEncryptionKey));
 router.post('/api/v1/security-features/backup/:id/decrypt', handleOverLoad(EncryptionController.decryptBackup));
+
+// prime window access routes
+router.post('/api/v1/security/license/add', handleOverLoad(PrimeWindowAccessController.addLicense));
+router.put('/api/v1/security/license/revoke/:id', handleOverLoad(PrimeWindowAccessController.revokeLicense));
+router.get('/api/v1/security/license/check', handleOverLoad(PrimeWindowAccessController.checkLicense));
+router.get('/api/v1/security/license/data', handleOverLoad(PrimeWindowAccessController.getLicenseData));
+
 
 export default router;
