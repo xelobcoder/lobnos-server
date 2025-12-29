@@ -29,7 +29,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
 const crypto = __importStar(require("crypto"));
 const fs = __importStar(require("fs"));
+const path = __importStar(require("path"));
 class EncryptionManager {
+    static async getEffectiveStoragePath(tenantId) {
+        const settings = await EncryptionManager.getSecuritySettings(tenantId);
+        if (settings === null || settings === void 0 ? void 0 : settings.storage_path) {
+            return settings.storage_path;
+        }
+        throw new Error('No storage path configured. Please set a storage path in security settings.');
+    }
     static async getSecuritySettings(tenantId) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const settings = await connection(this.SETTINGS_TABLE)
@@ -39,18 +47,64 @@ class EncryptionManager {
         return settings || null;
     }
     static async updateSecuritySettings(tenantId, updates) {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const updated = await connection(this.SETTINGS_TABLE)
+        // Validate storage path if provided
+        if (updates.storage_path) {
+            const pathValidation = this.validateStoragePath(updates.storage_path);
+            if (!pathValidation.valid) {
+                throw new Error(`Invalid storage path: ${pathValidation.error}`);
+            }
+        }
+        // Check if settings exist
+        const existingSettings = await connection(this.SETTINGS_TABLE)
             .where('is_active', true)
-            .update(Object.assign(Object.assign({}, updates), { updated_at: new Date() }));
-        return updated > 0;
+            .first();
+        if (existingSettings) {
+            // Update existing settings
+            const updated = await connection(this.SETTINGS_TABLE)
+                .where('is_active', true)
+                .update(Object.assign(Object.assign({}, updates), { updated_at: new Date() }));
+            return updated > 0;
+        }
+        else {
+            // Create new settings
+            const newSettings = {
+                encryption_enabled: (_a = updates.encryption_enabled) !== null && _a !== void 0 ? _a : false,
+                encryption_algorithm: (_b = updates.encryption_algorithm) !== null && _b !== void 0 ? _b : 'AES-256',
+                key_rotation_days: (_c = updates.key_rotation_days) !== null && _c !== void 0 ? _c : 90,
+                secure_deletion_enabled: (_d = updates.secure_deletion_enabled) !== null && _d !== void 0 ? _d : false,
+                deletion_passes: (_e = updates.deletion_passes) !== null && _e !== void 0 ? _e : 1,
+                storage_path: (_f = updates.storage_path) !== null && _f !== void 0 ? _f : null,
+                current_key_id: (_g = updates.current_key_id) !== null && _g !== void 0 ? _g : null,
+                key_last_rotated: (_h = updates.key_last_rotated) !== null && _h !== void 0 ? _h : null,
+                is_active: true,
+                created_at: new Date(),
+                updated_at: new Date()
+            };
+            await connection(this.SETTINGS_TABLE).insert(newSettings);
+            return true;
+        }
     }
-    static async generateEncryptionKey(tenantId, createdBy) {
-        const settings = await this.getSecuritySettings(tenantId);
+    static async generateEncryptionKey(tenantId, createdBy, userKey) {
+        const settings = await EncryptionManager.getSecuritySettings(tenantId);
         if (!(settings === null || settings === void 0 ? void 0 : settings.encryption_enabled)) {
             throw new Error('Encryption is not enabled');
         }
-        const key = crypto.randomBytes(32);
+        let key;
+        if (userKey) {
+            // Validate user-provided key
+            const keyValidation = this.validateUserKey(userKey);
+            if (!keyValidation.valid) {
+                throw new Error(`Invalid user key: ${keyValidation.error}`);
+            }
+            // Derive a proper encryption key from user input using scrypt
+            key = crypto.scryptSync(userKey, 'encryption-salt', 32);
+        }
+        else {
+            // Generate random key as before
+            key = crypto.randomBytes(32);
+        }
         const keyId = `KEY-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
         const encryptedKey = this.encryptWithMasterKey(key);
         const expiresAt = new Date();
@@ -71,7 +125,7 @@ class EncryptionManager {
         return keyId;
     }
     static async getActiveEncryptionKey(tenantId) {
-        const settings = await this.getSecuritySettings(tenantId);
+        const settings = await EncryptionManager.getSecuritySettings(tenantId);
         if (!(settings === null || settings === void 0 ? void 0 : settings.encryption_enabled) || !settings.current_key_id) {
             return null;
         }
@@ -92,12 +146,8 @@ class EncryptionManager {
     static async encryptFile(tenantId, inputPath, outputPath) {
         try {
             let keyInfo = await this.getActiveEncryptionKey(tenantId);
-            // If no active key exists, generate one automatically
             if (!keyInfo) {
-                console.log('No active encryption key found, generating new key...');
-                const newKeyId = await this.generateEncryptionKey(tenantId, 'system');
-                console.log(`Generated new encryption key: ${newKeyId}`);
-                // Try to get the key again
+                const newKeyId = await this.generateEncryptionKey(tenantId);
                 keyInfo = await this.getActiveEncryptionKey(tenantId);
                 if (!keyInfo) {
                     return { success: false, error: 'Failed to generate or retrieve encryption key' };
@@ -124,26 +174,41 @@ class EncryptionManager {
     }
     static async decryptFile(tenantId, inputPath, outputPath, keyId) {
         try {
+            console.log('Starting decryption for keyId:', keyId);
+            console.log("MASTER_KEY is set:", !!this.MASTER_KEY, process.env.BACKUP_MASTER_KEY);
             const connection = await (0, KnexConnections_1.default)(tenantId);
             const keyRecord = await connection(this.KEYS_TABLE)
                 .where('key_id', keyId)
                 .first();
             if (!keyRecord) {
+                console.log('Encryption key not found in database');
                 return { success: false, error: 'Encryption key not found' };
             }
+            console.log('Found key record, decrypting with master key...');
             const key = this.decryptWithMasterKey(keyRecord.encrypted_key);
+            console.log('Master key decryption successful, key length:', key.length);
+            console.log('Reading encrypted file:', inputPath);
             const encryptedData = fs.readFileSync(inputPath);
+            console.log('Encrypted file size:', encryptedData.length);
             const iv = encryptedData.slice(0, 16);
             const encryptedContent = encryptedData.slice(16);
+            console.log('IV length:', iv.length, 'Encrypted content length:', encryptedContent.length);
+            console.log('Creating decipher...');
             const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+            console.log('Decipher created, starting decryption...');
             const decrypted = Buffer.concat([
                 decipher.update(encryptedContent),
                 decipher.final()
             ]);
+            console.log('Decryption successful, decrypted size:', decrypted.length);
+            console.log('First 200 bytes of decrypted data:', decrypted.slice(0, 200).toString('utf8').replace(/[^\x20-\x7E]/g, '.'));
+            console.log('Writing decrypted file to:', outputPath);
             fs.writeFileSync(outputPath, decrypted);
+            console.log('Decryption completed successfully');
             return { success: true };
         }
         catch (error) {
+            console.error('Decryption error:', error);
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'Unknown decryption error'
@@ -173,7 +238,7 @@ class EncryptionManager {
         }
     }
     static async isKeyRotationNeeded(tenantId) {
-        const settings = await this.getSecuritySettings(tenantId);
+        const settings = await EncryptionManager.getSecuritySettings(tenantId);
         if (!(settings === null || settings === void 0 ? void 0 : settings.encryption_enabled) || !settings.key_last_rotated) {
             return true;
         }
@@ -182,12 +247,12 @@ class EncryptionManager {
         const daysSinceRotation = Math.floor((now.getTime() - lastRotated.getTime()) / (1000 * 60 * 60 * 24));
         return daysSinceRotation >= settings.key_rotation_days;
     }
-    static async rotateKeyIfNeeded(tenantId, createdBy, force = false) {
+    static async rotateKeyIfNeeded(tenantId, createdBy, force = false, userKey) {
         const needsRotation = force || await this.isKeyRotationNeeded(tenantId);
         if (!needsRotation)
             return { rotated: false };
         try {
-            const newKeyId = await this.generateEncryptionKey(tenantId, createdBy);
+            const newKeyId = await this.generateEncryptionKey(tenantId, createdBy, userKey);
             return { rotated: true, newKeyId };
         }
         catch (error) {
@@ -213,6 +278,9 @@ class EncryptionManager {
         return updated > 0;
     }
     static encryptWithMasterKey(data) {
+        if (!this.MASTER_KEY) {
+            throw new Error('BACKUP_MASTER_KEY environment variable is not set');
+        }
         const key = crypto.scryptSync(this.MASTER_KEY, 'salt', 32);
         const iv = crypto.randomBytes(16);
         const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
@@ -224,6 +292,9 @@ class EncryptionManager {
         return encrypted.toString('hex');
     }
     static decryptWithMasterKey(encryptedHex) {
+        if (!this.MASTER_KEY) {
+            throw new Error('BACKUP_MASTER_KEY environment variable is not set');
+        }
         const key = crypto.scryptSync(this.MASTER_KEY, 'salt', 32);
         const encrypted = Buffer.from(encryptedHex, 'hex');
         const iv = encrypted.slice(0, 16);
@@ -239,8 +310,78 @@ class EncryptionManager {
         const patterns = [0x00, 0xFF, 0x55, 0xAA];
         return patterns[pass % patterns.length];
     }
+    static validateStoragePath(storagePath) {
+        try {
+            // Check if path is absolute
+            if (!path.isAbsolute(storagePath)) {
+                return { valid: false, error: 'Storage path must be an absolute path' };
+            }
+            // Check if directory exists, create if it doesn't
+            if (!fs.existsSync(storagePath)) {
+                fs.mkdirSync(storagePath, { recursive: true });
+            }
+            // Check if it's actually a directory
+            const stats = fs.statSync(storagePath);
+            if (!stats.isDirectory()) {
+                return { valid: false, error: 'Storage path must be a directory' };
+            }
+            // Check if directory is writable
+            try {
+                fs.accessSync(storagePath, fs.constants.W_OK);
+            }
+            catch (_a) {
+                return { valid: false, error: 'Storage path must be writable' };
+            }
+            // Additional security checks
+            const normalizedPath = path.normalize(storagePath);
+            // Prevent paths that go outside allowed directories (basic check)
+            if (normalizedPath.includes('..') || normalizedPath.startsWith('/etc') || normalizedPath.startsWith('/bin')) {
+                return { valid: false, error: 'Storage path contains potentially unsafe directory traversal' };
+            }
+            return { valid: true };
+        }
+        catch (error) {
+            return { valid: false, error: `Failed to validate storage path: ${error.message}` };
+        }
+    }
+    static validateUserKey(userKey) {
+        // Check minimum length (at least 12 characters for good entropy)
+        if (userKey.length < 12) {
+            return { valid: false, error: 'Encryption key must be at least 12 characters long' };
+        }
+        // Check maximum length (prevent extremely long keys)
+        if (userKey.length > 256) {
+            return { valid: false, error: 'Encryption key must not exceed 256 characters' };
+        }
+        // Check for basic complexity requirements
+        const hasUpperCase = /[A-Z]/.test(userKey);
+        const hasLowerCase = /[a-z]/.test(userKey);
+        const hasNumbers = /\d/.test(userKey);
+        const hasSpecialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(userKey);
+        const complexityScore = [hasUpperCase, hasLowerCase, hasNumbers, hasSpecialChars].filter(Boolean).length;
+        if (complexityScore < 3) {
+            return {
+                valid: false,
+                error: 'Encryption key must contain at least 3 of the following: uppercase letters, lowercase letters, numbers, special characters'
+            };
+        }
+        // Check for common weak patterns
+        const commonPatterns = [
+            /^password/i,
+            /^123456/,
+            /^qwerty/i,
+            /^admin/i,
+            /^user/i
+        ];
+        for (const pattern of commonPatterns) {
+            if (pattern.test(userKey)) {
+                return { valid: false, error: 'Encryption key contains common weak patterns' };
+            }
+        }
+        return { valid: true };
+    }
 }
 EncryptionManager.SETTINGS_TABLE = 'backup_security_settings';
 EncryptionManager.KEYS_TABLE = 'encryption_keys';
-EncryptionManager.MASTER_KEY = process.env.BACKUP_MASTER_KEY || 'default-master-key-change-in-production';
+EncryptionManager.MASTER_KEY = process.env.BACKUP_MASTER_KEY;
 exports.default = EncryptionManager;

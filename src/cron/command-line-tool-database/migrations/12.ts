@@ -290,6 +290,7 @@ export async function up(knex: Knex): Promise<void> {
                table.integer('key_rotation_days', 11).notNullable().defaultTo(90);
                table.tinyint('secure_deletion_enabled').notNullable().defaultTo(0);
                table.integer('deletion_passes', 11).notNullable().defaultTo(1);
+               table.string('storage_path', 500).nullable();
                table.string('current_key_id', 255).nullable();
                table.date('key_last_rotated').nullable();
                table.tinyint('is_active').notNullable().defaultTo(1);

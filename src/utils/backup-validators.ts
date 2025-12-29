@@ -4,7 +4,10 @@ import { z } from 'zod';
 // Zod schemas for backup validation
 export const CreateDatabaseBackupSchema = z.object({
      backupName: z.string().min(1, 'backupName is required and must be a non-empty string'),
-     backupPath: z.string().startsWith('/', 'backupPath is required and must be an absolute path starting with /'),
+     backupPath: z.string().refine((path) => {
+          // Allow Unix absolute paths (starting with /) or Windows absolute paths (like C:\ or D:\)
+          return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path);
+     }, 'backupPath is required and must be an absolute path (starting with / for Unix or drive letter for Windows)'),
      isFullBackup: z.boolean().optional(),
      backupMode: z.enum(['automated', 'manual']).optional(),
      createdBy: z.string().optional(),

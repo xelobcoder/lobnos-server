@@ -28,15 +28,12 @@ export class BackupController {
                } = req.body;
                let finalBackupMode = backupMode;
                if (!backupMode) {
-                    // Force manual mode for API-initiated backups (frontend button clicks)
                     finalBackupMode = 'manual';
                }
 
-               // Generate unique backup name with timestamp
                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
                const uniqueBackupName = `${backupName}_${timestamp}`;
 
-               // Validation using Zod
                const validation = BackupValidators.validateCreateDatabaseBackup({
                     backupName: uniqueBackupName,
                     backupPath,
@@ -53,10 +50,7 @@ export class BackupController {
                     });
                }
 
-               // Check if encryption is enabled in security settings
-               const securitySettings = await EncryptionManager.getSecuritySettings(tenantId);
-               const encryptBackup = securitySettings?.encryption_enabled || false;
-               console.log(validation.data);
+               const encryptBackup = true;
                const result = await BackupManager.performDatabaseBackup(
                     tenantId,
                     validation.data!.backupName,
@@ -64,19 +58,19 @@ export class BackupController {
                     validation.data!.isFullBackup ?? true,
                     finalBackupMode,
                     validation.data!.createdBy,
-                    undefined, // scheduleId
+                    undefined,
                     encryptBackup
                );
 
                if (result.success) {
                     res.json({
                          status: true,
-                         message: 'Database backup completed successfully',
+                         message: 'Database backup completed successfully (encrypted - downloads as .encrypted file)',
                          data: {
                               backupPath: result.backupPath,
                               size: result.size,
                               duration: result.duration,
-                              encrypted: encryptBackup,
+                              encrypted: true,
                               keyId: result.encryptionKeyId
                          }
                     });
@@ -95,7 +89,7 @@ export class BackupController {
           }
      }
 
-    
+
      static async getBackupLogs(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
@@ -194,51 +188,75 @@ export class BackupController {
                     });
                }
 
-               // Check if file is encrypted
-               const isEncrypted = backup.backup_path.endsWith('.encrypted');
+               const isEncrypted = !!backup.encryption_key_id;
                let downloadPath = backup.backup_path;
                let downloadName = path.basename(backup.backup_path);
+               let tempDecryptedFile: string | null = null;
 
-               if (isEncrypted) {
-                    // For encrypted files, suggest a .bin extension so Windows doesn't try to "open" it
-                    downloadName = downloadName.replace('.encrypted', '.bin');
-               } else if (backup.backup_type === 'database') {
-                    // Ensure SQL files have .sql extension
+               if (req.query.decrypt === 'true' && isEncrypted && backup.encryption_key_id) {
+                    const decryptedPath = `${backup.backup_path}.decrypted`;
+                    const decryptResult = await EncryptionManager.decryptFile(tenantId, backup.backup_path, decryptedPath, backup.encryption_key_id);
+
+                    if (decryptResult.success) {
+                         downloadPath = decryptedPath;
+                         tempDecryptedFile = decryptedPath;
+                         downloadName = downloadName.replace(/\.encrypted$/, '');
+                    } else {
+                         return res.status(500).json({
+                              status: false,
+                              error: `Failed to decrypt backup: ${decryptResult.error}`
+                         });
+                    }
+               }
+
+               if (backup.backup_type === 'database') {
                     if (!downloadName.endsWith('.sql')) {
                          downloadName += '.sql';
                     }
                } else if (backup.backup_type === 'files') {
-                    // Ensure file backups have .tar.gz extension
                     if (!downloadName.endsWith('.tar.gz')) {
                          downloadName += '.tar.gz';
                     }
                }
 
-               // Set appropriate headers
-               const fileStats = fs.statSync(backup.backup_path);
+               const fileStats = fs.statSync(downloadPath);
                res.setHeader('Content-Length', fileStats.size);
-               res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+               const sanitizedName = downloadName.replace(/[^a-zA-Z0-9._-]/g, '_');
+               const contentDisposition = `attachment; filename="${sanitizedName}"`;
+               res.setHeader('Content-Disposition', contentDisposition);
+               res.setHeader('X-Filename', sanitizedName);
+               res.setHeader('Access-Control-Expose-Headers', 'content-disposition, content-type');
 
-               // Set content type based on file type
-               if (isEncrypted) {
+               if (req.query.decrypt === 'true' && tempDecryptedFile) {
+                    res.setHeader('Content-Type', 'application/octet-stream');
+               } else if (isEncrypted) {
                     res.setHeader('Content-Type', 'application/octet-stream');
                } else if (backup.backup_type === 'database') {
                     res.setHeader('Content-Type', 'application/sql');
                } else if (backup.backup_type === 'files') {
                     res.setHeader('Content-Type', 'application/gzip');
+               } else {
+                    res.setHeader('Content-Type', 'application/octet-stream');
                }
 
-               // Stream the file
-               const fileStream = fs.createReadStream(backup.backup_path);
+               const fileStream = fs.createReadStream(downloadPath);
                fileStream.pipe(res);
 
                fileStream.on('error', (error) => {
-                    console.error('File stream error:', error);
                     if (!res.headersSent) {
                          res.status(500).json({
                               status: false,
                               error: 'Error streaming file'
                          });
+                    }
+               });
+
+               fileStream.on('end', () => {
+                    if (tempDecryptedFile && fs.existsSync(tempDecryptedFile)) {
+                         try {
+                              fs.unlinkSync(tempDecryptedFile);
+                         } catch (cleanupError) {
+                         }
                     }
                });
 
@@ -250,13 +268,11 @@ export class BackupController {
           }
      }
 
-     // Backup Schedule Management Endpoints
      static async createBackupSchedule(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const scheduleData = req.body;
 
-               // Validation using Zod
                const validation = BackupValidators.validateCreateBackupSchedule(scheduleData);
 
                if (!validation.success) {
@@ -354,7 +370,6 @@ export class BackupController {
                const { id } = req.params;
                const updates = req.body;
 
-               // Validation using Zod
                const validation = BackupValidators.validateUpdateBackupSchedule(updates);
 
                if (!validation.success) {
@@ -417,7 +432,7 @@ export class BackupController {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
 
-               const result = await BackupManager.executeScheduledBackup(tenantId,"manual", parseInt(id));
+               const result = await BackupManager.executeScheduledBackup(tenantId, "manual", parseInt(id));
 
                if (result.success) {
                     res.json({
@@ -445,7 +460,7 @@ export class BackupController {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
 
-               const result = await BackupManager.runScheduledBackups(tenantId,"automated");
+               const result = await BackupManager.runScheduledBackups(tenantId, "automated");
 
                res.json({
                     status: true,

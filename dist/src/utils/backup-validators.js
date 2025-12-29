@@ -6,7 +6,10 @@ const zod_1 = require("zod");
 // Zod schemas for backup validation
 exports.CreateDatabaseBackupSchema = zod_1.z.object({
     backupName: zod_1.z.string().min(1, 'backupName is required and must be a non-empty string'),
-    backupPath: zod_1.z.string().startsWith('/', 'backupPath is required and must be an absolute path starting with /'),
+    backupPath: zod_1.z.string().refine((path) => {
+        // Allow Unix absolute paths (starting with /) or Windows absolute paths (like C:\ or D:\)
+        return path.startsWith('/') || /^[A-Za-z]:[\\/]/.test(path);
+    }, 'backupPath is required and must be an absolute path (starting with / for Unix or drive letter for Windows)'),
     isFullBackup: zod_1.z.boolean().optional(),
     backupMode: zod_1.z.enum(['automated', 'manual']).optional(),
     createdBy: zod_1.z.string().optional(),

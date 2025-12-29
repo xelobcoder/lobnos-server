@@ -75,8 +75,8 @@ class EncryptionController {
     static async generateEncryptionKey(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const { createdBy } = req.body;
-            const keyId = await encryption_1.default.generateEncryptionKey(tenantId, createdBy);
+            const { createdBy, userKey } = req.body;
+            const keyId = await encryption_1.default.generateEncryptionKey(tenantId, createdBy, userKey);
             res.status(201).json({
                 status: true,
                 message: 'Encryption key generated successfully',
@@ -109,8 +109,8 @@ class EncryptionController {
     static async rotateEncryptionKey(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const { createdBy, force } = req.body;
-            const result = await encryption_1.default.rotateKeyIfNeeded(tenantId, createdBy, force);
+            const { createdBy, force, userKey } = req.body;
+            const result = await encryption_1.default.rotateKeyIfNeeded(tenantId, createdBy, force, userKey);
             res.json({
                 status: true,
                 data: result

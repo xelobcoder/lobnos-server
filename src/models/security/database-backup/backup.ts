@@ -170,8 +170,6 @@ export default class BackupManager {
 
                let command: string;
 
-               console.log(config, 'CONFIG')
-
                if (config.client === 'mysql' || config.client === 'mysql2') {
                     const host = config.connection.host;
                     const port = config.connection.port;
@@ -204,7 +202,7 @@ export default class BackupManager {
                let finalBackupPath = fullPath;
                let encryptionKeyId: string | undefined;
 
-               // Encrypt the backup if requested
+               // Encryption enabled - backups are stored encrypted
                if (encryptBackup) {
                     const encryptedPath = `${fullPath}.encrypted`;
                     const encryptionResult = await EncryptionManager.encryptFile(tenantId, fullPath, encryptedPath);
@@ -219,7 +217,14 @@ export default class BackupManager {
                          const encryptedStats = fs.statSync(finalBackupPath);
                          size = encryptedStats.size;
                     } else {
-                         console.warn('Backup encryption failed, proceeding with unencrypted backup:', encryptionResult.error);
+                         // Encryption failed - attempt to clean up unencrypted file and throw error
+                         try {
+                              await EncryptionManager.secureDeleteFile(fullPath);
+                         } catch (deleteError) {
+                              console.error('Failed to delete unencrypted backup file after encryption failure:', deleteError);
+                              // Continue with throwing the encryption error - unencrypted file may remain but backup will be marked as failed
+                         }
+                         throw new Error(`Backup encryption failed: ${encryptionResult.error}`);
                     }
                }
 
@@ -302,7 +307,7 @@ export default class BackupManager {
                let finalBackupPath = fullPath;
                let encryptionKeyId: string | undefined;
 
-               // Encrypt the backup if requested
+               // Encryption enabled - backups are stored encrypted
                if (encryptBackup) {
                     const encryptedPath = `${fullPath}.encrypted`;
                     const encryptionResult = await EncryptionManager.encryptFile(tenantId, fullPath, encryptedPath);
@@ -317,7 +322,14 @@ export default class BackupManager {
                          const encryptedStats = fs.statSync(finalBackupPath);
                          size = encryptedStats.size;
                     } else {
-                         console.warn('Backup encryption failed, proceeding with unencrypted backup:', encryptionResult.error);
+                         // Encryption failed - attempt to clean up unencrypted file and throw error
+                         try {
+                              await EncryptionManager.secureDeleteFile(fullPath);
+                         } catch (deleteError) {
+                              console.error('Failed to delete unencrypted backup file after encryption failure:', deleteError);
+                              // Continue with throwing the encryption error - unencrypted file may remain but backup will be marked as failed
+                         }
+                         throw new Error(`Backup encryption failed: ${encryptionResult.error}`);
                     }
                }
 
@@ -526,42 +538,18 @@ export default class BackupManager {
                let result: { success: boolean; backupPath?: string; size?: number; error?: string; duration?: number; encryptionKeyId?: string };
 
                const backupName = `${schedule.schedule_name}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
-
-               // Use provided backup_path or default to backups directory in current working directory
-               const backupPath = schedule.backup_path || path.resolve('backups');
-
-               // Check if encryption is enabled
-               const securitySettings = await EncryptionManager.getSecuritySettings(tenantId);
-               const encryptBackup = securitySettings?.encryption_enabled || false;
-
-               if (schedule.backup_type === 'database') {
-                    result = await this.performDatabaseBackup(
-                         tenantId,
-                         backupName,
-                         backupPath,
-                         true,
-                         mode,
-                         `schedule_${scheduleId}`,
-                         scheduleId,
-                         encryptBackup
-                    );
-               } else if (schedule.backup_type === 'files') {
-                    if (!schedule.source_path) {
-                         return { success: false, error: 'Source path not specified for file backup' };
-                    }
-                    result = await this.performFileBackup(
-                         tenantId,
-                         backupName,
-                         schedule.source_path,
-                         backupPath,
-                         'automated',
-                         `schedule_${scheduleId}`,
-                         scheduleId,
-                         encryptBackup
-                    );
-               } else {
-                    return { success: false, error: 'Unsupported backup type' };
-               }
+               const backupPath = await EncryptionManager.getEffectiveStoragePath(tenantId);
+               const encryptBackup = true; // Encryption enabled
+               result = await this.performDatabaseBackup(
+                    tenantId,
+                    backupName,
+                    backupPath,
+                    true,
+                    mode,
+                    `schedule_${scheduleId}`,
+                    scheduleId,
+                    encryptBackup
+               );
 
                // Update last run time
                await this.updateBackupSchedule(tenantId, scheduleId, {
