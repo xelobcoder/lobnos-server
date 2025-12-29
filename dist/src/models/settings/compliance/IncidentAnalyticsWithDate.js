@@ -80,10 +80,11 @@ class IncidentAnalyticsWithDate {
     async incidentsByEmployee(startDate, endDate) {
         const connection = await this.connection;
         return connection('incidents')
-            .select('reported_by as employee_id')
+            .leftJoin('roles', 'incidents.reported_by', 'roles.employeeid')
+            .select('incidents.reported_by as employee_id', 'roles.username as employee_name', 'roles.email as employee_email')
             .count('* as count')
             .whereRaw('DATE(reported_at) BETWEEN ? AND ?', [startDate, endDate])
-            .groupBy('reported_by')
+            .groupBy('incidents.reported_by', 'roles.username', 'roles.email')
             .orderBy('count', 'desc')
             .limit(10);
     }

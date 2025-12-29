@@ -38,7 +38,8 @@ export default class IncidentAnalyticsController {
                const formattedStartDate = start.toISOString().split('T')[0];
                const formattedEndDate = end.toISOString().split('T')[0];
 
-               const analyticsData = await IncidentAnalytics.getIncidentAnalytics(tenantIdNum, formattedStartDate, formattedEndDate);
+               const analyticsData = await IncidentAnalytics
+                    .getIncidentAnalytics(tenantIdNum, formattedStartDate, formattedEndDate);
 
                if (start > end) {
                     res.status(400).json({
