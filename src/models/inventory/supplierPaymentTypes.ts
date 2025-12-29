@@ -19,6 +19,7 @@ export interface SupplierPayment {
      processed_at?: string;
      created_at: string;
      updated_at: string;
+     expense_synced?: boolean;
 
      // Relations
      supplier?: {
@@ -34,6 +35,12 @@ export interface SupplierPayment {
           status: string;
      };
      allocations?: SupplierPaymentAllocation[];
+}
+
+export interface SupplierPaymentListItem extends SupplierPayment {
+     supplier_name?: string;
+     po_order_number?: string;
+     expense_synced?: boolean;
 }
 
 export interface SupplierPaymentAllocation {
@@ -102,7 +109,7 @@ export interface SupplierPaymentFilters {
 }
 
 export interface SupplierPaymentListResponse {
-     payments: SupplierPayment[];
+     payments: SupplierPaymentListItem[];
      total: number;
      page: number;
      count: number;

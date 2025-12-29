@@ -158,7 +158,8 @@ class SupplierPaymentModel {
             updated_at: result.updated_at,
             supplier: supplier,
             purchase_order: purchase_order,
-            allocations: allocations
+            allocations: allocations,
+            expense_synced: Boolean(result.expense_synced)
         };
     }
     async findByPaymentId(paymentId) {
@@ -240,7 +241,8 @@ class SupplierPaymentModel {
             created_at: result.created_at,
             updated_at: result.updated_at,
             supplier_name: result.supplier_name,
-            po_order_number: result.po_order_number
+            po_order_number: result.po_order_number,
+            expense_synced: Boolean(result.expense_synced)
         }));
         return {
             payments,

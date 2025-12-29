@@ -14,11 +14,12 @@ const connection_1 = require("../../database/connection");
 const configuration_1 = require("../../hooks/configuration");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 class Expenses {
-    constructor(employeeid, branchid, tenantId, expenseId = null) {
+    constructor(employeeid, branchid, tenantId, expenseId = null, trx = null) {
         this.employeeid = employeeid;
         this.branchid = branchid;
         this.tenantId = tenantId;
         this.expenseId = expenseId;
+        this.trx = trx;
     }
     isExpenseApproved() {
         return;
@@ -42,14 +43,31 @@ class Expenses {
                 throw new Error('category id not provided');
             }
             const finalGroupId = groupId || this.generateGroupId();
-            const result = trx ? await trx.raw(queries_1.generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]) : await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
-            if ((0, helper_1.rowAffected)(result)) {
-                return result.insertId;
+            let insertData = {
+                name,
+                amount,
+                employeeid,
+                branchid,
+                description,
+                merchant,
+                category,
+                date,
+                groupId: finalGroupId
+            };
+            let result;
+            if (trx) {
+                result = await trx('expensesrecord').insert(insertData);
+            }
+            else {
+                const connection = await (0, KnexConnections_1.default)(this.tenantId);
+                result = await connection('expensesrecord').insert(insertData);
+            }
+            if (result && result.length > 0) {
+                return result[0];
             }
             return null;
         }
         catch (err) {
-            console.log(err);
             logger_1.default.error(err === null || err === void 0 ? void 0 : err.message);
             throw new Error(err);
         }
@@ -263,12 +281,13 @@ class Expenses {
         }
         return report;
     }
-    async updateExpenseDecision(tenantId, status, decisions) {
+    async updateExpenseDecision(tenantId, status, decisions, tTransaction) {
         if (!decisions || decisions.length === 0 || !status) {
             throw new Error('status and decisions must be provided');
         }
-        const connection = await (0, KnexConnections_1.default)(tenantId);
-        const conn = await connection.transaction();
+        const connection = tTransaction ? tTransaction : await (0, KnexConnections_1.default)(tenantId);
+        const conn = tTransaction ? tTransaction : await connection.transaction();
+        const shouldManageTransaction = !tTransaction;
         try {
             for (const decision of decisions) {
                 const { expenseid, information, employeeid } = decision;
@@ -303,16 +322,22 @@ class Expenses {
                     throw new Error(`Failed to update expense ${expenseid}`);
                 }
             }
-            await conn.commit();
+            if (shouldManageTransaction) {
+                await conn.commit();
+            }
             return true;
         }
         catch (err) {
-            await conn.rollback();
+            if (shouldManageTransaction) {
+                await conn.rollback();
+            }
             logger_1.default.error('Transaction error in bulk expense decisions:', err);
             throw new Error('Transaction failed: ' + err.message);
         }
         finally {
-            conn.destroy();
+            if (shouldManageTransaction) {
+                conn.destroy();
+            }
         }
     }
     async getAllExpenseCategory() {
@@ -324,7 +349,7 @@ class Expenses {
         const row = await (0, helper_1.promisifyQuery)(tenantId, queries_1.isExpenseExistQuery, [category]);
         return row.length > 0;
     }
-    async createExpenseCategory(tenantId, category, employeeid) {
+    async createExpenseCategory(tenantId, category, employeeid, trx) {
         if (!category)
             throw new ReferenceError('category not provided');
         if (typeof category !== 'string')
@@ -335,8 +360,23 @@ class Expenses {
         if (await this.isExpenseExist(tenantId, category)) {
             return `category exist`;
         }
-        const isInserted = await (0, helper_1.promisifyQuery)(tenantId, queries_1.createExpenseCategoryQuery, [category, employeeid]);
-        return (0, helper_1.rowAffected)(isInserted);
+        let result;
+        if (trx) {
+            result = await trx('dboexpensecategory').insert({
+                category,
+                employeeid,
+                createdon: new Date()
+            });
+        }
+        else {
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            result = await connection('dboexpensecategory').insert({
+                category,
+                employeeid,
+                createdon: new Date()
+            });
+        }
+        return result && result.length > 0;
     }
     async updateExpenseCategory(tenantId, editid, category) {
         if (!editid || !category) {

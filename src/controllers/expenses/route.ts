@@ -26,6 +26,7 @@ import {
   addPayment,
   getPayments,
   getExpensesByGroup,
+  markSupplierPaymentAsExpense,
 } from "./expenseHandlers";
 import { ExpenseAnalyticsController } from "./ExpenseAnalyticsController";
 import { handleOverLoad } from "../../hooks/helper";
@@ -65,6 +66,7 @@ router.get("/api/v1/expense/get/category", getAllExpenseCategory);
 
 router.post('/api/v1/outsourced/cases/mark-expense', handleOverLoad(markOutsourceCasesAsExpense));
 router.put('/api/v1/outsourced/cases/confirm-done', handleOverLoad(markCaseAsDone));
+router.post('/api/v1/supplier-payments/mark-expense', handleOverLoad(markSupplierPaymentAsExpense));
 
 router.post('/api/v1/expenses/invoice/create-with-expenses', handleOverLoad(createExpensesAndInvoice));
 router.post('/api/v1/expenses/invoice', handleOverLoad(createInvoice));

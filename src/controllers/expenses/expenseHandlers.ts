@@ -10,6 +10,7 @@ import expenseMerchants, { ExpenseMerchant } from "../../models/Expenses/expense
 import logger from "../../hooks/logger";
 import { request } from "node:http";
 import OutsourcedCases from "../../models/organization/outsourcingOrganization/outsourcedCases";
+import { SupplierPaymentExpenseSync } from "../../models/inventory/SupplierPaymentExpenseSync";
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -604,7 +605,7 @@ export const getAllExpenseMerchants = async (req: Request, res: Response) => {
 export const markOutsourceCasesAsExpense = async (request: Request, response: Response): Promise<any> => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString());
-		const { testid, serviceid, tracking_id, employeeid, branchid,outsourcedid } = request.body;
+		const { testid, serviceid, tracking_id, employeeid, branchid, outsourcedid } = request.body;
 
 		if (!testid || !serviceid || !employeeid || !branchid) return customError("Required parameters missing", 400, response);
 
@@ -896,3 +897,26 @@ async function createInvoicesForApprovedExpenses(invoiceRepo: ExpenseInvoiceRepo
 
 	return invoiceResults;
 }
+
+export const markSupplierPaymentAsExpense = async (request: Request, response: Response): Promise<any> => {
+	try {
+		const tenantId = parseInt(request.query.tenantId.toString());
+		const { paymentId, employeeid, branchid } = request.body;
+
+		if (!paymentId || !employeeid || !branchid) {
+			return customError("Required parameters missing: paymentId, employeeid, branchid", 400, response);
+		}
+
+		const result = await SupplierPaymentExpenseSync.markSupplierPaymentAsExpense(tenantId, {
+			paymentId,
+			employeeid,
+			branchid
+		});
+
+		console.log('Supplier payment expense sync result:', result);
+		response.send({ status: result });
+	} catch (err) {
+		console.log('Error in markSupplierPaymentAsExpense:', err);
+		responseError(response);
+	}
+};

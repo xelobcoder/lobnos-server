@@ -34,12 +34,14 @@ export default class Expenses implements IExpenseRepository {
      private branchid: number;
      private tenantId: number;
      private expenseId: null | number
+     private trx: any;
 
-     constructor(employeeid: number, branchid: number, tenantId: number, expenseId: number | null = null) {
+     constructor(employeeid: number, branchid: number, tenantId: number, expenseId: number | null = null, trx: any = null) {
           this.employeeid = employeeid;
           this.branchid = branchid;
           this.tenantId = tenantId
           this.expenseId = expenseId;
+          this.trx = trx;
      }
 
 
@@ -74,13 +76,32 @@ export default class Expenses implements IExpenseRepository {
                }
 
                const finalGroupId = groupId || this.generateGroupId();
-               const result = trx ? await trx.raw(generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]) : await promisifyQuery(this.tenantId, generateNewExpenseQuery, [name, amount, employeeid, branchid, description, merchant, category, date, finalGroupId]);
-               if (rowAffected(result)) {
-                    return result.insertId;
+
+               let insertData = {
+                    name,
+                    amount,
+                    employeeid,
+                    branchid,
+                    description,
+                    merchant,
+                    category,
+                    date,
+                    groupId: finalGroupId
+               };
+
+               let result;
+               if (trx) {
+                    result = await trx('expensesrecord').insert(insertData);
+               } else {
+                    const connection = await KnexConnection(this.tenantId);
+                    result = await connection('expensesrecord').insert(insertData);
+               }
+
+               if (result && result.length > 0) {
+                    return result[0];
                }
                return null;
           } catch (err: any) {
-               console.log(err)
                logger.error(err?.message);
                throw new Error(err);
           }
@@ -349,13 +370,16 @@ export default class Expenses implements IExpenseRepository {
           return report;
      }
 
-     async updateExpenseDecision(tenantId: number, status: string, decisions: Array<{ expenseid: number, information: string, employeeid: number }>): Promise<boolean> {
+     async updateExpenseDecision(tenantId: number, status: string, decisions: Array<{ expenseid: number, information: string, employeeid: number }>, tTransaction?: any): Promise<boolean> {
           if (!decisions || decisions.length === 0 || !status) {
                throw new Error('status and decisions must be provided');
           }
 
-          const connection = await KnexConnection(tenantId);
-          const conn = await connection.transaction();
+          const connection = tTransaction ? tTransaction : await KnexConnection(tenantId);
+          const conn = tTransaction ? tTransaction : await connection.transaction();
+          const shouldManageTransaction = !tTransaction;
+
+
 
           try {
 
@@ -396,15 +420,21 @@ export default class Expenses implements IExpenseRepository {
                     }
                }
 
-               await conn.commit();
+               if (shouldManageTransaction) {
+                    await conn.commit();
+               }
                return true;
 
           } catch (err: any) {
-               await conn.rollback();
+               if (shouldManageTransaction) {
+                    await conn.rollback();
+               }
                logger.error('Transaction error in bulk expense decisions:', err);
                throw new Error('Transaction failed: ' + err.message);
           } finally {
-               conn.destroy();
+               if (shouldManageTransaction) {
+                    conn.destroy();
+               }
           }
      }
 
@@ -418,7 +448,7 @@ export default class Expenses implements IExpenseRepository {
           return row.length > 0;
      }
 
-     async createExpenseCategory(tenantId: number, category: string, employeeid: number): Promise<string | boolean> {
+     async createExpenseCategory(tenantId: number, category: string, employeeid: number, trx?: any): Promise<string | boolean> {
           if (!category) throw new ReferenceError('category not provided');
           if (typeof category !== 'string') throw new TypeError('category must be type string');
           if (isNaN(employeeid)) {
@@ -429,8 +459,22 @@ export default class Expenses implements IExpenseRepository {
                return `category exist`;
           }
 
-          const isInserted = await promisifyQuery(tenantId, createExpenseCategoryQuery, [category, employeeid]);
-          return rowAffected(isInserted);
+          let result;
+          if (trx) {
+               result = await trx('dboexpensecategory').insert({
+                    category,
+                    employeeid,
+                    createdon: new Date()
+               });
+          } else {
+               const connection = await KnexConnection(tenantId);
+               result = await connection('dboexpensecategory').insert({
+                    category,
+                    employeeid,
+                    createdon: new Date()
+               });
+          }
+          return result && result.length > 0;
      }
      async updateExpenseCategory(tenantId: number, editid: number, category: string): Promise<boolean> {
           if (!editid || !category) {
@@ -440,7 +484,7 @@ export default class Expenses implements IExpenseRepository {
      }
 
 
-     public static async getExpensesByCreatedOnRange(tenantId: number,from: string | Date, to: string | Date): Promise<PrimeLimsTableexpensesrecord[] | []> {
+     public static async getExpensesByCreatedOnRange(tenantId: number, from: string | Date, to: string | Date): Promise<PrimeLimsTableexpensesrecord[] | []> {
           if (!from || !to) throw new Error('Both from and to timestamps are required');
           return await promisifyQuery(tenantId, expense_between_dates_query, [from, to]);
      }

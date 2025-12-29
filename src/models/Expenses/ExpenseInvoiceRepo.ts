@@ -3,6 +3,7 @@ import logger from "../../hooks/logger";
 import User from "../../LobnosAuth/user";
 import ExpenseService from "./ExpenseService";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
+import KnexConnection from "../../database/KnexConnections";
 
 export default class ExpenseInvoiceRepo {
      private employeeid: number;
@@ -67,7 +68,8 @@ export default class ExpenseInvoiceRepo {
                tax_amount?: number;
                status?: 'Pending' | 'Approved' | 'Rejected' | 'Paid';
                expense_ids: number[];
-          }
+          },
+          trx?: any
      ): Promise<any> {
           const record = await new User(null, null, null, null, null).userExistWithId(this.employeeid, this.tenantId);
           if (!record || record.length === 0) {
@@ -102,28 +104,32 @@ export default class ExpenseInvoiceRepo {
                invoice_number = `INV-${timestamp}-${random}`;
           } else {
                const checkQuery = 'SELECT id FROM invoices WHERE invoice_number = ?';
-               const existing = await promisifyQuery(this.tenantId, checkQuery, [invoice_number]);
-               if (existing.length > 0) {
+               const existing = trx ? await trx.raw(checkQuery, [invoice_number]) : await promisifyQuery(this.tenantId, checkQuery, [invoice_number]);
+               const existingData = trx ? existing[0] : existing;
+               if (existingData && existingData.length > 0) {
                     throw new Error('Invoice number must be unique');
                }
           }
 
           const merchantQuery = 'SELECT id FROM expense_merchants WHERE id = ?';
-          const merchant = await promisifyQuery(this.tenantId, merchantQuery, [merchant_id]);
-          if (merchant.length === 0) {
+          const merchant = trx ? await trx.raw(merchantQuery, [merchant_id]) : await promisifyQuery(this.tenantId, merchantQuery, [merchant_id]);
+          const merchantData = trx ? merchant[0] : merchant;
+          if (!merchantData || merchantData.length === 0) {
                throw new Error('Merchant not found');
           }
 
           for (const expenseId of expense_ids) {
                const expenseQuery = 'SELECT id, employeeid, approved FROM expensesrecord WHERE id = ?';
-               const expense = await promisifyQuery(this.tenantId, expenseQuery, [expenseId]);
-               if (expense.length === 0) {
+               const expense = trx ? await trx.raw(expenseQuery, [expenseId]) : await promisifyQuery(this.tenantId, expenseQuery, [expenseId]);
+               const expenseData = trx ? expense[0] : expense;
+               if (!expenseData || expenseData.length === 0) {
                     throw new Error(`Expense with ID ${expenseId} not found`);
                }
-               if (!isAdminOrManager && expense[0].employeeid !== this.employeeid) {
+               const expenseRecord = trx ? expenseData[0] : expenseData[0];
+               if (!isAdminOrManager && expenseRecord.employeeid !== this.employeeid) {
                     throw new Error(`Unauthorized to include expense ${expenseId}`);
                }
-               if (expense[0].approved !== 1) {
+               if (expenseRecord.approved !== 1) {
                     throw new Error(`Expense ${expenseId} must be approved before it can be invoiced`);
                }
           }
@@ -143,12 +149,16 @@ export default class ExpenseInvoiceRepo {
                invoiceData.tax_amount || 0.00,
                invoiceData.status || 'Pending'
           ];
-          const result = await promisifyQuery(this.tenantId, insertQuery, values);
-          const invoiceId = result.insertId;
+          const result = trx ? await trx.raw(insertQuery, values) : await promisifyQuery(this.tenantId, insertQuery, values);
+          const invoiceId = trx ? result[0].insertId : result.insertId;
 
           for (const expenseId of expense_ids) {
                const linkQuery = 'INSERT INTO invoice_expenses (invoice_id, expense_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE invoice_id = invoice_id';
-               await promisifyQuery(this.tenantId, linkQuery, [invoiceId, expenseId]);
+               if (trx) {
+                    await trx.raw(linkQuery, [invoiceId, expenseId]);
+               } else {
+                    await promisifyQuery(this.tenantId, linkQuery, [invoiceId, expenseId]);
+               }
           }
 
           return { invoiceId, invoice_number };
@@ -269,27 +279,34 @@ export default class ExpenseInvoiceRepo {
           return rowAffected(result);
      }
 
-     async updateInvoiceStatusIfFullyPaid(invoiceId: number): Promise<void> {
+     async updateInvoiceStatusIfFullyPaid(invoiceId: number, trx?: any): Promise<void> {
           const invoiceQuery = 'SELECT total_amount FROM invoices WHERE id = ?';
-          const invoice = await promisifyQuery(this.tenantId, invoiceQuery, [invoiceId]);
+          const invoice = trx ? await trx.raw(invoiceQuery, [invoiceId]) : await promisifyQuery(this.tenantId, invoiceQuery, [invoiceId]);
+          const invoiceData = trx ? invoice[0] : invoice;
 
-          if (invoice.length === 0) {
-               return; // Invoice not found, nothing to do
+          if (!invoiceData || invoiceData.length === 0) {
+               return;
           }
 
-          const invoiceTotal = parseFloat(invoice[0].total_amount);
+          const invoiceRecord = trx ? invoiceData[0] : invoiceData[0];
+          const invoiceTotal = parseFloat(invoiceRecord.total_amount);
 
           const paymentsQuery = `
                SELECT SUM(amount) as total_paid
                FROM expense_payments
                WHERE invoice_id = ? AND status = 'Paid'
           `;
-          const payments = await promisifyQuery(this.tenantId, paymentsQuery, [invoiceId]);
-          const totalPaid = parseFloat(payments[0]?.total_paid || 0);
+          const payments = trx ? await trx.raw(paymentsQuery, [invoiceId]) : await promisifyQuery(this.tenantId, paymentsQuery, [invoiceId]);
+          const paymentsData = trx ? payments[0] : payments;
+          const totalPaid = parseFloat((trx ? paymentsData[0] : paymentsData[0])?.total_paid || 0);
 
           if (totalPaid >= invoiceTotal) {
                const updateQuery = 'UPDATE invoices SET status = ?, updated_on = NOW() WHERE id = ?';
-               await promisifyQuery(this.tenantId, updateQuery, ['Paid', invoiceId]);
+               if (trx) {
+                    await trx.raw(updateQuery, ['Paid', invoiceId]);
+               } else {
+                    await promisifyQuery(this.tenantId, updateQuery, ['Paid', invoiceId]);
+               }
           }
      }
 
@@ -301,76 +318,89 @@ export default class ExpenseInvoiceRepo {
                amount: number;
                method: string;
                status?: 'Paid' | 'Pending' | 'Failed';
-          }
+          },
+          trx?: any
      ): Promise<any> {
-          const record = await new User(null, null, null, null, null).userExistWithId(this.employeeid, this.tenantId);
-          if (!record || record.length === 0) {
-               throw new Error('User not found');
-          }
-
-          const role = record[0]['role'];
-          const isAdminOrManager = role === 'admin' || role === 'manager';
-
-          const { expense_id, payment_date, amount, method } = paymentData;
-          if (!expense_id || !payment_date || !amount || !method) {
-               throw new Error('Required fields are missing');
-          }
-
-          const expenseQuery = 'SELECT id, employeeid, approved FROM expensesrecord WHERE id = ?';
-          const expense = await promisifyQuery(this.tenantId, expenseQuery, [expense_id]);
-          if (expense.length === 0) {
-               throw new Error(`Expense with ID ${expense_id} not found in the system`);
-          }
-
-          if (expense[0].approved !== 1) {
-               throw new Error(`Cannot add payment for expense ${expense_id} - expense must be approved first`);
-          }
-
-          if (!isAdminOrManager && expense[0].employeeid !== this.employeeid) {
-               throw new Error('Unauthorized');
-          }
-
-          if (paymentData.invoice_id) {
-               const invoiceQuery = 'SELECT id, employee_id FROM invoices WHERE id = ?';
-               const invoice = await promisifyQuery(this.tenantId, invoiceQuery, [paymentData.invoice_id]);
-               if (invoice.length === 0) {
-                    throw new Error('Invoice not found');
+          try {
+               const record = await new User(null, null, null, null, null).userExistWithId(this.employeeid, this.tenantId);
+               if (!record || record.length === 0) {
+                    throw new Error('User not found');
                }
-               if (!isAdminOrManager && invoice[0].employee_id !== this.employeeid) {
+
+               const role = record[0]['role'];
+               const isAdminOrManager = role === 'admin' || role === 'manager';
+
+               const { expense_id, payment_date, amount, method } = paymentData;
+               if (!expense_id || !payment_date || !amount || !method) {
+                    throw new Error('Required fields are missing');
+               }
+
+               const expenseQuery = 'SELECT id, employeeid, approved FROM expensesrecord WHERE id = ?';
+               const expense = trx ? await trx.raw(expenseQuery, [expense_id]) : await promisifyQuery(this.tenantId, expenseQuery, [expense_id]);
+               const expenseData = trx ? expense[0] : expense;
+               if (!expenseData || expenseData.length === 0) {
+                    throw new Error(`Expense with ID ${expense_id} not found in the system`);
+               }
+
+               const expenseRecord = trx ? expenseData[0] : expenseData[0];
+               if (expenseRecord.approved !== 1) {
+                    throw new Error(`Cannot add payment for expense ${expense_id} - expense must be approved first`);
+               }
+
+               if (!isAdminOrManager && expenseRecord.employeeid !== this.employeeid) {
                     throw new Error('Unauthorized');
                }
-          }
 
-          const existingPaymentQuery = `
+               if (paymentData.invoice_id) {
+                    const invoiceQuery = 'SELECT id, employee_id FROM invoices WHERE id = ?';
+                    const invoice = trx ? await trx.raw(invoiceQuery, [paymentData.invoice_id]) : await promisifyQuery(this.tenantId, invoiceQuery, [paymentData.invoice_id]);
+                    const invoiceData = trx ? invoice[0] : invoice;
+                    if (!invoiceData || invoiceData.length === 0) {
+                         throw new Error('Invoice not found');
+                    }
+                    const invoiceRecord = trx ? invoiceData[0] : invoiceData[0];
+                    if (!isAdminOrManager && invoiceRecord.employee_id !== this.employeeid) {
+                         throw new Error('Unauthorized');
+                    }
+
+               }
+
+               const existingPaymentQuery = `
                SELECT id FROM expense_payments
                WHERE expense_id = ? AND invoice_id = ? AND status = 'Paid'
           `;
-          const existingPayment = await promisifyQuery(this.tenantId, existingPaymentQuery, [expense_id, paymentData.invoice_id || null]);
-          if (existingPayment.length > 0) {
-               throw new Error(`Payment already exists for expense ${expense_id}${paymentData.invoice_id ? ` and invoice ${paymentData.invoice_id}` : ''}. Duplicate payments are not allowed.`);
-          }
+               const existingPayment = trx ? await trx.raw(existingPaymentQuery, [expense_id, paymentData.invoice_id || null]) : await promisifyQuery(this.tenantId, existingPaymentQuery, [expense_id, paymentData.invoice_id || null]);
+               const existingPaymentData = trx ? existingPayment[0] : existingPayment;
+               if (existingPaymentData && existingPaymentData.length > 0) {
+                    throw new Error(`Payment already exists for expense ${expense_id}${paymentData.invoice_id ? ` and invoice ${paymentData.invoice_id}` : ''}. Duplicate payments are not allowed.`);
+               }
 
-          const insertQuery = `
+               const insertQuery = `
             INSERT INTO expense_payments (expense_id, invoice_id, payment_date, amount, method, status, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
-          const values = [
-               expense_id,
-               paymentData.invoice_id || null,
-               payment_date,
-               amount,
-               method,
-               paymentData.status || 'Paid',
-               this.employeeid
-          ];
-          const result = await promisifyQuery(this.tenantId, insertQuery, values);
-          const paymentId = result.insertId;
+               const values = [
+                    expense_id,
+                    paymentData.invoice_id || null,
+                    payment_date,
+                    amount,
+                    method,
+                    paymentData.status || 'Paid',
+                    this.employeeid
+               ];
+               const result = trx ? await trx.raw(insertQuery, values) : await promisifyQuery(this.tenantId, insertQuery, values);
+               const paymentId = trx ? result[0].insertId : result.insertId;
 
-          if (paymentData.invoice_id) {
-               await this.updateInvoiceStatusIfFullyPaid(paymentData.invoice_id);
+               if (paymentData.invoice_id) {
+                    await this.updateInvoiceStatusIfFullyPaid(paymentData.invoice_id, trx);
+               }
+
+
+               return { paymentId };
+          } catch (error) {
+              console.error('Error in addPayment:', error);
+               throw error;
           }
-
-          return { paymentId };
      }
 
      async getPayments(
@@ -439,28 +469,82 @@ export default class ExpenseInvoiceRepo {
                total_amount: number;
                tax_amount?: number;
                status?: 'Pending' | 'Approved' | 'Rejected' | 'Paid';
-          }
+          },
+          trx?: any
      ): Promise<any> {
-          const expenseService = new ExpenseService(this.employeeid, this.branchid, this.tenantId);
+          try {
+               const expenseService = new ExpenseService(this.employeeid, this.branchid, this.tenantId, null, trx);
 
-          const groupId = expenseService['generateGroupId']();
+               const groupId = expenseService['generateGroupId']();
 
-          const expenseIds: number[] = [];
-          for (const expense of expensesData) {
-               const expenseId = await expenseService.generateNewExpense(expense, groupId);
-               if (expenseId) {
-                    expenseIds.push(expenseId);
-               } else {
-                    throw new Error('Failed to create expense');
+               const expenseIds: number[] = [];
+               for (const expense of expensesData) {
+                    const expenseId = await expenseService.generateNewExpense(expense, groupId, trx);
+                    if (expenseId) {
+                         expenseIds.push(expenseId);
+                    } else {
+                         throw new Error('Failed to create expense');
+                    }
                }
-          }
 
-          return {
-               message: 'Expenses created successfully. Invoice can be created after expenses are approved.',
-               expenseIds,
-               groupId,
-               requiresApproval: true
-          };
+               let invoice_number = invoiceData.invoice_number;
+               if (!invoice_number) {
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '-');
+                    const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+                    invoice_number = `INV-${timestamp}-${random}`;
+               }
+
+               let invoiceInsertData = {
+                    invoice_number,
+                    invoice_date: invoiceData.invoice_date,
+                    due_date: invoiceData.due_date || null,
+                    merchant_id: invoiceData.merchant_id,
+                    employee_id: this.employeeid,
+                    branch_id: this.branchid,
+                    total_amount: invoiceData.total_amount,
+                    tax_amount: invoiceData.tax_amount || 0.00,
+                    status: invoiceData.status || 'Pending'
+               };
+
+               let invoiceId;
+               if (trx) {
+                    const result = await trx('invoices').insert(invoiceInsertData);
+                    invoiceId = result[0];
+               } else {
+                    const connection = await KnexConnection(this.tenantId);
+                    const result = await connection('invoices').insert(invoiceInsertData);
+                    invoiceId = result[0];
+               }
+
+
+               // Link expenses to invoice
+               for (const expenseId of expenseIds) {
+                    if (trx) {
+                         await trx('invoice_expenses').insert({
+                              invoice_id: invoiceId,
+                              expense_id: expenseId
+                         }).onConflict(['invoice_id', 'expense_id']).merge();
+                    } else {
+                         const connection = await KnexConnection(this.tenantId);
+                         await connection('invoice_expenses').insert({
+                              invoice_id: invoiceId,
+                              expense_id: expenseId
+                         }).onConflict(['invoice_id', 'expense_id']).merge();
+                    }
+               }
+
+               return {
+                    message: 'Expenses and invoice created successfully',
+                    expenseIds,
+                    invoiceId,
+                    invoice_number,
+                    groupId,
+                    requiresApproval: false // Since we're creating the invoice immediately
+               };
+          } catch (error) {
+               logger.error('Error in createExpensesAndInvoice:', error);
+               throw error;
+          }
      }
 
      async addExpensesToInvoice(invoiceId: number, newExpenseIds: number[]): Promise<any> {

@@ -40,6 +40,7 @@ router.put("/api/v1/expense/new/category", expenseHandlers_1.updateExpenseCatego
 router.get("/api/v1/expense/get/category", expenseHandlers_1.getAllExpenseCategory);
 router.post('/api/v1/outsourced/cases/mark-expense', (0, helper_1.handleOverLoad)(expenseHandlers_1.markOutsourceCasesAsExpense));
 router.put('/api/v1/outsourced/cases/confirm-done', (0, helper_1.handleOverLoad)(expenseHandlers_1.markCaseAsDone));
+router.post('/api/v1/supplier-payments/mark-expense', (0, helper_1.handleOverLoad)(expenseHandlers_1.markSupplierPaymentAsExpense));
 router.post('/api/v1/expenses/invoice/create-with-expenses', (0, helper_1.handleOverLoad)(expenseHandlers_1.createExpensesAndInvoice));
 router.post('/api/v1/expenses/invoice', (0, helper_1.handleOverLoad)(expenseHandlers_1.createInvoice));
 router.get('/api/v1/expenses/invoices', (0, helper_1.handleOverLoad)(expenseHandlers_1.getInvoices));

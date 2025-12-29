@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPayments = exports.addPayment = exports.getInvoices = exports.createInvoice = exports.createExpensesAndInvoice = exports.markCaseAsDone = exports.markOutsourceCasesAsExpense = exports.getAllExpenseMerchants = exports.updateExpenseMerchant = exports.createExpenseMerchant = exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.getExpensesByGroup = exports.generateBulkExpenses = exports.createExpenses = void 0;
+exports.markSupplierPaymentAsExpense = exports.getPayments = exports.addPayment = exports.getInvoices = exports.createInvoice = exports.createExpensesAndInvoice = exports.markCaseAsDone = exports.markOutsourceCasesAsExpense = exports.getAllExpenseMerchants = exports.updateExpenseMerchant = exports.createExpenseMerchant = exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.getExpensesByGroup = exports.generateBulkExpenses = exports.createExpenses = void 0;
 const ExpenseService_1 = __importDefault(require("../../models/Expenses/ExpenseService"));
 const ExpenseInvoiceRepo_1 = __importDefault(require("../../models/Expenses/ExpenseInvoiceRepo"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -24,6 +24,7 @@ const ExpenseAuditLog_1 = __importDefault(require("../../models/Expenses/Expense
 const expenseMerchants_1 = __importDefault(require("../../models/Expenses/expenseMerchants"));
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const outsourcedCases_1 = __importDefault(require("../../models/organization/outsourcingOrganization/outsourcedCases"));
+const SupplierPaymentExpenseSync_1 = require("../../models/inventory/SupplierPaymentExpenseSync");
 const initializeExpense = (requestQuery) => {
     const { employeeid, branchid, tenantId, expenseId } = requestQuery;
     const pTenantId = parseInt(tenantId.toString());
@@ -828,3 +829,24 @@ async function createInvoicesForApprovedExpenses(invoiceRepo, expenseIds, isBulk
     }
     return invoiceResults;
 }
+const markSupplierPaymentAsExpense = async (request, response) => {
+    try {
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const { paymentId, employeeid, branchid } = request.body;
+        if (!paymentId || !employeeid || !branchid) {
+            return (0, helper_1.customError)("Required parameters missing: paymentId, employeeid, branchid", 400, response);
+        }
+        const result = await SupplierPaymentExpenseSync_1.SupplierPaymentExpenseSync.markSupplierPaymentAsExpense(tenantId, {
+            paymentId,
+            employeeid,
+            branchid
+        });
+        console.log('Supplier payment expense sync result:', result);
+        response.send({ status: result });
+    }
+    catch (err) {
+        console.log('Error in markSupplierPaymentAsExpense:', err);
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.markSupplierPaymentAsExpense = markSupplierPaymentAsExpense;
