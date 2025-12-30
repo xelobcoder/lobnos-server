@@ -51,6 +51,7 @@ const index_3 = __importDefault(require("./controllers/commission/index"));
 const route_19 = __importDefault(require("./controllers/crm/leads/route"));
 const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
 const routes_8 = __importDefault(require("./controllers/payroll/routes"));
+const backup_scheduler_1 = require("./services/backup-scheduler");
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development"
     ? process.env.DEVELOPMENT_PORT
@@ -118,6 +119,59 @@ app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
+// Initialize backup scheduler when application starts
+console.log('Initializing backup scheduler...');
+backup_scheduler_1.backupScheduler.start().catch(error => {
+    console.error('Failed to start backup scheduler:', error);
+});
 app.listen(Number(port), host, (err) => {
     console.log(`Server is running at http://${host}:${port}`);
+});
+// Graceful shutdown handling
+process.on('SIGINT', async () => {
+    console.log('Received SIGINT, initiating graceful shutdown...');
+    try {
+        console.log('Stopping backup scheduler...');
+        await backup_scheduler_1.backupScheduler.stop();
+        console.log('Backup scheduler stopped successfully');
+    }
+    catch (error) {
+        console.error('Error stopping backup scheduler:', error);
+    }
+    console.log('Exiting process...');
+    process.exit(0);
+});
+process.on('SIGTERM', async () => {
+    console.log('Received SIGTERM, initiating graceful shutdown...');
+    try {
+        console.log('Stopping backup scheduler...');
+        await backup_scheduler_1.backupScheduler.stop();
+        console.log('Backup scheduler stopped successfully');
+    }
+    catch (error) {
+        console.error('Error stopping backup scheduler:', error);
+    }
+    console.log('Exiting process...');
+    process.exit(0);
+});
+// Handle uncaught exceptions and unhandled rejections
+process.on('uncaughtException', async (error) => {
+    console.error('Uncaught Exception:', error);
+    try {
+        await backup_scheduler_1.backupScheduler.stop();
+    }
+    catch (backupError) {
+        console.error('Error during emergency backup:', backupError);
+    }
+    process.exit(1);
+});
+process.on('unhandledRejection', async (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    try {
+        await backup_scheduler_1.backupScheduler.stop();
+    }
+    catch (backupError) {
+        console.error('Error during emergency backup:', backupError);
+    }
+    process.exit(1);
 });

@@ -55,6 +55,8 @@ payrollRouter.get('/analytics/allowance-bonus', payrollAnalyticsController.getAl
 payrollRouter.get('/analytics/deductions', payrollAnalyticsController.getDeductionAnalyticsHandler);
 payrollRouter.get('/analytics/trend', payrollAnalyticsController.getPayrollTrendAnalyticsHandler);
 
+// History routes - BEFORE parameterized routes
+payrollRouter.get('/history', payrollController.getAllPayrollHistoryHandler);
 payrollRouter.post('/periods', payrollController.createPayrollPeriodHandler);
 payrollRouter.get('/periods', payrollController.getAllPayrollPeriodsHandler);
 payrollRouter.get('/periods/:id/status', payrollController.getPayrollStatusHandler);
@@ -134,6 +136,9 @@ payrollRouter.get('/routes', (req, res) => {
           // Employee endpoints
           { method: 'GET', path: '/api/v1/payroll/employee/:employeeid/history', description: 'Get payroll history' },
           { method: 'GET', path: '/api/v1/payroll/employee/:employeeid/ytd', description: 'Get YTD totals' },
+
+          // History endpoints
+          { method: 'GET', path: '/api/v1/payroll/history?page=1&count=50&sortby=ASC', description: 'Get lifetime payroll summaries for all employees (paginated, sortable by employee name)' },
 
           // Analytics endpoints
           { method: 'GET', path: '/api/v1/payroll/analytics?startDate=X&endDate=Y&topEarnersLimit=10', description: 'Get comprehensive payroll analytics' },

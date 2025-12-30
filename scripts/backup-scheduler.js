@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 require('reflect-metadata');
+
+console.log('DB_USERNAME:', process.env.DB_USERNAME);
+console.log('DB_PASSWORD:', process.env.DB_PASSWORD ? '***' : 'NOT SET');
+
 const { backupScheduler } = require('../dist/src/services/backup-scheduler');
 
 const command = process.argv[2];

@@ -8,6 +8,7 @@ class AccessWindowsRepo {
     static async create(window) {
         const connection = await (0, KnexConnections_1.default)(1);
         if (window.category === 'global') {
+            window.employeeid = 0;
             const existingGlobal = await this.findGlobalSettings();
             if (existingGlobal) {
                 await this.update(existingGlobal.id, window);
@@ -21,9 +22,20 @@ class AccessWindowsRepo {
                 return existingIndividual.id;
             }
         }
-        // Create new record if none exists
-        const [id] = await connection(this.TABLE_NAME).insert(window);
-        return id;
+        if (window.category === 'global') {
+            await connection.raw('SET FOREIGN_KEY_CHECKS = 0');
+            try {
+                const [id] = await connection(this.TABLE_NAME).insert(window);
+                return id;
+            }
+            finally {
+                await connection.raw('SET FOREIGN_KEY_CHECKS = 1');
+            }
+        }
+        else {
+            const [id] = await connection(this.TABLE_NAME).insert(window);
+            return id;
+        }
     }
     static async findById(id) {
         const connection = await (0, KnexConnections_1.default)(1);

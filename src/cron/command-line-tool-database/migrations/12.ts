@@ -15,6 +15,8 @@ export async function up(knex: Knex): Promise<void> {
                table.datetime('updated_at').notNullable().defaultTo(knex.fn.now());
 
                table.foreign('employeeid').references('employeeid').inTable('roles').onDelete('CASCADE').onUpdate('CASCADE');
+               // Note: For global access windows, employeeid should be 0, but FK constraint prevents this
+               // Consider allowing employeeid = 0 for global records in future migration
           });
      }     // Create accounts table
      if (!(await knex.schema.hasTable('accounts'))) {

@@ -251,6 +251,29 @@ class PayrollTransactionRepository {
             .select('pt.*')
             .orderBy('pp.period_start_date', 'desc');
     }
+    async getAllPayrollHistory(count, page, sortby) {
+        const connection = await this.connection;
+        const total = await connection('payroll_transactions').countDistinct('employeeid as count');
+        const totalPages = count ? Math.ceil(Number(total[0].count) / count) : 1;
+        const sortDirection = (sortby || 'ASC').toUpperCase() === 'DESC' ? 'desc' : 'asc';
+        const query = connection('payroll_transactions as pt')
+            .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
+            .join('roles as r', 'pt.employeeid', 'r.employeeid')
+            .leftJoin('branch as b', 'r.branch', 'b.branchid')
+            .select('r.employeeid', 'r.username as employee_name', 'r.role as employee_role', 'r.email', 'b.name as branch_name', connection.raw('MIN(pp.period_start_date) as first_payroll_date'), connection.raw('COUNT(pt.id) as total_payrolls'), connection.raw('COALESCE(SUM(pt.gross_salary), 0) as lifetime_gross'), connection.raw('COALESCE(SUM(pt.net_salary), 0) as lifetime_net'), connection.raw('COALESCE(SUM(pt.total_deductions), 0) as lifetime_deductions'), connection.raw('COALESCE(SUM(pt.income_tax), 0) as lifetime_tax'), connection.raw('COALESCE(SUM(pt.employee_ssnit), 0) as lifetime_ssnit'), connection.raw('COALESCE(SUM(pt.employer_ssnit), 0) as lifetime_employer_ssnit'), connection.raw('COALESCE(SUM(pt.total_allowances), 0) as lifetime_allowances'), connection.raw('COALESCE(SUM(pt.total_bonuses), 0) as lifetime_bonuses'), connection.raw('COALESCE(SUM(pt.employer_cost), 0) as lifetime_employer_cost'))
+            .groupBy('r.employeeid', 'r.username', 'r.role', 'r.email', 'b.name')
+            .orderBy('r.username', sortDirection);
+        if (count !== undefined && page !== undefined) {
+            const offset = (page - 1) * count;
+            query.limit(count).offset(offset);
+        }
+        const data = await query;
+        return {
+            data,
+            total: Number(total[0].count),
+            totalPages
+        };
+    }
     async recalculateTransaction(id, updates) {
         const connection = await this.connection;
         return connection.transaction(async (trx) => {

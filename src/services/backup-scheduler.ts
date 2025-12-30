@@ -1,123 +1,141 @@
-import KnexConnection from '../database/KnexConnections';
+import * as cron from 'node-cron';
 import BackupManager from '../models/security/database-backup/backup';
+import EncryptionManager from '../models/security/database-backup/encryption';
+import { configuration } from '../hooks/configuration';
+import KnexConnection from '../database/KnexConnections';
 
-class BackupSchedulerService {
+
+class BackupScheduler {
+     private cronJob: cron.ScheduledTask | null = null;
      private isRunning = false;
-     private intervalId: NodeJS.Timeout | null = null;
-     private readonly CHECK_INTERVAL = 60 * 1000; // Check every 60 seconds
+     private checkInterval = 60 * 1000;
 
-     async start(): Promise<void> {
-          if (this.isRunning) {
-               console.log('Backup scheduler is already running');
-               return;
-          }
-
-          console.log('Starting backup scheduler service...');
+     async start() {
+          if (this.isRunning) return;
           this.isRunning = true;
-
-          // Run initial check
+          await this.createStartupBackup();
           await this.checkAndExecuteScheduledBackups();
-
-          // Set up periodic checks
-          this.intervalId = setInterval(async () => {
-               try {
-                    await this.checkAndExecuteScheduledBackups();
-               } catch (error) {
-                    console.error('Error in scheduled backup check:', error);
-               }
-          }, this.CHECK_INTERVAL);
-
-          console.log(`Backup scheduler started - checking every ${this.CHECK_INTERVAL / 1000} seconds`);
+          this.cronJob = cron.schedule('* * * * *', async () => {
+               await this.checkAndExecuteScheduledBackups();
+          });
      }
 
-     async stop(): Promise<void> {
-          if (!this.isRunning) {
-               console.log('Backup scheduler is not running');
-               return;
+     async stop() {
+          const shutdownTimeout = setTimeout(() => {
+               console.error('Shutdown backup timed out after 30 seconds');
+          }, 30000);
+
+          try {
+               await Promise.race([
+                    this.createShutdownBackup(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Shutdown backup timeout')), 25000))
+               ]);
+          } catch (error) {
+               console.error('Shutdown backup failed or timed out:', error);
           }
 
-          console.log('Stopping backup scheduler service...');
+          try {
+               await this.checkAndExecuteScheduledBackups();
+          } catch (error) {
+               console.error('Final scheduled backup check failed:', error);
+          }
+
+          if (this.cronJob) {
+               this.cronJob.stop();
+               this.cronJob = null;
+          }
           this.isRunning = false;
 
-          if (this.intervalId) {
-               clearInterval(this.intervalId);
-               this.intervalId = null;
-          }
-
-          console.log('Backup scheduler stopped');
+          clearTimeout(shutdownTimeout);
      }
 
-     private async checkAndExecuteScheduledBackups(): Promise<void> {
-          try {
-               // Get all tenant IDs from the database
-               // This assumes you have a way to get all tenant databases
-               const tenantIds = await this.getAllTenantIds();
-
-               console.log(`Checking scheduled backups for ${tenantIds.length} tenants...`);
-
-               for (const tenantId of tenantIds) {
-                    try {
-                         const result = await BackupManager.runScheduledBackups(tenantId,"automated");
-
-                         if (result.processed > 0) {
-                              console.log(`Tenant ${tenantId}: Processed ${result.processed} scheduled backups`);
-                              console.log(`  - Successful: ${result.successful}`);
-                              console.log(`  - Failed: ${result.failed}`);
-
-                              // Log details of failed backups
-                              if (result.failed > 0) {
-                                   result.results.forEach(r => {
-                                        if (!r.success) {
-                                             console.error(`  - Schedule ${r.scheduleId} failed: ${r.error}`);
-                                        }
-                                   });
-                              }
-                         }
-                    } catch (error) {
-                         console.error(`Error processing scheduled backups for tenant ${tenantId}:`, error);
-                    }
-               }
-
-          } catch (error) {
-               console.error('Error in backup scheduler check:', error);
-          }
-     }
-
-     private async getAllTenantIds(): Promise<number[]> {
-          try {
-               // This is a simplified approach - you might need to adjust based on your tenant structure
-               // For now, we'll check common tenant IDs, but you should implement proper tenant discovery
-
-               const tenantIds: number[] = [];
-               const maxTenantId = 100; // Adjust based on your setup
-
-               for (let i = 1; i <= maxTenantId; i++) {
-                    try {
-                         // Try to connect to each tenant database
-                         const connection = await KnexConnection(i);
-                         await connection.raw('SELECT 1'); // Simple test query
-                         tenantIds.push(i);
-                    } catch (error) {
-                         // Skip tenants that don't exist or are inaccessible
-                         continue;
-                    }
-               }
-
-               return tenantIds;
-          } catch (error) {
-               console.error('Error getting tenant IDs:', error);
-               return [];
-          }
-     }
-
-     getStatus(): { isRunning: boolean; checkInterval: number } {
+     getStatus() {
           return {
                isRunning: this.isRunning,
-               checkInterval: this.CHECK_INTERVAL
+               checkInterval: this.checkInterval
           };
+     }
+
+     private async createStartupBackup() {
+          try {
+               const tenantId = configuration.isMultiTenant ? null : 3;
+               if (!tenantId) return;
+
+               const today = new Date();
+               today.setHours(0, 0, 0, 0);
+               const tomorrow = new Date(today);
+               tomorrow.setDate(tomorrow.getDate() + 1);
+
+               const connection = await KnexConnection(tenantId);
+               const todaysBackups = await connection('backup_logs')
+                    .where('backup_date', '>=', today)
+                    .andWhere('backup_date', '<', tomorrow)
+                    .andWhere('is_successful', true)
+                    .orderBy('backup_date', 'desc')
+                    .limit(1);
+
+               if (todaysBackups.length > 0) {
+                    const lastBackup = todaysBackups[0];
+                    const lastBackupTime = new Date(lastBackup.backup_date);
+                    const hoursSinceLastBackup = (Date.now() - lastBackupTime.getTime()) / (1000 * 60 * 60);
+
+                    if (hoursSinceLastBackup < 4) {
+                         return;
+                    }
+               }
+
+               const result = await BackupManager.performDatabaseBackup(
+                    tenantId,
+                    `startup_backup_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`,
+                    await EncryptionManager.getEffectiveStoragePath(tenantId),
+                    true,
+                    'automated',
+                    'system',
+                    undefined,
+                    true // Always encrypt startup backups
+               );
+          } catch (error) {
+          }
+     }
+
+     private async createShutdownBackup() {
+          try {
+               const tenantId = configuration.isMultiTenant ? null : 3;
+               if (!tenantId) return;
+
+               console.log('Creating shutdown backup...');
+               const result = await BackupManager.performDatabaseBackup(
+                    tenantId,
+                    `shutdown_backup_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`,
+                    await EncryptionManager.getEffectiveStoragePath(tenantId),
+                    true,
+                    'automated',
+                    'system',
+                    undefined,
+                    true // Always encrypt shutdown backups
+               );
+
+               if (result.success) {
+                    console.log('Shutdown backup completed successfully');
+               } else {
+                    console.error('Shutdown backup failed:', result.error);
+               }
+          } catch (error) {
+               console.error('Error creating shutdown backup:', error);
+          }
+     }
+     private async checkAndExecuteScheduledBackups() {
+          try {
+               const tenantId = configuration.isMultiTenant ? null : 3;
+
+               if (!tenantId) {
+                    return;
+               }
+
+               const result = await BackupManager.runScheduledBackups(tenantId, "automated");
+          } catch (error) {
+          }
      }
 }
 
-// Export singleton instance
-export const backupScheduler = new BackupSchedulerService();
-export default BackupSchedulerService;
+export const backupScheduler = new BackupScheduler();

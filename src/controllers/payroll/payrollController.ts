@@ -346,3 +346,31 @@ export const getEmployeeYTDHandler = async (req: Request, res: Response) => {
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
+
+/**
+ * Get all payroll history irrespective of employee
+ */
+export const getAllPayrollHistoryHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const count = parseInt(req.query.count as string) || 50;
+          const page = parseInt(req.query.page as string) || 1;
+          const sortby = req.query.sortby as string || 'ASC';
+
+          if (!tenantId) {
+               return customError('Tenant ID is required', 400, res);
+          }
+
+          const repo = new PayrollTransactionRepository(tenantId);
+          const history = await repo.getAllPayrollHistory(count, page, sortby);
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               message: 'All payroll history retrieved successfully',
+               result: history
+          });
+     } catch (error) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};

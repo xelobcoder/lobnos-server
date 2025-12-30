@@ -481,48 +481,90 @@ export default class BackupManager {
      static async getDueSchedules(tenantId: number): Promise<BackupSchedule[]> {
           const connection = await KnexConnection(tenantId);
           const now = new Date();
-          const currentTime = now.toTimeString().slice(0, 5); // HH:MM format
-          const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+          const currentTime = now.toTimeString().slice(0, 5);
+          const currentDay = now.getDay();
           const currentDate = now.getDate();
 
-          // Get schedules that are due
-          const schedules = await connection(this.SCHEDULES_TABLE_NAME)
-               .where('is_active', true)
-               .andWhere('backup_time', '<=', currentTime);
+          const schedules = await connection(this.SCHEDULES_TABLE_NAME).where('is_active', true);
 
-          // Filter based on frequency
           const dueSchedules = schedules.filter(schedule => {
                const lastRun = schedule.last_run ? new Date(schedule.last_run) : null;
+               const scheduleTime = schedule.backup_time;
+               let isDue = false;
+
+               const timeMatches = scheduleTime === currentTime;
+               const timeHasPassed = scheduleTime < currentTime;
 
                switch (schedule.frequency) {
                     case 'hourly':
-                         // Run if not run in the current hour
-                         if (!lastRun) return true;
-                         const lastRunHour = lastRun.getHours();
-                         const currentHour = now.getHours();
-                         return lastRunHour !== currentHour;
+                         if (!lastRun) {
+                              const currentMinute = now.getMinutes();
+                              const scheduleMinute = parseInt(scheduleTime.split(':')[1]);
+                              isDue = currentMinute >= scheduleMinute;
+                         } else {
+                              const lastRunHour = lastRun.getHours();
+                              const currentHour = now.getHours();
+                              const currentMinute = now.getMinutes();
+                              const scheduleMinute = parseInt(scheduleTime.split(':')[1]);
+
+                              const notRunThisHour = lastRunHour !== currentHour;
+                              const minuteReached = currentMinute >= scheduleMinute;
+
+                              isDue = notRunThisHour && minuteReached;
+                         }
+                         break;
 
                     case 'daily':
-                         // Run if not run today
-                         if (!lastRun) return true;
-                         const lastRunDate = lastRun.toDateString();
-                         const todayDate = now.toDateString();
-                         return lastRunDate !== todayDate;
+                         if (!lastRun) {
+                              isDue = timeMatches || timeHasPassed;
+                         } else {
+                              const lastRunDate = lastRun.toDateString();
+                              const todayDate = now.toDateString();
+
+                              if (lastRunDate === todayDate) {
+                                   isDue = false;
+                              } else {
+                                   isDue = timeMatches || timeHasPassed;
+                              }
+                         }
+                         break;
 
                     case 'weekly':
-                         // Run if not run this week (same day of week)
-                         if (!lastRun) return true;
-                         const daysSinceLastRun = Math.floor((now.getTime() - lastRun.getTime()) / (1000 * 60 * 60 * 24));
-                         return daysSinceLastRun >= 7 && lastRun.getDay() === currentDay;
+                         if (!lastRun) {
+                              isDue = timeMatches || timeHasPassed;
+                         } else {
+                              const daysSinceLastRun = Math.floor((now.getTime() - lastRun.getTime()) / (1000 * 60 * 60 * 24));
+                              const lastRunDay = lastRun.getDay();
+
+                              if (lastRunDay === currentDay && daysSinceLastRun < 7) {
+                                   isDue = false;
+                              } else {
+                                   isDue = (daysSinceLastRun >= 7 && lastRunDay === currentDay) && (timeMatches || timeHasPassed);
+                              }
+                         }
+                         break;
 
                     case 'monthly':
-                         // Run if not run this month (same date)
-                         if (!lastRun) return true;
-                         return lastRun.getMonth() !== now.getMonth() && lastRun.getDate() === currentDate;
+                         if (!lastRun) {
+                              isDue = timeMatches || timeHasPassed;
+                         } else {
+                              const lastRunMonth = lastRun.getMonth();
+                              const lastRunDate = lastRun.getDate();
+                              const currentMonth = now.getMonth();
+
+                              if (lastRunMonth === currentMonth && lastRunDate === currentDate) {
+                                   isDue = false;
+                              } else {
+                                   isDue = (lastRunMonth !== currentMonth && lastRunDate === currentDate) && (timeMatches || timeHasPassed);
+                              }
+                         }
+                         break;
 
                     default:
-                         return false;
+                         isDue = false;
                }
+
+               return isDue;
           });
 
           return dueSchedules;

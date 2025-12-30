@@ -10,7 +10,6 @@ interface AccessWindow {
      access_window: '1h' | '4h' | '8h' | '12h' | '24h' | '1d' | '1w' | '2w' | '1m';
      applicable_role: 'scientist' | 'phlebotomist' | 'customer service representative' | 'sonographer';
      require_approval: boolean;
-     // Joined fields from roles table
      username?: string;
      email?: string;
      employee_role?: string;
@@ -23,6 +22,7 @@ export default class AccessWindowsRepo {
           const connection = await KnexConnection(1);
 
           if (window.category === 'global') {
+               window.employeeid = 0;
                const existingGlobal = await this.findGlobalSettings();
                if (existingGlobal) {
                     await this.update(existingGlobal.id!, window);
@@ -36,9 +36,18 @@ export default class AccessWindowsRepo {
                }
           }
 
-          // Create new record if none exists
-          const [id] = await connection(this.TABLE_NAME).insert(window);
-          return id;
+          if (window.category === 'global') {
+               await connection.raw('SET FOREIGN_KEY_CHECKS = 0');
+               try {
+                    const [id] = await connection(this.TABLE_NAME).insert(window);
+                    return id;
+               } finally {
+                    await connection.raw('SET FOREIGN_KEY_CHECKS = 1');
+               }
+          } else {
+               const [id] = await connection(this.TABLE_NAME).insert(window);
+               return id;
+          }
      }
 
      static async findById(id: number): Promise<AccessWindow | undefined> {

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculateEmployeeHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createPayrollPeriodHandler = void 0;
+exports.getAllPayrollHistoryHandler = exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculateEmployeeHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createPayrollPeriodHandler = void 0;
 const PayrollProcessingService_1 = require("../../services/payroll/PayrollProcessingService");
 const PayrollPeriodRepository_1 = require("../../models/payroll/PayrollPeriodRepository");
 const PayrollTransactionRepository_1 = require("../../models/payroll/PayrollTransactionRepository");
@@ -320,3 +320,29 @@ const getEmployeeYTDHandler = async (req, res) => {
     }
 };
 exports.getEmployeeYTDHandler = getEmployeeYTDHandler;
+/**
+ * Get all payroll history irrespective of employee
+ */
+const getAllPayrollHistoryHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const count = parseInt(req.query.count) || 50;
+        const page = parseInt(req.query.page) || 1;
+        const sortby = req.query.sortby || 'ASC';
+        if (!tenantId) {
+            return (0, helper_1.customError)('Tenant ID is required', 400, res);
+        }
+        const repo = new PayrollTransactionRepository_1.PayrollTransactionRepository(tenantId);
+        const history = await repo.getAllPayrollHistory(count, page, sortby);
+        res.json({
+            status: 'success',
+            statusCode: 200,
+            message: 'All payroll history retrieved successfully',
+            result: history
+        });
+    }
+    catch (error) {
+        utility_1.PrimeSqlErrorHandler.handleError(error, res);
+    }
+};
+exports.getAllPayrollHistoryHandler = getAllPayrollHistoryHandler;
