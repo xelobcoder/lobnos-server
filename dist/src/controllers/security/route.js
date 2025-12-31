@@ -28,6 +28,7 @@ const checkLicenseAccess = async (req, res, next) => {
         next();
     }
     catch (error) {
+        console.log('License validation error:', error);
         return res.status(500).json({ status: 'error', message: 'License validation failed: ' + error.message });
     }
 };

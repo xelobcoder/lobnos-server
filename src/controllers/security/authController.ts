@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import AuthenticationRepository from '../../models/settings/users/AuthenticationRepository';
 import TokenValidator from '../../models/settings/users/TokenValidator';
 import RolesRepository from '../../models/settings/users/RolesRepository';
+import PrimeWindowAccessRepository from '../../models/settings/users/PrimeWindowAccessRepository';
 import { customError } from '../../hooks/helper';
 import { parseCookies } from '../../middleware/validateTenancy';
 import { getAllCompanyProfiles } from '../../models/settings/companyProfile';
@@ -72,11 +73,14 @@ export class AuthController {
 
             if (!resultsettings) return res.status(404).json({ message: 'Result settings not found', status: false });
 
+            const primeWindowRepo = new PrimeWindowAccessRepository(tenantId);
+            const daysToExpiry = await primeWindowRepo.calculateDaysToExpiry();
+
             return res.status(200).json({
-                message: 'Token is valid', status: true, 
+                message: 'Token is valid', status: true,
                 user: {
                     loginDuration: 6,
-                    daysToExpiration: 200,
+                    daysToExpiration: daysToExpiry || 0,
                     maximumUsers: 3,
                     customization: {
                         theme: "light",

@@ -7,6 +7,7 @@ exports.AuthController = void 0;
 const AuthenticationRepository_1 = __importDefault(require("../../models/settings/users/AuthenticationRepository"));
 const TokenValidator_1 = __importDefault(require("../../models/settings/users/TokenValidator"));
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
+const PrimeWindowAccessRepository_1 = __importDefault(require("../../models/settings/users/PrimeWindowAccessRepository"));
 const helper_1 = require("../../hooks/helper");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
 const companyProfile_1 = require("../../models/settings/companyProfile");
@@ -72,11 +73,13 @@ class AuthController {
             const resultsettings = await resultSettings_1.default.getResultEntrySettings(tenantId);
             if (!resultsettings)
                 return res.status(404).json({ message: 'Result settings not found', status: false });
+            const primeWindowRepo = new PrimeWindowAccessRepository_1.default(tenantId);
+            const daysToExpiry = await primeWindowRepo.calculateDaysToExpiry();
             return res.status(200).json({
                 message: 'Token is valid', status: true,
                 user: {
                     loginDuration: 6,
-                    daysToExpiration: 200,
+                    daysToExpiration: daysToExpiry || 0,
                     maximumUsers: 3,
                     customization: {
                         theme: "light",

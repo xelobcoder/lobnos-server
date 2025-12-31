@@ -31,6 +31,7 @@ const checkLicenseAccess = async (req: express.Request, res: express.Response, n
           if (!isValid) return res.status(403).json({ status: 'error', message: 'License expired or invalid' });
           next();
      } catch (error) {
+          console.log('License validation error:', error);
           return res.status(500).json({ status: 'error', message: 'License validation failed: ' + (error as Error).message });
      }
 };

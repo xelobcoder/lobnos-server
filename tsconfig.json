@@ -11,11 +11,14 @@
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
   },
-  // "include": [
-  //   "src/**/*",
-  //   "helpers/**/*",
-  //   "tests/**/*",
-  // ],
+  "include": [
+    "src/**/*",
+    "helpers/**/*",
+    "public/**/*",
+    "cert/**/*",
+    "data/**/*",
+    ".env"
+  ],
   "exclude": [
     "node_modules",
     "dist",

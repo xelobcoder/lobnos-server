@@ -105,5 +105,15 @@ class PrimeWindowAccessRepository {
         }
         return false;
     }
+    async calculateDaysToExpiry() {
+        const window = await this.getCurrentWindow();
+        if (!window)
+            return null;
+        const now = new Date();
+        const end = new Date(window.end_period);
+        const diffTime = end.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays;
+    }
 }
 exports.default = PrimeWindowAccessRepository;
