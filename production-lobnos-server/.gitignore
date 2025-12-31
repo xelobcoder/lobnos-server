@@ -1,0 +1,20 @@
+node_modules
+# Keep environment variables out of version control
+.env
+.zip
+FlowCharts
+asserts
+.qodo
+
+# Backup files and directories
+backups/
+*.sql
+*.tar.gz
+*.encrypted
+*.bin
+data/
+backups/
+cert/
+public/uploads/
+public/asserts/
+*.exe

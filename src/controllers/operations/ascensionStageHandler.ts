@@ -43,11 +43,11 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 }
 
 async function validatedResultEmployeeGetter(item: any, tenantId: number) {
-	const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus } = item;
+	const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus ,ascension_date} = item;
 
 	const validators = await new TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
 
-	return { department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id, ascensionid, fullpatientid, paymentstatus };
+	return { department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id, ascensionid, fullpatientid, paymentstatus, ascension_date };
 }
 
 async function isScientistOrAdmin(employeeId: number, tenantId: number): Promise<boolean> {

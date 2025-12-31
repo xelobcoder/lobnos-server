@@ -40,9 +40,9 @@ async function ascensionStagingHandler(request, response) {
 }
 exports.ascensionStagingHandler = ascensionStagingHandler;
 async function validatedResultEmployeeGetter(item, tenantId) {
-    const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus } = item;
+    const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus, ascension_date } = item;
     const validators = await new testApprovalClass_1.TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
-    return { department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id, ascensionid, fullpatientid, paymentstatus };
+    return { department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id, ascensionid, fullpatientid, paymentstatus, ascension_date };
 }
 async function isScientistOrAdmin(employeeId, tenantId) {
     return await new user_1.default(null, null, null, null, null).getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);

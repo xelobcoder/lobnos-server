@@ -124,7 +124,7 @@ class Operations {
             else {
                 finalQuery = (0, queries_1.q_get_all_test_ready_for_various_stages_ultrasound)(finalQuery, stage);
             }
-            finalQuery = finalQuery + ` AND ta.ascension_date >= ? AND ta.ascension_date  <= ? `;
+            finalQuery = finalQuery + ` AND DATE(ta.ascension_date) >= ? AND DATE(ta.ascension_date)  <= ? `;
             conditions.push(startDate);
             conditions.push(enddate);
             if (searchString) {
