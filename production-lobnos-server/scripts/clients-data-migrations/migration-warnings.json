@@ -1,0 +1,82 @@
+[
+  {
+    "type": "consistency_mismatch",
+    "billingId": 61,
+    "billingPaid": 0,
+    "servicesTotalPaid": 150,
+    "difference": 150,
+    "serviceCount": 1
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 91,
+    "billingPaid": 10045,
+    "servicesTotalPaid": 45,
+    "difference": 10000,
+    "serviceCount": 2
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 1155,
+    "billingPaid": 1000,
+    "servicesTotalPaid": 999.9799999999999,
+    "difference": 0.020000000000095497,
+    "serviceCount": 11
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 2808,
+    "billingPaid": 170,
+    "servicesTotalPaid": 470,
+    "difference": 300,
+    "serviceCount": 2
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 3177,
+    "billingPaid": 485,
+    "servicesTotalPaid": 520,
+    "difference": 35,
+    "serviceCount": 5
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 3317,
+    "billingPaid": 45,
+    "servicesTotalPaid": 135,
+    "difference": 90,
+    "serviceCount": 2
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 3429,
+    "billingPaid": 490,
+    "servicesTotalPaid": 740,
+    "difference": 250,
+    "serviceCount": 9
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 3434,
+    "billingPaid": 0,
+    "servicesTotalPaid": 100,
+    "difference": 100,
+    "serviceCount": 1
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 3474,
+    "billingPaid": 0,
+    "servicesTotalPaid": 35,
+    "difference": 35,
+    "serviceCount": 1
+  },
+  {
+    "type": "consistency_mismatch",
+    "billingId": 3721,
+    "billingPaid": 2455,
+    "servicesTotalPaid": 2655,
+    "difference": 200,
+    "serviceCount": 15
+  }
+]

@@ -13,18 +13,20 @@ Create a `.env` file in the same directory as the executable with the following 
 ```env
 SERVER_URL=http://your-server.com
 TENANT_ID=123
+START_PERIOD=2025-01-01T00:00:00Z
+END_PERIOD=2026-01-01T00:00:00Z
 WINDOW_DAYS=30
 LOGIN_DURATION_PER_USER=6
 ```
 
 ## Command-Line Arguments
 
-You can specify start and end periods when running the application:
+You can override the start and end periods from the `.env` file by specifying them when running the application:
 
 - `-start`: Start period in ISO 8601 format (e.g., "2025-01-01T00:00:00Z")
 - `-end`: End period in ISO 8601 format (e.g., "2026-01-01T00:00:00Z")
 
-If not provided, defaults to current time for start and 1 year from now for end.
+If not provided, the application will use the values from the `.env` file.
 
 ## Building the Application
 

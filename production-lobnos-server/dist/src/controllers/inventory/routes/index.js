@@ -1,0 +1,37 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const brandRoutes_1 = __importDefault(require("./brandRoutes"));
+const categoryRoutes_1 = __importDefault(require("./categoryRoutes"));
+const supplierRoutes_1 = __importDefault(require("./supplierRoutes"));
+const storageLocationRoutes_1 = __importDefault(require("./storageLocationRoutes"));
+const inventoryItemRoutes_1 = __importDefault(require("./inventoryItemRoutes"));
+const inventoryTemplateRoutes_1 = __importDefault(require("./inventoryTemplateRoutes"));
+const purchaseOrderRoutes_1 = __importDefault(require("./purchaseOrderRoutes"));
+const inventoryConsumptionRoutes_1 = __importDefault(require("./inventoryConsumptionRoutes"));
+const inventoryStockRoutes_1 = __importDefault(require("./inventoryStockRoutes"));
+const supplierPaymentRoutes_1 = __importDefault(require("./supplierPaymentRoutes"));
+const journalRoutes_1 = __importDefault(require("./journalRoutes"));
+const analyticsRoutes_1 = __importDefault(require("./analyticsRoutes"));
+const unitsRoutes_1 = __importDefault(require("./unitsRoutes"));
+const inventoryTransactionRoutes_1 = __importDefault(require("./inventoryTransactionRoutes"));
+const router = (0, express_1.Router)();
+// Mount all inventory routes
+router.use('/', brandRoutes_1.default);
+router.use('/', categoryRoutes_1.default);
+router.use('/', supplierRoutes_1.default);
+router.use('/', storageLocationRoutes_1.default);
+router.use('/', inventoryItemRoutes_1.default);
+router.use('/', inventoryTemplateRoutes_1.default);
+router.use('/', purchaseOrderRoutes_1.default);
+router.use('/transactions', inventoryConsumptionRoutes_1.default);
+router.use('/transactions', inventoryStockRoutes_1.default);
+router.use('/supplier-payments', supplierPaymentRoutes_1.default);
+router.use('/', journalRoutes_1.default);
+router.use('/', analyticsRoutes_1.default);
+router.use('/', unitsRoutes_1.default);
+router.use('/transactions', inventoryTransactionRoutes_1.default);
+exports.default = router;

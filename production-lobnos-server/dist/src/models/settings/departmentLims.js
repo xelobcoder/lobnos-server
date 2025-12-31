@@ -1,0 +1,65 @@
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.DepartmentLims = void 0;
+const departmentQueries = __importStar(require("./departmentQueries"));
+const appset_1 = __importDefault(require("../application/appsettings/appset"));
+const helper_1 = require("../../hooks/helper");
+class DepartmentLims extends appset_1.default {
+    constructor(departmentId) {
+        super();
+        this.departmentId = departmentId;
+    }
+    async addNewDepartment(tenantId, requestBody) {
+        const { department, departmentManager, employeeid } = requestBody;
+        const values = [department, departmentManager, employeeid];
+        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, departmentQueries.INSERT_DEPARTMENT, values));
+    }
+    getDepartments(tenantId) {
+        return (0, helper_1.promisifyQuery)(tenantId, departmentQueries.SELECT_ALL_DEPARTMENTS);
+    }
+    async updateDepartment(tenantId, requestBody) {
+        const { department, departmentManager, id, employeeid } = requestBody;
+        const values = [department, departmentManager, employeeid, parseInt(id.toString())];
+        return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, departmentQueries.UPDATE_DEPARTMENT, values));
+    }
+    async deleteDepartment(tenantId) {
+        if (this.departmentId) {
+            const values = [this.departmentId];
+            const packet = await (0, helper_1.promisifyQuery)(tenantId, departmentQueries.DELETE_DEPARTMENT, values);
+            return (0, helper_1.rowAffected)(packet);
+        }
+        return false;
+    }
+    async getSpecificDepartment(tenantId) {
+        const values = [this.departmentId];
+        const dataPackets = await (0, helper_1.promisifyQuery)(tenantId, departmentQueries.SELECT_DEPARTMENT_BY_ID, values);
+        return dataPackets.length > 0 ? dataPackets[0] : null;
+    }
+}
+exports.DepartmentLims = DepartmentLims;

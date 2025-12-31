@@ -39,12 +39,12 @@ func main() {
 
 	startPeriod := *startPeriodFlag
 	if startPeriod == "" {
-		startPeriod = time.Now().Format("2006-01-02T15:04:05Z07:00")
+		startPeriod = getEnv("START_PERIOD", time.Now().Format("2006-01-02T15:04:05Z07:00"))
 	}
 
 	endPeriod := *endPeriodFlag
 	if endPeriod == "" {
-		endPeriod = time.Now().AddDate(1, 0, 0).Format("2006-01-02T15:04:05Z07:00")
+		endPeriod = getEnv("END_PERIOD", time.Now().AddDate(1, 0, 0).Format("2006-01-02T15:04:05Z07:00"))
 	}
 
 	fmt.Printf("Configuration:\n")
