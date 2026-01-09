@@ -9,6 +9,7 @@ const queries_1 = require("./queries");
 const helper_1 = require("../hooks/helper");
 const logger_1 = __importDefault(require("../hooks/logger"));
 const MasterTestPanelRepository_1 = __importDefault(require("../models/system-admin/MasterTestPanelRepository"));
+const KnexConnections_1 = __importDefault(require("../database/KnexConnections"));
 exports.testpanel = {
     listquery: `SELECT 
       tp.name,
@@ -191,8 +192,9 @@ exports.testpanel = {
     hasTest: async (tenantId, testname) => {
         if (!testname)
             throw new Error("Testname required");
-        const result = await (0, helper_1.promisifyQuery)(tenantId, `SELECT COUNT(*) AS count FROM test_panels WHERE name = ?`, [testname.trim()]);
-        return result[0]["count"] == 0 ? false : true;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection('test_panels').where('name', testname.trim()).count('* as count').first();
+        return Number(result.count) > 0;
     },
     hasTrend: async (tenantId, testid) => {
         if (!testid)
@@ -322,7 +324,8 @@ exports.testpanel = {
         }
     },
     getpanelsbulk: async (tenantId, grouping) => {
-        const query = `SELECT * FROM test_panels`;
+        const query = `SELECT tp.*,td.testprice , td.testcost FROM test_panels AS tp
+		LEFT JOIN testdetails AS td ON tp.id = td.testid`;
         try {
             let result = grouping == "master" ? await new MasterTestPanelRepository_1.default().getMasterPanels() : await (0, helper_1.promisifyQuery)(tenantId, query);
             return result;
@@ -437,7 +440,6 @@ exports.testpanel = {
         return packets[0]['count'];
     },
     createCustomTest: async function (tenantId, testname, iscustom = 1) {
-        let hasTestBeenCreated = false;
         try {
             if (!testname) {
                 throw new Error("Testname required");
@@ -445,16 +447,13 @@ exports.testpanel = {
             if (await this.hasTest(tenantId, testname)) {
                 return "EXIST";
             }
-            const query = `INSERT INTO test_panels (name, iscustom) VALUES (?, ?)`;
-            const result = await (0, helper_1.promisifyQuery)(tenantId, query, [testname, iscustom]);
-            return (0, helper_1.rowAffected)(result);
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const result = await connection('test_panels').insert({ name: testname, iscustom });
+            return result && result.length > 0;
         }
         catch (err) {
             console.log(err);
-            if (hasTestBeenCreated) {
-                await (0, helper_1.promisifyQuery)(tenantId, `DELETE FROM test_panels WHERE name = ?`, [testname]);
-                throw new Error("Test creation failed");
-            }
+            throw new Error("Test creation failed");
         }
     },
     changeTestName: async function (tenantId, testid, newTestName) {

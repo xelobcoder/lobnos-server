@@ -31,7 +31,7 @@ export class MultiBillingRepo {
             const today = (new Date() as unknown) as string;
             const sessionExists = await sessionRepo.hasActiveSessionForDate(
                 today,
-                billingData.samplingCenter
+                billingData.samplingCenter,
             );
             if (!sessionExists) {
                 return BillErrors.NoBillingSession;

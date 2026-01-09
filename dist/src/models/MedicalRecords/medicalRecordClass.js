@@ -44,7 +44,13 @@ class PrimeMedicalRecords {
     async deleteRecord(tenantId, id) {
         await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_medical_records_delete, [id]);
     }
-    async getAllRecords(tenantId, page = 1, count = 10) {
+    async getAllRecords(tenantId, page = 1, count = 10, search) {
+        if (search) {
+            const query = queries_1.q_medical_records_getAll.replace('LIMIT ? OFFSET ?', 'WHERE (np.patientid = ? OR np.fullpatientid = ?) LIMIT ? OFFSET ?');
+            console.log(query);
+            const rows = await (0, helper_1.paginationQuery)({ count, page }, query, [search, search], tenantId);
+            return rows;
+        }
         const rows = page && count ? await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_medical_records_getAll, [], tenantId) : await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_medical_records_getAll);
         return rows;
     }

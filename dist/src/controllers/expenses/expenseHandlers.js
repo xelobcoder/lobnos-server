@@ -556,12 +556,10 @@ const markOutsourceCasesAsExpense = async (request, response) => {
             employeeid,
             outsourcedid
         });
-        console.log(result);
         response.send({ status: result });
     }
     catch (err) {
-        console.log(err);
-        (0, helper_1.responseError)(response);
+        (0, helper_1.customError)((err === null || err === void 0 ? void 0 : err.message) || "An error occurred while marking outsource case as expense", 500, response);
     }
 };
 exports.markOutsourceCasesAsExpense = markOutsourceCasesAsExpense;

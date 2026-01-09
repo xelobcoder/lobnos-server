@@ -7,17 +7,16 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        DATE(er.date) AS expense_date,
-        SUM(er.amount) AS total_expenses,
-        COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_expense_amount,
+        DATE(ep.payment_date) AS expense_date,
+        SUM(ep.amount) AS total_expenses,
+        COUNT(DISTINCT ep.id) AS expense_count,
+        AVG(ep.amount) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees,
         COUNT(DISTINCT er.merchant) AS unique_merchants
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
-        AND DATE(er.date) BETWEEN ? AND ?
-      GROUP BY DATE(er.date)
+      WHERE ep.status = 'Paid' AND DATE(ep.payment_date) BETWEEN ? AND ?
+      GROUP BY DATE(ep.payment_date)
       ORDER BY expense_date DESC
     `, [startDate, endDate]);
   }
@@ -27,26 +26,26 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         'current' AS period,
-       COALESCE(SUM(er.amount), 0) AS total_expenses,
+       COALESCE(SUM(ep.amount), 0) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        COALESCE(AVG(er.amount), 0) AS avg_expense_amount
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND DATE(er.date) BETWEEN ? AND ?
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
 
       UNION ALL
 
       SELECT
         'previous' AS period,
-        COALESCE(SUM(er.amount), 0) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        COALESCE(AVG(er.amount), 0) AS avg_expense_amount
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND DATE(er.date) BETWEEN ? AND ?
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
     `, branchid ? [currentStart, currentEnd, branchid, previousStart, previousEnd, branchid] : [currentStart, currentEnd, previousStart, previousEnd]);
   }
@@ -90,15 +89,16 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         em.name AS merchant_name,
-        DATE(er.date) AS expense_date,
-        SUM(er.amount) AS total_amount,
-        COUNT(DISTINCT er.id) AS expense_count
+        DATE(ep.payment_date) AS expense_date,
+        em.id AS merchant_id,
+        SUM(ep.amount) AS total_amount,
+        COUNT(DISTINCT ep.id) AS expense_count
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       LEFT JOIN expense_merchants em ON er.merchant = em.id
       WHERE ep.status = 'Paid'
-        AND DATE(er.date) BETWEEN ? AND ?
-      GROUP BY em.name, DATE(er.date)
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
+      GROUP BY em.name
       ORDER BY expense_date DESC, total_amount DESC
     `, [startDate, endDate]);
   }
@@ -107,15 +107,15 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        HOUR(er.date) AS expense_hour,
-        SUM(er.amount) AS total_expenses,
+        HOUR(ep.payment_date) AS expense_hour,
+        SUM(ep.amount) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_expense_amount
+        AVG(ep.amount) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND DATE(er.date) = ?
-      GROUP BY HOUR(er.date)
+        AND DATE(ep.payment_date) = ?
+      GROUP BY HOUR(ep.payment_date)
       ORDER BY expense_hour ASC
     `, [date]);
   }
@@ -124,16 +124,16 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        MONTH(er.date) AS expense_month,
-        SUM(er.amount) AS total_expenses,
+        MONTH(ep.payment_date) AS expense_month,
+        SUM(ep.amount) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_expense_amount,
+        AVG(ep.amount) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND YEAR(er.date) = ?
-      GROUP BY MONTH(er.date)
+        AND YEAR(ep.payment_date) = ?
+      GROUP BY MONTH(ep.payment_date)
       ORDER BY expense_month ASC
     `, [year]);
   }
@@ -142,19 +142,19 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        WEEK(er.date) AS expense_week,
-        YEAR(er.date) AS expense_year,
-        MIN(DATE(er.date)) AS week_start_date,
-        MAX(DATE(er.date)) AS week_end_date,
-        SUM(er.amount) AS total_expenses,
+        WEEK(ep.payment_date) AS expense_week,
+        YEAR(ep.payment_date) AS expense_year,
+        MIN(DATE(ep.payment_date)) AS week_start_date,
+        MAX(DATE(ep.payment_date)) AS week_end_date,
+        SUM(ep.amount) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_expense_amount,
+        AVG(ep.amount) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND YEAR(er.date) = ?
-      GROUP BY YEAR(er.date), WEEK(er.date)
+        AND YEAR(ep.payment_date) = ?
+      GROUP BY YEAR(ep.payment_date), WEEK(ep.payment_date)
       ORDER BY expense_year ASC, expense_week ASC
     `, [year]);
   }
@@ -163,15 +163,15 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        QUARTER(er.date) AS expense_quarter,
-        SUM(er.amount) AS total_expenses,
+        QUARTER(ep.payment_date) AS expense_quarter,
+        SUM(ep.amount) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_expense_amount
+        AVG(ep.amount) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND YEAR(er.date) = ?
-      GROUP BY QUARTER(er.date)
+        AND YEAR(ep.payment_date) = ?
+      GROUP BY QUARTER(ep.payment_date)
       ORDER BY expense_quarter ASC
     `, [year]);
   }
@@ -180,17 +180,17 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        YEAR(er.date) AS expense_year,
-        SUM(er.amount) AS total_expenses,
+        YEAR(ep.payment_date) AS expense_year,
+        SUM(ep.amount) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_expense_amount,
+        AVG(ep.amount) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees,
         COUNT(DISTINCT er.merchant) AS unique_merchants
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND YEAR(er.date) BETWEEN ? AND ?
-      GROUP BY YEAR(er.date)
+        AND YEAR(ep.payment_date) BETWEEN ? AND ?
+      GROUP BY YEAR(ep.payment_date)
       ORDER BY expense_year ASC
     `, [startYear, endYear]);
   }
@@ -200,14 +200,14 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         b.name AS branch_name,
-        SUM(er.amount) AS total_expenses,
+        SUM(ep.amount) AS total_expenses,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_expense_amount
+        AVG(ep.amount) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       LEFT JOIN branch b ON er.branchid = b.branchid
       WHERE ep.status = 'Paid'
-        AND DATE(er.date) BETWEEN ? AND ?
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
       GROUP BY b.name
       ORDER BY total_expenses DESC
     `, [startDate, endDate]);
@@ -254,18 +254,18 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         CASE
-          WHEN er.amount < 100 THEN 'Small'
-          WHEN er.amount >= 100 AND er.amount < 1000 THEN 'Medium'
-          WHEN er.amount >= 1000 AND er.amount < 10000 THEN 'Large'
+          WHEN ep.amount < 100 THEN 'Small'
+          WHEN ep.amount >= 100 AND ep.amount < 1000 THEN 'Medium'
+          WHEN ep.amount >= 1000 AND ep.amount < 10000 THEN 'Large'
           ELSE 'Extra Large'
         END AS bucket,
         COUNT(*) AS expense_count,
-        SUM(er.amount) AS total_amount,
-        AVG(er.amount) AS avg_amount
+        SUM(ep.amount) AS total_amount,
+        AVG(ep.amount) AS avg_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid'
-        AND DATE(er.date) BETWEEN ? AND ?
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
       GROUP BY bucket
       ORDER BY total_amount DESC
@@ -286,25 +286,25 @@ export class ExpenseAnalyticsQueries {
         END AS growth_percentage
       FROM (
         SELECT
-          MONTH(er.date) AS month,
-          SUM(er.amount) AS total_expenses
+          MONTH(ep.payment_date) AS month,
+          SUM(ep.amount) AS total_expenses
         FROM expensesrecord er
         INNER JOIN expense_payments ep ON er.id = ep.expense_id
         WHERE ep.status = 'Paid'
-          AND YEAR(er.date) = ?
+          AND YEAR(ep.payment_date) = ?
           ${branchid ? 'AND er.branchid = ?' : ''}
-        GROUP BY MONTH(er.date)
+        GROUP BY MONTH(ep.payment_date)
       ) current_month
       LEFT JOIN (
         SELECT
-          MONTH(er.date) AS month,
-          SUM(er.amount) AS total_expenses
+          MONTH(ep.payment_date) AS month,
+          SUM(ep.amount) AS total_expenses
         FROM expensesrecord er
         INNER JOIN expense_payments ep ON er.id = ep.expense_id
         WHERE ep.status = 'Paid'
-          AND YEAR(er.date) = ?
+          AND YEAR(ep.payment_date) = ?
           ${branchid ? 'AND er.branchid = ?' : ''}
-        GROUP BY MONTH(er.date)
+        GROUP BY MONTH(ep.payment_date)
       ) previous_month ON current_month.month = previous_month.month + 1
       ORDER BY current_month.month ASC
     `, branchid ? [year, branchid, year, branchid] : [year, year]);
@@ -326,5 +326,113 @@ export class ExpenseAnalyticsQueries {
         AND DATE(er.date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
+  }
+
+  async getExpenseBreakdownWithPayments(startDate: string, endDate: string, branchid?: number) {
+    const connection = await KnexConnection(this.tenantId);
+    return connection.raw(`
+      SELECT
+        er.id AS expense_id,
+        er.name AS expense_name,
+        er.date AS expense_date,
+        er.amount AS expense_amount,
+        er.category AS expense_category,
+        er.description AS expense_description,
+        er.approved AS is_approved,
+        er.approvedon AS approved_date,
+        er.approvedby AS approved_by_id,
+        rr.username AS approved_by_username,
+        er.employeeid,
+        r.username AS employee_name,
+        er.branchid,
+        er.merchant AS merchant_id,
+        em.name AS merchant_name,
+        em.email AS merchant_email,
+        em.phone AS merchant_phone,
+        em.address AS merchant_address,
+        ep.id AS payment_id,
+        ep.payment_date,
+        ep.amount AS payment_amount,
+        ep.method AS payment_method,
+        ep.status AS payment_status,
+        ec.category AS category_name,
+        ep.created_by AS payment_created_by,
+        epc.username AS payment_created_by_username,
+        ep.created_on AS payment_created_on,
+        i.id AS invoice_id,
+        b.name AS branch_name,
+        i.invoice_number,
+        i.invoice_date,
+        i.due_date,
+        i.status AS invoice_status,
+        i.total_amount AS invoice_total,
+        i.tax_amount AS invoice_tax
+      FROM expensesrecord er
+      LEFT JOIN roles r ON er.employeeid = r.employeeid
+      LEFT JOIN roles rr ON er.approvedby = rr.employeeid
+      LEFT JOIN dboexpensecategory ec ON er.category = ec.id
+      LEFT JOIN expense_merchants em ON er.merchant = em.id
+      LEFT JOIN branch b ON er.branchid = b.branchid
+      LEFT JOIN expense_payments ep ON er.id = ep.expense_id
+      LEFT JOIN roles epc ON ep.created_by = epc.employeeid
+      LEFT JOIN invoice_expenses ie ON er.id = ie.expense_id
+      LEFT JOIN invoices i ON ie.invoice_id = i.id
+      WHERE DATE(ep.payment_date) BETWEEN ? AND ?
+        ${branchid ? 'AND er.branchid = ?' : ''}
+      ORDER BY er.date DESC, er.id DESC
+    `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
+  }
+
+  async getPaymentsByMerchant(merchantId: number, page: number, count: number) {
+    const connection = await KnexConnection(this.tenantId);
+    const offset = (page - 1) * count;
+
+    // Get total count
+    const totalResult = await connection.raw(`
+      SELECT COUNT(*) as total
+      FROM expense_payments ep
+      INNER JOIN expensesrecord er ON ep.expense_id = er.id
+      WHERE er.merchant = ? AND ep.status = 'Paid'
+    `, [merchantId]);
+
+    const total = totalResult[0][0].total;
+
+    // Get paginated data
+    const dataResult = await connection.raw(`
+      SELECT
+        ep.id AS payment_id,
+        ep.payment_date,
+        ep.amount AS payment_amount,
+        ep.method AS payment_method,
+        ep.status AS payment_status,
+        ep.created_on AS payment_created_on,
+        ep.created_by AS payment_created_by,
+        epc.username AS payment_created_by_username,
+        er.id AS expense_id,
+        er.date AS expense_date,
+        er.amount AS expense_amount,
+        er.description AS expense_description,
+        er.category AS expense_category,
+        ec.category AS category_name,
+        r.username AS employee_name,
+        b.name AS branch_name
+      FROM expense_payments ep
+      INNER JOIN expensesrecord er ON ep.expense_id = er.id
+      LEFT JOIN roles r ON er.employeeid = r.employeeid
+      LEFT JOIN dboexpensecategory ec ON er.category = ec.id
+      LEFT JOIN branch b ON er.branchid = b.branchid
+      LEFT JOIN roles epc ON ep.created_by = epc.employeeid
+      WHERE er.merchant = ? AND ep.status = 'Paid'
+      ORDER BY ep.payment_date DESC
+      LIMIT ? OFFSET ?
+    `, [merchantId, count, offset]);
+
+    return {
+      data: dataResult[0],
+      total: parseInt(total),
+      page: page,
+      pageSize: count,
+      totalPages: Math.ceil(total / count)
+    };
   }
 }

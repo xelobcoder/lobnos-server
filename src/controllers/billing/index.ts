@@ -28,7 +28,7 @@ import {
 } from "./servicesHandler";
 import { handleAuthenticationEmployee } from "../../middleware/redis/handlerAscensionBillingCheck";
 import { getPatientTransactions, getPatientTransactionDetails } from "./BillingHandler";
-import { getSalesSessionList, getSessionFinancialSummaryHandler, handleCreateNewSalesSesion, handleEndSalesSession, hasSalesSessionAvailableHandler } from "./SessionManger/handler";
+import { getSalesSessionList, getSessionFinancialSummaryHandler, handleCreateNewSalesSesion, handleEndSalesSession, hasSalesSessionAvailableHandler, getSalesSessionConfigHandler, setSalesSessionConfigHandler, deleteUnusedSalesSessionHandler, getSessionsByDateHandler, handleUpdateSalesSession } from "./SessionManger/handler";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { handleOverLoad } from "../../hooks/helper";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
@@ -89,10 +89,13 @@ router.get('/api/v1/billing/patient/transactions/:billingid', getPatientTransact
 // sales session
 router.post("/api/v1/billing/sales/session/create", handleOverLoad(handleCreateNewSalesSesion));
 router.get("/api/v1/billing/sales/session/list", getSalesSessionList);
+router.get("/api/v1/billing/sales/session/by-date", handleOverLoad(getSessionsByDateHandler));
+router.put("/api/v1/billing/sales/session/:sessionId", handleOverLoad(handleUpdateSalesSession));
 router.put("/api/v1/billing/sales/session/endsession", handleEndSalesSession);
 router.get('/api/v1/billing/sales/session/verify/session', hasSalesSessionAvailableHandler)
-router.get(`/api/v1/billing/load/session/:sessionid/summary`,handleOverLoad(getSessionFinancialSummaryHandler))
-
+router.get(`/api/v1/billing/load/session/:sessionid/summary`, handleOverLoad(getSessionFinancialSummaryHandler))
+router.get("/api/v1/billing/sales/session/config", handleOverLoad(getSalesSessionConfigHandler));
+router.post("/api/v1/billing/sales/session/config", handleOverLoad(setSalesSessionConfigHandler)); router.delete("/api/v1/billing/sales/session/:sessionId", handleOverLoad(deleteUnusedSalesSessionHandler));
 
 
 // campaigns 

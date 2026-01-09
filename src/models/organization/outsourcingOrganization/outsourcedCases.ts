@@ -59,8 +59,16 @@ export default class OutsourcedCases {
           serviceid: number, testid: number, trackingid: number, branchid: number, employeeid: number, outsourcedid?: number
      }) {
           try {
-               const { branchid, employeeid, testid, serviceid, trackingid, outsourcedid } = data;
+               const { branchid, employeeid, serviceid, trackingid } = data;
                const connection = await KnexConnection(tenantId);
+
+               // Check if expense already exists for this service to prevent duplicates
+               const existingExpense = await connection('expensesrecord')
+                    .where({ serviceid: data.serviceid, isassociatedservice: 1 })
+                    .first();
+               if (existingExpense) {
+                    throw new Error("Expense already exists for this outsourced service");
+               }
 
                // check merchants to ensure outsource is a valid merchant, if not  create it
                const dboexpensecategoryRecord = await connection('dboexpensecategory')
@@ -71,7 +79,6 @@ export default class OutsourcedCases {
                     const [newCategoryId] = await connection('dboexpensecategory')
                          .insert({
                               category: "outsourcing",
-
                               createdon: new Date(),
                               employeeid,
                          });
@@ -117,6 +124,7 @@ export default class OutsourcedCases {
                if (!outsourceOrganizationInformation) throw new Error("Outsource organization not found");
 
                const { outsourcePrice } = outsourceOrganizationInformation;
+
 
                const expenseRecord = {
                     isassociatedservice: 1,

@@ -83,14 +83,25 @@ class TestAscension extends operations_1.default {
             return billingclientTypes_1.Client_PLS_Lifecycle[2];
         return billingclientTypes_1.Client_PLS_Lifecycle[1];
     }
-    static async getPendingSampleUncollected(tenantId, count, page, start_date, end_date) {
+    static async getPendingSampleUncollected(tenantId, count, page, start_date, end_date, filter, sortby = 'ASC') {
         let query = queries_1.q_pending_sample_uncollected;
+        let params = [];
         if (start_date && end_date) {
             query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+            params = [start_date, end_date];
         }
-        query += ` ORDER BY b.billingid ASC 
-          LIMIT ? OFFSET ?`;
-        return await (0, helper_1.paginationQuery)({ count, page }, query, [start_date, end_date], tenantId);
+        if (filter) {
+            const words = filter.trim().split(/\s+/).filter(w => w.length > 0);
+            const nameConditions = words.map(() => `(p.firstname LIKE BINARY ? OR p.middlename LIKE BINARY ? OR p.lastname LIKE BINARY ?)`).join(' OR ');
+            query += ` AND (ts.id = ? OR ${nameConditions})`;
+            params.push(filter);
+            words.forEach(word => {
+                params.push(`%${word}%`, `%${word}%`, `%${word}%`);
+            });
+        }
+        query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
+        console.log(query);
+        return await (0, helper_1.promisifyQuery)(tenantId, query, [...params, count, (page - 1) * count]);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {
         return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_transaction_ascension_phelobotomy_details, [billingid]);

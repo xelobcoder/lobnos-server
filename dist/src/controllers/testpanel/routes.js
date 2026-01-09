@@ -23,6 +23,7 @@ router.get("/api/v1/test/getLiteraturereview", testpanelHandlers_1.getTestLitera
 router.put("/api/v1/test/getLiteraturereview", testpanelHandlers_1.putTestLiteratureReview);
 router.get("/api/v1/test/isLiteraturereview/getLiterature", testpanelHandlers_1.getLiteratureReviewResult);
 router.post("/api/v1/testpanel/bulkupdate", testpanelHandlers_1.postBulkTestPanelUpdate);
+router.put("/api/v1/testpanel/bulkpricing", testpanelHandlers_1.putBulkTestPricingUpdate);
 router.post("/api/v1/testpanel/list", testpanelHandlers_1.postTestPanelCreate);
 router.put("/api/v1/testpanel/list", testpanelHandlers_1.putTestPanelUpdate);
 router.delete("/api/v1/testpanel/list", testpanelHandlers_1.deleteTestPanel);

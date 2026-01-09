@@ -112,8 +112,6 @@ class Operations {
     }
     static async generateAscensionQuery(queryParams) {
         const { from, to, searchString, isUltrasound, stage, clinicianId, organizationId } = queryParams;
-        const startDate = new Date(from) || new Date();
-        const enddate = new Date(to) || new Date();
         try {
             let finalQuery;
             const conditions = [];
@@ -124,19 +122,19 @@ class Operations {
             else {
                 finalQuery = (0, queries_1.q_get_all_test_ready_for_various_stages_ultrasound)(finalQuery, stage);
             }
-            finalQuery = finalQuery + ` AND DATE(ta.ascension_date) >= ? AND DATE(ta.ascension_date)  <= ? `;
-            conditions.push(startDate);
-            conditions.push(enddate);
+            if (from && to) {
+                finalQuery = finalQuery + ` AND DATE(ta.ascension_date) BETWEEN ? AND ? `;
+                conditions.push(new Date(from));
+                conditions.push(new Date(to));
+            }
             if (searchString) {
-                finalQuery += ` AND (CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ? 
-				OR np.patientid LIKE ? 
-				OR tp.category LIKE ? 
-				OR b.billedon LIKE ? 
-				OR d.department LIKE ? 
-				OR tp.name LIKE ? 
-				OR b.clientstatus LIKE ?)`;
-                const searchTerm = `%${searchString}%`;
-                conditions.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+                const words = searchString.trim().split(/\s+/).filter(w => w.length > 0);
+                const nameConditions = words.map(() => `(np.firstname LIKE ? OR np.middlename LIKE ? OR np.lastname LIKE ?)`).join(' OR ');
+                finalQuery += ` AND (${nameConditions} OR np.patientid = ? OR np.fullpatientid = ? OR tp.category LIKE ? OR b.billedon LIKE ? OR d.department LIKE ? OR tp.name LIKE ? OR b.clientstatus LIKE ?)`;
+                words.forEach(word => {
+                    conditions.push(`%${word}%`, `%${word}%`, `%${word}%`);
+                });
+                conditions.push(searchString, searchString, `%${searchString}%`, `%${searchString}%`, `%${searchString}%`, `%${searchString}%`, `%${searchString}%`);
             }
             if (clinicianId) {
                 finalQuery += ` AND ds.clinicianId = ?`;
@@ -146,6 +144,7 @@ class Operations {
                 finalQuery += ` AND ds.organizationId = ?`;
                 conditions.push(organizationId);
             }
+            console.log({ finalQuery, conditions });
             return { conditions, finalQuery };
         }
         catch (err) {
@@ -164,7 +163,7 @@ class Operations {
     }
     async getAllEnterResult(tenantId, data) {
         try {
-            const { from, to, patientid, billingid, fullname, sortingwise, count, page } = data;
+            const { from, to, patientid, billingid, fullname, sortingwise, count, page, mobile_number } = data;
             let queryString = queries_1.q_get_all_entered_result;
             const conditions = [];
             const values = [];
@@ -186,6 +185,10 @@ class Operations {
                 conditions.push(`b.billingid = ?`);
                 values.push(billingid);
             }
+            if (mobile_number) {
+                conditions.push(`np.mobile_number LIKE ?`);
+                values.push(`%${mobile_number}%`);
+            }
             if (fullname) {
                 conditions.push(`LOWER(CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname)) LIKE ?`);
                 values.push(`%${fullname.toLowerCase()}%`);
@@ -193,8 +196,8 @@ class Operations {
             if (conditions.length > 0) {
                 queryString += ` WHERE ${conditions.join(" AND ")}`;
             }
-            queryString += ` GROUP BY tr.ascensionid, tr.testid, tr.patientid, b.billingid`;
-            queryString += ` ORDER BY tr.created_on ${sortingwise === "ASC" ? "ASC" : "DESC"}`;
+            queryString += ` GROUP BY ta.id, ta.testid, np.patientid, b.billingid`;
+            queryString += ` ORDER BY ta.ascension_date ${sortingwise === 'ASC' ? 'ASC' : 'DESC'}`;
             queryString += ` LIMIT ? OFFSET ?`;
             const result = await (0, helper_1.paginationQuery)({ page, count }, queryString, values, tenantId);
             if (result.length > 0) {
@@ -220,16 +223,12 @@ class Operations {
     static async getAscensionBasedOnStage(tenantId, queryParams) {
         try {
             const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound, sortby, clinicianId, organizationId } = queryParams;
-            let query;
-            let conditionValues = [];
-            if (_dateFrom && _dateEnd) {
-                const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
-                    sortby, from: _dateFrom, to: _dateEnd, stage,
-                    searchString, isUltrasound, clinicianId, organizationId
-                });
-                query = finalQuery;
-                conditionValues = conditionx;
-            }
+            const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
+                sortby, from: _dateFrom, to: _dateEnd, stage,
+                searchString, isUltrasound, clinicianId, organizationId
+            });
+            let query = finalQuery;
+            let conditionValues = conditionx;
             if (query == null)
                 return null;
             query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;

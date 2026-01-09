@@ -89,7 +89,9 @@ export type resultQuery = {
 	fullname?: string;
 	billingid: number;
 	sortingwise: 'ASC' | 'DESC';
+	ascensionid?: number;
 	count: number;
+	mobile_number?: string;
 	page: number;
 };
 

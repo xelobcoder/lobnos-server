@@ -8,14 +8,16 @@ const logger_1 = __importDefault(require("../../hooks/logger"));
 const helper_1 = require("../../hooks/helper");
 const billingclientTypes_1 = require("../billing/billingclientTypes");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const queries_2 = require("../../controllers/billing/sales/Extensive/queries");
 class Payment {
     constructor(patientid) {
         this.getClientTransactionInformation = async (tenantId, records) => {
             try {
-                const { patientid, from, to, count = 10, page = 1, branchid } = records;
+                const { patientid, from, to, count = 10, page = 1, branchid, isloadall } = records;
                 if (!branchid) {
                     throw new Error('Branchid Not included in the query');
                 }
+                const isloadallBool = isloadall === true || (typeof isloadall === 'string' && isloadall === 'true');
                 const connection = await (0, KnexConnections_1.default)(tenantId);
                 let query = connection
                     .select('np.patientid', 'np.fullpatientid', connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"), 'np.email', connection.raw("CONCAT('0', np.mobile_number) AS mobileNumber"), 'b.*', connection.raw("(SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource"))
@@ -33,11 +35,14 @@ class Payment {
                     }
                 }
                 query = query.orderBy('b.billingid', 'desc');
-                const offset = (page - 1) * count;
-                query = query.limit(count).offset(offset);
+                if (!isloadallBool) {
+                    const offset = (page - 1) * count;
+                    query = query.limit(count).offset(offset);
+                }
                 const result = await query;
+                const expensesPaymentMade = await connection.raw(queries_2.QUERY_EXPENSE_PAYMENTS_SUMMARY, [from, to]);
                 const summary = await this.summaryRangeOfDates(tenantId, from, to, branchid);
-                return { data: result, summary };
+                return { data: result, expensesPaymentMade: expensesPaymentMade[0], summary };
             }
             catch (err) {
                 logger_1.default.error(err);
@@ -195,29 +200,32 @@ class Payment {
             try {
                 const summary = await (0, helper_1.promisifyQuery)(tenantId, `SELECT 
 					COUNT(*) as transactionCount,
-					COALESCE(SUM(totalTransactionCost), 0) as totalTransactionCost,
-					COALESCE(SUM(totalcost), 0) as totalCost,
-					COALESCE(SUM(paid), 0) as totalPaid,
-					COALESCE(SUM(payable), 0) as totalPayable,
-					COALESCE(SUM(totalrefunded), 0) as totalRefunded,
-					COALESCE(SUM(discount), 0) as totalDiscount,
-					COALESCE(SUM(outstanding), 0) as totalOutstanding,
-					COALESCE(SUM(balance), 0) as totalBalance,
-					COALESCE(SUM(amountIncurredDueTax), 0) as totalTaxIncurred
+					COALESCE(SUM(totalcost), 0) as total_cost,
+					COALESCE(SUM(paid), 0) as actual_revenue,
+					COALESCE(SUM(payable), 0) as accrued_revenue,
+					COALESCE(SUM(totalrefunded), 0) as total_refunded,
+					COALESCE(SUM(discount), 0) as total_discount,
+					COALESCE(SUM(outstanding), 0) as total_outstanding,
+					COALESCE(SUM(balance), 0) as total_balance,
+					COALESCE(SUM(amountIncurredDueTax), 0) as total_tax_incurred,
+					(SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?  ) as total_expense_payments,
+					COALESCE(SUM(paid) - COALESCE((SELECT SUM(amount) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?), 0), 0) AS net_revenue
 				FROM billing 
-				WHERE DATE(billedon) BETWEEN ? AND ?  AND branchid = ?`, [from, to, branchid]);
+				WHERE DATE(billedon) BETWEEN ? AND ? AND branchid = ?`, [from, to, from, to, from, to, branchid]);
                 const result = summary[0] || {};
                 return {
-                    totalTransactionCost: Number(result.totalTransactionCost || 0),
-                    totalCost: Number(result.totalCost || 0),
-                    totalPaid: Number(result.totalPaid || 0),
-                    totalPayable: Number(result.totalPayable || 0),
-                    totalRefunded: Number(result.totalRefunded || 0),
-                    totalDiscount: Number(result.totalDiscount || 0),
-                    totalOutstanding: Number(result.totalOutstanding || 0),
-                    totalBalance: Number(result.totalBalance || 0),
-                    totalTaxIncurred: Number(result.totalTaxIncurred || 0),
-                    transactionCount: Number(result.transactionCount || 0)
+                    totalTransactionCost: Number(result.total_cost || 0),
+                    totalCost: Number(result.total_cost || 0),
+                    actualRevenue: Number(result.actual_revenue || 0),
+                    accruedRevenue: Number(result.accrued_revenue || 0),
+                    totalRefunded: Number(result.total_refunded || 0),
+                    totalDiscount: Number(result.total_discount || 0),
+                    totalOutstanding: Number(result.total_outstanding || 0),
+                    totalBalance: Number(result.total_balance || 0),
+                    totalTaxIncurred: Number(result.total_tax_incurred || 0),
+                    transactionCount: Number(result.transactionCount || 0),
+                    totalExpensePayments: Number(result.total_expense_payments || 0),
+                    netRevenue: Number(result.net_revenue || 0)
                 };
             }
             catch (err) {

@@ -43,16 +43,31 @@ export class SampleHandler extends TestAscension {
 	}
 
 	public static async getPendingUnvalidatedSamples(tenantId: number, pagination: { count: number, page: number },
-		startdate: Date | string, enddate: Date | string, sortby: 'DESC' | 'ASC' = 'ASC') {
+		startdate?: Date | string, enddate?: Date | string, sortby: 'DESC' | 'ASC' = 'ASC', searchstring?: string) {
 		let query = q_get_pending_collected_but_unvalidated_samples;
 		const params: (Date | string)[] = [];
 
-		if (startdate && enddate) {
-			query += ` AND (DATE(b.billedon) >= ? AND DATE(b.billedon) <= ?) `;
-			params.push(startdate, enddate);
+		if (startdate) {
+			query += ` AND DATE(b.billedon) >= ? `;
+			params.push(startdate);
 		}
+		if (enddate) {
+			query += ` AND DATE(b.billedon) <= ? `;
+			params.push(enddate);
+		}
+
+		if (searchstring) {
+			const words = searchstring.trim().split(/\s+/).filter(w => w.length > 0);
+			const nameConditions = words.map(() => `(np.firstname LIKE ? OR np.middlename LIKE ? OR np.lastname LIKE ?)`).join(' OR ');
+			query += ` AND (${nameConditions})`;
+			words.forEach(word => {
+				params.push(`%${word}%`, `%${word}%`, `%${word}%`);
+			});
+		}
+
 		query += ' GROUP BY b.billingid ORDER BY b.billedon ${sortby} LIMIT ? OFFSET ? ';
 		query = query.replace('${sortby}', sortby);
+		console.log({ query, params });
 		return await paginationQuery(pagination, query, params, tenantId);
 	}
 

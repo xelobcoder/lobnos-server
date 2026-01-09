@@ -150,7 +150,6 @@ class SubmitCustomerBilling {
                 totaldiscount = data.totaldiscount || 0;
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
                 totalOutstanding = Math.max(amountPayable - updatedBillingData.paid, 0);
-                console.log("AMOUNT PAYABLE", amountPayable, "paid", updatedBillingData.paid);
                 balance = totalOutstanding > 0 ? 0 : updatedBillingData.paid - totalAmountPayable;
                 const updateData = {
                     totalTransactionCost: totalcost,

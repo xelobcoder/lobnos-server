@@ -142,7 +142,7 @@ class MultiPayment {
                         this.on("dbo.trackId", "test_panels.id").andOn("dbo.categoryTrackId", "!=", 5);
                     })
                         .leftJoin("additionalservices", function () {
-                        this.on("dbo.serviceid", "additionalservices.serviceid").andOn("dbo.categoryTrackId", "=", 5);
+                        this.on("dbo.trackId", "additionalservices.keyid").andOn("dbo.categoryTrackId", "=", 5);
                     })
                         .select("dbo.totalpayable", "dbo.totalcost", "dbobillingrefundtable.amountRefunded", "dbo.serviceid", "dbo.paymentstatus", "dbo.paidamount", "dbo.outstanding", "dbo.isRefunded", "dbobillingrefundtable.amountRefunded", "dbo.discount", "dbo.amountIncurredDueTax", connection.raw(`
                                         CASE 
@@ -170,7 +170,7 @@ class MultiPayment {
                         this.on("dbo.trackId", "test_panels.id").andOn("dbo.categoryTrackId", "!=", 5);
                     })
                         .leftJoin("additionalservices", function () {
-                        this.on("dbo.serviceid", "additionalservices.keyid").andOn("dbo.categoryTrackId", "=", 5);
+                        this.on("dbo.trackId", "additionalservices.keyid").andOn("dbo.categoryTrackId", "=", 5);
                     })
                         .select("dbo.totalpayable", "dbo.totalcost", "dbobillingrefundtable.amountRefunded", "dbo.serviceid", "dbo.paymentstatus", "dbo.paidamount", "dbo.outstanding", "dbo.isRefunded", "dbobillingrefundtable.amountRefunded", "dbo.discount", "dbo.amountIncurredDueTax", connection.raw(`
                                         CASE 
@@ -191,6 +191,83 @@ class MultiPayment {
             return { outstandingAmount, records };
         }
         return { outstandingAmount: 0, records: [] };
+    }
+    async generateTransactionReceipt(billingid, employeeid) {
+        const connection = await this.connection;
+        const billing = await connection(this.billingTable).where({ billingid }).first();
+        if (!billing) {
+            throw new Error('Billing not found');
+        }
+        const patient = await connection('new_patients').where({ patientid: billing.patientid }).first();
+        const paymenthistory = await connection(this.bhxTable)
+            .innerJoin('paymentModes', `${this.bhxTable}.paymentmode`, 'paymentModes.KEYID')
+            .where({ billingid });
+        const companyInfo = await connection('companyprofile').first();
+        // Generate receipt number
+        const now = new Date();
+        const timestamp = now.getFullYear() +
+            String(now.getMonth() + 1).padStart(2, '0') +
+            String(now.getDate()).padStart(2, '0') +
+            String(now.getHours()).padStart(2, '0') +
+            String(now.getMinutes()).padStart(2, '0') +
+            String(now.getSeconds()).padStart(2, '0');
+        const companyAbbr = companyInfo.NAME ? companyInfo.NAME.split(' ').map(word => word.charAt(0).toUpperCase()).join('') : 'COMP';
+        const receiptNumber = `${companyAbbr}-${billingid}-PLS-${timestamp}`;
+        const services = await connection(`${this.servicesTable} as dbo`)
+            .leftJoin("test_panels", function () {
+            this.on("dbo.trackId", "test_panels.id").andOn("dbo.categoryTrackId", "!=", 5);
+        })
+            .leftJoin("testdetails", "test_panels.id", "testdetails.testid")
+            .leftJoin("additionalservices", function () {
+            this.on("dbo.trackId", "additionalservices.keyid").andOn("dbo.categoryTrackId", "=", 5);
+        })
+            .select("dbo.*", "testdetails.reportitle AS test_report_title", connection.raw(`
+                         CASE 
+                              WHEN dbo.categoryTrackId != 5 THEN test_panels.name
+                              WHEN dbo.categoryTrackId = 5 THEN additionalservices.serviceName
+                              ELSE NULL
+                         END as service_name
+                    `))
+            .where({ billingid });
+        // Prepare receipt data
+        const receiptData = {
+            receiptNumber,
+            billing,
+            patient,
+            services,
+            generatedAt: new Date().toISOString(),
+            tenantId: this.tenantId,
+            paymenthistory,
+            companyInfo
+        };
+        // Insert into receipts table for tracking
+        const [receiptId] = await connection('receipts').insert({
+            billingid,
+            generated_by: employeeid,
+            printed: false,
+            generated_at: new Date(),
+            generated_receipt_number: receiptNumber
+        });
+        return Object.assign({ receiptId }, receiptData);
+    }
+    async updateReceiptPrinted(receiptId, employeeid, printed_at) {
+        const connection = await this.connection;
+        await connection('receipts').where({ id: receiptId }).update({ printed: true, printed_at: printed_at, printed_by: employeeid });
+    }
+    async getReceipts(page = 1, count = 10, sortby = 'DESC') {
+        const connection = await this.connection;
+        const offset = (page - 1) * count;
+        const total = await connection('receipts').count('id as count').first();
+        const totalCount = total.count;
+        const receipts = await connection('receipts as r')
+            .leftJoin('roles as gen_emp', 'r.generated_by', 'gen_emp.employeeid')
+            .leftJoin('roles as print_emp', 'r.printed_by', 'print_emp.employeeid')
+            .select('r.id', 'r.billingid', 'r.generated_receipt_number', 'r.generated_at', 'r.printed_at', 'r.printed', 'gen_emp.username as generated_by_name', 'print_emp.username as printed_by_name')
+            .orderBy('r.generated_at', sortby)
+            .orderBy('r.id', sortby)
+            .limit(count)
+            .offset(offset);
+        return { receipts, total: totalCount };
     }
 }
 exports.default = MultiPayment;

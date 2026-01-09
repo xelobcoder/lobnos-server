@@ -212,10 +212,7 @@ export class SubmitCustomerBilling {
                 totaldiscount = data.totaldiscount || 0;
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
                 totalOutstanding = Math.max(amountPayable - updatedBillingData.paid, 0);
-                console.log("AMOUNT PAYABLE", amountPayable, "paid", updatedBillingData.paid)
                 balance = totalOutstanding > 0 ? 0 : updatedBillingData.paid - totalAmountPayable;
-
-
 
 
                 const updateData = {
@@ -239,7 +236,6 @@ export class SubmitCustomerBilling {
 
                 const { adjustmentType, isAdjustment, adjustmentReason } = this.payload;
 
-
                 if (isAdjustment && adjustmentType === "correction" && this.payload.billingid) {
                     await trx("billing")
                         .where({ billingid: this.payload.billingid })
@@ -261,6 +257,7 @@ export class SubmitCustomerBilling {
                             isLocked: 1,
                         });
                 }
+
 
                 const result = await trx("billing")
                     .update({

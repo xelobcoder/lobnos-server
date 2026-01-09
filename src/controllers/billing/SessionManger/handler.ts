@@ -104,3 +104,105 @@ export const getSessionFinancialSummaryHandler = async function (request: Reques
           responseError(response, err?.message);
      }
 }
+
+export const getSalesSessionConfigHandler = async function (request: Request<{}, {}, {}, { tenantId: string, branchid: string }>, response: Response) {
+     try {
+          const { tenantId, branchid } = request.query;
+          const parsedTenantId = parseInt(tenantId);
+          const parsedBranchId = parseInt(branchid);
+
+          if (!branchid) {
+               return customError(OperationsFailures.invalidResquestQuery + " branchid not provided", 400, response);
+          }
+
+          const config = await new SalesSessionRepo(parsedTenantId).getSessionConfig(parsedBranchId);
+          response.send({ config });
+     } catch (err) {
+          responseError(response, err?.message);
+     }
+}
+
+export const setSalesSessionConfigHandler = async function (request: Request, response: Response) {
+     try {
+          const { tenantId } = request.query;
+          const parsedTenantId = parseInt(tenantId.toString());
+          const configData = request.body;
+
+          if (!configData.branchid) {
+               return customError(OperationsFailures.invalidResquestQuery + " branchid not provided in body", 400, response);
+          }
+
+          const status = await new SalesSessionRepo(parsedTenantId).setSessionConfig(configData);
+          response.status(200).send({ status });
+     } catch (err) {
+          responseError(response, err?.message);
+     }
+}
+
+export const deleteUnusedSalesSessionHandler = async function (request: Request, response: Response) {
+     try {
+          const { tenantId } = request.query;
+          const { sessionId } = request.params;
+          const parsedTenantId = parseInt(tenantId.toString());
+          const parsedSessionId = parseInt(sessionId);
+
+          if (!sessionId || isNaN(parsedSessionId)) {
+               return customError(OperationsFailures.invalidResquestQuery + " sessionId not provided or invalid", 400, response);
+          }
+
+          const result = await new SalesSessionRepo(parsedTenantId).deleteUnusedSession(parsedSessionId);
+          if (typeof result === 'string') {
+               return response.status(400).send({ error: result, status: false });
+          }
+
+          response.status(200).send({ status: result });
+     } catch (err) {
+          responseError(response, err?.message);
+     }
+}
+
+export const getSessionsByDateHandler = async function (request: Request<{}, {}, {}, { tenantId: string, date: string, branchid?: string }>, response: Response) {
+     try {
+          const { tenantId, date, branchid } = request.query;
+          const parsedTenantId = parseInt(tenantId);
+          const sessionDate = new Date(date);
+          const branchId = branchid ? parseInt(branchid) : undefined;
+
+          if (!date || isNaN(sessionDate.getTime())) {
+               return customError("Invalid date provided", 400, response);
+          }
+
+          const sessions = await new SalesSessionRepo(parsedTenantId).findSessionsByDateRange(sessionDate, sessionDate, branchId);
+          response.status(200).send({
+               status: true,
+               data: sessions,
+               count: sessions.length,
+               date: date
+          });
+     } catch (err: any) {
+          responseError(response, err?.message);
+     }
+}
+
+export const handleUpdateSalesSession = async function (request: Request, response: Response) {
+     try {
+          const { tenantId } = request.query;
+          const { sessionId } = request.params;
+          const parsedTenantId = parseInt(tenantId.toString());
+          const parsedSessionId = parseInt(sessionId);
+          const updateData = request.body;
+
+          if (!sessionId || isNaN(parsedSessionId)) {
+               return customError(OperationsFailures.invalidResquestQuery + " sessionId not provided or invalid", 400, response);
+          }
+
+          const result = await new SalesSessionRepo(parsedTenantId).update(parsedSessionId, updateData);
+          if (result > 0) {
+               response.status(200).send({ status: true, message: "Session updated successfully" });
+          } else {
+               response.status(404).send({ status: false, message: "Session not found or no changes made" });
+          }
+     } catch (err: any) {
+          responseError(response, err?.message);
+     }
+}

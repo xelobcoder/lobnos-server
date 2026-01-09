@@ -12,7 +12,7 @@ BillingAnalytics.totalSalesByBranchAndCategory = `SELECT branchid, serviceCatego
 BillingAnalytics.totalSalesByEmployee = `SELECT db.employeeid, COALESCE(SUM(db.totalcost), 0) AS totalCost, COALESCE(SUM(db.paidamount), 0) AS totalPaid, COALESCE(SUM(db.totalpayable), 0) AS totalPayable, COALESCE(SUM(db.discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded,
      rr.username FROM dboservices AS db JOIN roles AS rr ON rr.employeeid = db.employeeid LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid
      WHERE YEAR(db.serviceAddedOn) = ? ${major_constraints} GROUP BY db.employeeid;`;
-BillingAnalytics.monthlySalesTrend = `SELECT MONTHNAME(serviceAddedOn) AS month, COALESCE(SUM(totalcost), 0) AS totalCost, COALESCE(SUM(paidamount), 0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY MONTH(serviceAddedOn) ORDER BY MONTH(serviceAddedOn);`;
+BillingAnalytics.monthlySalesTrend = `SELECT MONTHNAME(serviceAddedOn) AS month, COALESCE(SUM(totalcost), 0) AS totalCost, COALESCE(SUM(paidamount), 0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY MONTH(serviceAddedOn) ORDER BY MONTH(serviceAddedOn) DESC;`;
 BillingAnalytics.dailySalesTrend = `SELECT
     DATE(serviceAddedOn) AS date,
     COALESCE(SUM(totalcost), 0) AS totalCost,
@@ -24,7 +24,7 @@ FROM dboservices
 LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
 WHERE YEAR(serviceAddedOn) = ? ${major_constraints}
 GROUP BY DATE(serviceAddedOn)
-ORDER BY DATE(serviceAddedOn);
+ORDER BY DATE(serviceAddedOn) DESC;
 `;
 BillingAnalytics.weeklySalesTrend = `
         WITH sales AS (
@@ -57,36 +57,52 @@ BillingAnalytics.weeklySalesTrend = `
         s.outstanding_debt
         FROM sales s
         LEFT JOIN expenses e ON s.week = e.week
-        ORDER BY s.week;
+        ORDER BY s.week DESC;
     `;
 BillingAnalytics.salesByWeekAndBranch = ` SELECT WEEK(db.serviceAddedOn) AS week, db.branchid, COALESCE(SUM(db.totalcost), 0) AS totalCost, COALESCE(SUM(db.paidamount), 0) AS totalPaid, COALESCE(SUM(db.totalpayable), 0) AS totalPayable, COALESCE(SUM(db.discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded ,bb.name
         FROM dboservices AS db
         INNER JOIN branch AS bb ON bb.branchid = db.branchid
         LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid
-      WHERE YEAR(serviceAddedOn) = ? AND  (db.isRefunded = 0 AND db.status ='active') GROUP BY week, db.branchid;`;
-BillingAnalytics.yearlySalesTrend = `SELECT YEAR(serviceAddedOn) AS year, COALESCE(SUM(totalcost), 0) AS totalCost, COALESCE(SUM(paidamount), 0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY year ORDER BY year;`;
+      WHERE YEAR(serviceAddedOn) = ? AND  (db.isRefunded = 0 AND db.status ='active') GROUP BY week, db.branchid ORDER BY week DESC;`;
+BillingAnalytics.yearlySalesTrend = `SELECT YEAR(serviceAddedOn) AS year, COALESCE(SUM(totalcost), 0) AS totalCost, COALESCE(SUM(paidamount), 0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY year ORDER BY year DESC;`;
 BillingAnalytics.totalAmountRefunded = `SELECT COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded FROM dboservices s INNER JOIN dbobillingrefundtable r ON s.serviceid = r.serviceid WHERE YEAR(s.serviceAddedOn) = ? ${major_constraints};`;
 class BillingAnalyticsWithDate {
 }
 exports.BillingAnalyticsWithDate = BillingAnalyticsWithDate;
 BillingAnalyticsWithDate.totalSalesByServiceCategory = `
-        SELECT serviceCategory, COALESCE(SUM(totalcost), 0) AS totalCost, COALESCE(SUM(paidamount), 0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded
+        SELECT serviceCategory, 
+        COALESCE(SUM(totalcost), 0) AS totalCost,
+         COALESCE(SUM(paidamount), 0) AS totalPaid, 
+         COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded
         FROM dboservices
         LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
         WHERE DATE(serviceAddedOn) BETWEEN ? AND ?  ${major_constraints}
-        GROUP BY serviceCategory;
+        GROUP BY serviceCategory ORDER BY serviceCategory;
     `;
 BillingAnalyticsWithDate.totalSalesByBranch = `
-        SELECT dboservices.branchid, COALESCE(SUM(dboservices.totalcost), 0) AS totalCost, 
+        SELECT 
+        dboservices.branchid,
+    COALESCE(SUM(dboservices.totalcost), 0) AS totalCost, 
         COALESCE(SUM(dboservices.paidamount), 0) actual_revenue,
         COALESCE(SUM(dboservices.totalpayable), 0) AS accrued_revenue,
-        COALESCE(SUM(dboservices.discount), 0) AS ,
-        COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded, b.name
+        COALESCE(SUM(dboservices.discount), 0) AS total_discount,
+        COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
+        (
+          SELECT SUM(exp.amount) FROM expense_payments AS exp
+            WHERE exp.branchid = dboservices.branchid
+            AND DATE(exp.payment_date) BETWEEN ? AND ?
+        ) AS total_expenses,
+         COLEASCE(SUM(dboservices.paidamount), 0) - (
+            SELECT SUM(exp.amount) FROM expense_payments AS exp
+            WHERE exp.branchid = dboservices.branchid
+            AND DATE(exp.payment_date) BETWEEN ? AND ?
+        ) AS net_revenue,
+         b.name
         FROM dboservices
-        INNER JOIN branch AS b ON dboservices.branchid = b.branchid
+        LEFT JOIN branch AS b ON dboservices.branchid = b.branchid
         LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
         WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
-        GROUP BY dboservices.branchid;
+        GROUP BY dboservices.branchid 
     `;
 BillingAnalyticsWithDate.totalSalesByOrganization = `
         SELECT organizationId, dboservices.status,
@@ -174,7 +190,7 @@ BillingAnalyticsWithDate.monthlySalesTrend = `
             s.outstanding_debt
             FROM sales s
             LEFT JOIN expenses e ON s.month = e.month
-            ORDER BY FIELD(s.month, 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December');
+            ORDER BY FIELD(s.month, 'December', 'November', 'October', 'September', 'August', 'July', 'June', 'May', 'April', 'March', 'February', 'January');
     `;
 BillingAnalyticsWithDate.dailySalesTrend = `
     WITH sales AS (
@@ -191,7 +207,8 @@ BillingAnalyticsWithDate.dailySalesTrend = `
         GROUP BY DATE(serviceAddedOn)
     ),
     expenses AS (
-        SELECT DATE(payment_date) AS date, COALESCE(SUM(amount), 0) AS total_expenses
+        SELECT DATE(payment_date) AS date, 
+        COALESCE(SUM(amount), 0) AS total_expenses
         FROM expense_payments
         WHERE DATE(payment_date) BETWEEN ? AND ?
         GROUP BY DATE(payment_date)
@@ -207,13 +224,13 @@ BillingAnalyticsWithDate.dailySalesTrend = `
     s.outstanding_debt
     FROM sales s
     LEFT JOIN expenses e ON s.date = e.date
-    ORDER BY s.date;
+    ORDER BY s.date DESC;
     `;
 BillingAnalyticsWithDate.weeklySalesTrend = `
      SELECT *
         FROM weekly_sales_summary
     WHERE startDate >= ? AND endDate <= ?
-    ORDER BY week;
+    ORDER BY week DESC;
 
     `;
 BillingAnalyticsWithDate.salesByWeekAndBranch = `
@@ -222,7 +239,7 @@ BillingAnalyticsWithDate.salesByWeekAndBranch = `
         INNER JOIN branch AS bb ON bb.branchid = db.branchid
         LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid
         WHERE DATE(db.serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
-        GROUP BY week, db.branchid;
+        GROUP BY week, db.branchid ORDER BY week DESC;
     `;
 BillingAnalyticsWithDate.yearlySalesTrend = `
         WITH sales AS (
@@ -235,13 +252,12 @@ BillingAnalyticsWithDate.yearlySalesTrend = `
             COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded
             FROM dboservices
             LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
-            WHERE YEAR(serviceAddedOn) = ? ${major_constraints}
+            WHERE dboservices.status IN ('active','refunded')
             GROUP BY YEAR(serviceAddedOn)
         ),
         expenses AS (
             SELECT YEAR(payment_date) AS year, COALESCE(SUM(amount), 0) AS total_expenses
             FROM expense_payments
-            WHERE YEAR(payment_date) = ?
             GROUP BY YEAR(payment_date)
         )
         SELECT s.year,
@@ -255,7 +271,7 @@ BillingAnalyticsWithDate.yearlySalesTrend = `
         s.outstanding_debt
         FROM sales s
         LEFT JOIN expenses e ON s.year = e.year
-        ORDER BY s.year;
+        ORDER BY s.year DESC;
     `;
 BillingAnalyticsWithDate.totalAmountRefunded = `
         SELECT COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded
@@ -294,5 +310,5 @@ BillingAnalyticsWithDate.hourlySalesTrend = `
     s.outstanding_debt
     FROM sales s
     LEFT JOIN expenses e ON s.hour = e.hour
-    ORDER BY s.hour;
+    ORDER BY s.hour DESC;
 `;

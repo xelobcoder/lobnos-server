@@ -1,5 +1,4 @@
 "use strict";
-// Billing types and interfaces for billing module
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BillingModuleCodes = void 0;
 exports.BillingModuleCodes = {

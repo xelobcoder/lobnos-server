@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const handlers_1 = require("./handlers");
 const MultiPaymentHamdler_1 = require("./MultiPaymentHamdler");
+const helper_1 = require("../../hooks/helper");
 const router = express_1.default.Router();
 router.get("/api/v1/result/ready", handlers_1.getResultReady);
 router.get("/api/v1/ready/crm/summary/advanced", handlers_1.getAdvancedTablesSearch);
@@ -14,6 +15,9 @@ router.post("/api/v1/result/ready/updateprint/count", handlers_1.updatePrintCoun
 router.get("/api/v1/result/ready/crm/summary", handlers_1.getSummaryReadyPage);
 router.get("/api/v1/billing/payment/info/client", handlers_1.getClientTransactionInfo);
 router.get("/api/v1/billing/client/bulk/outstanding", MultiPaymentHamdler_1.getPatientOutstandingPayments);
+router.get('/api/v1/billing/client/generate/receipt', (0, helper_1.handleOverLoad)(MultiPaymentHamdler_1.generateTransactionReceiptHandler));
+router.post('/api/v1/receipt/update/printed', (0, helper_1.handleOverLoad)(MultiPaymentHamdler_1.updateReceiptPrintedHandler));
+router.get('/api/v1/receipts', (0, helper_1.handleOverLoad)(MultiPaymentHamdler_1.getReceiptsHandler));
 router.post("/api/v1/billing/multi-service/payment", MultiPaymentHamdler_1.processMultiServicePayment);
 router.get("/api/v1/paymentmodes", handlers_1.getPaymentModes);
 router.get("/api/v1/billing/client/transactionhx", handlers_1.getClientTransactionHistory);

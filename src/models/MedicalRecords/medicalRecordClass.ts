@@ -83,7 +83,13 @@ export default class PrimeMedicalRecords {
         await promisifyQuery(tenantId, q_medical_records_delete, [id]);
     }
 
-    async getAllRecords(tenantId: number, page: number = 1, count: number = 10): Promise<MedicalRecord[]> {
+    async getAllRecords(tenantId: number, page: number = 1, count: number = 10, search?: number | string): Promise<MedicalRecord[]> {
+        if (search) {
+            const query = q_medical_records_getAll.replace('LIMIT ? OFFSET ?', 'WHERE (np.patientid = ? OR np.fullpatientid = ?) LIMIT ? OFFSET ?');
+            console.log(query)
+            const rows = await paginationQuery({ count, page }, query, [search, search], tenantId);
+            return rows;
+        }
         const rows = page && count ? await paginationQuery({ count, page }, q_medical_records_getAll, [], tenantId) : await promisifyQuery(tenantId, q_medical_records_getAll);
         return rows;
     }

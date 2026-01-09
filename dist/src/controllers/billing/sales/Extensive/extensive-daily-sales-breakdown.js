@@ -13,7 +13,7 @@ async function getDailyAnalyticsDashboard(tenantId, targetDate, fromDate = targe
             return "Invalid date range provided." /* OperationsFailures.invalidDateRange */;
         const db = await (0, KnexConnections_1.default)(tenantId);
         const [dailyCeoSnapshot, dailyNightAdjustmentImpact, dailyTestTransactionSnapshot, topPerformingBranches, mismatchedPaymentHistory, breakDownPaymentModes, employeesWhoCollectedCash, cliniciansalesdailyData, totalExpensesPeriodComparison, allExpenseCategories, expenseApprovalStatusSummary, expensePaymentsSummary, expensePaymentsFullList, billableExpenses, monthlyExpenseTrend, allIndividualExpenses, unapprovedExpensesPeriod, expensesByBranch, ceoExpenseSummarySnapshot] = await Promise.all([
-            db.raw(queries_1.QUERY_DAILY_CEO_SNAPSHOT, [fromDate, toDate]),
+            db.raw(queries_1.QUERY_DAILY_CEO_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate]),
             db.raw(queries_1.QUERY_NIGHT_ADJUSTMENT_IMPACT, [fromDate, toDate]),
             db.raw(queries_1.QUERY_TEST_TRANSACTION_SNAPSHOT, [fromDate, toDate]),
             db.raw(queries_1.QUERY_TOP_PERFORMING_BRANCHES, [fromDate, toDate]),

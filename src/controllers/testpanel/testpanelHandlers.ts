@@ -7,6 +7,7 @@ import { testpanel } from "../../testpanel/testpanelList";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 import logger from "../../hooks/logger";
 import MasterTestPanelRepository from "../../models/system-admin/MasterTestPanelRepository";
+import KnexConnection from "../../database/KnexConnections";
 
 
 // Category Handlers
@@ -59,6 +60,7 @@ export const postCreateCustomTestPanel = async (req: Request, res: Response) => 
                return res.send({ results });
           } else {
                const isSuccess = await testpanel.createCustomTest(tenantId, name);
+               console.log(isSuccess);
                if (isSuccess === "EXIST") {
                     return customError("test with same name is available", 404, res);
                }
@@ -209,6 +211,7 @@ export const getTestPanelCreationRule = async (req: Request<{}, {}, {}, { testid
                await new TestCreationRulesRepository(tenantId).findByTestId(parsedTestId);
           res.send(rule);
      } catch (err) {
+          console.log(err)
           responseError(res);
      }
 };
@@ -279,5 +282,55 @@ export const getTestSetupResultLiterature = async (req: Request, res: Response) 
           res.send(result);
      } catch (err) {
           responseError(res);
+     }
+};
+
+export const putBulkTestPricingUpdate = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId.toString());
+          const { tests } = req.body;
+
+          if (!Array.isArray(tests) || tests.length === 0) {
+               return customError("Tests array is required and must not be empty", 400, res);
+          }
+
+          const connection = await KnexConnection(tenantId);
+          const trx = await connection.transaction();
+
+          try {
+               for (const test of tests) {
+                    const { testid, price, cost } = test;
+                    if (!testid || price === undefined || cost === undefined) {
+                         await trx.rollback();
+                         return customError("Each test must have testid, price, and cost", 400, res);
+                    }
+
+                    await trx('test_panels')
+                         .where({ id: testid })
+                         .update({
+                              price
+                         });
+
+
+                    await trx("testdetails")
+                         .where({ testid: testid })
+                         .update({
+                              testprice: price,
+                              testcost: cost,
+                              updatedon: trx.fn.now()
+                         });
+               }
+
+               await trx.commit();
+               res.send({ message: "Test pricing updated successfully", statusCode: 200, status: "success" });
+          } catch (err) {
+               console.log(err)
+               await trx.rollback();
+               logger.error(err);
+               customError("Failed to update test pricing", 500, res);
+          }
+     } catch (err) {
+          logger.error(err);
+          customError("Something went wrong", 500, res);
      }
 };

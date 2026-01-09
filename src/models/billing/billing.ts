@@ -111,9 +111,12 @@ export class Billing {
 		if (typeof billingid !== "number") {
 			throw new TypeError("billingid must be a number");
 		}
-		const servicesList = await Services.findAllServicesAssociatedWithBillingId(tenantId, billingid);
-		if (servicesList.length === 0) return [];
-		const previousRecords = await this.diffentiateBilledToIndividualServices(tenantId, servicesList);
+		const connection = await KnexConnection(tenantId);
+		const servicesProfile: PrimeLimsTablebilling[] = await connection('dboservices')
+			.where({ billingid })
+			.orWhere({ relatedbillingid: billingid });
+		if (servicesProfile.length === 0) return [];
+		const previousRecords = await this.diffentiateBilledToIndividualServices(tenantId, servicesProfile);
 		return previousRecords
 	}
 

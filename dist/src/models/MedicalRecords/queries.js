@@ -11,8 +11,9 @@ exports.q_medical_records_update = `UPDATE medicalrecords SET complaints = ?, hp
 `;
 exports.q_medical_records_delete = 'DELETE FROM medicalrecords WHERE id = ?';
 exports.q_medical_records_getAll = `
-  SELECT mr.*, rr.username AS consultationby, rr.employeeid  
+  SELECT mr.*,np.*, rr.username AS consultationby, rr.employeeid  
   FROM medicalrecords AS mr 
-  INNER JOIN roles AS rr ON rr.employeeid = mr.consulationby
+  LEFT JOIN roles AS rr ON rr.employeeid = mr.consulationby
+  LEFT JOIN new_patients AS np ON np.patientid = mr.patientid
   LIMIT ? OFFSET ?
 `;

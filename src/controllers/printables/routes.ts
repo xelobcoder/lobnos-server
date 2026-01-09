@@ -20,7 +20,8 @@ import {
   getTransactionApprovedTest,
   getBillingReceipt,
 } from "./handlers"
-import { getPatientOutstandingPayments, processMultiServicePayment } from "./MultiPaymentHamdler";
+import { generateTransactionReceiptHandler, getPatientOutstandingPayments, processMultiServicePayment, updateReceiptPrintedHandler, getReceiptsHandler } from "./MultiPaymentHamdler";
+import { handleOverLoad } from "../../hooks/helper";
 
 const router = express.Router();
 
@@ -31,6 +32,9 @@ router.post("/api/v1/result/ready/updateprint/count", updatePrintCount);
 router.get("/api/v1/result/ready/crm/summary", getSummaryReadyPage);
 router.get("/api/v1/billing/payment/info/client", getClientTransactionInfo);
 router.get("/api/v1/billing/client/bulk/outstanding", getPatientOutstandingPayments);
+router.get('/api/v1/billing/client/generate/receipt', handleOverLoad(generateTransactionReceiptHandler));
+router.post('/api/v1/receipt/update/printed', handleOverLoad(updateReceiptPrintedHandler));
+router.get('/api/v1/receipts', handleOverLoad(getReceiptsHandler));
 router.post("/api/v1/billing/multi-service/payment", processMultiServicePayment);
 router.get("/api/v1/paymentmodes", getPaymentModes);
 router.get("/api/v1/billing/client/transactionhx", getClientTransactionHistory);

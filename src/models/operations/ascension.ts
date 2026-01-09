@@ -100,15 +100,27 @@ export class TestAscension extends Operations {
 		return Client_PLS_Lifecycle[1]
 	}
 
-	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number, start_date: Date | string, end_date: Date | string): Promise<any[]> {
+	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number, start_date: Date | string, end_date: Date | string, filter?: string, sortby: 'ASC' | 'DESC' = 'ASC'): Promise<any[]> {
 		let query = q_pending_sample_uncollected;
+		let params: any[] = [];
 		if (start_date && end_date) {
 			query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+			params = [start_date, end_date];
 		}
-		query += ` ORDER BY b.billingid ASC 
-          LIMIT ? OFFSET ?`;
+		if (filter) {
+			const words = filter.trim().split(/\s+/).filter(w => w.length > 0);
+			const nameConditions = words.map(() => `(p.firstname LIKE BINARY ? OR p.middlename LIKE BINARY ? OR p.lastname LIKE BINARY ?)`).join(' OR ');
+			query += ` AND (ts.id = ? OR ${nameConditions})`;
+			params.push(filter);
+			words.forEach(word => {
+				params.push(`%${word}%`, `%${word}%`, `%${word}%`);
+			});
+		}
+		query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
 
-		return await paginationQuery({ count, page }, query, [start_date, end_date], tenantId);
+		console.log(query)
+
+		return await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
 	}
 
 	public static async getTransactionAscentionTestDetails(tenantId: number, billingid: number): Promise<any> {

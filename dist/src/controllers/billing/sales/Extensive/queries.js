@@ -10,7 +10,10 @@ exports.QUERY_DAILY_CEO_SNAPSHOT = `
             COALESCE(SUM(totalpayable), 0) AS accrued_revenue,
             COALESCE(SUM(discount), 0) AS total_discount,
             COALESCE(SUM(outstanding), 0) AS outstanding_debt,
-            COALESCE(SUM(r.amountRefunded), 0) AS total_refunds
+            COALESCE(SUM(r.amountRefunded), 0) AS total_refunds,
+            (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?) AS total_expense_payments,
+            COUNT(dboservices.serviceid) AS total_tests_conducted,
+            COALESCE(SUM(paidamount), 0) - (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?) AS net_revenue
             FROM dboservices
             LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
             WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ? AND ${major_constraints}
@@ -59,13 +62,15 @@ SELECT
         ON dboservices.serviceCategory = 'SERVICES' AND dboservices.trackId = ads.keyid
     LEFT JOIN dbobillingrefundtable 
         ON dboservices.serviceid = dbobillingrefundtable.serviceid
-    WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ?
+    LEFT JOIN roles r
+        ON dboservices.employeeid = r.employeeid
+    WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ?  AND  ${major_constraints}
     GROUP BY
         dboservices.trackId,
         dboservices.serviceAddedOn,
         dboservices.serviceCategory,
         tp.name,
-        ads.serviceName AND  ${major_constraints}
+        ads.serviceName
     ORDER BY
         dboservices.serviceAddedOn,
     dboservices.trackId DESC
@@ -93,14 +98,22 @@ exports.QUERY_MISMATCHED_PAYMENT_HISTORY = `
     SELECT
         b.billingid,
         b.paid AS paid_in_billing,
-        IFNULL(SUM(bh.Amount), 0) AS total_in_billinghx,
-        (b.paid - IFNULL(SUM(bh.Amount), 0)) AS difference
+        (
+            SELECT COALESCE(SUM(bh.Amount), 0)
+            FROM billinghx bh
+            WHERE bh.Billingid = b.billingid
+        ) AS total_in_billinghx,
+        (
+            b.paid - (
+                SELECT COALESCE(SUM(bh.Amount), 0)
+                FROM billinghx bh
+                WHERE bh.Billingid = b.billingid
+            )
+        ) AS difference
     FROM billing b
-    LEFT JOIN billinghx bh ON b.billingid = bh.Billingid
     WHERE DATE(b.billedon) BETWEEN ? AND ?
     AND b.status != 'voided'
     AND (b.adjustmentType IS NULL OR b.adjustmentType != 'void')
-    GROUP BY b.billingid
     HAVING difference != 0
 `;
 exports.QUERY_BREAK_DOWN_PAYMENT_MODES = `
@@ -194,7 +207,7 @@ ORDER BY total_amount DESC
 `;
 exports.QUERY_EXPENSE_APPROVAL_STATUS_SUMMARY = `
 SELECT 
-    CASE WHEN approved = 1 THEN 'Approved' ELSE 'Pending/Rejected' END AS status,
+    CASE WHEN approved = 1 THEN 'Approved' ELSE 'Pending' END AS status,
     COUNT(*) AS expense_count,
     SUM(amount) AS total_amount
 FROM expensesrecord
@@ -205,11 +218,14 @@ exports.QUERY_EXPENSE_PAYMENTS_SUMMARY = `
 SELECT 
     p.status,
     p.method,
+    em.name AS merchant_name,
     COUNT(*) AS payments_made,
     COUNT(DISTINCT p.expense_id) AS unique_expenses_reimbursed,
     COALESCE(SUM(p.amount), 0) AS total_reimbursed_amount
 FROM expense_payments p
 JOIN expensesrecord e ON p.expense_id = e.id
+LEFT JOIN expense_merchants em
+    ON e.merchant = em.id
 WHERE e.date BETWEEN ? AND ?
 GROUP BY p.status, p.method
 ORDER BY total_reimbursed_amount DESC
@@ -259,8 +275,11 @@ SELECT
     e.id AS expense_id,
     e.name,
     e.merchant,
+    b.name AS branch_name,
     e.amount,
     DATE(e.date) AS expense_date,
+em.name AS merchant_name,
+    r.username AS submitted_by,
     c.category,
     CASE WHEN e.approved = 1 THEN 'Approved' ELSE 'Pending' END AS approval_status,
     e.employeeid,
@@ -268,6 +287,12 @@ SELECT
     e.description
 FROM expensesrecord e
 JOIN dboexpensecategory c ON e.category = c.id
+LEFT JOIN roles r
+    ON e.employeeid = r.employeeid
+LEFT JOIN expense_merchants em
+    ON e.merchant = em.id
+LEFT JOIN branch b
+    ON e.branchid = b.branchid
 WHERE e.date BETWEEN ? AND ?
 ORDER BY e.date DESC, e.amount DESC
 `;
@@ -289,6 +314,7 @@ ORDER BY e.date ASC
 exports.QUERY_EXPENSES_BY_BRANCH = `
 SELECT 
     e.branchid,
+    b.name AS branch_name,
     COUNT(*) AS expense_count,
     SUM(e.amount) AS total_amount,
     ROUND(SUM(e.amount) * 100.0 / totals.total, 2) AS percentage_of_total
@@ -298,6 +324,8 @@ CROSS JOIN (
     FROM expensesrecord 
     WHERE date BETWEEN ? AND ?
 ) totals
+LEFT JOIN branch b
+    ON e.branchid = b.branchid
 WHERE e.date BETWEEN ? AND ?
 GROUP BY e.branchid, totals.total
 ORDER BY total_amount DESC

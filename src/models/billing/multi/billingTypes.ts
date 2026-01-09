@@ -1,5 +1,3 @@
-// Billing types and interfaces for billing module
-
 export const BillingModuleCodes = {
      MODULE_DEBT: 'outstanding debt found',
      MODULE_NO_SESSION: 'no active sales session found',

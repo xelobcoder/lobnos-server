@@ -87,8 +87,8 @@ class ExpenseAnalyticsController {
     static async getExpenseTrendsByMerchant(req, res) {
         try {
             const { tenantId, startDate, endDate } = req.query;
-            if (!tenantId || !startDate || !endDate) {
-                return (0, helper_1.customError)('tenantId, startDate, and endDate are required', 400, res);
+            if (!startDate || !endDate) {
+                return (0, helper_1.customError)('startDate and endDate are required', 400, res);
             }
             const analytics = new ExpenseAnalyticsQueries_1.ExpenseAnalyticsQueries(parseInt(tenantId));
             const result = await analytics.getExpenseTrendsByMerchant(startDate, endDate);
@@ -322,6 +322,52 @@ class ExpenseAnalyticsController {
         catch (error) {
             console.error('Error in getExpenseApprovalTimelineAnalytics:', error);
             (0, helper_1.customError)('Failed to retrieve expense approval timeline analytics', 500, res);
+        }
+    }
+    static async getRecurringExpenseAnalytics(req, res) {
+        try {
+            const { tenantId, startDate, endDate, branchid } = req.query;
+            if (!startDate || !endDate) {
+                return (0, helper_1.customError)('startDate and endDate are required', 400, res);
+            }
+            const analytics = new ExpenseAnalyticsQueries_1.ExpenseAnalyticsQueries(parseInt(tenantId));
+            const result = await analytics.getExpenseBreakdownWithPayments(startDate, endDate, branchid ? parseInt(branchid) : undefined);
+            res.status(200).json({
+                status: 'success',
+                statusCode: 200,
+                message: 'Expense approval timeline analytics retrieved successfully',
+                data: result[0]
+            });
+        }
+        catch (error) {
+            console.log(error);
+            (0, helper_1.customError)("Failed to retreve expense records ", 500, res);
+        }
+    }
+    static async getPaymentsByMerchant(req, res) {
+        try {
+            const { tenantId, page, count } = req.query;
+            const { merchantId } = req.params;
+            if (!merchantId || !page || !count) {
+                return (0, helper_1.customError)(' merchantId, page, and count are required', 400, res);
+            }
+            const analytics = new ExpenseAnalyticsQueries_1.ExpenseAnalyticsQueries(parseInt(tenantId));
+            const result = await analytics.getPaymentsByMerchant(parseInt(merchantId), parseInt(page), parseInt(count));
+            res.status(200).json({
+                status: 'success',
+                statusCode: 200,
+                message: 'Payments by merchant retrieved successfully',
+                data: result.data,
+                pagination: {
+                    totalRecords: result.total,
+                    page: result.page,
+                    pageSize: result.pageSize,
+                    totalPages: result.totalPages
+                }
+            });
+        }
+        catch (error) {
+            (0, helper_1.customError)('Failed to retrieve payments by merchant', 500, res);
         }
     }
 }

@@ -122,10 +122,13 @@ export async function monthlyApprovalRateHandler(request: Request, response: Res
 export async function PendingTestAscensionHandler(request: Request, response: Response) {
     try {
         const { tenantId, count = 10, page = 1, start_date, end_date } = request.query;
-        const parsedCount = parseInt(count.toString());
-        const parsedPage = parseInt(page.toString());
+        const parsedCount = parseInt(count.toString()) || 10;
+        const parsedPage = parseInt(page.toString()) || 1
         const tenantIdP = parseInt(tenantId.toString());
-        const pending = await TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string);
+        const filter = request.query.filter ? request.query.filter.toString() : undefined;
+        const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
+        console.log({ filter, sortby })
+        const pending = await TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string, filter as string, sortby as 'ASC' | 'DESC');
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });
     } catch (err) {
         console.log(err);
@@ -240,14 +243,15 @@ export async function getPendingUnvalidatedSamplesHandler(request: Request, resp
         const page = parseInt(request.query.page.toString()) || 1;
         const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
         const tenantIdP = parseInt(request.query.tenantId.toString());
-        const { startDate, endDate } = request.query;
+        const { startDate, endDate, searchString } = request.query;
 
         const List = await SampleHandler.getPendingUnvalidatedSamples(
             tenantIdP,
             { count, page },
             startDate as Date | string,
             endDate as Date | string,
-            sortby as 'DESC' | 'ASC'
+            sortby as 'DESC' | 'ASC',
+            searchString as string
         );
 
         response.send({ result: List, statusCode: 200, status: "success" });

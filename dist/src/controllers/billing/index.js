@@ -48,9 +48,14 @@ router.get('/api/v1/billing/patient/transactions/:billingid', BillingHandler_1.g
 // sales session
 router.post("/api/v1/billing/sales/session/create", (0, helper_1.handleOverLoad)(handler_1.handleCreateNewSalesSesion));
 router.get("/api/v1/billing/sales/session/list", handler_1.getSalesSessionList);
+router.get("/api/v1/billing/sales/session/by-date", (0, helper_1.handleOverLoad)(handler_1.getSessionsByDateHandler));
+router.put("/api/v1/billing/sales/session/:sessionId", (0, helper_1.handleOverLoad)(handler_1.handleUpdateSalesSession));
 router.put("/api/v1/billing/sales/session/endsession", handler_1.handleEndSalesSession);
 router.get('/api/v1/billing/sales/session/verify/session', handler_1.hasSalesSessionAvailableHandler);
 router.get(`/api/v1/billing/load/session/:sessionid/summary`, (0, helper_1.handleOverLoad)(handler_1.getSessionFinancialSummaryHandler));
+router.get("/api/v1/billing/sales/session/config", (0, helper_1.handleOverLoad)(handler_1.getSalesSessionConfigHandler));
+router.post("/api/v1/billing/sales/session/config", (0, helper_1.handleOverLoad)(handler_1.setSalesSessionConfigHandler));
+router.delete("/api/v1/billing/sales/session/:sessionId", (0, helper_1.handleOverLoad)(handler_1.deleteUnusedSalesSessionHandler));
 // campaigns 
 router.post("/api/v1/campaigns", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.create));
 router.get("/api/v1/campaigns/:id", (0, helper_1.handleOverLoad)(PrimeBillingCampaignController_1.PrimeBillingCampaignController.findById));

@@ -22,51 +22,44 @@ class TestCreationRulesRepository {
                     .whereIn('id', rulesToDelete.map(rule => rule.id))
                     .delete();
             }
-            const values = rulesData.map(ruleData => ({
-                testid,
-                name: ruleData.name,
-                field: ruleData.field,
-                value: ruleData.value,
-                hasunits: ruleData.hasunits,
-                units: ruleData.units,
-                plan: ruleData.plan,
-                plain: ruleData.plain,
-                ordering: ruleData.ordering,
-                isValueTracked: ruleData.isValueTracked,
-                textReference: ruleData.textReference,
-                upperlimit: ruleData.upperlimit,
-                lowerlimit: ruleData.lowerlimit,
-                category: ruleData.category,
-                options: ruleData.options,
-                undercategory: ruleData.undercategory,
-                categoryid: ruleData.categoryid,
-                valueAlert: ruleData.valueAlert,
-                alert: ruleData.alert
-            }));
-            // Perform upsert
-            const result = await conn('testcreationrules')
-                .insert(values)
-                .onConflict(['testid', 'name'])
-                .merge([
-                'field',
-                'value',
-                'hasunits',
-                'units',
-                'plan',
-                'plain',
-                'ordering',
-                'isValueTracked',
-                'textReference',
-                'upperlimit',
-                'lowerlimit',
-                'category',
-                'options',
-                'undercategory',
-                'categoryid',
-                'valueAlert',
-                'alert'
-            ]);
-            return Array.isArray(result) ? result : [result];
+            const insertedIds = [];
+            for (const ruleData of rulesData) {
+                const existingRule = await conn('testcreationrules')
+                    .where({ testid, name: ruleData.name })
+                    .first();
+                const updateData = {
+                    field: ruleData.field,
+                    value: ruleData.value,
+                    hasunits: ruleData.hasunits,
+                    units: ruleData.units,
+                    plan: ruleData.plan,
+                    plain: ruleData.plain,
+                    ordering: ruleData.ordering,
+                    isValueTracked: ruleData.isValueTracked,
+                    textReference: ruleData.textReference,
+                    upperlimit: ruleData.upperlimit,
+                    lowerlimit: ruleData.lowerlimit,
+                    category: ruleData.category,
+                    options: ruleData.options,
+                    undercategory: ruleData.undercategory,
+                    categoryid: ruleData.categoryid,
+                    valueAlert: ruleData.valueAlert,
+                    alert: ruleData.alert
+                };
+                if (existingRule) {
+                    await conn('testcreationrules')
+                        .where({ testid, name: ruleData.name })
+                        .update(updateData);
+                    insertedIds.push(existingRule.id);
+                }
+                else {
+                    const insertData = Object.assign({ testid, name: ruleData.name }, updateData);
+                    const result = await conn('testcreationrules')
+                        .insert(insertData);
+                    insertedIds.push(Array.isArray(result) ? result[0] : result);
+                }
+            }
+            return insertedIds;
         }
         catch (error) {
             console.error('Test creation rules bulk creation error:', error);

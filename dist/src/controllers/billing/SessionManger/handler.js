@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSessionFinancialSummaryHandler = exports.hasSalesSessionAvailableHandler = exports.handleEndSalesSession = exports.getSalesSessionList = exports.handleCreateNewSalesSesion = void 0;
+exports.handleUpdateSalesSession = exports.getSessionsByDateHandler = exports.deleteUnusedSalesSessionHandler = exports.setSalesSessionConfigHandler = exports.getSalesSessionConfigHandler = exports.getSessionFinancialSummaryHandler = exports.hasSalesSessionAvailableHandler = exports.handleEndSalesSession = exports.getSalesSessionList = exports.handleCreateNewSalesSesion = void 0;
 const SalesSessionRepo_1 = require("../../../models/billing/repositories/SalesSessionRepo");
 const helper_1 = require("../../../hooks/helper");
 const salesSessionService_1 = __importDefault(require("../../../models/billing/repositories/salesSessionService"));
@@ -93,3 +93,100 @@ const getSessionFinancialSummaryHandler = async function (request, response) {
     }
 };
 exports.getSessionFinancialSummaryHandler = getSessionFinancialSummaryHandler;
+const getSalesSessionConfigHandler = async function (request, response) {
+    try {
+        const { tenantId, branchid } = request.query;
+        const parsedTenantId = parseInt(tenantId);
+        const parsedBranchId = parseInt(branchid);
+        if (!branchid) {
+            return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + " branchid not provided", 400, response);
+        }
+        const config = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).getSessionConfig(parsedBranchId);
+        response.send({ config });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err === null || err === void 0 ? void 0 : err.message);
+    }
+};
+exports.getSalesSessionConfigHandler = getSalesSessionConfigHandler;
+const setSalesSessionConfigHandler = async function (request, response) {
+    try {
+        const { tenantId } = request.query;
+        const parsedTenantId = parseInt(tenantId.toString());
+        const configData = request.body;
+        if (!configData.branchid) {
+            return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + " branchid not provided in body", 400, response);
+        }
+        const status = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).setSessionConfig(configData);
+        response.status(200).send({ status });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err === null || err === void 0 ? void 0 : err.message);
+    }
+};
+exports.setSalesSessionConfigHandler = setSalesSessionConfigHandler;
+const deleteUnusedSalesSessionHandler = async function (request, response) {
+    try {
+        const { tenantId } = request.query;
+        const { sessionId } = request.params;
+        const parsedTenantId = parseInt(tenantId.toString());
+        const parsedSessionId = parseInt(sessionId);
+        if (!sessionId || isNaN(parsedSessionId)) {
+            return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + " sessionId not provided or invalid", 400, response);
+        }
+        const result = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).deleteUnusedSession(parsedSessionId);
+        if (typeof result === 'string') {
+            return response.status(400).send({ error: result, status: false });
+        }
+        response.status(200).send({ status: result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err === null || err === void 0 ? void 0 : err.message);
+    }
+};
+exports.deleteUnusedSalesSessionHandler = deleteUnusedSalesSessionHandler;
+const getSessionsByDateHandler = async function (request, response) {
+    try {
+        const { tenantId, date, branchid } = request.query;
+        const parsedTenantId = parseInt(tenantId);
+        const sessionDate = new Date(date);
+        const branchId = branchid ? parseInt(branchid) : undefined;
+        if (!date || isNaN(sessionDate.getTime())) {
+            return (0, helper_1.customError)("Invalid date provided", 400, response);
+        }
+        const sessions = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).findSessionsByDateRange(sessionDate, sessionDate, branchId);
+        response.status(200).send({
+            status: true,
+            data: sessions,
+            count: sessions.length,
+            date: date
+        });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err === null || err === void 0 ? void 0 : err.message);
+    }
+};
+exports.getSessionsByDateHandler = getSessionsByDateHandler;
+const handleUpdateSalesSession = async function (request, response) {
+    try {
+        const { tenantId } = request.query;
+        const { sessionId } = request.params;
+        const parsedTenantId = parseInt(tenantId.toString());
+        const parsedSessionId = parseInt(sessionId);
+        const updateData = request.body;
+        if (!sessionId || isNaN(parsedSessionId)) {
+            return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + " sessionId not provided or invalid", 400, response);
+        }
+        const result = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).update(parsedSessionId, updateData);
+        if (result > 0) {
+            response.status(200).send({ status: true, message: "Session updated successfully" });
+        }
+        else {
+            response.status(404).send({ status: false, message: "Session not found or no changes made" });
+        }
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err === null || err === void 0 ? void 0 : err.message);
+    }
+};
+exports.handleUpdateSalesSession = handleUpdateSalesSession;

@@ -24,6 +24,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 
 		const queryParams = createQueryParams({ dateFrom, dateEnd, operationsStaging, searchString, page, count, isUltrasound, clinicianId, organizationId,
 			sortby: request.query.sortby as 'DESC' | 'ASC' });
+			
 		let list = await Operations.getAscensionBasedOnStage(tenantIdP, queryParams);
 
 		if (operationsStaging === 'VALIDATION' && Array.isArray(list)) {

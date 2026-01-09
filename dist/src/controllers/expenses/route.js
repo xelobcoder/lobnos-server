@@ -63,4 +63,6 @@ router.get('/api/v1/expenses/analytics/payment-status', (0, helper_1.handleOverL
 router.get('/api/v1/expenses/analytics/buckets', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseBuckets));
 router.get('/api/v1/expenses/analytics/growth-rate', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseGrowthRateAnalytics));
 router.get('/api/v1/expenses/analytics/approval-timeline', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseApprovalTimelineAnalytics));
+router.get("/api/v1/expenses/analytics/breakdown-admin-level", (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getRecurringExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/payments-by-merchant/:merchantId', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getPaymentsByMerchant));
 exports.default = router;

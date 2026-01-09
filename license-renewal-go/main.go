@@ -28,9 +28,26 @@ func main() {
 		log.Printf("Warning: Error loading .env file: %v", err)
 	}
 
+	passwordFlag := flag.String("password", "", "Password for authentication")
 	startPeriodFlag := flag.String("start", "", "Start period (YYYY-MM-DDTHH:MM:SSZ format)")
 	endPeriodFlag := flag.String("end", "", "End period (YYYY-MM-DDTHH:MM:SSZ format)")
 	flag.Parse()
+
+	// Hardcoded password for comparison
+	hardcodedPassword := "PrimeLabTiifuHamza"
+
+	// Get password from flag or environment
+	password := *passwordFlag
+	if password == "" {
+		password = getEnv("PASSWORD", "")
+	}
+
+	// Compare password
+	if password != hardcodedPassword {
+		log.Fatalf("Invalid password provided")
+	}
+
+	fmt.Println("Password verified successfully")
 
 	serverURL := getEnv("SERVER_URL", "http://localhost:5000")
 	tenantID := getEnv("TENANT_ID", "1")

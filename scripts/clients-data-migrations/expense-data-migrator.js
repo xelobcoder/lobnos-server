@@ -1,13 +1,14 @@
 const mysql = require('mysql2/promise');
 const fs = require('fs');
 const path = require('path');
+const { query } = require('winston');
 
 // Database configuration (migrated old database with new schema)
 const dbConfig = {
      host: 'localhost',
      user: 'primelab',
      password: 'Barcelona45##',
-     database: 'client-database-mig'
+     database: 'client-database-mig',
 };
 
 class ExpenseDataMigrator {
@@ -44,14 +45,18 @@ class ExpenseDataMigrator {
                 em.phone as merchant_phone,
                 em.address as merchant_address
             FROM expensesrecord er
-            LEFT JOIN expense_merchants em ON er.merchant = em.name
+            LEFT JOIN expense_merchants em ON er.merchant = em.id
             WHERE er.approved = 1
-            ORDER BY er.employeeid, er.date
+            ORDER BY er.date
         `;
 
           const [rows] = await this.connection.execute(query);
-          console.log(`📊 Found ${rows.length} approved expenses to migrate`);
+          // parse merchant id 
 
+          for (let i = 0; i < rows.length; i++) {
+               const row = rows[i];
+               row['merchant'] = parseInt(row['merchant']);
+          }
           return rows;
      }
 
@@ -60,41 +65,41 @@ class ExpenseDataMigrator {
                return null;
           }
 
-          // First, try to find existing merchant
           const findQuery = 'SELECT id FROM expense_merchants WHERE name = ?';
           const [existing] = await this.connection.execute(findQuery, [merchantName]);
 
           if (existing.length > 0) {
                return existing[0].id;
+
           }
 
-          // Create new merchant if not found
-          const insertQuery = `
-            INSERT INTO expense_merchants (name, email, phone, address, created_by, updated_by)
-            VALUES (?, ?, ?, ?, 1, 1)
-        `;
+          console.log(existing);
 
-          const values = [
-               merchantName,
-               merchantData.email || null,
-               merchantData.phone || null,
-               merchantData.address || null
-          ];
 
-          const [result] = await this.connection.execute(insertQuery, values);
-          console.log(`🏪 Created new merchant: ${merchantName} (ID: ${result.insertId})`);
 
-          return result.insertId;
+          //      // Create new merchant if not found
+          //      const insertQuery = `
+          //        INSERT INTO expense_merchants (name, email, phone, address, created_by, updated_by)
+          //        VALUES (?, ?, ?, ?, 1, 1)
+          //    `;
+
+          //      const values = [
+          //           merchantName,
+          //           merchantData.email || null,
+          //           merchantData.phone || null,
+          //           merchantData.address || null
+          //      ];
+
+          //      const [result] = await this.connection.execute(insertQuery, values);
+          //      console.log(`🏪 Created new merchant: ${merchantName} (ID: ${result.insertId})`);
+
+          //      return result.insertId;
      }
 
      async createInvoiceForExpense(expense, merchantId) {
           const invoiceNumber = `MIG-${expense.id}-${Date.now()}`;
           const invoiceDate = expense.approvedon || expense.date || new Date().toISOString().split('T')[0];
-          const dueDate = new Date(invoiceDate);
-          dueDate.setDate(dueDate.getDate() + 30); // 30 days payment term
-
-          console.log(`📅 Using approval date for invoice: ${invoiceDate} (approvedon: ${expense.approvedon}, date: ${expense.date})`);
-
+          const dueDate = invoiceDate ? new Date(invoiceDate) : new Date();
           const insertQuery = `
             INSERT INTO invoices (
                 invoice_number, invoice_date, due_date, merchant_id,
@@ -110,13 +115,11 @@ class ExpenseDataMigrator {
                expense.employeeid,
                expense.branchid,
                parseFloat(expense.amount),
-               0.00 // No tax for migrated expenses
+               0.00 
           ];
 
           const [result] = await this.connection.execute(insertQuery, values);
           const invoiceId = result.insertId;
-
-          console.log(`📄 Created invoice ${invoiceNumber} for expense ${expense.id}`);
 
           return { invoiceId, invoiceNumber };
      }
@@ -133,14 +136,13 @@ class ExpenseDataMigrator {
 
      async createPaymentForExpense(expense, invoiceId) {
           const paymentDate = expense.approvedon || expense.date || new Date().toISOString().split('T')[0];
-
           console.log(`💰 Using approval date for payment: ${paymentDate} (approvedon: ${expense.approvedon}, date: ${expense.date})`);
 
           const insertQuery = `
             INSERT INTO expense_payments (
                 expense_id, invoice_id, payment_date, amount,
                 method, status, created_by, created_on
-            ) VALUES (?, ?, ?, ?, 'Cash', 'Paid', ?, NOW())
+            ) VALUES (?, ?, ?, ?, 'Cash', 'Paid', ?, ?)
         `;
 
           const values = [
@@ -148,7 +150,8 @@ class ExpenseDataMigrator {
                invoiceId,
                paymentDate,
                parseFloat(expense.amount),
-               expense.employeeid
+               expense.employeeid,
+               paymentDate
           ];
 
           const [result] = await this.connection.execute(insertQuery, values);
@@ -161,30 +164,43 @@ class ExpenseDataMigrator {
           try {
                console.log(`\n🔄 Migrating expense ID: ${expense.id}, Amount: ${expense.amount}, Merchant: ${expense.merchant}`);
 
-               // Get or create merchant
-               const merchantId = await this.getOrCreateMerchant(expense.merchant, {
-                    email: expense.merchant_email,
-                    phone: expense.merchant_phone,
-                    address: expense.merchant_address
-               });
+               // Start transaction
+               await this.connection.beginTransaction();
+               console.log(`🔐 Started transaction for expense ${expense.id}`);
 
+               // Use existing merchant ID (merchants are already available)
+               const merchantId = expense.merchant;
                if (!merchantId) {
-                    throw new Error(`Could not create/find merchant for expense ${expense.id}`);
+                    throw new Error(`No merchant ID found for expense ${expense.id}`);
                }
 
+               console.log(`🏪 Using existing merchant ID ${merchantId} for expense ${expense.id}`);
                // Create invoice
                const { invoiceId } = await this.createInvoiceForExpense(expense, merchantId);
 
+               console.log(`🧾 Created invoice ${invoiceId} for expense ${expense.id}`);
                // Link expense to invoice
                await this.linkExpenseToInvoice(invoiceId, expense.id);
 
-               // Create payment
+               // // Create payment
                await this.createPaymentForExpense(expense, invoiceId);
+
+               // // Commit transaction
+               await this.connection.commit();
+               console.log(`✅ Committed transaction for expense ${expense.id}`);
 
                this.migratedCount++;
                console.log(`✅ Successfully migrated expense ${expense.id}`);
 
           } catch (error) {
+               // Rollback transaction on error
+               try {
+                    await this.connection.rollback();
+                    console.log(`🔄 Rolled back transaction for expense ${expense.id}`);
+               } catch (rollbackError) {
+                    console.error(`❌ Failed to rollback transaction for expense ${expense.id}:`, rollbackError.message);
+               }
+
                console.error(`❌ Failed to migrate expense ${expense.id}:`, error.message);
                this.errors.push({
                     expenseId: expense.id,
@@ -206,10 +222,9 @@ class ExpenseDataMigrator {
 
                // Get all approved expenses
                const expenses = await this.getApprovedExpenses();
-
                if (expenses.length === 0) {
                     console.log('⚠️  No approved expenses found to migrate');
-                    return;
+                    throw new Error('No approved expenses to migrate');
                }
 
                console.log(`\n📋 Starting migration of ${expenses.length} expenses...`);

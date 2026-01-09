@@ -61,10 +61,6 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
 
           if (validationError) return validationError;
-          // if (params.pricingcheckout === false && !params.patientId) return BillingModuleCodes.MODULE_NO_PATIENT_ID;
-          // if (params.billingSource === undefined || params.billingSource === null) return BillingModuleCodes.BILLINGSOURCE_NOT_PROVIDED;
-          // if (params.branchid === undefined || params.branchid === null) return BillingModuleCodes.BRANCH_ID_NOT_PROVIDED;
-
           const [sessionExists, hasDebt, appsettings, taxation, paymentModes] = await Promise.all([
                this.hasActiveSession(params.branchid),
                this.hasOutstandingDebt(params.patientId, params.pricingcheckout || false),

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTestSetupResultLiterature = exports.putTestSetupLiterature = exports.getTestSetupLiterature = exports.putTestPanelChangeName = exports.getTestPanelData = exports.getTestPanelCreationRule = exports.deleteTestPanel = exports.putTestPanelUpdate = exports.postTestPanelCreate = exports.postBulkTestPanelUpdate = exports.getLiteratureReviewResult = exports.putTestLiteratureReview = exports.getTestLiteratureReview = exports.getProcedureManual = exports.getTestPanelEdit = exports.putTestPanelUpdateProcedureManual = exports.postCreateCustomTestPanel = exports.getBulkTestPanelList = exports.getTestPanelList = exports.postCategories = exports.getCategories = void 0;
+exports.putBulkTestPricingUpdate = exports.getTestSetupResultLiterature = exports.putTestSetupLiterature = exports.getTestSetupLiterature = exports.putTestPanelChangeName = exports.getTestPanelData = exports.getTestPanelCreationRule = exports.deleteTestPanel = exports.putTestPanelUpdate = exports.postTestPanelCreate = exports.postBulkTestPanelUpdate = exports.getLiteratureReviewResult = exports.putTestLiteratureReview = exports.getTestLiteratureReview = exports.getProcedureManual = exports.getTestPanelEdit = exports.putTestPanelUpdateProcedureManual = exports.postCreateCustomTestPanel = exports.getBulkTestPanelList = exports.getTestPanelList = exports.postCategories = exports.getCategories = void 0;
 const creator_1 = __importDefault(require("../../models/creator/creator"));
 const categories_1 = require("../../testpanel/categories");
 const helper_1 = require("../../hooks/helper");
@@ -12,6 +12,7 @@ const testpanelList_1 = require("../../testpanel/testpanelList");
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const MasterTestPanelRepository_1 = __importDefault(require("../../models/system-admin/MasterTestPanelRepository"));
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 // Category Handlers
 const getCategories = (req, res) => {
     (0, categories_1.getCategory)(req, res);
@@ -65,6 +66,7 @@ const postCreateCustomTestPanel = async (req, res) => {
         }
         else {
             const isSuccess = await testpanelList_1.testpanel.createCustomTest(tenantId, name);
+            console.log(isSuccess);
             if (isSuccess === "EXIST") {
                 return (0, helper_1.customError)("test with same name is available", 404, res);
             }
@@ -219,6 +221,7 @@ const getTestPanelCreationRule = async (req, res) => {
         res.send(rule);
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(res);
     }
 };
@@ -301,3 +304,48 @@ const getTestSetupResultLiterature = async (req, res) => {
     }
 };
 exports.getTestSetupResultLiterature = getTestSetupResultLiterature;
+const putBulkTestPricingUpdate = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId.toString());
+        const { tests } = req.body;
+        if (!Array.isArray(tests) || tests.length === 0) {
+            return (0, helper_1.customError)("Tests array is required and must not be empty", 400, res);
+        }
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const trx = await connection.transaction();
+        try {
+            for (const test of tests) {
+                const { testid, price, cost } = test;
+                if (!testid || price === undefined || cost === undefined) {
+                    await trx.rollback();
+                    return (0, helper_1.customError)("Each test must have testid, price, and cost", 400, res);
+                }
+                await trx('test_panels')
+                    .where({ id: testid })
+                    .update({
+                    price
+                });
+                await trx("testdetails")
+                    .where({ testid: testid })
+                    .update({
+                    testprice: price,
+                    testcost: cost,
+                    updatedon: trx.fn.now()
+                });
+            }
+            await trx.commit();
+            res.send({ message: "Test pricing updated successfully", statusCode: 200, status: "success" });
+        }
+        catch (err) {
+            console.log(err);
+            await trx.rollback();
+            logger_1.default.error(err);
+            (0, helper_1.customError)("Failed to update test pricing", 500, res);
+        }
+    }
+    catch (err) {
+        logger_1.default.error(err);
+        (0, helper_1.customError)("Something went wrong", 500, res);
+    }
+};
+exports.putBulkTestPricingUpdate = putBulkTestPricingUpdate;

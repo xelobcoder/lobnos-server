@@ -321,19 +321,19 @@ exports.q_get_all_entered_result = `
     np.gender,
     b.billingid,
     b.billedon AS billing_date,
-    tr.ascensionid,
-    tr.testid,
-    tr.created_on AS result_entry_date,
+    dta.ascensionid,
+    ta.testid,
+    ta.resultEntryStart AS result_entry_date,
     dta.*,
     TP.name AS test_name,
     ss.*
-  FROM test_results AS tr
-    INNER JOIN billing AS b ON tr.billingid = b.billingid
-    INNER JOIN new_patients AS np ON tr.patientid = np.patientid
-    INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = tr.ascensionid
-    INNER JOIN samplestatus AS ss ON ss.ascensionid = tr.ascensionid
-    INNER JOIN test_panels AS tp ON tp.id = tr.testid
-    LEFT JOIN roles AS r ON r.employeeid = tr.employeeid
+  FROM dbotestresultapproval AS dta
+      INNER JOIN test_ascension AS ta ON dta.ascensionid = ta.id
+    INNER JOIN billing AS b ON ta.billingid = b.billingid
+    INNER JOIN new_patients AS np ON np.patientid = b.patientid
+    INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
+    INNER JOIN test_panels AS tp ON tp.id = ta.testid
+    LEFT JOIN roles AS r ON r.employeeid = ta.resultEnteredBy
 `;
 exports.q_get_all_test_preview = `SELECT ta.testid,
             tp.NAME,

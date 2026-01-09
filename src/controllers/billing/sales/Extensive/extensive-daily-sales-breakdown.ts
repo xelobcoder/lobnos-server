@@ -75,7 +75,7 @@ export async function getDailyAnalyticsDashboard(
 			expensesByBranch,
 			ceoExpenseSummarySnapshot
 		] = await Promise.all([
-			db.raw(QUERY_DAILY_CEO_SNAPSHOT, [fromDate, toDate]),
+			db.raw(QUERY_DAILY_CEO_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate]),
 			db.raw(QUERY_NIGHT_ADJUSTMENT_IMPACT, [fromDate, toDate]),
 			db.raw(QUERY_TEST_TRANSACTION_SNAPSHOT, [fromDate, toDate]),
 			db.raw(QUERY_TOP_PERFORMING_BRANCHES, [fromDate, toDate]),

@@ -2,6 +2,7 @@ export interface TransactionRecord {
   patientid?: number;
   from?: string;
   to?: string;
+  isloadall?: boolean;
   count?: number;
   branchid:number;
   page?: number;

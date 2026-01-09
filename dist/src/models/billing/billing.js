@@ -71,10 +71,13 @@ class Billing {
         if (typeof billingid !== "number") {
             throw new TypeError("billingid must be a number");
         }
-        const servicesList = await services_1.Services.findAllServicesAssociatedWithBillingId(tenantId, billingid);
-        if (servicesList.length === 0)
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const servicesProfile = await connection('dboservices')
+            .where({ billingid })
+            .orWhere({ relatedbillingid: billingid });
+        if (servicesProfile.length === 0)
             return [];
-        const previousRecords = await this.diffentiateBilledToIndividualServices(tenantId, servicesList);
+        const previousRecords = await this.diffentiateBilledToIndividualServices(tenantId, servicesProfile);
         return previousRecords;
     }
     static async totalRecordedPayment(tenantId, billingid) {

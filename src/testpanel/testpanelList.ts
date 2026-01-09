@@ -6,6 +6,8 @@ import { promisifyQuery, customError, rowAffected, responseError, hasSpecialChar
 import logger from "../hooks/logger";
 import { PrimeLimsTabletestdetails } from "../database/DatabaseTableSchema";
 import MasterTestPanelRepository from "../models/system-admin/MasterTestPanelRepository";
+import KnexConnection from "../database/KnexConnections";
+
 
 interface TestPanel {
 	id: number;
@@ -211,8 +213,9 @@ export const testpanel = {
 
 	hasTest: async (tenantId: number, testname: string) => {
 		if (!testname) throw new Error("Testname required");
-		const result = await promisifyQuery(tenantId, `SELECT COUNT(*) AS count FROM test_panels WHERE name = ?`, [testname.trim()]);
-		return result[0]["count"] == 0 ? false : true;
+		const connection = await KnexConnection(tenantId);
+		const result = await connection('test_panels').where('name', testname.trim()).count('* as count').first();
+		return Number(result.count) > 0;
 	},
 
 	hasTrend: async (tenantId: number, testid: number) => {
@@ -388,7 +391,8 @@ export const testpanel = {
 	},
 
 	getpanelsbulk: async (tenantId: number, grouping: 'client' | 'master') => {
-		const query = `SELECT * FROM test_panels`;
+		const query = `SELECT tp.*,td.testprice , td.testcost FROM test_panels AS tp
+		LEFT JOIN testdetails AS td ON tp.id = td.testid`;
 		try {
 			let result = grouping == "master" ? await new MasterTestPanelRepository().getMasterPanels() : await promisifyQuery(tenantId, query);
 			return result;
@@ -518,7 +522,6 @@ export const testpanel = {
 
 
 	createCustomTest: async function (tenantId: number, testname: string, iscustom: number = 1): Promise<boolean | string> {
-		let hasTestBeenCreated = false;
 		try {
 			if (!testname) {
 				throw new Error("Testname required");
@@ -527,15 +530,12 @@ export const testpanel = {
 				return "EXIST";
 			}
 
-			const query = `INSERT INTO test_panels (name, iscustom) VALUES (?, ?)`;
-			const result = await promisifyQuery(tenantId, query, [testname, iscustom]);
-			return rowAffected(result);
+			const connection = await KnexConnection(tenantId);
+			const result = await connection('test_panels').insert({ name: testname, iscustom });
+			return result && result.length > 0;
 		} catch (err) {
-			console.log(err)
-			if (hasTestBeenCreated) {
-				await promisifyQuery(tenantId, `DELETE FROM test_panels WHERE name = ?`, [testname]);
-				throw new Error("Test creation failed");
-			}
+			console.log(err);
+			throw new Error("Test creation failed");
 		}
 	},
 

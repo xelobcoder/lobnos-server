@@ -34,8 +34,15 @@ class OutsourcedCases {
     }
     static async markOutsourceCasesAsExpense(tenantId, data) {
         try {
-            const { branchid, employeeid, testid, serviceid, trackingid, outsourcedid } = data;
+            const { branchid, employeeid, serviceid, trackingid } = data;
             const connection = await (0, KnexConnections_1.default)(tenantId);
+            // Check if expense already exists for this service to prevent duplicates
+            const existingExpense = await connection('expensesrecord')
+                .where({ serviceid: data.serviceid, isassociatedservice: 1 })
+                .first();
+            if (existingExpense) {
+                throw new Error("Expense already exists for this outsourced service");
+            }
             // check merchants to ensure outsource is a valid merchant, if not  create it
             const dboexpensecategoryRecord = await connection('dboexpensecategory')
                 .where({ category: "outsourcing" })

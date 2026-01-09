@@ -481,7 +481,6 @@ export class SubmitCustomerBilling {
                     }
                 }
             } catch (err) {
-                console.error("Error inserting service:", err);
                 insertionErrors.push(err);
             }
         }

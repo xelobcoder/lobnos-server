@@ -66,7 +66,7 @@ export default class Expenses implements IExpenseRepository {
                     throw new TypeError('object with keys required');
                }
 
-               const { employeeid, branchid, name, date, merchant, amount, description, category } = data;
+               const { employeeid, branchid, name, date, merchant, amount, description, category, serviceid, isassociatedservice } = data;
 
                if (!employeeid || !branchid || !name) {
                     throw new Error('name, employeeid, branchid required');
@@ -85,6 +85,8 @@ export default class Expenses implements IExpenseRepository {
                     description,
                     merchant,
                     category,
+                    serviceid,
+                    isassociatedservice: isassociatedservice || 0,
                     date,
                     groupId: finalGroupId
                };
