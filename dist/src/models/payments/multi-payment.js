@@ -87,6 +87,7 @@ class MultiPayment {
                         paid: totalPaid,
                         outstanding: totalOutstanding,
                         payable: totalPayable,
+                        status: totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid'),
                         clientstatus: totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid')
                     });
                 }

@@ -173,8 +173,6 @@ export default class Operations {
 				finalQuery += ` AND ds.organizationId = ?`;
 				conditions.push(organizationId as any as string);
 			}
-			console.log({ finalQuery, conditions })
-
 			return { conditions, finalQuery };
 		} catch (err) {
 			return null;

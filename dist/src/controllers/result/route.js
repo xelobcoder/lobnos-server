@@ -56,3 +56,6 @@ router.get('/api/v1/result/printingtracking', ResultPrintingTrackingController_1
 router.delete('/api/v1/result/printingtracking/:id', ResultPrintingTrackingController_1.ResultPrintingTrackingController.delete);
 // result trends
 router.get("/api/v1/result/trends", (0, helper_1.handleOverLoad)(testTrendsHandler_1.getTestTrendsHandler));
+// BYPASS COMPLETE FLOW FOR ASCENSION WHEN BILLING IS SUBMITTED
+router.post('/api/v1/operations/ascension/bypass/mutiple/completeflow/bypass-multiple', (0, helper_1.handleOverLoad)(resultHandlers_1.completeFlowByPassMultipleHandler));
+router.post('/api/v1/operations/ascension/completeflow/bypass', (0, helper_1.handleOverLoad)(resultHandlers_1.completeFlowByPassHandler));

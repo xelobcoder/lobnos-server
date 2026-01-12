@@ -68,7 +68,7 @@ export default class MultiPayment {
                }
 
                const trx = await connection.transaction();
-
+               
                try {
                     for (const servicePayment of paymentData.service_payments) {
                          const service = await trx(this.servicesTable)
@@ -137,6 +137,7 @@ export default class MultiPayment {
                                    paid: totalPaid,
                                    outstanding: totalOutstanding,
                                    payable: totalPayable,
+                                   status : totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid'),
                                    clientstatus: totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid')
                               });
                     }

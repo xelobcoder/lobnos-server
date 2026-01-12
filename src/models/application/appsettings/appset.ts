@@ -129,38 +129,62 @@ export default class ApplicationSettings {
 	}
 
 	public async updateApplicationSettings(tenantId: number, data: ApplicationSettingsData): Promise<boolean> {
-		try {
-			const {
-				bulkregistration,
-				emailNotification,
-				fontsize,
-				textcolor,
-				DeactivateBilling24hrs,
-				BackgroundColor,
-				PaidBillsBeforeTransaction,
-				completeFlow,
-				approvalbeforeprinting,
-				includeTax,
-				services
-			} = data;
+		const connection = await KnexConnection(tenantId);
+		const {
+			bulkregistration,
+			emailNotification,
+			fontsize,
+			textcolor,
+			DeactivateBilling24hrs,
+			BackgroundColor,
+			PaidBillsBeforeTransaction,
+			completeFlow,
+			approvalbeforeprinting,
+			includeTax,
+			services,
+			AllowCrmToGiveDisocunt,
+			withnessRefund,
+			billingidPrefix,
+			patientIdGenerationMethod,
+			regioncode,
+			billingsettings,
+			districtcode,
+			fontFamily
+		} = data;
 
-			const values = [
-				bulkregistration,
-				fontsize,
-				textcolor,
-				BackgroundColor,
-				DeactivateBilling24hrs,
-				PaidBillsBeforeTransaction,
-				completeFlow,
-				approvalbeforeprinting,
-				emailNotification,
-				includeTax,
-				JSON.stringify(services)
-			];
-			const result = await promisifyQuery(tenantId, q_TruncateTable);
-			if (!result) return false;
-			const isUpdated: boolean = rowAffected(await promisifyQuery(tenantId, q_update_general_app_set, values));
-			return isUpdated;
+		try {
+			const result = await connection.transaction(async (trx) => {
+				const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
+				const record = {
+					bulkregistration,
+					fontsize,
+					textcolor,
+					BackgroundColor,
+					DeactivateBilling24hrs,
+					PaidBillsBeforeTransaction,
+					completeFlow,
+					approvalbeforeprinting,
+					emailNotification,
+					includeTax,
+					services: JSON.stringify(services),
+					AllowCrmToGiveDisocunt,
+					withnessRefund: withnessRefund,
+					billingidPrefix,
+					patientIdGenerationMethod,
+					regioncode,
+					districtcode,
+					billingsettings: billingsettings ? JSON.stringify(billingsettings) : null,
+					fontFamily: fontFamily || data.fontFamily || 'Arial'
+				};
+				let affectedRows = 0;
+				if (existing) {
+					affectedRows = await trx('applicationsettings').where({ keyid: 1 }).update(record);
+				} else {
+					affectedRows = await trx('applicationsettings').insert({ ...record, keyid: 1 });
+				}
+				return affectedRows > 0;
+			});
+			return result;
 		} catch (err) {
 			console.log(err);
 			throw err;

@@ -75,6 +75,8 @@ export class AuthController {
 
             const primeWindowRepo = new PrimeWindowAccessRepository(tenantId);
             const daysToExpiry = await primeWindowRepo.calculateDaysToExpiry();
+            const applicationSettings = new ApplicationSettings();
+            const settings = await applicationSettings.getAllAppSettings(tenantId);
 
             return res.status(200).json({
                 message: 'Token is valid', status: true,
@@ -92,7 +94,8 @@ export class AuthController {
                     company: company,
                     branchid: branch,
                     tenantId: 3,
-                }
+                },
+                settings
             });
         } catch (err) {
             console.log(err)

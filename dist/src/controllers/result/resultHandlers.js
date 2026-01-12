@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTestCreationRule = exports.sendResultViaEmailHandler = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
+exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.sendResultViaEmailHandler = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const companyProfile_1 = require("../../models/settings/companyProfile");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
@@ -502,3 +502,37 @@ const getTestCreationRule = async (request, response) => {
     }
 };
 exports.getTestCreationRule = getTestCreationRule;
+const completeFlowByPassHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const employeeId = req.body.employeeid;
+        const billingid = req.body.billingid;
+        if (!billingid || !employeeId) {
+            return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingid, employeeid, tenantId' });
+        }
+        const result = await ascension_1.TestAscension.completeFlowByPass(tenantId, parseInt(billingid), parseInt(employeeId));
+        res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+    }
+    catch (error) {
+        console.error('Error in complete flow bypass:', error);
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+exports.completeFlowByPassHandler = completeFlowByPassHandler;
+const completeFlowByPassMultipleHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const employeeId = req.body.employeeid;
+        const billingids = req.body.billingIds;
+        if (!billingids || !employeeId || !Array.isArray(billingids) || billingids.length === 0) {
+            return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingids (array), employeeid, tenantId' });
+        }
+        const result = await ascension_1.TestAscension.completeFlowByPassMultiple(tenantId, billingids, parseInt(employeeId));
+        res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+    }
+    catch (error) {
+        console.error('Error in complete flow bypass multiple:', error);
+        res.status(500).json({ status: 'error', message: 'Internal server error' });
+    }
+};
+exports.completeFlowByPassMultipleHandler = completeFlowByPassMultipleHandler;

@@ -14,6 +14,8 @@ const drugsUpload_1 = require("../drugs/drugsUpload");
 const helper_1 = require("../../hooks/helper");
 const creator_1 = __importDefault(require("../creator/creator"));
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const appset_1 = __importDefault(require("../application/appsettings/appset"));
 class TestAscension extends operations_1.default {
     constructor(ascensionId) {
         super(null);
@@ -148,6 +150,89 @@ class TestAscension extends operations_1.default {
         }
         catch (err) {
             throw err;
+        }
+    }
+    static async completeFlowByPass(tenantId, billingid, employeeid) {
+        const application_settings = await new appset_1.default().getAllAppSettings(tenantId);
+        const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
+        if (isCompleteLabFlowEnabled)
+            return;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const trx = await connection.transaction();
+        const cart = await trx("test_ascension").where({ billingid });
+        const AscensionIdx = cart.map(item => item.id);
+        if (AscensionIdx.length == 0)
+            return;
+        if (!isCompleteLabFlowEnabled) {
+            try {
+                for (const item of cart) {
+                    const currentDate = new Date();
+                    await trx('test_ascension')
+                        .update({
+                        collectionStartDate: currentDate,
+                        collectionEndDate: currentDate,
+                        processingStartDate: currentDate,
+                        processingEndDate: currentDate,
+                        sampleCollectedBy: employeeid,
+                        sampleProcessedBy: employeeid,
+                    }).where({ billingid: billingid, id: item.id });
+                    await trx('samplestatus')
+                        .update({
+                        approvalstatus: 1,
+                        phelobotomist: employeeid,
+                        validatedby: employeeid,
+                        samplevalidatedon: currentDate,
+                    }).where({ ascensionid: item.id });
+                }
+                await trx.commit();
+                return true;
+            }
+            catch (error) {
+                await trx.rollback();
+                throw error;
+            }
+        }
+    }
+    static async completeFlowByPassMultiple(tenantId, billingIds, employeeid) {
+        if (!Array.isArray(billingIds) || billingIds.length === 0)
+            return;
+        const application_settings = await new appset_1.default().getAllAppSettings(tenantId);
+        const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
+        if (isCompleteLabFlowEnabled)
+            return;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const trx = await connection.transaction();
+        try {
+            for (const billingid of billingIds) {
+                const cart = await trx("test_ascension").where({ billingid });
+                if (!cart || cart.length === 0)
+                    continue;
+                for (const item of cart) {
+                    const currentDate = new Date();
+                    await trx('test_ascension')
+                        .update({
+                        collectionStartDate: currentDate,
+                        collectionEndDate: currentDate,
+                        processingStartDate: currentDate,
+                        processingEndDate: currentDate,
+                        sampleCollectedBy: employeeid,
+                        sampleProcessedBy: employeeid,
+                    }).where({ billingid: billingid, id: item.id });
+                    await trx('samplestatus')
+                        .update({
+                        approvalstatus: 1,
+                        phelobotomist: employeeid,
+                        validatedby: employeeid,
+                        samplevalidatedon: currentDate,
+                    }).where({ ascensionid: item.id });
+                }
+            }
+            await trx.commit();
+            return true;
+        }
+        catch (error) {
+            await trx.rollback();
+            throw error;
         }
     }
 }

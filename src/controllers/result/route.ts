@@ -12,7 +12,9 @@ import {
        getResultPrintoutHandler,
        getResultPrintMultipleHandler,
        sendResultViaEmailHandler,
-       getTestCreationRule
+       getTestCreationRule,
+       completeFlowByPassHandler,
+       completeFlowByPassMultipleHandler
 } from "./resultHandlers"
 import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear } from './resultanalysis'
 import { billingIdChecker } from "../../middleware/redis/handlerAscensionBillingCheck";
@@ -50,6 +52,9 @@ router.get("/api/v1/result/analysis/test/getTestMonthlyCount", handlergetTestMon
 router.get("/api/v1/result/analysis/test/alltest/yearlycount", handlergetAllTestYearlyAnalysis)
 router.get("/api/v1/result/analysis/test/resultvalues", handleOverLoad(handlergetTestResultValuesForMonth))
 router.get("/api/v1/result/analysis/test/resultvalues/resultfields", getFieldResultValuesAcrossMonthOverYear)
+
+
+
 
 
 
@@ -108,3 +113,9 @@ router.delete('/api/v1/result/printingtracking/:id', ResultPrintingTrackingContr
 router.get("/api/v1/result/trends", handleOverLoad(getTestTrendsHandler));
 
 
+
+
+// BYPASS COMPLETE FLOW FOR ASCENSION WHEN BILLING IS SUBMITTED
+
+router.post('/api/v1/operations/ascension/bypass/mutiple/completeflow/bypass-multiple', handleOverLoad(completeFlowByPassMultipleHandler));
+router.post('/api/v1/operations/ascension/completeflow/bypass', handleOverLoad(completeFlowByPassHandler));

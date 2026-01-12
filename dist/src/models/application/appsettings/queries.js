@@ -4,7 +4,10 @@ exports.q_get_result_entry_settings = exports.q_update_result_entry_settings = e
 exports.q_application_setting = `SELECT * FROM applicationsettings`;
 exports.q_active_tax = `SELECT * FROM tax WHERE apply = 'Yes'`;
 exports.q_get_email_pref = "SELECT * FROM emailpreference ORDER BY id DESC LIMIT 1";
-exports.q_update_general_app_set = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,completeFlow,approvalbeforeprinting,emailNotification,includeTax,services) VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
+exports.q_update_general_app_set = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,
+completeFlow,approvalbeforeprinting,emailNotification,includeTax,services,
+AllowCrmToGiveDisocunt,withnessRefund,billingidPrefix,
+patientIdGenerationMethod,regioncode,districtcode,billingsettings) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 exports.q_TruncateTable = `TRUNCATE TABLE applicationsettings`;
 exports.q_update_sms_settings = "UPDATE applicationsettings SET smsSettings = ?";
 exports.q_get_sms_settings = "SELECT smsSettings FROM applicationsettings";

@@ -144,7 +144,6 @@ class Operations {
                 finalQuery += ` AND ds.organizationId = ?`;
                 conditions.push(organizationId);
             }
-            console.log({ finalQuery, conditions });
             return { conditions, finalQuery };
         }
         catch (err) {

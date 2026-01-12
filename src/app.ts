@@ -47,7 +47,7 @@ import CommissionPaymentsRouter from './controllers/commission/index';
 import leadsRouter from './controllers/crm/leads/route';
 import followupsRouter from './controllers/crm/leads/followups.route';
 import payrollRouter from './controllers/payroll/routes';
-import { backupScheduler } from './services/backup-scheduler';
+
 
 
 
@@ -131,61 +131,13 @@ app.get("/", (req: Request, res: Response) => {
 
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
 
-// Initialize backup scheduler when application starts
-console.log('Initializing backup scheduler...');
-backupScheduler.start().catch(error => {
-	console.error('Failed to start backup scheduler:', error);
-});
+
 
 app.listen(Number(port), host, (err) => {
 	console.log(`Server is running at http://${host}:${port}`);
 });
 
-// Graceful shutdown handling
-process.on('SIGINT', async () => {
-	console.log('Received SIGINT, initiating graceful shutdown...');
-	try {
-		console.log('Stopping backup scheduler...');
-		await backupScheduler.stop();
-		console.log('Backup scheduler stopped successfully');
-	} catch (error) {
-		console.error('Error stopping backup scheduler:', error);
-	}
-	console.log('Exiting process...');
-	process.exit(0);
-});
 
-process.on('SIGTERM', async () => {
-	console.log('Received SIGTERM, initiating graceful shutdown...');
-	try {
-		console.log('Stopping backup scheduler...');
-		await backupScheduler.stop();
-		console.log('Backup scheduler stopped successfully');
-	} catch (error) {
-		console.error('Error stopping backup scheduler:', error);
-	}
-	console.log('Exiting process...');
-	process.exit(0);
-});
 
-// Handle uncaught exceptions and unhandled rejections
-process.on('uncaughtException', async (error) => {
-	console.error('Uncaught Exception:', error);
-	try {
-		await backupScheduler.stop();
-	} catch (backupError) {
-		console.error('Error during emergency backup:', backupError);
-	}
-	process.exit(1);
-});
 
-process.on('unhandledRejection', async (reason, promise) => {
-	console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-	try {
-		await backupScheduler.stop();
-	} catch (backupError) {
-		console.error('Error during emergency backup:', backupError);
-	}
-	process.exit(1);
-});
 

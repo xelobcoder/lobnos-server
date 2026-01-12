@@ -1,4 +1,7 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const controllers_1 = require("./controllers");
@@ -8,6 +11,7 @@ const BillingHandler_1 = require("./BillingHandler");
 const handler_1 = require("./SessionManger/handler");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
 const helper_1 = require("../../hooks/helper");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const PrimeBillingCampaignController_1 = require("./PrimeBillingCampaignController");
 const PrimePromoCode_1 = require("./PrimePromoCode");
 const handler_2 = require("../applicationsettings/handler");
@@ -71,4 +75,34 @@ router.delete("/api/v1/promo-codes/:id", (0, helper_1.handleOverLoad)(PrimePromo
 router.get("/api/v1/promo-codes", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.list));
 router.post("/api/v1/promo-codes/increment-usage", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.incrementUsage));
 router.post("/api/v1/promo-codes/validate", (0, helper_1.handleOverLoad)(PrimePromoCode_1.PrimeBillingPromoCodeController.validatePromoCode));
+// Locations: Regions with their Districts
+router.get('/api/v1/locations/regions-districts', (async (req, res) => {
+    try {
+        const tenantQuery = req.query.tenantId;
+        const tenantIdStr = Array.isArray(tenantQuery) ? tenantQuery[0] : tenantQuery;
+        const headerTenant = req.headers['tenantid'] || req.headers['tenant-id'];
+        const headerTenantStr = Array.isArray(headerTenant) ? headerTenant[0] : headerTenant;
+        const tenantId = parseInt((tenantIdStr || headerTenantStr || '').toString());
+        if (!tenantId || isNaN(tenantId)) {
+            res.status(400).send({ status: 'error', statusCode: 400, message: 'tenantId query parameter is required' });
+            return;
+        }
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const regions = await connection('regions').select('id', 'name', 'regioncode').orderBy('name');
+        const districts = await connection('districts').select('id', 'name', 'code', 'regionid').orderBy('name');
+        const grouped = regions.map((r) => ({
+            id: r.id,
+            name: r.name,
+            regioncode: r.regioncode,
+            districts: districts.filter((d) => d.regionid === r.id)
+        }));
+        res.send({ status: 'success', statusCode: 200, data: grouped });
+        return;
+    }
+    catch (err) {
+        console.error('Error loading regions and districts', err);
+        res.status(500).send({ status: 'error', statusCode: 500, message: 'Failed to load regions and districts' });
+        return;
+    }
+}));
 exports.default = router;

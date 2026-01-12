@@ -11,6 +11,7 @@ const PrimeWindowAccessRepository_1 = __importDefault(require("../../models/sett
 const helper_1 = require("../../hooks/helper");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
 const companyProfile_1 = require("../../models/settings/companyProfile");
+const appset_1 = __importDefault(require("../../models/application/appsettings/appset"));
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 class AuthController {
     constructor() {
@@ -75,6 +76,8 @@ class AuthController {
                 return res.status(404).json({ message: 'Result settings not found', status: false });
             const primeWindowRepo = new PrimeWindowAccessRepository_1.default(tenantId);
             const daysToExpiry = await primeWindowRepo.calculateDaysToExpiry();
+            const applicationSettings = new appset_1.default();
+            const settings = await applicationSettings.getAllAppSettings(tenantId);
             return res.status(200).json({
                 message: 'Token is valid', status: true,
                 user: {
@@ -91,7 +94,8 @@ class AuthController {
                     company: company,
                     branchid: branch,
                     tenantId: 3,
-                }
+                },
+                settings
             });
         }
         catch (err) {

@@ -482,7 +482,6 @@ class BillingStrategy {
         }));
     }
     async getProvidentialBillingHandler(tenantId, entity_type, associatedid, fallbackToDefault, isNHIS = false) {
-        var _a;
         try {
             if (!entity_type) {
                 throw new Error('Entity type required.');
@@ -505,8 +504,6 @@ class BillingStrategy {
                 strategyList = await this.getBillingStrategyByEntity(tenantId, entity_type, associatedid);
             }
             if (entity_type === "nhis") {
-                console.log('NHIS strategyList:', strategyList);
-                console.log('NHIS applicableTest:', (_a = strategyList[0]) === null || _a === void 0 ? void 0 : _a.applicableTest);
             }
             if (!strategyList.length && !fallbackToDefault) {
                 return `${"Billing strategy not found for the given entity." /* OperationsFailures.billingStrategyNotFoundForEntity */} or ${"Billing strategy has expired." /* OperationsFailures.billingStrategyExpired */}`;

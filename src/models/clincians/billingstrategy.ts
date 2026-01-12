@@ -649,8 +649,7 @@ export default class BillingStrategy {
                }
 
                if (entity_type === "nhis") {
-                    console.log('NHIS strategyList:', strategyList);
-                    console.log('NHIS applicableTest:', strategyList[0]?.applicableTest);
+            
                }
 
                if (!strategyList.length && !fallbackToDefault) {

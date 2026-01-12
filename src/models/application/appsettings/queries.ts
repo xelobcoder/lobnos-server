@@ -4,7 +4,10 @@ export const q_active_tax = `SELECT * FROM tax WHERE apply = 'Yes'`;
 
 export const q_get_email_pref = "SELECT * FROM emailpreference ORDER BY id DESC LIMIT 1";
 
-export const q_update_general_app_set: string = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,completeFlow,approvalbeforeprinting,emailNotification,includeTax,services) VALUES (?,?,?,?,?,?,?,?,?,?,?)`;
+export const q_update_general_app_set: string = `INSERT INTO applicationsettings (bulkregistration,fontsize,textcolor,BackgroundColor,DeactivateBilling24hrs,PaidBillsBeforeTransaction,
+completeFlow,approvalbeforeprinting,emailNotification,includeTax,services,
+AllowCrmToGiveDisocunt,withnessRefund,billingidPrefix,
+patientIdGenerationMethod,regioncode,districtcode,billingsettings) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 export const q_TruncateTable: string = `TRUNCATE TABLE applicationsettings`;
 

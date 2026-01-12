@@ -38,10 +38,14 @@ export type ApplicationSettingsData = {
      PaidBillsBeforeTransaction: number;
      completeFlow: number;
      approvalbeforeprinting: number;
+     withnessRefund: number;
      smsActivated: number;
+     patientIdGenerationMethod: string | null;
      smsSettings: smsSettings;
      emailNotification: number;
      includeTax: number;
+     AllowCrmToGiveDisocunt
+     : numberBoolean;
      patientIdPrefix: string | null;
      fontFamily: string | null;
      billingidPrefix: string | null;

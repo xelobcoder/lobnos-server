@@ -20,6 +20,8 @@ import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper
 import Creator from "../creator/creator";
 import { PrimeLimsTabletest_ascension } from "../../database/DatabaseTableSchema";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import KnexConnection from "../../database/KnexConnections";
+import ApplicationSettings from "../application/appsettings/appset";
 
 
 export class TestAscension extends Operations {
@@ -180,6 +182,90 @@ export class TestAscension extends Operations {
 		}
 		catch (err) {
 			throw err;
+		}
+	}
+
+
+	public static async completeFlowByPass(tenantId: number, billingid: number, employeeid: number): Promise<boolean | void> {
+		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
+		if (isCompleteLabFlowEnabled) return;
+
+		const connection = await KnexConnection(tenantId);
+		const trx = await connection.transaction();
+		const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension").where({ billingid });
+		const AscensionIdx = cart.map(item => item.id);
+		if (AscensionIdx.length == 0) return;
+
+		if (!isCompleteLabFlowEnabled) {
+			try {
+				for (const item of cart) {
+					const currentDate = new Date();
+					await trx('test_ascension')
+						.update({
+							collectionStartDate: currentDate,
+							collectionEndDate: currentDate,
+							processingStartDate: currentDate,
+							processingEndDate: currentDate,
+							sampleCollectedBy: employeeid,
+							sampleProcessedBy: employeeid,
+						}).where({ billingid: billingid, id: item.id });
+
+					await trx('samplestatus')
+						.update({
+							approvalstatus: 1,
+							phelobotomist: employeeid,
+							validatedby: employeeid,
+							samplevalidatedon: currentDate,
+						}).where({ ascensionid: item.id })
+				}
+				await trx.commit();
+				return true
+			} catch (error) {
+				await trx.rollback();
+				throw error;
+			}
+		}
+	}
+
+	public static async completeFlowByPassMultiple(tenantId: number, billingIds: number[], employeeid: number): Promise<boolean | void> {
+		if (!Array.isArray(billingIds) || billingIds.length === 0) return;
+		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
+		if (isCompleteLabFlowEnabled) return;
+
+		const connection = await KnexConnection(tenantId);
+		const trx = await connection.transaction();
+		try {
+			for (const billingid of billingIds) {
+				const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension").where({ billingid });
+				if (!cart || cart.length === 0) continue;
+				for (const item of cart) {
+					const currentDate = new Date();
+					await trx('test_ascension')
+						.update({
+							collectionStartDate: currentDate,
+							collectionEndDate: currentDate,
+							processingStartDate: currentDate,
+							processingEndDate: currentDate,
+							sampleCollectedBy: employeeid,
+							sampleProcessedBy: employeeid,
+						}).where({ billingid: billingid, id: item.id });
+
+					await trx('samplestatus')
+						.update({
+							approvalstatus: 1,
+							phelobotomist: employeeid,
+							validatedby: employeeid,
+							samplevalidatedon: currentDate,
+						}).where({ ascensionid: item.id })
+				}
+			}
+			await trx.commit();
+			return true;
+		} catch (error) {
+			await trx.rollback();
+			throw error;
 		}
 	}
 }

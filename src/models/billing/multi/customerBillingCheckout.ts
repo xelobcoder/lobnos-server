@@ -1,4 +1,5 @@
 import KnexConnection from "../../../database/KnexConnections";
+import ApplicationSettings from "../../application/appsettings/appset";
 import { ApplicationSettingsData, AppSetting } from "../../application/appsettings/Type";
 import { Billing } from "../billing";
 import { serviceCategory } from "../billingclientTypes";
@@ -55,13 +56,20 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           }
 
           let totalOutstanding = 0;
+          let AllowCrmToGiveDisocunt = false;
+          const appsettings: ApplicationSettingsData | null = await this.getAppSettings();
 
-          if (!ispricingcheckout) {
-               totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
-               if (totalOutstanding > 0) return { success: false, message: 'Outstanding debt found' };
+          if (appsettings && appsettings['AllowCrmToGiveDisocunt']) {
+               AllowCrmToGiveDisocunt = parseInt(appsettings?.AllowCrmToGiveDisocunt.toString()) == 1
           }
 
-          const appsettings: ApplicationSettingsData | null = await this.getAppSettings();
+          if (!ispricingcheckout && parseInt(billingSource) != 4) {
+               totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
+               const isBillBePaidBeforeAllTransactions = parseInt(appsettings['PaidBillsBeforeTransaction'].toString())
+               if (totalOutstanding > 0 && isBillBePaidBeforeAllTransactions) return { success: false, message: 'Outstanding debt found' };
+          }
+
+
           const { includeTax, billingsettings } = appsettings || {};
           const taxation: Partial<AppSetting> = appsettings ? await this.getAppBillSettings() : {};
 
@@ -139,6 +147,85 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
 
           if (balance < 0) {
                return { success: false, message: 'Paid amount exceeds total payable amount', data: { balance } };
+          }
+
+          const isFreeMode = paymentDetails?.mode === 'free';
+
+          if (isFreeMode) {
+               const zeroOutItem = (item: any) => ({
+                    ...item,
+                    totalpayable: 0,
+                    totalcost: 0,
+                    discountedValue: 0,
+                    amountIncurredDueTax: 0,
+                    price: 0,
+                    actualPrice: 0,
+                    originalPrice: 0,
+                    servicePrice: 0
+               });
+
+               recalculatedCart = recalculatedCart.map(zeroOutItem);
+               recalculatedServicesList = recalculatedServicesList.map(zeroOutItem);
+               if (usedPackage) {
+                    recalculatedPackageList = recalculatedPackageList.map(zeroOutItem);
+               }
+
+               return {
+                    success: true,
+                    message: 'Checkout recalculation successful for free mode. No payment required.',
+                    data: {
+                         subtotal: 0,
+                         totalcost: 0,
+                         totaldiscount: 0,
+                         totalAmountIncurredDueTax: 0,
+                         totalServiceAmount: 0,
+                         amountPayable: 0,
+                         outstanding: 0,
+                         totalTestAmountPayable: 0,
+                         totalServiceAmountPayable: 0,
+                         paid: 0,
+                         balance: 0,
+                         cart: recalculatedCart.map(item => ({
+                              ...item,
+                              totalpayable: 0,
+                              totalcost: 0,
+                              discountedValue: 0,
+                              amountIncurredDueTax: 0,
+                              price: 0,
+                              actualPrice: 0,
+                              originalPrice: 0,
+                              entitytype: item.entitytype || entitytype,
+                              entityId: item.entityId || entityid
+                         })),
+                         servicesList: recalculatedServicesList.map(item => ({
+                              ...item,
+                              totalpayable: 0,
+                              totalcost: 0,
+                              discountedValue: 0,
+                              amountIncurredDueTax: 0,
+                              servicePrice: 0,
+                              entitytype: item.entitytype || entitytype,
+                              entityId: item.entityId || entityid
+                         })),
+                         promoCode: promoCode || undefined,
+                         promoDiscount: 0,
+                         isPromo: !!isPromo,
+                         isPackageUsed: !!isPackageUsed,
+                         packageid: packageid || undefined,
+                         packageTestList: usedPackage ? recalculatedPackageList : undefined,
+                         promoDetails: promoValid ? promoDetails : undefined,
+                         paymentStatus: 'completed',
+                         paymentReceived: true,
+                         taxIncluded: false,
+                         taxList: undefined,
+                         entitytype,
+                         entityId: entityid,
+                         ispricingcheckout,
+                         entityid,
+                         previousBilling,
+                         previousServices
+                    }
+               };
           }
 
           return {

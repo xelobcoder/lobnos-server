@@ -628,3 +628,38 @@ export const getTestCreationRule = async (request: Request, response: Response) 
 		return responseError(response);
 	}
 };
+
+
+export const completeFlowByPassHandler = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as string);
+		const employeeId = req.body.employeeid;
+		const billingid = req.body.billingid;
+		if (!billingid || !employeeId) {
+			return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingid, employeeid, tenantId' });
+		}
+		const result = await TestAscension.completeFlowByPass(tenantId, parseInt(billingid as string), parseInt(employeeId as string));
+		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+	} catch (error) {
+		console.error('Error in complete flow bypass:', error);
+		res.status(500).json({ status: 'error', message: 'Internal server error' });
+	}
+}
+
+
+export const completeFlowByPassMultipleHandler = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as string);
+		const employeeId = req.body.employeeid;
+		const billingids: number[] = req.body.billingIds;
+		if (!billingids || !employeeId || !Array.isArray(billingids) || billingids.length === 0) {
+			return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingids (array), employeeid, tenantId' });
+		}
+
+		const result = await TestAscension.completeFlowByPassMultiple(tenantId, billingids, parseInt(employeeId as string));
+		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+	} catch (error) {
+		console.error('Error in complete flow bypass multiple:', error);
+		res.status(500).json({ status: 'error', message: 'Internal server error' });
+	}
+}

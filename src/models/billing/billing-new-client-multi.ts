@@ -7,6 +7,7 @@ import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeR
 import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
 import { EntityType } from "../clincians/c.dev.type";
 import { OutsourcedTestTrackingRepo } from "../operations/OutsourcedTestTrackingRepo";
+import ApplicationSettings from "../application/appsettings/appset";
 
 export class SubmitCustomerBilling {
 
@@ -321,6 +322,7 @@ export class SubmitCustomerBilling {
 
                 await trx.commit();
             }
+
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         } catch (error: any) {
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };

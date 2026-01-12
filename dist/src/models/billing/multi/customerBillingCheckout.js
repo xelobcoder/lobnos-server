@@ -39,12 +39,17 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             previousServices = await conn('dboservices').where('billingid', billingid).select();
         }
         let totalOutstanding = 0;
-        if (!ispricingcheckout) {
+        let AllowCrmToGiveDisocunt = false;
+        const appsettings = await this.getAppSettings();
+        if (appsettings && appsettings['AllowCrmToGiveDisocunt']) {
+            AllowCrmToGiveDisocunt = parseInt(appsettings === null || appsettings === void 0 ? void 0 : appsettings.AllowCrmToGiveDisocunt.toString()) == 1;
+        }
+        if (!ispricingcheckout && parseInt(billingSource) != 4) {
             totalOutstanding = await this.getCustomerOutstandingDebt(patientId);
-            if (totalOutstanding > 0)
+            const isBillBePaidBeforeAllTransactions = parseInt(appsettings['PaidBillsBeforeTransaction'].toString());
+            if (totalOutstanding > 0 && isBillBePaidBeforeAllTransactions)
                 return { success: false, message: 'Outstanding debt found' };
         }
-        const appsettings = await this.getAppSettings();
         const { includeTax, billingsettings } = appsettings || {};
         const taxation = appsettings ? await this.getAppBillSettings() : {};
         let recalculatedCart = [];
@@ -110,6 +115,51 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
         if (balance < 0) {
             return { success: false, message: 'Paid amount exceeds total payable amount', data: { balance } };
+        }
+        const isFreeMode = (paymentDetails === null || paymentDetails === void 0 ? void 0 : paymentDetails.mode) === 'free';
+        if (isFreeMode) {
+            const zeroOutItem = (item) => (Object.assign(Object.assign({}, item), { totalpayable: 0, totalcost: 0, discountedValue: 0, amountIncurredDueTax: 0, price: 0, actualPrice: 0, originalPrice: 0, servicePrice: 0 }));
+            recalculatedCart = recalculatedCart.map(zeroOutItem);
+            recalculatedServicesList = recalculatedServicesList.map(zeroOutItem);
+            if (usedPackage) {
+                recalculatedPackageList = recalculatedPackageList.map(zeroOutItem);
+            }
+            return {
+                success: true,
+                message: 'Checkout recalculation successful for free mode. No payment required.',
+                data: {
+                    subtotal: 0,
+                    totalcost: 0,
+                    totaldiscount: 0,
+                    totalAmountIncurredDueTax: 0,
+                    totalServiceAmount: 0,
+                    amountPayable: 0,
+                    outstanding: 0,
+                    totalTestAmountPayable: 0,
+                    totalServiceAmountPayable: 0,
+                    paid: 0,
+                    balance: 0,
+                    cart: recalculatedCart.map(item => (Object.assign(Object.assign({}, item), { totalpayable: 0, totalcost: 0, discountedValue: 0, amountIncurredDueTax: 0, price: 0, actualPrice: 0, originalPrice: 0, entitytype: item.entitytype || entitytype, entityId: item.entityId || entityid }))),
+                    servicesList: recalculatedServicesList.map(item => (Object.assign(Object.assign({}, item), { totalpayable: 0, totalcost: 0, discountedValue: 0, amountIncurredDueTax: 0, servicePrice: 0, entitytype: item.entitytype || entitytype, entityId: item.entityId || entityid }))),
+                    promoCode: promoCode || undefined,
+                    promoDiscount: 0,
+                    isPromo: !!isPromo,
+                    isPackageUsed: !!isPackageUsed,
+                    packageid: packageid || undefined,
+                    packageTestList: usedPackage ? recalculatedPackageList : undefined,
+                    promoDetails: promoValid ? promoDetails : undefined,
+                    paymentStatus: 'completed',
+                    paymentReceived: true,
+                    taxIncluded: false,
+                    taxList: undefined,
+                    entitytype,
+                    entityId: entityid,
+                    ispricingcheckout,
+                    entityid,
+                    previousBilling,
+                    previousServices
+                }
+            };
         }
         return {
             success: true,

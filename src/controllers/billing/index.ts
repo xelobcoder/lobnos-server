@@ -1,4 +1,4 @@
-import { RequestHandler, Router } from "express";
+import { RequestHandler, Router, Request, Response } from "express";
 import {
     handleNewBilling,
     canInitiateBill,
@@ -31,6 +31,7 @@ import { getPatientTransactions, getPatientTransactionDetails } from "./BillingH
 import { getSalesSessionList, getSessionFinancialSummaryHandler, handleCreateNewSalesSesion, handleEndSalesSession, hasSalesSessionAvailableHandler, getSalesSessionConfigHandler, setSalesSessionConfigHandler, deleteUnusedSalesSessionHandler, getSessionsByDateHandler, handleUpdateSalesSession } from "./SessionManger/handler";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { handleOverLoad } from "../../hooks/helper";
+import KnexConnection from "../../database/KnexConnections";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
 import { PrimeBillingPromoCodeController } from "./PrimePromoCode";
 import { checkoutBillingHandler, correctRefererErrorPostRegistrationHandler, initializeBillingHandler, submitBillingHandler } from "../applicationsettings/handler";
@@ -114,6 +115,41 @@ router.delete("/api/v1/promo-codes/:id", handleOverLoad(PrimeBillingPromoCodeCon
 router.get("/api/v1/promo-codes", handleOverLoad(PrimeBillingPromoCodeController.list));
 router.post("/api/v1/promo-codes/increment-usage", handleOverLoad(PrimeBillingPromoCodeController.incrementUsage));
 router.post("/api/v1/promo-codes/validate", handleOverLoad(PrimeBillingPromoCodeController.validatePromoCode));
+
+// Locations: Regions with their Districts
+router.get('/api/v1/locations/regions-districts', (async (req: Request, res: Response) => {
+     try {
+          const tenantQuery = req.query.tenantId;
+          const tenantIdStr = Array.isArray(tenantQuery) ? tenantQuery[0] : (tenantQuery as string | undefined);
+          const headerTenant = req.headers['tenantid'] || req.headers['tenant-id'];
+          const headerTenantStr = Array.isArray(headerTenant) ? headerTenant[0] : (headerTenant as string | undefined);
+          const tenantId = parseInt((tenantIdStr || headerTenantStr || '').toString());
+
+          if (!tenantId || isNaN(tenantId)) {
+               res.status(400).send({ status: 'error', statusCode: 400, message: 'tenantId query parameter is required' });
+               return;
+          }
+
+          const connection = await KnexConnection(tenantId);
+
+          const regions = await connection('regions').select('id', 'name', 'regioncode').orderBy('name');
+          const districts = await connection('districts').select('id', 'name', 'code', 'regionid').orderBy('name');
+
+          const grouped = regions.map((r: any) => ({
+               id: r.id,
+               name: r.name,
+               regioncode: r.regioncode,
+               districts: districts.filter((d: any) => d.regionid === r.id)
+          }));
+
+          res.send({ status: 'success', statusCode: 200, data: grouped });
+          return;
+     } catch (err) {
+          console.error('Error loading regions and districts', err);
+          res.status(500).send({ status: 'error', statusCode: 500, message: 'Failed to load regions and districts' });
+          return;
+     }
+}) as RequestHandler);
 
 export default router;
 

@@ -153,9 +153,9 @@ export async function deleteDeviceHandler(req: Request, res: Response) {
 export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfacingDevicePayload>, res: Response) {
      try {
           const tenantId = Number(req.query.tenantId) || 3;
+          console.log(req.body);
           const repo = getRepo(tenantId);
           const { data, device, timestamp } = req.body;
-          console.log("Received interfacing data:", device, timestamp);
           // Check if data contains only '\x02' segment and ignore it
           if (data.length === 1 && data[0].SEGMENT === '\x02') {
                return res.status(200).json({
@@ -185,13 +185,11 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
                return true;
           }) as IObxSegment[];
 
-          console.log('OBX Results:', obxSegments);
 
           const pidSegment = data.find(seg => seg.SEGMENT === 'PID') as IPidSegment;
 
           // Extract patient ID and clean it to format: number-number (ascensionId-employeeId)
           let rawPatientId = pidSegment?.PATIENT_ID || "";
-          console.log("Raw Patient ID:", rawPatientId);
 
           // If PATIENT_ID contains ^, extract the first part that has the format we need
           let cleanedPatientId = "";
@@ -210,8 +208,6 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
                cleanedPatientId = rawPatientId.replace(/[^0-9-]/g, "");
           }
 
-          console.log("Cleaned Patient ID:", cleanedPatientId);
-
           // Validate format is number-number
           if (!cleanedPatientId.match(/^\d+-\d+$/)) {
                return res.status(400).json({ error: "Invalid patient ID format. Expected format: number-number" });
@@ -222,7 +218,6 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
           const employeeid = Number(cleanedPatientId.split('-')[1]);
           const providedTestIdx = device.testid;
 
-          console.log(providedTestIdx, ascensionId, employeeid);
 
           if (!providedTestIdx || !Array.isArray(providedTestIdx) || providedTestIdx.length === 0) return res.status(400).json({ error: "Provided test index is required" });
           if (!ascensionId) return res.status(400).json({ error: "Ascension ID is required" });
@@ -230,7 +225,6 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
           const ascensionInformation = await TestAscension.findAscension(tenantId, Number(ascensionId));
           if (!ascensionInformation) return res.status(404).json({ error: "Ascension information not found" });
           const knownTestId = ascensionInformation.testid;
-          console.log('KnownTestId', knownTestId);
           // if (!providedTestIdx.includes(knownTestId)) {
           //      return res.status(400).json({ error: "Provided test ID does not match ascension information assciated testid" });
           // }
@@ -245,9 +239,6 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
                     getMappingInformatoion['deviceInterfaceMapping']
                : null;
 
-          console.log('Device Interface Mapping:', deviceInterfaceMapping);
-
-          // Get test creation rules first
           const testCreationRules = await new TestCreationRulesRepository(tenantId).findByTestId(knownTestId);
 
           // Extract OBX values for mapped analytes and merge with testCreationRules
@@ -269,8 +260,6 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
                }
           }
 
-       console.log('OBX Results:', obxResults);
-
           if (obxResults.length === 0) return res.status(400).json({ error: "No OBX results found for the provided device mapping" });
           const { billingid } = ascensionInformation;
           const comments = '';
@@ -287,7 +276,6 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
           const finalData = { testid: knownTestId, ascensionid: ascensionId, isScan: false, csvid, ptid, comments, drugs, employeeid, fields: obxResults, hasDrugs: false };
           const resultEntry = await new Creator(knownTestId).resultEntry(tenantId, finalData as any);
 
-          console.log('Result Entry:', resultEntry);
           return res.status(200).json({
                status: resultEntry ? "success" : "error",
                message: "Data processed successfully",
