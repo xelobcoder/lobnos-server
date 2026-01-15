@@ -143,7 +143,10 @@ class ExpenseInvoiceRepo {
             .leftJoin('expense_merchants as em', 'i.merchant_id', 'em.id')
             .leftJoin('invoice_expenses as ie', 'i.id', 'ie.invoice_id')
             .leftJoin('expensesrecord as er', 'ie.expense_id', 'er.id')
-            .select('i.*', 'er.id as expense_id', 'em.name as merchant_name', connection.raw('COUNT(ie.expense_id) as expense_count'), connection.raw('MIN(er.groupId) as groupId'));
+            .leftJoin('expense_payments as ep', 'er.id', 'ep.expense_id')
+            .leftJoin('expense_payment_reversals as epr', 'ep.id', 'epr.payment_id')
+            .leftJoin('roles as r', 'epr.reversed_by', 'r.employeeid')
+            .select('i.*', 'er.id as expense_id', 'em.name as merchant_name', 'ep.id as payment_id', 'ep.amount as payment_amount', 'ep.status as payment_status', 'ep.is_reversed', connection.raw('CASE WHEN ep.is_reversed = 1 THEN "Reversed" ELSE ep.status END as final_payment_status'), 'epr.id as reversal_id', 'epr.reversed_amount', 'epr.reversed_by', 'epr.reversal_reason', 'epr.reversed_on', 'r.username as reversed_by_name', connection.raw('COUNT(DISTINCT ie.expense_id) as expense_count'), connection.raw('MIN(er.groupId) as groupId'));
         if (!isAdminOrManager) {
             baseQuery.where('i.employee_id', this.employeeid);
         }
@@ -532,6 +535,47 @@ class ExpenseInvoiceRepo {
           `;
         const result = await (0, helper_1.promisifyQuery)(tenantId, query, [start, end]);
         return ((_a = result[0]) === null || _a === void 0 ? void 0 : _a.total_payments) || 0;
+    }
+    async reversePayment(paymentId, reversalReason) {
+        try {
+            // Get payment details
+            const paymentQuery = `SELECT * FROM expense_payments WHERE id = ?`;
+            const paymentResult = await (0, helper_1.promisifyQuery)(this.tenantId, paymentQuery, [paymentId]);
+            if (!paymentResult || paymentResult.length === 0) {
+                throw new Error(`Payment with ID ${paymentId} not found`);
+            }
+            const payment = paymentResult[0];
+            const { expense_id, invoice_id, amount, method } = payment;
+            // Create reversal record in audit table
+            const reversalQuery = `
+                    INSERT INTO expense_payment_reversals 
+                    (payment_id, expense_id, invoice_id, reversed_amount, reversed_by, reversal_reason, reversal_method)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+               `;
+            const reversalResult = await (0, helper_1.promisifyQuery)(this.tenantId, reversalQuery, [paymentId, expense_id, invoice_id, amount, this.employeeid, reversalReason || null, method]);
+            const reversalId = reversalResult.insertId;
+            // Update expense_payments table to mark as reversed
+            const updatePaymentQuery = `
+                    UPDATE expense_payments 
+                    SET is_reversed = 1, reversal_id = ?, reversed_on = NOW()
+                    WHERE id = ?
+               `;
+            await (0, helper_1.promisifyQuery)(this.tenantId, updatePaymentQuery, [reversalId, paymentId]);
+            return {
+                success: true,
+                message: `Payment of ${amount} has been successfully reversed`,
+                payment_id: paymentId,
+                reversal_id: reversalId,
+                expense_id: expense_id,
+                amount_reversed: amount,
+                reversed_by: this.employeeid,
+                reversed_on: new Date().toISOString()
+            };
+        }
+        catch (error) {
+            logger_1.default.error(`Error reversing payment ${paymentId}:`, error);
+            throw new Error(`Failed to reverse payment: ${error.message}`);
+        }
     }
 }
 exports.default = ExpenseInvoiceRepo;

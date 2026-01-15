@@ -46,6 +46,8 @@ router.post('/api/v1/expenses/invoice', (0, helper_1.handleOverLoad)(expenseHand
 router.get('/api/v1/expenses/invoices', (0, helper_1.handleOverLoad)(expenseHandlers_1.getInvoices));
 router.post('/api/v1/expenses/payment', (0, helper_1.handleOverLoad)(expenseHandlers_1.addPayment));
 router.get('/api/v1/expenses/payments', (0, helper_1.handleOverLoad)(expenseHandlers_1.getPayments));
+router.post('/api/v1/expenses/payment/reverse', (0, helper_1.handleOverLoad)(expenseHandlers_1.reverseExpensePayment));
+router.get('/api/v1/expenses/payments/reversed', (0, helper_1.handleOverLoad)(expenseHandlers_1.getReversedPayments));
 // Analytics routes
 router.get('/api/v1/expenses/analytics/daily', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getDailyExpenseAnalytics));
 router.get('/api/v1/expenses/analytics/comparison', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseComparisonByPeriod));

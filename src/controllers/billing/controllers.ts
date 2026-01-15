@@ -386,7 +386,7 @@ export async function WriteOffTransaction(request: Request, response: Response) 
 		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid, reason, employeeid);
 
 		if (typeof result === "string") return response.send({ status: false, message: result });
-		if (!result) return customError(OperationsFailures.notFound, 404, response);
+		if (!result) return customError("Write off failed", 404, response);
 		response.send({ status: true });
 	} catch (err) {
 		responseError(response);

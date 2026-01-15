@@ -73,6 +73,7 @@ class Billing {
         }
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const servicesProfile = await connection('dboservices')
+            .leftJoin('dbobillingrefundtable', 'dboservices.serviceid', 'dbobillingrefundtable.serviceid')
             .where({ billingid })
             .orWhere({ relatedbillingid: billingid });
         if (servicesProfile.length === 0)

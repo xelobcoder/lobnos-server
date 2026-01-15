@@ -1,4 +1,27 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const queries_1 = require("./queries");
 const helper_1 = require("../../hooks/helper");
@@ -214,6 +237,18 @@ class Operations {
             console.log(err);
         }
     }
+    async isTestValidated(tenantId, ascensionId) {
+        try {
+            const query = `SELECT isapproved FROM dbotestresultapproval WHERE ascensionid = ?`;
+            const result = await (0, helper_1.promisifyQuery)(tenantId, query, [ascensionId]);
+            console.log('isTestValidated result:', result);
+            return result.length > 0 && result[0].isapproved === 1;
+        }
+        catch (error) {
+            console.log('Error checking test validation:', error);
+            return false;
+        }
+    }
     async getUltrasoundWaitingList(tenantId, data) {
         const { count = 10, page = 1 } = data;
         const result = await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_ultrasound_waitingList, [], tenantId);
@@ -237,6 +272,116 @@ class Operations {
         catch (err) {
             console.log(err);
             return [];
+        }
+    }
+    async searchLaboratoryOperations(tenantId, searchParams) {
+        try {
+            const { patientId, billingId, accessionId, page, count } = searchParams;
+            const offset = (page - 1) * count;
+            const params = [];
+            let query = `
+				SELECT
+					b.billingid,
+					b.billedon,
+					np.patientid,
+					CONCAT(np.firstname, ' ', COALESCE(np.middlename, ''), ' ', np.lastname) AS patient_name,
+					np.mobile_number AS phonenumber,
+					np.email,
+					ta.id AS ascension_id,
+					ta.testid,
+					tp.name AS testname,
+					tp.category,
+					d.department,
+					ta.ascension_date AS created_on,
+					ta.collectionStartDate,
+					ta.collectionEndDate,
+					ta.processingStartDate,
+					ta.processingEndDate,
+					ta.resultEntryStart,
+					ta.resultEntryEnd,
+					(SELECT COUNT(DISTINCT testid) FROM test_ascension WHERE billingid = b.billingid) AS total_tests
+				FROM billing b
+				INNER JOIN new_patients np ON b.patientid = np.patientid
+				LEFT JOIN test_ascension ta ON b.billingid = ta.billingid
+				LEFT JOIN test_panels tp ON ta.testid = tp.id
+				LEFT JOIN departments d ON tp.category = d.id
+				WHERE 1=1
+			`;
+            if (patientId) {
+                query += ` AND np.patientid = ?`;
+                params.push(patientId);
+            }
+            if (billingId) {
+                query += ` AND b.billingid = ?`;
+                params.push(billingId);
+            }
+            if (accessionId) {
+                query += ` AND ta.id = ?`;
+                params.push(accessionId);
+            }
+            query += ` ORDER BY b.billedon DESC, ta.ascension_date DESC LIMIT ? OFFSET ?`;
+            params.push(count, offset);
+            const result = await (0, helper_1.promisifyQuery)(tenantId, query, params);
+            const groupedResults = {};
+            const { TestAscension } = await Promise.resolve().then(() => __importStar(require('./ascension')));
+            for (const row of result) {
+                const billingKey = row.billingid;
+                if (!groupedResults[billingKey]) {
+                    groupedResults[billingKey] = {
+                        billingId: row.billingid,
+                        billedOn: row.billedon,
+                        patient: {
+                            patientId: row.patientid,
+                            name: row.patient_name,
+                            phone: row.phonenumber,
+                            email: row.email
+                        },
+                        summary: {
+                            totalTests: row.total_tests
+                        },
+                        services: []
+                    };
+                }
+                if (row.ascension_id) {
+                    let stage = await TestAscension.determineStage(tenantId, row.ascension_id);
+                    if (row.resultEntryStart) {
+                        const isValidated = await this.isTestValidated(tenantId, row.ascension_id);
+                        if (isValidated) {
+                            stage = 'validated';
+                        }
+                        else {
+                            stage = 'validation';
+                        }
+                    }
+                    groupedResults[billingKey].services.push({
+                        ascensionId: row.ascension_id,
+                        testId: row.testid,
+                        testName: row.testname,
+                        category: row.category,
+                        department: row.department,
+                        ascensionDate: row.created_on,
+                        collectionStartDate: row.collectionStartDate,
+                        collectionEndDate: row.collectionEndDate,
+                        processingStartDate: row.processingStartDate,
+                        processingEndDate: row.processingEndDate,
+                        resultEntryStartDate: row.resultEntryStart,
+                        resultEntryEndDate: row.resultEntryEnd,
+                        stage: stage || 'Unknown'
+                    });
+                }
+            }
+            return {
+                results: Object.values(groupedResults),
+                pagination: {
+                    page,
+                    count,
+                    total: result.length > 0 ? result.length : 0
+                }
+            };
+        }
+        catch (err) {
+            console.log('Error in searchLaboratoryOperations:', err);
+            throw new Error(`Failed to retrieve laboratory operations data. Please try again later.`);
         }
     }
 }

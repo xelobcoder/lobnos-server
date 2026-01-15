@@ -102,7 +102,6 @@ class TestAscension extends operations_1.default {
             });
         }
         query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
-        console.log(query);
         return await (0, helper_1.promisifyQuery)(tenantId, query, [...params, count, (page - 1) * count]);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {
@@ -110,6 +109,18 @@ class TestAscension extends operations_1.default {
     }
     static async getTransactionTestsQualifiedForResultEntry(tenantId, billingid, branchid) {
         return await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_get_all_test_qualified_to_for_result_entry_on_test, [billingid, branchid]);
+    }
+    static async getAllPendingAscensions(tenantId, count = 30, page = 1) {
+        let query = queries_1.q_pending_sample_uncollected;
+        let params = [];
+        query += `     GROUP BY b.billingid
+    ORDER BY b.billedon DESC`;
+        if (page && count) {
+            const offset = (page - 1) * count;
+            query += ` LIMIT ? OFFSET ?`;
+            params = [count, offset];
+        }
+        return await (0, helper_1.promisifyQuery)(tenantId, query, params);
     }
     static async findAllBillingAssociatedTestAscensions(tenantId, billingid, onlyAscensionid = true) {
         const billingAscensions = await new TiifuWorkingClass_1.TiifuWorkingClass("test_ascension").findMany(tenantId, "billingid", billingid);

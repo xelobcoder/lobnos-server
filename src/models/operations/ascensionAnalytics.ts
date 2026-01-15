@@ -223,18 +223,23 @@ export class AscensionAnalytics extends TestAscension {
               return await promisifyQuery(tenantId, Queries.testsRedrawOrdersCompletedIn24Hours);
        }
 
-       public static async phelobotomistAnalytics24Hours(tenantId: number): Promise<{ pending: [], rejected: [], orders: [], completed: [] }> {
+       public static allTimePendingCollections(tenantId: number) {
+              return promisifyQuery(tenantId, Queries.totalAllTimePendingCollections);
+       }
+
+       public static async phelobotomistAnalytics24Hours(tenantId: number): Promise<{allTimePending: number, pending: [], rejected: [], orders: [], completed: [] }> {
               let pending = await this.totalSamplePendingCollection24(tenantId);
               let rejected = await this.totalSampleRejected24(tenantId);
               let orders = await this.totalSampleRedrawOrders24(tenantId);
               let completed = await this.totalSampleRedrawCompleted24(tenantId);
-
+              let allTimePending = await this.allTimePendingCollections(tenantId);
+              allTimePending = allTimePending[0]['total_pending_collections'];
               rejected = rejected[0]['tests_rejected_in_24h'];
               completed = completed[0]['redraw_orders_completed_in_24h']
               orders = orders[0]['redraw_orders_in_24h']
               pending = pending[0]['pending'];
 
-              return { pending, rejected, orders, completed };
+              return { pending, rejected, orders, completed , allTimePending };
        }
 
 

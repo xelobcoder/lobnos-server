@@ -5,6 +5,7 @@ import {
   getAllTestPreview,
   getAllPendingCases,
   getUltrasoundWaitingList,
+  searchLaboratoryOperations,
 } from "./operationsHandlers"
 
 import {
@@ -28,6 +29,7 @@ import {
   getAscensionEditCountHandler,
   getPendingUnvalidatedSamplesHandler,
   getRejectedCollectedSampleListHandler,
+  getAllPendingAscensionsHandler,
   // getSampleSamplingInformationHandler
 } from "./ascentionHandlers"
 
@@ -61,13 +63,15 @@ import { handleOverLoad } from "../../hooks/helper"
 const router = express.Router();
 
 router.get(`/api/v1/operations/collection`, getAllCollections);
+router.get(`/api/v1/operations/laboratory/search`, handleOverLoad(searchLaboratoryOperations));
 router.get(`/api/v1/operations/ascension/staging`, handleOverLoad(ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, getAllEnterResult);
 router.get(`/api/v1/operations/test/result`, getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, getAllPendingCases);
 router.get(`/api/v1/operations/imaging/ultrasound`, getUltrasoundWaitingList);
 router.get(`/api/v1/test/ascension/pendingCases`, PendingTestAscensionHandler)
-router.get(`/api/v1/phelobotomy/transaction/ascensions`,isAuthorizedRoleScientistPhelobotomist, TransactionTestAscensionHandler);
+router.get(`/api/v1/test/ascension/all/pending`, getAllPendingAscensionsHandler)
+router.get(`/api/v1/phelobotomy/transaction/ascensions`, isAuthorizedRoleScientistPhelobotomist, TransactionTestAscensionHandler);
 router.get(`/api/v1/phelobotomy/sample/assesment/list`, sampleAssessmentHandler);
 router.get(`/api/v1/sample/client/list/unvalidated`, getPendingUnvalidatedSamplesHandler)
 router.get(`/api/v1/rejected/sample/list`, getRejectedCollectedSampleListHandler)

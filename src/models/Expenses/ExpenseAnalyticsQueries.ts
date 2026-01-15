@@ -15,7 +15,7 @@ export class ExpenseAnalyticsQueries {
         COUNT(DISTINCT er.merchant) AS unique_merchants
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid' AND DATE(ep.payment_date) BETWEEN ? AND ?
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0 AND DATE(ep.payment_date) BETWEEN ? AND ?
       GROUP BY DATE(ep.payment_date)
       ORDER BY expense_date DESC
     `, [startDate, endDate]);
@@ -31,7 +31,7 @@ export class ExpenseAnalyticsQueries {
         COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
 
@@ -44,7 +44,7 @@ export class ExpenseAnalyticsQueries {
         COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
     `, branchid ? [currentStart, currentEnd, branchid, previousStart, previousEnd, branchid] : [currentStart, currentEnd, previousStart, previousEnd]);
@@ -96,7 +96,7 @@ export class ExpenseAnalyticsQueries {
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       LEFT JOIN expense_merchants em ON er.merchant = em.id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) BETWEEN ? AND ?
       GROUP BY em.name
       ORDER BY expense_date DESC, total_amount DESC
@@ -113,7 +113,7 @@ export class ExpenseAnalyticsQueries {
         AVG(ep.amount) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) = ?
       GROUP BY HOUR(ep.payment_date)
       ORDER BY expense_hour ASC
@@ -131,7 +131,7 @@ export class ExpenseAnalyticsQueries {
         COUNT(DISTINCT er.employeeid) AS unique_employees
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND YEAR(ep.payment_date) = ?
       GROUP BY MONTH(ep.payment_date)
       ORDER BY expense_month ASC
@@ -152,7 +152,7 @@ export class ExpenseAnalyticsQueries {
         COUNT(DISTINCT er.employeeid) AS unique_employees
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND YEAR(ep.payment_date) = ?
       GROUP BY YEAR(ep.payment_date), WEEK(ep.payment_date)
       ORDER BY expense_year ASC, expense_week ASC
@@ -169,7 +169,7 @@ export class ExpenseAnalyticsQueries {
         AVG(ep.amount) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND YEAR(ep.payment_date) = ?
       GROUP BY QUARTER(ep.payment_date)
       ORDER BY expense_quarter ASC
@@ -188,7 +188,7 @@ export class ExpenseAnalyticsQueries {
         COUNT(DISTINCT er.merchant) AS unique_merchants
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND YEAR(ep.payment_date) BETWEEN ? AND ?
       GROUP BY YEAR(ep.payment_date)
       ORDER BY expense_year ASC
@@ -206,7 +206,7 @@ export class ExpenseAnalyticsQueries {
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       LEFT JOIN branch b ON er.branchid = b.branchid
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) BETWEEN ? AND ?
       GROUP BY b.name
       ORDER BY total_expenses DESC
@@ -264,7 +264,7 @@ export class ExpenseAnalyticsQueries {
         AVG(ep.amount) AS avg_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE ep.status = 'Paid'
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
       GROUP BY bucket
@@ -290,7 +290,7 @@ export class ExpenseAnalyticsQueries {
           SUM(ep.amount) AS total_expenses
         FROM expensesrecord er
         INNER JOIN expense_payments ep ON er.id = ep.expense_id
-        WHERE ep.status = 'Paid'
+        WHERE ep.status = 'Paid' AND ep.is_reversed = 0
           AND YEAR(ep.payment_date) = ?
           ${branchid ? 'AND er.branchid = ?' : ''}
         GROUP BY MONTH(ep.payment_date)
@@ -301,7 +301,7 @@ export class ExpenseAnalyticsQueries {
           SUM(ep.amount) AS total_expenses
         FROM expensesrecord er
         INNER JOIN expense_payments ep ON er.id = ep.expense_id
-        WHERE ep.status = 'Paid'
+        WHERE ep.status = 'Paid' AND ep.is_reversed = 0
           AND YEAR(ep.payment_date) = ?
           ${branchid ? 'AND er.branchid = ?' : ''}
         GROUP BY MONTH(ep.payment_date)
@@ -377,7 +377,7 @@ export class ExpenseAnalyticsQueries {
       LEFT JOIN roles epc ON ep.created_by = epc.employeeid
       LEFT JOIN invoice_expenses ie ON er.id = ie.expense_id
       LEFT JOIN invoices i ON ie.invoice_id = i.id
-      WHERE DATE(ep.payment_date) BETWEEN ? AND ?
+      WHERE ep.is_reversed = 0 AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
       ORDER BY er.date DESC, er.id DESC
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
@@ -392,7 +392,7 @@ export class ExpenseAnalyticsQueries {
       SELECT COUNT(*) as total
       FROM expense_payments ep
       INNER JOIN expensesrecord er ON ep.expense_id = er.id
-      WHERE er.merchant = ? AND ep.status = 'Paid'
+      WHERE er.merchant = ? AND ep.status = 'Paid' AND ep.is_reversed = 0
     `, [merchantId]);
 
     const total = totalResult[0][0].total;
@@ -422,7 +422,7 @@ export class ExpenseAnalyticsQueries {
       LEFT JOIN dboexpensecategory ec ON er.category = ec.id
       LEFT JOIN branch b ON er.branchid = b.branchid
       LEFT JOIN roles epc ON ep.created_by = epc.employeeid
-      WHERE er.merchant = ? AND ep.status = 'Paid'
+      WHERE er.merchant = ? AND ep.status = 'Paid' AND ep.is_reversed = 0
       ORDER BY ep.payment_date DESC
       LIMIT ? OFFSET ?
     `, [merchantId, count, offset]);

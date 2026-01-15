@@ -252,6 +252,15 @@ export default class Expenses implements IExpenseRepository {
           return Array.isArray(result) && result.length > 0;
      }
 
+     private async hasApprovedPayments(): Promise<boolean> {
+          const checkQuery = `
+               SELECT COUNT(ep.id) as payment_count
+               FROM expense_payments ep
+               WHERE ep.expense_id = ?
+          `;
+          const result = await promisifyQuery(this.tenantId, checkQuery, [this.expenseId]);
+          return result && result.length > 0 && result[0].payment_count > 0;
+     }
 
      public async updateExpenseRecord(expenseData: PrimeLimsTableexpensesrecord) {
           try {
@@ -259,6 +268,15 @@ export default class Expenses implements IExpenseRepository {
                const isValidExpenseRecord = await this.isExpenseRecordAvailable();
 
                if (!isValidExpenseRecord) return OperationsFailures.unfoundID;
+               const approvalQuery = `SELECT approved FROM expensesrecord WHERE id = ?`;
+               const approvalResult = await promisifyQuery(this.tenantId, approvalQuery, [this.expenseId]);
+
+               if (approvalResult && approvalResult.length > 0 && approvalResult[0].approved) {
+                    const hasPayments = await this.hasApprovedPayments();
+                    if (hasPayments) {
+                         return "Cannot edit approved expense that has payments already made. Please reverse the payment first.";
+                    }
+               }
 
                const {
                     id,
@@ -286,7 +304,6 @@ export default class Expenses implements IExpenseRepository {
                ];
 
                const insertionStatus = await promisifyQuery(this.tenantId, updateExpenseQuery, queryParams);
-
                return rowAffected(insertionStatus);
           } catch (error) {
                console.error('Error updating expense record:', error);

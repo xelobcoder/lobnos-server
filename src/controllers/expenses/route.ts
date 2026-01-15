@@ -27,6 +27,8 @@ import {
   getPayments,
   getExpensesByGroup,
   markSupplierPaymentAsExpense,
+  reverseExpensePayment,
+  getReversedPayments,
 } from "./expenseHandlers";
 import { ExpenseAnalyticsController } from "./ExpenseAnalyticsController";
 import { handleOverLoad } from "../../hooks/helper";
@@ -73,6 +75,8 @@ router.post('/api/v1/expenses/invoice', handleOverLoad(createInvoice));
 router.get('/api/v1/expenses/invoices', handleOverLoad(getInvoices));
 router.post('/api/v1/expenses/payment', handleOverLoad(addPayment));
 router.get('/api/v1/expenses/payments', handleOverLoad(getPayments));
+router.post('/api/v1/expenses/payment/reverse', handleOverLoad(reverseExpensePayment));
+router.get('/api/v1/expenses/payments/reversed', handleOverLoad(getReversedPayments));
 
 // Analytics routes
 router.get('/api/v1/expenses/analytics/daily', handleOverLoad(ExpenseAnalyticsController.getDailyExpenseAnalytics));

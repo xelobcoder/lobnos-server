@@ -128,7 +128,8 @@ export async function PendingTestAscensionHandler(request: Request, response: Re
         const filter = request.query.filter ? request.query.filter.toString() : undefined;
         const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
         console.log({ filter, sortby })
-        const pending = await TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string, filter as string, sortby as 'ASC' | 'DESC');
+        const pending = await TestAscension.
+            getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string, filter as string, sortby as 'ASC' | 'DESC');
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });
     } catch (err) {
         console.log(err);
@@ -280,6 +281,29 @@ export async function getRejectedCollectedSampleListHandler(request: Request, re
         response.send({ tenantId, result: List, statusCode: 200, status: "success" });
     } catch (err) {
         console.log(err)
+        responseError(response);
+    }
+}
+
+export async function getAllPendingAscensionsHandler(request: Request, response: Response) {
+    try {
+        const { tenantId, count = 30, page = 1 } = request.query;
+        const parsedCount = parseInt(count.toString()) || 30;
+        const parsedPage = parseInt(page.toString()) || 1;
+        const tenantIdP = parseInt(tenantId.toString());
+        const allPending = await TestAscension.getAllPendingAscensions(tenantIdP, parsedCount, parsedPage);
+
+        response.send({
+            tenantId,
+            message: "success",
+            statusCode: 200,
+            result: allPending,
+            status: "success",
+            count: allPending?.length || 0,
+            page: parsedPage,
+            pageSize: parsedCount
+        });
+    } catch (err) {
         responseError(response);
     }
 }

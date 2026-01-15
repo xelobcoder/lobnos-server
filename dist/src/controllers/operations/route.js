@@ -16,12 +16,14 @@ const PatientClinicalHistoryUltrasoundHandler_1 = require("./PatientClinicalHist
 const helper_1 = require("../../hooks/helper");
 const router = express_1.default.Router();
 router.get(`/api/v1/operations/collection`, operationsHandlers_1.getAllCollections);
+router.get(`/api/v1/operations/laboratory/search`, (0, helper_1.handleOverLoad)(operationsHandlers_1.searchLaboratoryOperations));
 router.get(`/api/v1/operations/ascension/staging`, (0, helper_1.handleOverLoad)(ascensionStageHandler_1.ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, operationsHandlers_1.getAllEnterResult);
 router.get(`/api/v1/operations/test/result`, operationsHandlers_1.getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, operationsHandlers_1.getAllPendingCases);
 router.get(`/api/v1/operations/imaging/ultrasound`, operationsHandlers_1.getUltrasoundWaitingList);
 router.get(`/api/v1/test/ascension/pendingCases`, ascentionHandlers_1.PendingTestAscensionHandler);
+router.get(`/api/v1/test/ascension/all/pending`, ascentionHandlers_1.getAllPendingAscensionsHandler);
 router.get(`/api/v1/phelobotomy/transaction/ascensions`, validateTenancy_1.isAuthorizedRoleScientistPhelobotomist, ascentionHandlers_1.TransactionTestAscensionHandler);
 router.get(`/api/v1/phelobotomy/sample/assesment/list`, ascentionHandlers_1.sampleAssessmentHandler);
 router.get(`/api/v1/sample/client/list/unvalidated`, ascentionHandlers_1.getPendingUnvalidatedSamplesHandler);

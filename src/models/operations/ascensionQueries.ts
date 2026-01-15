@@ -9,6 +9,12 @@ export const phelobotomistSummary = `
      INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
      INNER JOIN roles AS r ON r.employeeid = ta.sampleCollectedBy`;
 
+
+     export const totalAllTimePendingCollections = `
+     SELECT COUNT(*) AS total_pending_collections
+     FROM test_ascension
+     WHERE collectionEndDate IS NULL OR collectionEndDate IS NULL`;
+
 export const approvedTestsPerScientist = `
     SELECT r.username AS Scientist, SUM(ss.approvalStatus = 1) AS approved_tests 
     FROM test_ascension AS ta

@@ -19,15 +19,21 @@ export class WriteOff {
 
                if (islocked == 1) return 'Transaction is locked. Cannot write off.';
                if (isAdjustment == 1 && adjustmentType === 'written-off') return 'Transaction already written off. No further adjustments allowed.';
-
-               if (isAdjustment == 0) {
+               if (isAdjustment == 0 || isAdjustment == null) {
                     if (payable > paid) {
-                         const outstanding = payable - paid;
+                         const outstanding = 0;
+                         const writeOffAmount = payable - paid;
                          const status = 'written-off';
                          const updateQuery = `UPDATE billing 
-                         SET isAdjustment = 1,status = ?, adjustmentReason = ?,islocked =1,
-                         adjustedBy = ?, adjustmentdate = NOW(),adjustmentType=written-off,  outstanding = ? WHERE billingid = ?`;
-                         const result = await promisifyQuery(tenantId, updateQuery, [status, reason, employeeid, outstanding, billingid]);
+                         SET isAdjustment = 1,status = ?,
+                          adjustmentReason = ?,
+                          islocked =1,
+                         adjustedBy = ?,
+                          adjustmentdate = NOW(),
+                          adjustmentType = 'written-off',  
+                          writeoff = ?,
+                          outstanding = ? WHERE billingid = ?`;
+                         const result = await promisifyQuery(tenantId, updateQuery, [status, reason, employeeid, writeOffAmount, outstanding, billingid]);
                          if (rowAffected(result)) return true;
                          return OperationsFailures.notFound;
                     } else {
@@ -65,8 +71,6 @@ export class WriteOff {
                          .where({ serviceid: service.serviceid })
                          .update({
                               totalpayable: 0,
-                              totalcost: 0,
-                              cost: 0,
                               amountIncurredDueTax: 0,
                               isLocked: 1,
                               isRefunded: 1,
@@ -107,7 +111,6 @@ export class WriteOff {
                          paid: 0.0,
                          payable: 0.0,
                          outstanding: 0.0,
-                         totalcost: 0.0,
                          discount: 0,
                          totalrefunded: totalRefunded.paid,
                          balance: 0.0,

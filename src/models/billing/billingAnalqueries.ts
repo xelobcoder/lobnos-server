@@ -39,7 +39,7 @@ ORDER BY DATE(serviceAddedOn) DESC;
         expenses AS (
             SELECT WEEK(payment_date) AS week, COALESCE(SUM(amount), 0) AS total_expenses
             FROM expense_payments
-            WHERE YEAR(payment_date) = ?
+            WHERE YEAR(payment_date) = ? AND is_reversed = 0
             GROUP BY WEEK(payment_date)
         )
         SELECT s.week,
@@ -87,12 +87,12 @@ export class BillingAnalyticsWithDate {
         (
           SELECT SUM(exp.amount) FROM expense_payments AS exp
             WHERE exp.branchid = dboservices.branchid
-            AND DATE(exp.payment_date) BETWEEN ? AND ?
+            AND DATE(exp.payment_date) BETWEEN ? AND ? AND exp.is_reversed = 0
         ) AS total_expenses,
          COLEASCE(SUM(dboservices.paidamount), 0) - (
             SELECT SUM(exp.amount) FROM expense_payments AS exp
             WHERE exp.branchid = dboservices.branchid
-            AND DATE(exp.payment_date) BETWEEN ? AND ?
+            AND DATE(exp.payment_date) BETWEEN ? AND ? AND exp.is_reversed = 0
         ) AS net_revenue,
          b.name
         FROM dboservices
@@ -178,7 +178,7 @@ export class BillingAnalyticsWithDate {
             expenses AS (
                 SELECT MONTHNAME(DATE_SUB(payment_date, INTERVAL DAYOFMONTH(payment_date)-1 DAY)) AS month, COALESCE(SUM(amount), 0) AS total_expenses
                 FROM expense_payments
-                WHERE YEAR(payment_date) = ?
+                WHERE YEAR(payment_date) = ? AND is_reversed = 0
                 GROUP BY MONTH(payment_date)
             )
             SELECT s.month, 
@@ -213,7 +213,7 @@ export class BillingAnalyticsWithDate {
         SELECT DATE(payment_date) AS date, 
         COALESCE(SUM(amount), 0) AS total_expenses
         FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ?
+        WHERE DATE(payment_date) BETWEEN ? AND ? AND is_reversed = 0
         GROUP BY DATE(payment_date)
     )
     SELECT s.date, 
@@ -264,6 +264,7 @@ export class BillingAnalyticsWithDate {
         expenses AS (
             SELECT YEAR(payment_date) AS year, COALESCE(SUM(amount), 0) AS total_expenses
             FROM expense_payments
+            WHERE is_reversed = 0
             GROUP BY YEAR(payment_date)
         )
         SELECT s.year,
@@ -303,7 +304,7 @@ export class BillingAnalyticsWithDate {
     expenses AS (
         SELECT HOUR(payment_date) AS hour, COALESCE(SUM(amount), 0) AS total_expenses
         FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ?
+        WHERE DATE(payment_date) BETWEEN ? AND ? AND is_reversed = 0
         GROUP BY HOUR(payment_date)
     )
     SELECT s.hour, 

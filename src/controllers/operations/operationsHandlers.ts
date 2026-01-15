@@ -67,10 +67,38 @@ export const getUltrasoundWaitingList = async (req: Request, res: Response) => {
 
 		const parsedCount = parseInt(count.toString());
 		const parsedPage = parseInt(page.toString());
-		const waitingList = await new Operations(null).getUltrasoundWaitingList(tId, { page: parsedPage, count: parsedCount });
-		res.send(waitingList);
 	} catch (err) {
 		responseError(res);
+	}
+};
+
+export const searchLaboratoryOperations = async (req: Request, res: Response) => {
+	try {
+		const { tenantId, page = '1', count = '10', patientId, billingId, accessionId } = req.query;
+		if (!patientId && !billingId && !accessionId) {
+			return customError("At least one search parameter is required: patientId, billingId, or accessionId", 400, res);
+		}
+
+		const tId = parseInt(tenantId as string, 10);
+		const pageNum = Math.max(1, parseInt(page.toString()) || 1);
+		const countNum = Math.max(1, Math.min(100, parseInt(count.toString()) || 10));
+
+		const result = await new Operations(null).searchLaboratoryOperations(tId, {
+			patientId: patientId ? parseInt(patientId.toString()) : undefined,
+			billingId: billingId ? parseInt(billingId.toString()) : undefined,
+			accessionId: accessionId?.toString(),
+			page: pageNum,
+			count: countNum
+		});
+
+		res.send({
+			statusCode: 200,
+			status: "success",
+			message: "Laboratory operations search completed",
+			data: result
+		});
+	} catch (err: any) {2
+		return customError("Failed to retrieve laboratory operations data. Please try again later.", 500, res);
 	}
 };
 

@@ -187,11 +187,28 @@ class Expenses {
         const result = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.isRecordExistQuery, [this.expenseId]);
         return Array.isArray(result) && result.length > 0;
     }
+    async hasApprovedPayments() {
+        const checkQuery = `
+               SELECT COUNT(ep.id) as payment_count
+               FROM expense_payments ep
+               WHERE ep.expense_id = ?
+          `;
+        const result = await (0, helper_1.promisifyQuery)(this.tenantId, checkQuery, [this.expenseId]);
+        return result && result.length > 0 && result[0].payment_count > 0;
+    }
     async updateExpenseRecord(expenseData) {
         try {
             const isValidExpenseRecord = await this.isExpenseRecordAvailable();
             if (!isValidExpenseRecord)
                 return "such id not found" /* OperationsFailures.unfoundID */;
+            const approvalQuery = `SELECT approved FROM expensesrecord WHERE id = ?`;
+            const approvalResult = await (0, helper_1.promisifyQuery)(this.tenantId, approvalQuery, [this.expenseId]);
+            if (approvalResult && approvalResult.length > 0 && approvalResult[0].approved) {
+                const hasPayments = await this.hasApprovedPayments();
+                if (hasPayments) {
+                    return "Cannot edit approved expense that has payments already made. Please reverse the payment first.";
+                }
+            }
             const { id, name, amount, category, branchid, description, merchant, employeeid, date, } = expenseData;
             const queryParams = [
                 name,

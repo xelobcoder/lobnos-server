@@ -377,7 +377,8 @@ exports.q_pending_sample_uncollected = `
     INNER JOIN test_panels AS tp ON tp.id = ts.testid
     LEFT JOIN departments AS c ON c.id = tp.category
     WHERE (ts.collectionEndDate IS NULL OR ts.collectionStartDate IS NULL) AND (c.department IS NOT NULL AND c.department <> 'Ultrasound')
-`;
+
+    `;
 exports.q_transaction_ascension_phelobotomy_details = `
   SELECT 
       t.id,

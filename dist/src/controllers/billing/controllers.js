@@ -356,7 +356,7 @@ async function WriteOffTransaction(request, response) {
         if (typeof result === "string")
             return response.send({ status: false, message: result });
         if (!result)
-            return (0, helper_1.customError)("Resource not found." /* OperationsFailures.notFound */, 404, response);
+            return (0, helper_1.customError)("Write off failed", 404, response);
         response.send({ status: true });
     }
     catch (err) {

@@ -11,6 +11,7 @@ import logger from "../../hooks/logger";
 import { request } from "node:http";
 import OutsourcedCases from "../../models/organization/outsourcingOrganization/outsourcedCases";
 import { SupplierPaymentExpenseSync } from "../../models/inventory/SupplierPaymentExpenseSync";
+import User from "../../LobnosAuth/user";
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -176,7 +177,7 @@ export const updateExpenseRecord = async (request: Request, response: Response) 
 		const { expenseid, tenantId } = request.query;
 		const expenseData = request.body;
 
-		if (!expenseid || !tenantId || !expenseData.employeeid || !expenseData.branchid) {
+		if (!expenseid || !expenseData.employeeid || !expenseData.branchid) {
 			return customError("Missing required identifiers", 404, response);
 		}
 
@@ -190,7 +191,7 @@ export const updateExpenseRecord = async (request: Request, response: Response) 
 		const result = await expenses.updateExpenseRecord(expenseData);
 
 		if (typeof result === "string") {
-			return response.send({ status: false, message: result })
+			return customError(result, 400, response);
 		}
 
 		response.send({ status: result });
@@ -919,5 +920,138 @@ export const markSupplierPaymentAsExpense = async (request: Request, response: R
 	} catch (err) {
 		console.log('Error in markSupplierPaymentAsExpense:', err);
 		responseError(response);
+	}
+};
+
+export const reverseExpensePayment = async (request: Request, response: Response): Promise<any> => {
+	try {
+		const { tenantId, employeeid } = request.query;
+		const { paymentId, reversalReason } = request.body;
+
+		// Validate required parameters
+		if (!tenantId || !paymentId) {
+			return customError("Missing required parameters: tenantId and paymentId", 400, response);
+		}
+
+		if (!employeeid) {
+			return customError("employeeid is required", 400, response);
+		}
+
+		// Check if user is admin
+		const pTenantId = parseInt(tenantId.toString());
+		const pEmployeeid = parseInt(employeeid.toString());
+
+		const userdata = await new User().getUserRole(pEmployeeid, pTenantId);
+		const role = userdata ? userdata.toLowerCase().trim() : '';
+		const allowedRoles = ['admin', 'super-admin'];
+
+		if (!allowedRoles.includes(role)) {
+			return customError("Only administrators can reverse payments", 403, response);
+		}
+
+		// Get branchid from query or use 0 as default
+		const branchid = request.query.branchid ? parseInt(request.query.branchid.toString()) : 0;
+
+		const invoiceRepo = new ExpenseInvoiceRepo(pEmployeeid, branchid, pTenantId);
+		const result = await invoiceRepo.reversePayment(parseInt(paymentId.toString()), reversalReason);
+
+		response.send({
+			status: "success",
+			data: result,
+			message: "Payment reversed successfully"
+		});
+	} catch (err: any) {
+		console.log('Error in reverseExpensePayment:', err);
+
+		if (err.message.includes('not found')) {
+			return customError(`Payment reversal failed: ${err.message}`, 404, response);
+		}
+
+		return customError(`An error occurred while reversing the payment: ${err.message}`, 500, response);
+	}
+};
+
+export const getReversedPayments = async (request: Request, response: Response): Promise<any> => {
+	try {
+		const { tenantId, expenseId, invoiceId, page = '1', limit = '10' } = request.query;
+
+		// Validate required parameters
+		if (!tenantId) {
+			return customError("Missing required parameter: tenantId", 400, response);
+		}
+
+		const pTenantId = parseInt(tenantId.toString());
+		const pageNum = Math.max(1, parseInt(page.toString()) || 1);
+		const limitNum = Math.max(1, Math.min(100, parseInt(limit.toString()) || 10));
+		const offset = (pageNum - 1) * limitNum;
+
+		const invoiceRepo = new ExpenseInvoiceRepo(0, 0, pTenantId);
+
+		let query = `
+			SELECT
+				epr.id AS reversal_id,
+				epr.payment_id,
+				epr.expense_id,
+				epr.invoice_id,
+				epr.reversed_amount,
+				epr.reversed_by,
+				epr.reversal_reason,
+				epr.reversed_on,
+				epr.reversal_method,
+				epr.created_at,
+				r.username AS reversed_by_name,
+				ep.payment_date,
+				ep.amount AS original_amount,
+				ep.status AS original_status,
+				ep.method AS payment_method,
+				er.name AS expense_name,
+				er.amount AS expense_amount,
+				i.invoice_number,
+				i.status AS invoice_status
+			FROM expense_payment_reversals epr
+			LEFT JOIN roles r ON epr.reversed_by = r.employeeid
+			LEFT JOIN expense_payments ep ON epr.payment_id = ep.id
+			LEFT JOIN expensesrecord er ON epr.expense_id = er.id
+			LEFT JOIN invoices i ON epr.invoice_id = i.id
+			WHERE 1=1
+		`;
+
+		const params: any[] = [];
+
+		if (expenseId) {
+			query += ` AND epr.expense_id = ?`;
+			params.push(parseInt(expenseId.toString()));
+		}
+
+		if (invoiceId) {
+			query += ` AND epr.invoice_id = ?`;
+			params.push(parseInt(invoiceId.toString()));
+		}
+
+		// Get total count
+		const countQuery = `SELECT COUNT(*) as total FROM (${query}) as cnt`;
+		const countResult = await promisifyQuery(pTenantId, countQuery, params);
+		const total = countResult[0]?.total || 0;
+
+		// Get paginated data
+		query += ` ORDER BY epr.reversed_on DESC LIMIT ? OFFSET ?`;
+		params.push(limitNum, offset);
+
+		const result = await promisifyQuery(pTenantId, query, params);
+
+		response.send({
+			status: "success",
+			data: result,
+			pagination: {
+				page: pageNum,
+				limit: limitNum,
+				total: total,
+				totalPages: Math.ceil(total / limitNum)
+			},
+			message: "Reversed payments retrieved successfully"
+		});
+	} catch (err: any) {
+		console.log('Error in getReversedPayments:', err);
+		return customError(`An error occurred while retrieving reversed payments: ${err.message}`, 500, response);
 	}
 };

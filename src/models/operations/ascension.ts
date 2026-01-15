@@ -119,9 +119,6 @@ export class TestAscension extends Operations {
 			});
 		}
 		query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
-
-		console.log(query)
-
 		return await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
 	}
 
@@ -131,6 +128,20 @@ export class TestAscension extends Operations {
 
 	public static async getTransactionTestsQualifiedForResultEntry(tenantId: number, billingid: number, branchid: number): Promise<[]> {
 		return await promisifyQuery(tenantId, q_get_all_test_qualified_to_for_result_entry_on_test, [billingid, branchid]);
+	}
+
+	public static async getAllPendingAscensions(tenantId: number, count: number = 30, page: number = 1): Promise<any[]> {
+		let query = q_pending_sample_uncollected;
+		let params: any[] = [];
+		query += `     GROUP BY b.billingid
+    ORDER BY b.billedon DESC`;
+		if (page && count) {
+			const offset = (page - 1) * count;
+			query += ` LIMIT ? OFFSET ?`;
+			params = [count, offset];
+		}
+
+		return await promisifyQuery(tenantId, query, params);
 	}
 
 	public static async findAllBillingAssociatedTestAscensions(tenantId: number, billingid: number, onlyAscensionid: boolean = true): Promise<PrimeLimsTabletest_ascension[] | number[] | []> {

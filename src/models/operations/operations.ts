@@ -18,6 +18,8 @@ import PartitionManager from "../billing/partitioning";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import { TestApprovalClass } from "./testApprovalClass";
 import { parse } from "node:path";
+import { count } from "node:console";
+import { TestAscension } from "./ascension";
 
 export default class Operations {
 	private billingid: number;
@@ -271,6 +273,18 @@ export default class Operations {
 		}
 	};
 
+	private async isTestValidated(tenantId: number, ascensionId: number): Promise<boolean> {
+		try {
+			const query = `SELECT isapproved FROM dbotestresultapproval WHERE ascensionid = ?`;
+			const result = await promisifyQuery(tenantId, query, [ascensionId]);
+			console.log('isTestValidated result:', result);
+			return result.length > 0 && result[0].isapproved === 1;
+		} catch (error) {
+			console.log('Error checking test validation:', error);
+			return false;
+		}
+	}
+
 	async getUltrasoundWaitingList(tenantId: number, data: { count: number; page: number }): Promise<any[]> {
 		const { count = 10, page = 1 } = data;
 		const result = await paginationQuery({ count, page }, q_ultrasound_waitingList, [], tenantId);
@@ -304,5 +318,131 @@ export default class Operations {
 			return [];
 		}
 	}
-}
 
+	async searchLaboratoryOperations(tenantId: number, searchParams: {
+		patientId?: number;
+		billingId?: number;
+		accessionId?: string;
+		page: number;
+		count: number;
+	}): Promise<any> {
+		try {
+			const { patientId, billingId, accessionId, page, count } = searchParams;
+			const offset = (page - 1) * count;
+			const params: any[] = [];
+
+			let query = `
+				SELECT
+					b.billingid,
+					b.billedon,
+					np.patientid,
+					CONCAT(np.firstname, ' ', COALESCE(np.middlename, ''), ' ', np.lastname) AS patient_name,
+					np.mobile_number AS phonenumber,
+					np.email,
+					ta.id AS ascension_id,
+					ta.testid,
+					tp.name AS testname,
+					tp.category,
+					d.department,
+					ta.ascension_date AS created_on,
+					ta.collectionStartDate,
+					ta.collectionEndDate,
+					ta.processingStartDate,
+					ta.processingEndDate,
+					ta.resultEntryStart,
+					ta.resultEntryEnd,
+					(SELECT COUNT(DISTINCT testid) FROM test_ascension WHERE billingid = b.billingid) AS total_tests
+				FROM billing b
+				INNER JOIN new_patients np ON b.patientid = np.patientid
+				LEFT JOIN test_ascension ta ON b.billingid = ta.billingid
+				LEFT JOIN test_panels tp ON ta.testid = tp.id
+				LEFT JOIN departments d ON tp.category = d.id
+				WHERE 1=1
+			`;
+
+			if (patientId) {
+				query += ` AND np.patientid = ?`;
+				params.push(patientId);
+			}
+
+			if (billingId) {
+				query += ` AND b.billingid = ?`;
+				params.push(billingId);
+			}
+
+			if (accessionId) {
+				query += ` AND ta.id = ?`;
+				params.push(accessionId);
+			}
+
+			query += ` ORDER BY b.billedon DESC, ta.ascension_date DESC LIMIT ? OFFSET ?`;
+			params.push(count, offset);
+
+			const result = await promisifyQuery(tenantId, query, params);
+			const groupedResults: Record<number, any> = {};
+
+			const { TestAscension } = await import('./ascension');
+
+			for (const row of result) {
+				const billingKey = row.billingid;
+				if (!groupedResults[billingKey]) {
+					groupedResults[billingKey] = {
+						billingId: row.billingid,
+						billedOn: row.billedon,
+						patient: {
+							patientId: row.patientid,
+							name: row.patient_name,
+							phone: row.phonenumber,
+							email: row.email
+						},
+						summary: {
+							totalTests: row.total_tests
+						},
+						services: []
+					};
+				}
+
+				if (row.ascension_id) {
+					let stage = await TestAscension.determineStage(tenantId, row.ascension_id);
+					if (row.resultEntryStart) {
+						const isValidated = await this.isTestValidated(tenantId, row.ascension_id);
+						if (isValidated) {
+							stage = 'validated';
+						} else {
+							stage = 'validation';
+						}
+					}
+
+					groupedResults[billingKey].services.push({
+						ascensionId: row.ascension_id,
+						testId: row.testid,
+						testName: row.testname,
+						category: row.category,
+						department: row.department,
+						ascensionDate: row.created_on,
+						collectionStartDate: row.collectionStartDate,
+						collectionEndDate: row.collectionEndDate,
+						processingStartDate: row.processingStartDate,
+						processingEndDate: row.processingEndDate,
+						resultEntryStartDate: row.resultEntryStart,
+						resultEntryEndDate: row.resultEntryEnd,
+						stage: stage || 'Unknown'
+					});
+				}
+			}
+
+			return {
+				results: Object.values(groupedResults),
+				pagination: {
+					page,
+					count,
+					total: result.length > 0 ? result.length : 0
+				}
+			};
+
+		} catch (err) {
+			console.log('Error in searchLaboratoryOperations:', err);
+			throw new Error(`Failed to retrieve laboratory operations data. Please try again later.`);
+		}
+	}
+}

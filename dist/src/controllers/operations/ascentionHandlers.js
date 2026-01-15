@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getRejectedCollectedSampleListHandler = exports.getPendingUnvalidatedSamplesHandler = exports.getAscensionEditCountHandler = exports.getTransactionAscentionTestQualifiedForResultEntryHandler = exports.updateValidationSampleHandler = exports.sampleAssessmentHandler = exports.phelobotomistAnalyticsSummary = exports.TransactionTestAscensionHandler = exports.PendingTestAscensionHandler = exports.monthlyApprovalRateHandler = exports.getTotalTestByYears = exports.phelobotomistSummaryHandler = exports.getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler = exports.getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear = exports.getCollectionToDisputeToApprovedToRedrawnLast30daysHandler = exports.getAscensionAnalyticSummary = exports.updateAscensionStageHandler = void 0;
+exports.getAllPendingAscensionsHandler = exports.getRejectedCollectedSampleListHandler = exports.getPendingUnvalidatedSamplesHandler = exports.getAscensionEditCountHandler = exports.getTransactionAscentionTestQualifiedForResultEntryHandler = exports.updateValidationSampleHandler = exports.sampleAssessmentHandler = exports.phelobotomistAnalyticsSummary = exports.TransactionTestAscensionHandler = exports.PendingTestAscensionHandler = exports.monthlyApprovalRateHandler = exports.getTotalTestByYears = exports.phelobotomistSummaryHandler = exports.getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler = exports.getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear = exports.getCollectionToDisputeToApprovedToRedrawnLast30daysHandler = exports.getAscensionAnalyticSummary = exports.updateAscensionStageHandler = void 0;
 const ascension_1 = require("../../models/operations/ascension");
 const ascensionAnalytics_1 = require("../../models/operations/ascensionAnalytics");
 const sampleClass_1 = require("../../models/operations/sample/sampleClass");
@@ -135,7 +135,8 @@ async function PendingTestAscensionHandler(request, response) {
         const filter = request.query.filter ? request.query.filter.toString() : undefined;
         const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
         console.log({ filter, sortby });
-        const pending = await ascension_1.TestAscension.getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date, end_date, filter, sortby);
+        const pending = await ascension_1.TestAscension.
+            getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date, end_date, filter, sortby);
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });
     }
     catch (err) {
@@ -265,3 +266,26 @@ async function getRejectedCollectedSampleListHandler(request, response) {
     }
 }
 exports.getRejectedCollectedSampleListHandler = getRejectedCollectedSampleListHandler;
+async function getAllPendingAscensionsHandler(request, response) {
+    try {
+        const { tenantId, count = 30, page = 1 } = request.query;
+        const parsedCount = parseInt(count.toString()) || 30;
+        const parsedPage = parseInt(page.toString()) || 1;
+        const tenantIdP = parseInt(tenantId.toString());
+        const allPending = await ascension_1.TestAscension.getAllPendingAscensions(tenantIdP, parsedCount, parsedPage);
+        response.send({
+            tenantId,
+            message: "success",
+            statusCode: 200,
+            result: allPending,
+            status: "success",
+            count: (allPending === null || allPending === void 0 ? void 0 : allPending.length) || 0,
+            page: parsedPage,
+            pageSize: parsedCount
+        });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+}
+exports.getAllPendingAscensionsHandler = getAllPendingAscensionsHandler;

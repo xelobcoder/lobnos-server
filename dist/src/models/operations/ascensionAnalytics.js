@@ -200,16 +200,21 @@ class AscensionAnalytics extends ascension_1.TestAscension {
     static async totalSampleRedrawCompleted24(tenantId) {
         return await (0, helper_1.promisifyQuery)(tenantId, Queries.testsRedrawOrdersCompletedIn24Hours);
     }
+    static allTimePendingCollections(tenantId) {
+        return (0, helper_1.promisifyQuery)(tenantId, Queries.totalAllTimePendingCollections);
+    }
     static async phelobotomistAnalytics24Hours(tenantId) {
         let pending = await this.totalSamplePendingCollection24(tenantId);
         let rejected = await this.totalSampleRejected24(tenantId);
         let orders = await this.totalSampleRedrawOrders24(tenantId);
         let completed = await this.totalSampleRedrawCompleted24(tenantId);
+        let allTimePending = await this.allTimePendingCollections(tenantId);
+        allTimePending = allTimePending[0]['total_pending_collections'];
         rejected = rejected[0]['tests_rejected_in_24h'];
         completed = completed[0]['redraw_orders_completed_in_24h'];
         orders = orders[0]['redraw_orders_in_24h'];
         pending = pending[0]['pending'];
-        return { pending, rejected, orders, completed };
+        return { pending, rejected, orders, completed, allTimePending };
     }
     async getAllAnalytics(tenantId) {
         try {
