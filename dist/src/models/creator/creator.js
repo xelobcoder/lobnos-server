@@ -71,7 +71,7 @@ class Creator {
             if (previousRecords.length > 0 && creationRules.length > 0) {
                 const mappings = creationRules.map(rule => {
                     const previous = previousRecords.find(item => item.fieldid === rule.id);
-                    const state = previous ? Object.assign(Object.assign({}, rule), previous) : Object.assign(Object.assign({}, rule), { value: (0, encryptionModels_1.encrypt_value)('tiifu'), originalvalue: (0, encryptionModels_1.encrypt_value)('tiifu'), fieldid: rule.id, field: rule.name });
+                    const state = previous ? Object.assign(Object.assign({}, rule), previous) : Object.assign(Object.assign({}, rule), { value: (0, encryptionModels_1.encrypt_value)('NIL'), originalvalue: (0, encryptionModels_1.encrypt_value)('NIL'), fieldid: rule.id, field: rule.name });
                     return state;
                 });
                 return mappings;

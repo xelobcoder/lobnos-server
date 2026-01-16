@@ -23,6 +23,7 @@ import { testAscensionTableTypes } from "../../models/billing/billingclientTypes
 import RolesRepository from "../../models/settings/users/RolesRepository";
 import { TestDetailCategoryType } from "../../models/operations/testFieldsCategoryClass";
 import RequestAccess from "../../models/security/RequestAcessResult/requestAcess";
+import { Services } from "../../models/services/services";
 
 // export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -86,6 +87,7 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: IRequ
 		}
 		response.send([])
 	} catch (err) {
+		console.log(err)
 		responseError(response)
 	}
 }
@@ -294,6 +296,11 @@ export const getResultPrintoutHandler = async (request: Request<
 			dataset.samplingInformation = samplingInformation;
 		}
 
+		// Get referrer facility information from services table
+		const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
+		if (referrerFacility) {
+			dataset.referrerFacility = referrerFacility;
+		}
 
 		let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, parsedTestId, numAscensionId);
 		const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
@@ -408,6 +415,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 						comments: '',
 						testInfo: null,
 						testdetailcategory: null,
+						referrerFacility: null,
 					};
 
 					const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
@@ -442,16 +450,11 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 						}
 					}
 
-					let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, testid, ascensionid);
-
-					const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
-
-					dataset.validators = validators;
-					dataset.lastupdatedon = lastupdatedon as string;
-					dataset.resultentry = resultentry
-
-					const comments = await creator.getCustomCommentsRecords(tenantIdP, billingid, testid);
-					dataset.comments = comments
+					// Get referrer facility information from services table
+					const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
+					if (referrerFacility) {
+						dataset.referrerFacility = referrerFacility;
+					}
 
 					if (typeof dataset.comments === "string") {
 						finalResult.generalComments = finalResult.generalComments + " " + dataset.comments
@@ -527,6 +530,13 @@ export type resultPrintOutDataset = {
 	billingid: number
 	samplingInformation: null | testAscensionTableTypes,
 	patientid: number,
+	referrerFacility?: {
+		clinicianId: number | null,
+		organizationId: number | null,
+		facility_name: string | null,
+		facility_email: string | null,
+		facility_phone: number | null
+	} | null,
 	generalValidation?: {
 		employeeid: number,
 		username: string,

@@ -60,7 +60,7 @@ class SubmitCustomerBilling {
     }
     async submit() {
         try {
-            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
+            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -316,6 +316,7 @@ class SubmitCustomerBilling {
             registrationType = "nhis";
         }
         const result = await Promise.all(billingData.cart.map(async (item) => {
+            var _a, _b;
             const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
             console.log({ paidamount, paymentstatus, outstanding });
             const data = {
@@ -325,8 +326,8 @@ class SubmitCustomerBilling {
                 employeeid: billingData.employeeid,
                 serviceCategory: billingclientTypes_1.serviceCategory[billingData.billingSource],
                 categoryTrackId: billingData.billingSource,
-                clinicianId,
-                organizationId,
+                clinicianId: clinicianId || (billingData === null || billingData === void 0 ? void 0 : billingData.clinicianId) ? parseInt((_a = billingData.clinicianId) === null || _a === void 0 ? void 0 : _a.toString()) : null,
+                organizationId: organizationId || (billingData === null || billingData === void 0 ? void 0 : billingData.organizationId) ? parseInt((_b = billingData.organizationId) === null || _b === void 0 ? void 0 : _b.toString()) : null,
                 registrationType,
                 branchid: billingData.branchid,
                 isoutsourced: item.isoutsourced === 1 ? 1 : 0,
@@ -393,6 +394,7 @@ class SubmitCustomerBilling {
         const { employeeid, branchid, taxIncluded, billingSource, isPackageUsed } = billingData;
         return await Promise.all(servicesProvided
             .map(async (item) => {
+            var _a, _b;
             const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
             return {
                 billingid: billingID,
@@ -401,8 +403,8 @@ class SubmitCustomerBilling {
                 employeeid,
                 serviceCategory: billingclientTypes_1.serviceCategory[5],
                 categoryTrackId: 5,
-                clinicianId,
-                organizationId,
+                clinicianId: clinicianId || (billingData === null || billingData === void 0 ? void 0 : billingData.clinicianId) ? parseInt((_a = billingData.clinicianId) === null || _a === void 0 ? void 0 : _a.toString()) : null,
+                organizationId: organizationId || (billingData === null || billingData === void 0 ? void 0 : billingData.organizationId) ? parseInt((_b = billingData.organizationId) === null || _b === void 0 ? void 0 : _b.toString()) : null,
                 registrationType,
                 branchid,
                 isoutsourced: 0,

@@ -33,39 +33,46 @@ export class SmsService {
             baseUrl: process.env.ARKESEL_BASE_URL
         };
 
-        if (!this.config.apiKey) {
+        if (!this.config.apiKey || this.config.apiKey.trim() === '' || !this.config.baseUrl) {
             throw new Error('SMS API key is required');
         }
+
     }
 
     private async sendRequest(endpoint: string, method: string, data?: object): Promise<SmsResponse> {
         try {
-            const headers: HeadersInit = {
-                'Content-Type': 'application/json',
-                'api-key': this.config.apiKey
-            }
-            const response = await fetch(
-                `${this.config.baseUrl}${endpoint}`,
-                {
-                    method,
-                    headers,
-                    body: method !== 'GET' && data ? JSON.stringify(data) : undefined,
-                }
-            )
+            const config = {
+                method: method,
+                url: `${this.config.baseUrl}${endpoint}`,
+                headers: {
+                    'api-key': this.config.apiKey,
+                    'Content-Type': 'application/json'
+                },
+                data: data
+            };
+
+            const response = await fetch(config.url, {
+                method: config.method,
+                headers: config.headers as HeadersInit,
+                body: config.method !== 'GET' && config.data ? JSON.stringify(config.data) : undefined,
+            });
+
+
             if (!response.ok) {
                 return {
                     status: 'error',
                     code: response.status,
                     message: `Request failed with status ${response.status}: ${response.statusText}`,
-                }
+                };
             }
-            return await response.json()
+            return await response.json();
         } catch (error) {
+            console.log('Error sending SMS API request:', error);
             return {
                 status: 'error',
                 code: 500,
                 message: error instanceof Error ? error.message : 'Unknown error occurred',
-            }
+            };
         }
     }
 
@@ -122,6 +129,16 @@ export class SmsService {
         return { validNumbers, invalidNumbers }
     }
 
+    private validateSender(sender: string): string {
+        if (!sender) {
+            throw new Error('Sender is required');
+        }
+        if (sender.length > 11) {
+            return sender.substring(0, 11);
+        }
+        return sender;
+    }
+
     async sendSms(
         recipients: string[],
         message: string,
@@ -137,8 +154,9 @@ export class SmsService {
         if (validNumbers.length === 0) {
             throw new Error('No valid phone numbers provided')
         }
+        const sender = this.validateSender(options.sender || this.config.defaultSender);
         const data = {
-            sender: options.sender || this.config.defaultSender,
+            sender: sender,
             message: message.trim(),
             recipients: validNumbers,
             ...(options.callbackUrl && { callback_url: options.callbackUrl }),

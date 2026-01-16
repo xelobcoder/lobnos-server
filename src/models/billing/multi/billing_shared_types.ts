@@ -69,6 +69,8 @@ export type MultiTBillingDataShared = {
      isPackageUsed: boolean;
      nightAdjustmentMode: string;
      nightAdjustmentValue: number;
+     clinicianId?: number;
+     organizationId?: number;
      testcost: number;
      nhismembershipid?: number;
      claimscheckcode?: number;

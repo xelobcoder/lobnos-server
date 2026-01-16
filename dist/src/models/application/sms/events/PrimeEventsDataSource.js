@@ -47,20 +47,26 @@ class PrimeEventsSMSDataSource {
         return event.active === 1 || event.active === true;
     }
     async sendSMSMessage(smsconstent, phonee164, eventCode, refId, isevent, createdby) {
-        const sms = await new Arkesel_1.SmsService().sendSms([phonee164], smsconstent);
-        if (sms && sms.status === 'success' && Array.isArray(sms.data) && sms.data[0]) {
-            await this.logSentSmsJob({
-                smsconstent,
-                phonee164,
-                arkeselResponse: sms,
-                eventCode,
-                refId,
-                isEvent: isevent,
-                eventcode: eventCode || null,
-                createdby: createdby
-            });
+        try {
+            const sms = await new Arkesel_1.SmsService().sendSms([phonee164], smsconstent);
+            if (sms && sms.status === 'success' && Array.isArray(sms.data) && sms.data[0]) {
+                await this.logSentSmsJob({
+                    smsconstent,
+                    phonee164,
+                    arkeselResponse: sms,
+                    eventCode,
+                    refId,
+                    isEvent: isevent,
+                    eventcode: eventCode || null,
+                    createdby: createdby
+                });
+            }
+            return { status: sms.status || false };
         }
-        return { status: sms.status || false };
+        catch (error) {
+            console.error('Error sending SMS message:', error);
+            return { status: false };
+        }
     }
     async logSentSmsJob({ smsconstent, phonee164, arkeselResponse, eventCode, refId, isEvent = false, eventcode = null, createdby = 0 }) {
         // Import repositories dynamically to avoid circular dependencies
@@ -113,42 +119,50 @@ class PrimeEventsSMSDataSource {
         });
     }
     async paymentConfirmationEvent(tenantId, billingid, employeeid) {
-        const isActive = await this.isEventActive('PAYMENT_CONFIRMATION_SMS');
-        if (!isActive)
-            return;
-        const query = `
+        try {
+            const isActive = await this.isEventActive('PAYMENT_CONFIRMATION_SMS');
+            if (!isActive)
+                return;
+            const query = `
             SELECT b.*, p.*
             FROM billing b
             JOIN new_patients p ON b.patientid = p.patientid
             WHERE b.billingid = ?
         `;
-        const connection = await (0, KnexConnections_1.default)(tenantId);
-        const [result] = await connection.raw(query, [billingid]);
-        if (!result || !result[0])
-            return;
-        const hxQuery = `
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const [result] = await connection.raw(query, [billingid]);
+            if (!result || !result[0])
+                return;
+            const hxQuery = `
             SELECT * FROM billinghx  AS bhx
             INNER JOIN paymentmodes  ON bhx.PaymentMode = paymentmodes.KeyID
             WHERE billingid = ? ORDER BY bhx.KeyID DESC`;
-        let billinghx = [];
-        try {
-            const [hxResult] = await connection.raw(hxQuery, [billingid]);
-            billinghx = Array.isArray(hxResult) ? hxResult : [];
+            let billinghx = [];
+            try {
+                const [hxResult] = await connection.raw(hxQuery, [billingid]);
+                billinghx = Array.isArray(hxResult) ? hxResult : [];
+            }
+            catch (e) {
+                throw e;
+            }
+            let paymentSummary = '';
+            if (billinghx.length > 0) {
+                paymentSummary = billinghx.map(hx => `${hx.PaymentMode}: ${hx.Amount}`).join(', ');
+            }
+            const data = Object.assign(Object.assign({}, result[0]), { paymentSummary });
+            const event = await this.repo.findByCode('PAYMENT_CONFIRMATION_SMS');
+            if (!event)
+                return;
+            const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
+            const smscontent = parsedContent + (paymentSummary ? `\n\nPayment(s): ${paymentSummary}` : '');
+            const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
+            const refid = result[0].patientid;
+            return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid, true, employeeid);
         }
-        catch (e) { }
-        let paymentSummary = '';
-        if (billinghx.length > 0) {
-            paymentSummary = billinghx.map(hx => `${hx.PaymentMode}: ${hx.Amount}`).join(', ');
+        catch (error) {
+            console.error('Error in paymentConfirmationEvent:', error);
+            throw error;
         }
-        const data = Object.assign(Object.assign({}, result[0]), { paymentSummary });
-        const event = await this.repo.findByCode('PAYMENT_CONFIRMATION_SMS');
-        if (!event)
-            return;
-        const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
-        const smscontent = parsedContent + (paymentSummary ? `\n\nPayment(s): ${paymentSummary}` : '');
-        const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
-        const refid = result[0].patientid;
-        return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid, true, employeeid);
     }
     async parsedEventTemplate(tenantId, data, event) {
         const companyInfo = await (0, companyProfile_1.getAllCompanyProfiles)(tenantId);

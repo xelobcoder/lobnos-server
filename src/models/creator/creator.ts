@@ -87,8 +87,8 @@ export default class Creator {
 					const previous = previousRecords.find(item => item.fieldid === rule.id);
 					const state = previous ? { ...rule, ...previous } : {
 						...rule,
-						value: encrypt_value('tiifu'),
-						originalvalue: encrypt_value('tiifu'),
+						value: encrypt_value('NIL'),
+						originalvalue: encrypt_value('NIL'),
 						fieldid: rule.id,
 						field: rule.name
 					};

@@ -21,6 +21,7 @@ const core_1 = __importDefault(require("../../EmailServices/core"));
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
 const requestAcess_1 = __importDefault(require("../../models/security/RequestAcessResult/requestAcess"));
+const services_1 = require("../../models/services/services");
 // export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
@@ -83,6 +84,7 @@ const getPreviousResultEntryRecordsIfAny = async function (request, response) {
         response.send([]);
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(response);
     }
 };
@@ -251,6 +253,11 @@ const getResultPrintoutHandler = async (request, response) => {
         if (samplingInformation != null) {
             dataset.samplingInformation = samplingInformation;
         }
+        // Get referrer facility information from services table
+        const referrerFacility = await services_1.Services.getRefererFacilityByBillingId(tenantIdP, billingid);
+        if (referrerFacility) {
+            dataset.referrerFacility = referrerFacility;
+        }
         let resultEntry = await new resultPrint_1.default(billingid).getResultEntryScientist(tenantIdP, billingid, parsedTestId, numAscensionId);
         const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
         dataset.validators = validators;
@@ -347,6 +354,7 @@ const getResultPrintMultipleHandler = async (request, response) => {
                         comments: '',
                         testInfo: null,
                         testdetailcategory: null,
+                        referrerFacility: null,
                     };
                     const literatureReview = await new literature_1.default(null).getResultLiterature(tenantIdP, testid);
                     if (literatureReview.can != false) {
@@ -375,13 +383,11 @@ const getResultPrintMultipleHandler = async (request, response) => {
                             dataset.drugList = drugList;
                         }
                     }
-                    let resultEntry = await new resultPrint_1.default(billingid).getResultEntryScientist(tenantIdP, billingid, testid, ascensionid);
-                    const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
-                    dataset.validators = validators;
-                    dataset.lastupdatedon = lastupdatedon;
-                    dataset.resultentry = resultentry;
-                    const comments = await creator.getCustomCommentsRecords(tenantIdP, billingid, testid);
-                    dataset.comments = comments;
+                    // Get referrer facility information from services table
+                    const referrerFacility = await services_1.Services.getRefererFacilityByBillingId(tenantIdP, billingid);
+                    if (referrerFacility) {
+                        dataset.referrerFacility = referrerFacility;
+                    }
                     if (typeof dataset.comments === "string") {
                         finalResult.generalComments = finalResult.generalComments + " " + dataset.comments;
                     }
