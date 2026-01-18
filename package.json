@@ -1,7 +1,7 @@
 {
-  "name": "lobnos-server",
-  "version": "1.0.0",
-  "description": "Server for running lobnos sotware",
+  "name": "PLS",
+  "version": "0.0.1",
+  "description": "High Performance Laboratory Information System",
   "main": "app.js",
   "bin": "./dist/src/start.js",
   "pkg": {

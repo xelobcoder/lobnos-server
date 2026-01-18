@@ -86,6 +86,8 @@ class RolesRepository {
     }
     async validatePin(employeeId, pin) {
         const employee = await this.getRoleById(employeeId);
+        if (typeof (employee === null || employee === void 0 ? void 0 : employee.pin) !== 'number')
+            return false;
         return employee && employee.pin && pin.toString().length == 4 && parseInt(employee.pin.toString()) == pin;
     }
     async getEmployeesList(employeelist) {

@@ -30,6 +30,13 @@ const createNewAccount = async (req) => {
         const isMobileNumberExist = await user.verifyMobileNumber(req.body.mobile);
         if (isMobileNumberExist)
             throw new Error("This resource already exist" /* OperationsFailures.resourceExist */ + ".Mobile number already exists");
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const isPinUnique = await connection('roles')
+            .where('pin', req.body.pin)
+            .first();
+        if (isPinUnique) {
+            throw new Error("PIN is already in use");
+        }
         const hashedPassword = await user.hashPassword(password);
         const insertResult = await user.createRole({
             username: name,
@@ -50,7 +57,8 @@ const createNewAccount = async (req) => {
     }
     catch (error) {
         logger_1.default.error(error);
-        throw new Error((error === null || error === void 0 ? void 0 : error.message) || error || "Error creating user account");
+        // never send my sql errors to the client
+        throw new Error((error === null || error === void 0 ? void 0 : error.message) || "Error creating user account");
     }
 };
 exports.createNewAccount = createNewAccount;
@@ -199,6 +207,13 @@ const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
     }
     const knex = await (0, KnexConnections_1.default)(tenantId);
     const passwordHash = await roleRepo.hashPassword(password);
+    const isPinUnique = await knex('roles')
+        .where('pin', pin)
+        .andWhereNot('employeeid', employeeid)
+        .first();
+    if (isPinUnique) {
+        throw new Error("PIN is already in use");
+    }
     try {
         return await knex('roles')
             .where('employeeid', employeeid)

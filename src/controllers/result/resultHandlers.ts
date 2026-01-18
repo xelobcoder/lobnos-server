@@ -303,6 +303,7 @@ export const getResultPrintoutHandler = async (request: Request<
 		}
 
 		let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, parsedTestId, numAscensionId);
+
 		const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
 
 		dataset.validators = validators;
@@ -423,6 +424,14 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 					if (literatureReview.can != false) {
 						dataset.literatureReview = literatureReview.literature
 					}
+
+					let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, item.testid, item.ascensionid);
+
+					const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
+					dataset.validators = validators
+					dataset.resultentry = resultentry
+					dataset.lastupdatedon = enteredOn as string || lastupdatedon as string
+
 
 					const records = await new Creator(testid).resultPresentationView(tenantIdP, testid, billingid, patientid) as previewReportView
 

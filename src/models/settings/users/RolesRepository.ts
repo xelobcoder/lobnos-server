@@ -109,6 +109,7 @@ export default class RolesRepository {
 
 	async validatePin(employeeId: number, pin: number): Promise<boolean> {
 		const employee = await this.getRoleById(employeeId);
+		if (typeof employee?.pin !== 'number') return false;
 		return employee && employee.pin && pin.toString().length == 4 && parseInt(employee.pin.toString()) == pin;
 	}
 

@@ -360,6 +360,11 @@ const getResultPrintMultipleHandler = async (request, response) => {
                     if (literatureReview.can != false) {
                         dataset.literatureReview = literatureReview.literature;
                     }
+                    let resultEntry = await new resultPrint_1.default(billingid).getResultEntryScientist(tenantIdP, billingid, item.testid, item.ascensionid);
+                    const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
+                    dataset.validators = validators;
+                    dataset.resultentry = resultentry;
+                    dataset.lastupdatedon = enteredOn || lastupdatedon;
                     const records = await new creator_1.default(testid).resultPresentationView(tenantIdP, testid, billingid, patientid);
                     if (records != null && typeof records != "string") {
                         const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;

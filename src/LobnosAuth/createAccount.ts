@@ -8,6 +8,7 @@ import logger from "../hooks/logger";
 import RolesRepository from "../models/settings/users/RolesRepository";
 import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import KnexConnection from "../database/KnexConnections";
+import knex from "knex";
 
 export interface UserRequest extends Request {
      body: {
@@ -88,6 +89,16 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
           const isMobileNumberExist = await user.verifyMobileNumber(req.body.mobile);
           if (isMobileNumberExist) throw new Error(OperationsFailures.resourceExist + ".Mobile number already exists");
 
+          const connection = await KnexConnection(tenantId);
+
+
+          const isPinUnique = await connection('roles')
+               .where('pin', req.body.pin)
+               .first();
+
+          if (isPinUnique) {
+               throw new Error("PIN is already in use");
+          }
           const hashedPassword = await user.hashPassword(password);
 
           const insertResult = await user.createRole({
@@ -109,7 +120,8 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
           return { userId: insertResult };
      } catch (error) {
           logger.error(error);
-          throw new Error(error?.message || error || "Error creating user account");
+          // never send my sql errors to the client
+          throw new Error(error?.message || "Error creating user account");
      }
 };
 
@@ -279,8 +291,19 @@ const updateUserBasicInfo = async (body: UserRequest['body'], tenantId: number, 
           if (!isSame) throw new Error("current password is not same");
 
      }
+
      const knex = await KnexConnection(tenantId);
      const passwordHash = await roleRepo.hashPassword(password);
+
+
+     const isPinUnique = await knex('roles')
+          .where('pin', pin)
+          .andWhereNot('employeeid', employeeid)
+          .first();
+
+     if (isPinUnique) {
+          throw new Error("PIN is already in use");
+     }
 
      try {
           return await knex('roles')

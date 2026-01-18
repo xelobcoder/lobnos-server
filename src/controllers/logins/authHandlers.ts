@@ -52,9 +52,8 @@ export const updateBasicInfo = async (req: Request, res: Response) => {
 		console.log(response,'RR')
 		res.send({status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made"});
 	} catch (error) {
-		logger.error(error);
-		console.log('EM:', error.message);
-		customError(error || "Error updating user information", 500, res);
+		logger.error(error?.message);
+		customError(error?.message.toString() || "Error updating user information", 500, res);
 	}
 };
 
