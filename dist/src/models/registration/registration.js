@@ -66,7 +66,7 @@ class Registration {
         try {
             const generatedId = await this.generatePatientFullUniqueId(tenantId);
             if (generatedId) {
-                const { designation, firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
+                const { designation, firstname, lastname, middlename, age, ageType, gender, employeeid, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
                 // Enforce only one 'self' per mobile_number
                 let mobileStr = undefined;
                 if (mobile) {
@@ -103,7 +103,8 @@ class Registration {
                     patientOrganization,
                     generatedId,
                     mobileownership,
-                    designation
+                    designation,
+                    employeeid
                 ];
                 const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_new_registation, values);
                 return result.insertId;
@@ -135,23 +136,23 @@ class Registration {
         var mobileNum;
         if (mobile && !isMobright && mob_str.length == 9 && mob_str.charAt(0) != "0") {
             mobileNum = mob_str.padStart(10, "0");
-            conditions.push(`mobile_number = ?`);
+            conditions.push(`np.mobile_number = ?`);
             values.push(mobileNum);
         }
         if (fullname && fullname.length > 2) {
-            conditions.push(`CONCAT(firstname, ' ', COALESCE(middlename, ''), ' ', lastname) LIKE ?`);
+            conditions.push(`CONCAT(np.firstname, ' ', COALESCE(np.middlename, ''), ' ', np.lastname) LIKE ?`);
             values.push(`%${fullname}%`);
         }
         if (email && email.includes("@")) {
-            conditions.push(` email = ?`);
+            conditions.push(` np.email = ?`);
             values.push(email);
         }
         if (from) {
-            conditions.push(`date >= ?`);
+            conditions.push(`np.date >= ?`);
             values.push(from);
         }
         if (to) {
-            conditions.push(`date <= ?`);
+            conditions.push(`np.date <= ?`);
             values.push(to);
         }
         if (conditions.length > 0) {
@@ -160,7 +161,7 @@ class Registration {
         const offset = (page - 1) * count;
         values.push(parseInt(count.toString()));
         values.push(offset);
-        query += sortby ? ` ORDER BY patientid ${sortby} LIMIT ? OFFSET ? ` : ` ORDER BY patientid DESC LIMIT ? OFFSET ? `;
+        query += sortby ? ` ORDER BY np.patientid ${sortby} LIMIT ? OFFSET ? ` : ` ORDER BY np.patientid DESC LIMIT ? OFFSET ? `;
         try {
             let result = await (0, helper_1.promisifyQuery)(tenantId, query, values);
             return result;
@@ -287,7 +288,7 @@ class Registration {
                 });
                 return;
             }
-            const insertId = await this.addPersonalInformation(tenantId, data);
+            const insertId = await this.addPersonalInformation(tenantId, Object.assign(Object.assign({}, data), { employeeid: employeeId }));
             if (insertId) {
                 response.status(200).send({
                     status: "success",

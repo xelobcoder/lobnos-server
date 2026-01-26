@@ -12,6 +12,7 @@ export type NewRegistration = {
   fullpatientid: string;
   months: number;
   maritalstatus: boolean;
+  employeeid: number;
   occupation: string;
   patientOrganization: string;
   years: number;

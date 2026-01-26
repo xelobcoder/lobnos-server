@@ -74,8 +74,8 @@ export const getUltrasoundWaitingList = async (req: Request, res: Response) => {
 
 export const searchLaboratoryOperations = async (req: Request, res: Response) => {
 	try {
-		const { tenantId, page = '1', count = '10', patientId, billingId, accessionId } = req.query;
-		if (!patientId && !billingId && !accessionId) {
+		const { tenantId, page = '1', count = '10', patientId, billingId, accessionId,start_date,end_date } = req.query;
+		if (!patientId && !billingId && !accessionId && !start_date && !end_date) {
 			return customError("At least one search parameter is required: patientId, billingId, or accessionId", 400, res);
 		}
 
@@ -88,7 +88,9 @@ export const searchLaboratoryOperations = async (req: Request, res: Response) =>
 			billingId: billingId ? parseInt(billingId.toString()) : undefined,
 			accessionId: accessionId?.toString(),
 			page: pageNum,
-			count: countNum
+			count: countNum,
+			start_date: start_date?.toString(),
+			end_date: end_date?.toString()
 		});
 
 		res.send({

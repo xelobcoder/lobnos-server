@@ -593,7 +593,8 @@ export class BillingSharedRepo {
                          service.outstanding,
                          service.outsourceprice,
                          service.nhismembershipid ? service.nhismembershipid : null,
-                         service.claimscheckcode ? service.claimscheckcode : null
+                         service.claimscheckcode ? service.claimscheckcode : null,
+                         service.relatedbillingid ? service.relatedbillingid : null
                     ];
                });
 
@@ -612,7 +613,7 @@ export class BillingSharedRepo {
                try {
                     const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment,
                          nightAdjustmentMode, nightAdjustmentValue, isPackageUsed,
-                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode] = item;
+                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode,      relatedbillingid] = item;
 
                     const outcome = await queryRunner("dboservices").insert({
                          billingid,
@@ -649,7 +650,8 @@ export class BillingSharedRepo {
                          outstanding,
                          outsourceprice,
                          nhismembershipid,
-                         claimscheckcode
+                         claimscheckcode,
+                         relatedbillingid
                     });
 
                     if (outcome && item[5] != 5 && item[1]) {

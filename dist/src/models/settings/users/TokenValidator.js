@@ -10,8 +10,9 @@ class TokenValidator {
     }
     async validateAccessToken(token) {
         try {
-            jsonwebtoken_1.default.verify(token, this.secretKey);
-            return { expired: false };
+            const verified = jsonwebtoken_1.default.verify(token, this.secretKey);
+            if (verified === null || verified === void 0 ? void 0 : verified.email)
+                return { expired: false };
         }
         catch (error) {
             if (error instanceof jsonwebtoken_1.default.TokenExpiredError) {

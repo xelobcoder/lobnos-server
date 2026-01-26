@@ -317,7 +317,7 @@ export async function verificationBeforeCashoutHandler(request: Request<{}, {}, 
 		response.send(refundInformation);
 	} catch (err) {
 		console.log(err)
-			logger.error(err);
+		logger.error(err);
 		responseError(response);
 	}
 }
@@ -382,7 +382,9 @@ export async function WriteOffTransaction(request: Request, response: Response) 
 		const tenantIdP = parseInt(tenantId.toString());
 		const { billingid, reason, employeeid } = request.body;
 
-		if (!billingid || !reason || !employeeid) return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+		if (!billingid || !reason || !employeeid) {
+			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+		}
 		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid, reason, employeeid);
 
 		if (typeof result === "string") return response.send({ status: false, message: result });

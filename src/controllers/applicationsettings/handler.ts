@@ -547,7 +547,6 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 		}, tenantId).submit();
 		res.send(result)
 	} catch (err) {
-		console.error(err);
 		responseError(res, err);
 	}
 };

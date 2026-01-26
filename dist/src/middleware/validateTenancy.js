@@ -31,10 +31,10 @@ const checkTokenExists = async (request, response, next) => {
     if (!currentUserToken)
         return (0, helper_1.customError)('Token not provided', 401, response);
     try {
-        const isValid = await new TokenValidator_1.default().validateAccessToken(currentUserToken);
-        if (!isValid)
+        const status = await new TokenValidator_1.default().validateAccessToken(currentUserToken);
+        if (status.expired == null || status.expired == undefined)
             return (0, helper_1.customError)("Invalid Token Provided", 500, response);
-        if (isValid.expired == true)
+        if (status.expired == true)
             return (0, helper_1.customError)('Token expired', 500, response);
         next();
     }

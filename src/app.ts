@@ -72,7 +72,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 app.use(ValidateTenancyAgreement)
-// app.use(checkTokenExists)
+app.use(checkTokenExists)
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
 app.use(SecurityRouter);

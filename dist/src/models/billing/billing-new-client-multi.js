@@ -123,8 +123,8 @@ class SubmitCustomerBilling {
             const taxValue = updatedBillingData.taxValue || 0;
             const taxList = updatedBillingData.taxList || null;
             const taxIncluded = updatedBillingData.taxIncluded || false;
-            const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList, trx);
-            const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(updatedBillingData, (updatedBillingData.servicesProvided || []).map(service => (Object.assign(Object.assign({}, service), { amountPaid: typeof service.amountPaid === 'number' ? service.amountPaid : 0, status: service.status || 'pending' }))), billingID, taxValue, taxList);
+            const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList, trx, hasRelatedBilling, this.payload.billingid);
+            const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(updatedBillingData, (updatedBillingData.servicesProvided || []).map(service => (Object.assign(Object.assign({}, service), { amountPaid: typeof service.amountPaid === 'number' ? service.amountPaid : 0, status: service.status || 'pending' }))), billingID, taxValue, taxList, hasRelatedBilling, this.payload.billingid);
             const allEntries = [...processNonTestServices, ...processTestCart];
             const Multi = new billing_shared_1.BillingSharedRepo();
             if (allEntries.length > 0) {
@@ -190,8 +190,7 @@ class SubmitCustomerBilling {
                         isLocked: 1,
                     });
                 }
-                const result = await trx("billing")
-                    .update({
+                const dataToUpdate = {
                     patientid: updatedBillingData.patientId,
                     totalcost: updateData.totalcost,
                     totalTransactionCost: updateData.totalTransactionCost,
@@ -217,7 +216,70 @@ class SubmitCustomerBilling {
                     adjustmentReason: hasRelatedBilling ? 'New Billing service added' : null,
                     relatedBillingId: hasRelatedBilling ? parseInt(this.payload.billingid) : null,
                     writeoff: writeOffOutstanding ? writeOffAmount : 0,
-                }).where({ billingid: billingID });
+                };
+                // if adjustment is addition we need to add the related billin item to this current one and update the old instead of creating a new one
+                let AdditionAdjustmentBillingData = null;
+                if (isAdjustment && adjustmentType === "addition" && this.payload.billingid) {
+                    let previousTransaction = await trx("billing").where({ billingid: this.payload.billingid }).first();
+                    if (previousTransaction) {
+                        const previousOutstanding = previousTransaction.outstanding || 0;
+                        const newOutstanding = parseFloat(previousOutstanding) + parseFloat(dataToUpdate.outstanding.toString());
+                        const previousAmountPayable = previousTransaction.payable || 0;
+                        const newAmountPayable = parseFloat(previousAmountPayable) + dataToUpdate.payable;
+                        const previousTotalCost = previousTransaction.totalcost || 0;
+                        const newTotalCost = parseFloat(previousTotalCost) + dataToUpdate.totalcost;
+                        const previousPaid = previousTransaction.paid || 0;
+                        const previousTotalTransactionCost = previousTransaction.totalTransactionCost || 0;
+                        const newTotalTransactionCost = parseFloat(previousTotalTransactionCost) + dataToUpdate.totalTransactionCost;
+                        const previousDiscount = previousTransaction.discount || 0;
+                        const newDiscount = parseFloat(previousDiscount) + dataToUpdate.discount;
+                        const newPaid = parseFloat(previousPaid) + dataToUpdate.paid;
+                        const previousBalance = previousTransaction.balance || 0;
+                        const newBalance = previousBalance + dataToUpdate.balance;
+                        const previousRefunded = previousTransaction.totalrefunded || 0;
+                        const newRefunded = parseFloat(previousRefunded) + dataToUpdate.totalrefunded || 0;
+                        const previousAmmountIncurredDueTax = previousTransaction.amountIncurredDueTax || 0;
+                        const newAmmountIncurredDueTax = parseFloat(previousAmmountIncurredDueTax) + dataToUpdate.amountIncurredDueTax;
+                        const adjustmentReason = this.payload.adjustmentReason || 'Addition of new services/tests';
+                        let newStatus = "pending";
+                        if (newPaid >= newAmountPayable) {
+                            newStatus = "paid";
+                        }
+                        else if (newPaid > 0 && newPaid < newAmountPayable) {
+                            newStatus = "partial";
+                        }
+                        AdditionAdjustmentBillingData = {
+                            totalcost: newTotalCost,
+                            totalTransactionCost: newTotalTransactionCost,
+                            totalrefunded: newRefunded,
+                            discount: newDiscount,
+                            paid: newPaid,
+                            payable: newAmountPayable,
+                            outstanding: newOutstanding,
+                            balance: newBalance,
+                            status: newStatus,
+                            amountIncurredDueTax: newAmmountIncurredDueTax,
+                            branchid: updatedBillingData.branchid,
+                            isPromo: updateData.isPromo,
+                            promoValue: updateData.promoValue,
+                            additionalinformation: this.payload.additioninformation || null,
+                            promoMethod: updateData.promoMethod,
+                            promoCodeId: updateData.promoCodeId,
+                            isAdjustment: hasRelatedBilling ? 1 : 0,
+                            adjustmentType: hasRelatedBilling ? "addition" : null,
+                            adjustedBy: hasRelatedBilling ? employeeid || this.payload.employeeid : null,
+                            adjustmentdate: hasRelatedBilling ? new Date() : null,
+                            adjustmentReason,
+                            relatedBillingId: hasRelatedBilling ? parseInt(this.payload.billingid) : null,
+                            writeoff: writeOffOutstanding ? writeOffAmount : 0,
+                            patientid: updatedBillingData.patientId
+                        };
+                    }
+                }
+                const finalUpdateData = hasRelatedBilling && adjustmentType == "addition" ? AdditionAdjustmentBillingData : dataToUpdate;
+                const finalBillingId = hasRelatedBilling && adjustmentType == "addition" ? parseInt(this.payload.billingid) : billingID;
+                const result = await trx("billing")
+                    .update(finalUpdateData).where({ billingid: finalBillingId });
                 if (!result)
                     throw new Error("unable to update billing record");
                 if (data.isPromo && data.promoCode && data.promoDetails.id) {
@@ -279,7 +341,7 @@ class SubmitCustomerBilling {
         }
         return true;
     }
-    static async processTestCartWithoutRecalculation(billingData, billingID, taxValue, taxIncluded, taxList = null, trx) {
+    static async processTestCartWithoutRecalculation(billingData, billingID, taxValue, taxIncluded, taxList = null, trx, hasRelatedBilling, relatedBillingId) {
         let entityType = "general";
         let entityId = 0;
         let organizationId = null;
@@ -316,9 +378,19 @@ class SubmitCustomerBilling {
             registrationType = "nhis";
         }
         const result = await Promise.all(billingData.cart.map(async (item) => {
-            var _a, _b;
             const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
-            console.log({ paidamount, paymentstatus, outstanding });
+            const getClinician = (billingData) => {
+                if (billingData.entitytype == "clinician")
+                    return billingData.entityId || billingData.entityid;
+                if (billingData.clinicianId && !isNaN(billingData.clinicianId))
+                    return parseInt(billingData.clinicianId.toString());
+            };
+            const getOrganization = (billingData) => {
+                if (billingData.entitytype == "organization")
+                    return billingData.entityId || billingData.entityid;
+                if (billingData.organizationId && !isNaN(billingData.organizationId))
+                    return parseInt(billingData.organizationId.toString());
+            };
             const data = {
                 billingid: billingID,
                 trackId: item.testid,
@@ -326,9 +398,10 @@ class SubmitCustomerBilling {
                 employeeid: billingData.employeeid,
                 serviceCategory: billingclientTypes_1.serviceCategory[billingData.billingSource],
                 categoryTrackId: billingData.billingSource,
-                clinicianId: clinicianId || (billingData === null || billingData === void 0 ? void 0 : billingData.clinicianId) ? parseInt((_a = billingData.clinicianId) === null || _a === void 0 ? void 0 : _a.toString()) : null,
-                organizationId: organizationId || (billingData === null || billingData === void 0 ? void 0 : billingData.organizationId) ? parseInt((_b = billingData.organizationId) === null || _b === void 0 ? void 0 : _b.toString()) : null,
+                clinicianId: getClinician(billingData) || null,
+                organizationId: getOrganization(billingData) || null,
                 registrationType,
+                relatedbillingid: hasRelatedBilling ? relatedBillingId : null,
                 branchid: billingData.branchid,
                 isoutsourced: item.isoutsourced === 1 ? 1 : 0,
                 outsourceid: item.outsourceid || null,
@@ -368,7 +441,7 @@ class SubmitCustomerBilling {
         }));
         return result;
     }
-    static async processNonTestServices(billingData, servicesProvided, billingID, taxValue, taxList) {
+    static async processNonTestServices(billingData, servicesProvided, billingID, taxValue, taxList, hasRelatedBilling, relatedBillingId) {
         let organizationId = null;
         let clinicianId = null;
         let insuranceId = null;
@@ -414,6 +487,7 @@ class SubmitCustomerBilling {
                 serviceAddedOn: new Date(),
                 taxList,
                 taxValue,
+                relatedbillingid: hasRelatedBilling ? relatedBillingId : null,
                 amountIncurredDueTax: item.amountIncurredDueTax,
                 taxIncluded,
                 discount: item.discount,
@@ -472,7 +546,8 @@ class SubmitCustomerBilling {
                     isPackageUsed,
                     packageid,
                     nhismembershipid: item.nhismembershipid ? item.nhismembershipid : null,
-                    claimscheckcode: item.claimscheckcode ? item.claimscheckcode : null
+                    claimscheckcode: item.claimscheckcode ? item.claimscheckcode : null,
+                    relatedbillingid: item.relatedbillingid
                 });
                 if (isoutsourced && outsourceid) {
                     const outsourcedTestTrackingRepo = new OutsourcedTestTrackingRepo_1.OutsourcedTestTrackingRepo(tenantId);

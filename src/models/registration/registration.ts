@@ -82,6 +82,7 @@ export default class Registration {
 					age,
 					ageType,
 					gender,
+					employeeid,
 					email,
 					mobile,
 					days,
@@ -135,7 +136,8 @@ export default class Registration {
 					patientOrganization,
 					generatedId,
 					mobileownership,
-					designation
+					designation,
+					employeeid
 				];
 				const result = await promisifyQuery(tenantId, q_new_registation, values);
 				return result.insertId;
@@ -168,23 +170,23 @@ export default class Registration {
 		var mobileNum: string;
 		if (mobile && !isMobright && mob_str.length == 9 && mob_str.charAt(0) != "0") {
 			mobileNum = mob_str.padStart(10, "0");
-			conditions.push(`mobile_number = ?`);
+			conditions.push(`np.mobile_number = ?`);
 			values.push(mobileNum);
 		}
 		if (fullname && fullname.length > 2) {
-			conditions.push(`CONCAT(firstname, ' ', COALESCE(middlename, ''), ' ', lastname) LIKE ?`);
+			conditions.push(`CONCAT(np.firstname, ' ', COALESCE(np.middlename, ''), ' ', np.lastname) LIKE ?`);
 			values.push(`%${fullname}%`);
 		}
 		if (email && email.includes("@")) {
-			conditions.push(` email = ?`);
+			conditions.push(` np.email = ?`);
 			values.push(email);
 		}
 		if (from) {
-			conditions.push(`date >= ?`);
+			conditions.push(`np.date >= ?`);
 			values.push(from);
 		}
 		if (to) {
-			conditions.push(`date <= ?`);
+			conditions.push(`np.date <= ?`);
 			values.push(to);
 		}
 		if (conditions.length > 0) {
@@ -193,8 +195,7 @@ export default class Registration {
 		const offset = (page - 1) * count;
 		values.push(parseInt(count.toString()));
 		values.push(offset);
-
-		query += sortby ? ` ORDER BY patientid ${sortby} LIMIT ? OFFSET ? ` : ` ORDER BY patientid DESC LIMIT ? OFFSET ? `;
+		query += sortby ? ` ORDER BY np.patientid ${sortby} LIMIT ? OFFSET ? ` : ` ORDER BY np.patientid DESC LIMIT ? OFFSET ? `;
 
 		try {
 			let result = await promisifyQuery(tenantId, query, values);
@@ -356,7 +357,7 @@ export default class Registration {
 				});
 				return;
 			}
-			const insertId = await this.addPersonalInformation(tenantId, data);
+			const insertId = await this.addPersonalInformation(tenantId, { ...data, employeeid: employeeId });
 
 			if (insertId) {
 				response.status(200).send({

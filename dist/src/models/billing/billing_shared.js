@@ -498,7 +498,8 @@ class BillingSharedRepo {
                     service.outstanding,
                     service.outsourceprice,
                     service.nhismembershipid ? service.nhismembershipid : null,
-                    service.claimscheckcode ? service.claimscheckcode : null
+                    service.claimscheckcode ? service.claimscheckcode : null,
+                    service.relatedbillingid ? service.relatedbillingid : null
                 ];
             });
             const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
@@ -514,7 +515,7 @@ class BillingSharedRepo {
         const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
         for (const item of services) {
             try {
-                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode] = item;
+                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid] = item;
                 const outcome = await queryRunner("dboservices").insert({
                     billingid,
                     trackId,
@@ -550,7 +551,8 @@ class BillingSharedRepo {
                     outstanding,
                     outsourceprice,
                     nhismembershipid,
-                    claimscheckcode
+                    claimscheckcode,
+                    relatedbillingid
                 });
                 if (outcome && item[5] != 5 && item[1]) {
                     try {

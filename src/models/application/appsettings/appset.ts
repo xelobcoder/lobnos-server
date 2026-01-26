@@ -149,7 +149,10 @@ export default class ApplicationSettings {
 			regioncode,
 			billingsettings,
 			districtcode,
-			fontFamily
+			fontFamily,
+			allowValidationUpaid,
+			allowPrintingUnpaid,
+			allowResultEnteringUpaid
 		} = data;
 
 		try {
@@ -174,7 +177,10 @@ export default class ApplicationSettings {
 					regioncode,
 					districtcode,
 					billingsettings: billingsettings ? JSON.stringify(billingsettings) : null,
-					fontFamily: fontFamily || data.fontFamily || 'Arial'
+					fontFamily: fontFamily || data.fontFamily || 'Arial',
+					allowResultEnteringUpaid: allowResultEnteringUpaid ?? 0,
+					allowPrintingUnpaid: allowPrintingUnpaid ?? 0,
+					allowValidationUpaid: allowValidationUpaid ?? 0,
 				};
 				let affectedRows = 0;
 				if (existing) {

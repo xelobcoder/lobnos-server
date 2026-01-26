@@ -81,9 +81,6 @@ export class FreeServicesController {
      ): Promise<void> {
           try {
                const { tenantId } = req.query;
-
-          
-
                const tenantIdNum = parseInt(tenantId);
                const { request_id, reviewer_id, reviewer_name, reviewer_notes } = req.body;
 

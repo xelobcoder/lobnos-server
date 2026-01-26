@@ -96,26 +96,20 @@ export class SalesSessionRepo {
                console.log('Date string:', dateString);
 
                if (!config || !config.allow_multiple_sessions) {
-                    // Single session logic - use config times if available
                     const result = await conn('salessessionmanager')
                          .where(conn.raw('DATE(sessiondate) = ?', [dateString]))
                          .andWhere('branchid', branchId)
                          .andWhere('sessionendedon', null)
                          .first();
-                    console.log('Single session check result:', result);
                     return !result;
                } else {
-                    // Multiple sessions: Check for overlaps in time ranges
-                    if (!startTime || !endTime) return false; // Require times for multiple
-
-                    console.log('Multiple session check for:', { startTime, endTime });
+                    if (!startTime || !endTime) return false; 
 
                     // Optional: Validate that provided times match configured ranges
                     if (config.time_ranges) {
                          const isValidRange = config.time_ranges.some(range =>
                               range.start === startTime && range.end === endTime
                          );
-                         console.log('Is valid range:', isValidRange);
                          if (!isValidRange) return false; // Time range not in config
                     }
 

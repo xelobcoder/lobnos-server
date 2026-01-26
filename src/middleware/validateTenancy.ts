@@ -21,18 +21,16 @@ export const parseCookies = (cookieHeader?: string): Record<string, string> => {
 
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
      const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword'];
-
      if (bypassRoutes.some(route => request.path.startsWith(route))) return next();
      const cookieHeader = request.headers['cookie'] as string;
      const cookiesObj = parseCookies(cookieHeader);
-
      const currentUserToken = cookiesObj['pls-prime-tenant-session'];
-     if (!currentUserToken) return customError('Token not provided', 401, response);
+     if (!currentUserToken) return  customError('Token not provided', 401, response);
      if (!currentUserToken) return customError('Token not provided', 401, response);
      try {
-          const isValid = await new TokenValidator().validateAccessToken(currentUserToken);
-          if (!isValid) return customError("Invalid Token Provided", 500, response);
-          if (isValid.expired == true) return customError('Token expired', 500, response);
+          const status = await new TokenValidator().validateAccessToken(currentUserToken);         
+          if (status.expired == null || status.expired == undefined) return customError("Invalid Token Provided", 500, response);
+          if (status.expired == true) return customError('Token expired', 500, response);
           next();
      } catch (error) {
           return customError('Invalid token', 401, response);

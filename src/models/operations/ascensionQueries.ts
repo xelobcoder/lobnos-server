@@ -352,7 +352,7 @@ export const totalSamplePendingCollectionWithDateIn24Hours = `SELECT COUNT(*) AS
 INNER JOIN dboservices AS ds ON ds.serviceid = ta.serviceid 
 INNER JOIN test_panels AS tp ON tp.id = ta.testid
 LEFT JOIN departments AS d ON d.id = tp.category
-WHERE d.department <> 'Ultrasound' AND (collectionStartDate IS NULL OR collectionEndDate IS NULL) AND TIMESTAMPDIFF(HOUR,ds.serviceAddedOn,CURRENT_DATE) <= 24`;
+WHERE d.department <> 'Ultrasound' AND (collectionStartDate IS NULL OR collectionEndDate IS NULL) AND (ds.serviceAddedOn = CURRENT_DATE) `;
 
 // Represent some of the analytics the phelobotomist would have access to.
 

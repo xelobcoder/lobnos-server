@@ -68,7 +68,7 @@ app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use(requestLogger_1.default);
 app.use(validateTenancy_1.ValidateTenancyAgreement);
-// app.use(checkTokenExists)
+app.use(validateTenancy_1.checkTokenExists);
 app.use(outsourcedTestTracking_routes_1.default);
 app.use(route_18.default);
 app.use(route_16.default);

@@ -483,7 +483,6 @@ const submitBillingHandler = async (req, res) => {
         res.send(result);
     }
     catch (err) {
-        console.error(err);
         (0, helper_1.responseError)(res, err);
     }
 };

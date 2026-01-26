@@ -80,8 +80,8 @@ const getUltrasoundWaitingList = async (req, res) => {
 exports.getUltrasoundWaitingList = getUltrasoundWaitingList;
 const searchLaboratoryOperations = async (req, res) => {
     try {
-        const { tenantId, page = '1', count = '10', patientId, billingId, accessionId } = req.query;
-        if (!patientId && !billingId && !accessionId) {
+        const { tenantId, page = '1', count = '10', patientId, billingId, accessionId, start_date, end_date } = req.query;
+        if (!patientId && !billingId && !accessionId && !start_date && !end_date) {
             return (0, helper_1.customError)("At least one search parameter is required: patientId, billingId, or accessionId", 400, res);
         }
         const tId = parseInt(tenantId, 10);
@@ -92,7 +92,9 @@ const searchLaboratoryOperations = async (req, res) => {
             billingId: billingId ? parseInt(billingId.toString()) : undefined,
             accessionId: accessionId === null || accessionId === void 0 ? void 0 : accessionId.toString(),
             page: pageNum,
-            count: countNum
+            count: countNum,
+            start_date: start_date === null || start_date === void 0 ? void 0 : start_date.toString(),
+            end_date: end_date === null || end_date === void 0 ? void 0 : end_date.toString()
         });
         res.send({
             statusCode: 200,

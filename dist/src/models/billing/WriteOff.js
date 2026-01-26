@@ -18,17 +18,18 @@ class WriteOff {
                 return 'Transaction is locked. Cannot write off.';
             if (isAdjustment == 1 && adjustmentType === 'written-off')
                 return 'Transaction already written off. No further adjustments allowed.';
-            if (isAdjustment == 0 || isAdjustment == null) {
+            if (isAdjustment == 0 || isAdjustment == null || adjustmentType == "addition") {
                 if (payable > paid) {
                     const outstanding = 0;
                     const writeOffAmount = payable - paid;
                     const status = 'written-off';
                     const updateQuery = `UPDATE billing 
-                         SET isAdjustment = 1,status = ?,
+                          SET isAdjustment = 1,status = ?,
                           adjustmentReason = ?,
                           islocked =1,
-                         adjustedBy = ?,
+                          adjustedBy = ?,
                           adjustmentdate = NOW(),
+                          balance = 0,
                           adjustmentType = 'written-off',  
                           writeoff = ?,
                           outstanding = ? WHERE billingid = ?`;

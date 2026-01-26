@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, response, Response } from "express";
 import Registration from "../../models/registration/registration";
 import databaseQueries from "../../database/DatabaseQueriesHelper";
 import { customError, convertKeysToLowerCase } from "../../hooks/helper";
@@ -7,7 +7,7 @@ import logger from "../../hooks/logger";
 import { PrimeLimsTablepatientemmergencycontactinformation } from "../../database/DatabaseTableSchema";
 import PatientImageRepository from "../../repositories/patientRepositories/PatientImageRepository";
 
-export const addNewPatient = async (req: Request<{}, {}, {}, { tenantId: string }>, res: Response) => {
+export const addNewPatient = async (req: Request<{}, {}, {}, { tenantId: string, employeeid: number }>, res: Response) => {
 	try {
 		const tenantId: number = parseInt(req.query.tenantId);
 		await Registration.addNewPatient(tenantId, req, res);

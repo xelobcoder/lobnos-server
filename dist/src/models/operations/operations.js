@@ -319,6 +319,18 @@ class Operations {
                 query += ` AND ta.id = ?`;
                 params.push(accessionId);
             }
+            if (searchParams.start_date && searchParams.end_date) {
+                query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+                params.push(searchParams.start_date, searchParams.end_date);
+            }
+            else if (searchParams.start_date) {
+                query += ` AND DATE(b.billedon) >= ?`;
+                params.push(searchParams.start_date);
+            }
+            else if (searchParams.end_date) {
+                query += ` AND DATE(b.billedon) <= ?`;
+                params.push(searchParams.end_date);
+            }
             query += ` ORDER BY b.billedon DESC, ta.ascension_date DESC LIMIT ? OFFSET ?`;
             params.push(count, offset);
             const result = await (0, helper_1.promisifyQuery)(tenantId, query, params);

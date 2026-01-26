@@ -55,6 +55,9 @@ export type ApplicationSettingsData = {
      districtcode: number;
      record_commission_payments_as_expense: boolean;
      recoord_outsourced_services_as_expense: boolean;
+     allowValidationUpaid?: numberBoolean;
+     allowPrintingUnpaid?: numberBoolean;
+     allowResultEnteringUpaid?: numberBoolean;
 };
 
 

@@ -9,8 +9,8 @@ export default class TokenValidator {
 
      async validateAccessToken(token: string): Promise<{ expired: boolean | undefined }> {
           try {
-               jwt.verify(token, this.secretKey);
-               return { expired: false }
+              const verified = jwt.verify(token, this.secretKey);
+               if (verified?.email) return { expired: false };
           } catch (error) {
                if (error instanceof jwt.TokenExpiredError) {
                     return { expired: true }

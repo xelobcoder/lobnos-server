@@ -325,6 +325,8 @@ export default class Operations {
 		accessionId?: string;
 		page: number;
 		count: number;
+		start_date?: string;
+		end_date?: string;
 	}): Promise<any> {
 		try {
 			const { patientId, billingId, accessionId, page, count } = searchParams;
@@ -373,6 +375,18 @@ export default class Operations {
 			if (accessionId) {
 				query += ` AND ta.id = ?`;
 				params.push(accessionId);
+			}
+
+
+			if (searchParams.start_date && searchParams.end_date) {
+				query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+				params.push(searchParams.start_date, searchParams.end_date);
+			} else if (searchParams.start_date) {
+				query += ` AND DATE(b.billedon) >= ?`;
+				params.push(searchParams.start_date);
+			} else if (searchParams.end_date) {
+				query += ` AND DATE(b.billedon) <= ?`;
+				params.push(searchParams.end_date);
 			}
 
 			query += ` ORDER BY b.billedon DESC, ta.ascension_date DESC LIMIT ? OFFSET ?`;

@@ -350,8 +350,9 @@ async function WriteOffTransaction(request, response) {
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
         const { billingid, reason, employeeid } = request.body;
-        if (!billingid || !reason || !employeeid)
+        if (!billingid || !reason || !employeeid) {
             return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
+        }
         const result = await WriteOff_1.WriteOff.writeOffTransaction(tenantIdP, billingid, reason, employeeid);
         if (typeof result === "string")
             return response.send({ status: false, message: result });

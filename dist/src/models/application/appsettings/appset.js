@@ -106,7 +106,7 @@ class ApplicationSettings {
     }
     async updateApplicationSettings(tenantId, data) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily } = data;
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid } = data;
         try {
             const result = await connection.transaction(async (trx) => {
                 const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
@@ -129,7 +129,10 @@ class ApplicationSettings {
                     regioncode,
                     districtcode,
                     billingsettings: billingsettings ? JSON.stringify(billingsettings) : null,
-                    fontFamily: fontFamily || data.fontFamily || 'Arial'
+                    fontFamily: fontFamily || data.fontFamily || 'Arial',
+                    allowResultEnteringUpaid: allowResultEnteringUpaid !== null && allowResultEnteringUpaid !== void 0 ? allowResultEnteringUpaid : 0,
+                    allowPrintingUnpaid: allowPrintingUnpaid !== null && allowPrintingUnpaid !== void 0 ? allowPrintingUnpaid : 0,
+                    allowValidationUpaid: allowValidationUpaid !== null && allowValidationUpaid !== void 0 ? allowValidationUpaid : 0,
                 };
                 let affectedRows = 0;
                 if (existing) {
