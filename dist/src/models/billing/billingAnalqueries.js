@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BillingAnalyticsWithDate = exports.BillingAnalytics = void 0;
-const major_constraints = `AND (dboservices.status IN ('active','refunded'))`;
+const major_constraints = `AND (dboservices.status IN ('active','refunded')) AND isDeleted = 0`;
 class BillingAnalytics {
 }
 exports.BillingAnalytics = BillingAnalytics;

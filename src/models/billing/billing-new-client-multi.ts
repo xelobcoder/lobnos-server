@@ -239,6 +239,7 @@ export class SubmitCustomerBilling {
                     promoValue: data.promoValue || 0,
                     promoMethod: data.promoMethod || promoMethod,
                     promoCodeId: data.promoCodeId || promoCode,
+                    lastupdatedby: employeeid || this.payload.employeeid,
                 }
 
                 const { adjustmentType, isAdjustment, adjustmentReason } = this.payload;
@@ -253,6 +254,7 @@ export class SubmitCustomerBilling {
                             adjustmentdate: new Date(),
                             isAdjustment: 1,
                             islocked: 1,
+                            lastupdatedby: employeeid || this.payload.employeeid,
                         });
 
                     await trx("dboservices")
@@ -292,6 +294,7 @@ export class SubmitCustomerBilling {
                     adjustmentReason: hasRelatedBilling ? 'New Billing service added' : null,
                     relatedBillingId: hasRelatedBilling ? parseInt(this.payload.billingid) : null,
                     writeoff: writeOffOutstanding ? writeOffAmount : 0,
+                    lastupdatedby: employeeid || this.payload.employeeid,
                 }
 
 
@@ -356,7 +359,8 @@ export class SubmitCustomerBilling {
                             adjustmentReason,
                             relatedBillingId: hasRelatedBilling ? parseInt(this.payload.billingid) : null,
                             writeoff: writeOffOutstanding ? writeOffAmount : 0,
-                            patientid: updatedBillingData.patientId
+                            patientid: updatedBillingData.patientId,
+                            lastupdatedby: employeeid || this.payload.employeeid,
                         }
                     }
                 }

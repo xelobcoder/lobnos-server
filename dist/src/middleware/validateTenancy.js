@@ -23,15 +23,15 @@ const checkTokenExists = async (request, response, next) => {
     const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword'];
     if (bypassRoutes.some(route => request.path.startsWith(route)))
         return next();
-    const cookieHeader = request.headers['cookie'];
-    const cookiesObj = (0, exports.parseCookies)(cookieHeader);
-    const currentUserToken = cookiesObj['pls-prime-tenant-session'];
-    if (!currentUserToken)
+    const headers = request.headers;
+    const primeUserHeader = headers['pls-prime-tenant-session'];
+    const primesession = headers['pls-session'];
+    if (!primeUserHeader)
         return (0, helper_1.customError)('Token not provided', 401, response);
-    if (!currentUserToken)
+    if (!primesession)
         return (0, helper_1.customError)('Token not provided', 401, response);
     try {
-        const status = await new TokenValidator_1.default().validateAccessToken(currentUserToken);
+        const status = await new TokenValidator_1.default().validateAccessToken(primeUserHeader.toString());
         if (status.expired == null || status.expired == undefined)
             return (0, helper_1.customError)("Invalid Token Provided", 500, response);
         if (status.expired == true)

@@ -1,4 +1,4 @@
-const major_constraints = `AND (dboservices.status IN ('active','refunded'))`;
+const major_constraints = `AND (dboservices.status IN ('active','refunded')) AND isDeleted = 0`;
 
 export class BillingAnalytics {
     public static totalSalesByBranch = `SELECT db.branchid, COALESCE(SUM(db.totalcost), 0) AS totalCost, COALESCE(SUM(db.paidamount), 0) AS totalPaid, COALESCE(SUM(db.totalpayable), 0) AS totalPayable, COALESCE(SUM(db.discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded, b.name FROM dboservices AS db INNER JOIN branch AS b ON db.branchid = b.branchid LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid WHERE YEAR(db.serviceAddedOn) = ? ${major_constraints} GROUP BY b.branchid;`;

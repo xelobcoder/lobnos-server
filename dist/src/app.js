@@ -53,9 +53,7 @@ const followups_route_1 = __importDefault(require("./controllers/crm/leads/follo
 const routes_8 = __importDefault(require("./controllers/payroll/routes"));
 const routes_9 = __importDefault(require("./controllers/billing/FreeServices/routes"));
 const app = (0, express_1.default)();
-const port = process.env.NODE_ENV === "development"
-    ? process.env.DEVELOPMENT_PORT
-    : process.env.PRODUCTION_PORT;
+const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 app.use((0, cors_1.default)({
     origin: function (origin, callback) {
         callback(null, origin || false);
@@ -68,7 +66,7 @@ app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
 app.use(requestLogger_1.default);
 app.use(validateTenancy_1.ValidateTenancyAgreement);
-app.use(validateTenancy_1.checkTokenExists);
+// app.use(checkTokenExists)
 app.use(outsourcedTestTracking_routes_1.default);
 app.use(route_18.default);
 app.use(route_16.default);

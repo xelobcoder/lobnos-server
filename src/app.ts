@@ -54,9 +54,7 @@ import freeServicesRouter from './controllers/billing/FreeServices/routes';
 
 
 const app = express();
-const port = process.env.NODE_ENV === "development"
-	? process.env.DEVELOPMENT_PORT
-	: process.env.PRODUCTION_PORT;
+const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 
 
 app.use(cors({
@@ -72,7 +70,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 app.use(ValidateTenancyAgreement)
-app.use(checkTokenExists)
+// app.use(checkTokenExists)
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
 app.use(SecurityRouter);

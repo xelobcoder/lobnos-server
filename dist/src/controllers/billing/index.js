@@ -19,6 +19,7 @@ const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
 router.post("/api/v1/billing/multi", controllers_1.handleMultiNewBilling);
+router.get('/api/v1/outstanding/report/combined', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.outstandingReport));
 router.get("/api/v1/billing/multi/init", (0, helper_1.handleOverLoad)(handler_2.initializeBillingHandler));
 router.post("/api/v1/billing/multi/checkout", (0, helper_1.handleOverLoad)(handler_2.checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", (0, helper_1.handleOverLoad)(handler_2.submitBillingHandler));

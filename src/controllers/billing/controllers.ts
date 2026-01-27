@@ -11,6 +11,7 @@ import { MultiBillingRepo } from "../../models/billing/billnew";
 import { BillingUpdateRepo } from "../../models/billing/billing_update";
 import { WriteOff } from "../../models/billing/WriteOff";
 import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingEnterprise";
+import OutstandingClass from "../../models/billing/outstanding/outstanding_class";
 
 export async function handleNewBilling(request: Request, response: Response) {
 	async function validate() {
@@ -52,6 +53,19 @@ export async function handleMultiNewBilling(request: Request, response: Response
 	wrapperTryCatch(validate, (err) => console.log(err));
 }
 
+
+export async function outstandingReport(request: Request, response: Response) {
+	try {
+		const { tenantId } = request.query;
+		const tenantIdP = parseInt(tenantId.toString(), 10);
+		const { startdate, enddate } = request.query as { startdate: string, enddate: string };
+		const result = await new OutstandingClass(tenantIdP).combinedOutstandingReport(startdate, enddate);
+		response.send({ result });
+	} catch (err) {
+		console.log(err);
+		responseError(response);
+	}
+}
 
 export async function handleMultiUpdateBilling(request: Request, response: Response) {
 	async function validate() {

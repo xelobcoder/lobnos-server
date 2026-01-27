@@ -1,30 +1,31 @@
 import { RequestHandler, Router, Request, Response } from "express";
 import {
-    handleNewBilling,
-    canInitiateBill,
-    getSavedCLientBillingInformation,
-    requestForRefundHandler,
-    updateBilledTransaction,
-    determineStageOfRefundRequestHandler,
-    getAlRefundsPaginationHandler,
-    updateWitnessWitnessNote,
-    approveRequestForRefund,
-    requestForRefundCashIssueOut,
-    getServiceRefundItem,
-    verificationBeforeCashoutHandler,
-    getTransactionBillDataHandler,
-    handleEmailReceiptSending,
-    refundAllTransactionHandler,
-    handleMultiNewBilling,
-    handleMultiUpdateBilling,
-    WriteOffTransaction
+     handleNewBilling,
+     canInitiateBill,
+     getSavedCLientBillingInformation,
+     requestForRefundHandler,
+     updateBilledTransaction,
+     determineStageOfRefundRequestHandler,
+     getAlRefundsPaginationHandler,
+     updateWitnessWitnessNote,
+     approveRequestForRefund,
+     requestForRefundCashIssueOut,
+     getServiceRefundItem,
+     verificationBeforeCashoutHandler,
+     getTransactionBillDataHandler,
+     handleEmailReceiptSending,
+     refundAllTransactionHandler,
+     handleMultiNewBilling,
+     handleMultiUpdateBilling,
+     WriteOffTransaction,
+     outstandingReport
 } from "./controllers";
 import {
-    createServicesHandler,
-    updateServicesHandler,
-    deleteServicesHandler,
-    getAservicesHandler,
-    getAllservicesHandler
+     createServicesHandler,
+     updateServicesHandler,
+     deleteServicesHandler,
+     getAservicesHandler,
+     getAllservicesHandler
 } from "./servicesHandler";
 import { handleAuthenticationEmployee } from "../../middleware/redis/handlerAscensionBillingCheck";
 import { getPatientTransactions, getPatientTransactionDetails } from "./BillingHandler";
@@ -45,6 +46,7 @@ const router = Router();
 // Billing Routes
 router.post("/api/v1/billing", handleNewBilling);
 router.post("/api/v1/billing/multi", handleMultiNewBilling);
+router.get('/api/v1/outstanding/report/combined', isAuthorizedRoleAdmin, handleOverLoad(outstandingReport));
 router.get("/api/v1/billing/multi/init", handleOverLoad(initializeBillingHandler));
 router.post("/api/v1/billing/multi/checkout", handleOverLoad(checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", handleOverLoad(submitBillingHandler));
@@ -62,9 +64,9 @@ router.get("/api/v1/billing/previous/refund/update/verification/cashout", verifi
 router.get("/api/v1/billing/filtering/service/refund", getServiceRefundItem);
 router.get("/api/v1/billing/previous/transaction/data", getTransactionBillDataHandler);
 router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode",
-    handleAuthenticationEmployee as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, {}, {}, { tenantId: string; }>,
-    handleOverLoad(isAuthorizedRoleAdmin),
-    refundAllTransactionHandler as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
+     handleAuthenticationEmployee as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, {}, {}, { tenantId: string; }>,
+     handleOverLoad(isAuthorizedRoleAdmin),
+     refundAllTransactionHandler as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
 router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, WriteOffTransaction as RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>);
 router.post('/api/v1/billing/correction/source', handleOverLoad(correctRefererErrorPostRegistrationHandler));
 
