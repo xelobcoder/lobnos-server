@@ -12,6 +12,7 @@ import { BillingUpdateRepo } from "../../models/billing/billing_update";
 import { WriteOff } from "../../models/billing/WriteOff";
 import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingEnterprise";
 import OutstandingClass from "../../models/billing/outstanding/outstanding_class";
+import User from "../../LobnosAuth/user";
 
 export async function handleNewBilling(request: Request, response: Response) {
 	async function validate() {
@@ -159,13 +160,23 @@ export async function requestForRefundHandler(request: Request<{}, {}, RefundReq
 
 		if (isValidRequestBody) {
 			const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
+
 			const result = await Refund.initiateRefundofServices(tenantId, employeeid, serviceid, refundMessage);
 			response.send({ status: result });
+
+			const role = new User(null, null, null, null, null);
+			const userRole = await role.getUserRole(employeeid, tenantId);
+
+			if (['manager', 'admin', 'superadmin'].includes(userRole || '')) {
+				const request = await Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
+				response.send({ status: request });
+			}
+			return result;
+
 		} else {
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
 		}
 	} catch (err) {
-		console.log(err);
 		responseError(response);
 	}
 }

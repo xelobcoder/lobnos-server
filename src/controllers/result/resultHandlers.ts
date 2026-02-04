@@ -87,7 +87,6 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: IRequ
 		}
 		response.send([])
 	} catch (err) {
-		console.log(err)
 		responseError(response)
 	}
 }
@@ -109,7 +108,6 @@ export const getResultCommentsHandler = async function (request: IRequest, respo
 		const comments = await creator.getCustomCommentsRecords(tenantIdP, parsedBillingid, parsedTestid);
 		response.send({ comments })
 	} catch (err) {
-		console.log(err)
 		responseError(response)
 	}
 }
@@ -172,513 +170,530 @@ export const resultEntryDrugsHandler = async (request: Request, response: Respon
 }
 
 
-
-export const getResultPrintoutHandler = async (request: Request<
-	{}, {}, {},
-	{
-		isScan: boolean,
-		ascensionId: number, testid: number,
-		csvid: string,
-		ptid: string,
-		target: string,
-		employeeid: string,
-		tenantId: string,
-		isBrowserPrintout?: number | string
-	}
->, response: Response) => {
+export const CheckPaymentStatus = async (request: Request, response: Response, next: Function) => {
+	const { ascensionId, tenantId } = request.query;
 	try {
-
-		// check if access to view is allowed
-		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
-		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
-		let isWithinWindow = false;
-
-		if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
 		const numAscensionId = parseInt(ascensionId.toString());
-		const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
-
-		if (userRole && ['admin', 'manager', 'super-admin'].includes(userRole.role.toLowerCase()) == false) {
-			isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
+		const isPaymentStatusValid = await new Creator(null).CheckPaymentStatus(tenantIdP, numAscensionId);
+		if (!isPaymentStatusValid) {
+			return customError("Cannot Print Result For Unpaid Service or test", 403, response);
 		} else {
-			isWithinWindow = true
+			next()
 		}
-		if (!isWithinWindow) {
-			return customError(OperationsFailures.accessWindowExpired, 403, response);
-		}
-		const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId, "minimum");
-		if (!resultApproved && !isScan) {
-			return response.send({ message: OperationsFailures.minimumResultValidation })
-		}
-
-
-		const parsedTestId = parseInt(testid.toString());
-		let creator = new Creator(parsedTestId);
-		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
-
-		const dataset: resultPrintOutDataset = {
-			resultsettings: null,
-			records: [],
-			companyInfo: null,
-			patientInformation: null,
-			comments: null,
-			testname: '',
-			validators: [],
-			hasDrugs: false,
-			patientid,
-			billingid,
-			lastupdatedon: null,
-			logourl: '',
-			enteredOn: null,
-			samplingInformation: null,
-			resultentry: null,
-			literatureReview: null,
-			testInfo: null,
-			testdetailcategory: null,
-		};
-
-		const resultsettings = await new ResultSettings(null).getResultSettings(tenantIdP);
-
-		if (typeof resultsettings != "boolean") dataset.resultsettings = resultsettings;
-		const companyInfo = await getAllCompanyProfiles(tenantIdP);
-		if (companyInfo != null) dataset.companyInfo = companyInfo;
-		const intPatientid = parseInt(patientid.toString());
-		const patientInformation = await new Registration().getPatientBasicData(tenantIdP, intPatientid);
-
-		if (patientInformation != null) {
-			dataset.patientInformation = patientInformation
-		}
-
-		const comments = await creator.getCustomCommentsRecords(
-			tenantIdP,
-			billingid, parsedTestId);
-		dataset.comments = comments
-
-		const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
-
-		if (literatureReview.can != false) {
-			dataset.literatureReview = literatureReview.literature
-		}
-
-		let records = await new Creator(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid) as previewReportView;
-
-		if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
-			records.result = await ResultPrint.decryptResultArray(records.result);
-		}
-
-		if (records != null && typeof records != "string" && !Array.isArray(records)) {
-			const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
-			// Sort result in ascending order by 'ordering' property if present
-			if (Array.isArray(result) && result.length > 0 && result[0].hasOwnProperty('ordering')) {
-				dataset.records = [...result].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
-			} else {
-				dataset.records = result;
-			}
-			dataset.testname = testname
-			dataset.hasDrugs = hasDrugs
-			dataset.testInfo = testInfo || null
-			dataset.testdetailcategory = testdetailcategory || null
-		}
-
-		if (dataset.hasDrugs == true) {
-			const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, numAscensionId, parsedTestId);
-			if (Array.isArray(drugList) && drugList.length > 0) {
-				dataset.drugList = drugList.filter((drug) => {
-					return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
-				}) as [];
-			} else {
-				dataset.drugList = drugList as [];
-			}
-		}
-
-		let samplingInformation = await TestAscension.findAscension(tenantIdP, numAscensionId);
-		if (samplingInformation != null) {
-			dataset.samplingInformation = samplingInformation;
-		}
-
-		// Get referrer facility information from services table
-		const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
-		if (referrerFacility) {
-			dataset.referrerFacility = referrerFacility;
-		}
-
-		let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, parsedTestId, numAscensionId);
-
-		const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
-
-		dataset.validators = validators;
-		dataset.lastupdatedon = lastupdatedon;
-		dataset.resultentry = resultentry
-		const hostname = process.env.NODE_ENV === 'development'
-			? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
-			: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
-
-		dataset.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`
-		dataset.enteredOn = enteredOn
-
-		if (employeeid) {
-			const pEmployeeId = parseInt(employeeid.toString());
-			const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
-			const { username, role, mobile } = employeedata;
-			dataset.generalValidation = {
-				employeeid: pEmployeeId,
-				username,
-				role,
-				mobile
-			}
-		}
-
-		response.send(dataset)
 	} catch (err) {
-		console.log(err)
-		responseError(response);
+		responseError(response, err);
+
 	}
+
 }
 
+	export const getResultPrintoutHandler = async (request: Request<
+		{}, {}, {},
+		{
+			isScan: boolean,
+			ascensionId: number, testid: number,
+			csvid: string,
+			ptid: string,
+			target: string,
+			employeeid: string,
+			tenantId: string,
+			isBrowserPrintout?: number | string
+		}
+	>, response: Response) => {
+		try {
+
+			// check if access to view is allowed
+			const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
+			const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
+			const tenantIdP = parseInt(tenantId.toString())
+			let isWithinWindow = false;
+
+			if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
+			const numAscensionId = parseInt(ascensionId.toString());
+			const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
+
+			if (userRole && ['admin', 'manager', 'super-admin'].includes(userRole.role.toLowerCase()) == false) {
+				isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
+			} else {
+				isWithinWindow = true
+			}
+			if (!isWithinWindow) {
+				return customError(OperationsFailures.accessWindowExpired, 403, response);
+			}
+			const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId, "minimum");
+			if (!resultApproved && !isScan) {
+				return response.send({ message: OperationsFailures.minimumResultValidation })
+			}
 
 
-export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {}, { csvid: string, ptid: string, target: string, employeeid: number | string, isBrowserPrintout: number | string, isUltrasoundInclusive: boolean, tenantId: string }>, response: Response) => {
-	try {
-		const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId, isBrowserPrintout, employeeid } = request.query;
-		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
-		const tenantIdP = parseInt(tenantId.toString())
-		const pEmployeeId = parseInt(employeeid.toString());
-		if (!employeeid || isNaN(pEmployeeId)) return customError("User Not recognized", 404, response);
+			const parsedTestId = parseInt(testid.toString());
+			let creator = new Creator(parsedTestId);
+			const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
 
-		let creator = new Creator(null);
+			const dataset: resultPrintOutDataset = {
+				resultsettings: null,
+				records: [],
+				companyInfo: null,
+				patientInformation: null,
+				comments: null,
+				testname: '',
+				validators: [],
+				hasDrugs: false,
+				patientid,
+				billingid,
+				lastupdatedon: null,
+				logourl: '',
+				enteredOn: null,
+				samplingInformation: null,
+				resultentry: null,
+				literatureReview: null,
+				testInfo: null,
+				testdetailcategory: null,
+			};
 
-		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
+			const resultsettings = await new ResultSettings(null).getResultSettings(tenantIdP);
 
-		if (patientid && billingid) {
-			const isvalidBillingid = await Billing.checkValidityOfBillingid(tenantIdP, billingid);
-			if (!isvalidBillingid) return response.send({ status: false, message: OperationsFailures.notFound });
-			const billingAscensions = await TestAscension.findAllBillingAssociatedTestAscensions(tenantIdP, billingid, false) as PrimeLimsTabletest_ascension[] | []
+			if (typeof resultsettings != "boolean") dataset.resultsettings = resultsettings;
+			const companyInfo = await getAllCompanyProfiles(tenantIdP);
+			if (companyInfo != null) dataset.companyInfo = companyInfo;
+			const intPatientid = parseInt(patientid.toString());
+			const patientInformation = await new Registration().getPatientBasicData(tenantIdP, intPatientid);
 
-			if (billingAscensions.length === 0) return response.send({ status: false, message: 'No result Associated with billingid' })
+			if (patientInformation != null) {
+				dataset.patientInformation = patientInformation
+			}
 
-			let qualifiedForPrintOut: { ascensionid: number, testid: number }[] = await Promise.all(
-				billingAscensions.map(async (ascensionItem: PrimeLimsTabletest_ascension, index: number) => {
-					const { id, testid } = ascensionItem;
-					const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, id, "minimum");
-					return resultApproved ? { ascensionid: id, testid } : null
-				})
-			)
+			const comments = await creator.getCustomCommentsRecords(
+				tenantIdP,
+				billingid, parsedTestId);
+			dataset.comments = comments
 
-			qualifiedForPrintOut = qualifiedForPrintOut.filter((item: { ascensionid: number, testid: number } | null) => item?.ascensionid);
+			const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
 
+			if (literatureReview.can != false) {
+				dataset.literatureReview = literatureReview.literature
+			}
 
-			// check each for acess window or acess permission allowed
+			let records = await new Creator(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid) as previewReportView;
 
-			let accessPermissionTest = []
-			const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
-			const isPriviledgedUser = currentRole && ['admin', 'manager', 'super-admin'].includes(currentRole.role.toLowerCase());
+			if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
+				records.result = await ResultPrint.decryptResultArray(records.result);
+			}
 
-			for (let i = 0; i < qualifiedForPrintOut.length; i++) {
-				let isWithinWindow = false;
-				if (isPriviledgedUser) {
-					isWithinWindow = true;
+			if (records != null && typeof records != "string" && !Array.isArray(records)) {
+				const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
+				// Sort result in ascending order by 'ordering' property if present
+				if (Array.isArray(result) && result.length > 0 && result[0].hasOwnProperty('ordering')) {
+					dataset.records = [...result].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
 				} else {
-					isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+					dataset.records = result;
 				}
-				isWithinWindow ? accessPermissionTest.push(qualifiedForPrintOut[i]) : null;
+				dataset.testname = testname
+				dataset.hasDrugs = hasDrugs
+				dataset.testInfo = testInfo || null
+				dataset.testdetailcategory = testdetailcategory || null
 			}
 
-			if (accessPermissionTest.length == 0) {
-				throw new Error(OperationsFailures.accessWindowExpired);
+			if (dataset.hasDrugs == true) {
+				const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, numAscensionId, parsedTestId);
+				if (Array.isArray(drugList) && drugList.length > 0) {
+					dataset.drugList = drugList.filter((drug) => {
+						return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
+					}) as [];
+				} else {
+					dataset.drugList = drugList as [];
+				}
 			}
 
-			qualifiedForPrintOut = accessPermissionTest;
-
-			if (qualifiedForPrintOut.length > 0) {
-				const finalResult = {
-					test: null,
-					generalValidation: null,
-					resultsettings: null,
-					companyInfo: null,
-					patientInformation: null,
-					patientid: null,
-					billingid: null,
-					logourl: null,
-					generalComments: ''
-				}
-
-				finalResult.test = await Promise.all(qualifiedForPrintOut.map(async (item, index) => {
-					const { testid, ascensionid } = item;
-					let dataset = {
-						literatureReview: null,
-						records: null,
-						testname: '',
-						hasDrugs: false,
-						drugList: [],
-						validators: [],
-						lastupdatedon: '',
-						resultentry: '',
-						comments: '',
-						testInfo: null,
-						testdetailcategory: null,
-						referrerFacility: null,
-					};
-
-					const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
-
-					if (literatureReview.can != false) {
-						dataset.literatureReview = literatureReview.literature
-					}
-
-					let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, item.testid, item.ascensionid);
-
-					const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
-					dataset.validators = validators
-					dataset.resultentry = resultentry
-					dataset.lastupdatedon = enteredOn as string || lastupdatedon as string
-
-
-					const records = await new Creator(testid).resultPresentationView(tenantIdP, testid, billingid, patientid) as previewReportView
-
-
-					if (records != null && typeof records != "string") {
-						const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
-						dataset.records = result;
-						if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
-							dataset.records = await ResultPrint.decryptResultArray(records.result);
-						}
-						dataset.testname = testname
-						dataset.hasDrugs = hasDrugs
-						dataset.testInfo = testInfo || null
-						dataset.testdetailcategory = testdetailcategory || null
-					}
-
-					if (dataset.hasDrugs == true) {
-						const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, ascensionid, testid);
-						if (Array.isArray(drugList) && drugList.length > 0) {
-							dataset.drugList = drugList.filter((drug) => {
-								return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
-							}) as [];
-						} else {
-							dataset.drugList = drugList as [];
-						}
-					}
-
-					// Get referrer facility information from services table
-					const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
-					if (referrerFacility) {
-						dataset.referrerFacility = referrerFacility;
-					}
-
-					if (typeof dataset.comments === "string") {
-						finalResult.generalComments = finalResult.generalComments + " " + dataset.comments
-					}
-					return dataset
-				}))
-
-				const resultsettings = await new ResultSettings(null).getResultSettings(tenantIdP);
-
-				if (typeof resultsettings != "boolean") {
-					finalResult.resultsettings = resultsettings;
-				}
-
-				const companyInfo = await getAllCompanyProfiles(tenantIdP);
-
-				if (companyInfo != null) {
-					finalResult.companyInfo = companyInfo;
-				}
-
-				const intPatientid = parseInt(patientid.toString());
-
-				finalResult.patientInformation = await new Registration().getPatientBasicData(tenantIdP, intPatientid);
-				finalResult.patientid = patientid;
-				finalResult.billingid = billingid
-
-				const hostname = process.env.NODE_ENV === 'development'
-					? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
-					: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
-
-				finalResult.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`
-
-				if (employeeid) {
-					const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
-					const { employeeid, username, role, mobile } = employeedata;
-					finalResult.generalValidation = {
-						employeeid,
-						username,
-						role,
-						mobile
-					}
-				}
-				return response.send(finalResult)
+			let samplingInformation = await TestAscension.findAscension(tenantIdP, numAscensionId);
+			if (samplingInformation != null) {
+				dataset.samplingInformation = samplingInformation;
 			}
+
+			// Get referrer facility information from services table
+			const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
+			if (referrerFacility) {
+				dataset.referrerFacility = referrerFacility;
+			}
+
+			let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, parsedTestId, numAscensionId);
+
+			const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
+
+			dataset.validators = validators;
+			dataset.lastupdatedon = lastupdatedon;
+			dataset.resultentry = resultentry
+			const hostname = process.env.NODE_ENV === 'development'
+				? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
+				: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
+
+			dataset.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`
+			dataset.enteredOn = enteredOn
+
+			if (employeeid) {
+				const pEmployeeId = parseInt(employeeid.toString());
+				const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
+				const { username, role, mobile } = employeedata;
+				dataset.generalValidation = {
+					employeeid: pEmployeeId,
+					username,
+					role,
+					mobile
+				}
+			}
+
+			response.send(dataset)
+		} catch (err) {
+			responseError(response);
 		}
-
-		return response.send({ status: false, message: OperationsFailures.invalidResquestQuery })
-
-	} catch (err) {
-		const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
-		responseError(response, errorMessage)
 	}
-}
 
 
 
-export type resultPrintOutDataset = {
-	resultsettings: null | ApplicationResultSettings,
-	companyInfo: null | companyInfo,
-	patientInformation: NewRegistration | null,
-	hasDrugs: boolean,
-	comments: null | string,
-	records: previewReportView['result'],
-	literatureReview: null | string,
-	logourl: string,
-	testname: string,
-	validators: validatorsFinalFormatType[] | [],
-	drugList?: [],
-	lastupdatedon: Date | string
-	resultentry: string
-	testdetailcategory: null | TestDetailCategoryType[],
-	testInfo: null | PrimeLimsTabletest_panels,
-	enteredOn: Date | string
-	billingid: number
-	samplingInformation: null | testAscensionTableTypes,
-	patientid: number,
-	referrerFacility?: {
-		clinicianId: number | null,
-		organizationId: number | null,
-		facility_name: string | null,
-		facility_email: string | null,
-		facility_phone: number | null
-	} | null,
-	generalValidation?: {
-		employeeid: number,
-		username: string,
-		role: string,
-		mobile: string
+	export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {}, { csvid: string, ptid: string, target: string, employeeid: number | string, isBrowserPrintout: number | string, isUltrasoundInclusive: boolean, tenantId: string }>, response: Response) => {
+		try {
+			const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId, isBrowserPrintout, employeeid } = request.query;
+			const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
+			const tenantIdP = parseInt(tenantId.toString())
+			const pEmployeeId = parseInt(employeeid.toString());
+			if (!employeeid || isNaN(pEmployeeId)) return customError("User Not recognized", 404, response);
+
+			let creator = new Creator(null);
+
+			const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
+
+			if (patientid && billingid) {
+				const isvalidBillingid = await Billing.checkValidityOfBillingid(tenantIdP, billingid);
+				if (!isvalidBillingid) return response.send({ status: false, message: OperationsFailures.notFound });
+				const billingAscensions = await TestAscension.findAllBillingAssociatedTestAscensions(tenantIdP, billingid, false) as PrimeLimsTabletest_ascension[] | []
+
+				if (billingAscensions.length === 0) return response.send({ status: false, message: 'No result Associated with billingid' })
+
+				let qualifiedForPrintOut: { ascensionid: number, testid: number }[] = await Promise.all(
+					billingAscensions.map(async (ascensionItem: PrimeLimsTabletest_ascension, index: number) => {
+						const { id, testid } = ascensionItem;
+						const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, id, "minimum");
+						return resultApproved ? { ascensionid: id, testid } : null
+					})
+				)
+
+				qualifiedForPrintOut = qualifiedForPrintOut.filter((item: { ascensionid: number, testid: number } | null) => item?.ascensionid);
+
+
+				// check each for acess window or acess permission allowed
+
+				let accessPermissionTest = []
+				const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
+				const isPriviledgedUser = currentRole && ['admin', 'manager', 'super-admin'].includes(currentRole.role.toLowerCase());
+
+				for (let i = 0; i < qualifiedForPrintOut.length; i++) {
+					let isWithinWindow = false;
+					if (isPriviledgedUser) {
+						isWithinWindow = true;
+					} else {
+						isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+					}
+					isWithinWindow ? accessPermissionTest.push(qualifiedForPrintOut[i]) : null;
+				}
+
+				if (accessPermissionTest.length == 0) {
+					throw new Error(OperationsFailures.accessWindowExpired);
+				}
+
+				qualifiedForPrintOut = accessPermissionTest;
+
+				if (qualifiedForPrintOut.length > 0) {
+					const finalResult = {
+						test: null,
+						generalValidation: null,
+						resultsettings: null,
+						companyInfo: null,
+						patientInformation: null,
+						patientid: null,
+						billingid: null,
+						logourl: null,
+						generalComments: ''
+					}
+
+					finalResult.test = await Promise.all(qualifiedForPrintOut.map(async (item, index) => {
+						const { testid, ascensionid } = item;
+						let dataset = {
+							literatureReview: null,
+							records: null,
+							testname: '',
+							hasDrugs: false,
+							drugList: [],
+							validators: [],
+							lastupdatedon: '',
+							resultentry: '',
+							comments: '',
+							testInfo: null,
+							testdetailcategory: null,
+							referrerFacility: null,
+						};
+
+						const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
+
+						if (literatureReview.can != false) {
+							dataset.literatureReview = literatureReview.literature
+						}
+
+						let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, item.testid, item.ascensionid);
+
+						const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
+						dataset.validators = validators
+						dataset.resultentry = resultentry
+						dataset.lastupdatedon = enteredOn as string || lastupdatedon as string
+
+
+						const records = await new Creator(testid).resultPresentationView(tenantIdP, testid, billingid, patientid) as previewReportView
+
+
+						if (records != null && typeof records != "string") {
+							const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
+							dataset.records = result;
+							if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
+								dataset.records = await ResultPrint.decryptResultArray(records.result);
+							}
+							dataset.testname = testname
+							dataset.hasDrugs = hasDrugs
+							dataset.testInfo = testInfo || null
+							dataset.testdetailcategory = testdetailcategory || null
+						}
+
+						if (dataset.hasDrugs == true) {
+							const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, ascensionid, testid);
+							if (Array.isArray(drugList) && drugList.length > 0) {
+								dataset.drugList = drugList.filter((drug) => {
+									return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
+								}) as [];
+							} else {
+								dataset.drugList = drugList as [];
+							}
+						}
+
+						// Get referrer facility information from services table
+						const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
+						if (referrerFacility) {
+							dataset.referrerFacility = referrerFacility;
+						}
+
+						const comments = await creator.getCustomCommentsRecords(
+							tenantIdP,
+							billingid, testid);
+						if (typeof dataset.comments === "string" && typeof comments === "string") {
+							finalResult.generalComments = finalResult.generalComments + " " + comments;
+						}
+						return dataset
+					}))
+
+					const resultsettings = await new ResultSettings(null).getResultSettings(tenantIdP);
+
+					if (typeof resultsettings != "boolean") {
+						finalResult.resultsettings = resultsettings;
+					}
+
+					const companyInfo = await getAllCompanyProfiles(tenantIdP);
+
+					if (companyInfo != null) {
+						finalResult.companyInfo = companyInfo;
+					}
+
+					const intPatientid = parseInt(patientid.toString());
+
+					finalResult.patientInformation = await new Registration().getPatientBasicData(tenantIdP, intPatientid);
+					finalResult.patientid = patientid;
+					finalResult.billingid = billingid
+
+					const hostname = process.env.NODE_ENV === 'development'
+						? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
+						: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
+
+					finalResult.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`
+
+					if (employeeid) {
+						const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
+						const { employeeid, username, role, mobile } = employeedata;
+						finalResult.generalValidation = {
+							employeeid,
+							username,
+							role,
+							mobile
+						}
+					}
+					return response.send(finalResult)
+				}
+			}
+
+			return response.send({ status: false, message: OperationsFailures.invalidResquestQuery })
+
+		} catch (err) {
+			const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+			responseError(response, errorMessage)
+		}
 	}
-}
 
 
 
-export const sendResultViaEmailHandler = async (request: Request, response: Response) => {
-	try {
-		const { csvid, ptid, target, testid, tenantId } = request.query;
-		const { billingid, patientid } = new Creator(parseInt(testid.toString())).sanitize_patientid_billingid_query(csvid as string, ptid as string, target as string);
-
-		const tenantIdP = parseInt(tenantId.toString())
-
-		const patientData = await Registration.getPatientDataUsingPatientId(tenantIdP, patientid);
-
-		if (!patientData || !patientData['email']) {
-			return response.status(400).json({ status: false, message: 'Email Not Found For user' });
+	export type resultPrintOutDataset = {
+		resultsettings: null | ApplicationResultSettings,
+		companyInfo: null | companyInfo,
+		patientInformation: NewRegistration | null,
+		hasDrugs: boolean,
+		comments: null | string,
+		records: previewReportView['result'],
+		literatureReview: null | string,
+		logourl: string,
+		testname: string,
+		validators: validatorsFinalFormatType[] | [],
+		drugList?: [],
+		lastupdatedon: Date | string
+		resultentry: string
+		testdetailcategory: null | TestDetailCategoryType[],
+		testInfo: null | PrimeLimsTabletest_panels,
+		enteredOn: Date | string
+		billingid: number
+		samplingInformation: null | testAscensionTableTypes,
+		patientid: number,
+		referrerFacility?: {
+			clinicianId: number | null,
+			organizationId: number | null,
+			facility_name: string | null,
+			facility_email: string | null,
+			facility_phone: number | null
+		} | null,
+		generalValidation?: {
+			employeeid: number,
+			username: string,
+			role: string,
+			mobile: string
 		}
+	}
 
-		const query = new URLSearchParams(request.query as any);
-		const url = `${process.env.PDFGENERATOR_CHANNEL_ENDPOINT}/result/pdf/generate?${query.toString()}&&is_password_encrypted=true&&password=TiifuHamza`;
-		const fileResponse = await fetch(url);
 
-		if (!fileResponse.ok) {
-			throw new Error(`Failed to fetch PDF: ${fileResponse.statusText}`);
-		}
 
-		const fileTempDir = path.join(__dirname, '../../../views/result');
-		const fileTempPath = path.join(fileTempDir, 'result.pdf');
+	export const sendResultViaEmailHandler = async (request: Request, response: Response) => {
+		try {
+			const { csvid, ptid, target, testid, tenantId } = request.query;
+			const { billingid, patientid } = new Creator(parseInt(testid.toString())).sanitize_patientid_billingid_query(csvid as string, ptid as string, target as string);
 
-		if (!fs.existsSync(fileTempDir)) {
-			fs.mkdirSync(fileTempDir, { recursive: true });
-		}
+			const tenantIdP = parseInt(tenantId.toString())
 
-		const fileBuffer = await fileResponse.arrayBuffer();
-		const pdfBuffer = Buffer.from(fileBuffer).toString();
+			const patientData = await Registration.getPatientDataUsingPatientId(tenantIdP, patientid);
 
-		fs.writeFileSync(fileTempPath, pdfBuffer);
+			if (!patientData || !patientData['email']) {
+				return response.status(400).json({ status: false, message: 'Email Not Found For user' });
+			}
 
-		if (fileTempPath) {
-			const mailResponse = await new Core().createMailTransporter({
-				to: patientData['email'],
-				subject: 'Laboratory Result',
-				html: '<h5>Please find the attached Result of your lab tests.Use this password to open the file <strong>TiifuHamza</strong></h5>',
-				attachments: [
-					{
-						filename: 'result.pdf',
-						path: fileTempPath,
-					},
-				],
+			const query = new URLSearchParams(request.query as any);
+			const url = `${process.env.PDFGENERATOR_CHANNEL_ENDPOINT}/result/pdf/generate?${query.toString()}&&is_password_encrypted=true&&password=TiifuHamza`;
+			const fileResponse = await fetch(url);
+
+			if (!fileResponse.ok) {
+				throw new Error(`Failed to fetch PDF: ${fileResponse.statusText}`);
+			}
+
+			const fileTempDir = path.join(__dirname, '../../../views/result');
+			const fileTempPath = path.join(fileTempDir, 'result.pdf');
+
+			if (!fs.existsSync(fileTempDir)) {
+				fs.mkdirSync(fileTempDir, { recursive: true });
+			}
+
+			const fileBuffer = await fileResponse.arrayBuffer();
+			const pdfBuffer = Buffer.from(fileBuffer).toString();
+
+			fs.writeFileSync(fileTempPath, pdfBuffer);
+
+			if (fileTempPath) {
+				const mailResponse = await new Core().createMailTransporter({
+					to: patientData['email'],
+					subject: 'Laboratory Result',
+					html: '<h5>Please find the attached Result of your lab tests.Use this password to open the file <strong>TiifuHamza</strong></h5>',
+					attachments: [
+						{
+							filename: 'result.pdf',
+							path: fileTempPath,
+						},
+					],
+				});
+
+				if (mailResponse && mailResponse?.rejected && mailResponse?.rejected.length === 0) {
+					return response.status(201).json({ status: true });
+				}
+			}
+		} catch (error) {
+
+			response.status(500).json({
+				success: false,
+				message: 'Failed to send email',
+				error: error.message,
 			});
+		}
+	};
 
-			if (mailResponse && mailResponse?.rejected && mailResponse?.rejected.length === 0) {
-				return response.status(201).json({ status: true });
+	export const getTestCreationRule = async (request: Request, response: Response) => {
+		try {
+			const { tenantId } = request.query;
+			const testid = request.params.testid;
+
+			if (!testid || !tenantId) {
+				return customError("testid and tenantId are required", 400, response);
 			}
-		}
-	} catch (error) {
-		console.error('Error sending email:', error);
-		response.status(500).json({
-			success: false,
-			message: 'Failed to send email',
-			error: error.message,
-		});
-	}
-};
 
-export const getTestCreationRule = async (request: Request, response: Response) => {
-	try {
-		const { tenantId } = request.query;
-		const testid = request.params.testid;
+			const parsedTestId = parseInt(testid.toString());
+			const parsedTenantId = parseInt(tenantId.toString());
 
-		if (!testid || !tenantId) {
-			return customError("testid and tenantId are required", 400, response);
-		}
+			const repository = new TestCreationRulesRepository(parsedTenantId);
+			const rules = await repository.findByTestId(parsedTestId);
 
-		const parsedTestId = parseInt(testid.toString());
-		const parsedTenantId = parseInt(tenantId.toString());
+			if (!rules || rules.length === 0) {
+				return response.json({
+					status: false,
+					message: "No test creation rules found"
+				});
+			}
 
-		const repository = new TestCreationRulesRepository(parsedTenantId);
-		const rules = await repository.findByTestId(parsedTestId);
-
-		if (!rules || rules.length === 0) {
 			return response.json({
-				status: false,
-				message: "No test creation rules found"
+				status: true,
+				data: rules
 			});
+		} catch (error) {
+			return responseError(response);
 		}
-
-		return response.json({
-			status: true,
-			data: rules
-		});
-	} catch (error) {
-		console.error('Get test creation rules error:', error);
-		return responseError(response);
-	}
-};
+	};
 
 
-export const completeFlowByPassHandler = async (req: Request, res: Response) => {
-	try {
-		const tenantId = parseInt(req.query.tenantId as string);
-		const employeeId = req.body.employeeid;
-		const billingid = req.body.billingid;
-		if (!billingid || !employeeId) {
-			return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingid, employeeid, tenantId' });
+	export const completeFlowByPassHandler = async (req: Request, res: Response) => {
+		try {
+			const tenantId = parseInt(req.query.tenantId as string);
+			const employeeId = req.body.employeeid;
+			const billingid = req.body.billingid;
+			if (!billingid || !employeeId) {
+				return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingid, employeeid, tenantId' });
+			}
+			const result = await TestAscension.completeFlowByPass(tenantId, parseInt(billingid as string), parseInt(employeeId as string));
+			res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+		} catch (error) {
+			res.status(500).json({ status: 'error', message: 'Internal server error' });
 		}
-		const result = await TestAscension.completeFlowByPass(tenantId, parseInt(billingid as string), parseInt(employeeId as string));
-		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
-	} catch (error) {
-		console.error('Error in complete flow bypass:', error);
-		res.status(500).json({ status: 'error', message: 'Internal server error' });
 	}
-}
 
 
-export const completeFlowByPassMultipleHandler = async (req: Request, res: Response) => {
-	try {
-		const tenantId = parseInt(req.query.tenantId as string);
-		const employeeId = req.body.employeeid;
-		const billingids: number[] = req.body.billingIds;
-		if (!billingids || !employeeId || !Array.isArray(billingids) || billingids.length === 0) {
-			return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingids (array), employeeid, tenantId' });
+	export const completeFlowByPassMultipleHandler = async (req: Request, res: Response) => {
+		try {
+			const tenantId = parseInt(req.query.tenantId as string);
+			const employeeId = req.body.employeeid;
+			const billingids: number[] = req.body.billingIds;
+			if (!billingids || !employeeId || !Array.isArray(billingids) || billingids.length === 0) {
+				return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingids (array), employeeid, tenantId' });
+			}
+
+			const result = await TestAscension.completeFlowByPassMultiple(tenantId, billingids, parseInt(employeeId as string));
+			res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+		} catch (error) {
+			res.status(500).json({ status: 'error', message: 'Internal server error' });
 		}
-
-		const result = await TestAscension.completeFlowByPassMultiple(tenantId, billingids, parseInt(employeeId as string));
-		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
-	} catch (error) {
-		console.error('Error in complete flow bypass multiple:', error);
-		res.status(500).json({ status: 'error', message: 'Internal server error' });
 	}
-}
+	

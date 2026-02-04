@@ -1,4 +1,4 @@
-const major_constraints = `AND (dboservices.status IN ('active','refunded')) AND isDeleted = 0`;
+const major_constraints = `AND (dboservices.status IN ('active','refunded')) AND (isDeleted = 0 OR isDeleted IS NULL)`;
 
 export class BillingAnalytics {
     public static totalSalesByBranch = `SELECT db.branchid, COALESCE(SUM(db.totalcost), 0) AS totalCost, COALESCE(SUM(db.paidamount), 0) AS totalPaid, COALESCE(SUM(db.totalpayable), 0) AS totalPayable, COALESCE(SUM(db.discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded, b.name FROM dboservices AS db INNER JOIN branch AS b ON db.branchid = b.branchid LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid WHERE YEAR(db.serviceAddedOn) = ? ${major_constraints} GROUP BY b.branchid;`;
@@ -213,21 +213,21 @@ export class BillingAnalyticsWithDate {
         SELECT DATE(payment_date) AS date, 
         COALESCE(SUM(amount), 0) AS total_expenses
         FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ? AND is_reversed = 0
+        WHERE DATE(payment_date) BETWEEN ? AND ? 
         GROUP BY DATE(payment_date)
     )
-    SELECT s.date, 
-    s.totalCost, 
-    s.totalPaid AS actual_revenue, 
-    s.totalPayable AS accrued_revenue, 
-    s.totalDiscount AS total_discount,
-    s.totalRefunded,
-    COALESCE(e.total_expenses, 0) AS total_expenses,
-    (COALESCE(s.totalPaid, 0) - COALESCE(e.total_expenses, 0)) AS net_revenue,
-    s.outstanding_debt
-    FROM sales s
-    LEFT JOIN expenses e ON s.date = e.date
-    ORDER BY s.date DESC;
+            SELECT s.date, 
+            s.totalCost, 
+            s.totalPaid AS actual_revenue, 
+            s.totalPayable AS accrued_revenue, 
+            s.totalDiscount AS total_discount,
+            s.totalRefunded,
+            COALESCE(e.total_expenses, 0) AS total_expenses,
+            (COALESCE(s.totalPaid, 0) - COALESCE(e.total_expenses, 0)) AS net_revenue,
+            s.outstanding_debt
+            FROM sales s
+            LEFT JOIN expenses e ON s.date = e.date
+            ORDER BY s.date DESC;
     `;
 
     public static weeklySalesTrend = `

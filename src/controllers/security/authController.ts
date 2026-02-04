@@ -8,6 +8,7 @@ import { parseCookies } from '../../middleware/validateTenancy';
 import { getAllCompanyProfiles } from '../../models/settings/companyProfile';
 import ApplicationSettings from '../../models/application/appsettings/appset';
 import ResultSettings from '../../models/application/appsettings/resultSettings';
+import { configuration } from '../../hooks/configuration';
 
 export class AuthController {
     private authRepo: AuthenticationRepository;
@@ -64,13 +65,10 @@ export class AuthController {
             if (!email) return res.status(401).json({ message: 'Invalid token', status: false });
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);
             const { role, username, employeeid, branch } = user;
-
-
             const companyInfo = await getAllCompanyProfiles(tenantId);
             if (!companyInfo) return res.status(404).json({ message: 'Company information not found', status: false });
             const { name: company } = companyInfo;
             const resultsettings = await ResultSettings.getResultEntrySettings(tenantId);
-
             if (!resultsettings) return res.status(404).json({ message: 'Result settings not found', status: false });
 
             const primeWindowRepo = new PrimeWindowAccessRepository(tenantId);
@@ -93,7 +91,7 @@ export class AuthController {
                     },
                     company: company,
                     branchid: branch,
-                    tenantId: 3,
+                    tenantId
                 },
                 settings
             });

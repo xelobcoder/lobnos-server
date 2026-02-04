@@ -7,6 +7,8 @@ import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeR
 import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
 import { EntityType } from "../clincians/c.dev.type";
 import { OutsourcedTestTrackingRepo } from "../operations/OutsourcedTestTrackingRepo";
+import { OperationsFailures } from "../operations/types";
+import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
 
 
 export class SubmitCustomerBilling {
@@ -402,6 +404,9 @@ export class SubmitCustomerBilling {
 
 
                 await trx.commit();
+                const parsedEmployeeId = parseInt(employeeid.toString(), 10);
+                const repo = new PrimeEventsSMSDataSource(tenantId);
+                await repo.paymentConfirmationEvent(tenantId, finalBillingId, parsedEmployeeId);
             }
 
             return { status: true, message: "Order submitted successfully", billingid: billingID };
@@ -784,5 +789,117 @@ export class SubmitCustomerBilling {
             throw err;
         }
     }
-}
 
+
+    static async removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid }: {
+        tenantId: number,
+        billingid: number,
+        serviceid: number,
+        employeeid: number
+    }): Promise<boolean | OperationsFailures[keyof OperationsFailures]> {
+        const connection = await KnexConnection(tenantId);
+        const overalBillRecord = await connection('billing').where({ billingid }).first();
+        if (!overalBillRecord) return OperationsFailures.notFound
+
+        let isParentBillingId = false;
+        let workingBillinId = billingid;
+        let isRelatedUsed = false;
+        const transaction = await connection.transaction();
+        try {
+            const service = await transaction('dboservices')
+                .where({ serviceid, billingid, paymentstatus: 'pending' })
+                .first();
+            if (!service) {
+                return OperationsFailures.notFound;
+            }
+
+            const { paymentstatus, isDeleted, relatedbillingid } = service;
+
+
+            if (relatedbillingid && !isNaN(relatedbillingid)) {
+                isParentBillingId = true;
+                workingBillinId = relatedbillingid;
+                isRelatedUsed = true;
+            }
+
+            if (isDeleted === 1) {
+                return OperationsFailures['serviceAlreadyDeleted'];
+            }
+            if (paymentstatus !== 'pending') {
+                return OperationsFailures.serviceCannotBeRemoved;
+
+            }
+            const shallowDeleted = await transaction('dboservices')
+                .where({ serviceid })
+                .update({ 'isDeleted': 1, deletedAt: new Date(), isdeletedBy: employeeid });
+
+
+            if (shallowDeleted) {
+                const testAscensionDeletion = await transaction('test_ascension')
+                    .where({ serviceid })
+                    .del();
+
+                if (!testAscensionDeletion) {
+                    await transaction.rollback();
+                    return OperationsFailures.internalServerError;
+                }
+
+
+                const overalBillRecord = await transaction('billing')
+                    .where({ billingid: workingBillinId })
+                    .first();
+
+
+                if (!overalBillRecord) {
+                    await transaction.rollback();
+                    return OperationsFailures.notFound;
+                }
+                const newTotalCost = parseFloat(overalBillRecord.totalcost.toString()) - parseFloat(service.totalcost.toString());
+                const newAmountPayable = parseFloat(overalBillRecord.payable.toString()) - parseFloat(service.totalpayable.toString());
+                const newOutstanding = Math.max(newAmountPayable - overalBillRecord.paid, 0);
+                const newBalance = newOutstanding > 0 ? 0 : overalBillRecord.paid - newAmountPayable;
+                let newStatus = 'pending';
+                if (overalBillRecord.paid >= newAmountPayable) {
+                    newStatus = 'paid';
+                }
+
+                const updatedBillRecord = await transaction('billing')
+                    .where({ billingid: workingBillinId })
+                    .update({
+                        totalcost: newTotalCost,
+                        payable: newAmountPayable,
+                        outstanding: newOutstanding,
+                        balance: newBalance,
+                        status: newStatus,
+                        lastupdatedby: employeeid,
+                    });
+
+                if (isRelatedUsed && relatedbillingid && !isNaN(relatedbillingid)) {
+                    await transaction('dboservices')
+                        .update({ status: 'voided' })
+                        .where({ relatedbillingid: workingBillinId, serviceid });
+                } else {
+                    await transaction('dboservices')
+                        .update({ status: 'voided' })
+                        .where({ billingid: workingBillinId, serviceid });
+                }
+
+                if (!updatedBillRecord) {
+                    await transaction.rollback();
+                    return OperationsFailures.internalServerError;
+                }
+                await transaction.commit();
+                return true;
+            } else {
+                await transaction.rollback();
+                return OperationsFailures.internalServerError;
+            }
+
+        } catch (err) {
+            console.log('Error removing pending non paid service:', err);
+            await transaction.rollback();
+            return OperationsFailures.internalServerError;
+        }
+    }
+
+}

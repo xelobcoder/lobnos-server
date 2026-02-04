@@ -466,6 +466,25 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 	}
 };
 
+
+export const removePendingNonPaidServicesHandler = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as string, 10);
+		const { billingid, serviceid, employeeid } = req.body;
+		const result = await SubmitCustomerBilling.removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid });
+
+		if (typeof result === 'string') return res.status(400).json({ success: false, message: result });
+		if (typeof result === 'boolean') {
+			const status = result;
+			const statusCode = result ? 200 : 400;
+			const message = result ? 'Service removed successfully' : 'Failed to remove service';
+			return res.status(statusCode).json({ status, message, statusCode });
+		}
+		res.send({ status: false, message: 'An unexpected error occurred' });
+	} catch (err) {
+		responseError(res, err);
+	}
+}
 export const submitBillingHandler = async (req: Request, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId as string, 10);

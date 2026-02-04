@@ -35,6 +35,7 @@ import { encrypt_value } from "../../utils/encryptionModels";
 import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
 import RolesRepository from "../settings/users/RolesRepository";
+import ApplicationSettings from "../application/appsettings/appset";
 
 export default class Creator {
 	testid: number;
@@ -289,8 +290,13 @@ export default class Creator {
 			return OperationsFailures.invalidRequestBodyType;
 		}
 
-		const connection = await KnexConnection(tenantId);
+		const isPaymentStatusValid = await this.CheckPaymentStatus(tenantId, ascensionid);
 
+		if (!isPaymentStatusValid) {
+			throw new Error("Result entry not allowed for unpaid services");
+		}
+
+		const connection = await KnexConnection(tenantId);
 		const shouldCreateRecord = async function (tenantId: number, fieldid: number, ascensionId: number, testid: number): Promise<boolean> {
 			const records = await promisifyQuery(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
 				ascensionId, testid, fieldid]);
@@ -303,7 +309,7 @@ export default class Creator {
 			const editSessionId = uuidv4();
 			const isAdmin = await new RolesRepository(tenantId).getEmployeeRole(employeeid);
 			const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
-console.log({ iswithinWindow });
+
 			await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;
@@ -386,6 +392,27 @@ console.log({ iswithinWindow });
 		}
 	}
 
+
+	async CheckPaymentStatus(tenantId: number, ascensionid: number): Promise<boolean> {
+		const appSettings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		const allowResultEnteringUpaid = appSettings?.allowResultEnteringUpaid || 0;
+
+		if (allowResultEnteringUpaid === 1) return true;
+
+		const connection = await KnexConnection(tenantId);
+
+		const servicesData = connection('dboservices AS ds')
+			.innerJoin('test_ascension AS ta', 'ds.serviceid', 'ta.serviceid')
+			.select('paymentstatus')
+			.where({ 'ta.id': ascensionid });
+		const serviceRecord = await servicesData.first();
+
+		if (serviceRecord && serviceRecord.paymentstatus !== 'paid' && allowResultEnteringUpaid === 0) {
+			false;
+		} else {
+			return true;
+		}
+	}
 
 	protected static async logCriticalValue(tenantId: number, testid: number, billingid: number, statement: string, employeeid: number): Promise<boolean> {
 		const result = await promisifyQuery(tenantId, insert_critical_value_alert, [billingid, testid, statement, employeeid]);

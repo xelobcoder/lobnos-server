@@ -26,8 +26,8 @@ export interface IAttendance {
 const attendanceSchema = z.object({
      employeeid: z.number().positive('Employee ID must be a positive number'),
      attendance_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Attendance date must be in YYYY-MM-DD format'),
-     clock_in: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/, 'Clock in time must be in HH:MM or HH:MM:SS format').optional(),
-     clock_out: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/, 'Clock out time must be in HH:MM or HH:MM:SS format').optional(),
+     clock_in: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/, 'Clock in time must be in HH:MM or HH:MM:SS format').nullable().optional(),
+     clock_out: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)(:([0-5]\d))?$/, 'Clock out time must be in HH:MM or HH:MM:SS format').nullable().optional(),
      total_hours: z.number().min(0, 'Total hours cannot be negative').max(24, 'Total hours cannot exceed 24').optional(),
      shift_type: z.enum(['regular', 'night', 'weekend', 'holiday']),
      work_location: z.enum(['on-site', 'remote', 'field']),
@@ -36,7 +36,7 @@ const attendanceSchema = z.object({
      overtime_hours: z.number().min(0, 'Overtime hours cannot be negative').max(24, 'Overtime hours cannot exceed 24'),
      overtime_approved: z.boolean(),
      overtime_approved_by: z.number().positive('Overtime approver ID must be a positive number').nullable().optional(),
-     remarks: z.string().max(500, 'Remarks cannot exceed 500 characters').optional()
+     remarks: z.string().max(500, 'Remarks cannot exceed 500 characters').nullable().optional()
 }).refine((data) => {
      if (data.overtime_approved && (!data.overtime_approved_by || data.overtime_approved_by <= 0)) {
           return false;
@@ -45,6 +45,17 @@ const attendanceSchema = z.object({
 }, {
      message: 'Overtime approver is required when overtime is approved',
      path: ['overtime_approved_by']
+}).refine((data) => {
+     if (data.status === 'absent') {
+          return true;
+     }
+     if (!data.clock_in || data.clock_in === '') {
+          return false;
+     }
+     return true;
+}, {
+     message: 'Clock in time is required when status is not absent',
+     path: ['clock_in']
 });
 
 export class AttendanceRepository {

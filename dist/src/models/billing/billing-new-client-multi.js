@@ -22,6 +22,7 @@ const billingclientTypes_1 = require("./billingclientTypes");
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
 const customerBillingCheckout_1 = require("./multi/customerBillingCheckout");
 const OutsourcedTestTrackingRepo_1 = require("../operations/OutsourcedTestTrackingRepo");
+const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDataSource");
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
         var _a, _b, _c, _d;
@@ -303,6 +304,9 @@ class SubmitCustomerBilling {
                     }
                 }
                 await trx.commit();
+                const parsedEmployeeId = parseInt(employeeid.toString(), 10);
+                const repo = new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId);
+                await repo.paymentConfirmationEvent(tenantId, finalBillingId, parsedEmployeeId);
             }
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         }
@@ -622,6 +626,98 @@ class SubmitCustomerBilling {
         catch (err) {
             console.log('Error Loading services ');
             throw err;
+        }
+    }
+    static async removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid }) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const overalBillRecord = await connection('billing').where({ billingid }).first();
+        if (!overalBillRecord)
+            return "Resource not found." /* OperationsFailures.notFound */;
+        let isParentBillingId = false;
+        let workingBillinId = billingid;
+        let isRelatedUsed = false;
+        const transaction = await connection.transaction();
+        try {
+            const service = await transaction('dboservices')
+                .where({ serviceid, billingid, paymentstatus: 'pending' })
+                .first();
+            if (!service) {
+                return "Resource not found." /* OperationsFailures.notFound */;
+            }
+            const { paymentstatus, isDeleted, relatedbillingid } = service;
+            if (relatedbillingid && !isNaN(relatedbillingid)) {
+                isParentBillingId = true;
+                workingBillinId = relatedbillingid;
+                isRelatedUsed = true;
+            }
+            if (isDeleted === 1) {
+                return "Service already deleted" /* OperationsFailures['serviceAlreadyDeleted'] */;
+            }
+            if (paymentstatus !== 'pending') {
+                return "Service payment status is not pending,kindly request for refund if you wish to remove this service" /* OperationsFailures.serviceCannotBeRemoved */;
+            }
+            const shallowDeleted = await transaction('dboservices')
+                .where({ serviceid })
+                .update({ 'isDeleted': 1, deletedAt: new Date(), isdeletedBy: employeeid });
+            if (shallowDeleted) {
+                const testAscensionDeletion = await transaction('test_ascension')
+                    .where({ serviceid })
+                    .del();
+                if (!testAscensionDeletion) {
+                    await transaction.rollback();
+                    return "An internal server error occurred." /* OperationsFailures.internalServerError */;
+                }
+                const overalBillRecord = await transaction('billing')
+                    .where({ billingid: workingBillinId })
+                    .first();
+                if (!overalBillRecord) {
+                    await transaction.rollback();
+                    return "Resource not found." /* OperationsFailures.notFound */;
+                }
+                const newTotalCost = parseFloat(overalBillRecord.totalcost.toString()) - parseFloat(service.totalcost.toString());
+                const newAmountPayable = parseFloat(overalBillRecord.payable.toString()) - parseFloat(service.totalpayable.toString());
+                const newOutstanding = Math.max(newAmountPayable - overalBillRecord.paid, 0);
+                const newBalance = newOutstanding > 0 ? 0 : overalBillRecord.paid - newAmountPayable;
+                let newStatus = 'pending';
+                if (overalBillRecord.paid >= newAmountPayable) {
+                    newStatus = 'paid';
+                }
+                const updatedBillRecord = await transaction('billing')
+                    .where({ billingid: workingBillinId })
+                    .update({
+                    totalcost: newTotalCost,
+                    payable: newAmountPayable,
+                    outstanding: newOutstanding,
+                    balance: newBalance,
+                    status: newStatus,
+                    lastupdatedby: employeeid,
+                });
+                if (isRelatedUsed && relatedbillingid && !isNaN(relatedbillingid)) {
+                    await transaction('dboservices')
+                        .update({ status: 'voided' })
+                        .where({ relatedbillingid: workingBillinId, serviceid });
+                }
+                else {
+                    await transaction('dboservices')
+                        .update({ status: 'voided' })
+                        .where({ billingid: workingBillinId, serviceid });
+                }
+                if (!updatedBillRecord) {
+                    await transaction.rollback();
+                    return "An internal server error occurred." /* OperationsFailures.internalServerError */;
+                }
+                await transaction.commit();
+                return true;
+            }
+            else {
+                await transaction.rollback();
+                return "An internal server error occurred." /* OperationsFailures.internalServerError */;
+            }
+        }
+        catch (err) {
+            console.log('Error removing pending non paid service:', err);
+            await transaction.rollback();
+            return "An internal server error occurred." /* OperationsFailures.internalServerError */;
         }
     }
 }

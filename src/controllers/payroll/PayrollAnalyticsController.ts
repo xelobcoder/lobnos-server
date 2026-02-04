@@ -78,10 +78,6 @@ export const getCompensationAnalyticsHandler = async (req: Request, res: Respons
           const tenantId = parseInt(req.query.tenantId as string);
           const { startDate, endDate } = req.query;
 
-          if (!tenantId || isNaN(tenantId)) {
-               return customError('Valid tenant ID is required', 400, res);
-          }
-
           if (!startDate || !endDate) {
                return customError('Start date and end date are required', 400, res);
           }
@@ -102,9 +98,7 @@ export const getCompensationAnalyticsHandler = async (req: Request, res: Respons
      }
 };
 
-/**
- * Get attendance analytics
- */
+
 export const getAttendanceAnalyticsHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);

@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BillingAnalyticsWithDate = exports.BillingAnalytics = void 0;
-const major_constraints = `AND (dboservices.status IN ('active','refunded')) AND isDeleted = 0`;
+const major_constraints = `AND (dboservices.status IN ('active','refunded')) AND (isDeleted = 0 OR isDeleted IS NULL)`;
 class BillingAnalytics {
 }
 exports.BillingAnalytics = BillingAnalytics;
@@ -210,21 +210,21 @@ BillingAnalyticsWithDate.dailySalesTrend = `
         SELECT DATE(payment_date) AS date, 
         COALESCE(SUM(amount), 0) AS total_expenses
         FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ? AND is_reversed = 0
+        WHERE DATE(payment_date) BETWEEN ? AND ? 
         GROUP BY DATE(payment_date)
     )
-    SELECT s.date, 
-    s.totalCost, 
-    s.totalPaid AS actual_revenue, 
-    s.totalPayable AS accrued_revenue, 
-    s.totalDiscount AS total_discount,
-    s.totalRefunded,
-    COALESCE(e.total_expenses, 0) AS total_expenses,
-    (COALESCE(s.totalPaid, 0) - COALESCE(e.total_expenses, 0)) AS net_revenue,
-    s.outstanding_debt
-    FROM sales s
-    LEFT JOIN expenses e ON s.date = e.date
-    ORDER BY s.date DESC;
+            SELECT s.date, 
+            s.totalCost, 
+            s.totalPaid AS actual_revenue, 
+            s.totalPayable AS accrued_revenue, 
+            s.totalDiscount AS total_discount,
+            s.totalRefunded,
+            COALESCE(e.total_expenses, 0) AS total_expenses,
+            (COALESCE(s.totalPaid, 0) - COALESCE(e.total_expenses, 0)) AS net_revenue,
+            s.outstanding_debt
+            FROM sales s
+            LEFT JOIN expenses e ON s.date = e.date
+            ORDER BY s.date DESC;
     `;
 BillingAnalyticsWithDate.weeklySalesTrend = `
      SELECT *

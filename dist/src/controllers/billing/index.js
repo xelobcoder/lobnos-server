@@ -19,6 +19,7 @@ const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
 router.post("/api/v1/billing/multi", controllers_1.handleMultiNewBilling);
+router.put('/api/v1/billing/pending/remove/service', (0, helper_1.handleOverLoad)(handler_2.removePendingNonPaidServicesHandler));
 router.get('/api/v1/outstanding/report/combined', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.outstandingReport));
 router.get("/api/v1/billing/multi/init", (0, helper_1.handleOverLoad)(handler_2.initializeBillingHandler));
 router.post("/api/v1/billing/multi/checkout", (0, helper_1.handleOverLoad)(handler_2.checkoutBillingHandler));
@@ -29,7 +30,7 @@ router.put("/api/v1/billing", validateTenancy_1.isAuthorizedRoleAdmin, controlle
 router.get("/api/v1/billing/caninitialbill", controllers_1.canInitiateBill);
 router.get("/api/v1/billing/information/single", controllers_1.getSavedCLientBillingInformation);
 router.post(`/api/v1/billing/previous/request/refund`, controllers_1.determineStageOfRefundRequestHandler);
-router.post(`/api/v1/billing/previous/request/refund/update`, controllers_1.requestForRefundHandler);
+router.post(`/api/v1/billing/previous/request/refund/update`, (0, helper_1.handleOverLoad)(controllers_1.requestForRefundHandler));
 router.post("/api/v1/billing/previous/refund/update/previous", controllers_1.updateWitnessWitnessNote);
 router.post("/api/v1/billing/previous/refund/update/approve", validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.approveRequestForRefund);
 router.post("/api/v1/billing/previous/refund/update/cashout", controllers_1.requestForRefundCashIssueOut);

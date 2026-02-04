@@ -17,6 +17,7 @@ export const enum OperationsFailures {
 	invalidEmailFormat = 'Invalid email format provided.',
 	billingSessionAlreadyEnded = "sale session already ended",
 	billingSessionNotFound = "sale session not found",
+	serviceAlreadyDeleted = "Service already deleted",
 	billingStrategyAlreadyExists = 'Billing strategy already exists for the given entity.',
 	billingStrategyNotFoundForEntity = 'Billing strategy not found for the given entity.',
 	billingStrategyExpired = 'Billing strategy has expired.',
@@ -50,6 +51,7 @@ export const enum OperationsFailures {
 	refundAmmountExceeded = "Refund Amount exceeded. Hence Refund cannot be done",
 	paidlessthanPayableAmount = "Paid amount is less than the payable amount",
 	paymentExceedsPayableAmount = "Payment exceeds payable amount",
+	serviceCannotBeRemoved="Service payment status is not pending,kindly request for refund if you wish to remove this service",
 
 	invalidTokenProvided = "token provided is invalid",
 	invalidPhoneNumber = "Valid phone number required",
@@ -145,8 +147,12 @@ export type ascensionStageRequestQueryTypes = {
 	sortby?: 'ASC' | 'DESC',
 	clinicianId: number,
 	organizationId: number,
-	searchString: string | null,
-	isUltrasound: boolean
+	grouped?: 'grouped' | 'ungrouped' | null,
+	isUltrasound: boolean,
+	patientname?: string,
+	patientid?: number,
+	billingid?: number,
+	ascensionid?: number
 }
 
 

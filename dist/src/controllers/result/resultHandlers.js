@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.sendResultViaEmailHandler = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
+exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.sendResultViaEmailHandler = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const companyProfile_1 = require("../../models/settings/companyProfile");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
@@ -84,7 +84,6 @@ const getPreviousResultEntryRecordsIfAny = async function (request, response) {
         response.send([]);
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response);
     }
 };
@@ -104,7 +103,6 @@ const getResultCommentsHandler = async function (request, response) {
         response.send({ comments });
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response);
     }
 };
@@ -156,6 +154,24 @@ const resultEntryDrugsHandler = async (request, response) => {
     }
 };
 exports.resultEntryDrugsHandler = resultEntryDrugsHandler;
+const CheckPaymentStatus = async (request, response, next) => {
+    const { ascensionId, tenantId } = request.query;
+    try {
+        const tenantIdP = parseInt(tenantId.toString());
+        const numAscensionId = parseInt(ascensionId.toString());
+        const isPaymentStatusValid = await new creator_1.default(null).CheckPaymentStatus(tenantIdP, numAscensionId);
+        if (!isPaymentStatusValid) {
+            return (0, helper_1.customError)("Cannot Print Result For Unpaid Service or test", 403, response);
+        }
+        else {
+            next();
+        }
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err);
+    }
+};
+exports.CheckPaymentStatus = CheckPaymentStatus;
 const getResultPrintoutHandler = async (request, response) => {
     try {
         // check if access to view is allowed
@@ -282,7 +298,6 @@ const getResultPrintoutHandler = async (request, response) => {
         response.send(dataset);
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response);
     }
 };
@@ -393,8 +408,9 @@ const getResultPrintMultipleHandler = async (request, response) => {
                     if (referrerFacility) {
                         dataset.referrerFacility = referrerFacility;
                     }
-                    if (typeof dataset.comments === "string") {
-                        finalResult.generalComments = finalResult.generalComments + " " + dataset.comments;
+                    const comments = await creator.getCustomCommentsRecords(tenantIdP, billingid, testid);
+                    if (typeof dataset.comments === "string" && typeof comments === "string") {
+                        finalResult.generalComments = finalResult.generalComments + " " + comments;
                     }
                     return dataset;
                 }));
@@ -476,7 +492,6 @@ const sendResultViaEmailHandler = async (request, response) => {
         }
     }
     catch (error) {
-        console.error('Error sending email:', error);
         response.status(500).json({
             success: false,
             message: 'Failed to send email',
@@ -508,7 +523,6 @@ const getTestCreationRule = async (request, response) => {
         });
     }
     catch (error) {
-        console.error('Get test creation rules error:', error);
         return (0, helper_1.responseError)(response);
     }
 };
@@ -525,7 +539,6 @@ const completeFlowByPassHandler = async (req, res) => {
         res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
     }
     catch (error) {
-        console.error('Error in complete flow bypass:', error);
         res.status(500).json({ status: 'error', message: 'Internal server error' });
     }
 };
@@ -542,7 +555,6 @@ const completeFlowByPassMultipleHandler = async (req, res) => {
         res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
     }
     catch (error) {
-        console.error('Error in complete flow bypass multiple:', error);
         res.status(500).json({ status: 'error', message: 'Internal server error' });
     }
 };

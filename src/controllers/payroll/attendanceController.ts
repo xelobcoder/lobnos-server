@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { AttendanceRepository } from '../../models/payroll/AttendanceRepository';
 import { customError } from '../../hooks/helper';
 
+// Maximum duration in hours that a record can be edited after creation (24 hours = 1 day)
+const EDIT_DURATION_HOURS = 24;
+
 /**
  * Create attendance record
  */
@@ -95,7 +98,7 @@ export const getEmployeeAttendanceByDateRangeHandler = async (req: Request, res:
           const startDate = req.query.startDate as string;
           const endDate = req.query.endDate as string;
 
-          if (!tenantId || !employeeid || !startDate || !endDate) {
+          if (!employeeid || !startDate || !endDate) {
                return customError('Tenant ID, Employee ID, Start Date, and End Date are required', 400, res);
           }
 
@@ -112,9 +115,7 @@ export const getEmployeeAttendanceByDateRangeHandler = async (req: Request, res:
      }
 };
 
-/**
- * Update attendance record
- */
+
 export const updateAttendanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
@@ -126,11 +127,33 @@ export const updateAttendanceHandler = async (req: Request, res: Response) => {
           }
 
           const repo = new AttendanceRepository(tenantId);
-          const success = await repo.update(id, updateData);
+          const existingRecord = await repo.getById(id);
 
-          if (!success) {
-               return customError('Failed to update attendance record', 400, res);
+          if (!existingRecord) return customError('Attendance record not found', 404, res);
+
+          if (existingRecord.created_at) {
+               const createdTime = new Date(existingRecord.created_at).getTime();
+               const currentTime = new Date().getTime();
+               const elapsedHours = (currentTime - createdTime) / (1000 * 60 * 60);
+
+               if (elapsedHours > EDIT_DURATION_HOURS) {
+                    return customError(
+                         `Record cannot be edited after ${EDIT_DURATION_HOURS} hours of creation. Elapsed time: ${Math.round(elapsedHours)} hours.`,
+                         403,
+                         res
+                    );
+               }
           }
+
+          if (updateData['status'] && updateData['status'].toLowerCase() === 'absent') {
+               updateData['clock_in'] = null;
+               updateData['clock_out'] = null;
+               updateData['total_hours'] = 0;
+               updateData['overtime_hours'] = 0;
+          }
+
+          const success = await repo.update(id, updateData);
+          if (!success) return customError('Failed to update attendance record', 400, res);
 
           res.json({
                status: 'success',
@@ -138,13 +161,12 @@ export const updateAttendanceHandler = async (req: Request, res: Response) => {
                message: 'Attendance record updated successfully'
           });
      } catch (error) {
+          console.log('Update attendance error:', error);
           return customError('Failed to update attendance record', 500, res);
      }
 };
 
-/**
- * Get attendance by date range
- */
+
 export const getAttendanceByDateRangeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
@@ -315,9 +337,25 @@ export const bulkCreateAttendanceHandler = async (req: Request, res: Response) =
           if (!Array.isArray(attendanceRecords)) {
                return customError('Attendance Records array are required', 400, res);
           }
+          if (attendanceRecords.length === 0) {
+               return customError('Attendance Records array cannot be empty', 400, res);
+          }
+
+          const refinedRecords = attendanceRecords.map((record: any) => {
+               if (record.status.toLowerCase() === 'absent') {
+                    return {
+                         ...record,
+                         clock_in: null,
+                         clock_out: null,
+                         total_hours: 0,
+                         overtime_hours: 0
+                    };
+               }
+               return record;
+          });
 
           const repo = new AttendanceRepository(tenantId);
-          const ids = await repo.bulkCreate(attendanceRecords);
+          const ids = await repo.bulkCreate(refinedRecords);
 
           res.json({
                status: 'success',

@@ -72,11 +72,19 @@ class Billing {
             throw new TypeError("billingid must be a number");
         }
         const connection = await (0, KnexConnections_1.default)(tenantId);
+        // Note: Witness fields (firstWitness, secondWitness, thirdWitness) can be null
+        // LEFT JOIN ensures data is returned even when witness IDs are null, resulting in null witness names
         const servicesProfile = await connection('dboservices')
-            .select('dboservices.*', 'dbobillingrefundtable.*', 'organization.name as organizationName', 'clinicianbasicinfo.name as clinicianName')
+            .select('dboservices.*', 'dbobillingrefundtable.*', 'organization.name as organizationName', 'clinicianbasicinfo.name as clinicianName', 'roles_first.username as firstWitnessName', 'roles_second.username as secondWitnessName', 'roles_third.username as thirdWitnessName', 'roles_initiated.username as initiatedByName', 'deleted_by_role.username as deletedByName', 'roles_approved.username as approvedByName')
             .leftJoin('dbobillingrefundtable', 'dboservices.serviceid', 'dbobillingrefundtable.serviceid')
             .leftJoin('organization', 'dboservices.organizationId', 'organization.id')
             .leftJoin('clinicianbasicinfo', 'dboservices.clinicianId', 'clinicianbasicinfo.id')
+            .leftJoin('roles as roles_initiated', 'dbobillingrefundtable.initiatedBy', 'roles_initiated.employeeid')
+            .leftJoin('roles as roles_approved', 'dbobillingrefundtable.approvedby', 'roles_approved.employeeid')
+            .leftJoin('roles as roles_first', 'dbobillingrefundtable.firstWitness', 'roles_first.employeeid')
+            .leftJoin('roles as roles_second', 'dbobillingrefundtable.secondWitness', 'roles_second.employeeid')
+            .leftJoin('roles as roles_third', 'dbobillingrefundtable.thirdWitness', 'roles_third.employeeid')
+            .leftJoin('roles as deleted_by_role', 'dboservices.isdeletedBy', 'deleted_by_role.employeeid')
             .where({ billingid })
             .orWhere({ relatedbillingid: billingid });
         if (servicesProfile.length === 0)

@@ -30,8 +30,8 @@ router.get("/api/v1/result/analysis/test/resultvalues/resultfields", resultanaly
 router.put("/api/v1/testpanel/list/customtestrule", resultHandlers_1.testCreationRuleUpdateHandler);
 router.get("/api/v1/result/criticalvalues/unseen", resultHandlers_1.criticalValuesUnseenHandler);
 // Result Printout 
-router.get("/api/v1/result/printout/ascension/getResult", (0, helper_1.handleOverLoad)(resultHandlers_1.getResultPrintoutHandler));
-router.get("/api/v1/result/printout/ascension/multiple/getResult", (0, helper_1.handleOverLoad)(resultHandlers_1.getResultPrintMultipleHandler));
+router.get("/api/v1/result/printout/ascension/getResult", resultHandlers_1.CheckPaymentStatus, (0, helper_1.handleOverLoad)(resultHandlers_1.getResultPrintoutHandler));
+router.get("/api/v1/result/printout/ascension/multiple/getResult", resultHandlers_1.CheckPaymentStatus, (0, helper_1.handleOverLoad)(resultHandlers_1.getResultPrintMultipleHandler));
 router.get("/api/v1/result/printout/ascension/multiple/getResult/channel/email", (0, helper_1.handleOverLoad)(handlerAscensionBillingCheck_1.billingIdChecker), (0, helper_1.handleOverLoad)(resultHandlers_1.sendResultViaEmailHandler));
 // criticalcallout 
 router.get("/api/v1/result/criticalvalues/logging/paginated", loggingCriticalValueAlertHandlers_1.getPaginatedLoggingCriticalValueAlerts);

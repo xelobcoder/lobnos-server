@@ -115,6 +115,9 @@ export class PackageBillingHelper extends PrimeBillingEnterprise {
           });
           if (!reformattedTest) return { error: 'INVALID_PACKAGE_PROVIDED' };
           const constants = await getConstantCustomerInitData(patientId, billingid);
+
+
+          
           return {
                ...defaultCustomerInitData,
                ...constants,

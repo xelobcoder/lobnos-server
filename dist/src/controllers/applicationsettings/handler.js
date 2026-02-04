@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.correctRefererErrorPostRegistrationHandler = exports.submitBillingHandler = exports.checkoutBillingHandler = exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
+exports.correctRefererErrorPostRegistrationHandler = exports.submitBillingHandler = exports.removePendingNonPaidServicesHandler = exports.checkoutBillingHandler = exports.initializeBillingHandler = exports.getCategoryColumns = exports.columnFiltering = exports.TableFiltering = exports.resultEntrySettingsUpdateHandler = exports.resultEntrySettingsHandler = exports.validateUserRole = exports.updateResultSettings = exports.getResultSettings = exports.deleteTax = exports.changeTaxStatus = exports.updateTax = exports.getTax = exports.addTax = exports.getRegistrationSettings = exports.updateRegistrationFields = exports.updateEmailPreference = exports.updateGeneralEmailSettings = exports.getGeneralEmailSettings = exports.getEmailPreference = exports.getSmsSettings = exports.updateSmsSettings = exports.updateApplicationSettings = exports.updateApplicationBillSettingsHandler = exports.getApplicationSettingsBilling = exports.getApplicationSettings = void 0;
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
@@ -438,6 +438,26 @@ const checkoutBillingHandler = async (req, res) => {
     }
 };
 exports.checkoutBillingHandler = checkoutBillingHandler;
+const removePendingNonPaidServicesHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const { billingid, serviceid, employeeid } = req.body;
+        const result = await billing_new_client_multi_1.SubmitCustomerBilling.removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid });
+        if (typeof result === 'string')
+            return res.status(400).json({ success: false, message: result });
+        if (typeof result === 'boolean') {
+            const status = result;
+            const statusCode = result ? 200 : 400;
+            const message = result ? 'Service removed successfully' : 'Failed to remove service';
+            return res.status(statusCode).json({ status, message, statusCode });
+        }
+        res.send({ status: false, message: 'An unexpected error occurred' });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.removePendingNonPaidServicesHandler = removePendingNonPaidServicesHandler;
 const submitBillingHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);

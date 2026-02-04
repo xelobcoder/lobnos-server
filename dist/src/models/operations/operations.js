@@ -96,7 +96,7 @@ class Operations {
     async getAllCasesResultEntryByMany(tenantId, requestQuery) {
         const { fullname, count = 10, page = 1, departmentid, testid, status, from, to, billingid, branchid } = requestQuery;
         try {
-            var { conditions, finalQuery } = await Operations.generateAscensionQuery({ from, to, stage: null, searchString: null, isUltrasound: false, organizationId: null, clinicianId: null });
+            var { conditions, finalQuery } = await Operations.generateAscensionQuery({ from, to, stage: null, isUltrasound: false, organizationId: null, clinicianId: null });
             if (fullname) {
                 conditions.push(`CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) LIKE ?`);
             }
@@ -134,7 +134,7 @@ class Operations {
         }
     }
     static async generateAscensionQuery(queryParams) {
-        const { from, to, searchString, isUltrasound, stage, clinicianId, organizationId } = queryParams;
+        const { from, to, isUltrasound, stage, clinicianId, organizationId, patientname, patientid, billingid, ascensionid } = queryParams;
         try {
             let finalQuery;
             const conditions = [];
@@ -150,14 +150,28 @@ class Operations {
                 conditions.push(new Date(from));
                 conditions.push(new Date(to));
             }
-            if (searchString) {
-                const words = searchString.trim().split(/\s+/).filter(w => w.length > 0);
-                const nameConditions = words.map(() => `(np.firstname LIKE ? OR np.middlename LIKE ? OR np.lastname LIKE ?)`).join(' OR ');
-                finalQuery += ` AND (${nameConditions} OR np.patientid = ? OR np.fullpatientid = ? OR tp.category LIKE ? OR b.billedon LIKE ? OR d.department LIKE ? OR tp.name LIKE ? OR b.clientstatus LIKE ?)`;
-                words.forEach(word => {
-                    conditions.push(`%${word}%`, `%${word}%`, `%${word}%`);
-                });
-                conditions.push(searchString, searchString, `%${searchString}%`, `%${searchString}%`, `%${searchString}%`, `%${searchString}%`, `%${searchString}%`);
+            // Priority filters: patientid > billingid > ascensionid
+            if (patientid) {
+                finalQuery += ` AND np.patientid = ?`;
+                conditions.push(patientid);
+            }
+            if (billingid) {
+                finalQuery += ` AND b.billingid = ?`;
+                conditions.push(billingid);
+            }
+            if (ascensionid) {
+                finalQuery += ` AND ta.id = ?`;
+                conditions.push(ascensionid);
+            }
+            if (patientname) {
+                finalQuery += `
+				AND REGEXP_REPLACE(
+					LOWER(CONCAT_WS(' ', np.firstname, np.middlename, np.lastname)),
+					'[[:space:]]+',
+					' '
+					) LIKE ?
+				`;
+                conditions.push(`%${patientname.toLowerCase().trim().replace(/\s+/g, " ")}%`);
             }
             if (clinicianId) {
                 finalQuery += ` AND ds.clinicianId = ?`;
@@ -256,15 +270,22 @@ class Operations {
     }
     static async getAscensionBasedOnStage(tenantId, queryParams) {
         try {
-            const { _dateEnd, _dateFrom, stage, searchString, page, count, isUltrasound, sortby, clinicianId, organizationId } = queryParams;
+            const { _dateEnd, _dateFrom, stage, page, count, isUltrasound, sortby, clinicianId, organizationId, ascensionid, billingid, patientid } = queryParams;
             const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
                 sortby, from: _dateFrom, to: _dateEnd, stage,
-                searchString, isUltrasound, clinicianId, organizationId
+                patientid, billingid, ascensionid,
+                patientname: queryParams.patientname,
+                isUltrasound, clinicianId, organizationId, grouped: queryParams.grouped || null
             });
             let query = finalQuery;
             let conditionValues = conditionx;
             if (query == null)
                 return null;
+            if (queryParams.grouped === 'grouped') {
+                query += ` GROUP BY b.billingid,ta.testid ORDER BY b.billingid {sorting} LIMIT ? OFFSET ? `;
+                query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
+                return await (0, helper_1.paginationQuery)({ count, page }, query, conditionValues, tenantId);
+            }
             query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;
             query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
             return await (0, helper_1.paginationQuery)({ count, page }, query, conditionValues, tenantId);

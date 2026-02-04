@@ -110,7 +110,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
         const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
         const overallPayable = totalServiceAmountPayable + totalTestAmountPayable;
-        const amountPayable = toFixed2(overallPayable);
+        const totalPacKageAmountPayable = toFixed2(recalculatedPackageList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
+        const amountPayable = isPackageUsed ? toFixed2(totalPacKageAmountPayable) : toFixed2(overallPayable);
         const outstanding = toFixed2(amountPayable - paid);
         const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
         if (balance < 0) {

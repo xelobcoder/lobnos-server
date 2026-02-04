@@ -15,6 +15,7 @@ const billing_update_1 = require("../../models/billing/billing_update");
 const WriteOff_1 = require("../../models/billing/WriteOff");
 const PrimeBillingEnterprise_1 = require("../../models/billing/multi/PrimeBillingEnterprise");
 const outstanding_class_1 = __importDefault(require("../../models/billing/outstanding/outstanding_class"));
+const user_1 = __importDefault(require("../../LobnosAuth/user"));
 async function handleNewBilling(request, response) {
     async function validate() {
         const { patientid } = request.body;
@@ -157,13 +158,19 @@ async function requestForRefundHandler(request, response) {
             const tenantId = parseInt(request.query.tenantId.toString(), 10);
             const result = await RefundClass_1.Refund.initiateRefundofServices(tenantId, employeeid, serviceid, refundMessage);
             response.send({ status: result });
+            const role = new user_1.default(null, null, null, null, null);
+            const userRole = await role.getUserRole(employeeid, tenantId);
+            if (['manager', 'admin', 'superadmin'].includes(userRole || '')) {
+                const request = await RefundClass_1.Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
+                response.send({ status: request });
+            }
+            return result;
         }
         else {
             return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
         }
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response);
     }
 }

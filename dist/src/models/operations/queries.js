@@ -117,7 +117,7 @@ exports.q_get_all_result_entry_base = `
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
   WHERE ss.approvalstatus = 1
-      AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL)
+      AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL) AND (ds.isDeleted = 0 OR ds.isDeleted IS NULL)
 `;
 exports.q_get_all_result_entry_ultrasound_base = `
   SELECT DISTINCT
@@ -159,7 +159,7 @@ exports.q_get_all_result_entry_ultrasound_base = `
     GROUP BY tr.ascensionid
     LIMIT 1
   ) AS entered_by ON entered_by.ascensionid = ta.id
-  WHERE d.department = 'ULTRASOUND'
+  WHERE d.department = 'ULTRASOUND' AND (ds.isDeleted = 0 OR ds.isDeleted IS NULL)
 `;
 var OperationsStages;
 (function (OperationsStages) {

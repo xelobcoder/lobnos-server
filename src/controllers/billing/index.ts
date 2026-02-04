@@ -35,7 +35,7 @@ import { handleOverLoad } from "../../hooks/helper";
 import KnexConnection from "../../database/KnexConnections";
 import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController";
 import { PrimeBillingPromoCodeController } from "./PrimePromoCode";
-import { checkoutBillingHandler, correctRefererErrorPostRegistrationHandler, initializeBillingHandler, submitBillingHandler } from "../applicationsettings/handler";
+import { checkoutBillingHandler, correctRefererErrorPostRegistrationHandler, initializeBillingHandler, removePendingNonPaidServicesHandler, submitBillingHandler } from "../applicationsettings/handler";
 
 
 
@@ -46,6 +46,7 @@ const router = Router();
 // Billing Routes
 router.post("/api/v1/billing", handleNewBilling);
 router.post("/api/v1/billing/multi", handleMultiNewBilling);
+router.put('/api/v1/billing/pending/remove/service', handleOverLoad(removePendingNonPaidServicesHandler))
 router.get('/api/v1/outstanding/report/combined', isAuthorizedRoleAdmin, handleOverLoad(outstandingReport));
 router.get("/api/v1/billing/multi/init", handleOverLoad(initializeBillingHandler));
 router.post("/api/v1/billing/multi/checkout", handleOverLoad(checkoutBillingHandler));
@@ -56,7 +57,7 @@ router.put("/api/v1/billing", isAuthorizedRoleAdmin, updateBilledTransaction);
 router.get("/api/v1/billing/caninitialbill", canInitiateBill);
 router.get("/api/v1/billing/information/single", getSavedCLientBillingInformation);
 router.post(`/api/v1/billing/previous/request/refund`, determineStageOfRefundRequestHandler);
-router.post(`/api/v1/billing/previous/request/refund/update`, requestForRefundHandler);
+router.post(`/api/v1/billing/previous/request/refund/update`, handleOverLoad(requestForRefundHandler));
 router.post("/api/v1/billing/previous/refund/update/previous", updateWitnessWitnessNote as RequestHandler);
 router.post("/api/v1/billing/previous/refund/update/approve", isAuthorizedRoleAdmin, approveRequestForRefund);
 router.post("/api/v1/billing/previous/refund/update/cashout", requestForRefundCashIssueOut);

@@ -93,7 +93,7 @@ class AuthController {
                     },
                     company: company,
                     branchid: branch,
-                    tenantId: 3,
+                    tenantId
                 },
                 settings
             });

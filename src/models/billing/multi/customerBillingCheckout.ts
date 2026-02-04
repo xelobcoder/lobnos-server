@@ -100,7 +100,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                recalculatedPackageList = pkgResult.recalculatedPackageList || [];
                usedPackage = true;
           } else {
-               recalculatedCart = await this.getRecalculatedCart(cart, referalCode, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation, entitytype, entityid);
+               recalculatedCart = await this.getRecalculatedCart(cart, referalCode, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation, entitytype, entityid);   
           }
 
           let recalculatedServicesList: any[] = await CustomerBillingCheckoutSingleton.recalculateServicesList({
@@ -140,8 +140,9 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
           const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
           const overallPayable = totalServiceAmountPayable + totalTestAmountPayable;
+          const totalPacKageAmountPayable = toFixed2(recalculatedPackageList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
 
-          const amountPayable = toFixed2(overallPayable);
+          const amountPayable = isPackageUsed ? toFixed2(totalPacKageAmountPayable) : toFixed2(overallPayable);
           const outstanding = toFixed2(amountPayable - paid);
           const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
 

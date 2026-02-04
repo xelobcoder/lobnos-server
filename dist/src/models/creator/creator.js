@@ -29,6 +29,7 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const encryptionModels_1 = require("../../utils/encryptionModels");
 const requestAcess_1 = __importDefault(require("../security/RequestAcessResult/requestAcess"));
 const RolesRepository_1 = __importDefault(require("../settings/users/RolesRepository"));
+const appset_1 = __importDefault(require("../application/appsettings/appset"));
 class Creator {
     constructor(testid) {
         this.testid = testid;
@@ -249,6 +250,10 @@ class Creator {
         if (typeof billingid != "number" || typeof patientid != "number") {
             return "The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */;
         }
+        const isPaymentStatusValid = await this.CheckPaymentStatus(tenantId, ascensionid);
+        if (!isPaymentStatusValid) {
+            throw new Error("Result entry not allowed for unpaid services");
+        }
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const shouldCreateRecord = async function (tenantId, fieldid, ascensionId, testid) {
             const records = await (0, helper_1.promisifyQuery)(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
@@ -261,7 +266,6 @@ class Creator {
             const editSessionId = (0, uuid_1.v4)();
             const isAdmin = await new RolesRepository_1.default(tenantId).getEmployeeRole(employeeid);
             const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await requestAcess_1.default.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
-            console.log({ iswithinWindow });
             await Promise.all(resources.map(async (item, index) => {
                 const originalvalue = item.originalvalue;
                 const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
@@ -330,6 +334,24 @@ class Creator {
         }
         catch (error) {
             throw error;
+        }
+    }
+    async CheckPaymentStatus(tenantId, ascensionid) {
+        const appSettings = await new appset_1.default().getAllAppSettings(tenantId);
+        const allowResultEnteringUpaid = (appSettings === null || appSettings === void 0 ? void 0 : appSettings.allowResultEnteringUpaid) || 0;
+        if (allowResultEnteringUpaid === 1)
+            return true;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const servicesData = connection('dboservices AS ds')
+            .innerJoin('test_ascension AS ta', 'ds.serviceid', 'ta.serviceid')
+            .select('paymentstatus')
+            .where({ 'ta.id': ascensionid });
+        const serviceRecord = await servicesData.first();
+        if (serviceRecord && serviceRecord.paymentstatus !== 'paid' && allowResultEnteringUpaid === 0) {
+            false;
+        }
+        else {
+            return true;
         }
     }
     static async logCriticalValue(tenantId, testid, billingid, statement, employeeid) {
