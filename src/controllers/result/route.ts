@@ -11,7 +11,6 @@ import {
        criticalValuesUnseenHandler,
        getResultPrintoutHandler,
        getResultPrintMultipleHandler,
-       sendResultViaEmailHandler,
        getTestCreationRule,
        completeFlowByPassHandler,
        completeFlowByPassMultipleHandler,
@@ -69,7 +68,7 @@ router.get("/api/v1/result/criticalvalues/unseen", criticalValuesUnseenHandler)
 // Result Printout 
 router.get("/api/v1/result/printout/ascension/getResult",CheckPaymentStatus, handleOverLoad(getResultPrintoutHandler))
 router.get("/api/v1/result/printout/ascension/multiple/getResult",CheckPaymentStatus, handleOverLoad(getResultPrintMultipleHandler))
-router.get("/api/v1/result/printout/ascension/multiple/getResult/channel/email", handleOverLoad(billingIdChecker), handleOverLoad(sendResultViaEmailHandler))
+
 
 
 

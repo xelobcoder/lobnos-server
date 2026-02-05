@@ -7,7 +7,6 @@ const ResultPrintingTrackingController_1 = require("./ResultPrintingTrackingCont
 const express_1 = __importDefault(require("express"));
 const resultHandlers_1 = require("./resultHandlers");
 const resultanalysis_1 = require("./resultanalysis");
-const handlerAscensionBillingCheck_1 = require("../../middleware/redis/handlerAscensionBillingCheck");
 const loggingCriticalValueAlertHandlers_1 = require("./loggingCriticalValueAlertHandlers");
 const helper_1 = require("../../hooks/helper");
 const testResultsAuditLogsController_1 = require("./testResultsAuditLogsController");
@@ -32,7 +31,6 @@ router.get("/api/v1/result/criticalvalues/unseen", resultHandlers_1.criticalValu
 // Result Printout 
 router.get("/api/v1/result/printout/ascension/getResult", resultHandlers_1.CheckPaymentStatus, (0, helper_1.handleOverLoad)(resultHandlers_1.getResultPrintoutHandler));
 router.get("/api/v1/result/printout/ascension/multiple/getResult", resultHandlers_1.CheckPaymentStatus, (0, helper_1.handleOverLoad)(resultHandlers_1.getResultPrintMultipleHandler));
-router.get("/api/v1/result/printout/ascension/multiple/getResult/channel/email", (0, helper_1.handleOverLoad)(handlerAscensionBillingCheck_1.billingIdChecker), (0, helper_1.handleOverLoad)(resultHandlers_1.sendResultViaEmailHandler));
 // criticalcallout 
 router.get("/api/v1/result/criticalvalues/logging/paginated", loggingCriticalValueAlertHandlers_1.getPaginatedLoggingCriticalValueAlerts);
 router.get("/api/v1/result/criticalvalues/logging/:crKeyId", loggingCriticalValueAlertHandlers_1.getCriticalDetails);

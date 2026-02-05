@@ -6,7 +6,7 @@ export const sendEventSmsPaymentHandler = async (req: Request, res: Response) =>
      const billingid = req.query.billingid;
      const employeeId = req.query.employeeid;
 
-     if (!tenantId || !billingid || !employeeId) return res.status(400).json({ success: false, error: 'Missing tenantId or billingid' });
+     if (!billingid || !employeeId) return res.status(400).json({ success: false, error: 'Missing tenantId or billingid' });
      try {
           const parsedBillingId = parseInt(billingid.toString(), 10);
           const parsedEmployeeId = parseInt(employeeId.toString(), 10);
@@ -14,6 +14,7 @@ export const sendEventSmsPaymentHandler = async (req: Request, res: Response) =>
           const sms = await repo.paymentConfirmationEvent(tenantId, parsedBillingId, parsedEmployeeId);
           res.send(sms);
      } catch (err: any) {
+          console.log('Error sending SMS payment event:', err);
           res.status(500).json({ success: false, error: err.message || 'Failed to send SMS payment' });
      }
 }

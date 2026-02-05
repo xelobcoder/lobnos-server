@@ -13,7 +13,6 @@ import {
      getServiceRefundItem,
      verificationBeforeCashoutHandler,
      getTransactionBillDataHandler,
-     handleEmailReceiptSending,
      refundAllTransactionHandler,
      handleMultiNewBilling,
      handleMultiUpdateBilling,
@@ -52,7 +51,6 @@ router.get("/api/v1/billing/multi/init", handleOverLoad(initializeBillingHandler
 router.post("/api/v1/billing/multi/checkout", handleOverLoad(checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", handleOverLoad(submitBillingHandler));
 router.put('/api/v1/billing/multi', handleMultiUpdateBilling);
-router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", handleEmailReceiptSending)
 router.put("/api/v1/billing", isAuthorizedRoleAdmin, updateBilledTransaction);
 router.get("/api/v1/billing/caninitialbill", canInitiateBill);
 router.get("/api/v1/billing/information/single", getSavedCLientBillingInformation);

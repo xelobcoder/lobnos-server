@@ -33,7 +33,6 @@ import {
 	updatebillHistoryQuery
 } from "./queries";
 import { Refund } from "./RefundClass";
-import Core from "../../EmailServices/core";
 import { SalesSessionRepo } from "./repositories/SalesSessionRepo";
 import { TestApprovalClass } from "../operations/testApprovalClass";
 
@@ -258,31 +257,6 @@ export class Billing {
 	}
 
 
-	public static async getReceiptPdfExternalSystem(tenantId: number, billingid: number, patientid: number) {
-		try {
-			const billedData = await getBillingInvoiceData(tenantId, billingid);
-			if (!billedData) return false;
-
-			const patientData = await Registration.getPatientDataUsingPatientId(tenantId, patientid);
-
-			if (!patientData || !patientData['email']) {
-				return OperationsFailures.notFound
-			}
-
-			const pdfResponse = await fetch(`${process.env.PDFGENERATOR_CHANNEL_ENDPOINT}/generate/receipt/invoice?billingid=${billingid}&&is_pos=true`);
-
-			if (!pdfResponse.ok) return false;
-			const pdfBuffer = await pdfResponse.arrayBuffer();
-			const pdfBufferNode = Buffer.from(pdfBuffer);
-			const pdfPath = path.join(__dirname, '../../../views/pdfs/patient-receipt.pdf');
-			await fs.writeFile(pdfPath, pdfBufferNode as any);
-			const status = await new Core().sendBilledReceipt(pdfPath, patientData['email']);
-			return status
-		} catch (err) {
-			console.log(err)
-		}
-
-	}
 
 	private static calculateBillingVariablesFinal(
 		services: any[],

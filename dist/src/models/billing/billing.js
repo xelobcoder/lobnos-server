@@ -9,7 +9,6 @@ const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const helper_1 = require("../../hooks/helper");
 const testpanelList_1 = require("../../testpanel/testpanelList");
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
-const invoice_1 = require("../invoice/invoice");
 const ascension_1 = require("../operations/ascension");
 const organization_1 = __importDefault(require("../organization/organization"));
 const organizationBilling_1 = __importDefault(require("../organization/organizationBilling"));
@@ -17,12 +16,9 @@ const outsourcing_1 = __importDefault(require("../organization/outsourcingOrgani
 const registration_1 = __importDefault(require("../registration/registration"));
 const services_1 = require("../services/services");
 const billingclientTypes_1 = require("./billingclientTypes");
-const promises_1 = __importDefault(require("fs/promises"));
-const path_1 = __importDefault(require("path"));
 const partitioning_1 = __importDefault(require("./partitioning"));
 const queries_1 = require("./queries");
 const RefundClass_1 = require("./RefundClass");
-const core_1 = __importDefault(require("../../EmailServices/core"));
 const SalesSessionRepo_1 = require("./repositories/SalesSessionRepo");
 const N = 2;
 class Billing {
@@ -189,29 +185,6 @@ class Billing {
         catch (error) {
             console.error('Error generating billingid:', error);
             return undefined;
-        }
-    }
-    static async getReceiptPdfExternalSystem(tenantId, billingid, patientid) {
-        try {
-            const billedData = await (0, invoice_1.getBillingInvoiceData)(tenantId, billingid);
-            if (!billedData)
-                return false;
-            const patientData = await registration_1.default.getPatientDataUsingPatientId(tenantId, patientid);
-            if (!patientData || !patientData['email']) {
-                return "Resource not found." /* OperationsFailures.notFound */;
-            }
-            const pdfResponse = await fetch(`${process.env.PDFGENERATOR_CHANNEL_ENDPOINT}/generate/receipt/invoice?billingid=${billingid}&&is_pos=true`);
-            if (!pdfResponse.ok)
-                return false;
-            const pdfBuffer = await pdfResponse.arrayBuffer();
-            const pdfBufferNode = Buffer.from(pdfBuffer);
-            const pdfPath = path_1.default.join(__dirname, '../../../views/pdfs/patient-receipt.pdf');
-            await promises_1.default.writeFile(pdfPath, pdfBufferNode);
-            const status = await new core_1.default().sendBilledReceipt(pdfPath, patientData['email']);
-            return status;
-        }
-        catch (err) {
-            console.log(err);
         }
     }
     static calculateBillingVariablesFinal(services, test, taxValue, serviceCategoryTrackId, testCategoryTrackId, paid) {

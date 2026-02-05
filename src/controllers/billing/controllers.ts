@@ -87,21 +87,7 @@ export async function handleMultiUpdateBilling(request: Request, response: Respo
 
 
 
-export async function handleEmailReceiptSending(request: Request<{ billingid: number, patientid: number }>, response: Response) {
-	try {
-		const { patientid, billingid } = request.params
-		if (!patientid || !billingid || isNaN(patientid) || isNaN(billingid)) {
-			response.status(404).json({ message: OperationsFailures.invalidResponseBodyParams })
-		} else {
-			const { tenantId } = request.query;
-			const tenantIdP = parseInt(tenantId.toString());
-			const emailSendingResponseStatus = await Billing.getReceiptPdfExternalSystem(tenantIdP, billingid, patientid);
-			response.send({ status: emailSendingResponseStatus })
-		}
-	} catch (err) {
-		console.log(err);
-	}
-}
+
 
 
 

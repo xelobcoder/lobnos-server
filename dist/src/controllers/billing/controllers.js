@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleEmailReceiptSending = exports.handleMultiUpdateBilling = exports.outstandingReport = exports.handleMultiNewBilling = exports.handleNewBilling = void 0;
+exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleMultiUpdateBilling = exports.outstandingReport = exports.handleMultiNewBilling = exports.handleNewBilling = void 0;
 const helper_1 = require("../../hooks/helper");
 const billing_1 = require("../../models/billing/billing");
 const billingclientTypes_1 = require("../../models/billing/billingclientTypes");
@@ -86,24 +86,6 @@ async function handleMultiUpdateBilling(request, response) {
     (0, trycatch_1.wrapperTryCatch)(validate, (err) => console.log(err));
 }
 exports.handleMultiUpdateBilling = handleMultiUpdateBilling;
-async function handleEmailReceiptSending(request, response) {
-    try {
-        const { patientid, billingid } = request.params;
-        if (!patientid || !billingid || isNaN(patientid) || isNaN(billingid)) {
-            response.status(404).json({ message: "Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */ });
-        }
-        else {
-            const { tenantId } = request.query;
-            const tenantIdP = parseInt(tenantId.toString());
-            const emailSendingResponseStatus = await billing_1.Billing.getReceiptPdfExternalSystem(tenantIdP, billingid, patientid);
-            response.send({ status: emailSendingResponseStatus });
-        }
-    }
-    catch (err) {
-        console.log(err);
-    }
-}
-exports.handleEmailReceiptSending = handleEmailReceiptSending;
 async function canInitiateBill(request, response) {
     try {
         let { patientid, tenantId } = request.query;

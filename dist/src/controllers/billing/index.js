@@ -25,7 +25,6 @@ router.get("/api/v1/billing/multi/init", (0, helper_1.handleOverLoad)(handler_2.
 router.post("/api/v1/billing/multi/checkout", (0, helper_1.handleOverLoad)(handler_2.checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", (0, helper_1.handleOverLoad)(handler_2.submitBillingHandler));
 router.put('/api/v1/billing/multi', controllers_1.handleMultiUpdateBilling);
-router.get("/api/v1/billing/send/receipt/email/:patientid/:billingid", controllers_1.handleEmailReceiptSending);
 router.put("/api/v1/billing", validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.updateBilledTransaction);
 router.get("/api/v1/billing/caninitialbill", controllers_1.canInitiateBill);
 router.get("/api/v1/billing/information/single", controllers_1.getSavedCLientBillingInformation);

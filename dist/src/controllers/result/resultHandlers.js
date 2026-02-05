@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.sendResultViaEmailHandler = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
+exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const companyProfile_1 = require("../../models/settings/companyProfile");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
@@ -15,9 +15,6 @@ const literature_1 = __importDefault(require("../../testpanel/literature"));
 const resultEncryptionReferer_1 = __importDefault(require("../../models/creator/resultEncryptionReferer"));
 const creator_1 = __importDefault(require("../../models/creator/creator"));
 const billing_1 = require("../../models/billing/billing");
-const fs_1 = __importDefault(require("fs"));
-const path_1 = __importDefault(require("path"));
-const core_1 = __importDefault(require("../../EmailServices/core"));
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
 const requestAcess_1 = __importDefault(require("../../models/security/RequestAcessResult/requestAcess"));
@@ -451,55 +448,6 @@ const getResultPrintMultipleHandler = async (request, response) => {
     }
 };
 exports.getResultPrintMultipleHandler = getResultPrintMultipleHandler;
-const sendResultViaEmailHandler = async (request, response) => {
-    try {
-        const { csvid, ptid, target, testid, tenantId } = request.query;
-        const { billingid, patientid } = new creator_1.default(parseInt(testid.toString())).sanitize_patientid_billingid_query(csvid, ptid, target);
-        const tenantIdP = parseInt(tenantId.toString());
-        const patientData = await registration_1.default.getPatientDataUsingPatientId(tenantIdP, patientid);
-        if (!patientData || !patientData['email']) {
-            return response.status(400).json({ status: false, message: 'Email Not Found For user' });
-        }
-        const query = new URLSearchParams(request.query);
-        const url = `${process.env.PDFGENERATOR_CHANNEL_ENDPOINT}/result/pdf/generate?${query.toString()}&&is_password_encrypted=true&&password=TiifuHamza`;
-        const fileResponse = await fetch(url);
-        if (!fileResponse.ok) {
-            throw new Error(`Failed to fetch PDF: ${fileResponse.statusText}`);
-        }
-        const fileTempDir = path_1.default.join(__dirname, '../../../views/result');
-        const fileTempPath = path_1.default.join(fileTempDir, 'result.pdf');
-        if (!fs_1.default.existsSync(fileTempDir)) {
-            fs_1.default.mkdirSync(fileTempDir, { recursive: true });
-        }
-        const fileBuffer = await fileResponse.arrayBuffer();
-        const pdfBuffer = Buffer.from(fileBuffer).toString();
-        fs_1.default.writeFileSync(fileTempPath, pdfBuffer);
-        if (fileTempPath) {
-            const mailResponse = await new core_1.default().createMailTransporter({
-                to: patientData['email'],
-                subject: 'Laboratory Result',
-                html: '<h5>Please find the attached Result of your lab tests.Use this password to open the file <strong>TiifuHamza</strong></h5>',
-                attachments: [
-                    {
-                        filename: 'result.pdf',
-                        path: fileTempPath,
-                    },
-                ],
-            });
-            if (mailResponse && (mailResponse === null || mailResponse === void 0 ? void 0 : mailResponse.rejected) && (mailResponse === null || mailResponse === void 0 ? void 0 : mailResponse.rejected.length) === 0) {
-                return response.status(201).json({ status: true });
-            }
-        }
-    }
-    catch (error) {
-        response.status(500).json({
-            success: false,
-            message: 'Failed to send email',
-            error: error.message,
-        });
-    }
-};
-exports.sendResultViaEmailHandler = sendResultViaEmailHandler;
 const getTestCreationRule = async (request, response) => {
     try {
         const { tenantId } = request.query;

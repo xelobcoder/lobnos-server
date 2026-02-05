@@ -15,9 +15,6 @@ import resultEncrptionReferer from "../../models/creator/resultEncryptionReferer
 import Creator from "../../models/creator/creator";
 import { Billing } from "../../models/billing/billing";
 import { PrimeLimsTabletest_ascension, PrimeLimsTabletest_panels } from "../../database/DatabaseTableSchema";
-import fs from 'fs'
-import path from 'path'
-import Core from "../../EmailServices/core";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 import { testAscensionTableTypes } from "../../models/billing/billingclientTypes";
 import RolesRepository from "../../models/settings/users/RolesRepository";
@@ -573,65 +570,7 @@ export const CheckPaymentStatus = async (request: Request, response: Response, n
 
 
 
-	export const sendResultViaEmailHandler = async (request: Request, response: Response) => {
-		try {
-			const { csvid, ptid, target, testid, tenantId } = request.query;
-			const { billingid, patientid } = new Creator(parseInt(testid.toString())).sanitize_patientid_billingid_query(csvid as string, ptid as string, target as string);
 
-			const tenantIdP = parseInt(tenantId.toString())
-
-			const patientData = await Registration.getPatientDataUsingPatientId(tenantIdP, patientid);
-
-			if (!patientData || !patientData['email']) {
-				return response.status(400).json({ status: false, message: 'Email Not Found For user' });
-			}
-
-			const query = new URLSearchParams(request.query as any);
-			const url = `${process.env.PDFGENERATOR_CHANNEL_ENDPOINT}/result/pdf/generate?${query.toString()}&&is_password_encrypted=true&&password=TiifuHamza`;
-			const fileResponse = await fetch(url);
-
-			if (!fileResponse.ok) {
-				throw new Error(`Failed to fetch PDF: ${fileResponse.statusText}`);
-			}
-
-			const fileTempDir = path.join(__dirname, '../../../views/result');
-			const fileTempPath = path.join(fileTempDir, 'result.pdf');
-
-			if (!fs.existsSync(fileTempDir)) {
-				fs.mkdirSync(fileTempDir, { recursive: true });
-			}
-
-			const fileBuffer = await fileResponse.arrayBuffer();
-			const pdfBuffer = Buffer.from(fileBuffer).toString();
-
-			fs.writeFileSync(fileTempPath, pdfBuffer);
-
-			if (fileTempPath) {
-				const mailResponse = await new Core().createMailTransporter({
-					to: patientData['email'],
-					subject: 'Laboratory Result',
-					html: '<h5>Please find the attached Result of your lab tests.Use this password to open the file <strong>TiifuHamza</strong></h5>',
-					attachments: [
-						{
-							filename: 'result.pdf',
-							path: fileTempPath,
-						},
-					],
-				});
-
-				if (mailResponse && mailResponse?.rejected && mailResponse?.rejected.length === 0) {
-					return response.status(201).json({ status: true });
-				}
-			}
-		} catch (error) {
-
-			response.status(500).json({
-				success: false,
-				message: 'Failed to send email',
-				error: error.message,
-			});
-		}
-	};
 
 	export const getTestCreationRule = async (request: Request, response: Response) => {
 		try {
