@@ -18,4 +18,5 @@ router.put("/api/v1/appointments/reminder/phonecalls/:id", PhoneCallsTrackersCon
 router.get("/api/v1/appointments/reminder/phonecalls", PhoneCallsTrackersController_1.PhoneCallsTrackersController.listPhoneCallLogs);
 router.get("/api/v1/appointments/phonecalls/paginated", PhoneCallsTrackersController_1.PhoneCallsTrackersController.listPhoneCallLogsWithPagination);
 router.get("/api/v1/appointments/reminder/appointment/phonecalls/:appointment_refid", PhoneCallsTrackersController_1.PhoneCallsTrackersController.getPhoneCallLogsByAppointmentRef);
+router.post("/api/v1/appointment/reminder", PhoneCallsTrackersController_1.PhoneCallsTrackersController.sendAppointmentReminders);
 exports.default = router;

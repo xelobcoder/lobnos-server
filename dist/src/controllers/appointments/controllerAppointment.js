@@ -128,7 +128,10 @@ exports.deleteAppointmentController = deleteAppointmentController;
 async function createAppointmentController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
-        const isAppointmentCreated = await new appointments_1.default(21).createAppointment(tenantId, request.body);
+        const employeeid = request.query.employeeid ? parseInt(request.query.employeeid, 10) : 0;
+        if (!employeeid)
+            return (0, helper_1.customError)("Employee ID missing in query", 404, response);
+        const isAppointmentCreated = await new appointments_1.default(employeeid).createAppointment(tenantId, request.body);
         response.send({ success: isAppointmentCreated });
     }
     catch (err) {

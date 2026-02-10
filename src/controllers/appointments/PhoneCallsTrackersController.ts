@@ -1,5 +1,27 @@
-import { Request, Response } from "express";
+import { Request, response, Response } from "express";
 import { PhoneCallsTrackersRepo } from "../../models/appointments/PhoneCallsTrackers";
+import { customError } from "../../hooks/helper";
+import { SmsService } from "../../models/application/integrations/Arkesel";
+import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+
+
+
+export interface AppointmentSchedule {
+     appointmentDetails: AppointmentDetails;
+     scheduleDate: string;
+     type: "schedule";
+}
+
+export interface AppointmentDetails {
+     refid: number;
+     patientid: number;
+     duration: number;
+     status: string;
+     purpose: string;
+     mobile_number: string;
+     appointment_time: string;
+}
+
 
 export class PhoneCallsTrackersController {
      static async getPhoneCallLogsByAppointmentRef(req: Request, res: Response) {
@@ -12,8 +34,8 @@ export class PhoneCallsTrackersController {
                const repo = new PhoneCallsTrackersRepo(tenantId);
                const logs = await repo.getByAppointment(appointment_refid);
                res.json(logs);
-          } catch (error) {
-               res.status(500).json({ error: error.message });
+          } catch (error: any) {
+               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
           }
      }
      static async createPhoneCallLog(req: Request, res: Response) {
@@ -44,8 +66,8 @@ export class PhoneCallsTrackersController {
                const repo = new PhoneCallsTrackersRepo(tenantId);
                const id = await repo.create(parseResult.data);
                res.status(201).json({ status: id ? "success" : "error", id });
-          } catch (error) {
-               res.status(500).json({ error: error.message });
+          } catch (error: any) {
+               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
           }
      }
 
@@ -60,8 +82,8 @@ export class PhoneCallsTrackersController {
                const log = await repo.getById(id);
                if (!log) return res.status(404).json({ error: "Not found" });
                res.json(log);
-          } catch (error) {
-               res.status(500).json({ error: error.message });
+          } catch (error: any) {
+               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
           }
      }
 
@@ -75,8 +97,8 @@ export class PhoneCallsTrackersController {
                const repo = new PhoneCallsTrackersRepo(tenantId);
                const updated = await repo.update(id, req.body);
                res.json(updated);
-          } catch (error) {
-               res.status(500).json({ error: error.message });
+          } catch (error: any) {
+               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
           }
      }
 
@@ -89,8 +111,8 @@ export class PhoneCallsTrackersController {
                const repo = new PhoneCallsTrackersRepo(tenantId);
                const logs = await repo.list(req.query);
                res.json(logs);
-          } catch (error) {
-               res.status(500).json({ error: error.message });
+          } catch (error: any) {
+               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
           }
      }
 
@@ -107,8 +129,36 @@ export class PhoneCallsTrackersController {
                const repo = new PhoneCallsTrackersRepo(tenantId);
                const result = await repo.listWithPagination(page, count, filter);
                res.json(result);
-          } catch (error) {
-               res.status(500).json({ error: error.message });
+          } catch (error: any) {
+               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
+          }
+     }
+
+     static async sendAppointmentReminders(req: Request<{}, {},
+          AppointmentSchedule
+          , { tenantId: number | string }>, res: Response) {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string, 10);
+               const { appointmentDetails, scheduleDate, type } = req.body;
+               if (!appointmentDetails || !type) return res.status(400).json({ error: "Missing required fields in request body" });
+               if (type == "schedule" && !scheduleDate) return res.status(400).json({ error: "Missing scheduleDate for non-schedule type" });
+               const { purpose ,mobile_number} = appointmentDetails;
+               if (!purpose) return res.status(400).json({ error: "Missing purpose  or content of sms missing in appointmentDetails" });
+
+               const isMobileValid = TiifuWorkingClass.validatePhoneNumber(mobile_number);
+               if (!isMobileValid.isValid) {
+                    return res.status(400).json({ error: "Invalid mobile number format in appointmentDetails" });
+               }
+               const smsMessages = await new SmsService().sendSms([mobile_number], purpose);
+               const { status, code, message } = smsMessages as any;
+               if (status === "error") {
+                    return res.status(code).json({ error: message });
+               }
+               res.json({ status: "success", message: "Appointment reminder sent successfully" });
+               
+          } catch (error: any) {
+               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
           }
      }
 }
+

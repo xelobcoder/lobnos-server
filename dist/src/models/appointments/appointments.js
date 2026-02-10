@@ -22,9 +22,8 @@ class Appointment {
         const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
         if (!patientid)
             throw new Error("patientid missing");
-        if (!(await this.isAppointmentTimeAvailable(tenantId, appointment_date, appointment_time))) {
+        if (!(await this.isAppointmentTimeAvailable(tenantId, appointment_date, appointment_time)))
             return false;
-        }
         const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
         const result = await this.connection(tenantId, createQuery, [
             patientid,

@@ -25,9 +25,7 @@ class Appointment {
 	public async createAppointment(tenantId: number, data: TAppointment) {
 		const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
 		if (!patientid) throw new Error("patientid missing");
-		if (!(await this.isAppointmentTimeAvailable(tenantId, appointment_date, appointment_time))) {
-			return false;
-		}
+		if (!(await this.isAppointmentTimeAvailable(tenantId, appointment_date, appointment_time))) return false;
 		const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
 		const result = await this.connection(tenantId, createQuery, [
 			patientid,
@@ -205,7 +203,7 @@ class Appointment {
 			appointmentId
 		];
 
-		
+
 		const result = await this.connection(tenantId, query, values);
 		return this._affectedRows(result);
 	}

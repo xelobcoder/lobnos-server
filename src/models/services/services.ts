@@ -83,7 +83,7 @@ export class Services {
         return result;
     }
 
-    async getAllservices(tenantId: number, count: number, page: number) {
+    async getAllservices(tenantId: number, count?: number, page?: number) {
         if (count && page) {
             return await paginationQuery({ count, page }, q_getAllServicesByCount, undefined, tenantId);
         }

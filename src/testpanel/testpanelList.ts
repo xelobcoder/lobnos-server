@@ -390,9 +390,19 @@ export const testpanel = {
 		}
 	},
 
-	getpanelsbulk: async (tenantId: number, grouping: 'client' | 'master') => {
-		const query = `SELECT tp.*,td.testprice , td.testcost FROM test_panels AS tp
+	getpanelsbulk: async (tenantId: number, grouping: 'client' | 'master', filters: { filtercategory?: 'id' | 'name', searchstring?: string }) => {
+		let query = `SELECT tp.*,td.testprice , td.testcost FROM test_panels AS tp
 		LEFT JOIN testdetails AS td ON tp.id = td.testid`;
+
+		const { filtercategory, searchstring } = filters;
+
+		if (filtercategory && searchstring) {
+			if (filtercategory === 'id') {
+				query += ` WHERE tp.id = ${parseInt(searchstring)}`;
+			} else if (filtercategory === 'name') {
+				query += ` WHERE tp.name LIKE '%${searchstring}%'`;
+			}
+		}
 		try {
 			let result = grouping == "master" ? await new MasterTestPanelRepository().getMasterPanels() : await promisifyQuery(tenantId, query);
 			return result;

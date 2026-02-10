@@ -111,5 +111,39 @@ class TiifuWorkingClass {
     static isEmailValidEmail(email) {
         return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     }
+    static validatePhoneNumber(phone) {
+        if (!phone) {
+            return {
+                isValid: false,
+                formattedNumber: null,
+                error: 'Phone number is required'
+            };
+        }
+        let digits = phone.replace(/\D/g, '');
+        if (digits.startsWith('00')) {
+            digits = digits.slice(2);
+        }
+        let formattedNumber = null;
+        if (digits.length === 9) {
+            formattedNumber = '0' + digits;
+        }
+        else if (digits.startsWith('233') && digits.length === 12) {
+            formattedNumber = '0' + digits.slice(3);
+        }
+        else if (digits.length === 10) {
+            formattedNumber = digits.startsWith('0') ? digits : '0' + digits;
+        }
+        if (!formattedNumber || !/^0\d{9}$/.test(formattedNumber)) {
+            return {
+                isValid: false,
+                formattedNumber: null,
+                error: 'Invalid phone number format'
+            };
+        }
+        return {
+            isValid: true,
+            formattedNumber
+        };
+    }
 }
 exports.TiifuWorkingClass = TiifuWorkingClass;

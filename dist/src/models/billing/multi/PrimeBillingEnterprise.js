@@ -79,7 +79,7 @@ class PrimeBillingEnterprise {
         return await new ReferralCodingRepo_1.ReferralCodingRepo(this.tenantId).findByCode(referalCode);
     }
     async getAllServices() {
-        return await new services_1.default(0).getAllservices(this.tenantId, undefined, undefined);
+        return await new services_1.default(0).getAllservices(this.tenantId);
     }
     async getBillingHandler(entityType, entityId) {
         return await new billingstrategy_1.default().getProvidentialBillingHandler(this.tenantId, entityType, entityId, true);
@@ -192,11 +192,20 @@ class PrimeBillingEnterprise {
         try {
             return tests.map(test => {
                 if (!test.discountedValue || test.discountedValue === 0)
-                    return Object.assign(Object.assign({}, test), { discountedValue: 0, discount: 0 });
-                const discount = test.discount || 0;
-                const base = test.discountedValue;
-                const discountedValue = base - discount;
-                return Object.assign(Object.assign({}, test), { discountedValue, discount });
+                    return Object.assign(Object.assign({}, test), { discountedValue: 0, discount: 0, userAdjustedValue: 0 });
+                const { userAdjustmentType, userAdjustedValue } = test;
+                const parsedBase = parseFloat(test.discountedValue.toString());
+                const parsedUserAdjustedValue = userAdjustedValue ? parseFloat(userAdjustedValue.toString()) : 0;
+                if (userAdjustmentType == "surcharge" && userAdjustedValue && parsedUserAdjustedValue > 0 && parsedBase && parsedBase > 0) {
+                    const adjustedValue = parsedBase + parsedUserAdjustedValue;
+                    return Object.assign(Object.assign({}, test), { discountedValue: adjustedValue, userAdjustedValue });
+                }
+                if (userAdjustmentType == "discount" && userAdjustedValue && parsedBase && parsedBase > 0 && parsedUserAdjustedValue > 0) {
+                    const base = test.discountedValue;
+                    const discountedValue = Math.max(0, parsedBase - parsedUserAdjustedValue);
+                    return Object.assign(Object.assign({}, test), { discountedValue, discount: userAdjustedValue, userAdjustedValue });
+                }
+                return Object.assign(Object.assign({}, test), { discountedValue: test.discountedValue, discount: test.discount || 0, userAdjustedValue: 0, userAdjustmentType: null });
             });
         }
         catch (error) {
@@ -264,6 +273,7 @@ class PrimeBillingEnterprise {
             return { subtotal: 0, totaldiscount: 0, totalAmountIncurredDueTax: 0, totalServiceAmount: 0, totalpayable: 0 };
         }
         let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0, totalpayable = 0;
+        let totalsurcharge = 0;
         if (usedPackage) {
             recalculatedPackageList.forEach(item => {
                 subtotal += item.discountedValue;
@@ -273,22 +283,32 @@ class PrimeBillingEnterprise {
         }
         else {
             recalculatedCart.forEach(item => {
+                if (item.userAdjustmentType === "surcharge" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+                    totalsurcharge += parseFloat(item.userAdjustedValue.toString());
+                }
+                if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+                    totaldiscount += parseFloat(item.userAdjustedValue.toString());
+                }
                 subtotal += item.discountedValue;
-                totaldiscount += item.discount;
                 totalpayable += item.totalpayable;
                 totalAmountIncurredDueTax += item.amountIncurredDueTax;
             });
         }
         if (recalculatedServicesList && Array.isArray(recalculatedServicesList)) {
             recalculatedServicesList.forEach(item => {
+                if (item.userAdjustmentType === "surcharge" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+                    totalsurcharge += parseFloat(item.userAdjustedValue.toString());
+                }
+                if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+                    totaldiscount += parseFloat(item.userAdjustedValue.toString());
+                }
                 subtotal += item.discountedValue;
-                totaldiscount += item.discount;
                 totalpayable += item.totalpayable;
                 totalAmountIncurredDueTax += item.amountIncurredDueTax;
                 totalServiceAmount += item.discountedValue;
             });
         }
-        return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount, totalpayable };
+        return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount, totalpayable, totalsurcharge };
     }
     static addNightAdjustmentInfo(items, billingsettings) {
         if (!Array.isArray(items))
@@ -343,6 +363,9 @@ class PrimeBillingEnterprise {
         let recalculatedServicesList = allServices
             .filter((service) => { var _a; return selectedServiceIds.includes((_a = service.id) !== null && _a !== void 0 ? _a : service.keyid); })
             .map((service) => {
+            const findServiceItem = servicesList.find((item) => { var _a, _b; return ((_a = item.id) !== null && _a !== void 0 ? _a : item.keyid) === ((_b = service.id) !== null && _b !== void 0 ? _b : service.keyid); });
+            const userAdjustedValue = findServiceItem ? findServiceItem.userAdjustedValue : null;
+            const userAdjustmentType = findServiceItem ? findServiceItem.userAdjustmentType : null;
             const price = service.servicePrice || 0;
             const discount = service.discount || 0;
             const promoDiscount = 0;
@@ -355,7 +378,9 @@ class PrimeBillingEnterprise {
                 totalpayable,
                 promoDiscount,
                 entityid,
-                entitytype });
+                entitytype,
+                userAdjustedValue,
+                userAdjustmentType });
         });
         if (billingsettings && billingsettings.hasNightAdjustment) {
             recalculatedServicesList = PrimeBillingEnterprise.applyNightAdjustmentsToTests(recalculatedServicesList, billingsettings, 'services');
@@ -368,6 +393,9 @@ class PrimeBillingEnterprise {
         }
         if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
             recalculatedServicesList = PrimeBillingEnterprise.applyTaxToTests(recalculatedServicesList, taxation.taxValue);
+        }
+        else {
+            recalculatedServicesList = PrimeBillingEnterprise.applyTaxToTests(recalculatedServicesList, 0);
         }
         return PrimeBillingEnterprise.addNightAdjustmentInfo(recalculatedServicesList, billingsettings);
     }

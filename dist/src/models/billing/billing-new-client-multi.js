@@ -60,8 +60,9 @@ class SubmitCustomerBilling {
         // 3. compare the two and forward the details to the frontend
     }
     async submit() {
+        var _a;
         try {
-            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
+            const _b = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _b, rest = __rest(_b, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -152,6 +153,7 @@ class SubmitCustomerBilling {
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
                 totalOutstanding = Math.max(amountPayable - updatedBillingData.paid, 0);
                 balance = totalOutstanding > 0 ? 0 : updatedBillingData.paid - totalAmountPayable;
+                const surcharges = ((_a = checkoutResult.data) === null || _a === void 0 ? void 0 : _a.totalsurcharge) || 0;
                 const updateData = {
                     totalTransactionCost: totalcost,
                     totalcost: totalcost,
@@ -162,6 +164,7 @@ class SubmitCustomerBilling {
                     totalAmountIncurredDueTax: totalAmountIncurredDueTax,
                     outstanding: totalOutstanding,
                     paid: overallPaymentsMade,
+                    surcharges,
                     balance: balance,
                     status,
                     totalrefunded: 0,
@@ -209,6 +212,7 @@ class SubmitCustomerBilling {
                     branchid: updatedBillingData.branchid,
                     isPromo: updateData.isPromo,
                     promoValue: updateData.promoValue,
+                    surcharges: updateData.surcharges,
                     additionalinformation: this.payload.additioninformation || null,
                     promoMethod: updateData.promoMethod,
                     promoCodeId: updateData.promoCodeId,
@@ -245,6 +249,7 @@ class SubmitCustomerBilling {
                         const previousAmmountIncurredDueTax = previousTransaction.amountIncurredDueTax || 0;
                         const newAmmountIncurredDueTax = parseFloat(previousAmmountIncurredDueTax) + dataToUpdate.amountIncurredDueTax;
                         const adjustmentReason = this.payload.adjustmentReason || 'Addition of new services/tests';
+                        const totalsurcharges = parseFloat(previousTransaction.surcharges || 0) + parseFloat(dataToUpdate.surcharges || 0);
                         let newStatus = "pending";
                         if (newPaid >= newAmountPayable) {
                             newStatus = "paid";
@@ -278,6 +283,7 @@ class SubmitCustomerBilling {
                             writeoff: writeOffOutstanding ? writeOffAmount : 0,
                             patientid: updatedBillingData.patientId,
                             lastupdatedby: employeeid || this.payload.employeeid,
+                            surcharges: totalsurcharges,
                         };
                     }
                 }
@@ -386,28 +392,22 @@ class SubmitCustomerBilling {
             registrationType = "nhis";
         }
         const result = await Promise.all(billingData.cart.map(async (item) => {
+            var _a;
             const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
-            const getClinician = (billingData) => {
-                if (billingData.entitytype == "clinician")
-                    return billingData.entityId || billingData.entityid;
-                if (billingData.clinicianId && !isNaN(billingData.clinicianId))
-                    return parseInt(billingData.clinicianId.toString());
-            };
-            const getOrganization = (billingData) => {
-                if (billingData.entitytype == "organization")
-                    return billingData.entityId || billingData.entityid;
-                if (billingData.organizationId && !isNaN(billingData.organizationId))
-                    return parseInt(billingData.organizationId.toString());
-            };
+            const newClinicianId = SubmitCustomerBilling.extractClinician(billingData);
+            const newOrganizationId = SubmitCustomerBilling.extractOrganization(billingData);
+            const source = billingData.billingSource;
+            const userAdjustedValue = (item === null || item === void 0 ? void 0 : item.userAdjustedValue) ? parseFloat(((_a = item.userAdjustedValue) === null || _a === void 0 ? void 0 : _a.toString()) || "0") : null;
+            const userAdjustmentType = (item === null || item === void 0 ? void 0 : item.userAdjustmentType) || null;
             const data = {
                 billingid: billingID,
                 trackId: item.testid,
                 cost: item.actualPrice,
                 employeeid: billingData.employeeid,
-                serviceCategory: billingclientTypes_1.serviceCategory[billingData.billingSource],
+                serviceCategory: billingclientTypes_1.serviceCategory[source],
                 categoryTrackId: billingData.billingSource,
-                clinicianId: getClinician(billingData) || null,
-                organizationId: getOrganization(billingData) || null,
+                clinicianId: newClinicianId || null,
+                organizationId: newOrganizationId || null,
                 registrationType,
                 relatedbillingid: hasRelatedBilling ? relatedBillingId : null,
                 branchid: billingData.branchid,
@@ -419,7 +419,7 @@ class SubmitCustomerBilling {
                 amountIncurredDueTax: item.amountIncurredDueTax,
                 taxIncluded: taxIncluded == true ? 1 : 0,
                 discount: item.discount,
-                totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
+                totalcost: item.totalcost,
                 totalpayable: item.totalpayable,
                 isNHIS: billingData.billingSource === 4 ? 1 : 0,
                 isPHIS: billingData.billingSource === 3 ? 1 : 0,
@@ -434,7 +434,9 @@ class SubmitCustomerBilling {
                 paidamount,
                 paymentstatus: paymentstatus,
                 nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
-                claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
+                claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null,
+                userAdjustedValue,
+                userAdjustmentType
             };
             if (item.isoutsourced == 1 && item.outsourceid) {
                 const result = await trx('outsourceorganizationservices')
@@ -448,6 +450,22 @@ class SubmitCustomerBilling {
             return data;
         }));
         return result;
+    }
+    static extractClinician(billingData) {
+        if (!billingData)
+            return null;
+        if (billingData.entitytype == "clinician")
+            return billingData.entityId || billingData.entityid;
+        if (billingData.clinicianId && !isNaN(billingData.clinicianId))
+            return parseInt(billingData.clinicianId.toString());
+    }
+    static extractOrganization(billingData) {
+        if (!billingData)
+            return null;
+        if (billingData.entitytype == "organization")
+            return billingData.entityId || billingData.entityid;
+        if (billingData.organizationId && !isNaN(billingData.organizationId))
+            return parseInt(billingData.organizationId.toString());
     }
     static async processNonTestServices(billingData, servicesProvided, billingID, taxValue, taxList, hasRelatedBilling, relatedBillingId) {
         let organizationId = null;
@@ -473,10 +491,14 @@ class SubmitCustomerBilling {
                 break;
         }
         const { employeeid, branchid, taxIncluded, billingSource, isPackageUsed } = billingData;
-        return await Promise.all(servicesProvided
+        const outcome = await Promise.all(servicesProvided
             .map(async (item) => {
-            var _a, _b;
+            var _a;
             const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
+            const newClinicianId = SubmitCustomerBilling.extractClinician(billingData);
+            const newOrganizationId = SubmitCustomerBilling.extractOrganization(billingData);
+            const userAdjustedValue = (item === null || item === void 0 ? void 0 : item.userAdjustedValue) ? parseFloat(((_a = item.userAdjustedValue) === null || _a === void 0 ? void 0 : _a.toString()) || "0") : null;
+            const userAdjustmentType = (item === null || item === void 0 ? void 0 : item.userAdjustmentType) || null;
             return {
                 billingid: billingID,
                 trackId: item.keyid,
@@ -484,8 +506,8 @@ class SubmitCustomerBilling {
                 employeeid,
                 serviceCategory: billingclientTypes_1.serviceCategory[5],
                 categoryTrackId: 5,
-                clinicianId: clinicianId || (billingData === null || billingData === void 0 ? void 0 : billingData.clinicianId) ? parseInt((_a = billingData.clinicianId) === null || _a === void 0 ? void 0 : _a.toString()) : null,
-                organizationId: organizationId || (billingData === null || billingData === void 0 ? void 0 : billingData.organizationId) ? parseInt((_b = billingData.organizationId) === null || _b === void 0 ? void 0 : _b.toString()) : null,
+                clinicianId: newClinicianId,
+                organizationId: newOrganizationId,
                 registrationType,
                 branchid,
                 isoutsourced: 0,
@@ -499,7 +521,7 @@ class SubmitCustomerBilling {
                 amountIncurredDueTax: item.amountIncurredDueTax,
                 taxIncluded,
                 discount: item.discount,
-                totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
+                totalcost: item.totalcost,
                 totalpayable: item.totalpayable,
                 isNHIS: billingSource === 4 ? 1 : 0,
                 isPHIS: billingSource === 3 ? 1 : 0,
@@ -513,9 +535,12 @@ class SubmitCustomerBilling {
                 paymentstatus: paymentstatus,
                 paidamount: paidamount,
                 nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
-                claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
+                claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null,
+                userAdjustedValue,
+                userAdjustmentType
             };
         }));
+        return outcome;
     }
     async loadMultipleServices(services, billingid, tenantId, trx) {
         const insertionErrors = [];
@@ -564,7 +589,8 @@ class SubmitCustomerBilling {
                         serviceid: outcome[0],
                         outsourceid,
                         employeeid,
-                        status: 0, comments: null,
+                        status: 0,
+                        comments: "New outsourced service added, waiting for dispatch",
                     }, queryRunner);
                 }
                 if (outcome && item[5] != 5 && item[1]) {

@@ -13,6 +13,8 @@ var __rest = (this && this.__rest) || function (s, e) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PhoneCallsTrackersController = void 0;
 const PhoneCallsTrackers_1 = require("../../models/appointments/PhoneCallsTrackers");
+const Arkesel_1 = require("../../models/application/integrations/Arkesel");
+const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 class PhoneCallsTrackersController {
     static async getPhoneCallLogsByAppointmentRef(req, res) {
         try {
@@ -26,7 +28,7 @@ class PhoneCallsTrackersController {
             res.json(logs);
         }
         catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error && (error === null || error === void 0 ? void 0 : error.message) ? error.message : "An error occurred" });
         }
     }
     static async createPhoneCallLog(req, res) {
@@ -59,7 +61,7 @@ class PhoneCallsTrackersController {
             res.status(201).json({ status: id ? "success" : "error", id });
         }
         catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error && (error === null || error === void 0 ? void 0 : error.message) ? error.message : "An error occurred" });
         }
     }
     static async getPhoneCallLog(req, res) {
@@ -76,7 +78,7 @@ class PhoneCallsTrackersController {
             res.json(log);
         }
         catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error && (error === null || error === void 0 ? void 0 : error.message) ? error.message : "An error occurred" });
         }
     }
     static async updatePhoneCallLog(req, res) {
@@ -91,7 +93,7 @@ class PhoneCallsTrackersController {
             res.json(updated);
         }
         catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error && (error === null || error === void 0 ? void 0 : error.message) ? error.message : "An error occurred" });
         }
     }
     static async listPhoneCallLogs(req, res) {
@@ -105,7 +107,7 @@ class PhoneCallsTrackersController {
             res.json(logs);
         }
         catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error && (error === null || error === void 0 ? void 0 : error.message) ? error.message : "An error occurred" });
         }
     }
     static async listPhoneCallLogsWithPagination(req, res) {
@@ -122,7 +124,33 @@ class PhoneCallsTrackersController {
             res.json(result);
         }
         catch (error) {
-            res.status(500).json({ error: error.message });
+            res.status(500).json({ error: error && (error === null || error === void 0 ? void 0 : error.message) ? error.message : "An error occurred" });
+        }
+    }
+    static async sendAppointmentReminders(req, res) {
+        try {
+            const tenantId = parseInt(req.query.tenantId, 10);
+            const { appointmentDetails, scheduleDate, type } = req.body;
+            if (!appointmentDetails || !type)
+                return res.status(400).json({ error: "Missing required fields in request body" });
+            if (type == "schedule" && !scheduleDate)
+                return res.status(400).json({ error: "Missing scheduleDate for non-schedule type" });
+            const { purpose, mobile_number } = appointmentDetails;
+            if (!purpose)
+                return res.status(400).json({ error: "Missing purpose  or content of sms missing in appointmentDetails" });
+            const isMobileValid = TiifuWorkingClass_1.TiifuWorkingClass.validatePhoneNumber(mobile_number);
+            if (!isMobileValid.isValid) {
+                return res.status(400).json({ error: "Invalid mobile number format in appointmentDetails" });
+            }
+            const smsMessages = await new Arkesel_1.SmsService().sendSms([mobile_number], purpose);
+            const { status, code, message } = smsMessages;
+            if (status === "error") {
+                return res.status(code).json({ error: message });
+            }
+            res.json({ status: "success", message: "Appointment reminder sent successfully" });
+        }
+        catch (error) {
+            res.status(500).json({ error: error && (error === null || error === void 0 ? void 0 : error.message) ? error.message : "An error occurred" });
         }
     }
 }

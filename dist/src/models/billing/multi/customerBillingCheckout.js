@@ -41,6 +41,9 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         let totalOutstanding = 0;
         let AllowCrmToGiveDisocunt = false;
         const appsettings = await this.getAppSettings();
+        if (!appsettings) {
+            return { success: false, message: 'application settings not created,kindly contact administrator to create application settings for billing module' };
+        }
         if (appsettings && appsettings['AllowCrmToGiveDisocunt']) {
             AllowCrmToGiveDisocunt = parseInt(appsettings === null || appsettings === void 0 ? void 0 : appsettings.AllowCrmToGiveDisocunt.toString()) == 1;
         }
@@ -94,7 +97,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             entityid,
             entitytype
         });
-        const { subtotal, totaldiscount, totalpayable, totalAmountIncurredDueTax, totalServiceAmount } = PrimeBillingEnterprise_1.PrimeBillingEnterprise.calculateBillingTotals({
+        const { subtotal, totaldiscount, totalpayable, totalsurcharge, totalAmountIncurredDueTax, totalServiceAmount } = PrimeBillingEnterprise_1.PrimeBillingEnterprise.calculateBillingTotals({
             usedPackage,
             recalculatedPackageList,
             recalculatedCart,
@@ -109,7 +112,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
         const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
         const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
-        const overallPayable = totalServiceAmountPayable + totalTestAmountPayable;
+        const overallPayable = totalServiceAmountPayable + totalTestAmountPayable + (totalsurcharge || 0);
         const totalPacKageAmountPayable = toFixed2(recalculatedPackageList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
         const amountPayable = isPackageUsed ? toFixed2(totalPacKageAmountPayable) : toFixed2(overallPayable);
         const outstanding = toFixed2(amountPayable - paid);
@@ -138,6 +141,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                     outstanding: 0,
                     totalTestAmountPayable: 0,
                     totalServiceAmountPayable: 0,
+                    totalsurcharge: 0,
                     paid: 0,
                     balance: 0,
                     cart: recalculatedCart.map(item => (Object.assign(Object.assign({}, item), { totalpayable: 0, totalcost: 0, discountedValue: 0, amountIncurredDueTax: 0, price: 0, actualPrice: 0, originalPrice: 0, entitytype: item.entitytype || entitytype, entityId: item.entityId || entityid }))),
@@ -166,15 +170,17 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             success: true,
             message: 'Checkout recalculation successful. No payment has been received yet.',
             data: {
-                subtotal: toFixed2(subtotal) + toFixed2(totaldiscount),
-                totalcost: amountPayable + toFixed2(totaldiscount),
+                subtotal: toFixed2(subtotal),
+                totalcost: totalpayable,
                 totaldiscount: toFixed2(totaldiscount),
                 totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
                 totalServiceAmount: toFixed2(totalServiceAmount),
-                amountPayable,
+                amountPayable: totalpayable,
+                actualAmount: totalpayable - (totalsurcharge || 0),
                 outstanding,
                 totalTestAmountPayable,
                 totalServiceAmountPayable,
+                totalsurcharge,
                 paid,
                 balance,
                 cart: recalculatedCart.map(item => (Object.assign(Object.assign({}, item), { totalpayable: toFixed2(item.totalpayable), totalcost: toFixed2(item.totalcost), discountedValue: toFixed2(item.discountedValue), amountIncurredDueTax: toFixed2(item.amountIncurredDueTax), price: toFixed2(item.price), actualPrice: toFixed2(item.actualPrice), originalPrice: toFixed2(item.originalPrice), entitytype: item.entitytype || entitytype, entityId: item.entityId || entityid }))),
@@ -219,7 +225,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             .filter((test) => selectedTestIds.includes(test.testid))
             .map((test, index) => {
             const cartItem = cart.find(item => item.testid === test.testid);
-            return Object.assign(Object.assign({}, test), { price: test.price, discount: cartItem ? isPromoApplied ? 0 : cartItem.discount : 0 });
+            return Object.assign(Object.assign({}, test), { price: test.price, userAdjustmentType: cartItem ? cartItem.userAdjustmentType : null, userAdjustedValue: cartItem ? cartItem.userAdjustedValue : null, discount: cartItem ? isPromoApplied ? 0 : cartItem.discount : 0 });
         });
         recalculatedCart = this.applyAllBillingRulesToCart(recalculatedCart, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation);
         return recalculatedCart;
@@ -325,7 +331,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         }
         catch (error) {
             await transaction.rollback();
-            return { success: false, message: error.message || 'Transaction failed' };
+            return { success: false, message: 'Transaction failed' };
         }
     }
 }

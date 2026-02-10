@@ -50,8 +50,6 @@ export class SubmitCustomerBilling {
         // 1. using the billingid we will load and get the entity information 
         // 2. use the services and test and use the current entity information and compute the necessary adjustments
         // 3. compare the two and forward the details to the frontend
-
-
     }
 
     async submit(): Promise<{ status: boolean; message: string; billingid?: number }> {
@@ -112,6 +110,7 @@ export class SubmitCustomerBilling {
                 tenantId
             });
 
+
             if (checkoutResult.success == false) {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
             }
@@ -133,7 +132,7 @@ export class SubmitCustomerBilling {
             if (hasRelatedBilling) {
                 const canAdjust = await BillingSharedRepo.canAdjustBilling(this.payload.billingid, this.tenantId);
                 if (!canAdjust.status) {
-                    return { status: false, message: canAdjust.message };
+                    return { status: false, message: canAdjust.message as string };
                 }
             }
 
@@ -142,6 +141,7 @@ export class SubmitCustomerBilling {
             }
 
             const data = checkoutResult.data;
+
             const summaryFields = [
                 'subtotal',
                 'totaldiscount',
@@ -222,6 +222,7 @@ export class SubmitCustomerBilling {
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
                 totalOutstanding = Math.max(amountPayable - updatedBillingData.paid, 0);
                 balance = totalOutstanding > 0 ? 0 : updatedBillingData.paid - totalAmountPayable;
+                const surcharges = checkoutResult.data?.totalsurcharge || 0;
 
 
                 const updateData = {
@@ -234,6 +235,7 @@ export class SubmitCustomerBilling {
                     totalAmountIncurredDueTax: totalAmountIncurredDueTax,
                     outstanding: totalOutstanding,
                     paid: overallPaymentsMade,
+                    surcharges,
                     balance: balance,
                     status,
                     totalrefunded: 0,
@@ -286,6 +288,7 @@ export class SubmitCustomerBilling {
                     branchid: updatedBillingData.branchid,
                     isPromo: updateData.isPromo,
                     promoValue: updateData.promoValue,
+                    surcharges: updateData.surcharges,
                     additionalinformation: this.payload.additioninformation || null,
                     promoMethod: updateData.promoMethod,
                     promoCodeId: updateData.promoCodeId,
@@ -328,6 +331,7 @@ export class SubmitCustomerBilling {
                         const previousAmmountIncurredDueTax = previousTransaction.amountIncurredDueTax || 0;
                         const newAmmountIncurredDueTax = parseFloat(previousAmmountIncurredDueTax) + dataToUpdate.amountIncurredDueTax;
                         const adjustmentReason = this.payload.adjustmentReason || 'Addition of new services/tests';
+                        const totalsurcharges = parseFloat(previousTransaction.surcharges || 0) + parseFloat(dataToUpdate.surcharges || 0);
 
                         let newStatus = "pending";
                         if (newPaid >= newAmountPayable) {
@@ -363,6 +367,7 @@ export class SubmitCustomerBilling {
                             writeoff: writeOffOutstanding ? writeOffAmount : 0,
                             patientid: updatedBillingData.patientId,
                             lastupdatedby: employeeid || this.payload.employeeid,
+                            surcharges: totalsurcharges,
                         }
                     }
                 }
@@ -511,26 +516,22 @@ export class SubmitCustomerBilling {
                 const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
 
 
-                const getClinician = (billingData) => {
-                    if (billingData.entitytype == "clinician") return billingData.entityId || billingData.entityid;
-                    if (billingData.clinicianId && !isNaN(billingData.clinicianId)) return parseInt(billingData.clinicianId.toString());
-                }
+                const newClinicianId = SubmitCustomerBilling.extractClinician(billingData);
+                const newOrganizationId = SubmitCustomerBilling.extractOrganization(billingData);
 
-
-                const getOrganization = (billingData) => {
-                    if (billingData.entitytype == "organization") return billingData.entityId || billingData.entityid;
-                    if (billingData.organizationId && !isNaN(billingData.organizationId)) return parseInt(billingData.organizationId.toString());
-                }
+                const source = billingData.billingSource as number;
+                const userAdjustedValue = item?.userAdjustedValue ? parseFloat(item.userAdjustedValue?.toString() || "0") : null;
+                const userAdjustmentType = item?.userAdjustmentType || null;
 
                 const data = {
                     billingid: billingID,
                     trackId: item.testid,
                     cost: item.actualPrice,
                     employeeid: billingData.employeeid,
-                    serviceCategory: serviceCategory[billingData.billingSource],
+                    serviceCategory: serviceCategory[source],
                     categoryTrackId: billingData.billingSource,
-                    clinicianId: getClinician(billingData) || null,
-                    organizationId: getOrganization(billingData) || null,
+                    clinicianId: newClinicianId || null,
+                    organizationId: newOrganizationId || null,
                     registrationType,
                     relatedbillingid: hasRelatedBilling ? relatedBillingId : null,
                     branchid: billingData.branchid,
@@ -542,7 +543,7 @@ export class SubmitCustomerBilling {
                     amountIncurredDueTax: item.amountIncurredDueTax,
                     taxIncluded: taxIncluded == true ? 1 : 0,
                     discount: item.discount,
-                    totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
+                    totalcost: item.totalcost,
                     totalpayable: item.totalpayable,
                     isNHIS: billingData.billingSource === 4 ? 1 : 0,
                     isPHIS: billingData.billingSource === 3 ? 1 : 0,
@@ -557,8 +558,10 @@ export class SubmitCustomerBilling {
                     paidamount,
                     paymentstatus: paymentstatus,
                     nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
-                    claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
-                };
+                    claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null,
+                    userAdjustedValue,
+                    userAdjustmentType
+                }
 
                 if (item.isoutsourced == 1 && item.outsourceid) {
                     const result = await trx('outsourceorganizationservices')
@@ -574,6 +577,18 @@ export class SubmitCustomerBilling {
         );
 
         return result;
+    }
+
+    private static extractClinician(billingData: MultiTBillingDataShared) {
+        if (!billingData) return null;
+        if (billingData.entitytype == "clinician") return billingData.entityId || billingData.entityid;
+        if (billingData.clinicianId && !isNaN(billingData.clinicianId)) return parseInt(billingData.clinicianId.toString());
+    }
+
+    private static extractOrganization(billingData: MultiTBillingDataShared) {
+        if (!billingData) return null;
+        if (billingData.entitytype == "organization") return billingData.entityId || billingData.entityid;
+        if (billingData.organizationId && !isNaN(billingData.organizationId)) return parseInt(billingData.organizationId.toString());
     }
 
     static async processNonTestServices(
@@ -625,10 +640,15 @@ export class SubmitCustomerBilling {
 
         const { employeeid, branchid, taxIncluded, billingSource, isPackageUsed } = billingData;
 
-        return await Promise.all(
+        const outcome = await Promise.all(
             servicesProvided
                 .map(async (item: any) => {
                     const { paidamount, paymentstatus, outstanding } = SubmitCustomerBilling.getPaidAmountAndStatus(item);
+
+                    const newClinicianId = SubmitCustomerBilling.extractClinician(billingData);
+                    const newOrganizationId = SubmitCustomerBilling.extractOrganization(billingData);
+                    const userAdjustedValue = item?.userAdjustedValue ? parseFloat(item.userAdjustedValue?.toString() || "0") : null;
+                    const userAdjustmentType = item?.userAdjustmentType || null;
 
                     return {
                         billingid: billingID,
@@ -637,8 +657,8 @@ export class SubmitCustomerBilling {
                         employeeid,
                         serviceCategory: serviceCategory[5],
                         categoryTrackId: 5,
-                        clinicianId: clinicianId || billingData?.clinicianId ? parseInt(billingData.clinicianId?.toString()) : null,
-                        organizationId: organizationId || billingData?.organizationId ? parseInt(billingData.organizationId?.toString()) : null,
+                        clinicianId: newClinicianId,
+                        organizationId: newOrganizationId,
                         registrationType,
                         branchid,
                         isoutsourced: 0,
@@ -652,7 +672,7 @@ export class SubmitCustomerBilling {
                         amountIncurredDueTax: item.amountIncurredDueTax,
                         taxIncluded,
                         discount: item.discount,
-                        totalcost: item.totalcost + parseFloat(item.discount.toString() || "0"),
+                        totalcost: item.totalcost,
                         totalpayable: item.totalpayable,
                         isNHIS: billingSource === 4 ? 1 : 0,
                         isPHIS: billingSource === 3 ? 1 : 0,
@@ -666,10 +686,15 @@ export class SubmitCustomerBilling {
                         paymentstatus: paymentstatus,
                         paidamount: paidamount,
                         nhismembershipid: billingData.nhismembershipid ? billingData.nhismembershipid : null,
-                        claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null
+                        claimscheckcode: billingData.claimscheckcode ? billingData.claimscheckcode : null,
+                        userAdjustedValue,
+                        userAdjustmentType
                     };
                 })
         );
+
+
+        return outcome as ServiceEntry[];
     }
 
     public async loadMultipleServices(services: any[], billingid: number, tenantId: number, trx?: any) {
@@ -678,7 +703,8 @@ export class SubmitCustomerBilling {
 
         for (const item of services) {
             try {
-                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
+                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax,
+                    taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid] = item;
                 const outcome = await queryRunner("dboservices").insert({
                     billingid,
                     trackId,
@@ -721,7 +747,8 @@ export class SubmitCustomerBilling {
                         serviceid: outcome[0],
                         outsourceid,
                         employeeid,
-                        status: 0, comments: null,
+                        status: 0,
+                        comments: "New outsourced service added, waiting for dispatch",
                     }, queryRunner);
 
 

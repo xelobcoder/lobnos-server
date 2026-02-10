@@ -323,9 +323,18 @@ exports.testpanel = {
             response.send(err);
         }
     },
-    getpanelsbulk: async (tenantId, grouping) => {
-        const query = `SELECT tp.*,td.testprice , td.testcost FROM test_panels AS tp
+    getpanelsbulk: async (tenantId, grouping, filters) => {
+        let query = `SELECT tp.*,td.testprice , td.testcost FROM test_panels AS tp
 		LEFT JOIN testdetails AS td ON tp.id = td.testid`;
+        const { filtercategory, searchstring } = filters;
+        if (filtercategory && searchstring) {
+            if (filtercategory === 'id') {
+                query += ` WHERE tp.id = ${parseInt(searchstring)}`;
+            }
+            else if (filtercategory === 'name') {
+                query += ` WHERE tp.name LIKE '%${searchstring}%'`;
+            }
+        }
         try {
             let result = grouping == "master" ? await new MasterTestPanelRepository_1.default().getMasterPanels() : await (0, helper_1.promisifyQuery)(tenantId, query);
             return result;

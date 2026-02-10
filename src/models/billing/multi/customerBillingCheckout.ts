@@ -59,6 +59,10 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           let AllowCrmToGiveDisocunt = false;
           const appsettings: ApplicationSettingsData | null = await this.getAppSettings();
 
+          if (!appsettings) {
+               return { success: false, message: 'application settings not created,kindly contact administrator to create application settings for billing module' };
+          }
+
           if (appsettings && appsettings['AllowCrmToGiveDisocunt']) {
                AllowCrmToGiveDisocunt = parseInt(appsettings?.AllowCrmToGiveDisocunt.toString()) == 1
           }
@@ -100,7 +104,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                recalculatedPackageList = pkgResult.recalculatedPackageList || [];
                usedPackage = true;
           } else {
-               recalculatedCart = await this.getRecalculatedCart(cart, referalCode, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation, entitytype, entityid);   
+               recalculatedCart = await this.getRecalculatedCart(cart, referalCode, billingsettings, isPromo, promoValid, promoCode, promoDetails, includeTax, taxation, entitytype, entityid);
           }
 
           let recalculatedServicesList: any[] = await CustomerBillingCheckoutSingleton.recalculateServicesList({
@@ -120,6 +124,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                subtotal,
                totaldiscount,
                totalpayable,
+               totalsurcharge,
                totalAmountIncurredDueTax,
                totalServiceAmount
           } = PrimeBillingEnterprise.calculateBillingTotals({
@@ -139,7 +144,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
           const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
           const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
-          const overallPayable = totalServiceAmountPayable + totalTestAmountPayable;
+          const overallPayable = totalServiceAmountPayable + totalTestAmountPayable + (totalsurcharge || 0);
           const totalPacKageAmountPayable = toFixed2(recalculatedPackageList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
 
           const amountPayable = isPackageUsed ? toFixed2(totalPacKageAmountPayable) : toFixed2(overallPayable);
@@ -184,6 +189,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                          outstanding: 0,
                          totalTestAmountPayable: 0,
                          totalServiceAmountPayable: 0,
+                         totalsurcharge: 0,
                          paid: 0,
                          balance: 0,
                          cart: recalculatedCart.map(item => ({
@@ -233,15 +239,17 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                success: true,
                message: 'Checkout recalculation successful. No payment has been received yet.',
                data: {
-                    subtotal: toFixed2(subtotal) + toFixed2(totaldiscount),
-                    totalcost: amountPayable + toFixed2(totaldiscount),
+                    subtotal: toFixed2(subtotal),
+                    totalcost: totalpayable,
                     totaldiscount: toFixed2(totaldiscount),
                     totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
                     totalServiceAmount: toFixed2(totalServiceAmount),
-                    amountPayable,
+                    amountPayable:totalpayable,
+                    actualAmount: totalpayable - (totalsurcharge || 0),
                     outstanding,
                     totalTestAmountPayable,
                     totalServiceAmountPayable,
+                    totalsurcharge,
                     paid,
                     balance,
                     cart: recalculatedCart.map(item => ({
@@ -312,6 +320,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     return {
                          ...test,
                          price: test.price,
+                         userAdjustmentType: cartItem ? cartItem.userAdjustmentType : null,
+                         userAdjustedValue: cartItem ? cartItem.userAdjustedValue : null,
                          discount: cartItem ? isPromoApplied ? 0 : cartItem.discount : 0
                     }
                })
@@ -352,7 +362,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                reason: promoResult.reason
           };
      }
-     private static determineBillingSourceUsingEntityType(entity_type: EntityType): number {
+     private static determineBillingSourceUsingEntityType(entity_type: EntityType): number | null {
           switch (entity_type) {
                case 'general':
                     return 1;
@@ -434,7 +444,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                return { success: true, message: 'Referer error correction successful', data: { billingid, billingSource } };
           } catch (error) {
                await transaction.rollback();
-               return { success: false, message: error.message || 'Transaction failed' };
+               return { success: false, message: 'Transaction failed' };
           }
      }
 }

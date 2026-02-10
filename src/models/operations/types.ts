@@ -150,6 +150,7 @@ export type ascensionStageRequestQueryTypes = {
 	grouped?: 'grouped' | 'ungrouped' | null,
 	isUltrasound: boolean,
 	patientname?: string,
+	testid?: number,
 	patientid?: number,
 	billingid?: number,
 	ascensionid?: number

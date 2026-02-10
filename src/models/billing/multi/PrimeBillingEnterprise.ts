@@ -89,7 +89,7 @@ export class PrimeBillingEnterprise {
 	}
 
 	async getAllServices() {
-		return await new Services(0).getAllservices(this.tenantId, undefined, undefined);
+		return await new Services(0).getAllservices(this.tenantId);
 	}
 
 	async getBillingHandler(entityType: EntityType, entityId: any) {
@@ -216,11 +216,25 @@ export class PrimeBillingEnterprise {
 	static applyDiscountsToTests<T extends { servicePrice?: number; discountedValue?: number; discount?: number; price?: number }>(tests: T[]): T[] {
 		try {
 			return tests.map(test => {
-				if (!test.discountedValue || test.discountedValue === 0) return { ...test, discountedValue: 0, discount: 0 };
-				const discount = test.discount || 0;
-				const base = test.discountedValue;
-				const discountedValue = base - discount;
-				return { ...test, discountedValue, discount };
+				if (!test.discountedValue || test.discountedValue === 0) return { ...test, discountedValue: 0, discount: 0, userAdjustedValue: 0 };
+				const { userAdjustmentType, userAdjustedValue } = test as any;
+
+				const parsedBase = parseFloat(test.discountedValue.toString());
+				const parsedUserAdjustedValue = userAdjustedValue ? parseFloat(userAdjustedValue.toString()) : 0;
+
+
+				if (userAdjustmentType == "surcharge" && userAdjustedValue && parsedUserAdjustedValue > 0 && parsedBase && parsedBase > 0) {
+					const adjustedValue = parsedBase + parsedUserAdjustedValue
+					return { ...test, discountedValue: adjustedValue, userAdjustedValue };
+				}
+
+				if (userAdjustmentType == "discount" && userAdjustedValue && parsedBase && parsedBase > 0 && parsedUserAdjustedValue > 0) {
+					const base = test.discountedValue;
+					const discountedValue = Math.max(0, parsedBase - parsedUserAdjustedValue)
+					return { ...test, discountedValue, discount: userAdjustedValue, userAdjustedValue };
+				}
+
+				return { ...test, discountedValue: test.discountedValue, discount: test.discount || 0, userAdjustedValue: 0, userAdjustmentType: null };
 			});
 		} catch (error) {
 			console.error("Error applying discounts to tests:", error);
@@ -355,6 +369,7 @@ export class PrimeBillingEnterprise {
 			return { subtotal: 0, totaldiscount: 0, totalAmountIncurredDueTax: 0, totalServiceAmount: 0, totalpayable: 0 };
 		}
 		let subtotal = 0, totaldiscount = 0, totalAmountIncurredDueTax = 0, totalServiceAmount = 0, totalpayable = 0;
+		let totalsurcharge = 0;
 		if (usedPackage) {
 			recalculatedPackageList.forEach(item => {
 				subtotal += item.discountedValue;
@@ -363,22 +378,37 @@ export class PrimeBillingEnterprise {
 			});
 		} else {
 			recalculatedCart.forEach(item => {
+				if (item.userAdjustmentType === "surcharge" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+					totalsurcharge += parseFloat(item.userAdjustedValue.toString());
+				}
+
+				if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+					totaldiscount += parseFloat(item.userAdjustedValue.toString());
+				}
+
 				subtotal += item.discountedValue
-				totaldiscount += item.discount;
 				totalpayable += item.totalpayable;
 				totalAmountIncurredDueTax += item.amountIncurredDueTax;
 			});
 		}
 		if (recalculatedServicesList && Array.isArray(recalculatedServicesList)) {
 			recalculatedServicesList.forEach(item => {
+				if (item.userAdjustmentType === "surcharge" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+					totalsurcharge += parseFloat(item.userAdjustedValue.toString());
+				}
+
+				if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+					totaldiscount += parseFloat(item.userAdjustedValue.toString());
+				}
+
 				subtotal += item.discountedValue
-				totaldiscount += item.discount;
 				totalpayable += item.totalpayable;
 				totalAmountIncurredDueTax += item.amountIncurredDueTax;
 				totalServiceAmount += item.discountedValue
 			});
 		}
-		return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount, totalpayable };
+
+		return { subtotal, totaldiscount, totalAmountIncurredDueTax, totalServiceAmount, totalpayable ,totalsurcharge};
 	}
 
 	static addNightAdjustmentInfo(items: any[], billingsettings: any): any[] {
@@ -457,6 +487,9 @@ export class PrimeBillingEnterprise {
 		let recalculatedServicesList = allServices
 			.filter((service: any) => selectedServiceIds.includes(service.id ?? service.keyid))
 			.map((service: any) => {
+				const findServiceItem = servicesList.find((item: any) => (item.id ?? item.keyid) === (service.id ?? service.keyid));
+				const userAdjustedValue = findServiceItem ? findServiceItem.userAdjustedValue : null;
+				const userAdjustmentType = findServiceItem ? findServiceItem.userAdjustmentType : null;
 				const price = service.servicePrice || 0;
 				const discount = service.discount || 0;
 				const promoDiscount = 0;
@@ -473,6 +506,8 @@ export class PrimeBillingEnterprise {
 					promoDiscount,
 					entityid,
 					entitytype,
+					userAdjustedValue,
+					userAdjustmentType
 				};
 			});
 
@@ -488,6 +523,8 @@ export class PrimeBillingEnterprise {
 
 		if (includeTax && includeTax === 1 && taxation && taxation.taxValue > 0) {
 			recalculatedServicesList = PrimeBillingEnterprise.applyTaxToTests(recalculatedServicesList, taxation.taxValue);
+		} else {
+			recalculatedServicesList = PrimeBillingEnterprise.applyTaxToTests(recalculatedServicesList, 0);
 		}
 		return PrimeBillingEnterprise.addNightAdjustmentInfo(recalculatedServicesList, billingsettings);
 	}

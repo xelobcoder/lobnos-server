@@ -25,11 +25,16 @@ export const getTestPanelList = (req: Request, res: Response) => {
      testpanel.getPanels(tenantId, req, res);
 };
 
-export const getBulkTestPanelList = async (req: Request, response: Response) => {
+export const getBulkTestPanelList = async (req: Request<{}, {}, {}, {
+     tenantId: number, grouping: 'master' | 'client',
+     filtercategory: 'id' | 'name', searchstring: string
+}>, response: Response) => {
      try {
-          const tenantId = parseInt(req.query.tenantId.toString())
+          const tenantId = parseInt(req?.query?.tenantId.toString())
           const grouping = req.query.grouping as 'client' | 'master' || 'client';
-          const result = await testpanel.getpanelsbulk(tenantId, grouping);
+          const filtercategory = req.query.filtercategory as 'id' | 'name'
+          const searchstring = req.query.searchstring as string;
+          const result = await testpanel.getpanelsbulk(tenantId, grouping, { filtercategory, searchstring });
           response.send({ message: "Success", statusCode: 200, status: "success", data: result });
      } catch (err) {
           logger.error(err);

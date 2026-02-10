@@ -20,6 +20,7 @@ import { TestApprovalClass } from "./testApprovalClass";
 import { parse } from "node:path";
 import { count } from "node:console";
 import { TestAscension } from "./ascension";
+import test from "node:test";
 
 export default class Operations {
 	private billingid: number;
@@ -138,7 +139,7 @@ export default class Operations {
 
 	private static async generateAscensionQuery(queryParams: ascensionStageRequestQueryTypes)
 		: Promise<{ conditions: (string | Date)[]; finalQuery: string; }> {
-		const { from, to, isUltrasound, stage, clinicianId, organizationId, patientname, patientid, billingid, ascensionid } = queryParams
+		const { from, to, isUltrasound, stage, clinicianId, organizationId, patientname, testid, patientid, billingid, ascensionid } = queryParams
 		try {
 			let finalQuery: string;
 			const conditions: (string | Date)[] = [];
@@ -169,6 +170,12 @@ export default class Operations {
 			if (ascensionid) {
 				finalQuery += ` AND ta.id = ?`;
 				conditions.push(ascensionid as any as string);
+			}
+
+
+			if (testid) {
+				finalQuery += ` AND ta.testid = ?`;
+				conditions.push(testid as any as string);
 			}
 
 			if (patientname) {
@@ -318,6 +325,7 @@ export default class Operations {
 		ascensionid?: number,
 		billingid?: number,
 		patientid?: number,
+		testid?: number,
 		patientname?: string,
 		page: number, count: number, isUltrasound: boolean, clinicianId: number, organizationId: number
 	}) {
@@ -326,6 +334,7 @@ export default class Operations {
 			const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
 				sortby, from: _dateFrom, to: _dateEnd, stage,
 				patientid, billingid, ascensionid,
+				testid: queryParams.testid,
 				patientname: queryParams.patientname,
 				isUltrasound, clinicianId, organizationId, grouped: queryParams.grouped || null
 			});

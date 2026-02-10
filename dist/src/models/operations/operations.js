@@ -134,7 +134,7 @@ class Operations {
         }
     }
     static async generateAscensionQuery(queryParams) {
-        const { from, to, isUltrasound, stage, clinicianId, organizationId, patientname, patientid, billingid, ascensionid } = queryParams;
+        const { from, to, isUltrasound, stage, clinicianId, organizationId, patientname, testid, patientid, billingid, ascensionid } = queryParams;
         try {
             let finalQuery;
             const conditions = [];
@@ -162,6 +162,10 @@ class Operations {
             if (ascensionid) {
                 finalQuery += ` AND ta.id = ?`;
                 conditions.push(ascensionid);
+            }
+            if (testid) {
+                finalQuery += ` AND ta.testid = ?`;
+                conditions.push(testid);
             }
             if (patientname) {
                 finalQuery += `
@@ -274,6 +278,7 @@ class Operations {
             const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
                 sortby, from: _dateFrom, to: _dateEnd, stage,
                 patientid, billingid, ascensionid,
+                testid: queryParams.testid,
                 patientname: queryParams.patientname,
                 isUltrasound, clinicianId, organizationId, grouped: queryParams.grouped || null
             });

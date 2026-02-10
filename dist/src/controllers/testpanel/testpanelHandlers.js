@@ -29,10 +29,13 @@ const getTestPanelList = (req, res) => {
 };
 exports.getTestPanelList = getTestPanelList;
 const getBulkTestPanelList = async (req, response) => {
+    var _a;
     try {
-        const tenantId = parseInt(req.query.tenantId.toString());
+        const tenantId = parseInt((_a = req === null || req === void 0 ? void 0 : req.query) === null || _a === void 0 ? void 0 : _a.tenantId.toString());
         const grouping = req.query.grouping || 'client';
-        const result = await testpanelList_1.testpanel.getpanelsbulk(tenantId, grouping);
+        const filtercategory = req.query.filtercategory;
+        const searchstring = req.query.searchstring;
+        const result = await testpanelList_1.testpanel.getpanelsbulk(tenantId, grouping, { filtercategory, searchstring });
         response.send({ message: "Success", statusCode: 200, status: "success", data: result });
     }
     catch (err) {

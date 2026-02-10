@@ -27,7 +27,7 @@ export type servicesProvided = {
 
 
 
-export const serviceCategory = {
+export const serviceCategory : {[key: number]: string}= {
   1: 'GENERAL',
   2: 'ORGANIZATION',
   3: 'PHIS',
@@ -229,12 +229,6 @@ export interface IBillNewClient {
   getTransactionBillData(billingid: number): Promise<[]>;
 }
 
-export interface ISales {
-  getDailySalesSummary(branchid: number);
-  getYearlySalesSummary(branchid: number);
-  getMonthlySalesSummary(branchid: number);
-  getMonthDailySalesSummary(branchid: number);
-}
 
 export type AscensionParameter = {
   billingid: number;

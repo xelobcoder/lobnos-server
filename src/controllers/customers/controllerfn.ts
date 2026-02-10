@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import Registration from "../../models/registration/registration";
 import { PatientRecords } from "../../models/registration/types";
 import VitalSign from "../../models/customers/vitalsign";
+import { vitalScan } from "../../models/customers/types";
+
 
 export async function getCustomers(request: Request<{}, {}, {}, PatientRecords>, response: Response) {
 	try {
@@ -15,7 +17,7 @@ export async function getCustomers(request: Request<{}, {}, {}, PatientRecords>,
 
 
 
-export async function createNewVitalSign(request: Request, response: Response) {
+export async function createNewVitalSign(request: Request<{},{}, vitalScan, { tenantId: number }>, response: Response) {
 	try {
 		const { patientid } = request.body;
 		const tenantId: number = parseInt(request.query.tenantId.toString());
@@ -26,7 +28,7 @@ export async function createNewVitalSign(request: Request, response: Response) {
 	}
 }
 
-export async function getPatientVitalSign(request: Request, response: Response) {
+export async function getPatientVitalSign(request: Request<{}, {}, {}, { tenantId: number, patientid: number|string, count: string, page: string, filterFrom?: string, filterTo?: string }>, response: Response) {
 	try {
 		const { patientid, count, page, filterFrom, filterTo } = request.query;
 

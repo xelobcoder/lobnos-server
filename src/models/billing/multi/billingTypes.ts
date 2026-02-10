@@ -77,6 +77,8 @@ export interface BillingTestItem {
      claimCode?: number;
      registrationType?: string;
      totalpayable: number;
+     userAdjustedValue?: number;
+     userAdjustmentType?: 'surcharge' | 'discount' | null;
      totalcost: number;
      nightAdjustmentEndTime: string;
      nightAdjustmentMode: "percentage" | "absolute" | string;

@@ -80,6 +80,8 @@ export type MultiTBillingDataShared = {
      taxIncluded: boolean;
      taxValue: number;
      taxList: any;
+     entitytype: EntityType;
+     entityid: number;
      status: string;
      discount: number;
      branchid: number;

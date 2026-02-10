@@ -80,13 +80,11 @@ export class PrimeEventsSMSDataSource {
           const connection = await KnexConnection(this.tenantId);
           await connection.transaction(async (trx: any) => {
                const jobId = await jobsRepo.create({
-                    templateid: null,
                     custombody: smsconstent,
                     category,
                     recipientscope: 'single',
                     targetids: null,
                     sendtype: 'immediate',
-                    scheduledat: null,
                     status: 'sent',
                     createdby: 0
                }, trx);
@@ -145,7 +143,7 @@ export class PrimeEventsSMSDataSource {
                const event = await this.repo.findByCode('PAYMENT_CONFIRMATION_SMS');
                if (!event) return;
                const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
-               const smscontent = parsedContent + (paymentSummary ? `\n\nPayment(s): ${paymentSummary}` : '');
+               const smscontent = parsedContent +  '';
                const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
                const refid = result[0].patientid;
                return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid, true, employeeid);
@@ -166,18 +164,16 @@ export class PrimeEventsSMSDataSource {
      async patientRegistrationEvent(tenantId: number, patientid: number, employeeId: number): Promise<{ status: boolean | string } | undefined> {
           const isActive = await this.isEventActive('PATIENT_REGISTRATION_SMS');
           if (!isActive) return;
-          // Get patient basic data
           const data = await new Registration().getPatientBasicData(tenantId, patientid);
           const event = await this.repo.findByCode('PATIENT_REGISTRATION_SMS');
           if (!data || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
-          // Try to find a phone number property for patient registration
           let phonee164 = '';
           if ('phone' in data && data.phone) phonee164 = String(data.phone).replace(/^\+/, '');
           else if ('phonenumber' in data && data.phonenumber) phonee164 = String(data.phonenumber).replace(/^\+/, '');
           else if ('mobile' in data && data.mobile) phonee164 = String(data.mobile).replace(/^\+/, '');
           else if ('mobile_number' in data && data.mobile_number) phonee164 = String(data.mobile_number).replace(/^\+/, '');
-          return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_REGISTRATION_SMS', patientid, true, employeeId);
+          return await this.sendSMSMessage(parsedContent as string, phonee164, 'PATIENT_REGISTRATION_SMS', patientid, true, employeeId);
      }
 
 
@@ -199,7 +195,7 @@ export class PrimeEventsSMSDataSource {
           if (!event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, result[0], event.content);
           const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_BILLING_SMS', result[0].patientid, true, employeeId);
+          return await this.sendSMSMessage(parsedContent as string, phonee164, 'PATIENT_BILLING_SMS', result[0].patientid, true, employeeId);
      }
 
 
@@ -238,7 +234,7 @@ export class PrimeEventsSMSDataSource {
           if (!event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
           const phonee164 = data.mobile_number ? data.mobile_number.replace(/^+/, '') : '';
-          return await this.sendSMSMessage(customMessage ? customMessage : parsedContent, phonee164, 'PATIENT_RESULT_READY', data.billingid, true, createdby);
+          return await this.sendSMSMessage((customMessage ? customMessage : parsedContent) as string, phonee164, 'PATIENT_RESULT_READY', data.billingid, true, createdby);
      }
 
 
@@ -261,7 +257,7 @@ export class PrimeEventsSMSDataSource {
           if (!sample || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, sample, event.content);
           const phonee164 = sample.mobile_number ? sample.mobile_number.replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'SAMPLE_REJECTION_SMS', ascensionid, true, employeeId);
+          return await this.sendSMSMessage(parsedContent as string, phonee164, 'SAMPLE_REJECTION_SMS', ascensionid, true, employeeId);
      }
 
 
@@ -275,7 +271,7 @@ export class PrimeEventsSMSDataSource {
           if (!data || !Array.isArray(data) || data.length === 0 || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data[0], event.content);
           const phonee164 = (data[0].phone) ? String(data[0].phone).replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'CLINICIAN_REGISTRATION_SMS', clinicianid, true, employeeId);
+          return await this.sendSMSMessage(parsedContent as string, phonee164, 'CLINICIAN_REGISTRATION_SMS', clinicianid, true, employeeId);
      }
 
 
@@ -289,7 +285,7 @@ export class PrimeEventsSMSDataSource {
           if (!data || !Array.isArray(data) || data.length === 0 || !event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, data[0], event.content);
           const phonee164 = data[0].phonenumber ? data[0].phonenumber.replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent, phonee164, 'ORGANIZATION_REGISTRATION_SMS', organizationid, true, employeeId);
+          return await this.sendSMSMessage(parsedContent as string, phonee164, 'ORGANIZATION_REGISTRATION_SMS', organizationid, true, employeeId);
      }
 
      static async getClientResultReadySentcount(tenantId: number, billingid: number): Promise<number> {

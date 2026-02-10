@@ -10,7 +10,7 @@ const testApprovalClass_1 = require("../../models/operations/testApprovalClass")
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 async function ascensionStagingHandler(request, response) {
     try {
-        const { operationsStaging, dateFrom, dateEnd, grouped, page, patientname, count, isUltrasound, ascensionid, billingid, patientid, employeeid, tenantId, clinicianId, organizationId } = request.query;
+        const { operationsStaging, dateFrom, dateEnd, grouped, page, patientname, count, isUltrasound, ascensionid, billingid, patientid, employeeid, tenantId, clinicianId, organizationId, testid } = request.query;
         if (!employeeid)
             return response.send({ status: false, message: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */, action: 'Include employeeid in the query' });
         const parsedEmployeeId = parseInt(employeeid.toString());
@@ -24,6 +24,7 @@ async function ascensionStagingHandler(request, response) {
         const queryParams = createQueryParams({
             ascensionid, billingid, patientid,
             patientname,
+            testid,
             dateFrom, dateEnd, grouped, operationsStaging, page, count, isUltrasound, clinicianId, organizationId,
             sortby: request.query.sortby
         });
@@ -57,7 +58,7 @@ async function canValidateResults(employeeId, tenantId) {
         Array.isArray(validationSettings.staffQualifiedToValidationResult) &&
         validationSettings.staffQualifiedToValidationResult.includes(employeeId));
 }
-function createQueryParams({ dateFrom, dateEnd, grouped, operationsStaging, ascensionid, billingid, patientid, patientname, page, count, isUltrasound, sortby, clinicianId, organizationId }) {
+function createQueryParams({ dateFrom, dateEnd, grouped, operationsStaging, ascensionid, billingid, patientid, testid, patientname, page, count, isUltrasound, sortby, clinicianId, organizationId }) {
     return {
         _dateFrom: dateFrom.toString(),
         _dateEnd: dateEnd.toString(),
@@ -70,6 +71,7 @@ function createQueryParams({ dateFrom, dateEnd, grouped, operationsStaging, asce
         grouped,
         organizationId,
         ascensionid,
+        testid,
         patientname,
         billingid,
         patientid

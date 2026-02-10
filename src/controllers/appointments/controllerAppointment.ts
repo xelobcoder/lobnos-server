@@ -112,7 +112,9 @@ export async function deleteAppointmentController(request: Request, response: Re
 export async function createAppointmentController(request: Request, response: Response) {
 	try {
 		const tenantId: number = parseInt(request.query.tenant as string, 10);
-		const isAppointmentCreated = await new Appointment(21).createAppointment(tenantId, request.body);
+		const employeeid = request.query.employeeid ? parseInt(request.query.employeeid as string, 10) : 0;
+		if (!employeeid) return customError("Employee ID missing in query", 404, response);
+		const isAppointmentCreated = await new Appointment(employeeid).createAppointment(tenantId, request.body);
 		response.send({ success: isAppointmentCreated });
 	} catch (err) {
 		responseError(response, err);
