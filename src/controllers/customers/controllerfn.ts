@@ -17,7 +17,23 @@ export async function getCustomers(request: Request<{}, {}, {}, PatientRecords>,
 
 
 
-export async function createNewVitalSign(request: Request<{},{}, vitalScan, { tenantId: number }>, response: Response) {
+export async function AdvancedPatientFilterHandler(request: Request, response: Response) {
+     try {
+         const tenantId: number = parseInt(request.query.tenantId as string, 10);
+	    const patients = await Registration.AdvancedPatientFilter(tenantId, request.body);
+	    response.send({
+		   success: true,
+		   count: patients.length,
+		   data: patients
+	    });
+	} catch (error) {
+		console.error("Error in AdvancedPatientFilterHandler:", error);
+		response.status(500).send({ error: 'An error occurred while filtering patients' });
+	}
+}
+
+
+export async function createNewVitalSign(request: Request<{}, {}, vitalScan, { tenantId: number }>, response: Response) {
 	try {
 		const { patientid } = request.body;
 		const tenantId: number = parseInt(request.query.tenantId.toString());
@@ -28,7 +44,7 @@ export async function createNewVitalSign(request: Request<{},{}, vitalScan, { te
 	}
 }
 
-export async function getPatientVitalSign(request: Request<{}, {}, {}, { tenantId: number, patientid: number|string, count: string, page: string, filterFrom?: string, filterTo?: string }>, response: Response) {
+export async function getPatientVitalSign(request: Request<{}, {}, {}, { tenantId: number, patientid: number | string, count: string, page: string, filterFrom?: string, filterTo?: string }>, response: Response) {
 	try {
 		const { patientid, count, page, filterFrom, filterTo } = request.query;
 

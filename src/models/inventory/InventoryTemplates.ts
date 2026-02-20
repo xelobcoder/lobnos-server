@@ -151,7 +151,7 @@ export class InventoryTemplateModel {
                          'inv_inventory_items.sku as item_sku',
                          'inv_inventory_items.consumption_unit as item_unit'
 
-                    ).where('ascension_id', ascensionid)
+                    ).where('inv_inventory_transactions.ascensionid', ascensionid)
 
 
                const manuallyCreatedRecords = []
@@ -182,8 +182,6 @@ export class InventoryTemplateModel {
                     await this.checkAscensionItemCompletionStatus(item, ascensionid, true);
                }
 
-
-               console.log('manuallyCreatedRecords', refinedManuallyCreatedRecords);
 
                return {
                     id: result.id,
@@ -229,7 +227,7 @@ export class InventoryTemplateModel {
           const connection = await this.connection;
           const consumptionRecord = await connection('inv_inventory_transactions')
                .where('item_id', item.itemId)
-               .andWhere('ascension_id', ascensionid)
+               .andWhere('ascensionid', ascensionid)
                .first();
 
           item.is_consumed = !!consumptionRecord;

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPatientVitalSign = exports.createNewVitalSign = exports.getCustomers = void 0;
+exports.getPatientVitalSign = exports.createNewVitalSign = exports.AdvancedPatientFilterHandler = exports.getCustomers = void 0;
 const registration_1 = __importDefault(require("../../models/registration/registration"));
 const vitalsign_1 = __importDefault(require("../../models/customers/vitalsign"));
 async function getCustomers(request, response) {
@@ -17,6 +17,22 @@ async function getCustomers(request, response) {
     }
 }
 exports.getCustomers = getCustomers;
+async function AdvancedPatientFilterHandler(request, response) {
+    try {
+        const tenantId = parseInt(request.query.tenantId, 10);
+        const patients = await registration_1.default.AdvancedPatientFilter(tenantId, request.body);
+        response.send({
+            success: true,
+            count: patients.length,
+            data: patients
+        });
+    }
+    catch (error) {
+        console.error("Error in AdvancedPatientFilterHandler:", error);
+        response.status(500).send({ error: 'An error occurred while filtering patients' });
+    }
+}
+exports.AdvancedPatientFilterHandler = AdvancedPatientFilterHandler;
 async function createNewVitalSign(request, response) {
     try {
         const { patientid } = request.body;

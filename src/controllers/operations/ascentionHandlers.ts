@@ -119,7 +119,7 @@ export async function monthlyApprovalRateHandler(request: Request, response: Res
 
 
 
-export async function PendingTestAscensionHandler(request: Request, response: Response) {
+export async function PendingTestAscensionHandler(request: Request<{},{},{},{tenantId: string, count?: string, page?: string, start_date?: string, end_date?: string,filter?: string, sortby?: string}>, response: Response) {
     try {
         const { tenantId, count = 10, page = 1, start_date, end_date } = request.query;
         const parsedCount = parseInt(count.toString()) || 10;
@@ -127,7 +127,6 @@ export async function PendingTestAscensionHandler(request: Request, response: Re
         const tenantIdP = parseInt(tenantId.toString());
         const filter = request.query.filter ? request.query.filter.toString() : undefined;
         const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
-        console.log({ filter, sortby })
         const pending = await TestAscension.
             getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string, filter as string, sortby as 'ASC' | 'DESC');
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });

@@ -8,12 +8,12 @@ import User from "../../LobnosAuth/user";
 
 export async function ascensionStagingHandler(request: Request, response: Response) {
 	try {
-		const { operationsStaging, dateFrom, dateEnd, grouped, page,patientname, count, isUltrasound,
-			ascensionid, billingid, patientid, employeeid, tenantId, clinicianId, organizationId ,testid} = request.query;
+		const { operationsStaging, dateFrom, dateEnd, grouped, page, patientname, count, isUltrasound,
+			ascensionid, billingid, patientid, employeeid, tenantId, clinicianId, organizationId, testid } = request.query;
 		if (!employeeid) return response.send({ status: false, message: OperationsFailures.invalidResquestQuery, action: 'Include employeeid in the query' });
 
 		const parsedEmployeeId = parseInt(employeeid.toString());
-		const tenantIdP = parseInt(tenantId.toString());
+		const tenantIdP = parseInt(tenantId.toString())
 
 		if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP))) {
 			return response.send({ status: false, message: OperationsFailures.dontHaveAccessPermission });
@@ -70,7 +70,7 @@ async function canValidateResults(employeeId: number, tenantId: number): Promise
 	);
 }
 
-function createQueryParams({ dateFrom, dateEnd, grouped, operationsStaging, ascensionid, billingid, patientid,testid, patientname, page, count, isUltrasound, sortby, clinicianId, organizationId }) {
+function createQueryParams({ dateFrom, dateEnd, grouped, operationsStaging, ascensionid, billingid, patientid, testid, patientname, page, count, isUltrasound, sortby, clinicianId, organizationId }) {
 	return {
 		_dateFrom: dateFrom.toString(),
 		_dateEnd: dateEnd.toString(),

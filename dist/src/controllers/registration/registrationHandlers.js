@@ -9,10 +9,10 @@ const DatabaseQueriesHelper_1 = __importDefault(require("../../database/Database
 const helper_1 = require("../../hooks/helper");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const PatientImageRepository_1 = __importDefault(require("../../repositories/patientRepositories/PatientImageRepository"));
-const addNewPatient = async (req, res) => {
+const addNewPatient = async (request, res) => {
     try {
-        const tenantId = parseInt(req.query.tenantId);
-        await registration_1.default.addNewPatient(tenantId, req, res);
+        const tenantId = parseInt(request.query.tenantId);
+        await registration_1.default.addNewPatient(tenantId, request, res);
     }
     catch (error) {
         (0, helper_1.customError)("Error registering patient", 500, res);

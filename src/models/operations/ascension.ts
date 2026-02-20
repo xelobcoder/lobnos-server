@@ -118,7 +118,7 @@ export class TestAscension extends Operations {
 				params.push(`%${word}%`, `%${word}%`, `%${word}%`);
 			});
 		}
-		query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
+		query += ` GROUP BY b.billingid ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
 		return await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
 	}
 
@@ -204,7 +204,11 @@ export class TestAscension extends Operations {
 
 		const connection = await KnexConnection(tenantId);
 		const trx = await connection.transaction();
-		const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension").where({ billingid });
+		const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension AS ta")
+			.leftJoin("dboservices AS sbo", "sbo.billingid", "ta.billingid")
+			.where({ "sbo.billingid": billingid })
+			.orWhere({ "sbo.relatedbillingid": billingid })
+
 		const AscensionIdx = cart.map(item => item.id);
 		if (AscensionIdx.length == 0) return;
 
@@ -220,7 +224,8 @@ export class TestAscension extends Operations {
 							processingEndDate: currentDate,
 							sampleCollectedBy: employeeid,
 							sampleProcessedBy: employeeid,
-						}).where({ billingid: billingid, id: item.id });
+						}).where({ billingid: billingid, id: item.id })
+
 
 					await trx('samplestatus')
 						.update({
@@ -249,7 +254,7 @@ export class TestAscension extends Operations {
 		const trx = await connection.transaction();
 		try {
 			for (const billingid of billingIds) {
-				const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension").where({ billingid });
+				const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension").where({ billingid }).orWhere({ relatedbillingid: billingid });
 				if (!cart || cart.length === 0) continue;
 				for (const item of cart) {
 					const currentDate = new Date();

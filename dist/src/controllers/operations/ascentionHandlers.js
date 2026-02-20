@@ -134,7 +134,6 @@ async function PendingTestAscensionHandler(request, response) {
         const tenantIdP = parseInt(tenantId.toString());
         const filter = request.query.filter ? request.query.filter.toString() : undefined;
         const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
-        console.log({ filter, sortby });
         const pending = await ascension_1.TestAscension.
             getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date, end_date, filter, sortby);
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });

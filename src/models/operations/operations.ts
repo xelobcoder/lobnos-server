@@ -168,12 +168,18 @@ export default class Operations {
 			}
 
 			if (ascensionid) {
-				finalQuery += ` AND ta.id = ?`;
-				conditions.push(ascensionid as any as string);
+				// we can have multiple ascensionid like 33,34,35,36,37,414,1387  or just a single number
+				const isMultipleAscensionIds = typeof ascensionid === 'string' && (ascensionid as string).includes(',');
+				if (isMultipleAscensionIds) {
+					finalQuery += ` AND ta.id IN (${ascensionid})`;
+				} else {
+					finalQuery += ` AND ta.id = ?`;
+					conditions.push(ascensionid as any as string);
+				}
 			}
 
 
-			if (testid) {
+			if (testid && (testid != null || testid != undefined) && !isNaN(testid)) {
 				finalQuery += ` AND ta.testid = ?`;
 				conditions.push(testid as any as string);
 			}
@@ -188,7 +194,6 @@ export default class Operations {
 				`;
 
 				conditions.push(`%${patientname.toLowerCase().trim().replace(/\s+/g, " ")}%`);
-
 			}
 
 			if (clinicianId) {
@@ -200,6 +205,7 @@ export default class Operations {
 				finalQuery += ` AND ds.organizationId = ?`;
 				conditions.push(organizationId as any as string);
 			}
+
 			return { conditions, finalQuery };
 		} catch (err) {
 			return null;
@@ -221,7 +227,7 @@ export default class Operations {
 
 	async getAllEnterResult(tenantId: number, data: resultQuery): Promise<any[]> {
 		try {
-			const { from, to, patientid, billingid, fullname, sortingwise, count, page, mobile_number } = data;
+			const { from, to, patientid, billingid, fullname, sortingwise, count, page, mobile_number, ascensionid } = data;
 			let queryString = q_get_all_entered_result;
 			const conditions: string[] = [];
 			const values: any[] = [];
@@ -247,6 +253,11 @@ export default class Operations {
 				values.push(billingid);
 			}
 
+			if (ascensionid) {
+				conditions.push(`ta.id = ?`);
+				values.push(ascensionid);
+			}
+
 			if (mobile_number) {
 				conditions.push(`np.mobile_number LIKE ?`);
 				values.push(`%${mobile_number}%`);
@@ -267,6 +278,8 @@ export default class Operations {
 			queryString += ` LIMIT ? OFFSET ?`;
 
 			const result = await paginationQuery({ page, count }, queryString, values, tenantId);
+
+
 
 			if (result.length > 0) {
 				const approvalList = await Promise.all(
@@ -351,6 +364,7 @@ export default class Operations {
 
 			query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;
 			query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
+			
 			return await paginationQuery({ count, page }, query, conditionValues, tenantId);
 
 		} catch (err) {

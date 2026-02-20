@@ -443,10 +443,7 @@ class InventoryConsumptionController {
             if (!duplicateCheck.isValid) {
                 const response = {
                     success: false,
-                    error: {
-                        code: 'DUPLICATE_WASTAGE',
-                        message: duplicateCheck.message
-                    }
+                    error: { code: 'DUPLICATE_WASTAGE', message: duplicateCheck.message || 'This item/batch has already been recorded as wastage for a similar reason' }
                 };
                 res.status(400).json(response);
                 return;
@@ -535,7 +532,7 @@ class InventoryConsumptionController {
             const total = parseInt(totalResult === null || totalResult === void 0 ? void 0 : totalResult.count) || 0;
             const offset = (parseInt(page) - 1) * parseInt(count);
             const rawData = await query.limit(parseInt(count)).offset(offset);
-            const transactions = rawData.map(consumption => ({
+            const transactions = rawData.map((consumption) => ({
                 id: consumption.id,
                 item_id: consumption.item_id,
                 item_name: consumption.item_name || '',
@@ -660,7 +657,7 @@ class InventoryConsumptionController {
                 period_start: startDate || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
                 period_end: endDate || new Date().toISOString().split('T')[0]
             };
-            const consumptions = rawData.map(consumption => ({
+            const consumptions = rawData.map((consumption) => ({
                 id: consumption.id,
                 item_id: consumption.item_id,
                 item_name: consumption.item_name || '',
@@ -785,7 +782,7 @@ class InventoryConsumptionController {
                             success: false,
                             error: {
                                 code: 'DUPLICATE_WASTAGE',
-                                message: duplicateCheck.message
+                                message: duplicateCheck.message || `Duplicate wastage record exists for item ${consumption.item_id}, batch ${consumption.batch_number}, reason: ${consumption.reason}`
                             }
                         };
                         res.status(400).json(response);
@@ -995,16 +992,16 @@ class InventoryConsumptionController {
             const totalExpiredQuantity = expiredConsumptionHistory.reduce((sum, c) => sum + c.quantity_consumed, 0);
             const uniqueBatches = new Set(expiredConsumptionHistory.map(c => c.batch_number).filter(Boolean)).size;
             const uniqueItems = new Set(expiredConsumptionHistory.map(c => c.item_id)).size;
-            const expiredConsumptionData = expiredConsumptionHistory.map(consumption => ({
+            const expiredConsumptionData = expiredConsumptionHistory.map((consumption) => ({
                 id: consumption.id,
                 item_id: consumption.item_id,
                 item_name: consumption.item_name || '',
                 item_sku: consumption.item_sku || '',
                 batch_number: consumption.batch_number,
                 brand_name: consumption.brand_name,
-                expiry_date: null, // Not directly available in consumption_history
+                expiry_date: null,
                 quantity_consumed: consumption.quantity_consumed,
-                wastage_type: 'expired', // Assuming expired based on filter
+                wastage_type: 'expired',
                 reason: consumption.consumption_reason,
                 performed_by: {
                     employee_id: consumption.employee_id,
@@ -1100,7 +1097,7 @@ class InventoryConsumptionController {
             const totalNonExpiredQuantity = nonExpiredWastageHistory.reduce((sum, c) => sum + c.quantity_consumed, 0);
             const uniqueBatches = new Set(nonExpiredWastageHistory.map(c => c.batch_number).filter(Boolean)).size;
             const uniqueItems = new Set(nonExpiredWastageHistory.map(c => c.item_id)).size;
-            const nonExpiredWastageData = nonExpiredWastageHistory.map(consumption => ({
+            const nonExpiredWastageData = nonExpiredWastageHistory.map((consumption) => ({
                 id: consumption.id,
                 item_id: consumption.item_id,
                 item_name: consumption.item_name || '',

@@ -101,7 +101,7 @@ class TestAscension extends operations_1.default {
                 params.push(`%${word}%`, `%${word}%`, `%${word}%`);
             });
         }
-        query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
+        query += ` GROUP BY b.billingid ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
         return await (0, helper_1.promisifyQuery)(tenantId, query, [...params, count, (page - 1) * count]);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {
@@ -170,7 +170,10 @@ class TestAscension extends operations_1.default {
             return;
         const connection = await (0, KnexConnections_1.default)(tenantId);
         const trx = await connection.transaction();
-        const cart = await trx("test_ascension").where({ billingid });
+        const cart = await trx("test_ascension AS ta")
+            .leftJoin("dboservices AS sbo", "sbo.billingid", "ta.billingid")
+            .where({ "sbo.billingid": billingid })
+            .orWhere({ "sbo.relatedbillingid": billingid });
         const AscensionIdx = cart.map(item => item.id);
         if (AscensionIdx.length == 0)
             return;
@@ -215,7 +218,7 @@ class TestAscension extends operations_1.default {
         const trx = await connection.transaction();
         try {
             for (const billingid of billingIds) {
-                const cart = await trx("test_ascension").where({ billingid });
+                const cart = await trx("test_ascension").where({ billingid }).orWhere({ relatedbillingid: billingid });
                 if (!cart || cart.length === 0)
                     continue;
                 for (const item of cart) {

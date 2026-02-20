@@ -8,11 +8,11 @@ import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsD
 import { OperationsFailures } from "../operations/types";
 import { q_filter_patient_using_billingid_query, q_filter_patients, q_new_registation, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
 import { addressInformation, NewRegistration, PatientRecords, registrationOutcome } from "./types";
+import { Request, Response } from "express";
 
 export default class Registration {
-	patientid: number;
 
-	static async getPatientID(tenantId: number, patientid: number): Promise<number | null> {
+	static async getPatientID(tenantId: number, patientid: number): Promise<number | null | undefined> {
 		if (typeof patientid !== "number") {
 			throw new TypeError("number required as insertedId");
 		}
@@ -154,7 +154,7 @@ export default class Registration {
 		return rowAffected(await promisifyQuery(tenantId, q_patient_update_emmergency_information, values));
 	}
 
-	public async getCustomersRecords(tenantId: number, data: PatientRecords): Promise<NewRegistration | NewRegistration[]> {
+	public async getCustomersRecords(tenantId: number, data: PatientRecords): Promise<NewRegistration | null | NewRegistration[]> {
 		const { count = 10, mobile, page = 1, fullname, email, patientid, from, to, sortby = 'DESC' } = data;
 		var query = q_filter_patients;
 		if (patientid) {
@@ -271,7 +271,7 @@ export default class Registration {
 			if (result.length === 0) return false;
 			const { bulkregistration } = result[0];
 			return bulkregistration === 1;
-		} catch (err) {
+		} catch (err: any) {
 			throw new Error(err);
 		}
 	}
@@ -282,7 +282,7 @@ export default class Registration {
 			const values = [area, country, districtCode, region, gpsLocation, address, id];
 			const result = rowAffected(await promisifyQuery(tenantId, q_patient_update_patient_addressing, values));
 			return result;
-		} catch (err) {
+		} catch (err: any) {
 			throw new Error(err?.message || err);
 		}
 	}
@@ -336,7 +336,7 @@ export default class Registration {
 		}
 	}
 
-	static async addNewPatient(tenantId: number, request: any, response: any): Promise<void> {
+	static async addNewPatient(tenantId: number, request: Request, response: Response): Promise<Response | void> {
 		const { data } = request.body;
 		const employeeId = request.query.employeeid ? parseInt(request.query.employeeid.toString(), 10) : null;
 		if (!employeeId) {
@@ -374,13 +374,100 @@ export default class Registration {
 				});
 			}
 
-		} catch (error) {
-			console.log(error)
+		} catch (error: any) {
 			response.status(500).send({
 				status: "error",
 				message: "An error occurred while trying to add a new patient",
 				error: error.message || error,
 			});
+		}
+	}
+
+
+	static async AdvancedPatientFilter(tenantid: number, requestbody: Partial<NewRegistration>): Promise<PrimeLimsTablenew_patients[]> {
+		try {
+			const filters = requestbody;
+			if (!filters || Object.keys(filters).length === 0) throw new Error("No filter criteria provided");
+
+			const fieldMapping: Record<string, string> = {
+				"patientid": "patientid",
+				"firstname": "firstname",
+				"lastname": "lastname",
+				"middlename": "middlename",
+				"fullpatientid": "fullpatientid",
+				"email": "email",
+				"mobile_number": "mobile_number",
+				"gender": "gender",
+				"maritalstatus": "marital_status",
+				"patientOrganization": "organization",
+				"occupation": "occupation"
+			};
+
+			const db = await KnexConnection(tenantid);
+			let query = db("new_patients")
+				.leftJoin("roles as rr", "new_patients.registeredby", "rr.employeeid")
+				.select(
+					"new_patients.patientid",
+					"new_patients.fullpatientid",
+					"new_patients.firstname",
+					"new_patients.lastname",
+					"new_patients.middlename",
+					"new_patients.gender",
+					"new_patients.age",
+					"new_patients.mobile_number as contact",
+					"new_patients.mobile_number",
+					"new_patients.email",
+					"new_patients.organization",
+					"new_patients.registeredby",
+					"rr.username as registeredbyusername",
+					"new_patients.date",
+					db.raw("CONCAT(new_patients.firstname, ' ', COALESCE(new_patients.middlename, ''), ' ', new_patients.lastname) as fullname")
+				);
+
+
+			for (const field in filters) {
+				const dbColumn = fieldMapping[field];
+				if (!dbColumn) continue;
+				const value = (filters as Record<string, any>)[field];
+				if (value === null || value === undefined || value === "") continue;
+
+				if (dbColumn === "gender" || dbColumn === "marital_status") {
+					query = query.andWhere(`new_patients.${dbColumn}`, value.toLowerCase());
+				} else if (dbColumn === "mobile_number") {
+					// Normalize mobile number: handle both 10-digit (with leading 0) and 9-digit (without leading 0) formats
+					let mobileStr = String(value).trim();
+					let normalizedWith0: string;
+					let normalizedWithout0: string;
+
+					if (mobileStr.length === 10 && mobileStr.charAt(0) === "0") {
+						normalizedWith0 = mobileStr;
+						normalizedWithout0 = mobileStr.substring(1);
+					} else if (mobileStr.length === 9) {
+						normalizedWith0 = mobileStr.padStart(10, "0");
+						normalizedWithout0 = mobileStr;
+					} else {
+						normalizedWith0 = mobileStr;
+						normalizedWithout0 = mobileStr;
+					}
+
+					// Search for both formats (with and without leading 0)
+					query = query.andWhere(q => {
+						q.where(`new_patients.${dbColumn}`, "=", normalizedWith0)
+							.orWhere(`new_patients.${dbColumn}`, "=", normalizedWithout0);
+					});
+				} else {
+					query = query.andWhere(`new_patients.${dbColumn}`, "=", value);
+				}
+			}
+
+			const patients = await query
+				.orderBy("patientid", "desc")
+				.limit(20);
+
+
+			return patients;
+		} catch (error: any) {
+			throw error;
 		}
 	}
 }

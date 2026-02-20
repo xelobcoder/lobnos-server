@@ -114,7 +114,7 @@ export const q_get_all_result_entry_base: string = `
             org.name AS organization,
             clin.name AS clinicianName
   FROM dboServices AS ds
-  INNER JOIN billing AS b ON b.billingid = ds.billingid
+  INNER JOIN billing AS b ON b.billingid = ds.billingid 
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
   INNER JOIN test_panels AS tp ON tp.id = ss.testid
@@ -395,10 +395,11 @@ export const q_pending_sample_uncollected: string = `
       b.billedon AS date,
       b.clientstatus,
       ts.collectionStartDate,
+      ts.id as ascensionid,
       ts.collectionEndDate
     FROM new_patients AS p
     INNER JOIN billing AS b ON p.patientid = b.patientid
-    INNER JOIN test_ascension AS ts ON b.billingid = ts.billingid
+    INNER JOIN test_ascension AS ts ON ts.billingid = b.billingid
     INNER JOIN test_panels AS tp ON tp.id = ts.testid
     LEFT JOIN departments AS c ON c.id = tp.category
     WHERE (ts.collectionEndDate IS NULL OR ts.collectionStartDate IS NULL) AND (c.department IS NOT NULL AND c.department <> 'Ultrasound')

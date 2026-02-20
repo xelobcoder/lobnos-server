@@ -165,11 +165,18 @@ export class SubmitCustomerBilling {
 
             const conn = await this.connection;
             const trx = await conn.transaction();
-            const billingID = await BillingSharedRepo.generateBillingID(
-                this.payload.patientid,
-                this.tenantId,
-                trx
-            );
+
+            let billingID = 0;
+
+            if (!hasRelatedBilling) {
+                billingID = await BillingSharedRepo.generateBillingID(
+                    this.payload.patientid,
+                    this.tenantId,
+                    trx
+                );
+            } else {
+                billingID = this.payload.billingid;
+            }
 
             const taxValue = updatedBillingData.taxValue || 0;
             const taxList = updatedBillingData.taxList || null;

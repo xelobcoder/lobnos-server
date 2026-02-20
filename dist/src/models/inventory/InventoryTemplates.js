@@ -107,7 +107,7 @@ class InventoryTemplateModel {
             // we somtimes add items that are in the templates, we need to know if they are consumed based on ascensionid
             const consumptionRecord = await connection('inv_inventory_transactions')
                 .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit as item_unit').where('ascension_id', ascensionid);
+                .select('inv_inventory_transactions.*', 'inv_inventory_items.name as item_name', 'inv_inventory_items.sku as item_sku', 'inv_inventory_items.consumption_unit as item_unit').where('inv_inventory_transactions.ascensionid', ascensionid);
             const manuallyCreatedRecords = [];
             for (const record of consumptionRecord) {
                 if (!items.find(i => i.itemId === record.item_id)) {
@@ -131,7 +131,6 @@ class InventoryTemplateModel {
             for (const item of items) {
                 await this.checkAscensionItemCompletionStatus(item, ascensionid, true);
             }
-            console.log('manuallyCreatedRecords', refinedManuallyCreatedRecords);
             return {
                 id: result.id,
                 name: result.name,
@@ -173,7 +172,7 @@ class InventoryTemplateModel {
         const connection = await this.connection;
         const consumptionRecord = await connection('inv_inventory_transactions')
             .where('item_id', item.itemId)
-            .andWhere('ascension_id', ascensionid)
+            .andWhere('ascensionid', ascensionid)
             .first();
         item.is_consumed = !!consumptionRecord;
         if (checkQtyRemaining && consumptionRecord) {

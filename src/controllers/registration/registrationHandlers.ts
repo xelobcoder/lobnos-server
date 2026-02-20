@@ -7,10 +7,10 @@ import logger from "../../hooks/logger";
 import { PrimeLimsTablepatientemmergencycontactinformation } from "../../database/DatabaseTableSchema";
 import PatientImageRepository from "../../repositories/patientRepositories/PatientImageRepository";
 
-export const addNewPatient = async (req: Request<{}, {}, {}, { tenantId: string, employeeid: number }>, res: Response) => {
+export const addNewPatient = async (request: Request, res: Response) => {
 	try {
-		const tenantId: number = parseInt(req.query.tenantId);
-		await Registration.addNewPatient(tenantId, req, res);
+		const tenantId: number = parseInt(request.query.tenantId as string);
+		await Registration.addNewPatient(tenantId, request, res);
 	} catch (error) {
 		customError("Error registering patient", 500, res);
 	}
@@ -252,7 +252,7 @@ export const getPatientImagePathHandler = async (
 			imagePath,
 		});
 
-	} catch (error) {
+	} catch (error:any) {
 		logger.log(error);
 		customError("Error fetching image path", 500, res);
 	}

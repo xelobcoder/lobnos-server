@@ -160,10 +160,17 @@ class Operations {
                 conditions.push(billingid);
             }
             if (ascensionid) {
-                finalQuery += ` AND ta.id = ?`;
-                conditions.push(ascensionid);
+                // we can have multiple ascensionid like 33,34,35,36,37,414,1387  or just a single number
+                const isMultipleAscensionIds = typeof ascensionid === 'string' && ascensionid.includes(',');
+                if (isMultipleAscensionIds) {
+                    finalQuery += ` AND ta.id IN (${ascensionid})`;
+                }
+                else {
+                    finalQuery += ` AND ta.id = ?`;
+                    conditions.push(ascensionid);
+                }
             }
-            if (testid) {
+            if (testid && (testid != null || testid != undefined) && !isNaN(testid)) {
                 finalQuery += ` AND ta.testid = ?`;
                 conditions.push(testid);
             }
@@ -203,7 +210,7 @@ class Operations {
     }
     async getAllEnterResult(tenantId, data) {
         try {
-            const { from, to, patientid, billingid, fullname, sortingwise, count, page, mobile_number } = data;
+            const { from, to, patientid, billingid, fullname, sortingwise, count, page, mobile_number, ascensionid } = data;
             let queryString = queries_1.q_get_all_entered_result;
             const conditions = [];
             const values = [];
@@ -224,6 +231,10 @@ class Operations {
             if (billingid) {
                 conditions.push(`b.billingid = ?`);
                 values.push(billingid);
+            }
+            if (ascensionid) {
+                conditions.push(`ta.id = ?`);
+                values.push(ascensionid);
             }
             if (mobile_number) {
                 conditions.push(`np.mobile_number LIKE ?`);

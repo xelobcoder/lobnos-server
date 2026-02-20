@@ -6,10 +6,9 @@ const activate_1 = require("../../models/activation/activate");
 const helper_1 = require("../../hooks/helper");
 const router = (0, express_1.Router)();
 const baseurl = '/api/v1';
-// Define routes
 router.get(`${baseurl}/customers`, controllerfn_1.getCustomers);
+router.post(`${baseurl}/customer/advanced/filter`, controllerfn_1.AdvancedPatientFilterHandler);
 router.get(`${baseurl}/customer/activation/status/change`, activate_1.changeActivationRouter);
-// Vital signs
 router.get(`${baseurl}/customers/vitalsigns/create`, (0, helper_1.handleOverLoad)(controllerfn_1.getPatientVitalSign));
 router.post(`${baseurl}/customers/vitalsigns/create`, controllerfn_1.createNewVitalSign);
 exports.default = router;
