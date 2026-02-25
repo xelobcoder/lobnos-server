@@ -27,7 +27,7 @@ export const getAllEnterResult = async (req: Request, res: Response) => {
 		const { tenantId } = req.query;
 		if (!tenantId) return customError("tenantId not included", 400, res);
 		const tId = parseInt(tenantId as string, 10);
-		const result = await new Operations(null).getAllEnterResult(tId, req.query as any);
+		const result = await new Operations(0).getAllEnterResult(tId, req.query as any);
 		res.send({ result, statusCode: 200 });
 	} catch (err) {
 		responseError(res);

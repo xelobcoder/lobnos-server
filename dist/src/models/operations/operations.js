@@ -216,17 +216,9 @@ class Operations {
             const values = [];
             conditions.push(`ss.approvalstatus = 1`);
             conditions.push('dta.isapproved = 1');
-            if (from && !to) {
-                conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
-                values.push(from);
-            }
-            else if (from && to) {
-                conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
-                values.push(from, to);
-            }
-            if (patientid) {
+            if (patientid && !isNaN(patientid)) {
                 conditions.push(`np.patientid = ?`);
-                values.push(patientid);
+                values.push(parseInt(patientid.toString()));
             }
             if (billingid) {
                 conditions.push(`b.billingid = ?`);
@@ -243,6 +235,14 @@ class Operations {
             if (fullname) {
                 conditions.push(`LOWER(CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname)) LIKE ?`);
                 values.push(`%${fullname.toLowerCase()}%`);
+            }
+            if (from && !to) {
+                conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
+                values.push(from);
+            }
+            else if (from && to) {
+                conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
+                values.push(from, to);
             }
             if (conditions.length > 0) {
                 queryString += ` WHERE ${conditions.join(" AND ")}`;

@@ -1,5 +1,5 @@
 import { TiifuWorkingClass } from '../../database/TiifuWorkingClass';
-import { paginationQuery, promisifyQuery, rowAffected } from '../../hooks/helper';
+import { customError, paginationQuery, promisifyQuery, rowAffected } from '../../hooks/helper';
 import { OperationsFailures } from '../operations/types';
 import {
     q_medical_records_create,
@@ -63,19 +63,20 @@ export default class PrimeMedicalRecords {
     }
 
     async updateRecord(tenantId: number, consultationid: number, updates: UpdateMedicalRecord): Promise<boolean | string> {
-        const { consulationby } = updates;
-
-        const isConsultant = await this.isClinicianConsulation(tenantId, consultationid, consulationby);
-
-        if (isConsultant) {
-            const fields = Object.keys(updates).map((key) => `${key} = ?`).join(", ");
-            const values = Object.values(updates);
-
-            const query = `UPDATE medicalrecords SET ${fields} WHERE id = ?`;
-
-            return rowAffected(await promisifyQuery(tenantId, query, [...values, consultationid]));
+        try {
+            const { consulationby } = updates;
+            const isConsultant = await this.isClinicianConsulation(tenantId, consultationid, consulationby as number);
+            if (isConsultant) {
+                const fields = Object.keys(updates).map((key) => `${key} = ?`).join(", ");
+                const values = Object.values(updates);
+                const query = `UPDATE medicalrecords SET ${fields} WHERE id = ?`;
+                return rowAffected(await promisifyQuery(tenantId, query, [...values, consultationid]));
+            }
+            return OperationsFailures.dontHavePermission;
+        } catch (err) {
+            console.error("Error updating record:", err);
+            return OperationsFailures.invalidRequestBodyType;
         }
-        return OperationsFailures.dontHavePermission;
     }
 
 
@@ -83,15 +84,25 @@ export default class PrimeMedicalRecords {
         await promisifyQuery(tenantId, q_medical_records_delete, [id]);
     }
 
-    async getAllRecords(tenantId: number, page: number = 1, count: number = 10, search?: number | string): Promise<MedicalRecord[]> {
-        if (search) {
-            const query = q_medical_records_getAll.replace('LIMIT ? OFFSET ?', 'WHERE (np.patientid = ? OR np.fullpatientid = ?) LIMIT ? OFFSET ?');
-            console.log(query)
-            const rows = await paginationQuery({ count, page }, query, [search, search], tenantId);
-            return rows;
+    async getAllRecords(tenantId: number, page: number = 1, patientid?: number, count: number = 10, search?: number | string): Promise<MedicalRecord[]> {
+        const connection = await KnexConnection(tenantId);
+        const offset = (page - 1) * count;
+
+        let query = connection('medicalrecords as mr')
+            .leftJoin('roles as rr', 'rr.employeeid', 'mr.consulationby')
+            .leftJoin('new_patients as np', 'np.patientid', 'mr.patientid')
+            .select('mr.*', 'np.*', 'rr.username as consultationby', 'rr.employeeid');
+
+        if (patientid) {
+            query = query.where('np.patientid', patientid);
         }
-        const rows = page && count ? await paginationQuery({ count, page }, q_medical_records_getAll, [], tenantId) : await promisifyQuery(tenantId, q_medical_records_getAll);
-        return rows;
+
+        // Apply pagination
+        if (page && count) {
+            query = query.limit(count).offset(offset);
+        }
+
+        return await query;
     }
 
 

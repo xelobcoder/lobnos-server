@@ -27,7 +27,7 @@ const getAllEnterResult = async (req, res) => {
         if (!tenantId)
             return (0, helper_1.customError)("tenantId not included", 400, res);
         const tId = parseInt(tenantId, 10);
-        const result = await new operations_1.default(null).getAllEnterResult(tId, req.query);
+        const result = await new operations_1.default(0).getAllEnterResult(tId, req.query);
         res.send({ result, statusCode: 200 });
     }
     catch (err) {

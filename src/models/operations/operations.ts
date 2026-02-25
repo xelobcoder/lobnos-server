@@ -235,17 +235,11 @@ export default class Operations {
 			conditions.push(`ss.approvalstatus = 1`);
 			conditions.push('dta.isapproved = 1');
 
-			if (from && !to) {
-				conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
-				values.push(from);
-			} else if (from && to) {
-				conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
-				values.push(from, to);
-			}
+			
 
-			if (patientid) {
+			if (patientid && !isNaN(patientid)) {
 				conditions.push(`np.patientid = ?`);
-				values.push(patientid);
+				values.push(parseInt(patientid.toString()));
 			}
 
 			if (billingid) {
@@ -268,17 +262,27 @@ export default class Operations {
 				values.push(`%${fullname.toLowerCase()}%`);
 			}
 
+			if (from && !to) {
+				conditions.push(`DATE(b.billedon) BETWEEN ? AND CURRENT_DATE`);
+				values.push(from);
+			} else if (from && to) {
+				conditions.push(`DATE(b.billedon) BETWEEN ? AND ?`);
+				values.push(from, to);
+			}
+
 			if (conditions.length > 0) {
 				queryString += ` WHERE ${conditions.join(" AND ")}`;
 			}
+
 
 
 			queryString += ` GROUP BY ta.id, ta.testid, np.patientid, b.billingid`;
 			queryString += ` ORDER BY ta.ascension_date ${sortingwise === 'ASC' ? 'ASC' : 'DESC'}`;
 			queryString += ` LIMIT ? OFFSET ?`;
 
-			const result = await paginationQuery({ page, count }, queryString, values, tenantId);
+			
 
+			const result = await paginationQuery({ page, count }, queryString, values, tenantId);
 
 
 			if (result.length > 0) {

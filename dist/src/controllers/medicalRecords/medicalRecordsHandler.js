@@ -96,8 +96,9 @@ const getAllConsultationRecords = async (request, response) => {
         const { count, page, tenantId } = request.query;
         const tenantIdP = parseInt(tenantId);
         const search = request.query.search;
+        const patient = request.query.patientid;
         const medicalRecordsService = new medicalRecordClass_1.default();
-        const records = await medicalRecordsService.getAllRecords(tenantIdP, page, count, isNaN(search) ? search : parseInt(search));
+        const records = await medicalRecordsService.getAllRecords(tenantIdP, page, patient ? parseInt(patient.toString()) : undefined, count, search ? parseInt(search) : undefined);
         response.status(200).json(records);
     }
     catch (err) {

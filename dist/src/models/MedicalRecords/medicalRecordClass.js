@@ -31,28 +31,40 @@ class PrimeMedicalRecords {
         return false;
     }
     async updateRecord(tenantId, consultationid, updates) {
-        const { consulationby } = updates;
-        const isConsultant = await this.isClinicianConsulation(tenantId, consultationid, consulationby);
-        if (isConsultant) {
-            const fields = Object.keys(updates).map((key) => `${key} = ?`).join(", ");
-            const values = Object.values(updates);
-            const query = `UPDATE medicalrecords SET ${fields} WHERE id = ?`;
-            return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, [...values, consultationid]));
+        try {
+            const { consulationby } = updates;
+            const isConsultant = await this.isClinicianConsulation(tenantId, consultationid, consulationby);
+            if (isConsultant) {
+                const fields = Object.keys(updates).map((key) => `${key} = ?`).join(", ");
+                const values = Object.values(updates);
+                const query = `UPDATE medicalrecords SET ${fields} WHERE id = ?`;
+                return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, [...values, consultationid]));
+            }
+            return "You do not have permission to delete this resources" /* OperationsFailures.dontHavePermission */;
         }
-        return "You do not have permission to delete this resources" /* OperationsFailures.dontHavePermission */;
+        catch (err) {
+            console.error("Error updating record:", err);
+            return "The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */;
+        }
     }
     async deleteRecord(tenantId, id) {
         await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_medical_records_delete, [id]);
     }
-    async getAllRecords(tenantId, page = 1, count = 10, search) {
-        if (search) {
-            const query = queries_1.q_medical_records_getAll.replace('LIMIT ? OFFSET ?', 'WHERE (np.patientid = ? OR np.fullpatientid = ?) LIMIT ? OFFSET ?');
-            console.log(query);
-            const rows = await (0, helper_1.paginationQuery)({ count, page }, query, [search, search], tenantId);
-            return rows;
+    async getAllRecords(tenantId, page = 1, patientid, count = 10, search) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const offset = (page - 1) * count;
+        let query = connection('medicalrecords as mr')
+            .leftJoin('roles as rr', 'rr.employeeid', 'mr.consulationby')
+            .leftJoin('new_patients as np', 'np.patientid', 'mr.patientid')
+            .select('mr.*', 'np.*', 'rr.username as consultationby', 'rr.employeeid');
+        if (patientid) {
+            query = query.where('np.patientid', patientid);
         }
-        const rows = page && count ? await (0, helper_1.paginationQuery)({ count, page }, queries_1.q_medical_records_getAll, [], tenantId) : await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_medical_records_getAll);
-        return rows;
+        // Apply pagination
+        if (page && count) {
+            query = query.limit(count).offset(offset);
+        }
+        return await query;
     }
     static async getPendingConsultationServices(tenantId, page = 1, pageSize = 10, sortby) {
         const offset = (page - 1) * pageSize;

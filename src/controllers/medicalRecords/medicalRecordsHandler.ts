@@ -88,16 +88,15 @@ export const deleteAConsultationRecord = async (request: Request<{}, {}, {}, { c
      }
 };
 
-export const getAllConsultationRecords = async (request: Request<{}, {}, {}, { search: string, count: number, page: number, tenantId: string }>, response: Response) => {
+export const getAllConsultationRecords = async (request: Request<{}, {}, {}, { search: string, patientid: number, count: number, page: number, tenantId: string }>, response: Response) => {
      try {
           const { count, page, tenantId } = request.query
           const tenantIdP = parseInt(tenantId)
           const search = request.query.search as string | undefined;
+          const patient = request.query.patientid
           const medicalRecordsService = new PrimeMedicalRecords();
 
-          const records = await medicalRecordsService.getAllRecords(tenantIdP, page, count, isNaN
-               (search as unknown as number) ? search : parseInt(search as string)
-          );
+          const records = await medicalRecordsService.getAllRecords(tenantIdP, page, patient ? parseInt(patient.toString()) : undefined, count, search ? parseInt(search) : undefined);
           response.status(200).json(records);
      } catch (err) {
           console.error("Error fetching all records:", err);
