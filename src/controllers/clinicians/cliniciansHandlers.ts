@@ -1,18 +1,35 @@
 import { NextFunction, Request, response, Response } from "express";
 import Registration from "../../models/registration/registration";
-import { Clinician } from "../../models/clincians/types";
+import { Clinician, ClinicianFilterParams } from "../../models/clincians/types";
 import { responseError, customError } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ClinicianClass from "../../models/clincians/clinicianClass";
 import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSchema";
 
-export async function getCliniciansHandler(request: Request, response: Response): Promise<Response> {
+export async function getCliniciansHandler(request: Request<{}, {}, {}, ClinicianFilterParams & { tenantId: string }>, response: Response): Promise<void> {
 	try {
-		const tenantId = parseInt(request.query.tenantId.toString())
-		const cliniciansList: Clinician[] = await new ClinicianClass().getClinicians(tenantId, request.query);
-		return response.send({ statusCode: 200, status: "success", result: cliniciansList });
+		const tenantId = parseInt(request.query.tenantId.toString());
+
+		// Extract filter parameters from query
+		const filterParams: ClinicianFilterParams = {
+			page: request.query.page,
+			count: request.query.count,
+			role: request.query.role as string,
+			searchText: request.query.searchText as string,
+			id: request.query.id,
+			name: request.query.name as string,
+			location: request.query.location as string,
+			address: request.query.address as string,
+			occupation: request.query.occupation as string,
+			organization: request.query.organization,
+			phone: request.query.phone as string,
+			email: request.query.email as string,
+			identifier: request.query.identifier as string,
+		};
+
+		const cliniciansList: Clinician[] = await new ClinicianClass().getClinicians(tenantId, filterParams);
+		response.send({ statusCode: 200, status: "success", result: cliniciansList });
 	} catch (err) {
-		console.log(err);
 		responseError(response);
 	}
 }

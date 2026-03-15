@@ -3,7 +3,7 @@ import logger from "../../hooks/logger";
 import SQLQueries from "./queries";
 import { PaginationType } from "../organization/OrgaInterfac";
 import { ConvertKeysToNumbers } from "../../interfaces/global";
-import { Clinician } from "./types";
+import { Clinician, ClinicianFilterParams } from "./types";
 import { paginationQuery, promisifyQuery, rowAffected } from "../../hooks/helper";
 import { OperationsFailures } from "../operations/types";
 import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSchema";
@@ -12,6 +12,74 @@ import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo"
 import KnexConnection from "../../database/KnexConnections";
 
 export default class ClinicianClass {
+
+	/**
+	 * Build WHERE clause and parameters for filtering clinicians
+	 */
+	private buildFilterQuery(filters: ClinicianFilterParams): { whereClause: string; params: any[] } {
+		const params: any[] = [];
+		const conditions: string[] = [];
+
+		// Full text search - searches across multiple fields
+		if (filters.searchText && filters.searchText.toString().trim() !== "") {
+			const searchTerm = `%${filters.searchText}%`;
+			conditions.push(
+				`(name LIKE ? OR phone LIKE ? OR email LIKE ? OR location LIKE ? OR address LIKE ? OR occupation LIKE ? OR identifier LIKE ?)`
+			);
+			for (let i = 0; i < 7; i++) {
+				params.push(searchTerm);
+			}
+		}
+
+		// Individual field filters
+		if (filters.id) {
+			conditions.push("id = ?");
+			params.push(filters.id);
+		}
+		if (filters.name && filters.name.toString().trim() !== "") {
+			conditions.push("name LIKE ?");
+			params.push(`%${filters.name}%`);
+		}
+		if (filters.location && filters.location.toString().trim() !== "") {
+			conditions.push("location LIKE ?");
+			params.push(`%${filters.location}%`);
+		}
+		if (filters.address && filters.address.toString().trim() !== "") {
+			conditions.push("address LIKE ?");
+			params.push(`%${filters.address}%`);
+		}
+		if (filters.occupation && filters.occupation.toString().trim() !== "") {
+			conditions.push("occupation LIKE ?");
+			params.push(`%${filters.occupation}%`);
+		}
+		if (filters.organization) {
+			conditions.push("organization = ?");
+			params.push(filters.organization);
+		}
+		if (filters.phone && filters.phone.toString().trim() !== "") {
+			conditions.push("phone LIKE ?");
+			params.push(`%${filters.phone}%`);
+		}
+		if (filters.email && filters.email.toString().trim() !== "") {
+			conditions.push("email LIKE ?");
+			params.push(`%${filters.email}%`);
+		}
+		if (filters.identifier && filters.identifier.toString().trim() !== "") {
+			conditions.push("identifier LIKE ?");
+			params.push(`%${filters.identifier}%`);
+		}
+		if (filters.created_on && filters.created_on.toString().trim() !== "") {
+			conditions.push("DATE(created_on) = ?");
+			params.push(filters.created_on);
+		}
+		if (filters.updated_on && filters.updated_on.toString().trim() !== "") {
+			conditions.push("DATE(updated_on) = ?");
+			params.push(filters.updated_on);
+		}
+
+		const whereClause = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
+		return { whereClause, params };
+	}
 
 	public async insertCliniciansBulk(tenantId: number, clinicians: Array<Partial<PrimeLimsTableclinicianbasicinfo>>): Promise<Array<number | string>> {
 		const results: Array<number | string> = [];
@@ -40,15 +108,48 @@ export default class ClinicianClass {
 		}
 		return results;
 	}
-	public async getClinicians(tenantId: number, pagination: ConvertKeysToNumbers<PaginationType> | null): Promise<Clinician[]> {
-		const { count = 10, page = 1, role } = pagination;
-		if (role && role.toString().trim() === "admin") {
-			return (count && page) ? await paginationQuery({ page, count }, SQLQueries.getCliniciansWithExtendedPagination, [], tenantId) :
-				await promisifyQuery(tenantId, SQLQueries.getAllCliniciansWithPaymentInfo);
+	public async getClinicians(tenantId: number, filters: ClinicianFilterParams | null): Promise<Clinician[]> {
+		const { count = 10, page = 1, role } = filters || {};
+
+		// Check if any filters are applied
+		const hasFilters = filters && Object.keys(filters).some(key =>
+			key !== 'page' && key !== 'count' && key !== 'role' && filters[key as keyof ClinicianFilterParams]
+		);
+
+		// If no filters, use the original logic
+		if (!hasFilters) {
+			if (role && role.toString().trim() === "admin") {
+				return (count && page) ? await paginationQuery({ page, count }, SQLQueries.getCliniciansWithExtendedPagination, [], tenantId) :
+					await promisifyQuery(tenantId, SQLQueries.getAllCliniciansWithPaymentInfo);
+			}
+			else {
+				return (count && page) ? await paginationQuery({ page, count }, SQLQueries.getCliniciansWithPagination, [], tenantId) :
+					await promisifyQuery(tenantId, SQLQueries.getAllClinicians);
+			}
 		}
-		else {
-			return (count && page) ? await paginationQuery({ page, count }, SQLQueries.getCliniciansWithPagination, [], tenantId) :
-				await promisifyQuery(tenantId, SQLQueries.getAllClinicians);
+
+		// Build filter query
+		const { whereClause, params } = this.buildFilterQuery(filters);
+
+		// Construct base query with filters
+		let baseQuery = "SELECT * FROM clinicianbasicinfo" + whereClause;
+
+		// Add payment info for admin users
+		if (role && role.toString().trim() === "admin") {
+			baseQuery = `SELECT cbi.*, cpi.* FROM clinicianbasicinfo AS cbi
+				LEFT JOIN clinicianpaymentinfo AS cpi ON cbi.id = cpi.clinicianid${whereClause}`;
+		}
+
+		// Execute query with pagination
+		if (count && page) {
+			const pageNum = parseInt(page.toString());
+			const countNum = parseInt(count.toString());
+			const offset = (pageNum - 1) * countNum;
+			const paginatedQuery = baseQuery + ` LIMIT ? OFFSET ?`;
+			params.push(countNum, offset);
+			return await promisifyQuery(tenantId, paginatedQuery, params);
+		} else {
+			return await promisifyQuery(tenantId, baseQuery, params);
 		}
 	}
 

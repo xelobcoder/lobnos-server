@@ -9,6 +9,8 @@ export type NewRegistration = {
   mobile: number;
   designation: string;
   days: number;
+  relativecontactnumber: (string | number);
+  relativecontactname: string;
   fullpatientid: string;
   months: number;
   maritalstatus: boolean;

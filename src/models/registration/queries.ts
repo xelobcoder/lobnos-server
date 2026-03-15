@@ -1,6 +1,6 @@
 export const q_new_registation = `INSERT INTO new_patients (firstname, lastname, middlename, email, age, agetype, dob, marital_status,
- mobile_number, occupation, gender, organization,fullpatientid,contactpointer,designation,registeredby)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+ mobile_number, occupation, gender, organization,fullpatientid,contactpointer,designation,registeredby,relativecontactname,relativecontactnumber)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 
 export const q_patient_data = "SELECT np.* FROM new_patients AS np LEFT JOIN roles AS rr ON rr.employeeid = np.registeredby WHERE patientid = ?";
 

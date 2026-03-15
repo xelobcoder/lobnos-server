@@ -22,5 +22,25 @@ export type Clinician = {
      organization: number;
      updated_on?: string | null;
      created_on?: string;
+     phone?: string;
+     identifier?: string;
+};
+
+export type ClinicianFilterParams = {
+     page: string | number;
+     count: string | number;
+     role?: string;
+     searchText?: string;  // Full text search
+     id?: string | number;
+     name?: string;
+     location?: string;
+     address?: string;
+     occupation?: string;
+     organization?: string | number;
+     updated_on?: string;
+     created_on?: string;
+     phone?: string;
+     email?: string;
+     identifier?: string;
 };
 

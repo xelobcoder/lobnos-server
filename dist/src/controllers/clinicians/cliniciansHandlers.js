@@ -12,11 +12,26 @@ const clinicianClass_1 = __importDefault(require("../../models/clincians/clinici
 async function getCliniciansHandler(request, response) {
     try {
         const tenantId = parseInt(request.query.tenantId.toString());
-        const cliniciansList = await new clinicianClass_1.default().getClinicians(tenantId, request.query);
-        return response.send({ statusCode: 200, status: "success", result: cliniciansList });
+        // Extract filter parameters from query
+        const filterParams = {
+            page: request.query.page,
+            count: request.query.count,
+            role: request.query.role,
+            searchText: request.query.searchText,
+            id: request.query.id,
+            name: request.query.name,
+            location: request.query.location,
+            address: request.query.address,
+            occupation: request.query.occupation,
+            organization: request.query.organization,
+            phone: request.query.phone,
+            email: request.query.email,
+            identifier: request.query.identifier,
+        };
+        const cliniciansList = await new clinicianClass_1.default().getClinicians(tenantId, filterParams);
+        response.send({ statusCode: 200, status: "success", result: cliniciansList });
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response);
     }
 }

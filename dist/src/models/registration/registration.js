@@ -66,7 +66,7 @@ class Registration {
         try {
             const generatedId = await this.generatePatientFullUniqueId(tenantId);
             if (generatedId) {
-                const { designation, firstname, lastname, middlename, age, ageType, gender, employeeid, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
+                const { designation, firstname, lastname, middlename, age, ageType, gender, employeeid, relativecontactname, relativecontactnumber, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
                 // Enforce only one 'self' per mobile_number
                 let mobileStr = undefined;
                 if (mobile) {
@@ -104,7 +104,9 @@ class Registration {
                     generatedId,
                     mobileownership,
                     designation,
-                    employeeid
+                    employeeid,
+                    relativecontactname,
+                    relativecontactnumber
                 ];
                 const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_new_registation, values);
                 return result.insertId;
@@ -333,7 +335,7 @@ class Registration {
             const db = await (0, KnexConnections_1.default)(tenantid);
             let query = db("new_patients")
                 .leftJoin("roles as rr", "new_patients.registeredby", "rr.employeeid")
-                .select("new_patients.patientid", "new_patients.fullpatientid", "new_patients.firstname", "new_patients.lastname", "new_patients.middlename", "new_patients.gender", "new_patients.age", "new_patients.mobile_number as contact", "new_patients.mobile_number", "new_patients.email", "new_patients.organization", "new_patients.registeredby", "rr.username as registeredbyusername", "new_patients.date", db.raw("CONCAT(new_patients.firstname, ' ', COALESCE(new_patients.middlename, ''), ' ', new_patients.lastname) as fullname"));
+                .select("new_patients.patientid", "new_patients.fullpatientid", "new_patients.firstname", "new_patients.lastname", "new_patients.middlename", "new_patients.gender", "new_patients.age", "new_patients.mobile_number as contact", "new_patients.mobile_number", "new_patients.ageType", "new_patients.email", "new_patients.organization", "new_patients.registeredby", "rr.username as registeredbyusername", "new_patients.date", db.raw("CONCAT(new_patients.firstname, ' ', COALESCE(new_patients.middlename, ''), ' ', new_patients.lastname) as fullname"));
             for (const field in filters) {
                 const dbColumn = fieldMapping[field];
                 if (!dbColumn)
@@ -371,9 +373,17 @@ class Registration {
                     query = query.andWhere(`new_patients.${dbColumn}`, "=", value);
                 }
             }
+            // Add date range filtering if provided
+            const { startDate, endDate } = filters;
+            if (startDate) {
+                query = query.andWhere(db.raw("DATE(new_patients.date) >= ?", [startDate]));
+            }
+            if (endDate) {
+                query = query.andWhere(db.raw("DATE(new_patients.date) <= ?", [endDate]));
+            }
             const patients = await query
                 .orderBy("patientid", "desc")
-                .limit(20);
+                .limit(30);
             return patients;
         }
         catch (error) {

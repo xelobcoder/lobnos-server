@@ -58,6 +58,7 @@ class Operations {
             const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_approved_samples, [this.billingid]);
             return !(result.length === 0);
         }
+        return undefined;
     }
     async getLaboratoryTestReadyForResultEntry(tenantId, departmentid, branchid) {
         const certified = await this.readyforTest(tenantId);

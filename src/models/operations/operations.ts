@@ -34,7 +34,7 @@ export default class Operations {
 		return result.length === 0;
 	}
 
-	async readyforTest(tenantId: number): Promise<boolean | string> {
+	async readyforTest(tenantId: number): Promise<boolean | string | undefined> {
 		const validId = await this.isvalidBillingid(tenantId);
 		if (!validId) {
 			return "Invalid billingid";
@@ -43,6 +43,8 @@ export default class Operations {
 			const result = await promisifyQuery(tenantId, q_approved_samples, [this.billingid]);
 			return !(result.length === 0);
 		}
+
+		return undefined
 	}
 
 	public async getLaboratoryTestReadyForResultEntry(tenantId: number, departmentid: number | string, branchid: number): Promise<[] | string> {
@@ -225,7 +227,7 @@ export default class Operations {
 		}
 	}
 
-	async getAllEnterResult(tenantId: number, data: resultQuery): Promise<any[]> {
+	async getAllEnterResult(tenantId: number, data: resultQuery): Promise<any[] | undefined> {
 		try {
 			const { from, to, patientid, billingid, fullname, sortingwise, count, page, mobile_number, ascensionid } = data;
 			let queryString = q_get_all_entered_result;

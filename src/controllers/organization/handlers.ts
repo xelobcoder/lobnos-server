@@ -1,13 +1,13 @@
-import { IRequest, IResponse } from "./interfaces";
 import Organization from "../../models/organization/organization";
 import { OperationsStatus } from "../../models/organization/OrgaInterfac";
 import { getUploadedImages } from "./uploadImages";
 import OrganizationalBilling from "../../models/organization/organizationBilling";
 import { HTTPSTATUSERRORS } from "../../Errors/HTTPErrors";
 import { customError, responseError } from "../../hooks/helper";
+import { Request, Response } from "express";
 
 
-export const getOrganizations = async (req: IRequest, res: IResponse): Promise<void> => {
+export const getOrganizations = async (req: Request<{}, {}, {}, { tenantId: string }>, res: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(req.query.tenantId.toString())
 		const organizations = await new Organization(null).getOrganizations(tenantIdP);
@@ -17,7 +17,7 @@ export const getOrganizations = async (req: IRequest, res: IResponse): Promise<v
 	}
 };
 
-export const getOrganizationsBasic = async (request: IRequest, response: IResponse): Promise<void> => {
+export const getOrganizationsBasic = async (request: Request<{}, {}, {}, { tenantId: string, id: string }>, response: Response): Promise<void> => {
 	try {
 		const { id } = request.query
 		const tenantIdP = parseInt(request.query.tenantId.toString())
@@ -30,7 +30,7 @@ export const getOrganizationsBasic = async (request: IRequest, response: IRespon
 	}
 };
 
-export const getOrganizationsContact = async (req: IRequest, res: IResponse): Promise<void> => {
+export const getOrganizationsContact = async (req: Request<{}, {}, {}, { tenantId: string, id: string }>, res: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(req.query.tenantId.toString())
 		const organizationsContact = await new Organization(parseInt(req.query.id.toString())).getOrganizationContact(tenantIdP);
@@ -41,7 +41,7 @@ export const getOrganizationsContact = async (req: IRequest, res: IResponse): Pr
 	}
 };
 
-export const getOrganizationsPayment = async (request: IRequest, response: IResponse): Promise<void> => {
+export const getOrganizationsPayment = async (request: Request<{}, {}, {}, { tenantId: string, id: string }>, response: Response): Promise<void> => {
 	try {
 		const organizationid = request.query.id;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
@@ -54,7 +54,7 @@ export const getOrganizationsPayment = async (request: IRequest, response: IResp
 	}
 };
 
-export const deleteOrganization = async (request: IRequest, response: IResponse): Promise<void> => {
+export const deleteOrganization = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string, employeeid: string, isPasswordConfirmed: string }>, response: Response): Promise<void> => {
 	try {
 		const { organizationid, employeeid, isPasswordConfirmed } = request.query;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
@@ -66,7 +66,7 @@ export const deleteOrganization = async (request: IRequest, response: IResponse)
 	}
 };
 
-export const getOrganizationWithDetails = async (request: IRequest, response: IResponse): Promise<void> => {
+export const getOrganizationWithDetails = async (request: Request<{}, {}, {}, { tenantId: string, id: string }>, response: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const organizationDetails = await new Organization(null).getOrganizationWithDetails(tenantIdP, request.query);
@@ -78,7 +78,7 @@ export const getOrganizationWithDetails = async (request: IRequest, response: IR
 
 
 
-export const uploadOrganizationProfilePicture = async (request: IRequest, response: IResponse): Promise<void> => {
+export const uploadOrganizationProfilePicture = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		response.send({ status: HTTPSTATUSERRORS.HTTP_501_NOT_IMPLEMENTED })
@@ -88,7 +88,7 @@ export const uploadOrganizationProfilePicture = async (request: IRequest, respon
 }
 
 
-export const getOrganizationImage = async (request: IRequest, response: IResponse) => {
+export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
 		const { id } = request.query;
 		const filename = await getUploadedImages('organizations', id.toString());
@@ -100,7 +100,7 @@ export const getOrganizationImage = async (request: IRequest, response: IRespons
 	}
 }
 
-export const createAOrganization = async (request: IRequest, response: IResponse) => {
+export const createAOrganization = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const isCreatedSuccess = await new Organization(null).createAorganization(tenantIdP, request.body);
@@ -113,7 +113,7 @@ export const createAOrganization = async (request: IRequest, response: IResponse
 	}
 };
 
-export const updateOrganizationBasic = async (request: IRequest, response: IResponse): Promise<void> => {
+export const updateOrganizationBasic = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const isUpdated = await new Organization(null).updateOrganizationBasic(tenantIdP, request.body);
@@ -123,7 +123,7 @@ export const updateOrganizationBasic = async (request: IRequest, response: IResp
 	}
 };
 
-export const updateOrganizationContact = async (request: IRequest, response: IResponse): Promise<void> => {
+export const updateOrganizationContact = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const { organizationid } = request.body;
 		if (!organizationid) return customError('Invalid request body provided', 400, response);
@@ -135,7 +135,7 @@ export const updateOrganizationContact = async (request: IRequest, response: IRe
 	}
 };
 
-export const updateOrganizationPayment = async (request: IRequest, response: IResponse): Promise<void> => {
+export const updateOrganizationPayment = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const { id } = request.body;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
@@ -146,7 +146,7 @@ export const updateOrganizationPayment = async (request: IRequest, response: IRe
 	}
 };
 
-export const upload = async (req: IRequest, res: IResponse): Promise<void> => {
+export const upload = async (req: Request<{}, {}, {}, { tenantId: string }>, res: Response): Promise<void> => {
 	try {
 		if (!req.file) {
 			res.status(400).json({ error: "No file uploaded" });
@@ -158,7 +158,7 @@ export const upload = async (req: IRequest, res: IResponse): Promise<void> => {
 	}
 };
 
-export const dailyOrganizationCommission = async (request: IRequest, response: IResponse): Promise<void> => {
+export const dailyOrganizationCommission = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, response: Response): Promise<void> => {
 	try {
 		const { organizationid } = request.query;
 		if (!organizationid) return customError('organizationid not provided', 400, response);
@@ -171,7 +171,7 @@ export const dailyOrganizationCommission = async (request: IRequest, response: I
 	}
 };
 
-export const getOrganizationCommissionByMonth = async (request: IRequest, response: IResponse): Promise<void> => {
+export const getOrganizationCommissionByMonth = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, response: Response): Promise<void> => {
 	try {
 		const { organizationid } = request.query;
 		if (!organizationid) return customError('organizationid not provided', 400, response);
@@ -184,7 +184,7 @@ export const getOrganizationCommissionByMonth = async (request: IRequest, respon
 	}
 };
 
-export const getOrganizationId = async (req: IRequest, res: IResponse): Promise<void> => {
+export const getOrganizationId = async (req: Request, res: Response): Promise<void> => {
 	try {
 		// const organizationId = await Organization.getOrganizationId(req, res);
 		// res.status(200).json({ organizationId });
@@ -194,7 +194,7 @@ export const getOrganizationId = async (req: IRequest, res: IResponse): Promise<
 	}
 };
 
-export const getTopPerformance = async (request: IRequest, response: IResponse): Promise<void> => {
+export const getTopPerformance = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const topPerformers = await new Organization(null).getTopPerformance(tenantIdP, request.query)
@@ -204,7 +204,7 @@ export const getTopPerformance = async (request: IRequest, response: IResponse):
 	}
 };
 
-export const generateMonthlySalesReport = async (req: IRequest, res: IResponse): Promise<void> => {
+export const generateMonthlySalesReport = async (req: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, res: Response): Promise<void> => {
 	try {
 		let { organizationid } = req.query;
 		if (!organizationid) return customError("Organization id required", 404, res);
@@ -220,7 +220,7 @@ export const generateMonthlySalesReport = async (req: IRequest, res: IResponse):
 
 
 
-export const createOrganizationPricingHandler = async (request: IRequest, response: IResponse) => {
+export const createOrganizationPricingHandler = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, response: Response) => {
 	try {
 		const responseBody = request.body;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
@@ -233,7 +233,7 @@ export const createOrganizationPricingHandler = async (request: IRequest, respon
 	}
 }
 
-export const getOrganizationPricingHandler = async (request: IRequest, response: IResponse) => {
+export const getOrganizationPricingHandler = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, response: Response) => {
 	try {
 		const organizationid = request.query.organizationid;
 		if (!organizationid) return customError("organizational id missing in query", 400, response);
@@ -246,7 +246,7 @@ export const getOrganizationPricingHandler = async (request: IRequest, response:
 	}
 }
 
-export const bulkInsertOrganizationsHandler = async (req: IRequest, res: IResponse) => {
+export const bulkInsertOrganizationsHandler = async (req: Request<{}, {}, {}, { tenantId: string }>, res: Response) => {
 	try {
 		const tenantId = parseFloat(req.query.tenantId as string);
 		const organizations = req.body.data;

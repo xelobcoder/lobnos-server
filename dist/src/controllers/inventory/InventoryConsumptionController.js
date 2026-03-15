@@ -1104,9 +1104,9 @@ class InventoryConsumptionController {
                 item_sku: consumption.item_sku || '',
                 batch_number: consumption.batch_number,
                 brand_name: consumption.brand_name,
-                expiry_date: null, // Not directly available in consumption_history
+                expiry_date: null,
                 quantity_wasted: consumption.quantity_consumed,
-                wastage_type: 'other', // Non-expired wastage
+                wastage_type: 'other',
                 reason: consumption.consumption_reason,
                 performed_by: {
                     employee_id: consumption.employee_id,

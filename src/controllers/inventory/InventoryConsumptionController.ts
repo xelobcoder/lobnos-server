@@ -1207,7 +1207,7 @@ export class InventoryConsumptionController {
                });
 
                const totalExpiredQuantity = expiredConsumptionHistory.reduce((sum: any, c: any) => sum + c.quantity_consumed, 0);
-               const uniqueBatches = new Set(expiredConsumptionHistory.map(c => c.batch_number).filter(Boolean)).size;
+               const uniqueBatches = new Set(expiredConsumptionHistory.map(c=> c.batch_number).filter(Boolean)).size;
                const uniqueItems = new Set(expiredConsumptionHistory.map(c => c.item_id)).size;
 
                const expiredConsumptionData = expiredConsumptionHistory.map((consumption: any) => ({
@@ -1349,9 +1349,9 @@ export class InventoryConsumptionController {
                     item_sku: consumption.item_sku || '',
                     batch_number: consumption.batch_number,
                     brand_name: consumption.brand_name,
-                    expiry_date: null, // Not directly available in consumption_history
+                    expiry_date: null, 
                     quantity_wasted: consumption.quantity_consumed,
-                    wastage_type: 'other', // Non-expired wastage
+                    wastage_type: 'other', 
                     reason: consumption.consumption_reason,
                     performed_by: {
                          employee_id: consumption.employee_id,

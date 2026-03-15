@@ -21,6 +21,8 @@ export interface IPayrollTransaction {
      nhis: number;
      total_other_deductions: number;
      total_deductions: number;
+     employeename?: string;
+     employeerole?: string;
      net_salary: number;
      employer_cost: number;
      days_worked: number;
@@ -114,6 +116,8 @@ export class PayrollTransactionRepository {
                overtime_hours: Number(transaction.overtime_hours) || 0,
                days_absent: Number(transaction.days_absent) || 0,
                days_leave: Number(transaction.days_leave) || 0,
+               employeename: transaction.username || '',
+               employeerole: transaction.role || '',
                status: transaction.status,
                payment_date: transaction.payment_date ?
                     (transaction.payment_date instanceof Date ?
@@ -162,7 +166,8 @@ export class PayrollTransactionRepository {
      async getByEmployeeId(employeeid: number): Promise<IPayrollTransaction[]> {
           const connection = await this.connection;
           const transactions = await connection('payroll_transactions')
-               .where({ employeeid })
+               .leftJoin('roles', 'payroll_transactions.employeeid', 'roles.employeeid')
+               .where({ 'payroll_transactions.employeeid': employeeid })
                .orderBy('created_at', 'desc');
           return transactions.map(t => this.parseTransactionDetails(t));
      }

@@ -83,6 +83,8 @@ export default class Registration {
 					ageType,
 					gender,
 					employeeid,
+					relativecontactname,
+					relativecontactnumber,
 					email,
 					mobile,
 					days,
@@ -120,7 +122,6 @@ export default class Registration {
 
 				const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
 				const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
-
 				const values = [
 					firstname,
 					lastname,
@@ -137,7 +138,9 @@ export default class Registration {
 					generatedId,
 					mobileownership,
 					designation,
-					employeeid
+					employeeid,
+					relativecontactname,
+					relativecontactnumber
 				];
 				const result = await promisifyQuery(tenantId, q_new_registation, values);
 				return result.insertId;
@@ -384,7 +387,7 @@ export default class Registration {
 	}
 
 
-	static async AdvancedPatientFilter(tenantid: number, requestbody: Partial<NewRegistration>): Promise<PrimeLimsTablenew_patients[]> {
+	static async AdvancedPatientFilter(tenantid: number, requestbody: Partial<NewRegistration> & { startDate?: string; endDate?: string }): Promise<PrimeLimsTablenew_patients[]> {
 		try {
 			const filters = requestbody;
 			if (!filters || Object.keys(filters).length === 0) throw new Error("No filter criteria provided");
@@ -416,6 +419,7 @@ export default class Registration {
 					"new_patients.age",
 					"new_patients.mobile_number as contact",
 					"new_patients.mobile_number",
+					"new_patients.ageType",
 					"new_patients.email",
 					"new_patients.organization",
 					"new_patients.registeredby",
@@ -460,9 +464,18 @@ export default class Registration {
 				}
 			}
 
+			// Add date range filtering if provided
+			const { startDate, endDate } = filters;
+			if (startDate) {
+				query = query.andWhere(db.raw("DATE(new_patients.date) >= ?", [startDate]));
+			}
+			if (endDate) {
+				query = query.andWhere(db.raw("DATE(new_patients.date) <= ?", [endDate]));
+			}
+
 			const patients = await query
 				.orderBy("patientid", "desc")
-				.limit(20);
+				.limit(30)
 
 
 			return patients;
