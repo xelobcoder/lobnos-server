@@ -98,7 +98,7 @@ export default class ClinicianClass {
 				} else {
 					results.push("Insert failed");
 				}
-			} catch (err) {
+			} catch (err: { message?: string; sqlState?: string; sqlMessage?: string } | any) {
 				if (err && err.sqlState === '23000' && err.sqlMessage && err.sqlMessage.includes('Duplicate entry')) {
 					results.push("Duplicate entry error: " + err.sqlMessage);
 					continue;
@@ -119,11 +119,11 @@ export default class ClinicianClass {
 		// If no filters, use the original logic
 		if (!hasFilters) {
 			if (role && role.toString().trim() === "admin") {
-				return (count && page) ? await paginationQuery({ page, count }, SQLQueries.getCliniciansWithExtendedPagination, [], tenantId) :
+				return (count && page) ? await paginationQuery({ page : parseInt(page.toString()), count: parseInt(count.toString()) }, SQLQueries.getCliniciansWithExtendedPagination, [], tenantId) :
 					await promisifyQuery(tenantId, SQLQueries.getAllCliniciansWithPaymentInfo);
 			}
 			else {
-				return (count && page) ? await paginationQuery({ page, count }, SQLQueries.getCliniciansWithPagination, [], tenantId) :
+				return (count && page) ? await paginationQuery({ page: parseInt(page.toString()), count: parseInt(count.toString()) }, SQLQueries.getCliniciansWithPagination, [], tenantId) :
 					await promisifyQuery(tenantId, SQLQueries.getAllClinicians);
 			}
 		}
@@ -166,7 +166,7 @@ export default class ClinicianClass {
 	}
 
 	public async putCliniciansBasic(tenantId: number,
-		records: Partial<PrimeLimsTableclinicianbasicinfo>): Promise<string | boolean> {
+		records: Partial<PrimeLimsTableclinicianbasicinfo> & {phone: string,email: string,id: number}): Promise<string | boolean> {
 		const { name, phone, email, location, address, occupation, id } = records;
 
 		const isPhoneValid = TiifuWorkingClass.isNumberPhoneNumber(phone);

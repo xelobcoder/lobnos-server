@@ -34,6 +34,34 @@ export const getAllEnterResult = async (req: Request, res: Response) => {
 	}
 };
 
+
+
+export const getAscensionOverViewModelHandler = async (req: Request, res: Response) => {
+	try {
+		const { tenantid, date } = req.query;
+		if (!date) return customError("date not included in request query", 400, res);
+		const tId = parseInt(tenantid as string, 10);
+		const result = await Operations.getAscensionOverViewModel(tId, date.toString());
+		res.send({ statusCode: 200, message: "success", result });
+	} catch (err) {
+		responseError(res);
+	}
+}
+
+
+
+export const getAscensionOverViewModelTransactionHandler = async (req: Request, res: Response) => {
+	try {
+		const { tenantid, billingid } = req.query;
+		if (!billingid) return customError("billingid not included in request query", 400, res);
+		const tId = parseInt(tenantid as string, 10);
+		const result = await Operations.getAscensionOverViewModelTransaction(tId, parseInt(billingid.toString()));
+		res.send({ statusCode: 200, message: "success", result });
+	} catch (err) {
+		responseError(res);
+	}
+}
+
 export const getAllTestPreview = async (req: Request, res: Response) => {
 	try {
 		const { billingid, tenantId } = req.query;
@@ -74,7 +102,7 @@ export const getUltrasoundWaitingList = async (req: Request, res: Response) => {
 
 export const searchLaboratoryOperations = async (req: Request, res: Response) => {
 	try {
-		const { tenantId, page = '1', count = '10', patientId, billingId, accessionId,start_date,end_date } = req.query;
+		const { tenantId, page = '1', count = '10', patientId, billingId, accessionId, start_date, end_date } = req.query;
 		if (!patientId && !billingId && !accessionId && !start_date && !end_date) {
 			return customError("At least one search parameter is required: patientId, billingId, or accessionId", 400, res);
 		}
@@ -99,7 +127,8 @@ export const searchLaboratoryOperations = async (req: Request, res: Response) =>
 			message: "Laboratory operations search completed",
 			data: result
 		});
-	} catch (err: any) {2
+	} catch (err: any) {
+		2
 		return customError("Failed to retrieve laboratory operations data. Please try again later.", 500, res);
 	}
 };

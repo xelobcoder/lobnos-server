@@ -139,6 +139,161 @@ export default class Operations {
 		}
 	}
 
+
+	public static async getAscensionOverViewModel(tenantid: number, date: string): Promise<any> {
+		const query = `SELECT 
+					p.patientid,
+
+					CONCAT(
+						p.fullpatientid, ' | ',
+						p.firstname, ' ', p.lastname, ' | ',
+						p.gender, ' | ',
+						p.age, ' ', p.agetype
+					) AS patient_details,
+
+					b.billingid,
+					b.billedon,
+
+					COUNT(ta.id) AS total_tests,
+
+					-- 🔥 Test name + stage combined
+					GROUP_CONCAT(
+						DISTINCT CONCAT(
+							COALESCE(tp.name, CONCAT('Test-', ta.testid)),
+							' (',
+							CASE
+								WHEN ta.resultEntryEnd IS NOT NULL THEN 'Completed'
+								WHEN ta.processingEndDate IS NOT NULL THEN 'Processing Done'
+								WHEN ta.collectionEndDate IS NOT NULL THEN 'Collected'
+								ELSE 'Pending'
+							END,
+							')'
+						)
+						ORDER BY tp.name
+						SEPARATOR ', '
+					) AS tests_with_stage
+
+					FROM billing b
+
+					JOIN new_patients p 
+					ON p.patientid = b.patientid
+
+					JOIN test_ascension ta 
+					ON ta.billingid = b.billingid
+
+					LEFT JOIN test_panels tp 
+					ON tp.id = ta.testid
+
+					WHERE DATE(b.billedon )= DATE(?)
+
+					GROUP BY 
+					b.billingid
+
+					ORDER BY 
+					b.billingid DESC;`
+
+		console.log("Generated Query for Ascension Overview: ", query);
+
+		return await promisifyQuery(tenantid, query, [date]);
+	}
+
+
+	public static async getAscensionOverViewModelTransaction(tenantid: number, billingid: number): Promise<any> {
+		const query = `
+													SELECT 
+							ta.id AS ascension_id,
+
+							ta.testid,
+							COALESCE(tp.name, CONCAT('Test-', ta.testid)) AS test_name,
+
+							ta.serviceid,
+							ta.billingid,
+
+							ta.ascension_date,
+
+							ta.collectionStartDate,
+							ta.collectionEndDate,
+							ta.processingStartDate,
+							ta.processingEndDate,
+							ta.resultEntryStart,
+							ta.resultEntryEnd,
+
+							rr.username AS collected_by_name,
+							vv.username AS processed_by_name,
+							ee.username AS result_entered_by_name,
+
+							-- 🔬 SAMPLE STATUS
+							ss.keyid AS sample_status_id,
+							ss.approvalstatus,
+							ss.rejectionmessage,
+							ss.isRedraw,
+							ss.samplevalidatedon,
+
+							CASE
+								WHEN ss.approvalstatus = 1 THEN 'Validated'
+								WHEN ss.rejectionmessage IS NOT NULL THEN 'Rejected'
+								WHEN ss.isRedraw = 1 THEN 'Redraw Requested'
+								WHEN ss.keyid IS NOT NULL THEN 'Pending Validation'
+								ELSE 'No Sample'
+							END AS sample_validation_stage,
+
+							-- 🧪 RESULT VALIDATION
+							ra.id AS result_approval_id,
+							ra.isapproved,
+							ra.approvedBy,
+							ra.printCount,
+							ra.minvalidation,
+							ra.maxvalidation,
+							ra.lastupdatedon,
+
+							CASE
+								WHEN ra.isapproved = 1 THEN 'Approved'
+								WHEN ra.id IS NOT NULL THEN 'Pending Approval'
+								ELSE 'No Result Yet'
+							END AS result_validation_stage,
+
+							-- 🔬 TEST WORKFLOW
+							CASE
+								WHEN ta.resultEntryEnd IS NOT NULL THEN 'Completed'
+								WHEN ta.processingEndDate IS NOT NULL THEN 'Processing Done'
+								WHEN ta.collectionEndDate IS NOT NULL THEN 'Collected'
+								WHEN ta.collectionStartDate IS NOT NULL THEN 'Collection Started'
+								ELSE 'Pending'
+							END AS current_stage
+
+							FROM test_ascension ta
+
+							LEFT JOIN test_panels tp 
+							ON tp.id = ta.testid
+
+							LEFT JOIN roles rr 
+							ON rr.employeeid = ta.sampleCollectedBy
+
+							LEFT JOIN roles vv
+							ON vv.employeeid = ta.sampleProcessedBy
+
+							LEFT JOIN roles ee
+							ON ee.employeeid = ta.resultEnteredBy
+
+							-- 🔬 SAMPLE STATUS (direct join as requested)
+							LEFT JOIN samplestatus ss
+							ON ss.ascensionid = ta.id
+
+							-- 🧪 RESULT VALIDATION (NEW)
+							LEFT JOIN dbotestresultapproval ra
+							ON ra.ascensionid = ta.id
+
+							WHERE ta.billingid = ?
+
+							ORDER BY 
+							ta.id ASC,
+							ss.keyid ASC,
+							ra.id ASC;
+		`
+
+		return await promisifyQuery(tenantid, query, [billingid]);
+	}
+
 	private static async generateAscensionQuery(queryParams: ascensionStageRequestQueryTypes)
 		: Promise<{ conditions: (string | Date)[]; finalQuery: string; }> {
 		const { from, to, isUltrasound, stage, clinicianId, organizationId, patientname, testid, patientid, billingid, ascensionid } = queryParams
@@ -237,7 +392,7 @@ export default class Operations {
 			conditions.push(`ss.approvalstatus = 1`);
 			conditions.push('dta.isapproved = 1');
 
-			
+
 
 			if (patientid && !isNaN(patientid)) {
 				conditions.push(`np.patientid = ?`);
@@ -282,7 +437,7 @@ export default class Operations {
 			queryString += ` ORDER BY ta.ascension_date ${sortingwise === 'ASC' ? 'ASC' : 'DESC'}`;
 			queryString += ` LIMIT ? OFFSET ?`;
 
-			
+
 
 			const result = await paginationQuery({ page, count }, queryString, values, tenantId);
 
@@ -370,7 +525,7 @@ export default class Operations {
 
 			query += ` GROUP BY ta.id ORDER BY ta.id {sorting} LIMIT ? OFFSET ? `;
 			query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
-			
+
 			return await paginationQuery({ count, page }, query, conditionValues, tenantId);
 
 		} catch (err) {

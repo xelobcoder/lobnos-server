@@ -6,6 +6,8 @@ import {
   getAllPendingCases,
   getUltrasoundWaitingList,
   searchLaboratoryOperations,
+  getAscensionOverViewModelHandler,
+  getAscensionOverViewModelTransactionHandler,
 } from "./operationsHandlers"
 
 import {
@@ -66,6 +68,8 @@ router.get(`/api/v1/operations/collection`, getAllCollections);
 router.get(`/api/v1/operations/laboratory/search`, handleOverLoad(searchLaboratoryOperations));
 router.get(`/api/v1/operations/ascension/staging`, handleOverLoad(ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, getAllEnterResult);
+router.get('/api/v1/operations/overview/folder', getAscensionOverViewModelHandler);
+router.get('/api/v1/operations/overview/folder/open/transaction', getAscensionOverViewModelTransactionHandler);
 router.get(`/api/v1/operations/test/result`, getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, getAllPendingCases);
 router.get(`/api/v1/operations/imaging/ultrasound`, getUltrasoundWaitingList);

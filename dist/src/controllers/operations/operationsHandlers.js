@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.searchLaboratoryOperations = exports.getUltrasoundWaitingList = exports.getAllPendingCases = exports.getAllTestPreview = exports.getAllEnterResult = exports.getAllCollections = void 0;
+exports.searchLaboratoryOperations = exports.getUltrasoundWaitingList = exports.getAllPendingCases = exports.getAllTestPreview = exports.getAscensionOverViewModelTransactionHandler = exports.getAscensionOverViewModelHandler = exports.getAllEnterResult = exports.getAllCollections = void 0;
 const operations_1 = __importDefault(require("../../models/operations/operations"));
 const helper_1 = require("../../hooks/helper");
 const getAllCollections = async (req, res) => {
@@ -35,6 +35,34 @@ const getAllEnterResult = async (req, res) => {
     }
 };
 exports.getAllEnterResult = getAllEnterResult;
+const getAscensionOverViewModelHandler = async (req, res) => {
+    try {
+        const { tenantid, date } = req.query;
+        if (!date)
+            return (0, helper_1.customError)("date not included in request query", 400, res);
+        const tId = parseInt(tenantid, 10);
+        const result = await operations_1.default.getAscensionOverViewModel(tId, date.toString());
+        res.send({ statusCode: 200, message: "success", result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.getAscensionOverViewModelHandler = getAscensionOverViewModelHandler;
+const getAscensionOverViewModelTransactionHandler = async (req, res) => {
+    try {
+        const { tenantid, billingid } = req.query;
+        if (!billingid)
+            return (0, helper_1.customError)("billingid not included in request query", 400, res);
+        const tId = parseInt(tenantid, 10);
+        const result = await operations_1.default.getAscensionOverViewModelTransaction(tId, parseInt(billingid.toString()));
+        res.send({ statusCode: 200, message: "success", result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res);
+    }
+};
+exports.getAscensionOverViewModelTransactionHandler = getAscensionOverViewModelTransactionHandler;
 const getAllTestPreview = async (req, res) => {
     try {
         const { billingid, tenantId } = req.query;

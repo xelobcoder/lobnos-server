@@ -19,6 +19,8 @@ router.get(`/api/v1/operations/collection`, operationsHandlers_1.getAllCollectio
 router.get(`/api/v1/operations/laboratory/search`, (0, helper_1.handleOverLoad)(operationsHandlers_1.searchLaboratoryOperations));
 router.get(`/api/v1/operations/ascension/staging`, (0, helper_1.handleOverLoad)(ascensionStageHandler_1.ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, operationsHandlers_1.getAllEnterResult);
+router.get('/api/v1/operations/overview/folder', operationsHandlers_1.getAscensionOverViewModelHandler);
+router.get('/api/v1/operations/overview/folder/open/transaction', operationsHandlers_1.getAscensionOverViewModelTransactionHandler);
 router.get(`/api/v1/operations/test/result`, operationsHandlers_1.getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, operationsHandlers_1.getAllPendingCases);
 router.get(`/api/v1/operations/imaging/ultrasound`, operationsHandlers_1.getUltrasoundWaitingList);

@@ -1,10 +1,12 @@
 import Organization from "../../models/organization/organization";
-import { OperationsStatus } from "../../models/organization/OrgaInterfac";
+import { OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "../../models/organization/OrgaInterfac";
 import { getUploadedImages } from "./uploadImages";
 import OrganizationalBilling from "../../models/organization/organizationBilling";
 import { HTTPSTATUSERRORS } from "../../Errors/HTTPErrors";
 import { customError, responseError } from "../../hooks/helper";
 import { Request, Response } from "express";
+import { CreationRule } from "../../models/creator/creator.type";
+
 
 
 export const getOrganizations = async (req: Request<{}, {}, {}, { tenantId: string }>, res: Response): Promise<void> => {
@@ -69,7 +71,7 @@ export const deleteOrganization = async (request: Request<{}, {}, {}, { tenantId
 export const getOrganizationWithDetails = async (request: Request<{}, {}, {}, { tenantId: string, id: string }>, response: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const organizationDetails = await new Organization(null).getOrganizationWithDetails(tenantIdP, request.query);
+		const organizationDetails = await new Organization(null).getOrganizationWithDetails(tenantIdP, request.query as searchQueryParams);
 		response.send({ statusCode: 200, result: organizationDetails, status: "success" })
 	} catch (error) {
 		response.send({ error: "Internal server error" });
@@ -88,7 +90,7 @@ export const uploadOrganizationProfilePicture = async (request: Request<{}, {}, 
 }
 
 
-export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
+export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenantId: string ,id: string }>, response: Response) => {
 	try {
 		const { id } = request.query;
 		const filename = await getUploadedImages('organizations', id.toString());
@@ -103,7 +105,7 @@ export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenant
 export const createAOrganization = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const isCreatedSuccess = await new Organization(null).createAorganization(tenantIdP, request.body);
+		const isCreatedSuccess = await new Organization(null).createAorganization(tenantIdP, request.body  as OrganizationRequestBody);
 		if (isCreatedSuccess === OperationsStatus.exist) {
 			return response.send({ message: OperationsStatus.exist, status: 'exist' })
 		}
@@ -123,23 +125,23 @@ export const updateOrganizationBasic = async (request: Request<{}, {}, {}, { ten
 	}
 };
 
-export const updateOrganizationContact = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
+export const updateOrganizationContact = async (request: Request<{}, {}, {organizationid: string |  number}, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const { organizationid } = request.body;
 		if (!organizationid) return customError('Invalid request body provided', 400, response);
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const isResourcesUpdated = await new Organization(organizationid).updateOrganizationalContactInfo(tenantIdP, request.body);
+		const isResourcesUpdated = await new Organization(parseInt(organizationid.toString())).updateOrganizationalContactInfo(tenantIdP, request.body as OrgContactInfo);
 		response.send({ status: isResourcesUpdated, message: isResourcesUpdated ? "Organization contact information updated successfully" : "Organization contact information update failed" });
 	} catch (error) {
 		response.status(500).json({ error: "Internal server error" });
 	}
 };
 
-export const updateOrganizationPayment = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
+export const updateOrganizationPayment = async (request: Request<{}, {}, {id: string |  number}, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const { id } = request.body;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const is_field_updated = await new Organization(id).updateOrganizationPayment(tenantIdP, request.body);
+		const is_field_updated = await new Organization(parseInt(id.toString())).updateOrganizationPayment(tenantIdP, request.body);
 		response.send({ status: is_field_updated })
 	} catch (error) {
 		response.status(500).json({ error: "Internal server error" });
@@ -220,12 +222,12 @@ export const generateMonthlySalesReport = async (req: Request<{}, {}, {}, { tena
 
 
 
-export const createOrganizationPricingHandler = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, response: Response) => {
+export const createOrganizationPricingHandler = async (request: Request<{}, {}, {organizationid: string | number}, { tenantId: string, organizationid: string }>, response: Response) => {
 	try {
 		const responseBody = request.body;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const organizationalId = responseBody.organizationid;
-		const result = await new OrganizationalBilling(organizationalId).createOrganizationalPricing(tenantIdP, responseBody);
+		const organizationalId = parseInt(responseBody.organizationid.toString());
+		const result = await new OrganizationalBilling(organizationalId).createOrganizationalPricing(tenantIdP, responseBody as CreationRule);
 		return typeof result === "string" ? response.send({ status: false, message: result }) :
 			response.send({ status: result })
 	} catch (err) {
@@ -246,7 +248,7 @@ export const getOrganizationPricingHandler = async (request: Request<{}, {}, {},
 	}
 }
 
-export const bulkInsertOrganizationsHandler = async (req: Request<{}, {}, {}, { tenantId: string }>, res: Response) => {
+export const bulkInsertOrganizationsHandler = async (req: Request<{}, {}, {data:Object}, { tenantId: string }>, res: Response) => {
 	try {
 		const tenantId = parseFloat(req.query.tenantId as string);
 		const organizations = req.body.data;
@@ -265,7 +267,7 @@ export const bulkInsertOrganizationsHandler = async (req: Request<{}, {}, {}, { 
 			failCount,
 			results
 		});
-	} catch (error) {
+	} catch (error: { message?: string } | any) {
 		return res.status(500).json({ success: false, message: "Bulk insert failed", error: error?.message || error });
 	}
 };

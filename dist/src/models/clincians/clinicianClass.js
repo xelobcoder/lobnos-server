@@ -108,11 +108,11 @@ class ClinicianClass {
         // If no filters, use the original logic
         if (!hasFilters) {
             if (role && role.toString().trim() === "admin") {
-                return (count && page) ? await (0, helper_1.paginationQuery)({ page, count }, queries_1.default.getCliniciansWithExtendedPagination, [], tenantId) :
+                return (count && page) ? await (0, helper_1.paginationQuery)({ page: parseInt(page.toString()), count: parseInt(count.toString()) }, queries_1.default.getCliniciansWithExtendedPagination, [], tenantId) :
                     await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getAllCliniciansWithPaymentInfo);
             }
             else {
-                return (count && page) ? await (0, helper_1.paginationQuery)({ page, count }, queries_1.default.getCliniciansWithPagination, [], tenantId) :
+                return (count && page) ? await (0, helper_1.paginationQuery)({ page: parseInt(page.toString()), count: parseInt(count.toString()) }, queries_1.default.getCliniciansWithPagination, [], tenantId) :
                     await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.getAllClinicians);
             }
         }

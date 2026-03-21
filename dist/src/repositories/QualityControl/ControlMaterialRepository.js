@@ -134,7 +134,7 @@ class ControlMaterialRepository {
                 .orderBy('control_materials.createdAt', 'desc')
                 .limit(limit)
                 .offset(offset);
-            const data = rawData.map(material => {
+            const data = rawData.map((material) => {
                 const expiryDate = new Date(material.expiryDate);
                 const daysUntilExpiry = Math.ceil((expiryDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
                 return Object.assign(Object.assign({}, material), { currentStatus: daysUntilExpiry <= 0 ? 'expired' : material.status, daysUntilExpiry });

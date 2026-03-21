@@ -185,7 +185,7 @@ export class ControlMaterialRepository {
                 .limit(limit)
                 .offset(offset);
 
-            const data = rawData.map(material => {
+            const data = rawData.map((material: { expiryDate: string, status: string }) => {
                 const expiryDate = new Date(material.expiryDate);
                 const daysUntilExpiry = Math.ceil((expiryDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24));
                 return {

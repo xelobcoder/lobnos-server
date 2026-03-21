@@ -139,7 +139,7 @@ const updateOrganizationContact = async (request, response) => {
         if (!organizationid)
             return (0, helper_1.customError)('Invalid request body provided', 400, response);
         const tenantIdP = parseInt(request.query.tenantId.toString());
-        const isResourcesUpdated = await new organization_1.default(organizationid).updateOrganizationalContactInfo(tenantIdP, request.body);
+        const isResourcesUpdated = await new organization_1.default(parseInt(organizationid.toString())).updateOrganizationalContactInfo(tenantIdP, request.body);
         response.send({ status: isResourcesUpdated, message: isResourcesUpdated ? "Organization contact information updated successfully" : "Organization contact information update failed" });
     }
     catch (error) {
@@ -151,7 +151,7 @@ const updateOrganizationPayment = async (request, response) => {
     try {
         const { id } = request.body;
         const tenantIdP = parseInt(request.query.tenantId.toString());
-        const is_field_updated = await new organization_1.default(id).updateOrganizationPayment(tenantIdP, request.body);
+        const is_field_updated = await new organization_1.default(parseInt(id.toString())).updateOrganizationPayment(tenantIdP, request.body);
         response.send({ status: is_field_updated });
     }
     catch (error) {
@@ -245,7 +245,7 @@ const createOrganizationPricingHandler = async (request, response) => {
     try {
         const responseBody = request.body;
         const tenantIdP = parseInt(request.query.tenantId.toString());
-        const organizationalId = responseBody.organizationid;
+        const organizationalId = parseInt(responseBody.organizationid.toString());
         const result = await new organizationBilling_1.default(organizationalId).createOrganizationalPricing(tenantIdP, responseBody);
         return typeof result === "string" ? response.send({ status: false, message: result }) :
             response.send({ status: result });
