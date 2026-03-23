@@ -35,7 +35,7 @@ class SampleHandler extends ascension_1.TestAscension {
         }
         return true;
     }
-    static async getPendingUnvalidatedSamples(tenantId, pagination, startdate, enddate, sortby = 'ASC', searchstring) {
+    static async getPendingUnvalidatedSamples(tenantId, pagination, startdate, enddate, sortby = 'ASC', searchstring, billingid) {
         let query = queries_2.q_get_pending_collected_but_unvalidated_samples;
         const params = [];
         if (startdate) {
@@ -45,6 +45,10 @@ class SampleHandler extends ascension_1.TestAscension {
         if (enddate) {
             query += ` AND DATE(b.billedon) <= ? `;
             params.push(enddate);
+        }
+        if (billingid) {
+            query += ` AND b.billingid = ? `;
+            params.push(billingid);
         }
         if (searchstring) {
             const words = searchstring.trim().split(/\s+/).filter(w => w.length > 0);

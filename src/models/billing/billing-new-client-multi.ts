@@ -414,11 +414,15 @@ export class SubmitCustomerBilling {
                     }
                 }
 
+                
+
 
                 await trx.commit();
                 const parsedEmployeeId = parseInt(employeeid.toString(), 10);
                 const repo = new PrimeEventsSMSDataSource(tenantId);
                 await repo.paymentConfirmationEvent(tenantId, finalBillingId, parsedEmployeeId);
+            
+            
             }
 
             return { status: true, message: "Order submitted successfully", billingid: billingID };

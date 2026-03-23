@@ -32,10 +32,10 @@ class ResultSettings extends appset_1.default {
         const Rsettings = await this.getResultEntrySettings(tenantId);
         if (Rsettings === null)
             return false;
-        const staffQualifiedToValidationResult = Rsettings['staffQualifiedToValidationResult'];
-        if (staffQualifiedToValidationResult && Array.isArray(staffQualifiedToValidationResult) && staffQualifiedToValidationResult.includes(employeeId)) {
-            return true;
+        if (typeof Rsettings !== "boolean" && Rsettings && Array.isArray(Rsettings.staffQualifiedToValidationResult)) {
+            return Rsettings.staffQualifiedToValidationResult.includes(employeeId);
         }
+        return false;
     }
     static async isApprovalLimitReached(tenantId, approvalList, ascensionId = null, type = 'maximum') {
         if (!approvalList && !ascensionId) {

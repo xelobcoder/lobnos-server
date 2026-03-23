@@ -18,7 +18,7 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
 class TestAscension extends operations_1.default {
     constructor(ascensionId) {
-        super(null);
+        super(0);
         this.ascensionId = ascensionId;
     }
     static async updateSampleAscensionstate(tenantId, ascensionId, stage, value, employeeid) {
@@ -58,7 +58,7 @@ class TestAscension extends operations_1.default {
     }
     static async findAscension(tenantId, ascensionId) {
         if (!ascensionId)
-            return;
+            return null;
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_ascension_find_id, [ascensionId]);
         return result.length > 0 ? result[0] : null;
     }
@@ -85,9 +85,13 @@ class TestAscension extends operations_1.default {
             return billingclientTypes_1.Client_PLS_Lifecycle[2];
         return billingclientTypes_1.Client_PLS_Lifecycle[1];
     }
-    static async getPendingSampleUncollected(tenantId, count, page, start_date, end_date, filter, sortby = 'ASC') {
+    static async getPendingSampleUncollected(tenantId, count, page, start_date, end_date, filter, sortby = 'ASC', billingid) {
         let query = queries_1.q_pending_sample_uncollected;
         let params = [];
+        if (billingid) {
+            query += ` AND b.billingid = ?`;
+            params.push(billingid);
+        }
         if (start_date && end_date) {
             query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
             params = [start_date, end_date];
@@ -165,6 +169,8 @@ class TestAscension extends operations_1.default {
     }
     static async completeFlowByPass(tenantId, billingid, employeeid) {
         const application_settings = await new appset_1.default().getAllAppSettings(tenantId);
+        if (!application_settings)
+            return;
         const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
         if (isCompleteLabFlowEnabled)
             return;
@@ -211,6 +217,8 @@ class TestAscension extends operations_1.default {
         if (!Array.isArray(billingIds) || billingIds.length === 0)
             return;
         const application_settings = await new appset_1.default().getAllAppSettings(tenantId);
+        if (!application_settings)
+            return;
         const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
         if (isCompleteLabFlowEnabled)
             return;
@@ -247,6 +255,52 @@ class TestAscension extends operations_1.default {
         catch (error) {
             await trx.rollback();
             throw error;
+        }
+    }
+    static async systemLaboratoryByPass(tenantId, ascensionid, bypasstage, employeeid, trx) {
+        if (!bypasstage || !['byPassCollection', 'byPassProcessing', 'byPassSampleValidation', 'byPassValidation'].includes(bypasstage))
+            return;
+        const connection = trx ? trx : await (0, KnexConnections_1.default)(tenantId);
+        // laod application settings to check if complete lab flow is enabled
+        const application_settings = await new appset_1.default().getAllAppSettings(tenantId);
+        if (!application_settings)
+            return;
+        const { byPassCollection, byPassProcessing, byPassSampleValidation, byPassValidation } = application_settings;
+        const isPassCollectionEnabled = byPassCollection ? parseInt(byPassCollection.toString()) ? true : false : false;
+        const isPassProcessingEnabled = byPassProcessing ? parseInt(byPassProcessing.toString()) ? true : false : false;
+        const isPassSampleValidationEnabled = byPassSampleValidation ? parseInt(byPassSampleValidation.toString()) ? true : false : false;
+        const isPassValidationEnabled = byPassValidation ? parseInt(byPassValidation.toString()) ? true : false : false;
+        if (!isPassCollectionEnabled && !isPassProcessingEnabled && !isPassSampleValidationEnabled && !isPassValidationEnabled)
+            return;
+        if (bypasstage === 'byPassCollection' && isPassCollectionEnabled) {
+            await trx('test_ascension')
+                .update({
+                collectionStartDate: new Date(),
+                collectionEndDate: new Date(),
+                sampleCollectedBy: employeeid,
+            }).where({ id: ascensionid });
+        }
+        if (bypasstage === 'byPassProcessing' && isPassProcessingEnabled) {
+            await trx('test_ascension')
+                .update({
+                processingStartDate: new Date(),
+                processingEndDate: new Date(),
+                sampleProcessedBy: employeeid,
+            }).where({ id: ascensionid });
+        }
+        if (bypasstage === 'byPassSampleValidation' && isPassSampleValidationEnabled) {
+            await trx('samplestatus')
+                .update({
+                approvalstatus: 1,
+                phelobotomist: employeeid,
+                validatedby: employeeid,
+                samplevalidatedon: new Date(),
+            }).where({ ascensionid: ascensionid });
+        }
+        if (bypasstage === 'byPassValidation' && isPassValidationEnabled) {
+            await trx('dbotestresultapproval')
+                .update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() })
+                .where({ ascensionid: ascensionid });
         }
     }
 }

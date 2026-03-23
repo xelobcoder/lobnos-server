@@ -328,6 +328,7 @@ class Creator {
             await connection.transaction(async (trx) => {
                 await insertUpdate(trx, tenantId, fields, testid);
                 await drugProcessor();
+                await ascension_1.TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassValidation', employeeid, trx);
             });
             await CriticalValueEvaluator_1.CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
             return true;

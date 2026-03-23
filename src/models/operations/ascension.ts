@@ -28,11 +28,17 @@ export class TestAscension extends Operations {
 	ascensionId: number;
 
 	constructor(ascensionId: number) {
-		super(null);
+		super(0);
 		this.ascensionId = ascensionId;
 	}
 
-	public static async updateSampleAscensionstate(tenantId: number, ascensionId: number, stage: string, value: Date, employeeid: number): Promise<boolean | null> {
+	public static async updateSampleAscensionstate(
+		tenantId: number,
+		ascensionId: number,
+		stage: keyof typeof ascensionStages,
+		value: Date,
+		employeeid: number
+	): Promise<boolean | null> {
 		if (!ascensionId || !ascensionStages[stage] || !value) return false;
 
 		let query: string | null = null;
@@ -72,15 +78,15 @@ export class TestAscension extends Operations {
 	}
 
 
-	public static async findAscension(tenantId: number, ascensionId: number): Promise<testAscensionTableTypes> {
-		if (!ascensionId) return
+	public static async findAscension(tenantId: number, ascensionId: number): Promise<testAscensionTableTypes | null> {
+		if (!ascensionId) return null;
 		const result = await promisifyQuery(tenantId, q_ascension_find_id, [ascensionId]);
-		return result.length > 0 ? result[0] : null
+		return result.length > 0 ? result[0] : null;
 	}
 
 	public static async determineStage(tenantId: number, ascensionId: number): Promise<string | boolean> {
 		if (!ascensionId) return false;
-		const data: testAscensionTableTypes = await TestAscension.findAscension(tenantId, ascensionId);
+		const data: testAscensionTableTypes | null = await TestAscension.findAscension(tenantId, ascensionId);
 		if (!data) return false;
 		const {
 			collectionEndDate,
@@ -102,9 +108,14 @@ export class TestAscension extends Operations {
 		return Client_PLS_Lifecycle[1]
 	}
 
-	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number, start_date: Date | string, end_date: Date | string, filter?: string, sortby: 'ASC' | 'DESC' = 'ASC'): Promise<any[]> {
+	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number, start_date: Date | string, end_date: Date | string, filter?: string, sortby: 'ASC' | 'DESC' = 'ASC', billingid?: number): Promise<any[]> {
 		let query = q_pending_sample_uncollected;
 		let params: any[] = [];
+		if (billingid) {
+			query += ` AND b.billingid = ?`;
+			params.push(billingid);
+		}
+
 		if (start_date && end_date) {
 			query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
 			params = [start_date, end_date];
@@ -199,6 +210,7 @@ export class TestAscension extends Operations {
 
 	public static async completeFlowByPass(tenantId: number, billingid: number, employeeid: number): Promise<boolean | void> {
 		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		if (!application_settings) return;
 		const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
 		if (isCompleteLabFlowEnabled) return;
 
@@ -247,6 +259,7 @@ export class TestAscension extends Operations {
 	public static async completeFlowByPassMultiple(tenantId: number, billingIds: number[], employeeid: number): Promise<boolean | void> {
 		if (!Array.isArray(billingIds) || billingIds.length === 0) return;
 		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		if (!application_settings) return;
 		const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
 		if (isCompleteLabFlowEnabled) return;
 
@@ -284,5 +297,62 @@ export class TestAscension extends Operations {
 			throw error;
 		}
 	}
+
+
+	public static async systemLaboratoryByPass(tenantId: number, ascensionid: number, bypasstage: 'byPassCollection' | 'byPassProcessing' |
+		"byPassSampleValidation" | 'byPassValidation',
+		employeeid: number, trx: any): Promise<boolean | void> {
+		if (!bypasstage || !['byPassCollection', 'byPassProcessing', 'byPassSampleValidation', 'byPassValidation'].includes(bypasstage)) return;
+		const connection = trx ? trx : await KnexConnection(tenantId);
+		// laod application settings to check if complete lab flow is enabled
+		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		if (!application_settings) return;
+		const { byPassCollection, byPassProcessing, byPassSampleValidation, byPassValidation } = application_settings;
+
+		const isPassCollectionEnabled = byPassCollection ? parseInt(byPassCollection.toString()) ? true : false : false;
+		const isPassProcessingEnabled = byPassProcessing ? parseInt(byPassProcessing.toString()) ? true : false : false;
+		const isPassSampleValidationEnabled = byPassSampleValidation ? parseInt(byPassSampleValidation.toString()) ? true : false : false;
+		const isPassValidationEnabled = byPassValidation ? parseInt(byPassValidation.toString()) ? true : false : false;
+
+		if (!isPassCollectionEnabled && !isPassProcessingEnabled && !isPassSampleValidationEnabled && !isPassValidationEnabled) return;
+
+
+		if (bypasstage === 'byPassCollection' && isPassCollectionEnabled) {
+			await trx('test_ascension')
+				.update({
+					collectionStartDate: new Date(),
+					collectionEndDate: new Date(),
+					sampleCollectedBy: employeeid,
+				}).where({ id: ascensionid })
+		}
+
+
+		if (bypasstage === 'byPassProcessing' && isPassProcessingEnabled) {
+			await trx('test_ascension')
+				.update({
+					processingStartDate: new Date(),
+					processingEndDate: new Date(),
+					sampleProcessedBy: employeeid,
+				}).where({ id: ascensionid })
+		}
+
+		if (bypasstage === 'byPassSampleValidation' && isPassSampleValidationEnabled) {
+			await trx('samplestatus')
+				.update({
+					approvalstatus: 1,
+					phelobotomist: employeeid,
+					validatedby: employeeid,
+					samplevalidatedon: new Date(),
+				}).where({ ascensionid: ascensionid })
+		}
+
+		if (bypasstage === 'byPassValidation' && isPassValidationEnabled) {
+			await trx('dbotestresultapproval')
+				.update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() })
+				.where({ ascensionid: ascensionid })
+		}
+	
+	}
+
 }
 

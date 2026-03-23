@@ -19,7 +19,7 @@ const TestCreationRulesRepository_1 = __importDefault(require("../../models/Test
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
 const requestAcess_1 = __importDefault(require("../../models/security/RequestAcessResult/requestAcess"));
 const services_1 = require("../../models/services/services");
-// export const getPatientTestTrend = async (req: IRequest, res: IResponse): Promise<void> => {
+// export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
 //     const result = await new Patient(patientid).getPatientTestTrend(patientid, testid, test, instances);
@@ -156,7 +156,7 @@ const CheckPaymentStatus = async (request, response, next) => {
     try {
         const tenantIdP = parseInt(tenantId.toString());
         const numAscensionId = parseInt(ascensionId.toString());
-        const isPaymentStatusValid = await new creator_1.default(null).CheckPaymentStatus(tenantIdP, numAscensionId);
+        const isPaymentStatusValid = await new creator_1.default(0).CheckPaymentStatus(tenantIdP, numAscensionId);
         if (!isPaymentStatusValid) {
             return (0, helper_1.customError)("Cannot Print Result For Unpaid Service or test", 403, response);
         }

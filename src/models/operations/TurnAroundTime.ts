@@ -130,6 +130,7 @@ class TestAscensionTurnAroundTime {
 
 			query += `ORDER BY ta.id ${sorting} LIMIT ? OFFSET ?`;
 
+
 			const rows: (PrimeLimsTabledboservices &
 				PrimeLimsTablenew_patients &
 				PrimeLimsTabletest_ascension &

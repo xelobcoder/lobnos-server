@@ -152,7 +152,11 @@ export default class ApplicationSettings {
 			fontFamily,
 			allowValidationUpaid,
 			allowPrintingUnpaid,
-			allowResultEnteringUpaid
+			allowResultEnteringUpaid,
+			byPassCollection,
+			byPassSampleValidation,
+			byPassValidation,
+			byPassProcessing,
 		} = data;
 
 		try {
@@ -181,6 +185,10 @@ export default class ApplicationSettings {
 					allowResultEnteringUpaid: allowResultEnteringUpaid ?? 0,
 					allowPrintingUnpaid: allowPrintingUnpaid ?? 0,
 					allowValidationUpaid: allowValidationUpaid ?? 0,
+					byPassCollection: byPassCollection ?? 0,
+					byPassSampleValidation: byPassSampleValidation ?? 0,
+					byPassValidation: byPassValidation ?? 0,
+					byPassProcessing: byPassProcessing ?? 0,
 				};
 				let affectedRows = 0;
 				if (existing) {

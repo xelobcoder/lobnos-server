@@ -63,13 +63,12 @@ const updateApplicationBillSettingsHandler = async (req, res) => {
 exports.updateApplicationBillSettingsHandler = updateApplicationBillSettingsHandler;
 const updateApplicationSettings = async (request, response) => {
     try {
-        const data = request.body;
         const tenantId = parseInt(request.query.tenantId.toString());
-        const is_updated = await appsettings.updateApplicationSettings(tenantId, data);
+        const is_updated = await appsettings.updateApplicationSettings(tenantId, request.body);
         is_updated && response.send({ message: "Applications settings updated successfully", statusCode: 200, status: "success" });
     }
     catch (err) {
-        console.log(err);
+        console.log(response);
         (0, helper_1.responseError)(response);
     }
 };

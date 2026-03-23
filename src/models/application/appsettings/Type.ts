@@ -58,6 +58,10 @@ export type ApplicationSettingsData = {
      allowValidationUpaid?: numberBoolean;
      allowPrintingUnpaid?: numberBoolean;
      allowResultEnteringUpaid?: numberBoolean;
+     byPassCollection?: numberBoolean;
+     byPassSampleValidation?: numberBoolean;
+     byPassValidation?: numberBoolean;
+     byPassProcessing?: numberBoolean;
 };
 
 

@@ -141,58 +141,67 @@ export default class Operations {
 
 
 	public static async getAscensionOverViewModel(tenantid: number, date: string): Promise<any> {
-		const query = `SELECT 
-					p.patientid,
+		const query = `
+									SELECT 
+						p.patientid,
+						CONCAT(
+							p.fullpatientid, ' | ',
+							p.firstname, ' ', p.lastname, ' | ',
+							p.gender, ' | ',
+							p.age, ' ', p.agetype
+						) AS patient_details,
 
-					CONCAT(
-						p.fullpatientid, ' | ',
-						p.firstname, ' ', p.lastname, ' | ',
-						p.gender, ' | ',
-						p.age, ' ', p.agetype
-					) AS patient_details,
+						b.billingid,
+						b.billedon,
+						b.clientstatus AS payment_status,
+						ta.ascension_date AS ascension_date,
+						COUNT(ta.id) AS total_tests,
 
-					b.billingid,
-					b.billedon,
+						GROUP_CONCAT(
+							DISTINCT CONCAT(
+								COALESCE(tp.name, CONCAT('Test-', ta.testid)),
+								' (',
+								CASE
+									WHEN ta.resultEntryEnd IS NOT NULL 
+										THEN CONCAT('Completed @ ', DATE_FORMAT(ta.resultEntryEnd, '%h:%i %p'))
 
-					COUNT(ta.id) AS total_tests,
+									WHEN ta.processingEndDate IS NOT NULL 
+										THEN CONCAT('Processing Done @ ', DATE_FORMAT(ta.processingEndDate, '%h:%i %p'))
 
-					-- 🔥 Test name + stage combined
-					GROUP_CONCAT(
-						DISTINCT CONCAT(
-							COALESCE(tp.name, CONCAT('Test-', ta.testid)),
-							' (',
-							CASE
-								WHEN ta.resultEntryEnd IS NOT NULL THEN 'Completed'
-								WHEN ta.processingEndDate IS NOT NULL THEN 'Processing Done'
-								WHEN ta.collectionEndDate IS NOT NULL THEN 'Collected'
-								ELSE 'Pending'
-							END,
-							')'
-						)
-						ORDER BY tp.name
-						SEPARATOR ', '
-					) AS tests_with_stage
+									WHEN ta.collectionEndDate IS NOT NULL 
+										THEN CONCAT('Collected @ ', DATE_FORMAT(ta.collectionEndDate, '%h:%i %p'))
 
-					FROM billing b
+									WHEN ta.collectionStartDate IS NOT NULL 
+										THEN CONCAT('Collection Started @ ', DATE_FORMAT(ta.collectionStartDate, '%h:%i %p'))
 
-					JOIN new_patients p 
-					ON p.patientid = b.patientid
+									ELSE 'Pending'
+								END,
+								')'
+							)
+							ORDER BY tp.name
+							SEPARATOR ', '
+						) AS tests_with_stage
 
-					JOIN test_ascension ta 
-					ON ta.billingid = b.billingid
+						FROM billing b
 
-					LEFT JOIN test_panels tp 
-					ON tp.id = ta.testid
+						JOIN new_patients p 
+						ON p.patientid = b.patientid
 
-					WHERE DATE(b.billedon )= DATE(?)
+						JOIN test_ascension ta 
+						ON ta.billingid = b.billingid
 
-					GROUP BY 
-					b.billingid
+						LEFT JOIN test_panels tp 
+						ON tp.id = ta.testid
 
-					ORDER BY 
-					b.billingid DESC;`
+						-- ✅ Your requested filter
+						WHERE DATE(b.billedon) = DATE(?)
 
-		console.log("Generated Query for Ascension Overview: ", query);
+						GROUP BY 
+						b.billingid
+
+						ORDER BY 
+						b.billingid DESC;
+		`
 
 		return await promisifyQuery(tenantid, query, [date]);
 	}
@@ -275,11 +284,9 @@ export default class Operations {
 							LEFT JOIN roles ee
 							ON ee.employeeid = ta.resultEnteredBy
 
-							-- 🔬 SAMPLE STATUS (direct join as requested)
 							LEFT JOIN samplestatus ss
 							ON ss.ascensionid = ta.id
 
-							-- 🧪 RESULT VALIDATION (NEW)
 							LEFT JOIN dbotestresultapproval ra
 							ON ra.ascensionid = ta.id
 

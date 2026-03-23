@@ -43,9 +43,9 @@ export class SampleHandler extends TestAscension {
 	}
 
 	public static async getPendingUnvalidatedSamples(tenantId: number, pagination: { count: number, page: number },
-		startdate?: Date | string, enddate?: Date | string, sortby: 'DESC' | 'ASC' = 'ASC', searchstring?: string) {
+		startdate?: Date | string, enddate?: Date | string, sortby: 'DESC' | 'ASC' = 'ASC', searchstring?: string, billingid?: number) {
 		let query = q_get_pending_collected_but_unvalidated_samples;
-		const params: (Date | string)[] = [];
+		const params: (Date | string | number)[] = [];
 
 		if (startdate) {
 			query += ` AND DATE(b.billedon) >= ? `;
@@ -54,6 +54,11 @@ export class SampleHandler extends TestAscension {
 		if (enddate) {
 			query += ` AND DATE(b.billedon) <= ? `;
 			params.push(enddate);
+		}
+
+		if (billingid) {
+			query += ` AND b.billingid = ? `;
+			params.push(billingid);
 		}
 
 		if (searchstring) {

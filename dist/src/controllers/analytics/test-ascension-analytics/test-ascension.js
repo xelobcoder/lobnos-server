@@ -7,10 +7,10 @@ exports.getTatData = void 0;
 const TurnAroundTime_1 = __importDefault(require("../../../models/operations/TurnAroundTime"));
 const getTatData = async (req, res) => {
     var _a;
-    const page = parseInt(req.query.page) || 1;
-    const count = parseInt(req.query.count) || 10;
+    const page = req.query.page ? parseInt(req.query.page) || 1 : 1;
+    const count = req.query.count ? parseInt(req.query.count) || 10 : 10;
     const tenantId = parseInt(req.query.tenantId);
-    const sorting = ((_a = req.query.sorting) === null || _a === void 0 ? void 0 : _a.toUpperCase()) === 'DESC' ? 'DESC' : 'ASC';
+    const sorting = ((_a = req.query.sortby) === null || _a === void 0 ? void 0 : _a.toUpperCase()) === 'DESC' ? 'DESC' : 'ASC';
     try {
         const data = await TurnAroundTime_1.default.getPaginatedTATData(tenantId, page, count, sorting);
         res.json({ success: true, data });

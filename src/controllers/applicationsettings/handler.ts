@@ -8,7 +8,7 @@ import ResultSettings from "../../models/application/appsettings/resultSettings"
 import { OperationsFailures } from "../../models/operations/types";
 import ApplicationSettings from "./../../models/application/appsettings/appset";
 import { responseError, customError } from "../../hooks/helper";
-import { ApplicationBillSettings } from "../../models/application/appsettings/Type";
+import { ApplicationBillSettings, ApplicationSettingsData, EmailPreference, IupdateRegisFields } from "../../models/application/appsettings/Type";
 import { CustomerBillingInit } from "../../models/billing/multi/initCustomerBilling";
 import { EntityType } from "../../models/billing/multi/billing_shared_types";
 import { SubmitCustomerBilling } from "../../models/billing/billing-new-client-multi";
@@ -51,7 +51,7 @@ export const getApplicationSettingsBilling = async (req: Request, res: Response)
 	}
 };
 
-export const updateApplicationBillSettingsHandler = async (req: Request<{}, {}, ApplicationBillSettings>, res: Response) => {
+export const updateApplicationBillSettingsHandler = async (req: Request<{}, {}, ApplicationBillSettings, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId.toString())
 		const data = await ApplicationSettings.updateApplicationBillSettings(tenantId, req.body)
@@ -61,15 +61,14 @@ export const updateApplicationBillSettingsHandler = async (req: Request<{}, {}, 
 	}
 };
 
-export const updateApplicationSettings = async (request: Request, response: Response) => {
+export const updateApplicationSettings = async (request: Request<{}, {}, ApplicationSettingsData, { tenantId: number, }>, response: Response) => {
 	try {
-		const data = request.body;
 		const tenantId = parseInt(request.query.tenantId.toString())
-		const is_updated = await appsettings.updateApplicationSettings(tenantId, data);
+		const is_updated = await appsettings.updateApplicationSettings(tenantId, request.body);
 		is_updated && response.send({ message: "Applications settings updated successfully", statusCode: 200, status: "success" });
 	} catch (err) {
-		console.log(err);
-		responseError(response);
+		console.log(response)
+		responseError(response)
 	}
 };
 
@@ -128,7 +127,7 @@ export const updateGeneralEmailSettings = async (request: Request, res: Response
 	}
 };
 
-export const updateEmailPreference = (request: Request, response: Response) => {
+export const updateEmailPreference = (request: Request<{}, {}, EmailPreference, { tenantId: number }>, response: Response) => {
 	try {
 		const data = request.body;
 		const tenantId = parseInt(request.query.tenantId.toString())
@@ -139,7 +138,7 @@ export const updateEmailPreference = (request: Request, response: Response) => {
 	}
 };
 
-export const updateRegistrationFields = async (request: Request, response: Response) => {
+export const updateRegistrationFields = async (request: Request<{}, {}, IupdateRegisFields, { tenantId: number }>, response: Response) => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString())
 		const result = await appsettings.updateRegistrationFields(tenantId, request.body);
@@ -194,7 +193,7 @@ export const deleteTax = (req: Request, res: Response) => {
 	tax.deleteTax(req, res);
 };
 
-export const getResultSettings = async (req: Request, response: Response) => {
+export const getResultSettings = async (req: Request<{}, {}, {}, { tenantId: number }>, response: Response) => {
 	try {
 		const { tenantId } = req.query;
 		const resultSettings = await result.getResultSettings(parseInt(tenantId.toString()));

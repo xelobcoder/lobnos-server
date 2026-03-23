@@ -24,41 +24,41 @@ interface ResultEntrySettings {
 }
 
 
-export interface ApplicationResultSettings{
-     fontfamily: string;
-     testnameColor: string;
-     testnameBackgroundColor: string;
-     testnameFontSize: number;
-     mainReportHeaderBgColor: string;
-     testTableHeaderBackgroundColor: string;
-     comments: {
-          fontFamily: string;
-     },
-     testTableHeaderTextColor: string;
-     mainReportHeaderColor: string;
-     testTableHeaderFontSize: number;
-     companyInfo: {
-          namefontsize: number;
-          color: string;
-     };
-     testBody: {
-          fontSize: number;
-          fontFamily: string;
-          color: string;
-          highlightFlags: boolean;
-          hightFlagColor: string;
-          hasColorsForFlags: boolean;
-          lowFlagColor: string;
-          boldenParameter: boolean;
-          boldenValue: boolean;
-          boldenUnits: boolean;
-     };
-     includeSignature: boolean;
-     includeLimitations: boolean;
-     limitations: string;
-     showEndOfResult: boolean;
-     template: number;
-     includeBarcode?: boolean;
+export interface ApplicationResultSettings {
+	fontfamily: string;
+	testnameColor: string;
+	testnameBackgroundColor: string;
+	testnameFontSize: number;
+	mainReportHeaderBgColor: string;
+	testTableHeaderBackgroundColor: string;
+	comments: {
+		fontFamily: string;
+	},
+	testTableHeaderTextColor: string;
+	mainReportHeaderColor: string;
+	testTableHeaderFontSize: number;
+	companyInfo: {
+		namefontsize: number;
+		color: string;
+	};
+	testBody: {
+		fontSize: number;
+		fontFamily: string;
+		color: string;
+		highlightFlags: boolean;
+		hightFlagColor: string;
+		hasColorsForFlags: boolean;
+		lowFlagColor: string;
+		boldenParameter: boolean;
+		boldenValue: boolean;
+		boldenUnits: boolean;
+	};
+	includeSignature: boolean;
+	includeLimitations: boolean;
+	limitations: string;
+	showEndOfResult: boolean;
+	template: number;
+	includeBarcode?: boolean;
 }
 
 class ResultSettings extends ApplicationSettings {
@@ -87,14 +87,14 @@ class ResultSettings extends ApplicationSettings {
 		const Rsettings = await this.getResultEntrySettings(tenantId);
 		if (Rsettings === null) return false;
 
-		const staffQualifiedToValidationResult = Rsettings['staffQualifiedToValidationResult']
-		if (staffQualifiedToValidationResult && Array.isArray(staffQualifiedToValidationResult) && staffQualifiedToValidationResult.includes(employeeId)) {
-			return true;
+		if (typeof Rsettings !== "boolean" && Rsettings && Array.isArray(Rsettings.staffQualifiedToValidationResult)) {
+			return Rsettings.staffQualifiedToValidationResult.includes(employeeId);
 		}
+		return false;
 	}
 	static async isApprovalLimitReached(
 		tenantId: number,
-		approvalList?: number[] | number,
+		approvalList?: number[] | number | null,
 		ascensionId = null,
 		type: 'minimum' | 'maximum' = 'maximum'
 	): Promise<boolean> {
@@ -119,7 +119,7 @@ class ResultSettings extends ApplicationSettings {
 
 	private static async evaluateApprovalListLength(
 		tenantId: number,
-		approvalList: number | number[],
+		approvalList: number | number[] | null | undefined,
 		ascensionId: any
 	): Promise<boolean | number> {
 		let currentStaffApproved: number[] = [];

@@ -383,6 +383,7 @@ export default class Creator {
 			await connection.transaction(async (trx) => {
 				await insertUpdate(trx, tenantId, fields, testid);
 				await drugProcessor();
+				await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassValidation', employeeid, trx);
 			});
 			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
 			return true;

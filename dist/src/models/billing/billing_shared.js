@@ -12,6 +12,7 @@ const billing_shared_types_1 = require("./multi/billing_shared_types");
 const billingclientTypes_1 = require("./billingclientTypes");
 const queries_1 = require("./queries");
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
+const ascension_1 = require("../operations/ascension");
 class BillingSharedRepo {
     static calculateTotalDiscount(data) {
         return parseFloat(TiifuWorkingClass_1.TiifuWorkingClass.reduceListInOF(data, 'discount') || 0);
@@ -561,7 +562,12 @@ class BillingSharedRepo {
                 });
                 if (outcome && item[5] != 5 && item[1]) {
                     try {
-                        await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                        const ascensionid = await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                        if (ascensionid && typeof ascensionid === "number") {
+                            await ascension_1.TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassCollection', employeeid, queryRunner);
+                            await ascension_1.TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassSampleValidation', employeeid, queryRunner);
+                            await ascension_1.TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassProcessing', employeeid, queryRunner);
+                        }
                     }
                     catch (err) {
                         throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);
@@ -569,19 +575,19 @@ class BillingSharedRepo {
                 }
             }
             catch (err) {
-                console.error("Error inserting service:", err);
                 insertionErrors.push(err);
             }
         }
         return insertionErrors;
     }
     static async AddtoTestAscenstion(tenantId, serviceid, billingid, testid, trx) {
+        var _a;
         try {
             if (!billingid || !serviceid || !testid)
                 return false;
             const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
             const isInserted = await queryRunner.raw(queries_1.AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
-            return isInserted.insertId;
+            return ((_a = isInserted[0]) === null || _a === void 0 ? void 0 : _a.insertId) || false;
         }
         catch (err) {
             return false;

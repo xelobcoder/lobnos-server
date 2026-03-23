@@ -128,14 +128,14 @@ async function monthlyApprovalRateHandler(request, response) {
 exports.monthlyApprovalRateHandler = monthlyApprovalRateHandler;
 async function PendingTestAscensionHandler(request, response) {
     try {
-        const { tenantId, count = 10, page = 1, start_date, end_date } = request.query;
+        const { tenantId, count = 10, page = 1, start_date, end_date, billingid } = request.query;
         const parsedCount = parseInt(count.toString()) || 10;
         const parsedPage = parseInt(page.toString()) || 1;
         const tenantIdP = parseInt(tenantId.toString());
         const filter = request.query.filter ? request.query.filter.toString() : undefined;
         const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
         const pending = await ascension_1.TestAscension.
-            getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date, end_date, filter, sortby);
+            getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date, end_date, filter, sortby, billingid ? parseInt(billingid.toString()) : undefined);
         response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });
     }
     catch (err) {
@@ -233,12 +233,16 @@ async function getAscensionEditCountHandler(request, response) {
 exports.getAscensionEditCountHandler = getAscensionEditCountHandler;
 async function getPendingUnvalidatedSamplesHandler(request, response) {
     try {
-        const count = parseInt(request.query.count.toString()) || 10;
-        const page = parseInt(request.query.page.toString()) || 1;
-        const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
-        const tenantIdP = parseInt(request.query.tenantId.toString());
-        const { startDate, endDate, searchString } = request.query;
-        const List = await sampleClass_1.SampleHandler.getPendingUnvalidatedSamples(tenantIdP, { count, page }, startDate, endDate, sortby, searchString);
+        const { count, page, tenantId, sortby, startDate, endDate, searchString, billingid } = request.query;
+        const countP = count ? parseInt(count) : 10;
+        const pageP = page ? parseInt(page) : 1;
+        const sortbyP = sortby ? sortby.toString() : 'ASC';
+        const tenantIdP = parseInt(tenantId.toString());
+        const startDateP = startDate ? new Date(startDate) : undefined;
+        const endDateP = endDate ? new Date(endDate) : undefined;
+        const searchStringP = searchString ? searchString.toString() : undefined;
+        const billingidP = billingid ? parseInt(billingid) : undefined;
+        const List = await sampleClass_1.SampleHandler.getPendingUnvalidatedSamples(tenantIdP, { count: countP, page: pageP }, startDateP, endDateP, sortbyP, searchStringP, billingidP);
         response.send({ result: List, statusCode: 200, status: "success" });
     }
     catch (err) {

@@ -6,6 +6,8 @@ import { BillErrors, MultiTBillingDataShared, MultiTestServicesProvided, MultiTe
 import { billErrors, BillingValidationResult, serviceCategory, ServiceEntry, servicesProvided, TestCart } from "./billingclientTypes";
 import { AddtoTestAscenstionQuery } from "./queries";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
+import { TestAscension } from "../operations/ascension";
+import { query } from "winston";
 
 export class BillingSharedRepo {
      private static calculateTotalDiscount(data: any[]) {
@@ -615,9 +617,9 @@ export class BillingSharedRepo {
                try {
                     const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment,
                          nightAdjustmentMode, nightAdjustmentValue, isPackageUsed,
-                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode,      relatedbillingid,userAdjustedValue,userAdjustmentType] = item;
-                         const actualDiscount = userAdjustmentType === "discount" ? userAdjustedValue : 0;
-                         
+                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType] = item;
+                    const actualDiscount = userAdjustmentType === "discount" ? userAdjustedValue : 0;
+
                     const outcome = await queryRunner("dboservices").insert({
                          billingid,
                          trackId,
@@ -636,7 +638,7 @@ export class BillingSharedRepo {
                          taxValue,
                          amountIncurredDueTax,
                          taxIncluded,
-                         discount:actualDiscount,
+                         discount: actualDiscount,
                          totalcost,
                          totalpayable,
                          isNHIS,
@@ -661,13 +663,17 @@ export class BillingSharedRepo {
 
                     if (outcome && item[5] != 5 && item[1]) {
                          try {
-                              await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                              const ascensionid = await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                              if (ascensionid && typeof ascensionid === "number") {
+                                   await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassCollection', employeeid, queryRunner);
+                                   await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassSampleValidation', employeeid, queryRunner);
+                                   await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassProcessing', employeeid, queryRunner);
+                              }
                          } catch (err) {
                               throw new Error(billErrors.unableToLoadTestAscension);
                          }
                     }
                } catch (err) {
-                    console.error("Error inserting service:", err);
                     insertionErrors.push(err);
                }
           }
@@ -680,7 +686,7 @@ export class BillingSharedRepo {
                if (!billingid || !serviceid || !testid) return false;
                const queryRunner = trx || await KnexConnection(tenantId);
                const isInserted = await queryRunner.raw(AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
-               return isInserted.insertId;
+               return isInserted[0]?.insertId || false;
           } catch (err) {
                return false;
           }
