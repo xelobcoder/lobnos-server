@@ -2,31 +2,40 @@ import { Request, Response } from "express";
 import { TestAscension } from "../../models/operations/ascension";
 import { AscensionAnalytics } from "../../models/operations/ascensionAnalytics";
 import User from "../../LobnosAuth/user";
-import { OperationsFailures } from "../../models/operations/types";
+import { ascensionStages, OperationsFailures } from "../../models/operations/types";
 import { SampleHandler } from "../../models/operations/sample/sampleClass";
 import { customError, responseError } from "../../hooks/helper";
 import Creator from "../../models/creator/creator";
 
 
-export async function updateAscensionStageHandler(request: Request, response: Response) {
+export async function updateAscensionStageHandler(request: Request<{}, {}, {
+    stage: '',
+    ascensionid: string,
+    value: string,
+    employeeid: string
+}, {
+    tenantId: string
+}>, response: Response) {
     try {
         const { stage, ascensionid, value, employeeid } = request.body;
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
         const metRequirement = stage && ascensionid && value && employeeid;
         if (!metRequirement) return customError("invalid request body provided", 400, response);
-        const isUpdateComplete = await TestAscension.updateSampleAscensionstate(tenantIdP, ascensionid, stage, value, employeeid);
+        const isUpdateComplete = await TestAscension.updateSampleAscensionstate(tenantIdP, parseInt(ascensionid.toString()), stage as keyof typeof ascensionStages, value as unknown as Date, parseInt(employeeid.toString()));
         response.send({ tenantId, status: isUpdateComplete })
     } catch (err) {
         responseError(response)
     }
 }
 
-export async function getAscensionAnalyticSummary(request: Request, response: Response) {
+export async function getAscensionAnalyticSummary(request: Request<{}, {}, {}, {
+    tenantId: string
+}>, response: Response) {
     try {
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
-        const summary = await new AscensionAnalytics(null).getAllAnalytics(tenantIdP);
+        const summary = await new AscensionAnalytics(0).getAllAnalytics(tenantIdP);
         response.send(summary);
     } catch (err) {
         responseError(response);
@@ -34,7 +43,9 @@ export async function getAscensionAnalyticSummary(request: Request, response: Re
 }
 
 
-export async function getCollectionToDisputeToApprovedToRedrawnLast30daysHandler(request: Request, response: Response) {
+export async function getCollectionToDisputeToApprovedToRedrawnLast30daysHandler(request: Request<{}, {}, {}, {
+    tenantId: string
+}>, response: Response) {
     try {
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
@@ -46,7 +57,11 @@ export async function getCollectionToDisputeToApprovedToRedrawnLast30daysHandler
     }
 }
 
-export async function getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear(request: Request, response: Response) {
+export async function getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear(request: Request<{}, {}, {}, {
+    tenantId: string,
+    year: string,
+    month: string
+}>, response: Response) {
     try {
         const { tenantId, year, month } = request.query;
         if (!year || !month) return customError("year and month is required", 400, response);
@@ -61,7 +76,10 @@ export async function getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear(r
     }
 }
 
-export async function getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler(request: Request, response: Response) {
+export async function getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    year: string
+}>, response: Response) {
     try {
         const { tenantId, year } = request.query;
         if (!year) return customError("year is required", 400, response);
@@ -76,10 +94,13 @@ export async function getCollectionToDisputeToApprovedToRedrawnLastOverParticula
 }
 
 
-export async function phelobotomistSummaryHandler(request: Request, response: Response) {
+export async function phelobotomistSummaryHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    phelobotomistid?: string
+}>, response: Response) {
     try {
         const { tenantId, phelobotomistid } = request.query;
-        let parsedPhelobotomistid = null;
+        let parsedPhelobotomistid: number | undefined = undefined;
         if (phelobotomistid) {
             parsedPhelobotomistid =
                 parseInt(phelobotomistid.toString());
@@ -94,7 +115,9 @@ export async function phelobotomistSummaryHandler(request: Request, response: Re
 
 
 
-export async function getTotalTestByYears(request: Request, response: Response) {
+export async function getTotalTestByYears(request: Request<{}, {}, {}, {
+    tenantId: string
+}>, response: Response) {
     try {
         const { tenantId } = request.query;
         const parsedTenancyId = parseInt(tenantId.toString())
@@ -106,7 +129,10 @@ export async function getTotalTestByYears(request: Request, response: Response) 
 }
 
 
-export async function monthlyApprovalRateHandler(request: Request, response: Response) {
+export async function monthlyApprovalRateHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    year?: string
+}>, response: Response) {
     try {
         const { tenantId, year = new Date().getFullYear() } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
@@ -136,7 +162,10 @@ export async function PendingTestAscensionHandler(request: Request<{}, {}, {}, {
     }
 }
 
-export async function TransactionTestAscensionHandler(request: Request, response: Response) {
+export async function TransactionTestAscensionHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    billingid: string
+}>, response: Response) {
     try {
         const { tenantId, billingid } = request.query;
         const parsedBillingid = parseInt(billingid.toString());
@@ -150,7 +179,9 @@ export async function TransactionTestAscensionHandler(request: Request, response
 }
 
 
-export async function phelobotomistAnalyticsSummary(request: Request, response: Response) {
+export async function phelobotomistAnalyticsSummary(request: Request<{}, {}, {}, {
+    tenantId: string
+}>, response: Response) {
     try {
         const { tenantId } = request.query
         const tenantIdP = parseInt(tenantId.toString());
@@ -163,7 +194,10 @@ export async function phelobotomistAnalyticsSummary(request: Request, response: 
 }
 
 
-export async function sampleAssessmentHandler(request: Request, response: Response) {
+export async function sampleAssessmentHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    billingid: string
+}>, response: Response) {
     try {
         const { tenantId, billingid } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
@@ -176,7 +210,11 @@ export async function sampleAssessmentHandler(request: Request, response: Respon
 }
 
 
-export async function updateValidationSampleHandler(request: Request, response: Response) {
+export async function updateValidationSampleHandler(request: Request<{}, {}, {
+    testcollection: any[]
+}, {
+    tenantId: string
+}>, response: Response) {
     try {
         const { testcollection } = request.body;
         const tenantId = parseInt(request.query.tenantId.toString());
@@ -194,14 +232,20 @@ export async function updateValidationSampleHandler(request: Request, response: 
 
 
 
-export async function getTransactionAscentionTestQualifiedForResultEntryHandler(request: Request, response: Response) {
+export async function getTransactionAscentionTestQualifiedForResultEntryHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    csvid: string,
+    ptid: string,
+    branchid: string,
+    target: string
+}>, response: Response) {
     try {
         const { tenantId, csvid, ptid, branchid, target } = request.query;
         if (!csvid || !branchid) {
             return customError("billingid or branchid not included in request.query", 400, response);
         }
 
-        const { billingid, patientid } = new Creator(null).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), target.toString());
+        const { billingid, patientid } = new Creator(0).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), target.toString());
 
         const tenantIdP = parseInt(tenantId.toString());
         const List = await TestAscension.getTransactionTestsQualifiedForResultEntry(
@@ -216,10 +260,16 @@ export async function getTransactionAscentionTestQualifiedForResultEntryHandler(
 
 
 
-export async function getAscensionEditCountHandler(request: Request, response: Response) {
+export async function getAscensionEditCountHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    csvid: string,
+    testid: string,
+    ascensionid: string,
+    ptid: string
+}>, response: Response) {
     try {
         const { tenantId, csvid, testid, ascensionid, ptid } = request.query;
-        const { billingid, patientid } = new Creator(null).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), '70,50');
+        const { billingid, patientid } = new Creator(0).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), '70,50');
 
         const parsedBillingid = parseInt(billingid.toString());
         const parsedAscensionid = parseInt(ascensionid.toString());
@@ -276,15 +326,19 @@ export async function getPendingUnvalidatedSamplesHandler(request: Request<{}, {
 
 
 
-export async function getRejectedCollectedSampleListHandler(request: Request, response: Response) {
+export async function getRejectedCollectedSampleListHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    count?: string,
+    page?: string
+}>, response: Response) {
     try {
         let queryCount = 10;
         let queryPage = 1;
         const { tenantId, count, page } = request.query
 
         if (count && page) {
-            queryPage = parseInt(request.query.page.toString()) || 1;
-            queryCount = parseInt(request.query.count.toString())
+            queryPage = parseInt(page.toString())
+            queryCount = parseInt(count.toString())
         }
 
         const tenantIdP = parseInt(tenantId.toString());
@@ -298,7 +352,11 @@ export async function getRejectedCollectedSampleListHandler(request: Request, re
     }
 }
 
-export async function getAllPendingAscensionsHandler(request: Request, response: Response) {
+export async function getAllPendingAscensionsHandler(request: Request<{}, {}, {}, {
+    tenantId: string,
+    count?: string,
+    page?: string
+}>, response: Response) {
     try {
         const { tenantId, count = 30, page = 1 } = request.query;
         const parsedCount = parseInt(count.toString()) || 30;

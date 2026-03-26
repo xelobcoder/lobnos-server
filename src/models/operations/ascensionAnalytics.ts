@@ -1,6 +1,12 @@
 import { TestAscension } from "./ascension";
 import { q_get_pending_ascension_cases, q_get_stages_column_dual } from "./queries";
 import { ascensionStages, durationTimeFormat } from "./types";
+
+type AscensionStageKey = keyof typeof ascensionStages;
+
+function isAscensionStageKey(key: string): key is AscensionStageKey {
+       return key in ascensionStages;
+}
 import * as Queries from './ascensionQueries';
 import { months } from "../appointments/appointmentTypes";
 import { promisifyQuery } from "../../hooks/helper";
@@ -20,7 +26,11 @@ export class AscensionAnalytics extends TestAscension {
        }
 
        async calCulateTimeUsedInEachAscensionStage(tenantId: number, startStage: string, endStage: string): Promise<durationTimeFormat | boolean> {
-              if (this.ascensionId || ascensionStages[startStage] || ascensionStages[endStage]) return false;
+              if (
+                     this.ascensionId ||
+                     !isAscensionStageKey(startStage) ||
+                     !isAscensionStageKey(endStage)
+              ) return false;
 
               const query = q_get_stages_column_dual.replace("start", startStage).replace("end", endStage);
 
@@ -30,7 +40,7 @@ export class AscensionAnalytics extends TestAscension {
               const startDate = result[0][startStage];
               const endDate = result[0][endStage];
               let duration = AscensionAnalytics.calCalculateDuration(startDate, endDate);
-              return duration
+              return duration;
        }
 
 
@@ -51,7 +61,7 @@ export class AscensionAnalytics extends TestAscension {
               ];
        }
 
-       public static async phelobotomistSummary(tenantId: number, phelobotomistid = null) {
+       public static async phelobotomistSummary(tenantId: number, phelobotomistid?: number) {
               let query = Queries.phelobotomistSummary;
               if (phelobotomistid && typeof phelobotomistid == "number")
                      query += ` WHERE ta.sampleCollectedBy = ?`
@@ -227,7 +237,7 @@ export class AscensionAnalytics extends TestAscension {
               return promisifyQuery(tenantId, Queries.totalAllTimePendingCollections);
        }
 
-       public static async phelobotomistAnalytics24Hours(tenantId: number): Promise<{allTimePending: number, pending: [], rejected: [], orders: [], completed: [] }> {
+       public static async phelobotomistAnalytics24Hours(tenantId: number): Promise<{ allTimePending: number, pending: [], rejected: [], orders: [], completed: [] }> {
               let pending = await this.totalSamplePendingCollection24(tenantId);
               let rejected = await this.totalSampleRejected24(tenantId);
               let orders = await this.totalSampleRedrawOrders24(tenantId);
@@ -239,7 +249,7 @@ export class AscensionAnalytics extends TestAscension {
               orders = orders[0]['redraw_orders_in_24h']
               pending = pending[0]['pending'];
 
-              return { pending, rejected, orders, completed , allTimePending };
+              return { pending, rejected, orders, completed, allTimePending };
        }
 
 
@@ -320,7 +330,7 @@ export class AscensionAnalytics extends TestAscension {
                             timeBetweenCollectionStartAndEnd,
                             getAllMonthsDayByDayTotalTestsSampled
                      }
-              } catch (error) {
+              } catch (error: any) {
                      throw new Error("Error retrieving analytics data: " + error.message);
               }
        }
@@ -353,7 +363,7 @@ export class AscensionAnalytics extends TestAscension {
 
               for (const { month, name } of AscensionAnalytics.getMonths()) {
                      const dailyResults = await this.dayToDayTotalTestSampleCollectedCompletely(tenantId, month, year);
-                     dailyResults.forEach(row => {
+                     dailyResults.forEach((row: { day_of_month: number; test_count: number }) => {
                             formattedResults[name].push({
                                    day: row.day_of_month,
                                    count: row.test_count

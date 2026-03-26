@@ -27,6 +27,9 @@ exports.AscensionAnalytics = void 0;
 const ascension_1 = require("./ascension");
 const queries_1 = require("./queries");
 const types_1 = require("./types");
+function isAscensionStageKey(key) {
+    return key in types_1.ascensionStages;
+}
 const Queries = __importStar(require("./ascensionQueries"));
 const appointmentTypes_1 = require("../appointments/appointmentTypes");
 const helper_1 = require("../../hooks/helper");
@@ -44,7 +47,9 @@ class AscensionAnalytics extends ascension_1.TestAscension {
         return { hour: 0, min: 0, seconds: 0 };
     }
     async calCulateTimeUsedInEachAscensionStage(tenantId, startStage, endStage) {
-        if (this.ascensionId || types_1.ascensionStages[startStage] || types_1.ascensionStages[endStage])
+        if (this.ascensionId ||
+            !isAscensionStageKey(startStage) ||
+            !isAscensionStageKey(endStage))
             return false;
         const query = queries_1.q_get_stages_column_dual.replace("start", startStage).replace("end", endStage);
         const result = await (0, helper_1.promisifyQuery)(tenantId, query, [startStage, endStage]);
@@ -71,7 +76,7 @@ class AscensionAnalytics extends ascension_1.TestAscension {
             { month: 12, name: "December" }
         ];
     }
-    static async phelobotomistSummary(tenantId, phelobotomistid = null) {
+    static async phelobotomistSummary(tenantId, phelobotomistid) {
         let query = Queries.phelobotomistSummary;
         if (phelobotomistid && typeof phelobotomistid == "number")
             query += ` WHERE ta.sampleCollectedBy = ?`;
@@ -296,7 +301,7 @@ class AscensionAnalytics extends ascension_1.TestAscension {
         };
         for (const { month, name } of AscensionAnalytics.getMonths()) {
             const dailyResults = await this.dayToDayTotalTestSampleCollectedCompletely(tenantId, month, year);
-            dailyResults.forEach(row => {
+            dailyResults.forEach((row) => {
                 formattedResults[name].push({
                     day: row.day_of_month,
                     count: row.test_count

@@ -243,7 +243,6 @@ export const getOrganizationPricingHandler = async (request: Request<{}, {}, {},
 		const result = await new OrganizationalBilling(parseInt(organizationid.toString())).getOrganizationalBilling(tenantIdP);
 		response.send(result)
 	} catch (err) {
-		console.log(err)
 		responseError(response);
 	}
 }

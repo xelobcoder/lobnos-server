@@ -106,7 +106,7 @@ class ApplicationSettings {
     }
     async updateApplicationSettings(tenantId, data) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, } = data;
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, useamountpaidforcommissioncalculation } = data;
         try {
             const result = await connection.transaction(async (trx) => {
                 const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
@@ -137,6 +137,11 @@ class ApplicationSettings {
                     byPassSampleValidation: byPassSampleValidation !== null && byPassSampleValidation !== void 0 ? byPassSampleValidation : 0,
                     byPassValidation: byPassValidation !== null && byPassValidation !== void 0 ? byPassValidation : 0,
                     byPassProcessing: byPassProcessing !== null && byPassProcessing !== void 0 ? byPassProcessing : 0,
+                    automakesupplierpaymentsexpense: automakesupplierpaymentsexpense !== null && automakesupplierpaymentsexpense !== void 0 ? automakesupplierpaymentsexpense : 0,
+                    automakeemployeepayrollpaymentsexpense: automakeemployeepayrollpaymentsexpense !== null && automakeemployeepayrollpaymentsexpense !== void 0 ? automakeemployeepayrollpaymentsexpense : 0,
+                    automakeoutsourcepaymentsexpense: automakeoutsourcepaymentsexpense !== null && automakeoutsourcepaymentsexpense !== void 0 ? automakeoutsourcepaymentsexpense : 0,
+                    automakecommissionpaymentsexpense: automakecommissionpaymentsexpense !== null && automakecommissionpaymentsexpense !== void 0 ? automakecommissionpaymentsexpense : 0,
+                    useamountpaidforcommissioncalculation: useamountpaidforcommissioncalculation !== null && useamountpaidforcommissioncalculation !== void 0 ? useamountpaidforcommissioncalculation : 0
                 };
                 let affectedRows = 0;
                 if (existing) {

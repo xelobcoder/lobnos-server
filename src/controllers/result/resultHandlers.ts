@@ -1,4 +1,3 @@
-import { Request, IResponse } from "./types";
 import { Request, Response } from "express";
 import { OperationsFailures, validatorsFinalFormatType } from "../../models/operations/types";
 import ResultSettings, { ApplicationResultSettings } from "../../models/application/appsettings/resultSettings";
@@ -89,7 +88,7 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: Reque
 }
 
 
-export const getResultCommentsHandler = async function (request: Request<{}, {}, {}, { csvid: string, testid: string, ptid: string, tenantId: string }>, response: IResponse) {
+export const getResultCommentsHandler = async function (request: Request<{}, {}, {}, { csvid: string, testid: string, ptid: string, tenantId: string }>, response: Response) {
 	try {
 		const { csvid, testid, ptid, tenantId } = request.query
 		if (!csvid || !testid || !ptid) {
@@ -111,7 +110,7 @@ export const getResultCommentsHandler = async function (request: Request<{}, {},
 
 
 
-export const testCreationRuleUpdateHandler = async (request: Request, response: Response) => {
+export const testCreationRuleUpdateHandler = async (request: Request<{}, {}, { testid: number, data: any[] }, { tenantId: number }>, response: Response) => {
 	try {
 		const { testid, data } = request.body
 		const { tenantId } = request.query
@@ -133,7 +132,7 @@ export const testCreationRuleUpdateHandler = async (request: Request, response: 
 
 
 
-export const criticalValuesUnseenHandler = async (request: Request, response: Response) => {
+export const criticalValuesUnseenHandler = async (request: Request<{}, {}, {}, { count: string, page: string, tenantId: string }>, response: Response) => {
 	try {
 		const { count, page, tenantId } = request.query;
 
@@ -149,7 +148,7 @@ export const criticalValuesUnseenHandler = async (request: Request, response: Re
 }
 
 
-export const resultEntryDrugsHandler = async (request: Request, response: Response) => {
+export const resultEntryDrugsHandler = async (request: Request<{}, {}, {}, { ascensionid: string, testid: string, tenantId: string }>, response: Response) => {
 	try {
 		const { ascensionid, testid, tenantId } = request.query;
 
@@ -266,7 +265,7 @@ export const getResultPrintoutHandler = async (request: Request<
 			billingid, parsedTestId);
 		dataset.comments = comments
 
-		const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
+		const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup("").getResultLiterature(tenantIdP, testid)
 
 		if (literatureReview.can != false) {
 			dataset.literatureReview = literatureReview.literature
@@ -356,7 +355,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 		const pEmployeeId = parseInt(employeeid.toString());
 		if (!employeeid || isNaN(pEmployeeId)) return customError("User Not recognized", 404, response);
 
-		let creator = new Creator(null);
+		let creator = new Creator(0);
 
 		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
 
@@ -485,7 +484,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 					return dataset
 				}))
 
-				const resultsettings = await new ResultSettings(null).getResultSettings(tenantIdP);
+				const resultsettings = await new ResultSettings(0).getResultSettings(tenantIdP);
 
 				if (typeof resultsettings != "boolean") {
 					finalResult.resultsettings = resultsettings;

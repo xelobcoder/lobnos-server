@@ -27,7 +27,7 @@ export class OutsourcedTestTrackingRepo {
      async getProfitPerTestByOutsource(outsourceid?: number) {
           const conn = await this.connection;
           let query = conn('outsourcedtesttracking')
-               .innerJoin('outsourceorganizationservices', function () {
+               .innerJoin('outsourceorganizationservices', function (this: any) {
                     this.on('outsourcedtesttracking.outsourceid', '=', 'outsourceorganizationservices.outsourceid')
                          .andOn('outsourcedtesttracking.testid', '=', 'outsourceorganizationservices.generalTestId');
                })
@@ -136,17 +136,28 @@ export class OutsourcedTestTrackingRepo {
           const conn = await this.connection;
           return await conn('outsourcedtesttracking')
                .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
-               .innerJoin('outsourceorganizationservices', function () {
+               .innerJoin('outsourceorganizationservices', function (this: any) {
                     this.on('outsourcedtesttracking.outsourceid', '=', 'outsourceorganizationservices.outsourceid')
                          .andOn('outsourcedtesttracking.testid', '=', 'outsourceorganizationservices.generalTestId');
                })
                .leftJoin("roles", "outsourcedtesttracking.employeeid", "roles.employeeid")
                .leftJoin("roles as confirmer", "outsourcedtesttracking.completedconfirmedby", "confirmer.employeeid")
                .leftJoin("test_panels", "outsourcedtesttracking.testid", "test_panels.id")
-               .select('outsourcedtesttracking.*', 'dboservices.trackId',
-                    "dboservices.serviceAddedOn", 'dboservices.serviceCategory',
+               .leftJoin('expensesrecord as er', function (this: any) {
+                    this.on('outsourcedtesttracking.serviceid', '=', 'er.serviceid')
+                         .andOn('er.isassociatedservice', '=', conn.raw('?', [1]));
+               })
+               .select(
+                    'outsourcedtesttracking.*',
+                    'dboservices.trackId',
+                    "dboservices.serviceAddedOn",
+                    'dboservices.serviceCategory',
                     'test_panels.name as testName',
-                    'outsourceorganizationservices.*', "roles.username as employeeName", "confirmer.username as confirmerName")
+                    'outsourceorganizationservices.*',
+                    "roles.username as employeeName",
+                    "confirmer.username as confirmerName",
+                    conn.raw('CASE WHEN er.id IS NOT NULL THEN 1 ELSE 0 END AS is_expensed')
+               )
                .orderBy(`outsourcedtesttracking.createdOn`, sortby)
                .limit(limit)
                .offset((page - 1) * limit);
@@ -160,7 +171,7 @@ export class OutsourcedTestTrackingRepo {
           const conn = await this.connection;
           let query = conn('outsourcedtesttracking')
                .innerJoin('dboservices', 'outsourcedtesttracking.serviceid', 'dboservices.serviceid')
-               .innerJoin('outsourceorganizationservices', function () {
+               .innerJoin('outsourceorganizationservices', function (this: any) {
                     this.on('outsourcedtesttracking.outsourceid', '=', 'outsourceorganizationservices.outsourceid')
                          .andOn('outsourcedtesttracking.testid', '=', 'outsourceorganizationservices.generalTestId');
                })

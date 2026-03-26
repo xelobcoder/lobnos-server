@@ -180,7 +180,7 @@ export const updateToResolveOutsourcedHandler = async function (request: Request
     }
 }
 
-export const getOutsourcedCasesPaginated = async (request: Request, response: Response) => {
+export const getOutsourcedCasesPaginated = async (request: Request<{}, {}, {}, { tenantId: string, count?: string, page?: string, orderby?: 'ASC' | 'DESC' }>, response: Response) => {
     try {
         const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
         const count = parseInt(request.query.count as string) || 20;

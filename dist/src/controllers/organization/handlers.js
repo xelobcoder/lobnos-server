@@ -265,7 +265,6 @@ const getOrganizationPricingHandler = async (request, response) => {
         response.send(result);
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response);
     }
 };

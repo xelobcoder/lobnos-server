@@ -229,7 +229,7 @@ const getResultPrintoutHandler = async (request, response) => {
         }
         const comments = await creator.getCustomCommentsRecords(tenantIdP, billingid, parsedTestId);
         dataset.comments = comments;
-        const literatureReview = await new literature_1.default(null).getResultLiterature(tenantIdP, testid);
+        const literatureReview = await new literature_1.default("").getResultLiterature(tenantIdP, testid);
         if (literatureReview.can != false) {
             dataset.literatureReview = literatureReview.literature;
         }
@@ -307,7 +307,7 @@ const getResultPrintMultipleHandler = async (request, response) => {
         const pEmployeeId = parseInt(employeeid.toString());
         if (!employeeid || isNaN(pEmployeeId))
             return (0, helper_1.customError)("User Not recognized", 404, response);
-        let creator = new creator_1.default(null);
+        let creator = new creator_1.default(0);
         const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
         if (patientid && billingid) {
             const isvalidBillingid = await billing_1.Billing.checkValidityOfBillingid(tenantIdP, billingid);
@@ -411,7 +411,7 @@ const getResultPrintMultipleHandler = async (request, response) => {
                     }
                     return dataset;
                 }));
-                const resultsettings = await new resultSettings_1.default(null).getResultSettings(tenantIdP);
+                const resultsettings = await new resultSettings_1.default(0).getResultSettings(tenantIdP);
                 if (typeof resultsettings != "boolean") {
                     finalResult.resultsettings = resultsettings;
                 }

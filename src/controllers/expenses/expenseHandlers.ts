@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Expenses from "../../models/Expenses/ExpenseService";
 import ExpenseInvoiceRepo from "../../models/Expenses/ExpenseInvoiceRepo";
-import path from "node:path";
+import path, { parse } from "node:path";
 import { customError, responseError, promisifyQuery } from "../../hooks/helper";
 import { RECEIPTS_PATH } from "../../models/Expenses/queries";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
@@ -12,6 +12,7 @@ import { request } from "node:http";
 import OutsourcedCases from "../../models/organization/outsourcingOrganization/outsourcedCases";
 import { SupplierPaymentExpenseSync } from "../../models/inventory/SupplierPaymentExpenseSync";
 import User from "../../LobnosAuth/user";
+import { ExpenseData } from "../../models/Expenses/interfaces/types";
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -160,7 +161,7 @@ export const getSingleExpense = async (req: Request, res: Response) => {
 };
 
 
-export const getExpenseLog = async (request: Request, response: Response) => {
+export const getExpenseLog = async (request: Request<{expenseId: string |number}, {}, {}, { tenantId: string}>, response: Response) => {
 	try {
 		const { tenantId } = request.query;
 		const pTenantId = parseInt(tenantId.toString());
@@ -172,7 +173,7 @@ export const getExpenseLog = async (request: Request, response: Response) => {
 	}
 }
 
-export const updateExpenseRecord = async (request: Request, response: Response) => {
+export const updateExpenseRecord = async (request: Request<{}, {}, ExpenseData, { tenantId: string, expenseid: string }>, response: Response) => {
 	try {
 		const { expenseid, tenantId } = request.query;
 		const expenseData = request.body;
@@ -188,15 +189,14 @@ export const updateExpenseRecord = async (request: Request, response: Response) 
 			expenseId: parseInt(expenseid.toString())
 		});
 
-		const result = await expenses.updateExpenseRecord(expenseData);
+		const result = await expenses.updateExpenseRecord(expenseData as unknown as PrimeLimsTableexpensesrecord);
 
 		if (typeof result === "string") {
 			return customError(result, 400, response);
 		}
 
 		response.send({ status: result });
-	} catch (err) {
-		console.log(err);
+	} catch (err: any) {
 		responseError(response, err);
 	}
 };
@@ -204,8 +204,8 @@ export const updateExpenseRecord = async (request: Request, response: Response) 
 export const uploadReceipts = async (req: Request, res: Response) => {
 	try {
 		res.send({ status: "success" });
-	} catch (err) {
-		console.log(err);
+	} catch (err: any) {
+		responseError(res, err);
 	}
 };
 
@@ -259,7 +259,7 @@ export const deleteReceiptsList = async (req: Request, res: Response) => {
 	}
 };
 
-export const updateExpenseDecision = async (req: Request, res: Response) => {
+export const updateExpenseDecision = async (req: Request<{}, {}, {}, { tenantId: string, employeeid?: string, branchid?: string }>, res: Response) => {
 	try {
 		const { expenseid, employeeid, status, information, branchid } = req.body;
 		const { tenantId } = req.query;
@@ -398,7 +398,7 @@ export const updateExpenseDecision = async (req: Request, res: Response) => {
 						approverBranchId,
 						parseInt(tenantId.toString())
 					);
-					const approvedExpenseIds = decisions.map(d => d.expenseid);
+					const approvedExpenseIds = decisions.map((d: { expenseid: number }) => d.expenseid);
 
 					const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, approvedExpenseIds, true);
 
@@ -408,7 +408,7 @@ export const updateExpenseDecision = async (req: Request, res: Response) => {
 						invoices: invoiceResults,
 						message: "Expenses approved and invoices created"
 					});
-				} catch (invoiceError) {
+				} catch (invoiceError: any) {
 					res.send({
 						success: true,
 						count: decisions.length,
@@ -453,7 +453,7 @@ export const updateExpenseDecision = async (req: Request, res: Response) => {
 						invoices: invoiceResults,
 						message: "Expense approved and invoice created"
 					});
-				} catch (invoiceError) {
+				} catch (invoiceError: any) {
 					res.send({
 						success: true,
 						message: "Expense approved, but invoice creation failed",
@@ -570,7 +570,12 @@ export const createExpenseMerchant = async (req: Request, res: Response) => {
 };
 
 
-export const updateExpenseMerchant = async (req: Request, res: Response) => {
+export const updateExpenseMerchant = async (req: Request<{}, {}, {
+	name: string;
+	employeeid: number;
+	branchid: number;
+	id: number;
+}, { tenantId: string }>, res: Response) => {
 	try {
 		const { name, employeeid, branchid, id } = req.body;
 		const { tenantId } = req.query;
@@ -580,7 +585,7 @@ export const updateExpenseMerchant = async (req: Request, res: Response) => {
 		if (!repo) return customError("Merchant not found", 404, res);
 		res.send({ status: "success", message: "Merchant updated successfully" });
 
-	} catch (err) {
+	} catch (err: any) {
 		logger.log(err);
 		responseError(res);
 	}
@@ -601,9 +606,26 @@ export const getAllExpenseMerchants = async (req: Request, res: Response) => {
 };
 
 
+export const markOutsourceCasesAsExpenseHandler = async (request: Request<{},{},{},{tenantId: string}>, response: Response) => {
+	try {
+		const { tenantId } = request.query;
+		const result = await OutsourcedCases.countUnmarkedOutsourcedCases(parseInt(tenantId.toString()));
+		response.send({ count: result });
+	} catch (err) {
+		responseError(response);
+	}
+}
 
 
-export const markOutsourceCasesAsExpense = async (request: Request, response: Response): Promise<any> => {
+
+export const markOutsourceCasesAsExpense = async (request: Request<{}, {}, {
+	testid: number;
+	serviceid: number;
+	tracking_id: string;
+	employeeid: number;
+	branchid: number;
+	outsourcedid: number;
+}, { tenantId: string }>, response: Response): Promise<any> => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString());
 		const { testid, serviceid, tracking_id, employeeid, branchid, outsourcedid } = request.body;
@@ -613,20 +635,24 @@ export const markOutsourceCasesAsExpense = async (request: Request, response: Re
 		const result = await OutsourcedCases.markOutsourceCasesAsExpense(tenantId, {
 			serviceid: serviceid,
 			testid: testid,
-			trackingid: tracking_id,
+			trackingid: parseInt(tracking_id.toString()),
 			branchid,
 			employeeid,
 			outsourcedid
 		});
 		response.send({ status: result });
-	} catch (err) {
+	} catch (err: any) {
 		customError(err?.message || "An error occurred while marking outsource case as expense", 500, response);
 	}
 };
 
 
 
-export const markCaseAsDone = async (request: Request, response: Response): Promise<any> => {
+export const markCaseAsDone = async (request: Request<{}, {}, {
+	trackingId: number;
+	employeeid: number;
+	comments?: string;
+}, { tenantId: string }>, response: Response): Promise<any> => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString());
 		const { trackingId, employeeid, comments } = request.body;
@@ -640,7 +666,7 @@ export const markCaseAsDone = async (request: Request, response: Response): Prom
 
 		});
 		response.send({ status: result });
-	} catch (err) {
+	} catch (err: any) {
 		console.log(err);
 		responseError(response);
 	}
@@ -661,7 +687,7 @@ export const createExpensesAndInvoice = async (req: Request, res: Response) => {
 			invoiceData || {}
 		);
 		res.send({ status: result });
-	} catch (err) {
+	} catch (err: any) {
 		console.log(err);
 		responseError(res);
 	}

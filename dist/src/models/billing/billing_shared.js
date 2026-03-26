@@ -509,7 +509,6 @@ class BillingSharedRepo {
             return loadAllServices;
         }
         catch (err) {
-            console.log('Error Loading services ');
             throw err;
         }
     }

@@ -72,7 +72,7 @@ export const updateApplicationSettings = async (request: Request<{}, {}, Applica
 	}
 };
 
-export const updateSmsSettings = async (req: Request, res: Response) => {
+export const updateSmsSettings = async (req: Request<{}, {}, {}, { tenantId: number }>, res: Response) => {
 	try {
 		const data = JSON.stringify(req.body);
 		const tenantId = parseInt(req.query.tenantId.toString())

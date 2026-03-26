@@ -41,6 +41,7 @@ export type ApplicationSettingsData = {
      withnessRefund: number;
      smsActivated: number;
      patientIdGenerationMethod: string | null;
+     automakesupplierpaymentsexpense: numberBoolean;
      smsSettings: smsSettings;
      emailNotification: number;
      includeTax: number;
@@ -62,6 +63,10 @@ export type ApplicationSettingsData = {
      byPassSampleValidation?: numberBoolean;
      byPassValidation?: numberBoolean;
      byPassProcessing?: numberBoolean;
+     automakeemployeepayrollpaymentsexpense?: numberBoolean;
+     automakeoutsourcepaymentsexpense?: numberBoolean;
+     automakecommissionpaymentsexpense?: numberBoolean;
+     useamountpaidforcommissioncalculation?: numberBoolean;
 };
 
 

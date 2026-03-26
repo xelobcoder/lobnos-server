@@ -8,6 +8,7 @@ import { AddtoTestAscenstionQuery } from "./queries";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { TestAscension } from "../operations/ascension";
 import { query } from "winston";
+import OutsourcedCases from "../organization/outsourcingOrganization/outsourcedCases";
 
 export class BillingSharedRepo {
      private static calculateTotalDiscount(data: any[]) {
@@ -604,8 +605,7 @@ export class BillingSharedRepo {
 
                const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
                return loadAllServices;
-          } catch (err) {
-               console.log('Error Loading services ')
+          } catch (err: any) {
                throw err;
           }
      }

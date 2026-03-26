@@ -122,11 +122,12 @@ exports.putCliniciansHandler = putCliniciansHandler;
 async function deleteCliniciansHandler(request, response) {
     try {
         const { id } = request.body;
-        if (!id || isNaN(id)) {
+        const parseId = parseInt(id);
+        if (!id || isNaN(parseId)) {
             return (0, helper_1.customError)("id required", 404, response);
         }
         const tenantId = parseInt(request.query.tenantId.toString());
-        const status = await new clinicianClass_1.default().deleteClinicians(tenantId, id);
+        const status = await new clinicianClass_1.default().deleteClinicians(tenantId, parseId);
         if (status) {
             response.send({
                 statusCode: 200,
@@ -205,7 +206,7 @@ async function getClinicianResultHandler(req, res) {
     }
     catch (err) {
         logger_1.default.error(err);
-        (0, helper_1.customError)(err, 401, res);
+        (0, helper_1.customError)((err === null || err === void 0 ? void 0 : err.message) || "something went wrong", 401, res);
     }
 }
 exports.getClinicianResultHandler = getClinicianResultHandler;
@@ -314,7 +315,6 @@ async function postProcessedOrderHandler(req, res) {
         // }
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.customError)((err === null || err === void 0 ? void 0 : err.message) || err, 500, res);
     }
 }

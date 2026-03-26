@@ -20,6 +20,10 @@ import { AppError, ApplicationBillSettings, ApplicationSettingsData, AppSetting,
 import { promisifyQuery, rowAffected } from "../../../hooks/helper";
 import KnexConnection from "../../../database/KnexConnections";
 import { PrimeLimsTabledistricts, PrimeLimsTableregions } from "../../../database/DatabaseTableSchema";
+
+
+type numberBoolean = 0 | 1;
+
 export default class ApplicationSettings {
 	public async getAllAppSettings(tenantId: number): Promise<ApplicationSettingsData | null> {
 		const result = await promisifyQuery(tenantId, q_application_setting);
@@ -61,7 +65,7 @@ export default class ApplicationSettings {
 
 	public async getAppBillSettings(tenantId: number): Promise<AppSetting> {
 		try {
-			const settings: ApplicationSettingsData = await this.getAllAppSettings(tenantId);
+			const settings: ApplicationSettingsData | null = await this.getAllAppSettings(tenantId);
 
 			if (!settings) return {
 				includeTax: 0, PaidBillsBeforeTransaction: 0, taxValue: 0
@@ -91,7 +95,7 @@ export default class ApplicationSettings {
 
 
 	public async applicationConnectedServices(tenantId: number): Promise<connectedServices | null> {
-		const applicationSettings: ApplicationSettingsData = await this.getAllAppSettings(tenantId);
+		const applicationSettings: ApplicationSettingsData | null = await this.getAllAppSettings(tenantId);
 		if (applicationSettings) {
 			const settings = applicationSettings
 			if (settings && settings.services && settings.services != null) {
@@ -110,7 +114,7 @@ export default class ApplicationSettings {
 	}
 
 	async shouldSendRejectionEmail(tenantId: number): Promise<boolean> {
-		const settings: ApplicationSettingsData = await this.getAllAppSettings(tenantId);
+		const settings: ApplicationSettingsData | null = await this.getAllAppSettings(tenantId);
 		let isServicesActivated = false;
 		let isRejectedPrefered = false;
 		if (settings && settings["emailNotification"] == 1) {
@@ -157,6 +161,11 @@ export default class ApplicationSettings {
 			byPassSampleValidation,
 			byPassValidation,
 			byPassProcessing,
+			automakesupplierpaymentsexpense,
+			automakeemployeepayrollpaymentsexpense,
+			automakeoutsourcepaymentsexpense,
+			automakecommissionpaymentsexpense,
+			useamountpaidforcommissioncalculation
 		} = data;
 
 		try {
@@ -189,6 +198,11 @@ export default class ApplicationSettings {
 					byPassSampleValidation: byPassSampleValidation ?? 0,
 					byPassValidation: byPassValidation ?? 0,
 					byPassProcessing: byPassProcessing ?? 0,
+					automakesupplierpaymentsexpense: automakesupplierpaymentsexpense ?? 0,
+					automakeemployeepayrollpaymentsexpense: automakeemployeepayrollpaymentsexpense ?? 0,
+					automakeoutsourcepaymentsexpense: automakeoutsourcepaymentsexpense ?? 0,
+					automakecommissionpaymentsexpense: automakecommissionpaymentsexpense ?? 0,
+					useamountpaidforcommissioncalculation: useamountpaidforcommissioncalculation ?? 0
 				};
 				let affectedRows = 0;
 				if (existing) {
@@ -209,7 +223,7 @@ export default class ApplicationSettings {
 		return rowAffected(await promisifyQuery(tenantId, q_update_sms_settings, [data]));
 	}
 
-	async getSmsSettings(tenantId: number): Promise<boolean | string> {
+	async getSmsSettings(tenantId: number): Promise<boolean | string | null> {
 		const result = await promisifyQuery(tenantId, q_get_sms_settings);
 		if (result.length == 0) return null;
 		const { smsSettings } = result[0];
@@ -256,7 +270,7 @@ export default class ApplicationSettings {
 		return await promisifyQuery(tenantId, q_general_email_settings);
 	}
 
-	async updateGeneralEmailSettings(tenantId: number, records) {
+	async updateGeneralEmailSettings(tenantId: number, records: Object) {
 		if (typeof records != "object") return false;
 		const fields = await promisifyQuery(tenantId, q_truncateGeneralSettings);
 		return rowAffected(fields)
@@ -265,8 +279,8 @@ export default class ApplicationSettings {
 	async isApprovalSetTrue(tenantId: number) {
 		const result = await this.getAllAppSettings(tenantId);
 		if (result) {
-			const approval_status = result[0]["approvalbeforeprinting"];
-			return !(parseInt(approval_status) === 0);
+			const approval_status :numberBoolean = result[0]["approvalbeforeprinting"];
+			return !(parseInt(approval_status as unknown as string) === 0);
 		}
 		return false;
 	}

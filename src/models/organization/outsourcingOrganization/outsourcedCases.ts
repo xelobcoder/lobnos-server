@@ -1,5 +1,3 @@
-
-import { PrimeLimsTableexpensesrecord } from "../../../database/DatabaseTableSchema";
 import KnexConnection from "../../../database/KnexConnections";
 import logger from "../../../hooks/logger";
 import ExpenseInvoiceRepo from "../../Expenses/ExpenseInvoiceRepo";
@@ -40,6 +38,19 @@ export default class OutsourcedCases {
                .offset((page - 1) * count);
      }
 
+
+     static async createOutsourcedCase(tenantId: number, data: { serviceid: number, testid: number, outsourceid: number, employeeid: number }, trx?: any) {
+          const connection = trx || await KnexConnection(tenantId);
+          const inserted = await connection('outsourcedtesttracking')
+               .insert({
+                    serviceid: data.serviceid,
+                    testid: data.testid,
+                    outsourceid: data.outsourceid,
+                    employeeid: data.employeeid
+               });
+          return inserted;
+     }
+
      static async markOutsourceTrackingDone(tenantId: number, data: { trackingId: number, employeeId: number, comments?: string }): Promise<boolean> {
           const conn = await KnexConnection(tenantId);
           const updateData: any = {
@@ -54,6 +65,18 @@ export default class OutsourcedCases {
           return result > 0;
      }
 
+
+     static async countUnmarkedOutsourcedCases(tenantId: number): Promise<number> {
+          const connection = await KnexConnection(tenantId);
+          const result = await connection('outsourcedtesttracking as ott')
+               .leftJoin('expensesrecord as er', function () {
+                    this.on('ott.serviceid', '=', 'er.serviceid')
+                         .andOn('er.isassociatedservice', '=', connection.raw('?', [1]));
+               })
+               .whereNull('er.id')
+               .countDistinct('ott.id as count');
+          return Number(result[0]?.count || 0);
+     }
 
      static async markOutsourceCasesAsExpense(tenantId: number, data: {
           serviceid: number, testid: number, trackingid: number, branchid: number, employeeid: number, outsourcedid?: number

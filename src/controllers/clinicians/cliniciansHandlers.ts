@@ -53,12 +53,12 @@ export const bulkInsertCliniciansHandler = async (req: Request, res: Response) =
 			failCount,
 			results
 		});
-	} catch (error) {
+	} catch (error: any) {
 		return res.status(500).json({ success: false, message: "Bulk insert failed", error: error?.message || error });
 	}
 };
 
-export async function getSingleClinicianHandler(req: Request, res: Response) {
+export async function getSingleClinicianHandler(req: Request<{}, {}, {}, { tenantId: string }>, res: Response) {
 	const { id } = req.query as { id?: string };
 
 	if (!id) {
@@ -93,13 +93,13 @@ export async function getSingleClinicianHandler(req: Request, res: Response) {
 }
 
 
-export async function putCliniciansHandler(req: Request<{}, {}, PrimeLimsTableclinicianbasicinfo>, res: Response): Promise<void> {
+export async function putCliniciansHandler(req: Request<{}, {}, PrimeLimsTableclinicianbasicinfo,{tenantId: string}>, res: Response): Promise<void> {
 	try {
 		const { id } = req.body;
 
 		if (!id) customError("Clinician id not added", 404, res);
 		const tenantId = parseInt(req.query.tenantId.toString())
-		const isUpdated = await new ClinicianClass().putCliniciansBasic(tenantId, req.body);
+		const isUpdated = await new ClinicianClass().putCliniciansBasic(tenantId, req.body as any);
 
 		if (isUpdated) {
 			res.send({
@@ -118,14 +118,15 @@ export async function putCliniciansHandler(req: Request<{}, {}, PrimeLimsTablecl
 	}
 }
 
-export async function deleteCliniciansHandler(request: Request, response: Response): Promise<void> {
+export async function deleteCliniciansHandler(request: Request<{}, {}, {id: string}, { tenantId: string }>, response: Response): Promise<void> {
 	try {
 		const { id } = request.body;
-		if (!id || isNaN(id)) {
+		const parseId = parseInt(id);
+		if (!id || isNaN(parseId)) {
 			return customError("id required", 404, response);
 		}
 		const tenantId = parseInt(request.query.tenantId.toString())
-		const status = await new ClinicianClass().deleteClinicians(tenantId, id);
+		const status = await new ClinicianClass().deleteClinicians(tenantId, parseId);
 		if (status) {
 			response.send({
 				statusCode: 200,
@@ -158,7 +159,7 @@ export async function postCliniciansHandler(req: Request, res: Response): Promis
 }
 
 
-export async function verifyClinicianPhoneNumberAndEmailMiddleware(request: Request, response: Response, next: NextFunction) {
+export async function verifyClinicianPhoneNumberAndEmailMiddleware(request: Request<{}, {}, {email: string; phone: string}, { tenantId: string }>, response: Response, next: NextFunction) {
 	const phone = request.body.phone;
 	const email = request.body.email;
 	const TenantId = request.query.tenantId;
@@ -174,7 +175,7 @@ export async function verifyClinicianPhoneNumberAndEmailMiddleware(request: Requ
 
 
 
-export async function filterClinicianHandler(req: Request, res: Response): Promise<void> {
+export async function filterClinicianHandler(req: Request<{}, {}, { data?: any }, { tenantId: string }>, res: Response): Promise<void> {
 	const { data } = req.body as { data?: any };
 	if (!data) {
 		customError("please add data", 401, res);
@@ -189,7 +190,7 @@ export async function filterClinicianHandler(req: Request, res: Response): Promi
 	}
 }
 
-export async function getClinicianResultHandler(req: Request, res: Response): Promise<void> {
+export async function getClinicianResultHandler(req: Request<{}, {}, {}, { tenantId: string }>, res: Response): Promise<void> {
 	try {
 		const { clinicianid, startdate, enddate } = req.query as { clinicianid?: string; startdate?: string; enddate?: string };
 		if (!clinicianid) {
@@ -200,13 +201,13 @@ export async function getClinicianResultHandler(req: Request, res: Response): Pr
 		const result = await new ClinicianClass().getClinicianResult(tenantId, parseInt(clinicianid), startdate, enddate);
 
 		res.send({ status: "success", statusCode: 200, result });
-	} catch (err) {
+	} catch (err: any) {
 		logger.error(err);
-		customError(err, 401, res);
+		customError(err?.message || "something went wrong", 401, res);
 	}
 }
 
-export async function getBillingTestBasedByClinicianHandler(req: Request, res: Response): Promise<void> {
+export async function getBillingTestBasedByClinicianHandler(req: Request<{}, {}, {}, { tenantId: string }>, res: Response): Promise<void> {
 	try {
 		const { billingid, clinicianid } = req.query as { billingid?: string; clinicianid?: string };
 		if (!billingid || !clinicianid) {
@@ -217,13 +218,13 @@ export async function getBillingTestBasedByClinicianHandler(req: Request, res: R
 		const result = await new ClinicianClass().getBillingTestBasedByClinician(tenantId, parseInt(billingid.toString()), parseInt(clinicianid));
 
 		res.send({ statusCode: 200, status: "success", result });
-	} catch (err) {
+	} catch (err: any) {
 		logger.error(err);
 		customError(err?.message || "something went wrong", 500, res);
 	}
 }
 
-export async function postTemporaryOrderHandler(req: Request, res: Response): Promise<void> {
+export async function postTemporaryOrderHandler(req: Request<{}, {}, {}, { tenantId: string }>, res: Response): Promise<void> {
 	try {
 		// const result = await new Registration().temporaryOrder(req.body);
 		// if (result === true) {
@@ -331,8 +332,7 @@ export async function postProcessedOrderHandler(req: Request, res: Response): Pr
 
 		// 	res.send({ message: "order processed successfully", statusCode: 200, status: "success" });
 		// }
-	} catch (err) {
-		console.log(err);
+	} catch (err:any) {
 		customError(err?.message || err, 500, res);
 	}
 }

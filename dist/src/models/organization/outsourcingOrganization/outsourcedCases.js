@@ -18,6 +18,17 @@ class OutsourcedCases {
             .limit(count)
             .offset((page - 1) * count);
     }
+    static async createOutsourcedCase(tenantId, data, trx) {
+        const connection = trx || await (0, KnexConnections_1.default)(tenantId);
+        const inserted = await connection('outsourcedtesttracking')
+            .insert({
+            serviceid: data.serviceid,
+            testid: data.testid,
+            outsourceid: data.outsourceid,
+            employeeid: data.employeeid
+        });
+        return inserted;
+    }
     static async markOutsourceTrackingDone(tenantId, data) {
         const conn = await (0, KnexConnections_1.default)(tenantId);
         const updateData = {
@@ -31,6 +42,18 @@ class OutsourcedCases {
             .where({ id: data.trackingId })
             .update(updateData);
         return result > 0;
+    }
+    static async countUnmarkedOutsourcedCases(tenantId) {
+        var _a;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection('outsourcedtesttracking as ott')
+            .leftJoin('expensesrecord as er', function () {
+            this.on('ott.serviceid', '=', 'er.serviceid')
+                .andOn('er.isassociatedservice', '=', connection.raw('?', [1]));
+        })
+            .whereNull('er.id')
+            .countDistinct('ott.id as count');
+        return Number(((_a = result[0]) === null || _a === void 0 ? void 0 : _a.count) || 0);
     }
     static async markOutsourceCasesAsExpense(tenantId, data) {
         try {

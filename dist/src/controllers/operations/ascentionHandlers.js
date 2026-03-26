@@ -17,7 +17,7 @@ async function updateAscensionStageHandler(request, response) {
         const metRequirement = stage && ascensionid && value && employeeid;
         if (!metRequirement)
             return (0, helper_1.customError)("invalid request body provided", 400, response);
-        const isUpdateComplete = await ascension_1.TestAscension.updateSampleAscensionstate(tenantIdP, ascensionid, stage, value, employeeid);
+        const isUpdateComplete = await ascension_1.TestAscension.updateSampleAscensionstate(tenantIdP, parseInt(ascensionid.toString()), stage, value, parseInt(employeeid.toString()));
         response.send({ tenantId, status: isUpdateComplete });
     }
     catch (err) {
@@ -29,7 +29,7 @@ async function getAscensionAnalyticSummary(request, response) {
     try {
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
-        const summary = await new ascensionAnalytics_1.AscensionAnalytics(null).getAllAnalytics(tenantIdP);
+        const summary = await new ascensionAnalytics_1.AscensionAnalytics(0).getAllAnalytics(tenantIdP);
         response.send(summary);
     }
     catch (err) {
@@ -88,7 +88,7 @@ exports.getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler =
 async function phelobotomistSummaryHandler(request, response) {
     try {
         const { tenantId, phelobotomistid } = request.query;
-        let parsedPhelobotomistid = null;
+        let parsedPhelobotomistid = undefined;
         if (phelobotomistid) {
             parsedPhelobotomistid =
                 parseInt(phelobotomistid.toString());
@@ -205,7 +205,7 @@ async function getTransactionAscentionTestQualifiedForResultEntryHandler(request
         if (!csvid || !branchid) {
             return (0, helper_1.customError)("billingid or branchid not included in request.query", 400, response);
         }
-        const { billingid, patientid } = new creator_1.default(null).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), target.toString());
+        const { billingid, patientid } = new creator_1.default(0).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), target.toString());
         const tenantIdP = parseInt(tenantId.toString());
         const List = await ascension_1.TestAscension.getTransactionTestsQualifiedForResultEntry(tenantIdP, billingid, parseInt(branchid.toString()));
         response.send({ tenantId, test: List });
@@ -218,7 +218,7 @@ exports.getTransactionAscentionTestQualifiedForResultEntryHandler = getTransacti
 async function getAscensionEditCountHandler(request, response) {
     try {
         const { tenantId, csvid, testid, ascensionid, ptid } = request.query;
-        const { billingid, patientid } = new creator_1.default(null).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), '70,50');
+        const { billingid, patientid } = new creator_1.default(0).sanitize_patientid_billingid_query(csvid.toString(), ptid.toString(), '70,50');
         const parsedBillingid = parseInt(billingid.toString());
         const parsedAscensionid = parseInt(ascensionid.toString());
         const tenantIdP = parseInt(tenantId.toString());
@@ -256,8 +256,8 @@ async function getRejectedCollectedSampleListHandler(request, response) {
         let queryPage = 1;
         const { tenantId, count, page } = request.query;
         if (count && page) {
-            queryPage = parseInt(request.query.page.toString()) || 1;
-            queryCount = parseInt(request.query.count.toString());
+            queryPage = parseInt(page.toString());
+            queryCount = parseInt(count.toString());
         }
         const tenantIdP = parseInt(tenantId.toString());
         const List = await sampleClass_1.SampleHandler.getRejectedCollectedSample(tenantIdP, { count: queryCount, page: queryPage });

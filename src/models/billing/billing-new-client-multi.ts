@@ -9,6 +9,7 @@ import { EntityType } from "../clincians/c.dev.type";
 import { OutsourcedTestTrackingRepo } from "../operations/OutsourcedTestTrackingRepo";
 import { OperationsFailures } from "../operations/types";
 import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
+import OutsourcedCases from "../organization/outsourcingOrganization/outsourcedCases";
 
 
 export class SubmitCustomerBilling {
@@ -414,15 +415,17 @@ export class SubmitCustomerBilling {
                     }
                 }
 
-                
+
 
 
                 await trx.commit();
+
+                
                 const parsedEmployeeId = parseInt(employeeid.toString(), 10);
                 const repo = new PrimeEventsSMSDataSource(tenantId);
                 await repo.paymentConfirmationEvent(tenantId, finalBillingId, parsedEmployeeId);
-            
-            
+
+
             }
 
             return { status: true, message: "Order submitted successfully", billingid: billingID };

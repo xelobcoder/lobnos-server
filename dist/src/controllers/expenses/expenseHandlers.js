@@ -14,7 +14,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getReversedPayments = exports.reverseExpensePayment = exports.markSupplierPaymentAsExpense = exports.getPayments = exports.addPayment = exports.getInvoices = exports.createInvoice = exports.createExpensesAndInvoice = exports.markCaseAsDone = exports.markOutsourceCasesAsExpense = exports.getAllExpenseMerchants = exports.updateExpenseMerchant = exports.createExpenseMerchant = exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.getExpensesByGroup = exports.generateBulkExpenses = exports.createExpenses = void 0;
+exports.getReversedPayments = exports.reverseExpensePayment = exports.markSupplierPaymentAsExpense = exports.getPayments = exports.addPayment = exports.getInvoices = exports.createInvoice = exports.createExpensesAndInvoice = exports.markCaseAsDone = exports.markOutsourceCasesAsExpense = exports.markOutsourceCasesAsExpenseHandler = exports.getAllExpenseMerchants = exports.updateExpenseMerchant = exports.createExpenseMerchant = exports.getAllExpenseCategory = exports.updateExpenseCategory = exports.createExpenseCategory = exports.updateExpenseDecision = exports.deleteReceiptsList = exports.getExpenseImageList = exports.getReceiptImage = exports.uploadReceipts = exports.updateExpenseRecord = exports.getExpenseLog = exports.getSingleExpense = exports.getExpensesRecord = exports.getExpensesByGroup = exports.generateBulkExpenses = exports.createExpenses = void 0;
 const ExpenseService_1 = __importDefault(require("../../models/Expenses/ExpenseService"));
 const ExpenseInvoiceRepo_1 = __importDefault(require("../../models/Expenses/ExpenseInvoiceRepo"));
 const node_path_1 = __importDefault(require("node:path"));
@@ -180,7 +180,6 @@ const updateExpenseRecord = async (request, response) => {
         response.send({ status: result });
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response, err);
     }
 };
@@ -190,7 +189,7 @@ const uploadReceipts = async (req, res) => {
         res.send({ status: "success" });
     }
     catch (err) {
-        console.log(err);
+        (0, helper_1.responseError)(res, err);
     }
 };
 exports.uploadReceipts = uploadReceipts;
@@ -358,7 +357,7 @@ const updateExpenseDecision = async (req, res) => {
             if (status === 'approved' && result) {
                 try {
                     const invoiceRepo = new ExpenseInvoiceRepo_1.default(approverEmployeeId, approverBranchId, parseInt(tenantId.toString()));
-                    const approvedExpenseIds = decisions.map(d => d.expenseid);
+                    const approvedExpenseIds = decisions.map((d) => d.expenseid);
                     const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, approvedExpenseIds, true);
                     res.send({
                         success: true,
@@ -543,6 +542,17 @@ const getAllExpenseMerchants = async (req, res) => {
     }
 };
 exports.getAllExpenseMerchants = getAllExpenseMerchants;
+const markOutsourceCasesAsExpenseHandler = async (request, response) => {
+    try {
+        const { tenantId } = request.query;
+        const result = await outsourcedCases_1.default.countUnmarkedOutsourcedCases(parseInt(tenantId.toString()));
+        response.send({ count: result });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.markOutsourceCasesAsExpenseHandler = markOutsourceCasesAsExpenseHandler;
 const markOutsourceCasesAsExpense = async (request, response) => {
     try {
         const tenantId = parseInt(request.query.tenantId.toString());
@@ -552,7 +562,7 @@ const markOutsourceCasesAsExpense = async (request, response) => {
         const result = await outsourcedCases_1.default.markOutsourceCasesAsExpense(tenantId, {
             serviceid: serviceid,
             testid: testid,
-            trackingid: tracking_id,
+            trackingid: parseInt(tracking_id.toString()),
             branchid,
             employeeid,
             outsourcedid
