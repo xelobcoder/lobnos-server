@@ -474,14 +474,12 @@ export const q_get_clinician_commission = `
         COUNT(*) AS total_services,
         SUM(s.totalpayable) AS total_payable,
         SUM(s.paidamount) AS total_paid,
-        COALESCE(cp.commission, 0) AS commission_percent,
-        ROUND(SUM(s.totalpayable) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_amount_payable,
-        ROUND(SUM(s.paidamount) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_paid_amount
+        COALESCE(ct.commission_due, 0) AS commission_earned
     FROM dboservices s
     INNER JOIN clinicianbasicinfo c
         ON s.clinicianId = c.id
-    LEFT JOIN clinicianpaymentinfo cp 
-        ON cp.clinicianid = c.id
+    LEFT JOIN commission_tracking ct
+        ON ct.serviceid = s.serviceid AND ct.type = 'clinician' AND ct.recipient_id = c.id
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = s.serviceid
     WHERE
@@ -503,24 +501,20 @@ export const q_get_clinician_commission = `
 
 export const q_get_clinicians_commission_by_date = `
     SELECT
-        DATE(s.serviceAddedOn) AS service_date,
         c.id AS clinician_id,
         c.name AS clinician_name,
         c.phone AS clinician_phone,
-        s.serviceid,
-        c.occupation,
+        DATE(s.serviceAddedOn) AS service_date,
         c.organization,
         COUNT(*) AS total_services,
         SUM(s.totalpayable) AS total_payable,
         SUM(s.paidamount) AS total_paid,
-        COALESCE(cp.commission, 0) AS commission_percent,
-        ROUND(SUM(s.totalpayable) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_amount_payable,
-        ROUND(SUM(s.paidamount) * (COALESCE(cp.commission, 0) / 100), 2) AS commission_earned_by_paid_amount
+        SUM(COALESCE(ct.commission_due, 0)) AS commission_earned_total
     FROM dboservices s
     INNER JOIN clinicianbasicinfo c
         ON s.clinicianId = c.id
-    LEFT JOIN clinicianpaymentinfo cp 
-        ON cp.clinicianid = c.id
+    LEFT JOIN commission_tracking ct
+        ON ct.serviceid = s.serviceid AND ct.type = 'clinician' AND ct.recipient_id = c.id
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = s.serviceid
     WHERE
@@ -533,17 +527,9 @@ export const q_get_clinicians_commission_by_date = `
         AND s.clinicianId IS NOT NULL
         AND cbps.serviceid IS NULL
     GROUP BY 
-        service_date,
-        c.id, 
-        c.name,
-        c.phone,
-        c.occupation,
-        c.organization,
-        cp.commission
-    ORDER BY 
-        service_date DESC, 
-        c.id DESC;
+        c.id
+    ORDER BY ?
+    LIMIT ? OFFSET ?;
 `;
-
 
 

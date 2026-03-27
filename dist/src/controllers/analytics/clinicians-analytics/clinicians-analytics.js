@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const clinicians_analytics_1 = __importDefault(require("../../../models/analytics/clinicians-analytics/clinicians-analytics"));
-const helper_1 = require("../../../hooks/helper");
 const analyticsEndpoints = [
     {
         label: "Overall Totals",
@@ -298,14 +297,14 @@ class ClinicianAnalyticsHandlers {
         });
     }
     async getCliniciansCommissionbyDate(request, response) {
-        const { tenantId, startDate, endDate } = request.query;
+        const { tenantId, startDate, endDate, sortby = 'DESC', page = 1, count = 10 } = request.query;
         if (!startDate || !endDate) {
             return response.status(400).json({
                 success: false,
                 error: "Start date and end date are required"
             });
         }
-        const result = await clinicians_analytics_1.default.getClinicianCommissionByDate(parseInt(tenantId.toString()), startDate, endDate);
+        const result = await clinicians_analytics_1.default.getClinicianCommissionByDate(parseInt(tenantId.toString()), { startDate: startDate, endDate: endDate, sortby, page, count });
         response.status(200).json({
             success: true,
             data: result
@@ -313,14 +312,11 @@ class ClinicianAnalyticsHandlers {
     }
     async getClinicianCommissionHandler(request, response) {
         const { tenantId, clinicianId, startDate, endDate } = request.query;
-        if (!startDate || !endDate) {
+        if (!startDate || !endDate || !clinicianId) {
             return response.status(400).json({
                 success: false,
-                error: "Start date and end date are required"
+                error: "Start date, end date, and clinician ID are required"
             });
-        }
-        if (clinicianId === undefined || clinicianId === null) {
-            return (0, helper_1.customError)('Clinician ID is required', 400, response);
         }
         const result = await clinicians_analytics_1.default.getClinicianCommission(parseInt(tenantId.toString()), parseInt(clinicianId.toString()), startDate, endDate);
         response.status(200).json({
@@ -355,8 +351,6 @@ class ClinicianAnalyticsHandlers {
         return this.handleRequest(res, async () => {
             const clinicianId = this.validateClinicianId(req.params.clinicianId);
             const year = this.validateYear(req.query.year);
-            const page = parseInt(req.query.page) || 1;
-            const count = parseInt(req.query.count) || 10;
             let tenantId = req.query.tenantId;
             const parsedTenantId = parseInt(tenantId);
             const [overallTotals, monthlyTotals, yearlyTotals, caseSummaryOverall, caseSummaryMonthly, caseSummaryYearly, caseSummaryDailyRecent, dailyCaseChange, monthlyCaseChange, yearlyCaseChange, revenueComparison, paymentTypes, shiftDistribution, outsourcedCases, growthStats, monthlyTestBreakdown, topOutsourced] = await Promise.all([

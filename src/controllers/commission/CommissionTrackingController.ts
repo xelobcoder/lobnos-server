@@ -23,7 +23,6 @@ export class CommissionTrackingController {
           const commissionTrackingRepo = this.commissionTrackingRepo;
           async function validate() {
                const { registrationType, page, count, recipient_id } = request.query
-
                if (registrationType && !['clinician', 'organization'].includes(registrationType as string)) {
                     return customError("Type must be either 'clinician' or 'organization'", 400, response);
                }

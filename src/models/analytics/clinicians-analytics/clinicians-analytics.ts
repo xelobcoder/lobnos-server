@@ -40,8 +40,8 @@ class ClinicianAnalytics {
           return Array.isArray(result) && result.length > 0 ? result : {};
      }
 
-     public static async getClinicianCommissionByDate(tenantId: number, startDate: string, endDate: string) {
-          const result = await promisifyQuery(tenantId, q_get_clinicians_commission_by_date, [startDate, endDate]);
+     public static async getClinicianCommissionByDate(tenantId: number, {startDate, endDate, page, count, sortby}: {startDate: string, endDate: string, page: number, sortby:'ASC' | 'DESC', count: number}) {
+          const result = await paginationQuery({count,page}, q_get_clinicians_commission_by_date, [startDate, endDate, sortby],tenantId);
           return Array.isArray(result) && result.length > 0 ? result : [];
      }
 

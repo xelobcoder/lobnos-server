@@ -1,5 +1,6 @@
 import KnexConnection from "../../database/KnexConnections";
 import logger from "../../hooks/logger";
+import ApplicationSettings from "../application/appsettings/appset";
 import { CommissionBatchPaymentServicesRepo } from "./CommissionBatchPaymentServicesRepo";
 
 
@@ -65,6 +66,12 @@ export class CommissionTrackingRepo {
      ): Promise<any[]> {
           try {
                const conn = await this.connection;
+               const applicationsettings  = await new ApplicationSettings().getAllAppSettings(this.tenantId);
+               let isPaidAmountUsed =  false;
+
+               if (applicationsettings) {
+                     isPaidAmountUsed = applicationsettings['useamountpaidforcommissioncalculation'] ?  parseInt((applicationsettings['useamountpaidforcommissioncalculation']).toString()) == 1 : false;
+               }
                let query = conn('commission_tracking as ct')
                     .select(
                          'ct.*',
@@ -73,18 +80,23 @@ export class CommissionTrackingRepo {
                          'ds.serviceAddedOn',
                          'ds.serviceCategory',
                          'tp.name as test_name',
-                         conn.raw(`CASE 
-                              WHEN ct.type = 'clinician' THEN cbi.name
-                              WHEN ct.type = 'organization' THEN obi.name
-                              ELSE 'Unknown'
-                         END as recipient_name`)
                     )
                     .leftJoin('dboservices as ds', 'ct.serviceid', 'ds.serviceid')
                     .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
-                    .leftJoin("clinicianbasicinfo as cbi", "ct.recipient_id", "cbi.id")
-                    .leftJoin("organization as obi", "ct.recipient_id", "obi.id")
                     .where(conn.raw("ds.serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
-                    .andWhere(conn.raw("ds.clinicianId IS NOT NULL OR ds.organizationId IS NOT NULL"));
+                    .andWhere(function () {
+                         this.whereRaw('ds.clinicianId IS NOT NULL').orWhereRaw('ds.organizationId IS NOT NULL');
+                    });
+
+               if (type === 'clinician') {
+                    query = query
+                         .leftJoin("clinicianbasicinfo as cbi", "ct.recipient_id", "cbi.id")
+                         .select('cbi.name as recipient_name');
+               } else if (type === 'organization') {
+                    query = query
+                         .leftJoin("organization as obi", "ct.recipient_id", "obi.id")
+                         .select('obi.name as recipient_name');
+               }
 
 
                if (recipient_id) {
@@ -103,6 +115,7 @@ export class CommissionTrackingRepo {
                     const offset = (page - 1) * count;
                     query = query.offset(offset).limit(count);
                }
+
 
                return await query;
           } catch (error) {

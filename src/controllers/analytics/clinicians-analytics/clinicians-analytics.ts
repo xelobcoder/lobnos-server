@@ -366,33 +366,31 @@ export default class ClinicianAnalyticsHandlers {
           });
      }
 
-     public async getCliniciansCommissionbyDate(request: Request, response: Response) {
-          const { tenantId, startDate, endDate } = request.query;
+     public async getCliniciansCommissionbyDate(request: Request<{}, {}, {}, { tenantId: string, startDate: string, endDate: string, sortby: 'ASC' | 'DESC', page: number, count: number }>, response: Response) {
+          const { tenantId, startDate, endDate, sortby='DESC', page=1, count=10 } = request.query;
           if (!startDate || !endDate) {
                return response.status(400).json({
                     success: false,
                     error: "Start date and end date are required"
                });
           }
-          const result = await ClinicianAnalytics.getClinicianCommissionByDate(parseInt(tenantId.toString()), startDate as string, endDate as string);
+      
+          const result = await ClinicianAnalytics.getClinicianCommissionByDate(parseInt(tenantId.toString()), { startDate: startDate as string, endDate: endDate as string, sortby, page, count });
           response.status(200).json({
                success: true,
                data: result
           });
      }
 
-     public async getClinicianCommissionHandler(request: Request, response: Response) {
+     public async getClinicianCommissionHandler(request: Request<{}, {}, {}, { tenantId: string, clinicianId: string, startDate: string, endDate: string }>, response: Response) {
           const { tenantId, clinicianId, startDate, endDate } = request.query;
-          if (!startDate || !endDate) {
+          if (!startDate || !endDate || !clinicianId) {
                return response.status(400).json({
                     success: false,
-                    error: "Start date and end date are required"
+                    error: "Start date, end date, and clinician ID are required"
                });
           }
 
-          if (clinicianId === undefined || clinicianId === null) {
-               return customError('Clinician ID is required', 400, response);
-          }
 
           const result = await ClinicianAnalytics.getClinicianCommission(parseInt(tenantId.toString()), parseInt(clinicianId.toString()), startDate as string, endDate as string);
           response.status(200).json({
@@ -429,8 +427,6 @@ export default class ClinicianAnalyticsHandlers {
           return this.handleRequest(res, async () => {
                const clinicianId = this.validateClinicianId(req.params.clinicianId);
                const year = this.validateYear(req.query.year);
-               const page = parseInt(req.query.page) || 1
-               const count = parseInt(req.query.count) || 10
                let tenantId = req.query.tenantId;
                const parsedTenantId = parseInt(tenantId)
 
