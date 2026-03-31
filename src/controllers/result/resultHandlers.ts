@@ -8,7 +8,7 @@ import { NewRegistration } from "../../models/registration/types";
 import ResultPrint from "../../models/result/resultPrint";
 import { TestAscension } from "../../models/operations/ascension";
 import { customError, responseError } from "../../hooks/helper";
-import { CreationRule, previewReportView, resultEntryType } from "../../models/creator/creator.d.type";
+import { CreationRule, previewReportView, resultEntryType } from "../../models/creator/creator-types";
 import TestLiteratureSetup from "../../testpanel/literature";
 import resultEncrptionReferer from "../../models/creator/resultEncryptionReferer";
 import Creator from "../../models/creator/creator";
@@ -16,7 +16,7 @@ import { Billing } from "../../models/billing/billing";
 import { PrimeLimsTabletest_ascension, PrimeLimsTabletest_panels } from "../../database/DatabaseTableSchema";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 import { testAscensionTableTypes } from "../../models/billing/billingclientTypes";
-import RolesRepository from "../../models/settings/users/RolesRepository";
+import RolesRepository, { IEmployee } from "../../models/settings/users/RolesRepository";
 import { TestDetailCategoryType } from "../../models/operations/testFieldsCategoryClass";
 import RequestAccess from "../../models/security/RequestAcessResult/requestAcess";
 import { Services } from "../../models/services/services";
@@ -70,7 +70,7 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: Reque
 				if (decryptedResult != undefined) {
 					const { resources } = decryptedResult;
 					if (resources && Array.isArray(resources) && resources.length > 0) {
-						result = result.map((item: CreationRule, index: number) => {
+						result = result.map((item: any, index: number) => {
 							return { ...item, value: resources[index]['value'] }
 						})
 						return response.send({ ...records, result });
@@ -217,7 +217,7 @@ export const getResultPrintoutHandler = async (request: Request<
 		if (!isWithinWindow) {
 			return customError(OperationsFailures.accessWindowExpired, 403, response);
 		}
-		const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId, "minimum");
+		const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId as any, "minimum");
 		if (!resultApproved && !isScan) {
 			return response.send({ message: OperationsFailures.minimumResultValidation })
 		}
@@ -248,7 +248,7 @@ export const getResultPrintoutHandler = async (request: Request<
 			testdetailcategory: null,
 		};
 
-		const resultsettings = await new ResultSettings(null).getResultSettings(tenantIdP);
+		const resultsettings = await new ResultSettings(tenantIdP).getResultSettings(tenantIdP);
 
 		if (typeof resultsettings != "boolean") dataset.resultsettings = resultsettings;
 		const companyInfo = await getAllCompanyProfiles(tenantIdP);
@@ -318,19 +318,19 @@ export const getResultPrintoutHandler = async (request: Request<
 		const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
 
 		dataset.validators = validators;
-		dataset.lastupdatedon = lastupdatedon;
+		dataset.lastupdatedon = lastupdatedon as Date || null;
 		dataset.resultentry = resultentry
 		const hostname = process.env.NODE_ENV === 'development'
 			? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
 			: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
 
 		dataset.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`
-		dataset.enteredOn = enteredOn
+		dataset.enteredOn = enteredOn as Date || null;
 
 		if (employeeid) {
 			const pEmployeeId = parseInt(employeeid.toString());
 			const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
-			const { username, role, mobile } = employeedata;
+			const { username, role, mobile } = employeedata as IEmployee;
 			dataset.generalValidation = {
 				employeeid: pEmployeeId,
 				username,
@@ -366,10 +366,10 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 			if (billingAscensions.length === 0) return response.send({ status: false, message: 'No result Associated with billingid' })
 
-			let qualifiedForPrintOut: { ascensionid: number, testid: number }[] = await Promise.all(
+			let qualifiedForPrintOut = await Promise.all(
 				billingAscensions.map(async (ascensionItem: PrimeLimsTabletest_ascension, index: number) => {
 					const { id, testid } = ascensionItem;
-					const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, id, "minimum");
+					const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, id as any, "minimum");
 					return resultApproved ? { ascensionid: id, testid } : null
 				})
 			)
@@ -380,17 +380,20 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 			// check each for acess window or acess permission allowed
 
 			let accessPermissionTest = []
-			const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
+			const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId) as IEmployee;
 			const isPriviledgedUser = currentRole && ['admin', 'manager', 'super-admin'].includes(currentRole.role.toLowerCase());
 
 			for (let i = 0; i < qualifiedForPrintOut.length; i++) {
+				const item = qualifiedForPrintOut[i];
+				if (!item) continue;
 				let isWithinWindow = false;
 				if (isPriviledgedUser) {
 					isWithinWindow = true;
 				} else {
-					isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, qualifiedForPrintOut[i].ascensionid, pEmployeeId, "access");
+					const ascensionid = item.ascensionid ? parseInt(item.ascensionid.toString()) : 0;
+					isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionid, pEmployeeId, "access");
 				}
-				isWithinWindow ? accessPermissionTest.push(qualifiedForPrintOut[i]) : null;
+				isWithinWindow ? accessPermissionTest.push(item) : null;
 			}
 
 			if (accessPermissionTest.length == 0) {
@@ -401,7 +404,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 			if (qualifiedForPrintOut.length > 0) {
 				const finalResult = {
-					test: null,
+					test: [] as any[],
 					generalValidation: null,
 					resultsettings: null,
 					companyInfo: null,
@@ -412,7 +415,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 					generalComments: ''
 				}
 
-				finalResult.test = await Promise.all(qualifiedForPrintOut.map(async (item, index) => {
+				finalResult.test = await Promise.all(qualifiedForPrintOut.map(async (item: any, index) => {
 					const { testid, ascensionid } = item;
 					let dataset = {
 						literatureReview: null,
@@ -428,18 +431,17 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 						testdetailcategory: null,
 						referrerFacility: null,
 					};
-
-					const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup(null).getResultLiterature(tenantIdP, testid)
+					const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup('').getResultLiterature(tenantIdP, testid)
 
 					if (literatureReview.can != false) {
-						dataset.literatureReview = literatureReview.literature
+						dataset.literatureReview = literatureReview.literature as any
 					}
 
 					let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, item.testid, item.ascensionid);
 
 					const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
-					dataset.validators = validators
-					dataset.resultentry = resultentry
+					dataset.validators = validators as any
+					dataset.resultentry = resultentry as any
 					dataset.lastupdatedon = enteredOn as string || lastupdatedon as string
 
 
@@ -448,14 +450,14 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 					if (records != null && typeof records != "string") {
 						const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
-						dataset.records = result;
+						dataset.records = result as any
 						if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
 							dataset.records = await ResultPrint.decryptResultArray(records.result);
 						}
-						dataset.testname = testname
+						dataset.testname = testname as any
 						dataset.hasDrugs = hasDrugs
-						dataset.testInfo = testInfo || null
-						dataset.testdetailcategory = testdetailcategory || null
+						dataset.testInfo = testInfo || null as any
+						dataset.testdetailcategory = testdetailcategory || null as any
 					}
 
 					if (dataset.hasDrugs == true) {
@@ -487,36 +489,36 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 				const resultsettings = await new ResultSettings(0).getResultSettings(tenantIdP);
 
 				if (typeof resultsettings != "boolean") {
-					finalResult.resultsettings = resultsettings;
+					finalResult.resultsettings = resultsettings as any
 				}
 
 				const companyInfo = await getAllCompanyProfiles(tenantIdP);
 
 				if (companyInfo != null) {
-					finalResult.companyInfo = companyInfo;
+					finalResult.companyInfo = companyInfo as any
 				}
 
 				const intPatientid = parseInt(patientid.toString());
 
-				finalResult.patientInformation = await new Registration().getPatientBasicData(tenantIdP, intPatientid);
-				finalResult.patientid = patientid;
-				finalResult.billingid = billingid
+				finalResult.patientInformation = await new Registration().getPatientBasicData(tenantIdP, intPatientid) as any
+				finalResult.patientid = patientid as any;
+				finalResult.billingid = billingid as any;
 
 				const hostname = process.env.NODE_ENV === 'development'
 					? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
 					: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
 
-				finalResult.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`
+				finalResult.logourl = `http://${hostname}/api/v1/settings/companyprofile/images` as any;
 
 				if (employeeid) {
 					const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
-					const { employeeid, username, role, mobile } = employeedata;
+					const { employeeid, username, role, mobile } = employeedata as IEmployee;
 					finalResult.generalValidation = {
 						employeeid,
 						username,
 						role,
 						mobile
-					}
+					} as any
 				}
 				return response.send(finalResult)
 			}
@@ -539,17 +541,17 @@ export type resultPrintOutDataset = {
 	hasDrugs: boolean,
 	comments: null | string,
 	records: previewReportView['result'],
-	literatureReview: null | string,
+	literatureReview: null | string | undefined,
 	logourl: string,
-	testname: string,
+	testname: string | null,
 	validators: validatorsFinalFormatType[] | [],
 	drugList?: [],
-	lastupdatedon: Date | string
-	resultentry: string
+	lastupdatedon: Date | null,
+	resultentry: any,
 	testdetailcategory: null | TestDetailCategoryType[],
 	testInfo: null | PrimeLimsTabletest_panels,
-	enteredOn: Date | string
-	billingid: number
+	enteredOn: Date | null,
+	billingid: number,
 	samplingInformation: null | testAscensionTableTypes,
 	patientid: number,
 	referrerFacility?: {

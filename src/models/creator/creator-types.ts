@@ -1,7 +1,8 @@
 import { PrimeLimsTabletest_panels, PrimeLimsTabletestdetailcategory } from "../../database/DatabaseTableSchema";
 import { TestDetailCategoryType } from "../operations/testFieldsCategoryClass";
+import { TestCreationRule } from "../TestCreation/TestCreationRulesRepository";
 
-type drugsType = {
+export type drugsType = {
      name?: string,
      drug?: string,
      id: number,
@@ -10,7 +11,7 @@ type drugsType = {
      categoryName?: string,
      categoryId?: number
 }
-type resultEntryType = {
+export type resultEntryType = {
      csvid: string, ptid: string,
      testid: number,
      fields: [],
@@ -33,8 +34,8 @@ export interface CreationRule {
 
 
 export type resultEntryTemplateView = {
-     result: CreationRule[] | estCreationRule[] | [];
-     testname: string;
+     result: CreationRule[] | TestCreationRule[]| [];
+     testname: string | null;
      hasDrugs: boolean;
      testInfo: PrimeLimsTabletest_panels | null;
      testdetailcategory?: TestDetailCategoryType[] | null;
@@ -42,7 +43,7 @@ export type resultEntryTemplateView = {
 
 export type previewReportView = {
      result: Omit<CreationRule, 'male' | 'female' | 'type' | 'field' | 'usePlain' | 'isValueTracked' | 'alert' | 'valueAlert' | 'constraint' | 'alert'>[],
-     testname: string;
+     testname: string | null;
      hasDrugs: boolean,
           testInfo: PrimeLimsTabletest_panels | null;
      testdetailcategory?: TestDetailCategoryType[] | null;

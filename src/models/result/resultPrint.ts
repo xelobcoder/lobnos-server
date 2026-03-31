@@ -21,7 +21,7 @@ import {
 import IResultPrint from "./RInterface";
 import { promisifyQuery, customError, rowAffected, paginationQuery } from "../../hooks/helper";
 import Creator from "../creator/creator";
-import { CreationRule, previewReportView } from "../creator/creator.d.type";
+import { CreationRule, previewReportView } from "../creator/creator-types";
 import { getTransactionApprovedTest } from "../../controllers/printables/handlers";
 import resultEncrptionReferer from "../creator/resultEncryptionReferer";
 
@@ -87,7 +87,7 @@ class ResultPrint implements IResultPrint {
 	 * @returns {Promise<{ resultentry: string | null; validatedBy: string | null }>} - The usernames of the result entry scientist and the validator.
 	 * @throws Will throw an error if billingid or testid is not provided.
 	 */
-	async getResultEntryScientist(tenantId: number, billingid: number, testid: number, ascensionId: number): Promise<{ resultentry: string | null; validators: [] | validatorsFinalFormatType[], lastupdatedon: Date | string, enteredOn: Date | string }> {
+	async getResultEntryScientist(tenantId: number, billingid: number, testid: number, ascensionId: number): Promise<{ resultentry: string | null; validators: [] | validatorsFinalFormatType[], lastupdatedon: Date | string | null, enteredOn: Date | string | null }> {
 		try {
 			const employeeIdRow = await promisifyQuery(tenantId, `SELECT * FROM test_results WHERE ascensionid  = ?`, [ascensionId]);
 			let employeeid: string | null = null;
@@ -124,7 +124,7 @@ class ResultPrint implements IResultPrint {
 	 * @param {Object} requestquery - The query parameters
 	 * @returns {Promise<void>}
 	 */
-	async get_summary_ready_page(tenantId, requestquery: { querydate?: string; content?: string }): Promise<any[]> {
+	async get_summary_ready_page(tenantId: number, requestquery: { querydate?: string; content?: string }): Promise<any[]> {
 		const { querydate } = requestquery;
 
 		function getTodayDate(): string {
@@ -137,16 +137,16 @@ class ResultPrint implements IResultPrint {
 		try {
 			const result = await promisifyQuery(tenantId, summaryReadyPageQuery, [querydate || getTodayDate(), querydate || getTodayDate()]);
 			if (result && result.length > 0) {
-				const processing = result.filter((item) => {
+				const processing = result.filter((item: any) => {
 					return item.processing === "true" && item.collection === "true" && item.ready === "true";
 				}).length;
-				const ready = result.filter((item) => {
+				const ready = result.filter((item: any) => {
 					return item.processing === "true" && item.ready === "true";
 				}).length;
-				const collection = result.filter((item) => {
+				const collection = result.filter((item: any) => {
 					return item.collection === "true";
 				}).length;
-				const approval = result.filter((item) => {
+				const approval = result.filter((item: any) => {
 					return item.ApprovalStatus === 1;
 				}).length;
 				const testcount = result.length;

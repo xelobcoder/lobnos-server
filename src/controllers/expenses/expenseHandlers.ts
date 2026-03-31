@@ -161,7 +161,7 @@ export const getSingleExpense = async (req: Request, res: Response) => {
 };
 
 
-export const getExpenseLog = async (request: Request<{expenseId: string |number}, {}, {}, { tenantId: string}>, response: Response) => {
+export const getExpenseLog = async (request: Request<{ expenseId: string | number }, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
 		const { tenantId } = request.query;
 		const pTenantId = parseInt(tenantId.toString());
@@ -259,7 +259,13 @@ export const deleteReceiptsList = async (req: Request, res: Response) => {
 	}
 };
 
-export const updateExpenseDecision = async (req: Request<{}, {}, {}, { tenantId: string, employeeid?: string, branchid?: string }>, res: Response) => {
+export const updateExpenseDecision = async (req: Request<{}, {}, {
+	expenseid: number;
+	status: string;
+	information?: string;
+	employeeid: number;
+	branchid: number;
+}, { tenantId: string, employeeid?: string, branchid?: string }>, res: Response) => {
 	try {
 		const { expenseid, employeeid, status, information, branchid } = req.body;
 		const { tenantId } = req.query;
@@ -334,7 +340,7 @@ export const updateExpenseDecision = async (req: Request<{}, {}, {}, { tenantId:
 							invoices: invoiceResults,
 							message: "Expenses approved and invoices created"
 						});
-					} catch (invoiceError) {
+					} catch (invoiceError: any) {
 						results.push({
 							status,
 							success: true,
@@ -349,8 +355,8 @@ export const updateExpenseDecision = async (req: Request<{}, {}, {}, { tenantId:
 			}
 
 			res.send({ results });
-		} else if (req.body.decisions && Array.isArray(req.body.decisions)) {
-			const { status, decisions } = req.body;
+		} else if (!Array.isArray(req.body) && 'decisions' in req.body && Array.isArray(req.body.decisions)) {
+			const { status, decisions } = req.body as { status: string; decisions: Array<any> };
 
 			if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
 				return customError("Valid status is required for bulk decisions", 400, res);
@@ -606,7 +612,7 @@ export const getAllExpenseMerchants = async (req: Request, res: Response) => {
 };
 
 
-export const markOutsourceCasesAsExpenseHandler = async (request: Request<{},{},{},{tenantId: string}>, response: Response) => {
+export const markOutsourceCasesAsExpenseHandler = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
 		const { tenantId } = request.query;
 		const result = await OutsourcedCases.countUnmarkedOutsourcedCases(parseInt(tenantId.toString()));
@@ -855,7 +861,7 @@ async function createInvoicesForApprovedExpenses(invoiceRepo: ExpenseInvoiceRepo
 				WHERE er.groupId = ?
 			`;
 			const invoicedExpenses = await promisifyQuery(invoiceRepo['tenantId'], invoicedExpenseIdsQuery, [groupId]);
-			const invoicedExpenseIds = new Set(invoicedExpenses.map(row => row.expense_id));
+			const invoicedExpenseIds = new Set(invoicedExpenses.map((row: any) => row.expense_id));
 			const uninvoicedExpenseIds = groupExpenseIds.filter(id => !invoicedExpenseIds.has(id));
 
 			if (uninvoicedExpenseIds.length > 0) {
@@ -926,7 +932,7 @@ async function createInvoicesForApprovedExpenses(invoiceRepo: ExpenseInvoiceRepo
 	return invoiceResults;
 }
 
-export const markSupplierPaymentAsExpense = async (request: Request, response: Response): Promise<any> => {
+export const markSupplierPaymentAsExpense = async (request: Request<{}, {}, { paymentId: string; employeeid: number; branchid: number }, { tenantId: string }>, response: Response): Promise<any> => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString());
 		const { paymentId, employeeid, branchid } = request.body;

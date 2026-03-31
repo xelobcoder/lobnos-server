@@ -11,7 +11,7 @@ import ResultSettings from '../../models/application/appsettings/resultSettings'
 import { configuration } from '../../hooks/configuration';
 
 export class AuthController {
-    private authRepo: AuthenticationRepository;
+    private authRepo: AuthenticationRepository | null = null;
     private tokenValidator: TokenValidator;
 
     constructor() {
@@ -44,8 +44,7 @@ export class AuthController {
                 accessToken: tokens.accessToken,
                 user: { role, employeeid, username, email }
             });
-        } catch (error) {
-            console.log(error)
+        } catch (error: any) {
             res.status(400).json({ message: error.message });
         }
     }
@@ -95,8 +94,7 @@ export class AuthController {
                 },
                 settings
             });
-        } catch (err) {
-            console.log(err)
+        } catch (err: any) {
             res.status(400).json({ message: err.message });
         }
     }

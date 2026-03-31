@@ -5,7 +5,7 @@ import OrganizationalBilling from "../../models/organization/organizationBilling
 import { HTTPSTATUSERRORS } from "../../Errors/HTTPErrors";
 import { customError, responseError } from "../../hooks/helper";
 import { Request, Response } from "express";
-import { CreationRule } from "../../models/creator/creator.type";
+import { CreationRule } from "../../models/creator/creator-types";
 
 
 
@@ -90,7 +90,7 @@ export const uploadOrganizationProfilePicture = async (request: Request<{}, {}, 
 }
 
 
-export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenantId: string ,id: string }>, response: Response) => {
+export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenantId: string, id: string }>, response: Response) => {
 	try {
 		const { id } = request.query;
 		const filename = await getUploadedImages('organizations', id.toString());
@@ -105,7 +105,7 @@ export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenant
 export const createAOrganization = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const isCreatedSuccess = await new Organization(null).createAorganization(tenantIdP, request.body  as OrganizationRequestBody);
+		const isCreatedSuccess = await new Organization(null).createAorganization(tenantIdP, request.body as OrganizationRequestBody);
 		if (isCreatedSuccess === OperationsStatus.exist) {
 			return response.send({ message: OperationsStatus.exist, status: 'exist' })
 		}
@@ -125,7 +125,7 @@ export const updateOrganizationBasic = async (request: Request<{}, {}, {}, { ten
 	}
 };
 
-export const updateOrganizationContact = async (request: Request<{}, {}, {organizationid: string |  number}, { tenantId: string }>, response: Response): Promise<void> => {
+export const updateOrganizationContact = async (request: Request<{}, {}, { organizationid: string | number }, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const { organizationid } = request.body;
 		if (!organizationid) return customError('Invalid request body provided', 400, response);
@@ -137,7 +137,7 @@ export const updateOrganizationContact = async (request: Request<{}, {}, {organi
 	}
 };
 
-export const updateOrganizationPayment = async (request: Request<{}, {}, {id: string |  number}, { tenantId: string }>, response: Response): Promise<void> => {
+export const updateOrganizationPayment = async (request: Request<{}, {}, { id: string | number }, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const { id } = request.body;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
@@ -222,12 +222,12 @@ export const generateMonthlySalesReport = async (req: Request<{}, {}, {}, { tena
 
 
 
-export const createOrganizationPricingHandler = async (request: Request<{}, {}, {organizationid: string | number}, { tenantId: string, organizationid: string }>, response: Response) => {
+export const createOrganizationPricingHandler = async (request: Request<{}, {}, { organizationid: string | number }, { tenantId: string, organizationid: string }>, response: Response) => {
 	try {
 		const responseBody = request.body;
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const organizationalId = parseInt(responseBody.organizationid.toString());
-		const result = await new OrganizationalBilling(organizationalId).createOrganizationalPricing(tenantIdP, responseBody as CreationRule);
+		const result = await new OrganizationalBilling(organizationalId).createOrganizationalPricing(tenantIdP, responseBody as any);
 		return typeof result === "string" ? response.send({ status: false, message: result }) :
 			response.send({ status: result })
 	} catch (err) {
@@ -247,7 +247,7 @@ export const getOrganizationPricingHandler = async (request: Request<{}, {}, {},
 	}
 }
 
-export const bulkInsertOrganizationsHandler = async (req: Request<{}, {}, {data:Object}, { tenantId: string }>, res: Response) => {
+export const bulkInsertOrganizationsHandler = async (req: Request<{}, {}, { data: Object }, { tenantId: string }>, res: Response) => {
 	try {
 		const tenantId = parseFloat(req.query.tenantId as string);
 		const organizations = req.body.data;

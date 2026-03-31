@@ -53,7 +53,7 @@ export default class RolesRepository {
 			const connection = await this.connection;
 			const result = await connection(this.tablename).insert(roleData).returning('employeeid');
 			return result[0];
-		} catch (error) {
+		} catch (error: any) {
 			logger.log(error);
 			throw new Error('Failed to create role: ' + error.message);
 		}
@@ -65,7 +65,7 @@ export default class RolesRepository {
 		return result;
 	}
 
-	async getRoleByEmail(email: string): Promise<IEmployee | undefined> {
+	async getRoleByEmail(email: string): Promise<IEmployee> {
 		const connection = await this.connection;
 		const result = await connection(this.tablename).where({ email: email }).first();
 		return result;
@@ -110,7 +110,7 @@ export default class RolesRepository {
 	async validatePin(employeeId: number, pin: number): Promise<boolean> {
 		const employee = await this.getRoleById(employeeId);
 		if (typeof employee?.pin !== 'number') return false;
-		return employee && employee.pin && pin.toString().length == 4 && parseInt(employee.pin.toString()) == pin;
+		return (employee && employee.pin && pin.toString().length == 4 && parseInt(employee.pin.toString()) == pin) ? true : false;
 	}
 
 

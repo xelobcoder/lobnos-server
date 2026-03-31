@@ -183,7 +183,7 @@ export default class ClinicianClass {
 			const { email: OldEmail, phone: oldPhone } = oldRecordsPackets;
 
 			if (oldPhone != phone) {
-				const isClinicianExist = await this.isClinicianExist(tenantId, email, phone.toString());
+				const isClinicianExist = await this.isClinicianExist(tenantId, email, phone);
 				if (isClinicianExist) return OperationsFailures.resourceExist;
 			}
 		}

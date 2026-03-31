@@ -25,7 +25,7 @@ import { TestAscension } from "../operations/ascension";
 import { v4 as uuidv4 } from 'uuid';
 import { NewRegistration } from "../registration/types";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
-import { CreationRule, resultEntryTemplateView, previewReportView, resultEntryType } from "./creator.d.type";
+import { CreationRule, resultEntryTemplateView, previewReportView, resultEntryType } from "./creator-types";
 import resultEncrptionReferer from "./resultEncryptionReferer";
 import TestCreationRulesRepository, { TestCreationRule } from "../TestCreation/TestCreationRulesRepository";
 import { CriticalValueEvaluator } from './CriticalValueEvaluator';
@@ -85,7 +85,7 @@ export default class Creator {
 
 			if (previousRecords.length > 0 && creationRules.length > 0) {
 				const mappings = creationRules.map(rule => {
-					const previous = previousRecords.find(item => item.fieldid === rule.id);
+					const previous = previousRecords.find((item: any) => item.fieldid === rule.id);
 					const state = previous ? { ...rule, ...previous } : {
 						...rule,
 						value: encrypt_value('NIL'),
@@ -131,7 +131,7 @@ export default class Creator {
 		if (typeof target == "string") target = target.split(",");
 		const patientid: number = parseInt(ptid.slice(target[1]));
 		const billingid: number = parseInt(scvid.slice(target[0]));
-		const patientdata: NewRegistration = await new Registration().getPatientBasicData(tenantId, patientid);
+		const patientdata: NewRegistration | null = await new Registration().getPatientBasicData(tenantId, patientid);
 		if (patientdata === null) return OperationsFailures.unfoundID + '. Patient Not Found'
 		const collection: [] = await promisifyQuery(tenantId, q_get_test_ascension_name_and_id, [billingid]);
 
@@ -149,6 +149,9 @@ export default class Creator {
 			const testname = await testpanel.getTestUsingTestid(tenantId, testid);
 			if (!testname) return OperationsFailures.unfoundID;
 			let previousRecords = await this.getPreviousRecordsOrCreationRule(tenantId, testid, parsedBillingid, parsedPatientid);
+			if (!previousRecords || !Array.isArray(previousRecords)) {
+				return { result: [], testname: null, hasDrugs: false, testInfo: null };
+			}
 			if (previousRecords.length === 0) return { result: [], testname: null, hasDrugs: false, testInfo: null };
 			hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
 			return { result: previousRecords, testname, hasDrugs, testInfo: null };
@@ -183,9 +186,9 @@ export default class Creator {
 			if (hasGenderVariation && clientGender) {
 				previousRecords = previousRecords.map((item) => {
 					const obj: any = { ...item };
-					if (item[clientGender]) {
-						obj.upperlimit = item[clientGender].upperlimit;
-						obj.lowerlimit = item[clientGender].lowerlimit;
+					if ((item as any)[clientGender]) {
+						obj.upperlimit = (item as any)[clientGender].upperlimit;
+						obj.lowerlimit = (item as any)[clientGender].lowerlimit;
 						delete obj.female;
 						delete obj.male;
 					}
@@ -207,7 +210,7 @@ export default class Creator {
 		const { result, hasDrugs, testname, testInfo, testdetailcategory } = resultDataset
 
 		if (result && Array.isArray(result) && result.length > 0) {
-			let resultOmissionMaleFemale = result.map((item: CreationRule, index: number) => {
+			let resultOmissionMaleFemale = result.map((item: any, index: number) => {
 				const { female, male, isValueTracked, type, valueAlert, useplain, alert, constraint,
 					...rest } = item;
 				return rest;
@@ -305,9 +308,12 @@ export default class Creator {
 
 
 		const insertUpdate = async function (trx: any, tenantId: number, fields: any[], testid: number) {
-			const { resources } = await resultEncrptionReferer(fields);
+			const cryptedValues = await resultEncrptionReferer(fields);
+			if (!cryptedValues?.resources) throw new Error("Encryption failed");
+			const { resources } = cryptedValues;
 			const editSessionId = uuidv4();
 			const isAdmin = await new RolesRepository(tenantId).getEmployeeRole(employeeid);
+			if (isAdmin == undefined) throw new Error("Employee not found");
 			const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
 
 			await Promise.all(
@@ -409,7 +415,7 @@ export default class Creator {
 		const serviceRecord = await servicesData.first();
 
 		if (serviceRecord && serviceRecord.paymentstatus !== 'paid' && allowResultEnteringUpaid === 0) {
-			false;
+			return false;
 		} else {
 			return true;
 		}
@@ -460,16 +466,15 @@ export default class Creator {
 
 	public static async updateUltrasoundTemplate(tenantId: number, template: ultrasoundTemplate) {
 		const { fields, keyid } = template;
-
+		if (!keyid) return OperationsFailures.invalidRequestBodyType;
 		const isUpdated = await this.updateUltrasoundScanTemplateMapper(tenantId, template);
-
 		if (!isUpdated) return OperationsFailures.queryExecutionFailed;
 
 		if (Array.isArray(fields) && fields.length > 0) {
 
 			for (let i = 0; i < fields.length; i++) {
 				const { field, value } = fields[i];
-				const hasField = await this.hasUltrasoundTemplateField(tenantId, keyid, field);
+				const hasField = await this.hasUltrasoundTemplateField(tenantId, keyid, field as string);
 
 				if (hasField) {
 					await promisifyQuery(tenantId, q_update_ultrasound_template, [field, value, keyid, field]);

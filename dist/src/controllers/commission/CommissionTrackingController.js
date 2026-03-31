@@ -1,0 +1,83 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.CommissionTrackingController = void 0;
+const helper_1 = require("../../hooks/helper");
+const logger_1 = __importDefault(require("../../hooks/logger"));
+const CommissionTrackingRepository_1 = require("../../models/commissions/CommissionTrackingRepository");
+const trycatch_1 = require("../../models/generics/trycatch");
+const CommissionBatchPaymentServicesRepo_1 = require("../../models/commissions/CommissionBatchPaymentServicesRepo");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+class CommissionTrackingController {
+    constructor(tenantId) {
+        this.commissionTrackingRepo = new CommissionTrackingRepository_1.CommissionTrackingRepo(tenantId);
+        this.batchServicesRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(tenantId);
+        this.connection = (0, KnexConnections_1.default)(tenantId);
+    }
+    async getCommissionTrackingByType(request, response) {
+        const commissionTrackingRepo = this.commissionTrackingRepo;
+        async function validate() {
+            const { registrationType, page, count, recipient_id } = request.query;
+            if (registrationType && !['clinician', 'organization'].includes(registrationType)) {
+                return (0, helper_1.customError)("Type must be either 'clinician' or 'organization'", 400, response);
+            }
+            try {
+                const tracking = await commissionTrackingRepo.getCommissionTrackingByType(registrationType, page ? parseInt(page.toString()) : undefined, count ? parseInt(count.toString()) : undefined, recipient_id ? parseInt(recipient_id.toString()) : undefined);
+                return response.send({
+                    status: true,
+                    message: "Commission tracking retrieved successfully",
+                    data: tracking
+                });
+            }
+            catch (error) {
+                logger_1.default.error('Error fetching commission tracking by type:', error);
+                return (0, helper_1.customError)("Failed to fetch commission tracking", 500, response);
+            }
+        }
+        (0, trycatch_1.wrapperTryCatch)(validate, (err) => logger_1.default.error(err));
+    }
+    async updateCommissionTracking(request, response) {
+        try {
+            const { id } = request.params;
+            const { serviceid, commissionRate, recipientType, recipientId } = request.body;
+            if (!serviceid || !commissionRate || !recipientType || !recipientId) {
+                return (0, helper_1.customError)("Missing required fields", 400, response);
+            }
+            if (isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
+                return (0, helper_1.customError)("Commission rate must be a number between 0 and 100", 400, response);
+            }
+            const commissionId = parseInt(id);
+            const commissionTrackingRepo = this.commissionTrackingRepo;
+            const batchServicesRepo = this.batchServicesRepo;
+            const conn = await this.connection;
+            const isBatched = await batchServicesRepo.isServiceBatched(serviceid);
+            if (isBatched)
+                return (0, helper_1.customError)("Cannot update commission rate for a service that is already included in a batch payment", 400, response);
+            const totalpayable = await conn('dboservices')
+                .where('serviceid', serviceid)
+                .first()
+                .then((row) => row ? parseFloat(row.totalpayable) : 0);
+            const newCommissionAmount = parseFloat(((totalpayable * commissionRate) / 100).toFixed(2));
+            const updates = {
+                commission_percentage: commissionRate,
+                type: recipientType,
+                recipient_id: recipientId,
+                commission_due: newCommissionAmount,
+                calculated_at: new Date(),
+                updated_at: new Date()
+            };
+            await commissionTrackingRepo.updateCommissionTracking(commissionId, updates);
+            return response.send({
+                status: true,
+                message: "Commission tracking updated successfully"
+            });
+        }
+        catch (error) {
+            logger_1.default.error('Error updating commission tracking:', error);
+            return (0, helper_1.customError)("Failed to update commission tracking", 500, response);
+        }
+    }
+}
+exports.CommissionTrackingController = CommissionTrackingController;
