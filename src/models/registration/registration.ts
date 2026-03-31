@@ -12,6 +12,18 @@ import { Request, Response } from "express";
 
 export default class Registration {
 
+	private static getMissingRequiredPatientField(records: Partial<NewRegistration>): keyof Pick<NewRegistration, "firstname" | "lastname" | "gender" | "age" | "ageType"> | null {
+		const requiredFields: Array<keyof Pick<NewRegistration, "firstname" | "lastname" | "gender" | "age" | "ageType">> = ["firstname", "lastname", "gender", "age", "ageType"];
+
+		for (const field of requiredFields) {
+			const value = records[field];
+			if (value === undefined || value === null) return field;
+			if (typeof value === "string" && value.trim() === "") return field;
+		}
+
+		return null;
+	}
+
 	static async getPatientID(tenantId: number, patientid: number): Promise<number | null | undefined> {
 		if (typeof patientid !== "number") {
 			throw new TypeError("number required as insertedId");
@@ -72,6 +84,11 @@ export default class Registration {
 
 	public static async addPersonalInformation(tenantId: number, records: NewRegistration): Promise<registrationOutcome | void | string> {
 		try {
+			const missingField = this.getMissingRequiredPatientField(records);
+			if (missingField) {
+				return `${missingField} is required`;
+			}
+
 			const generatedId = await this.generatePatientFullUniqueId(tenantId);
 			if (generatedId) {
 				const {
@@ -96,7 +113,6 @@ export default class Registration {
 					mobileownership = "self",
 				} = records;
 
-				// Enforce only one 'self' per mobile_number
 				let mobileStr: string | undefined = undefined;
 				if (mobile) {
 					if (typeof mobile === 'string') {
@@ -349,6 +365,14 @@ export default class Registration {
 			});
 		}
 		try {
+			const missingField = this.getMissingRequiredPatientField(data || {});
+			if (missingField) {
+				return response.status(400).send({
+					status: "error",
+					message: `${missingField} is required`,
+				});
+			}
+
 			const isAlreadyRegistered = await this.isClientSame(tenantId, data);
 			if (isAlreadyRegistered) {
 				response.status(404).send({
@@ -360,7 +384,15 @@ export default class Registration {
 				});
 				return;
 			}
+
+
 			const insertId = await this.addPersonalInformation(tenantId, { ...data, employeeid: employeeId });
+			if (typeof insertId === "string") {
+				return response.status(400).send({
+					status: "error",
+					message: insertId,
+				});
+			}
 
 			if (insertId) {
 				response.status(200).send({
@@ -438,7 +470,7 @@ export default class Registration {
 				if (dbColumn === "gender" || dbColumn === "marital_status") {
 					query = query.andWhere(`new_patients.${dbColumn}`, value.toLowerCase());
 				} else if (dbColumn === "mobile_number") {
-					// Normalize mobile number: handle both 10-digit (with leading 0) and 9-digit (without leading 0) formats
+					
 					let mobileStr = String(value).trim();
 					let normalizedWith0: string;
 					let normalizedWithout0: string;
@@ -454,7 +486,6 @@ export default class Registration {
 						normalizedWithout0 = mobileStr;
 					}
 
-					// Search for both formats (with and without leading 0)
 					query = query.andWhere(q => {
 						q.where(`new_patients.${dbColumn}`, "=", normalizedWith0)
 							.orWhere(`new_patients.${dbColumn}`, "=", normalizedWithout0);
@@ -464,7 +495,6 @@ export default class Registration {
 				}
 			}
 
-			// Add date range filtering if provided
 			const { startDate, endDate } = filters;
 			if (startDate) {
 				query = query.andWhere(db.raw("DATE(new_patients.date) >= ?", [startDate]));

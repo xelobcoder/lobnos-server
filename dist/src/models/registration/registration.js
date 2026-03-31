@@ -11,6 +11,17 @@ const appset_1 = __importDefault(require("../application/appsettings/appset"));
 const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDataSource");
 const queries_1 = require("./queries");
 class Registration {
+    static getMissingRequiredPatientField(records) {
+        const requiredFields = ["firstname", "lastname", "gender", "age", "ageType"];
+        for (const field of requiredFields) {
+            const value = records[field];
+            if (value === undefined || value === null)
+                return field;
+            if (typeof value === "string" && value.trim() === "")
+                return field;
+        }
+        return null;
+    }
     static async getPatientID(tenantId, patientid) {
         if (typeof patientid !== "number") {
             throw new TypeError("number required as insertedId");
@@ -64,6 +75,10 @@ class Registration {
     }
     static async addPersonalInformation(tenantId, records) {
         try {
+            const missingField = this.getMissingRequiredPatientField(records);
+            if (missingField) {
+                return `${missingField} is required`;
+            }
             const generatedId = await this.generatePatientFullUniqueId(tenantId);
             if (generatedId) {
                 const { designation, firstname, lastname, middlename, age, ageType, gender, employeeid, relativecontactname, relativecontactnumber, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
@@ -280,6 +295,13 @@ class Registration {
             });
         }
         try {
+            const missingField = this.getMissingRequiredPatientField(data || {});
+            if (missingField) {
+                return response.status(400).send({
+                    status: "error",
+                    message: `${missingField} is required`,
+                });
+            }
             const isAlreadyRegistered = await this.isClientSame(tenantId, data);
             if (isAlreadyRegistered) {
                 response.status(404).send({
@@ -291,6 +313,12 @@ class Registration {
                 return;
             }
             const insertId = await this.addPersonalInformation(tenantId, Object.assign(Object.assign({}, data), { employeeid: employeeId }));
+            if (typeof insertId === "string") {
+                return response.status(400).send({
+                    status: "error",
+                    message: insertId,
+                });
+            }
             if (insertId) {
                 response.status(200).send({
                     status: "success",
