@@ -4,7 +4,11 @@ import { Request, Response } from "express";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 
 
-export async function handlerTestTotalCasesCount(request: Request, response: Response) {
+export async function handlerTestTotalCasesCount(request: Request<{}, {}, {}, {
+    employeeid: string,
+    testid: string,
+    tenantId: string
+}>, response: Response) {
     try {
         let { employeeid, testid } = request.query;
         if (!employeeid || !testid) {
@@ -23,7 +27,12 @@ export async function handlerTestTotalCasesCount(request: Request, response: Res
 
 
 
-export async function handlergetTestTotalCasesMonthDaily(request: Request, response: Response) {
+export async function handlergetTestTotalCasesMonthDaily(request: Request<{}, {}, {}, {
+    employeeid: string,
+    testid: string,
+    month: string,
+    tenantId: string
+}>, response: Response) {
     try {
         let { employeeid, testid, month } = request.query;
         const isRight = employeeid && testid && month;
@@ -44,9 +53,65 @@ export async function handlergetTestTotalCasesMonthDaily(request: Request, respo
     }
 }
 
+export async function handlergetTestTotalCasesByHourForSpecificDay(request: Request, response: Response) {
+    try {
+        const { employeeid, testid, month, day, year, tenantId } = request.query;
+        if (!employeeid || !testid || !month || !day || !year || !tenantId) {
+            customError('employeeid, testid, month, day, year and tenantId are required', 400, response);
+            return;
+        }
+
+        const parsedEmployeeid = parseInt(employeeid.toString());
+        const parsedTestid = parseInt(testid.toString());
+        const parsedMonth = parseInt(month.toString());
+        const parsedDay = parseInt(day.toString());
+        const parsedYear = parseInt(year.toString());
+        const parsedTenantId = parseInt(tenantId.toString());
+
+        if (
+            Number.isNaN(parsedEmployeeid) ||
+            Number.isNaN(parsedTestid) ||
+            Number.isNaN(parsedMonth) ||
+            Number.isNaN(parsedDay) ||
+            Number.isNaN(parsedYear) ||
+            Number.isNaN(parsedTenantId)
+        ) {
+            customError('invalid numeric query values provided', 400, response);
+            return;
+        }
+
+        if (parsedMonth < 1 || parsedMonth > 12) {
+            customError('month must be between 1 and 12', 400, response);
+            return;
+        }
+
+        if (parsedDay < 1 || parsedDay > 31) {
+            customError('day must be between 1 and 31', 400, response);
+            return;
+        }
+
+        const result = await new ResultAnalysis(parsedEmployeeid).getTestCaseCountByHourForDay(
+            parsedTenantId,
+            parsedTestid,
+            parsedMonth,
+            parsedDay,
+            parsedYear
+        );
+
+        response.send(result);
+    } catch (err) {
+        responseError(response);
+    }
+}
 
 
-export async function handlergetTestMonthlyCountForYear(request: Request, response: Response) {
+
+export async function handlergetTestMonthlyCountForYear(request: Request<{}, {}, {}, {
+    employeeid: string,
+    testid: string,
+    tenantId: string
+    month: string
+}>, response: Response) {
     try {
         let { employeeid, testid, month } = request.query;
         const isRight = employeeid && testid
@@ -68,7 +133,10 @@ export async function handlergetTestMonthlyCountForYear(request: Request, respon
 }
 
 
-export async function handlergetAllTestYearlyAnalysis(request: Request, response: Response) {
+export async function handlergetAllTestYearlyAnalysis(request: Request<{}, {}, {}, {
+    employeeid: string,
+    tenantId: string
+}>, response: Response) {
     try {
         let { employeeid } = request.query;
         const parsedEmployeeid = parseInt(employeeid.toString());
@@ -82,7 +150,12 @@ export async function handlergetAllTestYearlyAnalysis(request: Request, response
     }
 }
 
-export async function handlergetTestResultValuesForMonth(request: Request, response: Response) {
+export async function handlergetTestResultValuesForMonth(request: Request<{}, {}, {}, {
+    employeeid: string,
+    month: string,
+    testid: string,
+    tenantId: string
+}>, response: Response) {
     try {
         let { employeeid, month, testid } = request.query;
         if (!employeeid || !month || !testid) {
@@ -104,7 +177,14 @@ export async function handlergetTestResultValuesForMonth(request: Request, respo
 
 
 
-export async function getFieldResultValuesAcrossMonthOverYear(request: Request, response: Response) {
+export async function getFieldResultValuesAcrossMonthOverYear(request: Request<{}, {}, {}, {
+    employeeid: string,
+    month: string,
+    year: string,
+    testid: string,
+    fieldid: string,
+    tenantId: string
+}>, response: Response) {
     try {
         let { employeeid, month, year, testid, fieldid, tenantId } = request.query;
         if (!employeeid || !month || !year || !testid || !fieldid) {
@@ -123,7 +203,7 @@ export async function getFieldResultValuesAcrossMonthOverYear(request: Request, 
         }
 
         const resultvalues = new ResultAnalysis(parsedEmployeeid).getFieldResultValuesAcrossMonthOverYear(parsedTenantId, parsedMonth, parsedYear, parsedTestid, parsedFieldid);
-        const testCreationRule = new TestCreationRulesRepository(parsedTenantId).findByTestIdAndId(parsedTestid,parsedFieldid);
+        const testCreationRule = new TestCreationRulesRepository(parsedTenantId).findByTestIdAndId(parsedTestid, parsedFieldid);
 
         const result = await Promise.all([resultvalues, testCreationRule]);
         const testCreationRules = result[1];

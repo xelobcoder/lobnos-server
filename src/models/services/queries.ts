@@ -1,4 +1,4 @@
-export const q_create_service = `INSERT INTO additionalservices (serviceName,servicePrice,createdBy) VALUES(?,?,?)`;
+export const q_create_service = `INSERT INTO additionalservices (serviceName,servicePrice,createdBy,serviceUpdatedBy) VALUES(?,?,?,?)`;
 
 export const q_update_service_created = `UPDATE additionalservices SET serviceName= ?,servicePrice= ?,serviceUpdatedBy= ? WHERE keyid = ?`
 

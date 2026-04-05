@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFieldResultValuesAcrossMonthOverYear = exports.handlergetTestResultValuesForMonth = exports.handlergetAllTestYearlyAnalysis = exports.handlergetTestMonthlyCountForYear = exports.handlergetTestTotalCasesMonthDaily = exports.handlerTestTotalCasesCount = void 0;
+exports.getFieldResultValuesAcrossMonthOverYear = exports.handlergetTestResultValuesForMonth = exports.handlergetAllTestYearlyAnalysis = exports.handlergetTestMonthlyCountForYear = exports.handlergetTestTotalCasesByHourForSpecificDay = exports.handlergetTestTotalCasesMonthDaily = exports.handlerTestTotalCasesCount = void 0;
 const helper_1 = require("../../hooks/helper");
 const ResultAnalysis_1 = __importDefault(require("../../models/result/ResultAnalysis"));
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
@@ -44,6 +44,44 @@ async function handlergetTestTotalCasesMonthDaily(request, response) {
     }
 }
 exports.handlergetTestTotalCasesMonthDaily = handlergetTestTotalCasesMonthDaily;
+async function handlergetTestTotalCasesByHourForSpecificDay(request, response) {
+    try {
+        const { employeeid, testid, month, day, year, tenantId } = request.query;
+        if (!employeeid || !testid || !month || !day || !year || !tenantId) {
+            (0, helper_1.customError)('employeeid, testid, month, day, year and tenantId are required', 400, response);
+            return;
+        }
+        const parsedEmployeeid = parseInt(employeeid.toString());
+        const parsedTestid = parseInt(testid.toString());
+        const parsedMonth = parseInt(month.toString());
+        const parsedDay = parseInt(day.toString());
+        const parsedYear = parseInt(year.toString());
+        const parsedTenantId = parseInt(tenantId.toString());
+        if (Number.isNaN(parsedEmployeeid) ||
+            Number.isNaN(parsedTestid) ||
+            Number.isNaN(parsedMonth) ||
+            Number.isNaN(parsedDay) ||
+            Number.isNaN(parsedYear) ||
+            Number.isNaN(parsedTenantId)) {
+            (0, helper_1.customError)('invalid numeric query values provided', 400, response);
+            return;
+        }
+        if (parsedMonth < 1 || parsedMonth > 12) {
+            (0, helper_1.customError)('month must be between 1 and 12', 400, response);
+            return;
+        }
+        if (parsedDay < 1 || parsedDay > 31) {
+            (0, helper_1.customError)('day must be between 1 and 31', 400, response);
+            return;
+        }
+        const result = await new ResultAnalysis_1.default(parsedEmployeeid).getTestCaseCountByHourForDay(parsedTenantId, parsedTestid, parsedMonth, parsedDay, parsedYear);
+        response.send(result);
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response);
+    }
+}
+exports.handlergetTestTotalCasesByHourForSpecificDay = handlergetTestTotalCasesByHourForSpecificDay;
 async function handlergetTestMonthlyCountForYear(request, response) {
     try {
         let { employeeid, testid, month } = request.query;

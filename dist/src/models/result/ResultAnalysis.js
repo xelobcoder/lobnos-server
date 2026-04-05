@@ -102,6 +102,16 @@ class ResultAnalysis {
         }
         return resultset;
     }
+    async getTestCaseCountByHourForDay(tenantId, testid, month, day, year) {
+        var _a;
+        const rows = await (0, helper_1.promisifyQuery)(tenantId, resultAnalysisQueries_1.q_test_day_case_count_by_hour, [testid, month, day, year]);
+        const mapped = new Map(rows.map((row) => [Number(row.hour), Number(row.caseCount)]));
+        const fullDayResult = [];
+        for (let hour = 0; hour <= 23; hour++) {
+            fullDayResult.push({ hour, caseCount: (_a = mapped.get(hour)) !== null && _a !== void 0 ? _a : 0 });
+        }
+        return fullDayResult;
+    }
     async getFieldResultValuesAcrossMonthOverYear(tenantId, month, year, testid, fieldid) {
         const q = `SELECT * FROM test_results WHERE MONTH(created_on) =? AND YEAR(created_on) =? AND testid =? AND fieldid =?`;
         const result = await (0, helper_1.promisifyQuery)(tenantId, q, [month, year, testid, fieldid]);

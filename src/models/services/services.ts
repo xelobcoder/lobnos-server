@@ -23,9 +23,9 @@ export class Services {
 
     async createAService(tenantId: number, name: string, price: number, employeeid: number): Promise<boolean | string> {
         try {
-            const result = await promisifyQuery(tenantId, q_create_service, [name, price, employeeid]);
+            const result = await promisifyQuery(tenantId, q_create_service, [name, price, employeeid, employeeid]);
             return rowAffected(result);
-        } catch (error) {
+        } catch (error: any) {
             return (error && error.code && error.code == "ER_DUP_ENTRY")
                 ? MysqlOperationsFailure.duplicates
                 : 'ERROR';

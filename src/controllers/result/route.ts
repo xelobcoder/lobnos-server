@@ -16,7 +16,7 @@ import {
        completeFlowByPassMultipleHandler,
        CheckPaymentStatus
 } from "./resultHandlers"
-import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear } from './resultanalysis'
+import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestTotalCasesByHourForSpecificDay, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear } from './resultanalysis'
 import { billingIdChecker } from "../../middleware/redis/handlerAscensionBillingCheck";
 import {
        createLoggingCriticalValueAlert,
@@ -48,6 +48,7 @@ router.get('/api/v1/test/creation-rules/only/:testid', handleOverLoad(getTestCre
 
 router.get("/api/v1/result/analysis/test", handlerTestTotalCasesCount)
 router.get("/api/v1/result/analysis/test/month", handlergetTestTotalCasesMonthDaily)
+router.get("/api/v1/result/analysis/test/day/hourly", handlergetTestTotalCasesByHourForSpecificDay)
 router.get("/api/v1/result/analysis/test/getTestMonthlyCount", handlergetTestMonthlyCountForYear)
 router.get("/api/v1/result/analysis/test/alltest/yearlycount", handlergetAllTestYearlyAnalysis)
 router.get("/api/v1/result/analysis/test/resultvalues", handleOverLoad(handlergetTestResultValuesForMonth))
@@ -66,8 +67,8 @@ router.get("/api/v1/result/criticalvalues/unseen", criticalValuesUnseenHandler)
 
 
 // Result Printout 
-router.get("/api/v1/result/printout/ascension/getResult",CheckPaymentStatus, handleOverLoad(getResultPrintoutHandler))
-router.get("/api/v1/result/printout/ascension/multiple/getResult",CheckPaymentStatus, handleOverLoad(getResultPrintMultipleHandler))
+router.get("/api/v1/result/printout/ascension/getResult", CheckPaymentStatus, handleOverLoad(getResultPrintoutHandler))
+router.get("/api/v1/result/printout/ascension/multiple/getResult", CheckPaymentStatus, handleOverLoad(getResultPrintMultipleHandler))
 
 
 

@@ -81,7 +81,7 @@ class RolesRepository {
     }
     async getEmployeeRole(employeeId) {
         const employee = await this.getRoleById(employeeId);
-        const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist'];
+        const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'super_admin'];
         return employee && allowedRoles.includes(employee.role) ? employee.role : undefined;
     }
     async validatePin(employeeId, pin) {

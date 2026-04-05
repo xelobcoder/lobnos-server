@@ -9,9 +9,9 @@ const queries_1 = require("./queries");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 class PrimeMedicalRecords {
     async createRecord(tenantId, record) {
-        const { complaints, hpc, pmh, sh, odq, dhx, se, fh, obsGynecHistory, oe, patientid, consulationby, record_type, associatedTransactionid = null } = record;
+        const { progress_report, patientid, consulationby, record_type, associatedTransactionid = null } = record;
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_medical_records_create, [
-            complaints, hpc, pmh, sh, odq, dhx, se, fh, obsGynecHistory, oe, record_type, patientid, consulationby, associatedTransactionid
+            progress_report, record_type, consulationby, patientid, associatedTransactionid
         ]);
         return result.insertId;
     }
@@ -60,10 +60,18 @@ class PrimeMedicalRecords {
         if (patientid) {
             query = query.where('np.patientid', patientid);
         }
+        if (search) {
+            query = query.where(function () {
+                this.where('mr.progress_report', 'like', `%${search}%`)
+                    .orWhere('np.firstname', 'like', `%${search}%`)
+                    .orWhere('np.lastname', 'like', `%${search}%`);
+            });
+        }
         // Apply pagination
         if (page && count) {
             query = query.limit(count).offset(offset);
         }
+        console.log("Generated SQL Query:", query.toString()); // Debugging line to check the generated SQL query
         return await query;
     }
     static async getPendingConsultationServices(tenantId, page = 1, pageSize = 10, sortby) {
@@ -78,6 +86,11 @@ class PrimeMedicalRecords {
             serviceCategory: "SERVICES",
             categoryTrackId: 5,
             trackId: 1
+        })
+            .whereNotExists(function () {
+            this.select(connection.raw('1'))
+                .from('medicalrecords as mr')
+                .whereRaw('mr.associatedTransactionid = dboservices.serviceid');
         })
             .orderBy("dboservices.serviceid", sortby)
             .limit(pageSize)

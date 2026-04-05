@@ -4,23 +4,26 @@ import { customError } from "../../hooks/helper";
 import { OperationsFailures } from "../../models/operations/types";
 
 
-export const createAConsultationRecord = async (request: Request<{}, {}, MedicalRecord, { tenantId: string }>, response: Response) => {
+export const createAConsultationRecord = async (request: Request<{}, {}, { consultation_notes: string; record_type: string; patientid: number; consulationby: number; associatedTransactionid?: number }, { tenantId: string }>, response: Response) => {
      try {
-          const { complaints, hpc, pmh, sh, odq, dhx, se, fh, obsGynecHistory, oe, record_type, patientid, consulationby, associatedTransactionid } = request.body;
+          const { consultation_notes, record_type, patientid, consulationby, associatedTransactionid } = request.body;
 
-          if (!complaints || !patientid || !record_type) {
-               response.status(400).json({ message: "Missing required fields: complaints, record_type, or patientid." });
-          } else {
-               const tenantId = parseInt(request.query.tenantId.toString())
-               const medicalRecordsService = new PrimeMedicalRecords();
-               const recordId = await medicalRecordsService.createRecord(
-                    tenantId,
-                    {
-                         complaints, hpc, pmh, sh, record_type, odq, dhx, se, fh,
-                         obsGynecHistory, oe, consulationby, patientid, associatedTransactionid
-                    });
-               response.status(201).json({ message: "Record created successfully.", recordId });
+          if (!consultation_notes || !patientid || !record_type || !consulationby) {
+               return response.status(400).json({ message: "Missing required fields: consultation_notes, record_type, patientid, or consulationby." });
           }
+
+          const tenantId = parseInt(request.query.tenantId.toString());
+          const medicalRecordsService = new PrimeMedicalRecords();
+          const recordId = await medicalRecordsService.createRecord(
+               tenantId,
+               {
+                    progress_report: consultation_notes,
+                    record_type: record_type as any,
+                    patientid,
+                    consulationby,
+                    associatedTransactionid: associatedTransactionid || null
+               });
+          response.status(201).json({ message: "Record created successfully.", recordId });
      } catch (err) {
           console.error("Error creating record:", err);
           response.status(500).json({ message: "Internal Server Error." });
@@ -50,20 +53,26 @@ export const getConsultationRecordById = async (request: Request<{}, {}, {}, { c
      }
 };
 
-export const updateAConsultationRecord = async (request: Request<{}, {}, MedicalRecord, { consultationid: string, tenantId: string }>, response: Response) => {
+export const updateAConsultationRecord = async (request: Request<{}, {}, Partial<MedicalRecord>, { consultationid: string, tenantId: string }>, response: Response) => {
      try {
           const { consultationid, tenantId } = request.query;
-          const updates = request.body;
+          let updates = request.body;
 
           if (!consultationid) {
-               response.status(400).json({ message: OperationsFailures.invalidResponseBodyParams + " consultationid not included" });
-          } else {
-               const parsedConsultationid = parseInt(consultationid);
-               const tenantIdP = parseInt(tenantId.toString())
-               const medicalRecordsService = new PrimeMedicalRecords();
-               const isUpdateSuccess = await medicalRecordsService.updateRecord(tenantIdP, parsedConsultationid, updates);
-               response.status(200).json({ status: isUpdateSuccess });
+               return response.status(400).json({ message: OperationsFailures.invalidResponseBodyParams + " consultationid not included" });
           }
+
+          // Map consultation_notes to progress_report if provided
+          if ('consultation_notes' in request.body) {
+               const { consultation_notes, ...rest } = request.body as any;
+               updates = { progress_report: consultation_notes, ...rest };
+          }
+
+          const parsedConsultationid = parseInt(consultationid);
+          const tenantIdP = parseInt(tenantId.toString());
+          const medicalRecordsService = new PrimeMedicalRecords();
+          const isUpdateSuccess = await medicalRecordsService.updateRecord(tenantIdP, parsedConsultationid, updates);
+          response.status(200).json({ status: isUpdateSuccess });
      } catch (err) {
           console.error("Error updating record:", err);
           response.status(500).json({ message: "Internal Server Error." });

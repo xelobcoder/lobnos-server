@@ -1,5 +1,5 @@
 import { CustomTest } from '../resultentry/customTestEntry';
-import { q_test_month_case_count, q_test_month_case_count_by_day, q_test_month_case_count_year } from './resultAnalysisQueries';
+import { q_test_day_case_count_by_hour, q_test_month_case_count, q_test_month_case_count_by_day, q_test_month_case_count_year } from './resultAnalysisQueries';
 import { IResultAnalysis, MonthlyCaseData, monthCollection } from './ResultAnalysisInterface';
 import { promisifyQuery } from '../../hooks/helper';
 import resultEncrptionReferer from '../creator/resultEncryptionReferer';
@@ -114,6 +114,18 @@ export default class ResultAnalysis implements IResultAnalysis {
             resultset.push({ day, caseCount: result['caseCount'] });
         }
         return resultset;
+    }
+
+    public async getTestCaseCountByHourForDay(tenantId: number, testid: number, month: number, day: number, year: number): Promise<{ hour: number, caseCount: number }[]> {
+        const rows: any[] = await promisifyQuery(tenantId, q_test_day_case_count_by_hour, [testid, month, day, year]);
+        const mapped = new Map<number, number>(rows.map((row) => [Number(row.hour), Number(row.caseCount)]));
+
+        const fullDayResult: { hour: number, caseCount: number }[] = [];
+        for (let hour = 0; hour <= 23; hour++) {
+            fullDayResult.push({ hour, caseCount: mapped.get(hour) ?? 0 });
+        }
+
+        return fullDayResult;
     }
 
 

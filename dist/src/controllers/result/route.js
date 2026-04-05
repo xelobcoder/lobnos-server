@@ -21,6 +21,7 @@ router.get('/api/v1/test/creation-rules/only/:testid', (0, helper_1.handleOverLo
 // result analysis
 router.get("/api/v1/result/analysis/test", resultanalysis_1.handlerTestTotalCasesCount);
 router.get("/api/v1/result/analysis/test/month", resultanalysis_1.handlergetTestTotalCasesMonthDaily);
+router.get("/api/v1/result/analysis/test/day/hourly", resultanalysis_1.handlergetTestTotalCasesByHourForSpecificDay);
 router.get("/api/v1/result/analysis/test/getTestMonthlyCount", resultanalysis_1.handlergetTestMonthlyCountForYear);
 router.get("/api/v1/result/analysis/test/alltest/yearlycount", resultanalysis_1.handlergetAllTestYearlyAnalysis);
 router.get("/api/v1/result/analysis/test/resultvalues", (0, helper_1.handleOverLoad)(resultanalysis_1.handlergetTestResultValuesForMonth));

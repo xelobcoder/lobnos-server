@@ -12,21 +12,13 @@ import KnexConnection from '../../database/KnexConnections';
 type RecordType = 'Old Record' | 'In-Process (Today)' | 'IPD Review' | 'OPD New Cases';
 
 export interface MedicalRecord {
-    complaints: string;
-    consultationid?: number;
-    associatedTransactionid: number | null;
-    consulationby: number;
-    hpc: string;
-    patientid: number;
-    pmh: string;
-    sh: string;
-    odq: string;
-    dhx: string;
-    se: string;
-    fh: string;
-    obsGynecHistory: string;
-    oe: string;
+    id?: number;
+    progress_report: string;
     record_type: RecordType;
+    created_at?: string;
+    consulationby: number;
+    patientid: number;
+    associatedTransactionid: number | null;
 }
 
 interface UpdateMedicalRecord extends Partial<MedicalRecord> { }
@@ -34,11 +26,11 @@ interface UpdateMedicalRecord extends Partial<MedicalRecord> { }
 export default class PrimeMedicalRecords {
     async createRecord(tenantId: number, record: MedicalRecord): Promise<number> {
         const {
-            complaints, hpc, pmh, sh, odq, dhx, se, fh, obsGynecHistory, oe, patientid, consulationby, record_type, associatedTransactionid = null
+            progress_report, patientid, consulationby, record_type, associatedTransactionid = null
         } = record;
 
         const result = await promisifyQuery(tenantId, q_medical_records_create, [
-            complaints, hpc, pmh, sh, odq, dhx, se, fh, obsGynecHistory, oe, record_type, patientid, consulationby, associatedTransactionid
+            progress_report, record_type, consulationby, patientid, associatedTransactionid
         ]);
 
         return result.insertId;
@@ -97,10 +89,21 @@ export default class PrimeMedicalRecords {
             query = query.where('np.patientid', patientid);
         }
 
+
+        if (search) {
+            query = query.where(function () {
+                this.where('mr.progress_report', 'like', `%${search}%`)
+                    .orWhere('np.firstname', 'like', `%${search}%`)
+                    .orWhere('np.lastname', 'like', `%${search}%`);
+            });
+        }
+
         // Apply pagination
         if (page && count) {
             query = query.limit(count).offset(offset);
         }
+
+        console.log("Generated SQL Query:", query.toString()); // Debugging line to check the generated SQL query
 
         return await query;
     }
@@ -124,6 +127,11 @@ export default class PrimeMedicalRecords {
                 serviceCategory: "SERVICES",
                 categoryTrackId: 5,
                 trackId: 1
+            })
+            .whereNotExists(function () {
+                this.select(connection.raw('1'))
+                    .from('medicalrecords as mr')
+                    .whereRaw('mr.associatedTransactionid = dboservices.serviceid');
             })
             .orderBy("dboservices.serviceid", sortby)
             .limit(pageSize)

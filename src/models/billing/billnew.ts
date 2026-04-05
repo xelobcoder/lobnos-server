@@ -202,11 +202,10 @@ export class MultiBillingRepo {
 			billingID = await BillingSharedRepo.generateBillingID(
 				billingData.patientid,
 				this.tenantId,
+				billingData.branchid,
+				billingData.employeeid,
 				trx
 			);
-
-			console.log("billingID", billingID);
-
 
 			// Insert test cart
 		} catch (error) {

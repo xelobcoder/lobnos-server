@@ -11,7 +11,7 @@ class Services {
     }
     async createAService(tenantId, name, price, employeeid) {
         try {
-            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_create_service, [name, price, employeeid]);
+            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_create_service, [name, price, employeeid, employeeid]);
             return (0, helper_1.rowAffected)(result);
         }
         catch (error) {

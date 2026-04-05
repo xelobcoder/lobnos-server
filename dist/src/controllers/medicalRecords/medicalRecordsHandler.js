@@ -1,4 +1,15 @@
 "use strict";
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -7,19 +18,20 @@ exports.getAllPendingConsultationRecords = exports.getAllConsultationRecords = e
 const medicalRecordClass_1 = __importDefault(require("../../models/MedicalRecords/medicalRecordClass"));
 const createAConsultationRecord = async (request, response) => {
     try {
-        const { complaints, hpc, pmh, sh, odq, dhx, se, fh, obsGynecHistory, oe, record_type, patientid, consulationby, associatedTransactionid } = request.body;
-        if (!complaints || !patientid || !record_type) {
-            response.status(400).json({ message: "Missing required fields: complaints, record_type, or patientid." });
+        const { consultation_notes, record_type, patientid, consulationby, associatedTransactionid } = request.body;
+        if (!consultation_notes || !patientid || !record_type || !consulationby) {
+            return response.status(400).json({ message: "Missing required fields: consultation_notes, record_type, patientid, or consulationby." });
         }
-        else {
-            const tenantId = parseInt(request.query.tenantId.toString());
-            const medicalRecordsService = new medicalRecordClass_1.default();
-            const recordId = await medicalRecordsService.createRecord(tenantId, {
-                complaints, hpc, pmh, sh, record_type, odq, dhx, se, fh,
-                obsGynecHistory, oe, consulationby, patientid, associatedTransactionid
-            });
-            response.status(201).json({ message: "Record created successfully.", recordId });
-        }
+        const tenantId = parseInt(request.query.tenantId.toString());
+        const medicalRecordsService = new medicalRecordClass_1.default();
+        const recordId = await medicalRecordsService.createRecord(tenantId, {
+            progress_report: consultation_notes,
+            record_type: record_type,
+            patientid,
+            consulationby,
+            associatedTransactionid: associatedTransactionid || null
+        });
+        response.status(201).json({ message: "Record created successfully.", recordId });
     }
     catch (err) {
         console.error("Error creating record:", err);
@@ -54,17 +66,20 @@ exports.getConsultationRecordById = getConsultationRecordById;
 const updateAConsultationRecord = async (request, response) => {
     try {
         const { consultationid, tenantId } = request.query;
-        const updates = request.body;
+        let updates = request.body;
         if (!consultationid) {
-            response.status(400).json({ message: "Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */ + " consultationid not included" });
+            return response.status(400).json({ message: "Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */ + " consultationid not included" });
         }
-        else {
-            const parsedConsultationid = parseInt(consultationid);
-            const tenantIdP = parseInt(tenantId.toString());
-            const medicalRecordsService = new medicalRecordClass_1.default();
-            const isUpdateSuccess = await medicalRecordsService.updateRecord(tenantIdP, parsedConsultationid, updates);
-            response.status(200).json({ status: isUpdateSuccess });
+        // Map consultation_notes to progress_report if provided
+        if ('consultation_notes' in request.body) {
+            const _a = request.body, { consultation_notes } = _a, rest = __rest(_a, ["consultation_notes"]);
+            updates = Object.assign({ progress_report: consultation_notes }, rest);
         }
+        const parsedConsultationid = parseInt(consultationid);
+        const tenantIdP = parseInt(tenantId.toString());
+        const medicalRecordsService = new medicalRecordClass_1.default();
+        const isUpdateSuccess = await medicalRecordsService.updateRecord(tenantIdP, parsedConsultationid, updates);
+        response.status(200).json({ status: isUpdateSuccess });
     }
     catch (err) {
         console.error("Error updating record:", err);

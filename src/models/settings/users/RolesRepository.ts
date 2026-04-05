@@ -103,7 +103,7 @@ export default class RolesRepository {
 
 	async getEmployeeRole(employeeId: number): Promise<IEmployee['role'] | undefined> {
 		const employee = await this.getRoleById(employeeId);
-		const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist'];
+		const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist','super_admin'];
 		return employee && allowedRoles.includes(employee.role) ? employee.role as IEmployee['role'] : undefined;
 	}
 	async validatePin(employeeId: number, pin: string): Promise<boolean> {

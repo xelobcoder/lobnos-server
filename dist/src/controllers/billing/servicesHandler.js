@@ -9,7 +9,7 @@ const createServicesHandler = async function (request, response) {
         if (!name || !price || !employeeid)
             return (0, helper_1.customError)('Invalid request body provided', 400, response);
         const tenantId = parseInt(request.query.tenantId.toString());
-        const isCreated = await new services_1.Services(null).createAService(tenantId, name, price, employeeid);
+        const isCreated = await new services_1.Services(0).createAService(tenantId, name, price, employeeid);
         if (typeof isCreated === "string") {
             response.send({ status: false, message: isCreated });
         }

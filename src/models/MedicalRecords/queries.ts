@@ -1,13 +1,13 @@
 export const q_medical_records_create = `
     INSERT INTO medicalrecords (
-        complaints, hpc, pmh, sh, odq, dhx, se, fh, obsGynecHistory, oe, record_type,patientid,consulationby,associatedTransactionid
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?,?,?)
+        progress_report, record_type, consulationby, patientid, associatedTransactionid
+    ) VALUES (?, ?, ?, ?, ?)
 `;
 
 export const q_medical_records_getById = 'SELECT * FROM medicalrecords WHERE id = ?';
 
-export const q_medical_records_update = `UPDATE medicalrecords SET complaints = ?, hpc = ?, pmh = ?, sh = ?, odq = ?, dhx = ?, se = ?, fh = ?, obsGynecHistory = ?, oe = ?, record_type = ?, id = ?, created_at = ?, consulationby = ?, patientid = ?, associatedTransactionid = ? WHERE id = ?
-`
+export const q_medical_records_update = `UPDATE medicalrecords SET progress_report = ?, record_type = ?, consulationby = ?, patientid = ?, associatedTransactionid = ? WHERE id = ?
+`;
 
 export const q_medical_records_delete = 'DELETE FROM medicalrecords WHERE id = ?';
 
