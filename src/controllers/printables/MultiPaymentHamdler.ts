@@ -86,8 +86,7 @@ export const updateReceiptPrintedHandler = async (req: Request, res: Response) =
           await multiPayment.updateReceiptPrinted(parseInt(receiptId as string), employeeid, printed_at);
 
           res.status(200).json({ status: 'success', message: 'Receipt printed status updated' });
-     } catch (error) {
-          console.error('Error updating receipt printed status:', error);
+     } catch (error: any) {
           res.status(500).json({ status: 'error', message: error.message });
      }
 };

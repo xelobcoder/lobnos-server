@@ -38,8 +38,10 @@ export type ApplicationSettingsData = {
      PaidBillsBeforeTransaction: number;
      completeFlow: number;
      approvalbeforeprinting: number;
+     pinOnResultValidation: number;
      withnessRefund: number;
      smsActivated: number;
+     pinOnResultEntry: number;
      patientIdGenerationMethod: string | null;
      automakesupplierpaymentsexpense: numberBoolean;
      smsSettings: smsSettings;

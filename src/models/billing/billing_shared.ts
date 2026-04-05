@@ -186,10 +186,30 @@ export class BillingSharedRepo {
           return Number(result[0]['count(*)']) > 0;
      }
 
-     static async generateBillingID(patientid: number, tenantId: number, trx?: any): Promise<number> {
-          const db = trx || (await KnexConnection(tenantId));
-          const [id] = await db("billing").insert({ patientid }).returning("billingid");
-          return typeof id === "number" ? id : id.billingid;
+     static async generateBillingID(patientid: number, tenantId: number, branchid: number, employeeid: number, trx?: any): Promise<number> {
+          try {
+               const db = trx || (await KnexConnection(tenantId));
+               const currentMonth = new Date().getMonth() + 1;
+               const currentYear = new Date().getFullYear();
+               const currentDay = new Date().getDate();
+               const [id] = await db("billing")
+                    .insert({
+                         patientid,
+                         month: currentMonth,
+                         year: currentYear,
+                         day: currentDay,
+                         discount: 0.0,
+                         branchid: branchid,
+                         lastupdatedby: employeeid,
+                    }).returning("billingid");
+               return typeof id === "number" ? id : id.billingid;
+          } catch (error) {
+               if (trx) {
+                    await trx.rollback();
+               }
+               throw new Error("Failed to generate billing ID");
+          }
+
      }
 
      static async insertBillHistory(trx: any, billingID: number, paymentMode: any, paid: any, employeeID: any, billingType: any): Promise<boolean> {
@@ -618,6 +638,7 @@ export class BillingSharedRepo {
                     const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment,
                          nightAdjustmentMode, nightAdjustmentValue, isPackageUsed,
                          packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType] = item;
+
                     const actualDiscount = userAdjustmentType === "discount" ? userAdjustedValue : 0;
 
                     const outcome = await queryRunner("dboservices").insert({
@@ -678,6 +699,7 @@ export class BillingSharedRepo {
                }
           }
 
+          console.log("Insertion errors for services:", insertionErrors);
           return insertionErrors;
      }
 
@@ -685,9 +707,13 @@ export class BillingSharedRepo {
           try {
                if (!billingid || !serviceid || !testid) return false;
                const queryRunner = trx || await KnexConnection(tenantId);
-               const isInserted = await queryRunner.raw(AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
+               const currentMonth = new Date().getMonth() + 1;
+               const currentYear = new Date().getFullYear();
+               const isInserted = await queryRunner.raw(AddtoTestAscenstionQuery, [testid, serviceid, billingid , currentMonth, currentYear]);
+              console.log("Ascension insertion result:", isInserted);
                return isInserted[0]?.insertId || false;
           } catch (err) {
+               console.error("Error adding to test ascension:", err);
                return false;
           }
      }

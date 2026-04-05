@@ -154,7 +154,7 @@ export default class Operations {
 						b.billingid,
 						b.billedon,
 						b.clientstatus AS payment_status,
-						ta.ascension_date AS ascension_date,
+						MIN(ta.ascension_date) AS ascension_date,
 						COUNT(ta.id) AS total_tests,
 
 						GROUP_CONCAT(
@@ -197,7 +197,16 @@ export default class Operations {
 						WHERE DATE(b.billedon) = DATE(?)
 
 						GROUP BY 
-						b.billingid
+						p.patientid,
+						p.fullpatientid,
+						p.firstname,
+						p.lastname,
+						p.gender,
+						p.age,
+						p.agetype,
+						b.billingid,
+						b.billedon,
+						b.clientstatus
 
 						ORDER BY 
 						b.billingid DESC;
@@ -289,6 +298,7 @@ export default class Operations {
 
 							LEFT JOIN dbotestresultapproval ra
 							ON ra.ascensionid = ta.id
+
 
 							WHERE ta.billingid = ?
 
@@ -525,7 +535,7 @@ export default class Operations {
 			if (query == null) return null;
 
 			if (queryParams.grouped === 'grouped') {
-				query += ` GROUP BY b.billingid,ta.testid ORDER BY b.billingid {sorting} LIMIT ? OFFSET ? `;
+				query += `ORDER BY b.billingid {sorting} LIMIT ? OFFSET ? `;
 				query = query.replace('{sorting}', sortby === 'ASC' ? 'ASC' : 'DESC');
 				return await paginationQuery({ count, page }, query, conditionValues, tenantId);
 			}
@@ -536,7 +546,6 @@ export default class Operations {
 			return await paginationQuery({ count, page }, query, conditionValues, tenantId);
 
 		} catch (err) {
-			console.log(err);
 			return [];
 		}
 	}

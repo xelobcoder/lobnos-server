@@ -40,7 +40,8 @@ class TestAscension extends operations_1.default {
         if (query == null)
             return null;
         query = query.replace('{stage}', stage);
-        const result = await (0, helper_1.promisifyQuery)(tenantId, query, [value, employeeid, ascensionId]);
+        const sanitizedDate = new Date(value);
+        const result = await (0, helper_1.promisifyQuery)(tenantId, query, [sanitizedDate, employeeid, ascensionId]);
         return (0, helper_1.rowAffected)(result);
     }
     static async incrementTestEditCount(tenantId, billingid, ascensionid) {
@@ -105,7 +106,7 @@ class TestAscension extends operations_1.default {
                 params.push(`%${word}%`, `%${word}%`, `%${word}%`);
             });
         }
-        query += ` GROUP BY b.billingid ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
+        query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
         return await (0, helper_1.promisifyQuery)(tenantId, query, [...params, count, (page - 1) * count]);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {
@@ -117,8 +118,7 @@ class TestAscension extends operations_1.default {
     static async getAllPendingAscensions(tenantId, count = 30, page = 1) {
         let query = queries_1.q_pending_sample_uncollected;
         let params = [];
-        query += `     GROUP BY b.billingid
-    ORDER BY b.billedon DESC`;
+        query += ` ORDER BY b.billedon DESC`;
         if (page && count) {
             const offset = (page - 1) * count;
             query += ` LIMIT ? OFFSET ?`;

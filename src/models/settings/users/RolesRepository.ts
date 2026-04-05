@@ -43,7 +43,7 @@ export default class RolesRepository {
 
 	async createRole(roleData: IEmployee): Promise<number> {
 		try {
-			const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist','customer service representative'];
+			const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative'];
 			if (!roleData.username || typeof roleData.username !== 'string') throw new Error('Invalid username');
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');
 			if (!roleData.password || typeof roleData.password !== 'string') throw new Error('Invalid password');
@@ -106,11 +106,12 @@ export default class RolesRepository {
 		const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist'];
 		return employee && allowedRoles.includes(employee.role) ? employee.role as IEmployee['role'] : undefined;
 	}
-
-	async validatePin(employeeId: number, pin: number): Promise<boolean> {
+	async validatePin(employeeId: number, pin: string): Promise<boolean> {
 		const employee = await this.getRoleById(employeeId);
-		if (typeof employee?.pin !== 'number') return false;
-		return (employee && employee.pin && pin.toString().length == 4 && parseInt(employee.pin.toString()) == pin) ? true : false;
+		if (!employee?.pin) return false;
+		const characters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
+		if (typeof pin === 'string' && characters.some(char => pin.toLowerCase().includes(char))) return false;
+		return employee.pin.toString() === parseInt(pin).toString();
 	}
 
 

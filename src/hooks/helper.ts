@@ -93,6 +93,8 @@ async function promisifyQuery(tenantId: number, query: string, values: any[] = [
 			: databaseConnectionPool;
 
 		connection = await pool.getConnection();
+		// Ensure legacy grouped queries are compatible on direct mysql2 pool connections.
+		await connection.query("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");
 		const [result] = await connection.query(query, values);
 		return result;
 	} catch (error) {

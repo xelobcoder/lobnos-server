@@ -33,7 +33,7 @@ class MultiBillingRepo {
             const conn = await this.connection;
             trx = await conn.transaction();
             // Generate billing ID inside transaction
-            billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(billingData.patientid, this.tenantId, trx);
+            billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(billingData.patientid, this.tenantId, billingData.branchid, billingData.employeeid, trx);
             // Insert test cart
             const testResult = await billing_shared_1.BillingSharedRepo.processTestCart(this.tenantId, billingData, billingID, taxValue, taxList, trx);
             // Insert non-test services

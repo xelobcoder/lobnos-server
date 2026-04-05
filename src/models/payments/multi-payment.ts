@@ -68,7 +68,7 @@ export default class MultiPayment {
                }
 
                const trx = await connection.transaction();
-               
+
                try {
                     for (const servicePayment of paymentData.service_payments) {
                          const service = await trx(this.servicesTable)
@@ -137,7 +137,7 @@ export default class MultiPayment {
                                    paid: totalPaid,
                                    outstanding: totalOutstanding,
                                    payable: totalPayable,
-                                   status : totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid'),
+                                   status: totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid'),
                                    clientstatus: totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid')
                               });
                     }
@@ -358,7 +358,13 @@ export default class MultiPayment {
 
      async updateReceiptPrinted(receiptId: number, employeeid: number, printed_at: string): Promise<void> {
           const connection = await this.connection;
-          await connection('receipts').where({ id: receiptId }).update({ printed: true, printed_at: printed_at, printed_by: employeeid });
+           const extractedDate = new Date(printed_at);
+           if (isNaN(extractedDate.getTime())) {
+                throw new Error('Invalid printed_at date format. Expected a valid date string.');
+           }
+          await connection('receipts')
+               .where({ id: receiptId })
+               .update({ printed: true, printed_at: extractedDate, printed_by: employeeid });
      }
 
      async getReceipts(page: number = 1, count: number = 10, sortby: 'ASC' | 'DESC' = 'DESC'): Promise<{ receipts: any[]; total: number }> {

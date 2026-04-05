@@ -22,7 +22,7 @@ export let patientBilledTodayQuery: string =
   "SELECT COUNT(*) AS count FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE";
 
 export let AddtoTestAscenstionQuery: string =
-  "INSERT INTO test_ascension (testid,serviceid,billingid) VALUES(?,?,?)";
+  "INSERT INTO test_ascension (testid,serviceid,billingid,month,year) VALUES(?,?,?,?,?)";
 
 export let deleteAscensionidQuery: string = "DELETE FROM test_ascension WHERE testid = ? AND serviceid = ?";
 

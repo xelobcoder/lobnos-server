@@ -20,6 +20,9 @@ export type NewRegistration = {
   years: number;
   whatAppcontact: (string | number);
   mobileownership: string;
+  mobileCountryCode: string;
+  whatsappCountryCode: string;
+  relativeCountryCode: string;
 };
 
 export type clientdata = {

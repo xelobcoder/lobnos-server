@@ -166,10 +166,30 @@ class BillingSharedRepo {
         const result = await db("paymentmodes").where("KeyID", paymentModeId).count("*");
         return Number(result[0]['count(*)']) > 0;
     }
-    static async generateBillingID(patientid, tenantId, trx) {
-        const db = trx || (await (0, KnexConnections_1.default)(tenantId));
-        const [id] = await db("billing").insert({ patientid }).returning("billingid");
-        return typeof id === "number" ? id : id.billingid;
+    static async generateBillingID(patientid, tenantId, branchid, employeeid, trx) {
+        try {
+            const db = trx || (await (0, KnexConnections_1.default)(tenantId));
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+            const currentDay = new Date().getDate();
+            const [id] = await db("billing")
+                .insert({
+                patientid,
+                month: currentMonth,
+                year: currentYear,
+                day: currentDay,
+                discount: 0.0,
+                branchid: branchid,
+                lastupdatedby: employeeid,
+            }).returning("billingid");
+            return typeof id === "number" ? id : id.billingid;
+        }
+        catch (error) {
+            if (trx) {
+                await trx.rollback();
+            }
+            throw new Error("Failed to generate billing ID");
+        }
     }
     static async insertBillHistory(trx, billingID, paymentMode, paid, employeeID, billingType) {
         try {
@@ -577,6 +597,7 @@ class BillingSharedRepo {
                 insertionErrors.push(err);
             }
         }
+        console.log("Insertion errors for services:", insertionErrors);
         return insertionErrors;
     }
     static async AddtoTestAscenstion(tenantId, serviceid, billingid, testid, trx) {
@@ -585,10 +606,14 @@ class BillingSharedRepo {
             if (!billingid || !serviceid || !testid)
                 return false;
             const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
-            const isInserted = await queryRunner.raw(queries_1.AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+            const isInserted = await queryRunner.raw(queries_1.AddtoTestAscenstionQuery, [testid, serviceid, billingid, currentMonth, currentYear]);
+            console.log("Ascension insertion result:", isInserted);
             return ((_a = isInserted[0]) === null || _a === void 0 ? void 0 : _a.insertId) || false;
         }
         catch (err) {
+            console.error("Error adding to test ascension:", err);
             return false;
         }
     }

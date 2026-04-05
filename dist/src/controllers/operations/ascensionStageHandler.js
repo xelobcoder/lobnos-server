@@ -11,8 +11,9 @@ const user_1 = __importDefault(require("../../LobnosAuth/user"));
 async function ascensionStagingHandler(request, response) {
     try {
         const { operationsStaging, dateFrom, dateEnd, grouped, page, patientname, count, isUltrasound, ascensionid, billingid, patientid, employeeid, tenantId, clinicianId, organizationId, testid } = request.query;
-        if (!employeeid)
+        if (!employeeid) {
             return response.send({ status: false, message: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */, action: 'Include employeeid in the query' });
+        }
         const parsedEmployeeId = parseInt(employeeid.toString());
         const tenantIdP = parseInt(tenantId.toString());
         if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP))) {

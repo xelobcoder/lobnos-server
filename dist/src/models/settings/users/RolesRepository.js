@@ -86,9 +86,12 @@ class RolesRepository {
     }
     async validatePin(employeeId, pin) {
         const employee = await this.getRoleById(employeeId);
-        if (typeof (employee === null || employee === void 0 ? void 0 : employee.pin) !== 'number')
+        if (!(employee === null || employee === void 0 ? void 0 : employee.pin))
             return false;
-        return (employee && employee.pin && pin.toString().length == 4 && parseInt(employee.pin.toString()) == pin) ? true : false;
+        const characters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
+        if (typeof pin === 'string' && characters.some(char => pin.toLowerCase().includes(char)))
+            return false;
+        return employee.pin.toString() === parseInt(pin).toString();
     }
     async getEmployeesList(employeelist) {
         const stringedValues = Array.isArray(employeelist) && employeelist.length > 0;

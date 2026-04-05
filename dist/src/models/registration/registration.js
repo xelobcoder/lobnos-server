@@ -80,16 +80,25 @@ class Registration {
                 return `${missingField} is required`;
             }
             const generatedId = await this.generatePatientFullUniqueId(tenantId);
+            const removeCountryCodeFromMobile = (mobile, countryCode) => {
+                const mobileStr = String(mobile).trim();
+                if (mobileStr.startsWith(countryCode)) {
+                    return mobileStr.slice(countryCode.length);
+                }
+                return mobileStr;
+            };
             if (generatedId) {
-                const { designation, firstname, lastname, middlename, age, ageType, gender, employeeid, relativecontactname, relativecontactnumber, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
-                // Enforce only one 'self' per mobile_number
+                const sanitizedMobileNumber = removeCountryCodeFromMobile(records.mobile, records.mobileCountryCode);
+                const sanitizedWhatsApp = removeCountryCodeFromMobile(records.whatAppcontact, records.whatsappCountryCode);
+                const sanitizedRelativeContact = removeCountryCodeFromMobile(records.relativecontactnumber, records.relativeCountryCode);
+                const { designation, firstname, lastname, middlename, age, ageType, gender, employeeid, relativecontactname, email, days, mobileCountryCode, whatsappCountryCode, relativeCountryCode, months, maritalstatus, occupation, patientOrganization, years, mobileownership = "self", } = records;
                 let mobileStr = undefined;
-                if (mobile) {
-                    if (typeof mobile === 'string') {
-                        mobileStr = String(mobile).trim();
+                if (sanitizedMobileNumber) {
+                    if (typeof sanitizedMobileNumber === 'string') {
+                        mobileStr = String(sanitizedMobileNumber).trim();
                     }
-                    else if (typeof mobile === 'number' && !isNaN(mobile)) {
-                        mobileStr = mobile.toString();
+                    else if (typeof sanitizedMobileNumber === 'number' && !isNaN(sanitizedMobileNumber)) {
+                        mobileStr = sanitizedMobileNumber;
                     }
                 }
                 if (mobileownership === 'self' && mobileStr && mobileStr.length > 0) {
@@ -98,6 +107,7 @@ class Registration {
                         return 'A primary (self) contact already exists for this mobile number.';
                     }
                 }
+                const persistedMobileNumber = mobileownership === 'relative' ? null : sanitizedMobileNumber;
                 const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
                 const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
                 const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
@@ -112,7 +122,7 @@ class Registration {
                     ageType,
                     dob,
                     maritalstatus,
-                    mobile,
+                    persistedMobileNumber,
                     occupation,
                     gender,
                     patientOrganization,
@@ -121,7 +131,10 @@ class Registration {
                     designation,
                     employeeid,
                     relativecontactname,
-                    relativecontactnumber
+                    sanitizedRelativeContact,
+                    whatsappCountryCode,
+                    mobileCountryCode,
+                    sanitizedWhatsApp
                 ];
                 const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_new_registation, values);
                 return result.insertId;
@@ -194,12 +207,13 @@ class Registration {
         const isPatientId = await this.checkPatientIdExist(tenantId, patientid);
         if (!isPatientId)
             return "Resource not found." /* OperationsFailures.notFound */;
-        const { designation, firstname, lastname, middlename, age, ageType, gender, email, mobile, days, months, maritalstatus, occupation, patientOrganization, years, whatAppcontact } = clientdata;
+        const { designation, firstname, lastname, middlename, age, ageType, gender, email, mobile, mobileownership = "self", days, months, maritalstatus, occupation, patientOrganization, years, whatAppcontact } = clientdata;
         const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
         const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
         const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
         const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
         const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
+        const persistedMobileNumber = mobileownership === 'relative' ? null : mobile;
         const values = [
             firstname,
             designation,
@@ -210,7 +224,7 @@ class Registration {
             ageType,
             dob,
             maritalstatus,
-            mobile,
+            persistedMobileNumber,
             occupation,
             gender,
             patientOrganization,
@@ -375,7 +389,6 @@ class Registration {
                     query = query.andWhere(`new_patients.${dbColumn}`, value.toLowerCase());
                 }
                 else if (dbColumn === "mobile_number") {
-                    // Normalize mobile number: handle both 10-digit (with leading 0) and 9-digit (without leading 0) formats
                     let mobileStr = String(value).trim();
                     let normalizedWith0;
                     let normalizedWithout0;
@@ -391,7 +404,6 @@ class Registration {
                         normalizedWith0 = mobileStr;
                         normalizedWithout0 = mobileStr;
                     }
-                    // Search for both formats (with and without leading 0)
                     query = query.andWhere(q => {
                         q.where(`new_patients.${dbColumn}`, "=", normalizedWith0)
                             .orWhere(`new_patients.${dbColumn}`, "=", normalizedWithout0);
@@ -401,7 +413,6 @@ class Registration {
                     query = query.andWhere(`new_patients.${dbColumn}`, "=", value);
                 }
             }
-            // Add date range filtering if provided
             const { startDate, endDate } = filters;
             if (startDate) {
                 query = query.andWhere(db.raw("DATE(new_patients.date) >= ?", [startDate]));

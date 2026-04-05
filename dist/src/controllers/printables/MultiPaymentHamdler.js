@@ -82,7 +82,6 @@ const updateReceiptPrintedHandler = async (req, res) => {
         res.status(200).json({ status: 'success', message: 'Receipt printed status updated' });
     }
     catch (error) {
-        console.error('Error updating receipt printed status:', error);
         res.status(500).json({ status: 'error', message: error.message });
     }
 };

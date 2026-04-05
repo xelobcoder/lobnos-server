@@ -71,7 +71,7 @@ class SubmitCustomerBilling {
             }
             const conn = await this.connection;
             const trx = await conn.transaction();
-            const billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, trx);
+            const billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, this.payload.branchid, this.payload.employeeid, trx);
             const taxValue = updatedBillingData.taxValue || 0;
             const taxList = updatedBillingData.taxList || null;
             const taxIncluded = updatedBillingData.taxIncluded || false;
@@ -80,9 +80,9 @@ class SubmitCustomerBilling {
             const allEntries = [...processNonTestServices, ...processTestCart];
             const Multi = new billing_shared_1.BillingSharedRepo();
             if (allEntries.length > 0) {
-                const loadAllServices = await Multi
+                const loadAllServicesInsertionErrors = await Multi
                     .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
-                if (loadAllServices.length > 0) {
+                if (loadAllServicesInsertionErrors.length > 0) {
                     throw new Error(billing_shared_types_1.BillErrors.UnableToLoadServices);
                 }
                 const totalcost = data.totalcost;
@@ -110,7 +110,6 @@ class SubmitCustomerBilling {
                     promoMethod: data.promoMethod || promoMethod,
                     promoCodeId: data.promoCodeId || promoCode,
                 };
-                // throw new Error("Unable to update billing record");
                 const result = await trx("billing")
                     .where("billingid", billingID)
                     .update({

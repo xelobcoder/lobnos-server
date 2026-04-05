@@ -10,7 +10,9 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 	try {
 		const { operationsStaging, dateFrom, dateEnd, grouped, page, patientname, count, isUltrasound,
 			ascensionid, billingid, patientid, employeeid, tenantId, clinicianId, organizationId, testid } = request.query;
-		if (!employeeid) return response.send({ status: false, message: OperationsFailures.invalidResquestQuery, action: 'Include employeeid in the query' });
+		if (!employeeid) {
+			return response.send({ status: false, message: OperationsFailures.invalidResquestQuery, action: 'Include employeeid in the query' });
+		}
 
 		const parsedEmployeeId = parseInt(employeeid.toString());
 		const tenantIdP = parseInt(tenantId.toString())

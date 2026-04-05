@@ -61,12 +61,12 @@ export const getSummaryReadyPage = async (req: Request, res: Response) => {
 	}
 };
 
-export const getClientTransactionInfo = async (req: Request, res: Response) => {
+export const getClientTransactionInfo = async (req: Request<{},{},{},{tenantId: string}>, res: Response) => {
 	try {
-		const tenantId = parseInt(req.query.tenantId.toString())
-		const result = await payment.getClientTransactionInformation(tenantId, req.query as any);
+		const { tenantId } = req.query;
+		const result = await payment.getClientTransactionInformation(parseInt(tenantId), req.query as any);
 		res.send({ ...result, statusCode: 200, status: "success" });
-	} catch (err) {
+	} catch (err: any) {
 		customError(err?.message, 500, res);
 	}
 };
@@ -105,7 +105,7 @@ export const previewReport = async (request: Request, response: Response) => {
 		const parsedBillingid = parseInt(billingid.toString());
 		const parsedTestId = parseInt(testid.toString());
 		const tenantId = parseInt(request.query.tenantId.toString())
-		const result = await new ResultPrint(null).previewReport( tenantId,parsedBillingid, parsedTestId);
+		const result = await new ResultPrint(null).previewReport(tenantId, parsedBillingid, parsedTestId);
 
 		response.send({ result });
 	} catch (err) {
@@ -145,7 +145,7 @@ export const checkApproval = async (req: Request, res: Response) => {
 	const { billingid, testid } = req.body;
 	if (billingid && testid) {
 		const tenantId = parseInt(req.query.tenantId.toString())
-		const approved = await new ResultPrint(billingid).checkApproval( tenantId,billingid, testid);
+		const approved = await new ResultPrint(billingid).checkApproval(tenantId, billingid, testid);
 		res.send({ approved });
 	} else {
 		res.status(401).json({ status: "error", message: "include testid and billing in request body" });
@@ -168,7 +168,7 @@ export const getBillingInvoice = async (req: Request, response: Response) => {
 	try {
 		const { billingid } = req.query;
 		const tenantId = parseInt(req.query.tenantId.toString())
-		const data = await getBillingInvoiceData(tenantId,parseInt(billingid.toString()));
+		const data = await getBillingInvoiceData(tenantId, parseInt(billingid.toString()));
 		response.send(data);
 	} catch (err) {
 		response.send([])

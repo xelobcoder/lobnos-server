@@ -98,6 +98,8 @@ export class SubmitCustomerBilling {
             const billingID = await BillingSharedRepo.generateBillingID(
                 this.payload.patientid,
                 this.tenantId,
+                this.payload.branchid,
+                this.payload.employeeid,
                 trx
             );
 
@@ -121,10 +123,9 @@ export class SubmitCustomerBilling {
             const Multi = new BillingSharedRepo();
 
             if (allEntries.length > 0) {
-                const loadAllServices = await Multi
+                const loadAllServicesInsertionErrors = await Multi
                     .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
-
-                if (loadAllServices.length > 0) {
+                if (loadAllServicesInsertionErrors.length > 0) {
                     throw new Error(BillErrors.UnableToLoadServices);
                 }
 
@@ -156,7 +157,7 @@ export class SubmitCustomerBilling {
                     promoCodeId: data.promoCodeId || promoCode,
                 }
 
-                // throw new Error("Unable to update billing record");
+            
                 const result = await trx("billing")
                     .where("billingid", billingID)
                     .update({
@@ -178,6 +179,8 @@ export class SubmitCustomerBilling {
                         promoMethod: updateData.promoMethod,
                         promoCodeId: updateData.promoCodeId,
                     });
+
+
 
 
 

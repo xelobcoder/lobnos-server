@@ -253,7 +253,13 @@ class MultiPayment {
     }
     async updateReceiptPrinted(receiptId, employeeid, printed_at) {
         const connection = await this.connection;
-        await connection('receipts').where({ id: receiptId }).update({ printed: true, printed_at: printed_at, printed_by: employeeid });
+        const extractedDate = new Date(printed_at);
+        if (isNaN(extractedDate.getTime())) {
+            throw new Error('Invalid printed_at date format. Expected a valid date string.');
+        }
+        await connection('receipts')
+            .where({ id: receiptId })
+            .update({ printed: true, printed_at: extractedDate, printed_by: employeeid });
     }
     async getReceipts(page = 1, count = 10, sortby = 'DESC') {
         const connection = await this.connection;

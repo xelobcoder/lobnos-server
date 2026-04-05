@@ -72,8 +72,8 @@ const getSummaryReadyPage = async (req, res) => {
 exports.getSummaryReadyPage = getSummaryReadyPage;
 const getClientTransactionInfo = async (req, res) => {
     try {
-        const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await payment.getClientTransactionInformation(tenantId, req.query);
+        const { tenantId } = req.query;
+        const result = await payment.getClientTransactionInformation(parseInt(tenantId), req.query);
         res.send(Object.assign(Object.assign({}, result), { statusCode: 200, status: "success" }));
     }
     catch (err) {

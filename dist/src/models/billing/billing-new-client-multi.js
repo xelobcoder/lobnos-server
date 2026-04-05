@@ -123,7 +123,7 @@ class SubmitCustomerBilling {
             const trx = await conn.transaction();
             let billingID = 0;
             if (!hasRelatedBilling) {
-                billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, trx);
+                billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid || this.payload.patientId, this.tenantId, this.payload.branchid || this.payload.branchId, this.payload.employeeid || this.payload.employeeId, trx);
             }
             else {
                 billingID = this.payload.billingid;
@@ -220,8 +220,8 @@ class SubmitCustomerBilling {
                     promoValue: updateData.promoValue,
                     surcharges: updateData.surcharges,
                     additionalinformation: this.payload.additioninformation || null,
-                    promoMethod: updateData.promoMethod,
-                    promoCodeId: updateData.promoCodeId,
+                    promoMethod: updateData.promoMethod ? updateData.promoMethod : null,
+                    promoCodeId: updateData.promoCodeId ? updateData.promoCodeId : null,
                     isAdjustment: hasRelatedBilling ? 1 : 0,
                     adjustmentType: hasRelatedBilling ? "addition" : null,
                     adjustedBy: hasRelatedBilling ? employeeid || this.payload.employeeid : null,
@@ -278,8 +278,8 @@ class SubmitCustomerBilling {
                             isPromo: updateData.isPromo,
                             promoValue: updateData.promoValue,
                             additionalinformation: this.payload.additioninformation || null,
-                            promoMethod: updateData.promoMethod,
-                            promoCodeId: updateData.promoCodeId,
+                            promoMethod: updateData.promoMethod ? updateData.promoMethod : null,
+                            promoCodeId: updateData.promoCodeId ? updateData.promoCodeId : null,
                             isAdjustment: hasRelatedBilling ? 1 : 0,
                             adjustmentType: hasRelatedBilling ? "addition" : null,
                             adjustedBy: hasRelatedBilling ? employeeid || this.payload.employeeid : null,
@@ -656,7 +656,7 @@ class SubmitCustomerBilling {
             return loadAllServices;
         }
         catch (err) {
-            console.log('Error Loading services ');
+            console.log('Error Loading services ', err);
             throw err;
         }
     }

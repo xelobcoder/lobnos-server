@@ -15,7 +15,7 @@ exports.insertBillQuery = `INSERT INTO billing
           VALUES(?,?,?,?,?,?,?,?)`;
 exports.updateApprovalStatusQuery = `UPDATE samplestatus SET approvalstatus = 1 WHERE billingid = ? AND testid = ?`;
 exports.patientBilledTodayQuery = "SELECT COUNT(*) AS count FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE";
-exports.AddtoTestAscenstionQuery = "INSERT INTO test_ascension (testid,serviceid,billingid) VALUES(?,?,?)";
+exports.AddtoTestAscenstionQuery = "INSERT INTO test_ascension (testid,serviceid,billingid,month,year) VALUES(?,?,?,?,?)";
 exports.deleteAscensionidQuery = "DELETE FROM test_ascension WHERE testid = ? AND serviceid = ?";
 exports.clientPaymentStatusQuery = `SELECT
       SUM(paid) AS paidAmount,

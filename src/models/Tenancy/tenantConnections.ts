@@ -10,7 +10,7 @@ interface TenantDBConfig {
      port: number;
      connectionLimit: number;
      waitForConnections: boolean;
-    idleTimeout: number;
+     idleTimeout: number;
      enableKeepAlive?: boolean;
      keepAliveInitialDelay?: number;
 }
@@ -21,7 +21,7 @@ const tenantConnections: Record<string, {
      lastUsed: number;
 }> = {};
 
-const CONNECTION_TIMEOUT = 2000; 
+const CONNECTION_TIMEOUT = 2000;
 
 async function initializeTenantConnection(tenantId: number) {
      const tenantKey = String(tenantId);
@@ -39,7 +39,7 @@ async function initializeTenantConnection(tenantId: number) {
           port: Number(process.env.DB_PORT!),
           connectionLimit: 10,
           waitForConnections: true,
-     idleTimeout: 3000,
+          idleTimeout: 3000,
      };
 
      const pool = mysql.createPool({
@@ -58,7 +58,9 @@ async function initializeTenantConnection(tenantId: number) {
                idleTimeoutMillis: 1000,
                reapIntervalMillis: 1000,
                afterCreate: (conn: any, done: Function) => {
-                    conn.query('SET SESSION wait_timeout=3;', (err: any) => done(err, conn));
+                    conn.query("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))", (err: any) => {
+                         done(err, conn);
+                    });
                }
           },
      });

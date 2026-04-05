@@ -15,9 +15,11 @@ async function updateAscensionStageHandler(request, response) {
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString());
         const metRequirement = stage && ascensionid && value && employeeid;
-        if (!metRequirement)
+        if (!metRequirement) {
             return (0, helper_1.customError)("invalid request body provided", 400, response);
-        const isUpdateComplete = await ascension_1.TestAscension.updateSampleAscensionstate(tenantIdP, parseInt(ascensionid.toString()), stage, value, parseInt(employeeid.toString()));
+        }
+        const isUpdateComplete = await ascension_1.TestAscension.
+            updateSampleAscensionstate(tenantIdP, parseInt(ascensionid.toString()), stage, value, parseInt(employeeid.toString()));
         response.send({ tenantId, status: isUpdateComplete });
     }
     catch (err) {

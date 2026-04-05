@@ -52,6 +52,8 @@ export class MultiBillingRepo {
 			billingID = await BillingSharedRepo.generateBillingID(
 				billingData.patientid,
 				this.tenantId,
+				billingData.branchid,
+				billingData.employeeid,
 				trx
 			);
 

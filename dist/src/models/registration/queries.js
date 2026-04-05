@@ -2,8 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.q_patient_update_personal_information = exports.q_patient_update_emmergency_information = exports.q_patient_info_pagination = exports.getPatientIDQuery = exports.insertPersonalInformationQuery = exports.isClientSameQuery = exports.q_patient_update_patient_addressing = exports.q_totalpatientcountQuery = exports.q_filter_patient_using_billingid_query = exports.q_filter_patients = exports.q_patient_data = exports.q_new_registation = void 0;
 exports.q_new_registation = `INSERT INTO new_patients (firstname, lastname, middlename, email, age, agetype, dob, marital_status,
- mobile_number, occupation, gender, organization,fullpatientid,contactpointer,designation,registeredby,relativecontactname,relativecontactnumber)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
+ mobile_number, occupation, gender, organization,fullpatientid,contactpointer,designation,registeredby,relativecontactname,relativecontactnumber, whatsapp_country_code, mobile_country_code,whatAppContact)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`;
 exports.q_patient_data = "SELECT np.* FROM new_patients AS np LEFT JOIN roles AS rr ON rr.employeeid = np.registeredby WHERE patientid = ?";
 exports.q_filter_patients = `  SELECT np.*,
 rr.username AS registeredbyusername, 

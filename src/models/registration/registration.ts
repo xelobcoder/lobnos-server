@@ -90,7 +90,21 @@ export default class Registration {
 			}
 
 			const generatedId = await this.generatePatientFullUniqueId(tenantId);
+
+			const removeCountryCodeFromMobile = (mobile: number | string, countryCode: string): string => {
+				const mobileStr = String(mobile).trim();
+				if (mobileStr.startsWith(countryCode)) {
+					return mobileStr.slice(countryCode.length);
+				}
+				return mobileStr;
+			};
+
 			if (generatedId) {
+
+				const sanitizedMobileNumber = removeCountryCodeFromMobile(records.mobile, records.mobileCountryCode);
+				const sanitizedWhatsApp = removeCountryCodeFromMobile(records.whatAppcontact, records.whatsappCountryCode);
+				const sanitizedRelativeContact = removeCountryCodeFromMobile(records.relativecontactnumber, records.relativeCountryCode);
+
 				const {
 					designation,
 					firstname,
@@ -101,10 +115,11 @@ export default class Registration {
 					gender,
 					employeeid,
 					relativecontactname,
-					relativecontactnumber,
 					email,
-					mobile,
 					days,
+					mobileCountryCode,
+					whatsappCountryCode,
+					relativeCountryCode,
 					months,
 					maritalstatus,
 					occupation,
@@ -114,11 +129,11 @@ export default class Registration {
 				} = records;
 
 				let mobileStr: string | undefined = undefined;
-				if (mobile) {
-					if (typeof mobile === 'string') {
-						mobileStr = String(mobile).trim();
-					} else if (typeof mobile === 'number' && !isNaN(mobile)) {
-						mobileStr = mobile.toString();
+				if (sanitizedMobileNumber) {
+					if (typeof sanitizedMobileNumber === 'string') {
+						mobileStr = String(sanitizedMobileNumber).trim();
+					} else if (typeof sanitizedMobileNumber === 'number' && !isNaN(sanitizedMobileNumber)) {
+						mobileStr = sanitizedMobileNumber
 					}
 				}
 				if (mobileownership === 'self' && mobileStr && mobileStr.length > 0) {
@@ -131,6 +146,8 @@ export default class Registration {
 						return 'A primary (self) contact already exists for this mobile number.';
 					}
 				}
+
+				const persistedMobileNumber = mobileownership === 'relative' ? null : sanitizedMobileNumber;
 
 				const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
 				const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
@@ -147,7 +164,7 @@ export default class Registration {
 					ageType,
 					dob,
 					maritalstatus,
-					mobile,
+					persistedMobileNumber,
 					occupation,
 					gender,
 					patientOrganization,
@@ -156,7 +173,10 @@ export default class Registration {
 					designation,
 					employeeid,
 					relativecontactname,
-					relativecontactnumber
+					sanitizedRelativeContact,
+					whatsappCountryCode,
+					mobileCountryCode,
+					sanitizedWhatsApp
 				];
 				const result = await promisifyQuery(tenantId, q_new_registation, values);
 				return result.insertId;
@@ -241,6 +261,7 @@ export default class Registration {
 			gender,
 			email,
 			mobile,
+			mobileownership = "self",
 			days,
 			months,
 			maritalstatus,
@@ -256,6 +277,7 @@ export default class Registration {
 
 		const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
 		const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
+		const persistedMobileNumber = mobileownership === 'relative' ? null : mobile;
 
 		const values = [
 			firstname,
@@ -267,7 +289,7 @@ export default class Registration {
 			ageType,
 			dob,
 			maritalstatus,
-			mobile,
+			persistedMobileNumber,
 			occupation,
 			gender,
 			patientOrganization,
@@ -470,7 +492,7 @@ export default class Registration {
 				if (dbColumn === "gender" || dbColumn === "marital_status") {
 					query = query.andWhere(`new_patients.${dbColumn}`, value.toLowerCase());
 				} else if (dbColumn === "mobile_number") {
-					
+
 					let mobileStr = String(value).trim();
 					let normalizedWith0: string;
 					let normalizedWithout0: string;

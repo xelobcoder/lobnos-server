@@ -46,7 +46,9 @@ const singleTenantKnexInstance = knex({
 		min: 0,
 		max: config[environment].connectionLimit,
 		afterCreate: (conn: any, done: Function) => {
-			done(null, conn);
+			conn.query("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))", (err: any) => {
+				done(err, conn);
+			});
 		}
 	}
 });

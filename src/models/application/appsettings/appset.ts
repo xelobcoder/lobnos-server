@@ -165,6 +165,8 @@ export default class ApplicationSettings {
 			automakeemployeepayrollpaymentsexpense,
 			automakeoutsourcepaymentsexpense,
 			automakecommissionpaymentsexpense,
+			pinOnResultEntry,
+			pinOnResultValidation,
 			useamountpaidforcommissioncalculation
 		} = data;
 
@@ -202,7 +204,9 @@ export default class ApplicationSettings {
 					automakeemployeepayrollpaymentsexpense: automakeemployeepayrollpaymentsexpense ?? 0,
 					automakeoutsourcepaymentsexpense: automakeoutsourcepaymentsexpense ?? 0,
 					automakecommissionpaymentsexpense: automakecommissionpaymentsexpense ?? 0,
-					useamountpaidforcommissioncalculation: useamountpaidforcommissioncalculation ?? 0
+					useamountpaidforcommissioncalculation: useamountpaidforcommissioncalculation ?? 0,
+					pinOnResultEntry: pinOnResultEntry ?? 0,
+					pinOnResultValidation: pinOnResultValidation ?? 0,
 				};
 				let affectedRows = 0;
 				if (existing) {
@@ -279,7 +283,7 @@ export default class ApplicationSettings {
 	async isApprovalSetTrue(tenantId: number) {
 		const result = await this.getAllAppSettings(tenantId);
 		if (result) {
-			const approval_status :numberBoolean = result[0]["approvalbeforeprinting"];
+			const approval_status: numberBoolean = result[0]["approvalbeforeprinting"];
 			return !(parseInt(approval_status as unknown as string) === 0);
 		}
 		return false;

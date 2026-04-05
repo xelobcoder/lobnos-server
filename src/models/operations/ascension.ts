@@ -54,7 +54,8 @@ export class TestAscension extends Operations {
 
 		if (query == null) return null;
 		query = query.replace('{stage}', stage);
-		const result = await promisifyQuery(tenantId, query, [value, employeeid, ascensionId]);
+		const sanitizedDate = new Date(value);
+		const result = await promisifyQuery(tenantId, query, [sanitizedDate, employeeid, ascensionId]);
 		return rowAffected(result);
 	}
 
@@ -129,7 +130,7 @@ export class TestAscension extends Operations {
 				params.push(`%${word}%`, `%${word}%`, `%${word}%`);
 			});
 		}
-		query += ` GROUP BY b.billingid ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
+		query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
 		return await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
 	}
 
@@ -144,8 +145,7 @@ export class TestAscension extends Operations {
 	public static async getAllPendingAscensions(tenantId: number, count: number = 30, page: number = 1): Promise<any[]> {
 		let query = q_pending_sample_uncollected;
 		let params: any[] = [];
-		query += `     GROUP BY b.billingid
-    ORDER BY b.billedon DESC`;
+		query += ` ORDER BY b.billedon DESC`;
 		if (page && count) {
 			const offset = (page - 1) * count;
 			query += ` LIMIT ? OFFSET ?`;
@@ -351,7 +351,7 @@ export class TestAscension extends Operations {
 				.update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() })
 				.where({ ascensionid: ascensionid })
 		}
-	
+
 	}
 
 }

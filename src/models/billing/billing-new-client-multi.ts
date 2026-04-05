@@ -171,13 +171,16 @@ export class SubmitCustomerBilling {
 
             if (!hasRelatedBilling) {
                 billingID = await BillingSharedRepo.generateBillingID(
-                    this.payload.patientid,
+                    this.payload.patientid || this.payload.patientId,
                     this.tenantId,
+                    this.payload.branchid || this.payload.branchId,
+                    this.payload.employeeid || this.payload.employeeId,
                     trx
                 );
             } else {
                 billingID = this.payload.billingid;
             }
+
 
             const taxValue = updatedBillingData.taxValue || 0;
             const taxList = updatedBillingData.taxList || null;
@@ -298,8 +301,8 @@ export class SubmitCustomerBilling {
                     promoValue: updateData.promoValue,
                     surcharges: updateData.surcharges,
                     additionalinformation: this.payload.additioninformation || null,
-                    promoMethod: updateData.promoMethod,
-                    promoCodeId: updateData.promoCodeId,
+                    promoMethod: updateData.promoMethod ? updateData.promoMethod : null,
+                    promoCodeId: updateData.promoCodeId ? updateData.promoCodeId : null,
                     isAdjustment: hasRelatedBilling ? 1 : 0,
                     adjustmentType: hasRelatedBilling ? "addition" : null,
                     adjustedBy: hasRelatedBilling ? employeeid || this.payload.employeeid : null,
@@ -364,8 +367,8 @@ export class SubmitCustomerBilling {
                             isPromo: updateData.isPromo,
                             promoValue: updateData.promoValue,
                             additionalinformation: this.payload.additioninformation || null,
-                            promoMethod: updateData.promoMethod,
-                            promoCodeId: updateData.promoCodeId,
+                            promoMethod: updateData.promoMethod ? updateData.promoMethod : null,
+                            promoCodeId: updateData.promoCodeId ? updateData.promoCodeId : null,
                             isAdjustment: hasRelatedBilling ? 1 : 0,
                             adjustmentType: hasRelatedBilling ? "addition" : null,
                             adjustedBy: hasRelatedBilling ? employeeid || this.payload.employeeid : null,
@@ -383,7 +386,7 @@ export class SubmitCustomerBilling {
 
                 const finalUpdateData = hasRelatedBilling && adjustmentType == "addition" ? AdditionAdjustmentBillingData : dataToUpdate;
                 const finalBillingId = hasRelatedBilling && adjustmentType == "addition" ? parseInt(this.payload.billingid) : billingID;
-
+                
                 const result = await trx("billing")
                     .update(finalUpdateData).where({ billingid: finalBillingId });
 
@@ -826,7 +829,7 @@ export class SubmitCustomerBilling {
 
             return loadAllServices;
         } catch (err) {
-            console.log('Error Loading services ')
+            console.log('Error Loading services ',err)
             throw err;
         }
     }

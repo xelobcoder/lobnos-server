@@ -35,7 +35,9 @@ async function initializeTenantConnection(tenantId) {
             idleTimeoutMillis: 1000,
             reapIntervalMillis: 1000,
             afterCreate: (conn, done) => {
-                conn.query('SET SESSION wait_timeout=3;', (err) => done(err, conn));
+                conn.query("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))", (err) => {
+                    done(err, conn);
+                });
             }
         },
     });
