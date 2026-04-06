@@ -199,12 +199,41 @@ const putTestPanelUpdate = (req, res) => {
 exports.putTestPanelUpdate = putTestPanelUpdate;
 const deleteTestPanel = async (req, res) => {
     try {
-        const { testid } = req.query;
+        const { testid, tenantId } = req.query;
         if (!testid)
-            return (0, helper_1.customError)("testid is required", 404, res);
-        const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await testpanelList_1.testpanel.dropPanelWithDependencies(tenantId, parseInt(testid.toString()));
-        res.send({ status: result === true ? "success" : "failed" });
+            return (0, helper_1.customError)("testid is required", 400, res);
+        if (!tenantId)
+            return (0, helper_1.customError)("tenantId is required", 400, res);
+        const parsedTenantId = parseInt(tenantId.toString(), 10);
+        if (Number.isNaN(parsedTenantId))
+            return (0, helper_1.customError)("invalid tenantId", 400, res);
+        const testIds = testid
+            .toString()
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((s) => parseInt(s, 10));
+        if (testIds.length === 0 || testIds.some((n) => Number.isNaN(n))) {
+            return (0, helper_1.customError)("one or more testid values are invalid", 400, res);
+        }
+        const results = [];
+        for (const id of testIds) {
+            try {
+                const result = await testpanelList_1.testpanel.dropPanelWithDependencies(parsedTenantId, id);
+                results.push({ testid: id, status: result === true ? 'deleted' : 'failed' });
+            }
+            catch (_a) {
+                results.push({ testid: id, status: 'failed' });
+            }
+        }
+        const deleted = results.filter((r) => r.status === 'deleted');
+        const failed = results.filter((r) => r.status === 'failed');
+        res.send({
+            status: 'success',
+            statusCode: 200,
+            message: `${deleted.length} deleted, ${failed.length} failed`,
+            data: { deleted, failed },
+        });
     }
     catch (err) {
         (0, helper_1.responseError)(res);
@@ -352,24 +381,16 @@ const putBulkTestPricingUpdate = async (req, res) => {
     }
 };
 exports.putBulkTestPricingUpdate = putBulkTestPricingUpdate;
-const importMasterTestPanelToClientList = async (req, res) => {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13;
-    try {
-        const { testid, tenantId } = req.query;
-        if (!testid || !tenantId) {
-            return (0, helper_1.customError)("testid and tenantId are required", 400, res);
-        }
-        const parsedMasterTestId = parseInt(testid.toString(), 10);
-        const parsedTenantId = parseInt(tenantId.toString(), 10);
-        if (Number.isNaN(parsedMasterTestId) || Number.isNaN(parsedTenantId)) {
-            return (0, helper_1.customError)("invalid testid or tenantId", 400, res);
-        }
-        const masterRepo = new MasterTestPanelRepository_1.default();
-        const masterPanel = await masterRepo.getMasterPanelByTestId(parsedMasterTestId);
-        if (!masterPanel) {
-            return (0, helper_1.customError)("master test not found", 404, res);
-        }
-        const connection = await (0, KnexConnections_1.default)(parsedTenantId);
+const DEADLOCK_MAX_RETRIES = 3;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+async function importOneMasterTest(masterTestId, connection, masterRepo) {
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14;
+    const masterPanel = await masterRepo.getMasterPanelByTestId(masterTestId);
+    if (!masterPanel) {
+        return { success: false, skipped: false, masterTestId, name: String(masterTestId), error: 'master test not found' };
+    }
+    let attempt = 0;
+    while (true) {
         const trx = await connection.transaction();
         try {
             const existingByName = await trx('test_panels')
@@ -377,12 +398,12 @@ const importMasterTestPanelToClientList = async (req, res) => {
                 .first();
             if (existingByName) {
                 await trx.rollback();
-                return (0, helper_1.customError)(`test '${masterPanel.name}' already exists in client list`, 409, res);
+                return { success: false, skipped: true, masterTestId, name: masterPanel.name };
             }
             const firstRole = await trx('roles').select('employeeid').orderBy('employeeid', 'asc').first();
             if (!firstRole) {
                 await trx.rollback();
-                return (0, helper_1.customError)('no employee found in roles table to map required created/updated fields', 400, res);
+                return { success: false, skipped: false, masterTestId, name: masterPanel.name, error: 'no employee found in roles table' };
             }
             const defaultEmployeeId = Number(firstRole.employeeid);
             const normalizedDepartmentName = (masterPanel.departmentName || '').toString().trim();
@@ -454,10 +475,10 @@ const importMasterTestPanelToClientList = async (req, res) => {
             const newPanel = await trx('test_panels').where('prim_key', newPrimKey).first();
             if (!newPanel || !newPanel.id) {
                 await trx.rollback();
-                return (0, helper_1.customError)('failed to resolve imported test id', 500, res);
+                return { success: false, skipped: false, masterTestId, name: masterPanel.name, error: 'failed to resolve imported test id' };
             }
             const newTestId = Number(newPanel.id);
-            const masterDetails = await masterRepo.getMasterTestDetailsByTestId(parsedMasterTestId);
+            const masterDetails = await masterRepo.getMasterTestDetailsByTestId(masterTestId);
             if (masterDetails) {
                 await trx('testdetails')
                     .where({ testid: newTestId })
@@ -489,7 +510,7 @@ const importMasterTestPanelToClientList = async (req, res) => {
                     instrumentation: (_5 = masterDetails.instrumentation) !== null && _5 !== void 0 ? _5 : '',
                 });
             }
-            const masterSetupLiterature = await masterRepo.getMasterSetupLiteratureByTestId(parsedMasterTestId);
+            const masterSetupLiterature = await masterRepo.getMasterSetupLiteratureByTestId(masterTestId);
             if (masterSetupLiterature) {
                 const existingSetupLiterature = await trx('setupliteraturereview')
                     .where({ testid: newTestId })
@@ -510,7 +531,7 @@ const importMasterTestPanelToClientList = async (req, res) => {
                 }
             }
             const categoryIdMap = new Map();
-            const masterCategories = await masterRepo.getMasterTestDetailCategoriesByTestId(parsedMasterTestId);
+            const masterCategories = await masterRepo.getMasterTestDetailCategoriesByTestId(masterTestId);
             for (const category of masterCategories) {
                 const existingCategory = await trx('testdetailcategory')
                     .where({ testid: newTestId, categoryname: category.categoryname })
@@ -529,10 +550,10 @@ const importMasterTestPanelToClientList = async (req, res) => {
                 const newCategoryId = Array.isArray(insertedCategory) ? insertedCategory[0] : insertedCategory;
                 categoryIdMap.set(Number(category.categoryid), Number(newCategoryId));
             }
-            const masterRules = await masterRepo.getTestCreationRulesByTestId(parsedMasterTestId);
+            const masterRules = await masterRepo.getTestCreationRulesByTestId(masterTestId);
             for (const rule of masterRules) {
                 const mappedCategoryId = rule.categoryid ? categoryIdMap.get(Number(rule.categoryid)) : null;
-                const insertedRule = await trx('testcreationrules').insert({
+                await trx('testcreationrules').insert({
                     testid: newTestId,
                     name: rule.name,
                     field: rule.field,
@@ -561,28 +582,74 @@ const importMasterTestPanelToClientList = async (req, res) => {
                     upperLimitNeonates: rule.upperLimitNeonates,
                     lowerLimitNeonates: rule.lowerLimitNeonates,
                 });
-                const newRuleId = Array.isArray(insertedRule) ? insertedRule[0] : insertedRule;
             }
             await trx.commit();
-            return res.send({
-                status: 'success',
-                statusCode: 200,
-                message: 'master test imported successfully',
-                data: {
-                    sourceMasterTestId: parsedMasterTestId,
-                    importedClientTestId: newTestId,
-                    importedTestName: masterPanel.name,
-                    departmentCreated,
-                    categoriesImported: masterCategories.length,
-                    rulesImported: masterRules.length,
-                    importedSetupLiterature: !!masterSetupLiterature,
-                },
-            });
+            return {
+                success: true,
+                skipped: false,
+                masterTestId,
+                name: masterPanel.name,
+                importedTestId: newTestId,
+            };
         }
         catch (transactionError) {
             await trx.rollback();
-            throw transactionError;
+            if ((transactionError === null || transactionError === void 0 ? void 0 : transactionError.code) === 'ER_LOCK_DEADLOCK' && attempt < DEADLOCK_MAX_RETRIES) {
+                attempt++;
+                const backoff = 50 + Math.floor(Math.random() * 150 * attempt);
+                await sleep(backoff);
+                continue;
+            }
+            return {
+                success: false,
+                skipped: false,
+                masterTestId,
+                name: masterPanel.name,
+                error: (_14 = transactionError === null || transactionError === void 0 ? void 0 : transactionError.message) !== null && _14 !== void 0 ? _14 : 'import failed',
+            };
         }
+        break;
+    } // end while
+}
+const importMasterTestPanelToClientList = async (req, res) => {
+    try {
+        const { testid, tenantId } = req.query;
+        if (!testid || !tenantId) {
+            return (0, helper_1.customError)("testid and tenantId are required", 400, res);
+        }
+        const parsedTenantId = parseInt(tenantId.toString(), 10);
+        if (Number.isNaN(parsedTenantId)) {
+            return (0, helper_1.customError)("invalid tenantId", 400, res);
+        }
+        const parsedMasterTestIds = testid
+            .toString()
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((s) => parseInt(s, 10));
+        if (parsedMasterTestIds.length === 0 || parsedMasterTestIds.some((n) => Number.isNaN(n))) {
+            return (0, helper_1.customError)("one or more testid values are invalid", 400, res);
+        }
+        const masterRepo = new MasterTestPanelRepository_1.default();
+        const connection = await (0, KnexConnections_1.default)(parsedTenantId);
+        const results = [];
+        for (const masterTestId of parsedMasterTestIds) {
+            const result = await importOneMasterTest(masterTestId, connection, masterRepo);
+            results.push(result);
+        }
+        const imported = results.filter((r) => r.success);
+        const skipped = results.filter((r) => r.skipped);
+        const failed = results.filter((r) => !r.success && !r.skipped);
+        return res.send({
+            status: 'success',
+            statusCode: 200,
+            message: `${imported.length} imported, ${skipped.length} skipped, ${failed.length} failed`,
+            data: {
+                imported: imported.map((r) => ({ masterTestId: r.masterTestId, importedTestId: r.importedTestId, name: r.name })),
+                skipped: skipped.map((r) => ({ masterTestId: r.masterTestId, name: r.name })),
+                failed: failed.map((r) => ({ masterTestId: r.masterTestId, name: r.name, error: r.error })),
+            },
+        });
     }
     catch (err) {
         logger_1.default.error(err);

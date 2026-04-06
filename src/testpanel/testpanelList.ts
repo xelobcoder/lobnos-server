@@ -25,6 +25,40 @@ interface ProcedureManual {
 	title: string;
 }
 
+const resolveLookupId = async (
+	tenantId: number,
+	tableName: string,
+	idColumn: string,
+	nameColumn: string,
+	value: unknown
+): Promise<number | null> => {
+	if (value === undefined || value === null || value === "") {
+		return null;
+	}
+
+	if (typeof value === "number" && !Number.isNaN(value)) {
+		return value;
+	}
+
+	const rawValue = String(value).trim();
+	if (!rawValue) {
+		return null;
+	}
+
+	const numericValue = Number(rawValue);
+	if (!Number.isNaN(numericValue) && /^\d+$/.test(rawValue)) {
+		return numericValue;
+	}
+
+	const connection = await KnexConnection(tenantId);
+	const row = await connection(tableName)
+		.select(idColumn)
+		.whereRaw(`LOWER(${nameColumn}) = LOWER(?)`, [rawValue])
+		.first();
+
+	return row ? Number(row[idColumn]) : null;
+};
+
 export const testpanel = {
 	listquery: `SELECT 
       tp.name,
@@ -313,12 +347,27 @@ export const testpanel = {
 					instrumentation
 				} = request.body;
 
+				const resolvedSampleContainerId = await resolveLookupId(tenantId, "samplecontainer", "id", "name", sample_container);
+				if (sample_container !== undefined && sample_container !== null && sample_container !== "" && resolvedSampleContainerId === null) {
+					return customError("invalid sample_container provided", 400, response);
+				}
+
+				const resolvedSampleId = await resolveLookupId(tenantId, "sampletype", "id", "name", sample);
+				if (sample !== undefined && sample !== null && sample !== "" && resolvedSampleId === null) {
+					return customError("invalid sample provided", 400, response);
+				}
+
+				const resolvedCategoryId = await resolveLookupId(tenantId, "departments", "id", "department", category);
+				if (category !== undefined && category !== null && category !== "" && resolvedCategoryId === null) {
+					return customError("invalid category provided", 400, response);
+				}
+
 				const updateMainPanel = await promisifyQuery(tenantId, query, [
 					name,
 					testprice,
-					sample_container,
-					sample,
-					category,
+					resolvedSampleContainerId,
+					resolvedSampleId,
+					resolvedCategoryId,
 					unit,
 					description,
 					qty_required,
@@ -571,39 +620,30 @@ export const testpanel = {
 	},
 	async dropPanelWithDependencies(tenantId: number, testid: number) {
 		try {
-			// Get panel name first
-			const panelQuery = `SELECT name FROM test_panels WHERE id = ?`;
-			const panelResult = await promisifyQuery(tenantId, panelQuery, [testid]);
-			if (panelResult.length === 0) return false;
+			const connection = await KnexConnection(tenantId);
+			const trx = await connection.transaction();
 
-			const panelName = panelResult[0].name;
-			const generatedName = testpanel.generateTableName(tenantId, panelName);
+			try {
+				const panel = await trx("test_panels").select("id").where({ id: testid }).first();
+				if (!panel) {
+					await trx.rollback();
+					return false;
+				}
 
-			// Drop triggers first
-			const deleteTrigger = testpanel.generateResultAuditLogDeleteTrigerName(testid);
-			const updateTrigger = testpanel.generateResultAuditLogUpdateTrigerName(testid);
+				await trx("testcreationrules").where({ testid }).del();
+				await trx("testdetailcategory").where({ testid }).del();
+				await trx("setupliteraturereview").where({ testid }).del();
+				await trx("proceduremanual").where({ testid }).del();
+				// await trx("outsourcedtesttracking").where({ testid }).del();
+				await trx("testdetails").where({ testid }).del();
 
-			await promisifyQuery(tenantId, `DROP TRIGGER IF EXISTS ${deleteTrigger}`);
-			await promisifyQuery(tenantId, `DROP TRIGGER IF EXISTS ${updateTrigger}`);
-
-			// Drop audit log table
-			const auditTable = testpanel.generateAuditLogNameUsingTestid(testid);
-			await promisifyQuery(tenantId, `DROP TABLE IF EXISTS ${auditTable}`);
-
-			// Drop main results table
-			const resultsTable = testpanel.generateTableNameUsingTestid(testid);
-			await promisifyQuery(tenantId, `DROP TABLE IF EXISTS ${resultsTable}`);
-
-			// Finally delete the panel entry
-			// Delete dependent records first
-			await promisifyQuery(tenantId,
-				`DELETE FROM outsourcedtesttracking WHERE testid = ?`, [testid]);
-
-			// Then delete the panel
-			const deleteResult = await promisifyQuery(tenantId,
-				`DELETE FROM test_panels WHERE id = ?`, [testid]);
-
-			return rowAffected(deleteResult);
+				const deleteResult = await trx("test_panels").where({ id: testid }).del();
+				await trx.commit();
+				return deleteResult > 0;
+			} catch (transactionError) {
+				await trx.rollback();
+				throw transactionError;
+			}
 		} catch (error) {
 			logger.error(`Error dropping panel ${testid}:`, error);
 			return false;

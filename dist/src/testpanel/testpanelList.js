@@ -10,6 +10,28 @@ const helper_1 = require("../hooks/helper");
 const logger_1 = __importDefault(require("../hooks/logger"));
 const MasterTestPanelRepository_1 = __importDefault(require("../models/system-admin/MasterTestPanelRepository"));
 const KnexConnections_1 = __importDefault(require("../database/KnexConnections"));
+const resolveLookupId = async (tenantId, tableName, idColumn, nameColumn, value) => {
+    if (value === undefined || value === null || value === "") {
+        return null;
+    }
+    if (typeof value === "number" && !Number.isNaN(value)) {
+        return value;
+    }
+    const rawValue = String(value).trim();
+    if (!rawValue) {
+        return null;
+    }
+    const numericValue = Number(rawValue);
+    if (!Number.isNaN(numericValue) && /^\d+$/.test(rawValue)) {
+        return numericValue;
+    }
+    const connection = await (0, KnexConnections_1.default)(tenantId);
+    const row = await connection(tableName)
+        .select(idColumn)
+        .whereRaw(`LOWER(${nameColumn}) = LOWER(?)`, [rawValue])
+        .first();
+    return row ? Number(row[idColumn]) : null;
+};
 exports.testpanel = {
     listquery: `SELECT 
       tp.name,
@@ -250,12 +272,24 @@ exports.testpanel = {
 								shorttext = ?
 								WHERE id = ?`;
                 const { name, category, testprice, sample_container, unit, sample, shorttext, isoutsourced, description, qty_required, hasManual, procedureCode, tat, pre_Tat, post_Tat, showtrend, hasChildrenLimit, hasGenderVariation, tatCount, employeeid, testid, testcost, hasDrugs, post_TatEvaluation, pre_TatEvaluation, tatEvaluation, useLiterature, deviceInterfaceMapping, reportitle, method, instrumentation } = request.body;
+                const resolvedSampleContainerId = await resolveLookupId(tenantId, "samplecontainer", "id", "name", sample_container);
+                if (sample_container !== undefined && sample_container !== null && sample_container !== "" && resolvedSampleContainerId === null) {
+                    return (0, helper_1.customError)("invalid sample_container provided", 400, response);
+                }
+                const resolvedSampleId = await resolveLookupId(tenantId, "sampletype", "id", "name", sample);
+                if (sample !== undefined && sample !== null && sample !== "" && resolvedSampleId === null) {
+                    return (0, helper_1.customError)("invalid sample provided", 400, response);
+                }
+                const resolvedCategoryId = await resolveLookupId(tenantId, "departments", "id", "department", category);
+                if (category !== undefined && category !== null && category !== "" && resolvedCategoryId === null) {
+                    return (0, helper_1.customError)("invalid category provided", 400, response);
+                }
                 const updateMainPanel = await (0, helper_1.promisifyQuery)(tenantId, query, [
                     name,
                     testprice,
-                    sample_container,
-                    sample,
-                    category,
+                    resolvedSampleContainerId,
+                    resolvedSampleId,
+                    resolvedCategoryId,
                     unit,
                     description,
                     qty_required,
@@ -491,30 +525,28 @@ exports.testpanel = {
     },
     async dropPanelWithDependencies(tenantId, testid) {
         try {
-            // Get panel name first
-            const panelQuery = `SELECT name FROM test_panels WHERE id = ?`;
-            const panelResult = await (0, helper_1.promisifyQuery)(tenantId, panelQuery, [testid]);
-            if (panelResult.length === 0)
-                return false;
-            const panelName = panelResult[0].name;
-            const generatedName = exports.testpanel.generateTableName(tenantId, panelName);
-            // Drop triggers first
-            const deleteTrigger = exports.testpanel.generateResultAuditLogDeleteTrigerName(testid);
-            const updateTrigger = exports.testpanel.generateResultAuditLogUpdateTrigerName(testid);
-            await (0, helper_1.promisifyQuery)(tenantId, `DROP TRIGGER IF EXISTS ${deleteTrigger}`);
-            await (0, helper_1.promisifyQuery)(tenantId, `DROP TRIGGER IF EXISTS ${updateTrigger}`);
-            // Drop audit log table
-            const auditTable = exports.testpanel.generateAuditLogNameUsingTestid(testid);
-            await (0, helper_1.promisifyQuery)(tenantId, `DROP TABLE IF EXISTS ${auditTable}`);
-            // Drop main results table
-            const resultsTable = exports.testpanel.generateTableNameUsingTestid(testid);
-            await (0, helper_1.promisifyQuery)(tenantId, `DROP TABLE IF EXISTS ${resultsTable}`);
-            // Finally delete the panel entry
-            // Delete dependent records first
-            await (0, helper_1.promisifyQuery)(tenantId, `DELETE FROM outsourcedtesttracking WHERE testid = ?`, [testid]);
-            // Then delete the panel
-            const deleteResult = await (0, helper_1.promisifyQuery)(tenantId, `DELETE FROM test_panels WHERE id = ?`, [testid]);
-            return (0, helper_1.rowAffected)(deleteResult);
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const trx = await connection.transaction();
+            try {
+                const panel = await trx("test_panels").select("id").where({ id: testid }).first();
+                if (!panel) {
+                    await trx.rollback();
+                    return false;
+                }
+                await trx("testcreationrules").where({ testid }).del();
+                await trx("testdetailcategory").where({ testid }).del();
+                await trx("setupliteraturereview").where({ testid }).del();
+                await trx("proceduremanual").where({ testid }).del();
+                // await trx("outsourcedtesttracking").where({ testid }).del();
+                await trx("testdetails").where({ testid }).del();
+                const deleteResult = await trx("test_panels").where({ id: testid }).del();
+                await trx.commit();
+                return deleteResult > 0;
+            }
+            catch (transactionError) {
+                await trx.rollback();
+                throw transactionError;
+            }
         }
         catch (error) {
             logger_1.default.error(`Error dropping panel ${testid}:`, error);
