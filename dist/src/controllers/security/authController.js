@@ -109,8 +109,9 @@ class AuthController {
                 return (0, helper_1.customError)('employeeid and pin are required', 400, res);
             const pEmployeeid = parseInt(employeeid.toString());
             const pPin = parseInt(pin.toString());
-            if (isNaN(pEmployeeid) || isNaN(pPin))
+            if (isNaN(pEmployeeid) || isNaN(pPin)) {
                 return (0, helper_1.customError)('employeeid and pin must be numbers', 400, res);
+            }
             const rolesRepo = await new RolesRepository_1.default(tenantId).validatePin(pEmployeeid, pPin);
             if (rolesRepo) {
                 res.status(200).json({ status: true, message: 'Pin is valid' });

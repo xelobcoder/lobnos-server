@@ -193,8 +193,9 @@ exports.testpanel = {
         if (!testname)
             throw new Error("Testname required");
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const result = await connection('test_panels').where('name', testname.trim()).count('* as count').first();
-        return Number(result.count) > 0;
+        const result = await connection('test_panels')
+            .where('name', testname.trim()).count('* as count').first();
+        return result ? Number(result.count) > 0 : false;
     },
     hasTrend: async (tenantId, testid) => {
         if (!testid)
@@ -413,15 +414,15 @@ exports.testpanel = {
         const tablename = this.generateTableNameUsingTestid(testid);
         return this.isTableExistInDatabase(tenantId, tablename);
     },
-    generatedTestTableName: function (testname) {
-        return `result${this.generateTableName(testname)}`.trim();
+    generatedTestTableName: function (tenantid, testname) {
+        return `result${this.generateTableName(tenantid, testname)}`.trim();
     },
-    generateAuditLogName: function (testname) {
-        const tablename = this.generateTableName(testname);
+    generateAuditLogName: function (tenantId, testname) {
+        const tablename = this.generateTableName(tenantId, testname);
         return `result${tablename}AuditLog`.trim();
     },
     testTableExist: async function (tenantId, testname) {
-        const tablename = this.generatedTestTableName(testname);
+        const tablename = this.generatedTestTableName(tenantId, testname);
         const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
                     FROM information_schema.tables 
                     WHERE table_schema = 'limsdb' 

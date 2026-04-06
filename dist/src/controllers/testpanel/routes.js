@@ -15,6 +15,8 @@ router.post("/api/v1/testpanel/categories", testpanelHandlers_1.postCategories);
 // Test Panel Routes
 router.get("/api/v1/testpanel/list", testpanelHandlers_1.getTestPanelList);
 router.get("/api/v1/testpanel/list/bulk", testpanelHandlers_1.getBulkTestPanelList);
+router.get("/api/v1/testpanel/master/list/import", (0, helper_1.handleOverLoad)(testpanelHandlers_1.importMasterTestPanelToClientList));
+router.get("/api/v1/master/list/import", (0, helper_1.handleOverLoad)(testpanelHandlers_1.importMasterTestPanelToClientList));
 router.post("/api/v1/testpanel/list/createcustom", (0, helper_1.handleOverLoad)(testpanelHandlers_1.postCreateCustomTestPanel));
 router.put("/api/v1/testpanel/list/updateprocedureManual", (0, helper_1.handleOverLoad)(testpanelHandlers_1.putTestPanelUpdateProcedureManual));
 router.get("/api/v1/gettestpanel/edit", testpanelHandlers_1.getTestPanelEdit);

@@ -5,23 +5,33 @@ export interface TestCreationRule {
      name: string;
      field?: string;
      value?: string;
-     hasunits?: boolean;
+     hasunits?: boolean | number | string;
      units?: string;
-     plan: 'input' | 'textReference' | 'options' | 'plain' | 'limits';
+     plan: 'input' | 'textReference' | 'options' | 'plain' | 'limits' | 'greaterLess' | 'ultrasoundFields' | 'greaterLessEqualTo' | 'time' | 'date' | 'datetime';
      plain?: string;
-     ordering?: number;
-     isValueTracked?: boolean;
+     ordering?: number | string;
+     isValueTracked?: boolean | number | string;
      textReference?: string;
      upperlimit?: string;
      lowerlimit?: string;
+     upperLimit?: string;
+     lowerLimit?: string;
      category?: string;
      options?: string;
      fieldid?: number;
-     undercategory?: boolean;
-     categoryid?: number;
+     undercategory?: boolean | number | string;
+     categoryid?: number | string;
      valueAlert?: string;
-     hasGenderVariation: boolean;
+     hasGenderVariation?: boolean;
      alert?: string;
+     upperLimitFemale?: string;
+     lowerLimitFemale?: string;
+     upperLimitMale?: string;
+     lowerLimitMale?: string;
+     upperLimitChildren?: string;
+     lowerLimitChildren?: string;
+     upperLimitNeonates?: string;
+     lowerLimitNeonates?: string;
 }
 
 class TestCreationRulesRepository {
@@ -32,10 +42,36 @@ class TestCreationRulesRepository {
           this.connection = KnexConnection(tenantId);
      }
 
+     private toNullableNumber(value: unknown): number | null {
+          if (value === undefined || value === null || value === '') {
+               return null;
+          }
+
+          const parsedValue = Number(value);
+          return Number.isFinite(parsedValue) ? parsedValue : null;
+     }
+
+     private toTinyInt(value: unknown, fallback = 0): number {
+          if (value === undefined || value === null || value === '') {
+               return fallback;
+          }
+
+          if (typeof value === 'boolean') {
+               return value ? 1 : 0;
+          }
+
+          const parsedValue = Number(value);
+          if (!Number.isFinite(parsedValue)) {
+               return fallback;
+          }
+
+          return parsedValue > 0 ? 1 : 0;
+     }
+
      async create(rulesData: TestCreationRule[], testid: number): Promise<number[]> {
           try {
                const conn = await this.connection;
-               const existingRules = await conn('testcreationrules')
+               const existingRules: Array<{ id: number; name: string }> = await conn('testcreationrules')
                     .where('testid', testid)
                     .select('id', 'name');
 
@@ -61,21 +97,29 @@ class TestCreationRulesRepository {
                     const updateData = {
                          field: ruleData.field,
                          value: ruleData.value,
-                         hasunits: ruleData.hasunits,
+                         hasunits: this.toTinyInt(ruleData.hasunits),
                          units: ruleData.units,
                          plan: ruleData.plan,
                          plain: ruleData.plain,
-                         ordering: ruleData.ordering,
-                         isValueTracked: ruleData.isValueTracked,
+                         ordering: this.toNullableNumber(ruleData.ordering),
+                         isValueTracked: this.toTinyInt(ruleData.isValueTracked),
                          textReference: ruleData.textReference,
-                         upperlimit: ruleData.upperlimit ,
-                         lowerlimit: ruleData.lowerlimit,
+                         upperlimit: ruleData.upperlimit ?? ruleData.upperLimit,
+                         lowerlimit: ruleData.lowerlimit ?? ruleData.lowerLimit,
                          category: ruleData.category,
                          options: ruleData.options,
-                         undercategory: ruleData.undercategory,
-                         categoryid: ruleData.categoryid,
+                         undercategory: this.toTinyInt(ruleData.undercategory),
+                         categoryid: this.toNullableNumber(ruleData.categoryid),
                          valueAlert: ruleData.valueAlert,
-                         alert: ruleData.alert
+                         alert: ruleData.alert,
+                         upperLimitFemale: ruleData.upperLimitFemale,
+                         lowerLimitFemale: ruleData.lowerLimitFemale,
+                         upperLimitMale: ruleData.upperLimitMale,
+                         lowerLimitMale: ruleData.lowerLimitMale,
+                         upperLimitChildren: ruleData.upperLimitChildren,
+                         lowerLimitChildren: ruleData.lowerLimitChildren,
+                         upperLimitNeonates: ruleData.upperLimitNeonates,
+                         lowerLimitNeonates: ruleData.lowerLimitNeonates
                     };
 
                     if (existingRule) {

@@ -125,7 +125,7 @@ export const testpanel = {
 		}
 	},
 
-	addSampleType: async (request: Request, response: Response) => {
+	addSampleType: async (request: Request<{}, {}, { name: string }, { tenantId: number }>, response: Response) => {
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString());
 		const query = "INSERT INTO sampletype (name) VALUE (?)";
@@ -144,14 +144,14 @@ export const testpanel = {
 			});
 	},
 
-	getSampleType: async (request: Request, response: Response) => {
+	getSampleType: async (request: Request<{}, {}, {}, { tenantId: number }>, response: Response) => {
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString());
 		const samples = await promisifyQuery(tenantIdP, "SELECT * FROM sampletype");
 		response.send({ result: samples });
 	},
 
-	deleteSampleType: async (request: Request, response: Response) => {
+	deleteSampleType: async (request: Request<{}, {}, {}, { tenantId: number, id: string }>, response: Response) => {
 		try {
 			const { id } = request.query as { id: string };
 			if (!id || isNaN(parseInt(id))) return customError("Valid id not provided", 404, response);
@@ -182,7 +182,7 @@ export const testpanel = {
 		}
 	},
 
-	bulkTestUpdate: async (request: Request, response: Response) => {
+	bulkTestUpdate: async (request: Request<{}, {}, { panel: TestPanel[] }, { tenantId: number }>, response: Response) => {
 		const { panel } = request.body;
 		if (!panel) {
 			response.send({ message: "Panel required", statusCode: "400", status: "error" });
@@ -211,14 +211,15 @@ export const testpanel = {
 		}
 	},
 
-	hasTest: async (tenantId: number, testname: string) => {
+	hasTest: async (tenantId: number, testname: string): Promise<boolean> => {
 		if (!testname) throw new Error("Testname required");
 		const connection = await KnexConnection(tenantId);
-		const result = await connection('test_panels').where('name', testname.trim()).count('* as count').first();
-		return Number(result.count) > 0;
+		const result = await connection('test_panels')
+			.where('name', testname.trim()).count('* as count').first();
+		return result ? Number(result.count) > 0 : false;
 	},
 
-	hasTrend: async (tenantId: number, testid: number) => {
+	hasTrend: async (tenantId: number, testid: number): Promise<boolean> => {
 		if (!testid) throw new Error("Testid required");
 		const result = await promisifyQuery(tenantId, `SELECT showtrend FROM testdetails WHERE testid = ?`, [testid]);
 		return result[0]["showtrend"] == 0 ? false : true;
@@ -413,7 +414,7 @@ export const testpanel = {
 		}
 	},
 
-	getPanelBulKLessInformation: async function (request: Request, response: Response) {
+	getPanelBulKLessInformation: async function (request: Request<{}, {}, {}, { tenantId: number }>, response: Response) {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		try {
 			const query = `SELECT tp.name,tp.price AS discountedValue,tp.id,td.isoutsourced,td.testid from test_panels AS tp INNER JOIN testdetails AS td ON td.testid = tp.id `;
@@ -490,17 +491,17 @@ export const testpanel = {
 		return this.isTableExistInDatabase(tenantId, tablename);
 	},
 
-	generatedTestTableName: function (testname: string) {
-		return `result${this.generateTableName(testname)}`.trim();
+	generatedTestTableName: function (tenantid: number, testname: string) {
+		return `result${this.generateTableName(tenantid, testname)}`.trim();
 	},
 
-	generateAuditLogName: function (testname: string) {
-		const tablename = this.generateTableName(testname);
+	generateAuditLogName: function (tenantId: number, testname: string) {
+		const tablename = this.generateTableName(tenantId, testname);
 		return `result${tablename}AuditLog`.trim();
 	},
 
 	testTableExist: async function (tenantId: number, testname: string) {
-		const tablename = this.generatedTestTableName(testname);
+		const tablename = this.generatedTestTableName(tenantId, testname);
 		const tableExistenceQuery = `SELECT COUNT(*) AS ispresent
                     FROM information_schema.tables 
                     WHERE table_schema = 'limsdb' 

@@ -21,7 +21,8 @@ import {
     getTestSetupLiterature,
     putTestSetupLiterature,
     getTestSetupResultLiterature,
-    putBulkTestPricingUpdate
+    putBulkTestPricingUpdate,
+    importMasterTestPanelToClientList
 } from "./testpanelHandlers";
 import { testpanel } from "../../testpanel/testpanelList";
 import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, getFieldConstraintsByTestIdHandler, updateFieldConstraintHandler, deleteFieldConstraintHandler, deleteFieldConstraintsByFieldIdHandler } from "../testcreation/fieldConstraintsHandlers";
@@ -36,6 +37,8 @@ router.post("/api/v1/testpanel/categories", postCategories);
 // Test Panel Routes
 router.get("/api/v1/testpanel/list", getTestPanelList);
 router.get("/api/v1/testpanel/list/bulk", getBulkTestPanelList);
+router.get("/api/v1/testpanel/master/list/import", handleOverLoad(importMasterTestPanelToClientList));
+router.get("/api/v1/master/list/import", handleOverLoad(importMasterTestPanelToClientList));
 router.post("/api/v1/testpanel/list/createcustom", handleOverLoad(postCreateCustomTestPanel));
 router.put("/api/v1/testpanel/list/updateprocedureManual", handleOverLoad(putTestPanelUpdateProcedureManual));
 router.get("/api/v1/gettestpanel/edit", getTestPanelEdit);
@@ -61,7 +64,7 @@ router.get("/api/v1/testsetup/resultliterature", getTestSetupResultLiterature);
 router.post('/api/v1/field-constraints', async (req: Request, res: Response) => {
     try {
         await createFieldConstraintsHandler(req, res);
-    } catch (error) {
+    } catch (error:any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -69,7 +72,7 @@ router.post('/api/v1/field-constraints', async (req: Request, res: Response) => 
 router.get('/api/v1/field-constraints/field/:fieldId', async (req: Request, res: Response) => {
     try {
         await getFieldConstraintsByFieldIdHandler(req, res);
-    } catch (error) {
+    } catch (error:any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -77,7 +80,7 @@ router.get('/api/v1/field-constraints/field/:fieldId', async (req: Request, res:
 router.get('/api/v1/field-constraints/test/:testId', async (req: Request, res: Response) => {
     try {
         await getFieldConstraintsByTestIdHandler(req, res);
-    } catch (error) {
+    } catch (error:any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -85,7 +88,7 @@ router.get('/api/v1/field-constraints/test/:testId', async (req: Request, res: R
 router.put('/api/v1/field-constraints/:id', async (req: Request, res: Response) => {
     try {
         await updateFieldConstraintHandler(req, res);
-    } catch (error) {
+    } catch (error:any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -93,7 +96,7 @@ router.put('/api/v1/field-constraints/:id', async (req: Request, res: Response) 
 router.delete('/api/v1/field-constraints/:id', async (req: Request, res: Response) => {
     try {
         await deleteFieldConstraintHandler(req, res);
-    } catch (error) {
+    } catch (error:any) {
         res.status(500).json({ error: error.message });
     }
 });
@@ -101,7 +104,7 @@ router.delete('/api/v1/field-constraints/:id', async (req: Request, res: Respons
 router.delete('/api/v1/field-constraints/field/:fieldId', async (req: Request, res: Response) => {
     try {
         await deleteFieldConstraintsByFieldIdHandler(req, res);
-    } catch (error) {
+    } catch (error:any) {
         res.status(500).json({ error: error.message });
     }
 });
