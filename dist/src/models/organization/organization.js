@@ -106,9 +106,11 @@ class Organization {
         const user_exist = await users.userExistWithId(tenantId, userid);
         if (!user_exist)
             return "user with such credentials do not exist in our records" /* OperationsStatus.userNotFound */;
-        const isAuthorized = await users.getUserRole(tenantId, userid);
+        const userRole = await users.getUserRole(tenantId, userid);
+        if (!userRole)
+            return "user with such credentials do not exist in our records" /* OperationsStatus.userNotFound */;
         const isAuthorizedPersonel = ['admin', 'manager'];
-        if (!isAuthorizedPersonel.includes(isAuthorized))
+        if (!isAuthorizedPersonel.includes(userRole))
             return "Unauthorized to carry order" /* OperationsStatus.unAuthorized */;
         if (isPasswordConfirmed) {
             const deleted = await (0, helper_1.promisifyQuery)(tenantId, `DELETE FROM organization WHERE ID = ?`, [this.organizationId]);

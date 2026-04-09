@@ -38,9 +38,6 @@ router.post('/api/v1/organization/bulk/registration', handleOverLoad(bulkInsertO
 
 
 // ROUTES FOR OUTSOURCING ORGANIZATIONS
-
-
-
 router.post("/api/v1/outsourcing/organization", createOrganizationOutSource);
 router.put("/api/v1/outsourcing/organization/services", updateOrganizationOutSourceServices);
 router.put("/api/v1/outsourcing/organization", updateOrganizationOutSource);
@@ -55,7 +52,6 @@ router.get('/api/v1/outsourced/testpanel/:stage?', getOutsourcedTestBasedStageHa
 router.post("/api/v1/outsourced/testpanel/resolve", handleOverLoad(updateToResolveOutsourcedHandler))
 
 // routes for outsourced cases tracking
-
 router.get("/api/v1/outsourced/cases/tracking", getOutsourcedCasesPaginated);
 
 export default router

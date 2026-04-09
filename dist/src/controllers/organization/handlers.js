@@ -118,6 +118,7 @@ const createAOrganization = async (request, response) => {
         response.send({ message: isCreatedSuccess === true ? "Organization created successfully" : "creating a new organization failed", status: 'created' });
     }
     catch (error) {
+        console.log(error);
         response.status(500).json({ error: "Internal server error" });
     }
 };

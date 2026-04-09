@@ -115,7 +115,7 @@ class Organization {
 						await trx.rollback();
 						results.push(`Insert failed: ${name}`);
 					}
-				} catch (err) {
+				} catch (err: any) {
 					await trx.rollback();
 					if (err && err.sqlState === '23000' && err.sqlMessage && err.sqlMessage.includes('Duplicate entry')) {
 						results.push(`Duplicate entry error: ${err.sqlMessage}`);
@@ -123,7 +123,7 @@ class Organization {
 					}
 					results.push(`Error: ${err?.message || err}`);
 				}
-			} catch (err) {
+			} catch (err: any) {
 				results.push(`Error: ${err?.message || err}`);
 			}
 		}
@@ -137,9 +137,10 @@ class Organization {
 		const userid = parseInt(employeeid.toString());
 		const user_exist = await users.userExistWithId(tenantId, userid);
 		if (!user_exist) return OperationsStatus.userNotFound;
-		const isAuthorized = await users.getUserRole(tenantId, userid);
+		const userRole = await users.getUserRole(tenantId, userid);
+		if (!userRole) return OperationsStatus.userNotFound;
 		const isAuthorizedPersonel = ['admin', 'manager'];
-		if (!isAuthorizedPersonel.includes(isAuthorized)) return OperationsStatus.unAuthorized;
+		if (!isAuthorizedPersonel.includes(userRole)) return OperationsStatus.unAuthorized;
 		if (isPasswordConfirmed) {
 			const deleted = await promisifyQuery(tenantId, `DELETE FROM organization WHERE ID = ?`, [this.organizationId]);
 			return rowAffected(deleted);

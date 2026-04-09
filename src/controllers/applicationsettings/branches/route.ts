@@ -125,15 +125,15 @@ router.delete('/api/v1/branches', async (request: Request<{}, {}, { branchid: nu
 	}
 });
 
-router.post('/api/v1/sampletype', (request: Request, response: Response) => {
+router.post('/api/v1/sampletype', (request: Request<{}, {}, { name: string }, { tenantId: number }>, response: Response) => {
 	testpanel.addSampleType(request, response);
 });
 
-router.get('/api/v1/sampletype', (request: Request, response: Response) => {
+router.get('/api/v1/sampletype', (request: Request<{}, {}, {}, { tenantId: number }>, response: Response) => {
 	testpanel.getSampleType(request, response);
 });
 
-router.delete('/api/v1/sampletype', (request: Request, response: Response) => {
+router.delete('/api/v1/sampletype', (request: Request<{}, {}, {}, { tenantId: number, id: string }>, response: Response) => {
 	testpanel.deleteSampleType(request, response);
 });
 
