@@ -111,7 +111,9 @@ exports.getOrganizationImage = getOrganizationImage;
 const createAOrganization = async (request, response) => {
     try {
         const tenantIdP = parseInt(request.query.tenantId.toString());
-        const isCreatedSuccess = await new organization_1.default(null).createAorganization(tenantIdP, request.body);
+        const isCreatedSuccess = await new organization_1.default(null)
+            .createAorganization(tenantIdP, request.body);
+        console.log('isCreated', isCreatedSuccess);
         if (isCreatedSuccess === "organization with such name exist" /* OperationsStatus.exist */) {
             return response.send({ message: "organization with such name exist" /* OperationsStatus.exist */, status: 'exist' });
         }
@@ -126,7 +128,10 @@ exports.createAOrganization = createAOrganization;
 const updateOrganizationBasic = async (request, response) => {
     try {
         const tenantIdP = parseInt(request.query.tenantId.toString());
-        const isUpdated = await new organization_1.default(null).updateOrganizationBasic(tenantIdP, request.body);
+        const organizationid = request.body.id;
+        if (!organizationid)
+            return (0, helper_1.responseError)(response, 'Resource Identifier Not provided');
+        const isUpdated = await new organization_1.default(organizationid).updateOrganizationBasic(tenantIdP, request.body);
         response.status(200).json({ message: isUpdated ? "Organization basic information updated successfully" : "resource update failed" });
     }
     catch (error) {

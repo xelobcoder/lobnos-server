@@ -1,5 +1,5 @@
 import Organization from "../../models/organization/organization";
-import { OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "../../models/organization/OrgaInterfac";
+import { newOrganization, OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "../../models/organization/OrgaInterfac";
 import { getUploadedImages } from "./uploadImages";
 import OrganizationalBilling from "../../models/organization/organizationBilling";
 import { HTTPSTATUSERRORS } from "../../Errors/HTTPErrors";
@@ -105,7 +105,9 @@ export const getOrganizationImage = async (request: Request<{}, {}, {}, { tenant
 export const createAOrganization = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const isCreatedSuccess = await new Organization(null).createAorganization(tenantIdP, request.body as OrganizationRequestBody);
+		const isCreatedSuccess = await new Organization(null)
+			.createAorganization(tenantIdP, request.body as OrganizationRequestBody);
+		console.log('isCreated', isCreatedSuccess)
 		if (isCreatedSuccess === OperationsStatus.exist) {
 			return response.send({ message: OperationsStatus.exist, status: 'exist' })
 		}
@@ -116,10 +118,12 @@ export const createAOrganization = async (request: Request<{}, {}, {}, { tenantI
 	}
 };
 
-export const updateOrganizationBasic = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
+export const updateOrganizationBasic = async (request: Request<{}, {}, newOrganization, { tenantId: string }>, response: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const isUpdated = await new Organization(null).updateOrganizationBasic(tenantIdP, request.body);
+		const organizationid = request.body.id;
+		if (!organizationid) return responseError(response, 'Resource Identifier Not provided')
+		const isUpdated = await new Organization(organizationid).updateOrganizationBasic(tenantIdP, request.body);
 		response.status(200).json({ message: isUpdated ? "Organization basic information updated successfully" : "resource update failed" });
 	} catch (error) {
 		response.status(500).json({ error: "Internal server error" });
@@ -197,10 +201,10 @@ export const getOrganizationId = async (req: Request, res: Response): Promise<vo
 	}
 };
 
-export const getTopPerformance = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response): Promise<void> => {
+export const getTopPerformance = async (request: Request<{}, {}, {}, { tenantId: string, count?: string, from?: string, to?: string }>, response: Response): Promise<void> => {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const topPerformers = await new Organization(null).getTopPerformance(tenantIdP, request.query)
+		const topPerformers = await new Organization(null).getTopPerformance(tenantIdP, request.query as unknown as { count: number, from?: string, to?: string });
 		response.send({ topPerformers });
 	} catch (error) {
 		responseError(response);

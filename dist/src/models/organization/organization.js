@@ -138,7 +138,7 @@ class Organization {
                 region: region || null,
                 type: type || null
             });
-            const insertId = typeof result === "number" && result > 7;
+            const insertId = typeof result === "number" && result > 0;
             if (insertId) {
                 const referralRepo = new ReferralCodingRepo_1.ReferralCodingRepo(tenantId);
                 await referralRepo.create({ entity_id: result, entity_type: 'organization', code: 0 }, trx);
@@ -151,6 +151,7 @@ class Organization {
             }
         }
         catch (err) {
+            console.log(err);
             await trx.rollback();
             console.error("Error adding new organization:", err);
             return "Error adding new organization";
@@ -191,6 +192,7 @@ class Organization {
     }
     async updateOrganizationBasic(tenantId, requestBody) {
         const { name, location, street, mobile, address, website, email, gpsMapping, region, type, id } = requestBody;
+        const organization = await this.getOrganizationBasic(tenantId);
         const values = [location, street, mobile, address, website, email, gpsMapping, region, name, type, id];
         const q_packets = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_org_basic_info, values);
         return (0, helper_1.rowAffected)(q_packets);

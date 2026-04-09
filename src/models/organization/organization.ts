@@ -169,7 +169,7 @@ class Organization {
 				type: type || null
 			});
 
-			const insertId = typeof result === "number" && result > 7;
+			const insertId = typeof result === "number" && result > 0;
 
 			if (insertId) {
 				const referralRepo = new ReferralCodingRepo(tenantId);
@@ -181,6 +181,7 @@ class Organization {
 				return "Adding new organization failed";
 			}
 		} catch (err) {
+			console.log(err)
 			await trx.rollback();
 			console.error("Error adding new organization:", err);
 			return "Error adding new organization";
@@ -223,6 +224,8 @@ class Organization {
 
 	async updateOrganizationBasic(tenantId: number, requestBody: newOrganization) {
 		const { name, location, street, mobile, address, website, email, gpsMapping, region, type, id } = requestBody;
+
+		const organization = await this.getOrganizationBasic(tenantId)
 		const values = [location, street, mobile, address, website, email, gpsMapping, region, name, type, id];
 		const q_packets = await promisifyQuery(tenantId, q_update_org_basic_info, values);
 		return rowAffected(q_packets);
@@ -240,7 +243,7 @@ class Organization {
 		return rowAffected(result);
 	}
 
-	async updateOrganizationPayment(tenantId: number, requestBody) {
+	async updateOrganizationPayment(tenantId: number, requestBody: any) {
 		if (!this.organizationId) throw new Error("organizational id required");
 		const { bankname, momoname, branch, module, commission, account, accountname, momo } = requestBody;
 		const values = [branch, commission, account, bankname, module, momoname, accountname, momo, this.organizationId];
@@ -272,7 +275,7 @@ class Organization {
 		return commissionRate;
 	}
 
-	private async calculateRate<T>(tenantId: number, data: T[]): Promise<T> {
+	private async calculateRate<T extends { payable: string }>(tenantId: number, data: T[]) {
 		const commissionRate = await this.getCommissionRate(tenantId);
 		const payable = data[0]["payable"];
 		const rate = parseFloat(payable) * (parseFloat(commissionRate.toString()) / 100);
@@ -352,7 +355,7 @@ class Organization {
 		return sales;
 	}
 
-	async getTopPerformance(tenantId: number, requestQuery) {
+	async getTopPerformance(tenantId: number, requestQuery: { count: number, from?: string, to?: string }): Promise<any[]> {
 		const { count, from, to } = requestQuery;
 		let q_query = q_top_performance_organization;
 		let conditions = [];
