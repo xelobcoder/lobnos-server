@@ -1,0 +1,39 @@
+Server is running at http://localhost:5000
+[2026-04-13 00:36:16] GET / 200 - 17ms
+[2026-04-13 00:43:52] POST /api/v1/prime/login?tenantId=3 200 - 297ms
+[2026-04-13 00:44:26] GET /api/v1/prime/validate-token?tenantId=3 200 - 196ms
+[2026-04-13 00:44:26] GET /api/v1/prime/validate-token?tenantId=3 200 - 216ms
+[2026-04-13 00:44:27] GET /api/v1/applicationsettings/registration/fields?tenantId=3 304 - 8ms
+[2026-04-13 00:44:27] GET /api/v1/applicationsettings/registration/fields?tenantId=3 200 - 2ms
+[2026-04-13 00:44:27] GET /api/v1/applicationsettings/registration/fields?tenantId=3 304 - 2ms
+[2026-04-13 00:44:32] GET /api/v1/customers?tenantId=3 200 - 110ms
+[2026-04-13 00:44:32] GET /api/v1/customers?tenantId=3 304 - 3ms
+[2026-04-13 00:44:45] GET /api/v1/applicationsettings/registration/fields?tenantId=3 304 - 3ms
+[2026-04-13 00:44:45] GET /api/v1/applicationsettings/registration/fields?tenantId=3 304 - 1ms
+[2026-04-13 00:45:06] GET /api/v1/register/checkmobile?mobileno=0249434803&tenantId=3 200 - 3ms
+[2026-04-13 00:45:22] POST /api/v1/register?employeeid=3&tenantId=3 200 - 367ms
+[2026-04-13 00:45:29] GET /api/v1/applicationsettings/registration/fields?tenantId=3 304 - 3ms
+[2026-04-13 00:45:29] GET /api/v1/applicationsettings/registration/fields?tenantId=3 304 - 2ms
+[2026-04-13 00:45:34] GET /api/v1/customers?tenantId=3 200 - 5ms
+[2026-04-13 00:45:34] GET /api/v1/customers?tenantId=3 304 - 3ms
+[2026-04-13 00:45:49] GET /api/v1/billing/sales/session/list?page=1&limit=10&tenantId=3 200 - 52ms
+[2026-04-13 00:45:49] GET /api/v1/logins?tenantId=3 200 - 18ms
+[2026-04-13 00:45:49] GET /api/v1/billing/sales/session/list?page=1&limit=10&tenantId=3 304 - 3ms
+[2026-04-13 00:45:49] GET /api/v1/logins?tenantId=3 304 - 2ms
+[2026-04-13 00:45:53] GET /api/v1/branches?tenantId=3 200 - 3ms
+[2026-04-13 00:45:53] GET /api/v1/logins?tenantId=3 304 - 2ms
+[2026-04-13 00:45:53] GET /api/v1/branches?tenantId=3 304 - 2ms
+[2026-04-13 00:45:53] GET /api/v1/logins?tenantId=3 304 - 2ms
+[2026-04-13 00:45:55] GET /api/v1/billing/sales/session/config?branchid=4&tenantId=3 200 - 18ms
+Date string: 2026-04-13
+{"level":"error","message":"insert into `salessessionmanager` (`amountreceivedby`, `branchid`, `end_time`, `handingoveramount`, `openingamount`, `session_started_by`, `sessiondate`, `start_time`, `validatedby`) values (3, 4, '23:59', 200, 200, 3, '2026-04-13T00:46:00.000Z', '00:00', 0) - Incorrect datetime value: '2026-04-13T00:46:00.000Z' for column 'sessiondate' at row 1"}
+[2026-04-13 00:46:17] POST /api/v1/billing/sales/session/create?tenantId=3 500 - 14ms
+Date string: 2026-04-13
+{"level":"error","message":"insert into `salessessionmanager` (`amountreceivedby`, `branchid`, `end_time`, `handingoveramount`, `openingamount`, `session_started_by`, `sessiondate`, `start_time`, `validatedby`) values (3, 4, '23:59', 200, 200, 3, '2026-04-13T00:46:00.000Z', '00:00', 0) - Incorrect datetime value: '2026-04-13T00:46:00.000Z' for column 'sessiondate' at row 1"}
+[2026-04-13 00:46:32] POST /api/v1/billing/sales/session/create?tenantId=3 500 - 4ms
+Date string: 2026-04-13
+{"level":"error","message":"insert into `salessessionmanager` (`amountreceivedby`, `branchid`, `end_time`, `handingoveramount`, `openingamount`, `session_started_by`, `sessiondate`, `start_time`, `validatedby`) values (3, 4, '23:59', 200, 200, 3, '2026-04-13T00:50:00.000Z', '00:00', 0) - Incorrect datetime value: '2026-04-13T00:50:00.000Z' for column 'sessiondate' at row 1"}
+[2026-04-13 00:50:29] POST /api/v1/billing/sales/session/create?tenantId=3 500 - 16ms
+Date string: 2026-04-13
+{"level":"error","message":"insert into `salessessionmanager` (`amountreceivedby`, `branchid`, `end_time`, `handingoveramount`, `openingamount`, `session_started_by`, `sessiondate`, `start_time`, `validatedby`) values (3, 4, '23:59', 200, 200, 3, '2026-04-13T00:53:00.000Z', '00:00', 0) - Incorrect datetime value: '2026-04-13T00:53:00.000Z' for column 'sessiondate' at row 1"}
+[2026-04-13 00:53:50] POST /api/v1/billing/sales/session/create?tenantId=3 500 - 10ms

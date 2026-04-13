@@ -18,10 +18,10 @@ import { CustomerBillingCheckout } from "../../models/billing/multi/customerBill
 
 
 const appsettings = new ApplicationSettings();
-const tax = new Tax(null);
-const result = new ResultSettings(null);
+const tax = new Tax(0);
+const result = new ResultSettings(0);
 
-export const getApplicationSettings = async (req: Request<{ target: string }>, response: Response) => {
+export const getApplicationSettings = async (req: Request<{ target: string },{},{},{tenantId: number}>, response: Response) => {
 	try {
 		const target = req.params.target;
 		const tenantId = parseInt(req.query.tenantId.toString())
@@ -40,7 +40,7 @@ export const getApplicationSettings = async (req: Request<{ target: string }>, r
 };
 
 
-export const getApplicationSettingsBilling = async (req: Request, res: Response) => {
+export const getApplicationSettingsBilling = async (req: Request<{}, {}, {}, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId.toString())
 		const data = await appsettings.getAppBillSettings(tenantId);
@@ -83,7 +83,7 @@ export const updateSmsSettings = async (req: Request<{}, {}, {}, { tenantId: num
 	}
 };
 
-export const getSmsSettings = async (request: Request, response: Response) => {
+export const getSmsSettings = async (request: Request<{}, {}, {}, { tenantId: number }>, response: Response) => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString())
 		const sms_settings = await appsettings.getSmsSettings(tenantId);
@@ -93,7 +93,7 @@ export const getSmsSettings = async (request: Request, response: Response) => {
 	}
 };
 
-export const getEmailPreference = async (req: Request, res: Response) => {
+export const getEmailPreference = async (req: Request<{}, {}, {}, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId.toString())
 		const result = await appsettings.getEmailPreference(tenantId);
@@ -103,7 +103,7 @@ export const getEmailPreference = async (req: Request, res: Response) => {
 	}
 };
 
-export const getGeneralEmailSettings = async (req: Request, response: Response) => {
+export const getGeneralEmailSettings = async (req: Request<{}, {}, {}, { tenantId: number }>, response: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId.toString())
 		const result = await appsettings.getGeneralEmailSettings(tenantId);
@@ -113,7 +113,7 @@ export const getGeneralEmailSettings = async (req: Request, response: Response) 
 	}
 };
 
-export const updateGeneralEmailSettings = async (request: Request, res: Response) => {
+export const updateGeneralEmailSettings = async (request: Request<{}, {}, {}, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString())
 		const result = await appsettings.updateGeneralEmailSettings(tenantId, request.body);
@@ -153,7 +153,7 @@ export const updateRegistrationFields = async (request: Request<{}, {}, IupdateR
 	}
 };
 
-export const getRegistrationSettings = async (req: Request, res: Response) => {
+export const getRegistrationSettings = async (req: Request<{}, {}, {}, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId.toString())
 		let result = await appsettings.getRegistrationSettings(tenantId);
@@ -225,7 +225,7 @@ const handleInvalidRequest = (response: Response) => {
 	response.send({ status: false, message: OperationsFailures.invalidResquestQuery });
 };
 
-export const resultEntrySettingsHandler = async (request: Request, response: Response) => {
+export const resultEntrySettingsHandler = async (request: Request<{}, {}, {}, { employeeid: string, tenantId: number }>, response: Response) => {
 	try {
 		const { employeeid, tenantId } = request.query;
 
@@ -243,7 +243,7 @@ export const resultEntrySettingsHandler = async (request: Request, response: Res
 	}
 };
 
-export const resultEntrySettingsUpdateHandler = async (request: Request, response: Response) => {
+export const resultEntrySettingsUpdateHandler = async (request: Request<{}, {}, {}, { employeeid: string, tenantId: number }>, response: Response) => {
 	try {
 		const { employeeid, tenantId } = request.query;
 

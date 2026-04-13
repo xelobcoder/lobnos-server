@@ -21,6 +21,40 @@ class SalesSessionRepo {
         this.tenantId = tenantId;
         this.connection = (0, KnexConnections_1.default)(tenantId);
     }
+    padDateTimePart(value) {
+        return value.toString().padStart(2, '0');
+    }
+    formatDateTimeForMysql(value) {
+        if (typeof value === 'string') {
+            const trimmedValue = value.trim();
+            const isoMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?Z?$/);
+            if (isoMatch) {
+                const [, datePart, timePart, secondsPart] = isoMatch;
+                return `${datePart} ${timePart}:${secondsPart || '00'}`;
+            }
+            const dateOnlyMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})$/);
+            if (dateOnlyMatch) {
+                return `${trimmedValue} 00:00:00`;
+            }
+        }
+        const parsedDate = value instanceof Date ? value : new Date(value);
+        if (isNaN(parsedDate.getTime())) {
+            throw new Error("Invalid session date format");
+        }
+        const year = parsedDate.getFullYear();
+        const month = this.padDateTimePart(parsedDate.getMonth() + 1);
+        const day = this.padDateTimePart(parsedDate.getDate());
+        const hours = this.padDateTimePart(parsedDate.getHours());
+        const minutes = this.padDateTimePart(parsedDate.getMinutes());
+        const seconds = this.padDateTimePart(parsedDate.getSeconds());
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    }
+    prepareSessionPayload(sessionData) {
+        if (sessionData.sessiondate === undefined || sessionData.sessiondate === null) {
+            return sessionData;
+        }
+        return Object.assign(Object.assign({}, sessionData), { sessiondate: this.formatDateTimeForMysql(sessionData.sessiondate) });
+    }
     async getSessionConfig(branchId) {
         try {
             const conn = await this.connection;
@@ -129,7 +163,7 @@ class SalesSessionRepo {
                 if (!canCreate)
                     return "Cannot create a session for the provided date. A session already exists for this date." /* OperationsFailures.cannotCreateSessionForDate */;
                 // Use the final times in the session data
-                const sessionToCreate = Object.assign(Object.assign({}, cleanSessionData), { start_time: finalStartTime, end_time: finalEndTime });
+                const sessionToCreate = this.prepareSessionPayload(Object.assign(Object.assign({}, cleanSessionData), { start_time: finalStartTime, end_time: finalEndTime }));
                 const conn = await this.connection;
                 const result = await conn('salessessionmanager').insert(sessionToCreate);
                 return result[0] ? true : false;
@@ -139,8 +173,6 @@ class SalesSessionRepo {
                 if (!config.time_ranges || config.time_ranges.length === 0) {
                     return "No time ranges configured for multiple sessions mode";
                 }
-                console.log('Creating multiple sessions for ranges:', config.time_ranges);
-                // Create sessions for each configured time range
                 const conn = await this.connection;
                 const createdSessions = [];
                 for (const range of config.time_ranges) {
@@ -160,7 +192,6 @@ class SalesSessionRepo {
                     // Check for conflicting sessions
                     const conflictingSession = await this.findConflictingSession(sessionDate, branchid, range.start, range.end);
                     if (conflictingSession) {
-                        console.log('Found conflicting session:', conflictingSession.sessionid);
                         const hasActivity = await this.hasBillingActivity(conflictingSession.sessionid);
                         if (hasActivity) {
                             console.log('Skipping range due to active billing in conflicting session:', range);
@@ -169,10 +200,9 @@ class SalesSessionRepo {
                         else {
                             // End the conflicting session
                             await this.endSession(conflictingSession.sessionid, 0, 0); // System ended
-                            console.log('Ended conflicting session:', conflictingSession.sessionid);
                         }
                     }
-                    const sessionToCreate = Object.assign(Object.assign({}, cleanSessionData), { start_time: range.start, end_time: range.end });
+                    const sessionToCreate = this.prepareSessionPayload(Object.assign(Object.assign({}, cleanSessionData), { start_time: range.start, end_time: range.end }));
                     try {
                         const result = await conn('salessessionmanager').insert(sessionToCreate);
                         console.log('Created session with result:', result);
@@ -185,7 +215,6 @@ class SalesSessionRepo {
                         console.error(`Failed to create session for range ${range.start}-${range.end}:`, error);
                     }
                 }
-                console.log('Created sessions count:', createdSessions.length);
                 return createdSessions.length > 0 ? true : "Failed to create any sessions";
             }
         }
@@ -233,9 +262,10 @@ class SalesSessionRepo {
                 throw new Error(businessRuleError);
             }
             const conn = await this.connection;
+            const preparedUpdates = this.prepareSessionPayload(updates);
             return await conn('salessessionmanager')
                 .where({ sessionid: sessionId })
-                .update(updates);
+                .update(preparedUpdates);
         }
         catch (error) {
             console.error('Sales session update error:', error);
@@ -337,7 +367,7 @@ class SalesSessionRepo {
         }
         // Check for time conflicts if updating times
         if (updates.start_time || updates.end_time || updates.sessiondate) {
-            const checkDate = updates.sessiondate ? new Date(updates.sessiondate) : existingSession.sessiondate;
+            const checkDate = updates.sessiondate ? new Date(updates.sessiondate) : new Date(existingSession.sessiondate);
             const checkStart = updates.start_time || existingSession.start_time;
             const checkEnd = updates.end_time || existingSession.end_time;
             if (checkStart && checkEnd) {

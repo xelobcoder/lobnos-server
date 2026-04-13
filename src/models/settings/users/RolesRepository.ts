@@ -5,13 +5,13 @@ export interface IEmployee {
 	role: 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist';
 	password: string;
 	pin: number;
-	date_created?: string;
+	date_created?: string |Date,
 	time?: string;
 	refresh_token?: string | null;
 	activation: number;
 	email: string;
-	permissions?: string;
-	updated_on?: string | null;
+	permissions?: string,
+	updated_on?: string | Date,
 	emailAuthenticated: string;
 	branch?: number | null;
 	mobile: string;

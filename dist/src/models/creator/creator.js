@@ -57,20 +57,76 @@ class Creator {
         const records = await (0, helper_1.promisifyQuery)(tenantId, query, [ascensionid]);
         return records.length > 0 ? records : [];
     }
+    hasContent(value) {
+        return value !== undefined && value !== null && value.toString().trim() !== '';
+    }
+    getAgeGroup(age, ageType) {
+        const parsedAge = Number(age);
+        if (!Number.isFinite(parsedAge))
+            return 'adult';
+        const normalizedType = (ageType || '').toLowerCase().trim();
+        if ((normalizedType === 'day' || normalizedType === 'days') && parsedAge <= 28) {
+            return 'neonate';
+        }
+        if (normalizedType === 'day' || normalizedType === 'days' ||
+            normalizedType === 'month' || normalizedType === 'months' ||
+            ((normalizedType === 'year' || normalizedType === 'years') && parsedAge < 18)) {
+            return 'child';
+        }
+        return 'adult';
+    }
+    applyDemographicLimits(rule, gender, ageGroup) {
+        if (rule.plan !== 'limits')
+            return rule;
+        const normalizedGender = (gender || '').toLowerCase().trim();
+        const normalizedRule = Object.assign({}, rule);
+        if (normalizedGender === 'female') {
+            if (this.hasContent(rule.upperLimitFemale))
+                normalizedRule.upperlimit = rule.upperLimitFemale;
+            if (this.hasContent(rule.lowerLimitFemale))
+                normalizedRule.lowerlimit = rule.lowerLimitFemale;
+            return normalizedRule;
+        }
+        if (normalizedGender === 'male') {
+            if (ageGroup === 'neonate') {
+                if (this.hasContent(rule.upperLimitNeonates))
+                    normalizedRule.upperlimit = rule.upperLimitNeonates;
+                if (this.hasContent(rule.lowerLimitNeonates))
+                    normalizedRule.lowerlimit = rule.lowerLimitNeonates;
+                return normalizedRule;
+            }
+            if (ageGroup === 'child') {
+                if (this.hasContent(rule.upperLimitChildren))
+                    normalizedRule.upperlimit = rule.upperLimitChildren;
+                if (this.hasContent(rule.lowerLimitChildren))
+                    normalizedRule.lowerlimit = rule.lowerLimitChildren;
+                return normalizedRule;
+            }
+            if (this.hasContent(rule.upperLimitMale))
+                normalizedRule.upperlimit = rule.upperLimitMale;
+            if (this.hasContent(rule.lowerLimitMale))
+                normalizedRule.lowerlimit = rule.lowerLimitMale;
+        }
+        return normalizedRule;
+    }
     async getPreviousRecordsOrCreationRule(tenantId, testid, billingid, patientid) {
         try {
-            const [previousRecords, creationRules] = await Promise.all([
+            const [previousRecords, creationRules, patientBasicData] = await Promise.all([
                 this.getPreviousRecords(tenantId, testid, billingid, patientid),
-                new TestCreationRulesRepository_1.default(tenantId).findByTestId(testid)
+                new TestCreationRulesRepository_1.default(tenantId).findByTestId(testid),
+                new registration_1.default().getPatientBasicData(tenantId, patientid)
             ]);
+            const patientGender = ((patientBasicData === null || patientBasicData === void 0 ? void 0 : patientBasicData.gender) || '').toString();
+            const ageGroup = this.getAgeGroup(patientBasicData === null || patientBasicData === void 0 ? void 0 : patientBasicData.age, patientBasicData === null || patientBasicData === void 0 ? void 0 : patientBasicData.ageType);
+            const rulesWithLimits = creationRules.map((rule) => this.applyDemographicLimits(rule, patientGender, ageGroup));
             if (previousRecords.length === 0) {
-                return creationRules.map(item => {
+                return rulesWithLimits.map(item => {
                     item.fieldid = item.id;
                     return item;
                 });
             }
-            if (previousRecords.length > 0 && creationRules.length > 0) {
-                const mappings = creationRules.map(rule => {
+            if (previousRecords.length > 0 && rulesWithLimits.length > 0) {
+                const mappings = rulesWithLimits.map(rule => {
                     const previous = previousRecords.find((item) => item.fieldid === rule.id);
                     const state = previous ? Object.assign(Object.assign({}, rule), previous) : Object.assign(Object.assign({}, rule), { value: (0, encryptionModels_1.encrypt_value)('NIL'), originalvalue: (0, encryptionModels_1.encrypt_value)('NIL'), fieldid: rule.id, field: rule.name });
                     return state;
@@ -152,12 +208,12 @@ class Creator {
             const testDetails = await testpanelList_1.testpanel.getTestDetails(tenantId, testid);
             hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
             const hasGenderVariation = testDetails ? testDetails['hasGenderVariation'] : false;
-            let clientGender = "";
-            if (hasGenderVariation) {
-                const packet = await (0, helper_1.promisifyQuery)(tenantId, queries_1.getGenderQuery, [patientid]);
-                if (packet.length > 0)
-                    clientGender = packet[0]["gender"];
-            }
+            const packet = await (0, helper_1.promisifyQuery)(tenantId, queries_1.getGenderQuery, [patientid]);
+            const clientGender = packet.length > 0 ? packet[0]["gender"] : "";
+            const clientAge = packet.length > 0 ? packet[0]["age"] : undefined;
+            const clientAgeType = packet.length > 0 ? packet[0]["agetype"] : undefined;
+            const ageGroup = this.getAgeGroup(clientAge, clientAgeType);
+            previousRecords = previousRecords.map((item) => this.applyDemographicLimits(item, clientGender, ageGroup));
             if (hasGenderVariation && clientGender) {
                 previousRecords = previousRecords.map((item) => {
                     const obj = Object.assign({}, item);

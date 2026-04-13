@@ -20,9 +20,10 @@ class Payment {
                 const isloadallBool = isloadall === true || (typeof isloadall === 'string' && isloadall === 'true');
                 const connection = await (0, KnexConnections_1.default)(tenantId);
                 let query = connection
-                    .select('np.patientid', 'np.fullpatientid', connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"), 'np.email', connection.raw("CONCAT('0', np.mobile_number) AS mobileNumber"), 'b.*', connection.raw("(SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource"))
+                    .select('np.patientid', 'np.fullpatientid', 'rr.username AS salesperson', connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"), 'np.email', connection.raw("CONCAT('0', np.mobile_number) AS mobileNumber"), 'b.*', connection.raw("(SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource"))
                     .from('new_patients AS np')
-                    .innerJoin('billing AS b', 'np.patientid', 'b.patientid');
+                    .innerJoin('billing AS b', 'np.patientid', 'b.patientid')
+                    .innerJoin('roles AS rr', 'rr.employeeid', 'b.lastupdatedby');
                 if (patientid) {
                     query = query.where('np.patientid', parseInt(patientid.toString()));
                 }

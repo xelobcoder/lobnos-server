@@ -47,7 +47,7 @@ const handleEndSalesSession = async function (request, response) {
         const { tenantId } = request.query;
         const { sessionId, validatedby, handingoveramount } = request.body;
         const parsedTenantId = parseInt(tenantId.toString());
-        const status = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).endSession(sessionId, validatedby, handingoveramount);
+        const status = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).endSession(sessionId, parseInt(validatedby), handingoveramount);
         response.status(200).send({ status: status > 0 });
     }
     catch (err) {
@@ -118,6 +118,7 @@ const setSalesSessionConfigHandler = async function (request, response) {
             return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + " branchid not provided in body", 400, response);
         }
         const status = await new SalesSessionRepo_1.SalesSessionRepo(parsedTenantId).setSessionConfig(configData);
+        ;
         response.status(200).send({ status });
     }
     catch (err) {

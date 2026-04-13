@@ -112,6 +112,7 @@ class Payment {
 				.select(
 					'np.patientid',
 					'np.fullpatientid',
+					'rr.username AS salesperson',
 					connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"),
 					'np.email',
 					connection.raw("CONCAT('0', np.mobile_number) AS mobileNumber"),
@@ -119,7 +120,8 @@ class Payment {
 					connection.raw("(SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource")
 				)
 				.from('new_patients AS np')
-				.innerJoin('billing AS b', 'np.patientid', 'b.patientid');
+				.innerJoin('billing AS b', 'np.patientid', 'b.patientid')
+				.innerJoin('roles AS rr', 'rr.employeeid', 'b.lastupdatedby');
 
 			if (patientid) {
 				query = query.where('np.patientid', parseInt(patientid.toString()));
@@ -141,11 +143,10 @@ class Payment {
 			}
 
 			const result = await query;
-
 			const expensesPaymentMade = await connection.raw(QUERY_EXPENSE_PAYMENTS_SUMMARY, [from, to]);
-			const summary = await this.summaryRangeOfDates(tenantId, from, to, branchid);
+			const summary = await this.summaryRangeOfDates(tenantId, from as any, to as any, branchid);
 			return { data: result, expensesPaymentMade: expensesPaymentMade[0], summary } as { data: TransactionData[], summary: any }
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(err);
 			throw new Error(err);
 		}
@@ -248,7 +249,7 @@ class Payment {
 			await this.handlePartialDebtClear(debts, amount, trx, tenantId, pymode, employeeid);
 			await trx.commit();
 			return true;
-		} catch (err) {
+		} catch (err: any) {
 			await trx.rollback();
 			throw new Error(err);
 		}
@@ -280,7 +281,7 @@ class Payment {
 				throw new Error("Failed to insert payment history");
 			}
 			response.send({ message: "Payment updated successfully", statusCode: 200, status: "success" });
-		} catch (err) {
+		} catch (err: any) {
 			customError(err.message || "Something went wrong", 500, response);
 		}
 	};
@@ -360,7 +361,7 @@ class Payment {
 				totalExpensePayments: Number(result.total_expense_payments || 0),
 				netRevenue: Number(result.net_revenue || 0)
 			};
-		} catch (err) {
+		} catch (err: any) {
 			logger.error(`Error in summaryRangeOfDates: ${err}`);
 			throw new Error(`Failed to get summary for date range: ${err.message}`);
 		}

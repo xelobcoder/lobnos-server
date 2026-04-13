@@ -106,7 +106,7 @@ class ApplicationSettings {
     }
     async updateApplicationSettings(tenantId, data) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation } = data;
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation } = data;
         try {
             const result = await connection.transaction(async (trx) => {
                 const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
@@ -144,6 +144,7 @@ class ApplicationSettings {
                     useamountpaidforcommissioncalculation: useamountpaidforcommissioncalculation !== null && useamountpaidforcommissioncalculation !== void 0 ? useamountpaidforcommissioncalculation : 0,
                     pinOnResultEntry: pinOnResultEntry !== null && pinOnResultEntry !== void 0 ? pinOnResultEntry : 0,
                     pinOnResultValidation: pinOnResultValidation !== null && pinOnResultValidation !== void 0 ? pinOnResultValidation : 0,
+                    allowScientistToRegisterClient: allowScientistToRegisterClient !== null && allowScientistToRegisterClient !== void 0 ? allowScientistToRegisterClient : 0,
                 };
                 let affectedRows = 0;
                 if (existing) {

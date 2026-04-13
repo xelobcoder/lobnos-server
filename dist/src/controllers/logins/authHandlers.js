@@ -39,7 +39,6 @@ const createAccount = async (req, res) => {
     }
     catch (error) {
         logger_1.default.error(error);
-        console.error('EM:', error.message);
         (0, helper_1.customError)((error === null || error === void 0 ? void 0 : error.message) || "Error creating user account", 500, res);
     }
 };
@@ -111,7 +110,7 @@ const authenticateClinician = async (req, res) => {
             return;
         }
         if (ispasswordUpdated === 1) {
-            const isMatched = new user_1.default(null, null, null, null, null).isPasswordSame(password, getUserDetails[0]["password"]);
+            const isMatched = await new user_1.default(null, null, null, null, null).isPasswordSame(password, getUserDetails[0]["password"]);
             isMatched
                 ? res.send({ message: "password authenticated", statusCode: 200, status: "success", result: getUserDetails[0] })
                 : res.send({ message: "Invalid user credentials", statusCode: 200, status: "error" });

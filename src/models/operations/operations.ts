@@ -141,7 +141,8 @@ export default class Operations {
 
 
 	public static async getAscensionOverViewModel(tenantid: number, date: string): Promise<any> {
-		const query = `
+		try {
+			const query = `
 									SELECT 
 						p.patientid,
 						CONCAT(
@@ -193,8 +194,12 @@ export default class Operations {
 						LEFT JOIN test_panels tp 
 						ON tp.id = ta.testid
 
+						LEFT JOIN departments d
+						ON d.id = tp.category
+
 						-- ✅ Your requested filter
 						WHERE DATE(b.billedon) = DATE(?)
+						AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
 
 						GROUP BY 
 						p.patientid,
@@ -212,12 +217,16 @@ export default class Operations {
 						b.billingid DESC;
 		`
 
-		return await promisifyQuery(tenantid, query, [date]);
+			return await promisifyQuery(tenantid, query, [date]);
+		} catch (err: any) {
+			throw new Error(err?.message || "Error fetching ascension overview model");
+		}
 	}
 
 
 	public static async getAscensionOverViewModelTransaction(tenantid: number, billingid: number): Promise<any> {
-		const query = `
+		try {
+			const query = `
 													SELECT 
 							ta.id AS ascension_id,
 
@@ -284,6 +293,9 @@ export default class Operations {
 							LEFT JOIN test_panels tp 
 							ON tp.id = ta.testid
 
+							LEFT JOIN departments d
+							ON d.id = tp.category
+
 							LEFT JOIN roles rr 
 							ON rr.employeeid = ta.sampleCollectedBy
 
@@ -301,6 +313,7 @@ export default class Operations {
 
 
 							WHERE ta.billingid = ?
+							AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
 
 							ORDER BY 
 							ta.id ASC,
@@ -308,7 +321,10 @@ export default class Operations {
 							ra.id ASC;
 		`
 
-		return await promisifyQuery(tenantid, query, [billingid]);
+			return await promisifyQuery(tenantid, query, [billingid]);
+		} catch (err: any) {
+			throw new Error(err?.message || "Error fetching ascension overview model transaction details");
+		}
 	}
 
 	private static async generateAscensionQuery(queryParams: ascensionStageRequestQueryTypes)
@@ -461,7 +477,7 @@ export default class Operations {
 
 			if (result.length > 0) {
 				const approvalList = await Promise.all(
-					result.map(async (item) => {
+					result.map(async (item: any) => {
 						const { ascensionid } = item;
 						const ascensionApprovalEmployeeList = await new TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
 						console.log("Approval List: ", ascensionApprovalEmployeeList);

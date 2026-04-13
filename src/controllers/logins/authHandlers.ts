@@ -34,9 +34,8 @@ export const createAccount = async (req: Request, res: Response) => {
 			data: result,
 			statusCode: 200
 		});
-	} catch (error) {
+	} catch (error: any) {
 		logger.error(error);
-		console.error('EM:', error.message);
 		customError(error?.message || "Error creating user account", 500, res);
 	}
 };
@@ -49,9 +48,9 @@ export const updateBasicInfo = async (req: Request, res: Response) => {
 		const body = req.body as UserRequest['body'];
 		const tenantId = parseInt(req.query.tenantId as string);
 		const response = await updateUserBasicInfo(body, tenantId, isUser);
-		console.log(response,'RR')
-		res.send({status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made"});
-	} catch (error) {
+		console.log(response, 'RR')
+		res.send({ status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made" });
+	} catch (error: any) {
 		logger.error(error?.message);
 		customError(error?.message.toString() || "Error updating user information", 500, res);
 	}
@@ -81,7 +80,7 @@ export const updatePermissions = async (req: Request, res: Response) => {
 	updateUserPermission(req as UserRequest, res);
 };
 
-export const authenticateClinician = async (req: Request, res: Response) => {
+export const authenticateClinician = async (req: Request<{}, {}, { email: string, password: string }, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantIdP = parseInt(req.query.tenantId.toString())
 		const { email, password } = req.body;
@@ -114,7 +113,7 @@ export const authenticateClinician = async (req: Request, res: Response) => {
 		}
 
 		if (ispasswordUpdated === 1) {
-			const isMatched = new User(null, null, null, null, null).isPasswordSame(password, getUserDetails[0]["password"]);
+			const isMatched = await new User(null, null, null, null, null).isPasswordSame(password, getUserDetails[0]["password"]);
 			isMatched
 				? res.send({ message: "password authenticated", statusCode: 200, status: "success", result: getUserDetails[0] })
 				: res.send({ message: "Invalid user credentials", statusCode: 200, status: "error" });

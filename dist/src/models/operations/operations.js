@@ -135,7 +135,8 @@ class Operations {
         }
     }
     static async getAscensionOverViewModel(tenantid, date) {
-        const query = `
+        try {
+            const query = `
 									SELECT 
 						p.patientid,
 						CONCAT(
@@ -187,8 +188,12 @@ class Operations {
 						LEFT JOIN test_panels tp 
 						ON tp.id = ta.testid
 
+						LEFT JOIN departments d
+						ON d.id = tp.category
+
 						-- ✅ Your requested filter
 						WHERE DATE(b.billedon) = DATE(?)
+						AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
 
 						GROUP BY 
 						p.patientid,
@@ -205,10 +210,15 @@ class Operations {
 						ORDER BY 
 						b.billingid DESC;
 		`;
-        return await (0, helper_1.promisifyQuery)(tenantid, query, [date]);
+            return await (0, helper_1.promisifyQuery)(tenantid, query, [date]);
+        }
+        catch (err) {
+            throw new Error((err === null || err === void 0 ? void 0 : err.message) || "Error fetching ascension overview model");
+        }
     }
     static async getAscensionOverViewModelTransaction(tenantid, billingid) {
-        const query = `
+        try {
+            const query = `
 													SELECT 
 							ta.id AS ascension_id,
 
@@ -275,6 +285,9 @@ class Operations {
 							LEFT JOIN test_panels tp 
 							ON tp.id = ta.testid
 
+							LEFT JOIN departments d
+							ON d.id = tp.category
+
 							LEFT JOIN roles rr 
 							ON rr.employeeid = ta.sampleCollectedBy
 
@@ -292,13 +305,18 @@ class Operations {
 
 
 							WHERE ta.billingid = ?
+							AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
 
 							ORDER BY 
 							ta.id ASC,
 							ss.keyid ASC,
 							ra.id ASC;
 		`;
-        return await (0, helper_1.promisifyQuery)(tenantid, query, [billingid]);
+            return await (0, helper_1.promisifyQuery)(tenantid, query, [billingid]);
+        }
+        catch (err) {
+            throw new Error((err === null || err === void 0 ? void 0 : err.message) || "Error fetching ascension overview model transaction details");
+        }
     }
     static async generateAscensionQuery(queryParams) {
         const { from, to, isUltrasound, stage, clinicianId, organizationId, patientname, testid, patientid, billingid, ascensionid } = queryParams;

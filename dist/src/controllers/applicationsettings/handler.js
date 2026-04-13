@@ -16,8 +16,8 @@ const initCustomerBilling_1 = require("../../models/billing/multi/initCustomerBi
 const billing_new_client_multi_1 = require("../../models/billing/billing-new-client-multi");
 const customerBillingCheckout_1 = require("../../models/billing/multi/customerBillingCheckout");
 const appsettings = new appset_1.default();
-const tax = new Tax_1.default(null);
-const result = new resultSettings_1.default(null);
+const tax = new Tax_1.default(0);
+const result = new resultSettings_1.default(0);
 const getApplicationSettings = async (req, response) => {
     try {
         const target = req.params.target;

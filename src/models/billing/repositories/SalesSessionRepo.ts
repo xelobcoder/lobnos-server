@@ -3,7 +3,7 @@ import { OperationsFailures } from "../../operations/types";
 
 interface SalesSession {
      sessionid: number;
-     sessiondate: Date;
+     sessiondate: Date | string;
      start_time?: string;
      end_time?: string;
      session_started_by: number;
@@ -41,6 +41,51 @@ export class SalesSessionRepo {
      constructor(tenantId: number) {
           this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
+     }
+
+     private padDateTimePart(value: number): string {
+          return value.toString().padStart(2, '0');
+     }
+
+     private formatDateTimeForMysql(value: Date | string): string {
+          if (typeof value === 'string') {
+               const trimmedValue = value.trim();
+               const isoMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})[T\s](\d{2}:\d{2})(?::(\d{2}))?(?:\.\d+)?Z?$/);
+               if (isoMatch) {
+                    const [, datePart, timePart, secondsPart] = isoMatch;
+                    return `${datePart} ${timePart}:${secondsPart || '00'}`;
+               }
+
+               const dateOnlyMatch = trimmedValue.match(/^(\d{4}-\d{2}-\d{2})$/);
+               if (dateOnlyMatch) {
+                    return `${trimmedValue} 00:00:00`;
+               }
+          }
+
+          const parsedDate = value instanceof Date ? value : new Date(value);
+          if (isNaN(parsedDate.getTime())) {
+               throw new Error("Invalid session date format");
+          }
+
+          const year = parsedDate.getFullYear();
+          const month = this.padDateTimePart(parsedDate.getMonth() + 1);
+          const day = this.padDateTimePart(parsedDate.getDate());
+          const hours = this.padDateTimePart(parsedDate.getHours());
+          const minutes = this.padDateTimePart(parsedDate.getMinutes());
+          const seconds = this.padDateTimePart(parsedDate.getSeconds());
+
+          return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+     }
+
+     private prepareSessionPayload<T extends { sessiondate?: Date | string }>(sessionData: T): T {
+          if (sessionData.sessiondate === undefined || sessionData.sessiondate === null) {
+               return sessionData;
+          }
+
+          return {
+               ...sessionData,
+               sessiondate: this.formatDateTimeForMysql(sessionData.sessiondate)
+          };
      }
 
      async getSessionConfig(branchId: number): Promise<SalesSessionConfig | null> {
@@ -103,7 +148,7 @@ export class SalesSessionRepo {
                          .first();
                     return !result;
                } else {
-                    if (!startTime || !endTime) return false; 
+                    if (!startTime || !endTime) return false;
 
                     // Optional: Validate that provided times match configured ranges
                     if (config.time_ranges) {
@@ -166,11 +211,11 @@ export class SalesSessionRepo {
                     if (!canCreate) return OperationsFailures.cannotCreateSessionForDate;
 
                     // Use the final times in the session data
-                    const sessionToCreate = {
+                    const sessionToCreate = this.prepareSessionPayload({
                          ...cleanSessionData,
                          start_time: finalStartTime,
                          end_time: finalEndTime
-                    };
+                    });
 
                     const conn = await this.connection;
                     const result = await conn('salessessionmanager').insert(sessionToCreate);
@@ -181,9 +226,6 @@ export class SalesSessionRepo {
                          return "No time ranges configured for multiple sessions mode";
                     }
 
-                    console.log('Creating multiple sessions for ranges:', config.time_ranges);
-
-                    // Create sessions for each configured time range
                     const conn = await this.connection;
                     const createdSessions = [];
 
@@ -207,7 +249,7 @@ export class SalesSessionRepo {
                          // Check for conflicting sessions
                          const conflictingSession = await this.findConflictingSession(sessionDate, branchid, range.start, range.end);
                          if (conflictingSession) {
-                              console.log('Found conflicting session:', conflictingSession.sessionid);
+
                               const hasActivity = await this.hasBillingActivity(conflictingSession.sessionid);
                               if (hasActivity) {
                                    console.log('Skipping range due to active billing in conflicting session:', range);
@@ -215,15 +257,15 @@ export class SalesSessionRepo {
                               } else {
                                    // End the conflicting session
                                    await this.endSession(conflictingSession.sessionid, 0, 0); // System ended
-                                   console.log('Ended conflicting session:', conflictingSession.sessionid);
+
                               }
                          }
 
-                         const sessionToCreate = {
+                         const sessionToCreate = this.prepareSessionPayload({
                               ...cleanSessionData,
                               start_time: range.start,
                               end_time: range.end
-                         };
+                         });
 
                          try {
                               const result = await conn('salessessionmanager').insert(sessionToCreate);
@@ -236,8 +278,6 @@ export class SalesSessionRepo {
                               console.error(`Failed to create session for range ${range.start}-${range.end}:`, error);
                          }
                     }
-
-                    console.log('Created sessions count:', createdSessions.length);
                     return createdSessions.length > 0 ? true : "Failed to create any sessions";
                }
           } catch (error) {
@@ -289,9 +329,10 @@ export class SalesSessionRepo {
                }
 
                const conn = await this.connection;
+               const preparedUpdates = this.prepareSessionPayload(updates);
                return await conn('salessessionmanager')
                     .where({ sessionid: sessionId })
-                    .update(updates);
+                    .update(preparedUpdates);
           } catch (error) {
                console.error('Sales session update error:', error);
                throw error;
@@ -357,7 +398,7 @@ export class SalesSessionRepo {
           }
 
           // Validate employee IDs
-          const employeeFields = ['session_started_by', 'amountreceivedby', 'validatedby'];
+          const employeeFields: Array<'session_started_by' | 'amountreceivedby' | 'validatedby'> = ['session_started_by', 'amountreceivedby', 'validatedby'];
           for (const field of employeeFields) {
                if (updates[field] !== undefined) {
                     const value = updates[field];
@@ -383,7 +424,7 @@ export class SalesSessionRepo {
 
           // If session has billing activity, restrict certain updates
           if (hasActivity) {
-               const restrictedFields = ['sessiondate', 'start_time', 'end_time', 'branchid', 'openingamount'];
+               const restrictedFields: Array<'sessiondate' | 'start_time' | 'end_time' | 'branchid' | 'openingamount'> = ['sessiondate', 'start_time', 'end_time', 'branchid', 'openingamount'];
                for (const field of restrictedFields) {
                     if (updates[field] !== undefined) {
                          return `Cannot update ${field} - session has associated billing transactions`;
@@ -393,7 +434,7 @@ export class SalesSessionRepo {
 
           // If session is ended, restrict updates
           if (existingSession.sessionendedon) {
-               const restrictedFields = ['sessiondate', 'start_time', 'end_time', 'openingamount'];
+               const restrictedFields: Array<'sessiondate' | 'start_time' | 'end_time' | 'openingamount'> = ['sessiondate', 'start_time', 'end_time', 'openingamount'];
                for (const field of restrictedFields) {
                     if (updates[field] !== undefined) {
                          return `Cannot update ${field} - session is already ended`;
@@ -403,7 +444,7 @@ export class SalesSessionRepo {
 
           // Check for time conflicts if updating times
           if (updates.start_time || updates.end_time || updates.sessiondate) {
-               const checkDate = updates.sessiondate ? new Date(updates.sessiondate) : existingSession.sessiondate;
+               const checkDate = updates.sessiondate ? new Date(updates.sessiondate) : new Date(existingSession.sessiondate);
                const checkStart = updates.start_time || existingSession.start_time;
                const checkEnd = updates.end_time || existingSession.end_time;
 

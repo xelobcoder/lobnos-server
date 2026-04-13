@@ -3,10 +3,11 @@ import { SalesSessionRepo } from "../../../models/billing/repositories/SalesSess
 import { customError, responseError } from "../../../hooks/helper";
 import { OperationsFailures } from "../../../models/operations/types";
 import SalesSessionServices from "../../../models/billing/repositories/salesSessionService";
+import { parse } from "node:path";
 
 
 
-export const handleCreateNewSalesSesion = async function (request: Request, response: Response) {
+export const handleCreateNewSalesSesion = async function (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) {
      try {
           const { tenantId } = request.query
           const parsedTenantId = parseInt(tenantId.toString());
@@ -21,7 +22,7 @@ export const handleCreateNewSalesSesion = async function (request: Request, resp
           }
 
           response.status(201).send({ status });
-     } catch (err) {
+     } catch (err: any) {
           responseError(response, err?.message);
      }
 }
@@ -45,7 +46,7 @@ export const getSalesSessionList = async function (request: Request<{}, {}, {}, 
 }
 
 
-export const handleEndSalesSession = async function (request: Request, response: Response) {
+export const handleEndSalesSession = async function (request: Request<{}, {}, { sessionId: number, handingoveramount: number, validatedby: string }, { tenantId: string }>, response: Response) {
      try {
           const { tenantId } = request.query;
           const { sessionId, validatedby, handingoveramount } = request.body;
@@ -53,12 +54,12 @@ export const handleEndSalesSession = async function (request: Request, response:
 
           const status = await new SalesSessionRepo(parsedTenantId).endSession(
                sessionId,
-               validatedby,
+               parseInt(validatedby),
                handingoveramount
           );
 
           response.status(200).send({ status: status > 0 });
-     } catch (err) {
+     } catch (err: any) {
           responseError(response, err?.message);
      }
 }
@@ -100,7 +101,7 @@ export const getSessionFinancialSummaryHandler = async function (request: Reques
           const result = await SalesSessionServices.getSessionFinancialSummary(parsedTenantId, parsedEmployeeId, parsedBranchId, parseInt(sessionid));
           return response.send({ sessionid, result })
 
-     } catch (err) {
+     } catch (err: any) {
           responseError(response, err?.message);
      }
 }
@@ -117,12 +118,12 @@ export const getSalesSessionConfigHandler = async function (request: Request<{},
 
           const config = await new SalesSessionRepo(parsedTenantId).getSessionConfig(parsedBranchId);
           response.send({ config });
-     } catch (err) {
+     } catch (err: any) {
           responseError(response, err?.message);
      }
 }
 
-export const setSalesSessionConfigHandler = async function (request: Request, response: Response) {
+export const setSalesSessionConfigHandler = async function (request: Request<{}, {}, { branchid: number, time_ranges?: any, allow_multiple_sessions?: boolean }, { tenantId: string }>, response: Response) {
      try {
           const { tenantId } = request.query;
           const parsedTenantId = parseInt(tenantId.toString());
@@ -132,14 +133,14 @@ export const setSalesSessionConfigHandler = async function (request: Request, re
                return customError(OperationsFailures.invalidResquestQuery + " branchid not provided in body", 400, response);
           }
 
-          const status = await new SalesSessionRepo(parsedTenantId).setSessionConfig(configData);
+          const status = await new SalesSessionRepo(parsedTenantId).setSessionConfig(configData as any);;
           response.status(200).send({ status });
-     } catch (err) {
+     } catch (err: any) {
           responseError(response, err?.message);
      }
 }
 
-export const deleteUnusedSalesSessionHandler = async function (request: Request, response: Response) {
+export const deleteUnusedSalesSessionHandler = async function (request: Request<{ sessionId: string }, {}, {}, { tenantId: string }>, response: Response) {
      try {
           const { tenantId } = request.query;
           const { sessionId } = request.params;
@@ -156,7 +157,7 @@ export const deleteUnusedSalesSessionHandler = async function (request: Request,
           }
 
           response.status(200).send({ status: result });
-     } catch (err) {
+     } catch (err: any) {
           responseError(response, err?.message);
      }
 }
@@ -184,7 +185,7 @@ export const getSessionsByDateHandler = async function (request: Request<{}, {},
      }
 }
 
-export const handleUpdateSalesSession = async function (request: Request, response: Response) {
+export const handleUpdateSalesSession = async function (request: Request<{ sessionId: string }, {}, {}, { tenantId: string }>, response: Response) {
      try {
           const { tenantId } = request.query;
           const { sessionId } = request.params;

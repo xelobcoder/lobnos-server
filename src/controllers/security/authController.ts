@@ -86,7 +86,8 @@ export class AuthController {
                     },
                     result: resultsettings,
                     user: {
-                        role, employeeid, username, email
+                        role, employeeid, username, 
+                        email
                     },
                     company: company,
                     branchid: branch,
@@ -108,7 +109,7 @@ export class AuthController {
             if (isNaN(pEmployeeid) || isNaN(pPin)) {
                 return customError('employeeid and pin must be numbers', 400, res);
             }
-            const rolesRepo = await new RolesRepository(tenantId).validatePin(pEmployeeid, pPin);
+            const rolesRepo = await new RolesRepository(tenantId).validatePin(pEmployeeid, pPin as any);
             if (rolesRepo) {
                 res.status(200).json({ status: true, message: 'Pin is valid' });
             } else {

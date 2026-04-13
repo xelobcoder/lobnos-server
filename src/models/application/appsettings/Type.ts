@@ -41,6 +41,7 @@ export type ApplicationSettingsData = {
      pinOnResultValidation: number;
      withnessRefund: number;
      smsActivated: number;
+     allowScientistToRegisterClient:numberBoolean;
      pinOnResultEntry: number;
      patientIdGenerationMethod: string | null;
      automakesupplierpaymentsexpense: numberBoolean;

@@ -12,11 +12,31 @@ class Appointment {
 		this.employeeid = employeeid;
 	}
 
-	private async isAppointmentTimeAvailable(tenantId: number, date: string, time: string) {
-		let refined_date: string = date;
-		if (refined_date.includes("T")) {
-			refined_date = refined_date.split("T")[0];
+	private normalizeDateOnly(value: Date | string): string {
+		if (typeof value === "string") {
+			const trimmed = value.trim();
+			const isoLikeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s].*$/);
+			if (isoLikeMatch) {
+				return isoLikeMatch[1];
+			}
+			if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+				return trimmed;
+			}
 		}
+
+		const parsed = value instanceof Date ? value : new Date(value);
+		if (Number.isNaN(parsed.getTime())) {
+			throw new Error("Invalid appointment_date format");
+		}
+
+		const year = parsed.getFullYear();
+		const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
+		const day = `${parsed.getDate()}`.padStart(2, "0");
+		return `${year}-${month}-${day}`;
+	}
+
+	private async isAppointmentTimeAvailable(tenantId: number, date: string, time: string) {
+		const refined_date = this.normalizeDateOnly(date);
 		const _mysql_query = "SELECT * FROM appointments WHERE appointment_date = ? AND appointment_time = ?";
 		const rows = await this.connection(tenantId, _mysql_query, [refined_date, time]);
 		return !(Array.isArray(rows) && rows.length > 0);
@@ -25,13 +45,14 @@ class Appointment {
 	public async createAppointment(tenantId: number, data: TAppointment) {
 		const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
 		if (!patientid) throw new Error("patientid missing");
-		if (!(await this.isAppointmentTimeAvailable(tenantId, appointment_date, appointment_time))) return false;
+		const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
+		if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time))) return false;
 		const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
 		const result = await this.connection(tenantId, createQuery, [
 			patientid,
 			duration,
 			appointment_time,
-			appointment_date,
+			normalizedAppointmentDate,
 			inviteMethod,
 			purpose,
 			title,
@@ -148,6 +169,10 @@ class Appointment {
 	  * Update an appointment by its ID
 	  */
 	public async updateAppointment(tenantId: number, appointmentId: number, data: Partial<TAppointment>) {
+		const normalizedData = {
+			...data,
+			appointment_date: data.appointment_date ? this.normalizeDateOnly(data.appointment_date) : data.appointment_date,
+		};
 
 		const updateSchema = z.object({
 			patientid: z.number().int(),
@@ -164,7 +189,7 @@ class Appointment {
 			notes: z.string().max(500).nullable().optional(),
 		}).strict();
 
-		const parseResult = updateSchema.safeParse(data);
+		const parseResult = updateSchema.safeParse(normalizedData);
 		if (!parseResult.success) {
 			throw new Error("Invalid appointment update fields: " + JSON.stringify(parseResult.error.format()));
 		}

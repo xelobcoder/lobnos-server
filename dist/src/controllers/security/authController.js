@@ -89,7 +89,8 @@ class AuthController {
                     },
                     result: resultsettings,
                     user: {
-                        role, employeeid, username, email
+                        role, employeeid, username,
+                        email
                     },
                     company: company,
                     branchid: branch,

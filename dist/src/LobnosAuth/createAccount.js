@@ -48,8 +48,8 @@ const createNewAccount = async (req) => {
             mobile: req.body.mobile || "",
             alternativeMobile: req.body.altMobile || null,
             dob: req.body.dob || null,
-            updated_on: new Date().toISOString(),
-            date_created: new Date().toISOString(),
+            updated_on: new Date(),
+            date_created: new Date(),
             activation: 1,
             pin: req.body.pin ? parseInt(req.body.pin) : 0,
         });

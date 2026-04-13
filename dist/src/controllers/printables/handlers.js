@@ -8,11 +8,11 @@ const resultPrint_1 = __importDefault(require("../../models/result/resultPrint")
 const invoice_1 = require("../../models/invoice/invoice");
 const payments_1 = __importDefault(require("../../models/payments/payments"));
 const helper_1 = require("../../hooks/helper");
-const payment = new payments_1.default(null);
+const payment = new payments_1.default(0);
 const getResultReady = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await new resultPrint_1.default(null).get_printables(tenantId, req.query);
+        const result = await new resultPrint_1.default(0).get_printables(tenantId, req.query);
         res.send(result);
     }
     catch (err) {
@@ -23,7 +23,7 @@ exports.getResultReady = getResultReady;
 const getAdvancedTablesSearch = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await new resultPrint_1.default(null).advancedTablesSearch(tenantId, req.query);
+        const result = await new resultPrint_1.default(0).advancedTablesSearch(tenantId, req.query);
         res.send({ status: "success", statusCode: 200, result });
     }
     catch (err) {
@@ -37,7 +37,7 @@ const getResultById = async (req, res) => {
         if (!billingid)
             return (0, helper_1.customError)("billingid not provided", 404, res);
         const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await new resultPrint_1.default(null).get_extrainfo_test(tenantId, billingid);
+        const result = await new resultPrint_1.default(0).get_extrainfo_test(tenantId, billingid);
         res.send(result);
     }
     catch (err) {
@@ -51,7 +51,7 @@ const updatePrintCount = async (req, res) => {
         if (!id || !count)
             return (0, helper_1.customError)("test ascension id and count of print required", 404, res);
         const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await new resultPrint_1.default(null).updatePrintCount(tenantId, id, count);
+        const result = await new resultPrint_1.default(0).updatePrintCount(tenantId, id, count);
         res.send({ status: result === true ? "success" : "failed" });
     }
     catch (err) {
@@ -62,7 +62,7 @@ exports.updatePrintCount = updatePrintCount;
 const getSummaryReadyPage = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await new resultPrint_1.default(null).get_summary_ready_page(tenantId, req.query);
+        const result = await new resultPrint_1.default(0).get_summary_ready_page(tenantId, req.query);
         res.send(result);
     }
     catch (err) {
@@ -114,7 +114,7 @@ const previewReport = async (request, response) => {
         const parsedBillingid = parseInt(billingid.toString());
         const parsedTestId = parseInt(testid.toString());
         const tenantId = parseInt(request.query.tenantId.toString());
-        const result = await new resultPrint_1.default(null).previewReport(tenantId, parsedBillingid, parsedTestId);
+        const result = await new resultPrint_1.default(0).previewReport(tenantId, parsedBillingid, parsedTestId);
         response.send({ result });
     }
     catch (err) {
@@ -166,7 +166,7 @@ exports.checkApproval = checkApproval;
 const makeDecisionOnResult = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId.toString());
-        const result = await new resultPrint_1.default(null).makeDecisionOnResult(tenantId, req.body);
+        const result = await new resultPrint_1.default(0).makeDecisionOnResult(tenantId, req.body);
         result
             ? res.send({ status: "success", statusCode: 200, message: "update successful" })
             : res.send({ status: "error", statusCode: 401, message: "error updating data" });

@@ -68,23 +68,88 @@ export default class Creator {
 		const records = await promisifyQuery(tenantId, query, [ascensionid]);
 		return records.length > 0 ? records : [];
 	}
-	async getPreviousRecordsOrCreationRule(tenantId: number, testid: number, billingid: number, patientid: number
-	): Promise<TestCreationRule[] | null | undefined> {
+
+	private hasContent(value?: string | null): boolean {
+		return value !== undefined && value !== null && value.toString().trim() !== '';
+	}
+
+	private getAgeGroup(age?: number | string, ageType?: string): 'neonate' | 'child' | 'adult' {
+		const parsedAge = Number(age);
+		if (!Number.isFinite(parsedAge)) return 'adult';
+
+		const normalizedType = (ageType || '').toLowerCase().trim();
+		if ((normalizedType === 'day' || normalizedType === 'days') && parsedAge <= 28) {
+			return 'neonate';
+		}
+
+		if (
+			normalizedType === 'day' || normalizedType === 'days' ||
+			normalizedType === 'month' || normalizedType === 'months' ||
+			((normalizedType === 'year' || normalizedType === 'years') && parsedAge < 18)
+		) {
+			return 'child';
+		}
+
+		return 'adult';
+	}
+
+	private applyDemographicLimits(
+		rule: TestCreationRule,
+		gender: string,
+		ageGroup: 'neonate' | 'child' | 'adult'
+	): TestCreationRule {
+		if (rule.plan !== 'limits') return rule;
+
+		const normalizedGender = (gender || '').toLowerCase().trim();
+		const normalizedRule = { ...rule };
+
+		if (normalizedGender === 'female') {
+			if (this.hasContent(rule.upperLimitFemale)) normalizedRule.upperlimit = rule.upperLimitFemale;
+			if (this.hasContent(rule.lowerLimitFemale)) normalizedRule.lowerlimit = rule.lowerLimitFemale;
+			return normalizedRule;
+		}
+
+		if (normalizedGender === 'male') {
+			if (ageGroup === 'neonate') {
+				if (this.hasContent(rule.upperLimitNeonates)) normalizedRule.upperlimit = rule.upperLimitNeonates;
+				if (this.hasContent(rule.lowerLimitNeonates)) normalizedRule.lowerlimit = rule.lowerLimitNeonates;
+				return normalizedRule;
+			}
+
+			if (ageGroup === 'child') {
+				if (this.hasContent(rule.upperLimitChildren)) normalizedRule.upperlimit = rule.upperLimitChildren;
+				if (this.hasContent(rule.lowerLimitChildren)) normalizedRule.lowerlimit = rule.lowerLimitChildren;
+				return normalizedRule;
+			}
+
+			if (this.hasContent(rule.upperLimitMale)) normalizedRule.upperlimit = rule.upperLimitMale;
+			if (this.hasContent(rule.lowerLimitMale)) normalizedRule.lowerlimit = rule.lowerLimitMale;
+		}
+
+		return normalizedRule;
+	}
+
+	async getPreviousRecordsOrCreationRule(tenantId: number, testid: number, billingid: number, patientid: number): Promise<TestCreationRule[] | null | undefined> {
 		try {
-			const [previousRecords, creationRules] = await Promise.all([
+			const [previousRecords, creationRules, patientBasicData] = await Promise.all([
 				this.getPreviousRecords(tenantId, testid, billingid, patientid),
-				new TestCreationRulesRepository(tenantId).findByTestId(testid)
+				new TestCreationRulesRepository(tenantId).findByTestId(testid),
+				new Registration().getPatientBasicData(tenantId, patientid)
 			]);
 
+			const patientGender = (patientBasicData?.gender || '').toString();
+			const ageGroup = this.getAgeGroup(patientBasicData?.age, patientBasicData?.ageType);
+			const rulesWithLimits = creationRules.map((rule) => this.applyDemographicLimits(rule, patientGender, ageGroup));
+
 			if (previousRecords.length === 0) {
-				return creationRules.map(item => {
+				return rulesWithLimits.map(item => {
 					item.fieldid = item.id;
 					return item;
 				});
 			}
 
-			if (previousRecords.length > 0 && creationRules.length > 0) {
-				const mappings = creationRules.map(rule => {
+			if (previousRecords.length > 0 && rulesWithLimits.length > 0) {
+				const mappings = rulesWithLimits.map(rule => {
 					const previous = previousRecords.find((item: any) => item.fieldid === rule.id);
 					const state = previous ? { ...rule, ...previous } : {
 						...rule,
@@ -176,12 +241,13 @@ export default class Creator {
 			hasDrugs = await this.hasDrugAssociatedWithTest(tenantId, testid, hasDrugs);
 			const hasGenderVariation = testDetails ? testDetails['hasGenderVariation'] : false;
 
-			let clientGender = "";
-			if (hasGenderVariation) {
-				const packet = await promisifyQuery(tenantId, getGenderQuery, [patientid]);
-				if (packet.length > 0) clientGender = packet[0]["gender"];
-			}
+			const packet = await promisifyQuery(tenantId, getGenderQuery, [patientid]);
+			const clientGender = packet.length > 0 ? packet[0]["gender"] : "";
+			const clientAge = packet.length > 0 ? packet[0]["age"] : undefined;
+			const clientAgeType = packet.length > 0 ? packet[0]["agetype"] : undefined;
 
+			const ageGroup = this.getAgeGroup(clientAge, clientAgeType);
+			previousRecords = previousRecords.map((item) => this.applyDemographicLimits(item as TestCreationRule, clientGender, ageGroup));
 
 			if (hasGenderVariation && clientGender) {
 				previousRecords = previousRecords.map((item) => {
