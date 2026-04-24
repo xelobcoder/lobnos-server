@@ -21,7 +21,7 @@ const salaryGradeSchema = z.object({
      grade_level: z.string().min(1, 'Grade level cannot be empty').max(50, 'Grade level cannot exceed 50 characters'),
      min_salary: z.preprocess((val) => val === null ? undefined : val, z.number().min(0, 'Minimum salary cannot be negative').optional()),
      max_salary: z.preprocess((val) => val === null ? undefined : val, z.number().min(0, 'Maximum salary cannot be negative').optional()),
-     description: z.preprocess((val) => val === null ? undefined : val, z.string().max(500, 'Description cannot exceed 500 characters').optional()),
+     description: z.preprocess((val) => val === null ? undefined : val, z.string().max(10000, 'Description cannot exceed 500 characters').optional()),
      currency: z.preprocess((val) => val === null ? undefined : val, z.string().max(3, 'Currency code cannot exceed 3 characters').optional()),
      is_active: z.boolean(),
      created_by: z.preprocess((val) => val === null ? undefined : val, z.number().positive('Created by must be a positive number').optional()),

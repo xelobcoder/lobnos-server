@@ -2,6 +2,8 @@ import { PayrollPeriodRepository, IPayrollPeriod } from '../../models/payroll/Pa
 import { PayrollTransactionRepository, IPayrollTransaction } from '../../models/payroll/PayrollTransactionRepository';
 import { PayrollCalculationService, IPayrollCalculationInput } from './PayrollCalculationService';
 import KnexConnection from '../../database/KnexConnections';
+import ExpenseInvoiceRepo from '../../models/Expenses/ExpenseInvoiceRepo';
+import Expenses from '../../models/Expenses/ExpenseService';
 
 export interface IPayrollProcessingResult {
      payroll_period_id: number;
@@ -75,7 +77,7 @@ export class PayrollProcessingService {
                period_start_date: this.formatDateForCalculation(period.period_start_date),
                period_end_date: this.formatDateForCalculation(period.period_end_date)
           }));
-          
+
           // Use database transaction for atomicity
           const connection = await KnexConnection(this.tenantId);
 
@@ -226,7 +228,9 @@ export class PayrollProcessingService {
           payroll_period_id: number,
           payment_date: string,
           payment_method: string,
-          payment_references?: Map<number, string> // employeeid -> reference
+          employeeid: number,
+          branchid: number,
+          payment_references?: Map<number, string>
      ): Promise<boolean> {
           const connection = await KnexConnection(this.tenantId);
 
@@ -259,6 +263,107 @@ export class PayrollProcessingService {
 
                // Mark period as paid
                await trxPeriodRepo.markAsPaid(payroll_period_id);
+
+               const actorEmployeeId = employeeid;
+               const actorBranchId = branchid;
+
+               const expenseCategoryRecord = await trx('dboexpensecategory')
+                    .where({ category: 'salary' })
+                    .first();
+
+               let category: number;
+               if (!expenseCategoryRecord) {
+                    const [newCategoryId] = await trx('dboexpensecategory')
+                         .insert({
+                              category: 'salary',
+                              createdon: new Date(),
+                              employeeid: actorEmployeeId,
+                         });
+                    category = newCategoryId;
+               } else {
+                    category = expenseCategoryRecord.id;
+               }
+
+               const merchantRecord = await trx('expense_merchants')
+                    .where({ name: 'PAYROLL' })
+                    .first();
+
+               let merchantid: number;
+               if (!merchantRecord) {
+                    const [newMerchantId] = await trx('expense_merchants')
+                         .insert({
+                              name: 'PAYROLL',
+                              email: 'system-payroll-automated',
+                              phone: '0000000000',
+                              notes: 'Auto created merchant for payroll payments',
+                              created_at: new Date(),
+                              created_by: actorEmployeeId,
+                         });
+                    merchantid = newMerchantId;
+               } else {
+                    merchantid = merchantRecord.id;
+               }
+
+               const totalNetSalary = Number(period.total_net_salary || 0);
+
+               const expenseRecord = {
+                    isassociatedservice: 0,
+                    serviceid: null,
+                    branchid: actorBranchId,
+                    category,
+                    employeeid: actorEmployeeId,
+                    amount: totalNetSalary,
+                    merchant: merchantid,
+                    date: new Date(payment_date),
+                    id: null,
+                    createdon: new Date(),
+                    approvedby: null,
+                    approved: 0,
+                    approvedon: null,
+                    name: `Payroll Expense - ${period.period_name} (${payroll_period_id})`,
+                    description: `Payroll for ${period.period_name} (${period.period_start_date} to ${period.period_end_date}) paid on ${payment_date}`
+               };
+
+               const invoiceRepo = new ExpenseInvoiceRepo(actorEmployeeId, actorBranchId, this.tenantId);
+
+               const payrollExpense = await invoiceRepo.createExpensesAndInvoice([expenseRecord as any], {
+                    invoice_number: `PAYROLL-${payroll_period_id}-${Date.now()}`,
+                    invoice_date: new Date(payment_date) as any,
+                    due_date: new Date(payment_date) as any,
+                    merchant_id: merchantid,
+                    tax_amount: 0,
+                    total_amount: totalNetSalary,
+                    status: 'Paid'
+               }, trx);
+
+               const expenseApproval = await new Expenses(actorEmployeeId, actorBranchId, this.tenantId)
+                    .updateExpenseDecision(this.tenantId, 'approved', [{
+                         expenseid: payrollExpense.expenseIds[0],
+                         information: 'Payroll payment',
+                         employeeid: actorEmployeeId
+                    }], trx);
+
+               if (!expenseApproval) {
+                    throw new Error('Failed to approve payroll expense');
+               }
+
+               const paymentResult = await invoiceRepo.addPayment({
+                    expense_id: payrollExpense.expenseIds[0],
+                    invoice_id: payrollExpense.invoiceId,
+                    payment_date,
+                    method: payment_method,
+                    amount: totalNetSalary
+               }, trx);
+
+               await trx('payroll_periods')
+                    .where({ id: payroll_period_id })
+                    .update({
+                         expense_synced: true,
+                         expense_id: payrollExpense.expenseIds[0],
+                         expense_invoice_id: payrollExpense.invoiceId,
+                         expense_payment_id: paymentResult?.paymentId || null,
+                         updated_at: trx.fn.now()
+                    });
 
                return true;
           });

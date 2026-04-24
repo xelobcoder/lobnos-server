@@ -111,7 +111,7 @@ async function getSavedCLientBillingInformation(request, response) {
     try {
         const { billingid, tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString(), 10);
-        const billingClass = await new billing_1.Billing(null).getClientBillingInformation(tenantIdP, parseInt(billingid.toString()));
+        const billingClass = await new billing_1.Billing(0).getClientBillingInformation(tenantIdP, parseInt(billingid.toString()));
         response.send({ result: billingClass });
     }
     catch (err) {
@@ -124,7 +124,7 @@ async function determineStageOfRefundRequestHandler(request, response) {
     try {
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId.toString(), 10);
-        const result = await new billing_1.Billing(null).determineStageOfRefundRequest(tenantIdP, Object.assign(Object.assign({}, request.body), { serviceCategoryName: request.body.serviceCategory }));
+        const result = await new billing_1.Billing(0).determineStageOfRefundRequest(tenantIdP, Object.assign(Object.assign({}, request.body), { serviceCategoryName: request.body.serviceCategory }));
         response.send({ stage: result });
     }
     catch (err) {
@@ -171,7 +171,7 @@ async function updateBilledTransaction(request, response) {
             });
         }
         else {
-            const outcome = await new billing_1.Billing(null).updatePreviousTransaction(tenantIdP, request.body, billId);
+            const outcome = await new billing_1.Billing(0).updatePreviousTransaction(tenantIdP, request.body, billId);
             response.send({ status: outcome });
         }
     }
@@ -304,7 +304,7 @@ async function getTransactionBillDataHandler(request, response) {
         }
         const billId = parseInt(billingid.toString());
         const tenantIdP = parseInt(tenantId.toString(), 10);
-        const billData = await new billing_1.Billing(null).getTransactionBillData(tenantIdP, billId);
+        const billData = await new billing_1.Billing(0).getTransactionBillData(tenantIdP, billId);
         response.send({ result: billData });
     }
     catch (err) {
@@ -357,7 +357,7 @@ async function WriteOffTransaction(request, response) {
         if (!billingid || !reason || !employeeid) {
             return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
         }
-        const result = await WriteOff_1.WriteOff.writeOffTransaction(tenantIdP, billingid, reason, employeeid);
+        const result = await WriteOff_1.WriteOff.writeOffTransaction(tenantIdP, billingid, employeeid, reason);
         if (typeof result === "string")
             return response.send({ status: false, message: result });
         if (!result)

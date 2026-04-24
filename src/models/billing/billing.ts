@@ -1,5 +1,5 @@
 // This is th old billing class and would be deprecated in the endin of 2025
-import { updateRefundCashRequestBodyType } from "../../controllers/billing/sales/type";
+import { IDetermineStageOfRefund, updateRefundCashRequestBodyType } from "../../controllers/billing/sales/type";
 import { PrimeLimsTablebilling, PrimeLimsTablebillinghx, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices, PrimeLimsTablepaymentmodes } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
@@ -16,8 +16,6 @@ import Outsourcing from "../organization/outsourcingOrganization/outsourcing";
 import Registration from "../registration/registration";
 import { Services } from "../services/services";
 import { billErrors, BillingValidationResult, IBillNewClient, Pagination, serviceCategory, ServiceEntry, servicesProvided, TBillingData, TestCart, testServicesProvided } from "./billingclientTypes";
-import fs from 'fs/promises'
-import path from 'path';
 import PartitionManager from "./partitioning";
 import {
 	AddtoTestAscenstionQuery,
@@ -34,7 +32,9 @@ import {
 } from "./queries";
 import { Refund } from "./RefundClass";
 import { SalesSessionRepo } from "./repositories/SalesSessionRepo";
-import { TestApprovalClass } from "../operations/testApprovalClass";
+
+
+
 
 const N = 2;
 export class Billing {
@@ -73,15 +73,7 @@ export class Billing {
 
 	public async determineStageOfRefundRequest(
 		tenantId: number,
-		data: {
-			serviceid: number;
-			employeeid: number;
-			purpose: string;
-			trackId: number;
-			serviceCategoryName: string;
-			billingid: number;
-			categoryTrackId: number;
-		}): Promise<any> {
+		data: IDetermineStageOfRefund): Promise<any> {
 		try {
 			const { categoryTrackId, serviceid, serviceCategoryName } = data;
 			let stage = null;
@@ -114,11 +106,11 @@ export class Billing {
 		// Note: Witness fields (firstWitness, secondWitness, thirdWitness) can be null
 		// LEFT JOIN ensures data is returned even when witness IDs are null, resulting in null witness names
 		const servicesProfile: PrimeLimsTablebilling[] = await connection('dboservices')
-			.select('dboservices.*', 'dbobillingrefundtable.*', 'organization.name as organizationName', 
+			.select('dboservices.*', 'dbobillingrefundtable.*', 'organization.name as organizationName',
 				'clinicianbasicinfo.name as clinicianName', 'roles_first.username as firstWitnessName',
-				 'roles_second.username as secondWitnessName', 'roles_third.username as thirdWitnessName',
-				 'roles_initiated.username as initiatedByName', 'deleted_by_role.username as deletedByName',
-				 'roles_approved.username as approvedByName')
+				'roles_second.username as secondWitnessName', 'roles_third.username as thirdWitnessName',
+				'roles_initiated.username as initiatedByName', 'deleted_by_role.username as deletedByName',
+				'roles_approved.username as approvedByName')
 			.leftJoin('dbobillingrefundtable', 'dboservices.serviceid', 'dbobillingrefundtable.serviceid')
 			.leftJoin('organization', 'dboservices.organizationId', 'organization.id')
 			.leftJoin('clinicianbasicinfo', 'dboservices.clinicianId', 'clinicianbasicinfo.id')
@@ -994,13 +986,13 @@ export class Billing {
 	public static async updatePreviouslyBilledClientAfterRefundConcluded(
 		tenantId: number,
 		records: updateRefundCashRequestBodyType
-	): Promise<boolean> {
+	): Promise<boolean | void | undefined> {
 		try {
 			const { billingid, refundAmount, serviceid, employeeid, selectedPaymentMode } = records;
 			const isBillingIdValid: boolean = await Billing.checkValidityOfBillingid(tenantId, billingid);
 			if (!isBillingIdValid) return false;
 
-			const previousBillingRecord: PrimeLimsTablebilling[] = await new Billing(null).getTransactionBillData(tenantId, billingid);
+			const previousBillingRecord: PrimeLimsTablebilling[] = await new Billing(0).getTransactionBillData(tenantId, billingid);
 			if (previousBillingRecord.length === 0) return false;
 			let { paid, payable, totalcost, totalrefunded, totalTransactionCost, discount, amountIncurredDueTax } = previousBillingRecord[0]
 			const connection = await KnexConnection(tenantId);

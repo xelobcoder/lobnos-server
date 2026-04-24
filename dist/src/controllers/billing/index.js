@@ -38,7 +38,7 @@ router.get("/api/v1/billing/filtering/service/refund", controllers_1.getServiceR
 router.get("/api/v1/billing/previous/transaction/data", controllers_1.getTransactionBillDataHandler);
 router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode", handlerAscensionBillingCheck_1.handleAuthenticationEmployee, (0, helper_1.handleOverLoad)(validateTenancy_1.isAuthorizedRoleAdmin), controllers_1.refundAllTransactionHandler);
 router.post('/api/v1/billing/write-off/transaction', validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.WriteOffTransaction);
-router.post('/api/v1/billing/correction/source', (0, helper_1.handleOverLoad)(handler_2.correctRefererErrorPostRegistrationHandler));
+router.post('/api/v1/billing/correction/source', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handler_2.correctRefererErrorPostRegistrationHandler));
 // Services Routes
 router.post("/api/v1/billing/services", servicesHandler_1.createServicesHandler);
 router.put("/api/v1/billing/services", servicesHandler_1.updateServicesHandler);

@@ -21,7 +21,7 @@ const appsettings = new ApplicationSettings();
 const tax = new Tax(0);
 const result = new ResultSettings(0);
 
-export const getApplicationSettings = async (req: Request<{ target: string },{},{},{tenantId: number}>, response: Response) => {
+export const getApplicationSettings = async (req: Request<{ target: string }, {}, {}, { tenantId: number }>, response: Response) => {
 	try {
 		const target = req.params.target;
 		const tenantId = parseInt(req.query.tenantId.toString())
@@ -252,7 +252,8 @@ export const resultEntrySettingsUpdateHandler = async (request: Request<{}, {}, 
 		if (!(await validateUserRole(employeeid as any, parseInt(tenantId.toString())))) {
 			response.send({ status: false, message: OperationsFailures.dontHavePermission });
 		} else {
-			const result = await ResultSettings.updateResultEntrySettings(parseInt(tenantId.toString()), request.body);
+			const result = await ResultSettings.updateResultEntrySettings(parseInt(tenantId.toString()),
+				request.body as any);
 			response.send({ status: result });
 		}
 	} catch (err) {
@@ -323,7 +324,7 @@ export const getCategoryColumns = async (request: Request<{}, {}, {}, {
 
 			let columns = await TiifuWorkingClass.getTableColumns(tenantIdP, tableName);
 			if (columns.length > 0) {
-				columns = columns.map((item) => ({
+				columns = columns.map((item:any) => ({
 					value: item.Field,
 					field: item.Field.replace(/[^\w\s]|_/g, ' ')
 				}));
@@ -396,7 +397,7 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 		};
 
 		const billingInit = CustomerBillingInit.getInstance(tenantId);
-		const result = await billingInit.init(parsed);
+		const result = await billingInit.init(parsed as any);
 		if (typeof result === "object" && result.hasOwnProperty('testList')) {
 			res.send(result);
 		} else {
@@ -583,8 +584,9 @@ export const correctRefererErrorPostRegistrationHandler = async (req: Request, r
 			return res.status(400).json({ success: false, message: 'Invalid entity_id' });
 		}
 		const pEmployeeId = parseInt(employeeId.toString(), 10);
-		const result = await CustomerBillingCheckout.correctRefererErrorPostRegistration(tenantId, pEmployeeId, entity_type, parseInt(entity_id.toString(), 10), billingid, branchid);
-
+		const result = await CustomerBillingCheckout.
+			correctRefererErrorPostRegistration(tenantId, pEmployeeId, entity_type,
+				parseInt(entity_id.toString(), 10), billingid, branchid);
 		if (typeof result === 'string') {
 			return res.status(400).json({ success: false, message: result });
 		}

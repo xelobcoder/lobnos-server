@@ -716,7 +716,7 @@ class Billing {
             const isBillingIdValid = await Billing.checkValidityOfBillingid(tenantId, billingid);
             if (!isBillingIdValid)
                 return false;
-            const previousBillingRecord = await new Billing(null).getTransactionBillData(tenantId, billingid);
+            const previousBillingRecord = await new Billing(0).getTransactionBillData(tenantId, billingid);
             if (previousBillingRecord.length === 0)
                 return false;
             let { paid, payable, totalcost, totalrefunded, totalTransactionCost, discount, amountIncurredDueTax } = previousBillingRecord[0];

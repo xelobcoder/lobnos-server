@@ -57,6 +57,8 @@ payrollRouter.get('/analytics/trend', payrollAnalyticsController.getPayrollTrend
 
 // History routes - BEFORE parameterized routes
 payrollRouter.get('/history', payrollController.getAllPayrollHistoryHandler);
+payrollRouter.get('/reversals', payrollController.getPayrollReversalsHandler);
+payrollRouter.get('/reversal-errors', payrollController.getPayrollReversalErrorsHandler);
 payrollRouter.post('/periods', payrollController.createPayrollPeriodHandler);
 payrollRouter.get('/periods', payrollController.getAllPayrollPeriodsHandler);
 payrollRouter.get('/periods/:id/status', payrollController.getPayrollStatusHandler);
@@ -66,6 +68,7 @@ payrollRouter.post('/periods/:id/process', payrollController.processPayrollHandl
 payrollRouter.post('/periods/:id/approve', payrollController.approvePayrollHandler);
 payrollRouter.post('/periods/:id/lock', payrollController.lockPayrollHandler);
 payrollRouter.post('/periods/:id/mark-paid', payrollController.markPayrollPaidHandler);
+payrollRouter.post('/periods/:id/reverse', payrollController.reversePayrollPeriodHandler);
 payrollRouter.post('/periods/:id/recalculate', payrollController.recalculateEmployeeHandler);
 payrollRouter.get('/employee/:employeeid/history', payrollController.getEmployeePayrollHistoryHandler);
 payrollRouter.get('/employee/:employeeid/ytd', payrollController.getEmployeeYTDHandler);

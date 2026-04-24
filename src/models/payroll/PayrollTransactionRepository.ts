@@ -1,6 +1,7 @@
 import KnexConnection from '../../database/KnexConnections';
 import { Knex } from 'knex';
 import { z } from 'zod';
+import { customError } from '../../hooks/helper';
 
 export interface IPayrollTransaction {
      id?: number;
@@ -163,13 +164,47 @@ export class PayrollTransactionRepository {
           return transactions.map(t => this.parseTransactionDetails(t));
      }
 
-     async getByEmployeeId(employeeid: number): Promise<IPayrollTransaction[]> {
+     async getByEmployeeId(
+          page: number = 1,
+          pageSize: number = 10,
+          employeeid?: number | 'all'
+     ): Promise<{
+          data: IPayrollTransaction[];
+          total: number;
+          page: number;
+          pageSize: number;
+     }> {
           const connection = await this.connection;
-          const transactions = await connection('payroll_transactions')
+
+          const offset = (page - 1) * pageSize;
+          const baseQuery = connection('payroll_transactions')
+               .modify((qb) => {
+                    if (employeeid !== undefined && employeeid !== null && employeeid !== 'all') {
+                         qb.where('payroll_transactions.employeeid', employeeid);
+                    }
+               });
+
+
+          const rows = await baseQuery
+               .clone()
                .leftJoin('roles', 'payroll_transactions.employeeid', 'roles.employeeid')
-               .where({ 'payroll_transactions.employeeid': employeeid })
-               .orderBy('created_at', 'desc');
-          return transactions.map(t => this.parseTransactionDetails(t));
+               .orderBy('payroll_transactions.created_at', 'desc')
+               .limit(pageSize)
+               .offset(offset);
+
+
+          const countResult = await baseQuery
+               .clone()
+               .count<{ total: number }[]>({ total: '*' });
+
+          const total = Number(countResult[0]?.total || 0);
+
+          return {
+               data: rows.map(t => this.parseTransactionDetails(t)),
+               total,
+               page,
+               pageSize
+          };
      }
 
      async getByEmployeeAndPeriod(
@@ -227,17 +262,21 @@ export class PayrollTransactionRepository {
           payment_method: string,
           payment_reference?: string
      ): Promise<boolean> {
-          const connection = await this.connection;
-          const affectedRows = await connection('payroll_transactions')
-               .where({ id })
-               .update({
-                    status: 'paid',
-                    payment_date,
-                    payment_method,
-                    payment_reference,
-                    updated_at: connection.fn.now()
-               });
-          return affectedRows > 0;
+          try {
+               const connection = await this.connection;
+               const affectedRows = await connection('payroll_transactions')
+                    .where({ id })
+                    .update({
+                         status: 'paid',
+                         payment_date,
+                         payment_method,
+                         payment_reference,
+                         updated_at: connection.fn.now()
+                    });
+               return affectedRows > 0;
+          } catch (err: any) {
+               throw err;
+          }
      }
 
      async markAsCancelled(id: number): Promise<boolean> {

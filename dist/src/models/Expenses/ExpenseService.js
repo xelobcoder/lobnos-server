@@ -210,6 +210,7 @@ class Expenses {
                 }
             }
             const { id, name, amount, category, branchid, description, merchant, employeeid, date, } = expenseData;
+            const dateObj = new Date(date);
             const queryParams = [
                 name,
                 amount,
@@ -218,7 +219,7 @@ class Expenses {
                 description,
                 merchant,
                 category,
-                date,
+                dateObj,
                 id,
             ];
             const insertionStatus = await (0, helper_1.promisifyQuery)(this.tenantId, queries_1.updateExpenseQuery, queryParams);

@@ -97,10 +97,10 @@ class Expenses {
 
       async getExpenseImageList(expenseid) {
             try {
-                  let images = await readdir('api/uploads/receipts')
+                  let images = await readdir('api/uploads/receipts');
                   if (images.length > 0) {
                         images = images.filter((item) => item.split("-")[0] == expenseid);
-                  }
+                  }       
                   return images;
             } catch (err) {
                   throw err?.message || err;

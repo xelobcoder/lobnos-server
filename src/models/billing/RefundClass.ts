@@ -365,7 +365,8 @@ export class Refund {
 			if (isbillingLocked) return OperationsFailures.billingLocked;
 			const isRefundCompleted = await this.isServiceRefundConcluded(tenantId, serviceid);
 			if (isRefundCompleted) return OperationsFailures.refundAlreadyConcluded;
-			const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [isApprove, employeeid, serviceid]);
+			const approvalDate = new Date();
+			const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [isApprove,approvalDate, employeeid, serviceid]);
 			return rowAffected(result);
 		} catch (err) {
 			throw err;
@@ -382,7 +383,7 @@ export class Refund {
 		return result.length > 0;
 	}
 
-	private static async amountRefundableExceeded(tenantId: number, serviceId: number): Promise<boolean> {
+	private static async amountRefundableExceeded(tenantId: number, serviceId: number): Promise<boolean | null> {
 		const result: (PrimeLimsTabledboservices & PrimeLimsTabledbobillingrefundtable)[] = await promisifyQuery(tenantId, q_service_refundable_amount_exceeded, [serviceId]);
 		if (!result || !Array.isArray(result)) return null;
 		const { amountRefunded, paidamount } = result[0];
@@ -444,7 +445,7 @@ export class Refund {
 		return OperationsFailures.notFound;
 	}
 
-	static async refundAllItemsOfTransaction(tenantId: number, billingid: number, employeeid: number, selectedPaymentMode: number): Promise<boolean | string> {
+	static async refundAllItemsOfTransaction(tenantId: number, billingid: number, employeeid: number, selectedPaymentMode: number): Promise<boolean | string| void> {
 		const validity = await Billing.checkValidityOfBillingid(tenantId, billingid);
 		if (!validity) return OperationsFailures.unfoundID;
 

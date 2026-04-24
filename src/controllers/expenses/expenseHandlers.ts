@@ -197,6 +197,7 @@ export const updateExpenseRecord = async (request: Request<{}, {}, ExpenseData, 
 
 		response.send({ status: result });
 	} catch (err: any) {
+		console.log(err);
 		responseError(response, err);
 	}
 };
@@ -220,21 +221,24 @@ export const getReceiptImage = async (req: Request, res: Response) => {
 };
 
 export const getExpenseImageList = async (req: Request, res: Response) => {
-	const { expenseid, tenantId, employeeid, branchid } = req.query;
+	try {
+		const { expenseid, tenantId, employeeid, branchid } = req.query;
 
-	if (!expenseid || !tenantId || !employeeid || !branchid) {
-		return customError("Required parameters not provided", 404, res);
+		if (!expenseid || !tenantId || !employeeid || !branchid) {
+			return customError("Required parameters not provided", 404, res);
+		}
+
+		const expenses = initializeExpense({
+			employeeid: parseInt(employeeid.toString()),
+			branchid: parseInt(branchid.toString()),
+			tenantId: parseInt(tenantId.toString()),
+			expenseId: parseInt(expenseid.toString())
+		});
+		const result = await expenses.getExpenseImageList(expenseid.toString());
+		res.send(result);
+	} catch (err: any) {
+		customError("Error Loading images", 404, res);
 	}
-
-	const expenses = initializeExpense({
-		employeeid: parseInt(employeeid.toString()),
-		branchid: parseInt(branchid.toString()),
-		tenantId: parseInt(tenantId.toString()),
-		expenseId: parseInt(expenseid.toString())
-	});
-
-	const result = await expenses.getExpenseImageList(expenseid.toString());
-	res.send(result);
 };
 
 export const deleteReceiptsList = async (req: Request, res: Response) => {

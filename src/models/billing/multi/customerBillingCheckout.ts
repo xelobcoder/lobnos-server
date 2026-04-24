@@ -244,7 +244,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     totaldiscount: toFixed2(totaldiscount),
                     totalAmountIncurredDueTax: toFixed2(totalAmountIncurredDueTax),
                     totalServiceAmount: toFixed2(totalServiceAmount),
-                    amountPayable:totalpayable,
+                    amountPayable: totalpayable,
                     actualAmount: totalpayable - (totalsurcharge || 0),
                     outstanding,
                     totalTestAmountPayable,
@@ -412,10 +412,10 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
 
                for (const service of transactionServices) {
                     await transaction('dboservices')
-                         .where('billingid', service.serviceid)
+                         .where('serviceid', service.serviceid)
+                         .andWhere('billingid', billingid)
                          .update({
                               serviceCategory: serviceCategory[billingSource],
-                              trackid: entity_id,
                               clinicianId: billingSource === 6 ? entity_id : null,
                               organizationId: billingSource === 2 ? entity_id : null,
                               categoryTrackId: entity_id,
@@ -426,11 +426,9 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                               isCorrected: 1,
                          });
 
-
                }
 
-
-               await transaction('billing')
+                await transaction('billing')
                     .where('billingid', billingid)
                     .update({
                          adjustmentType: 'referer-error',
@@ -443,6 +441,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                await transaction.commit();
                return { success: true, message: 'Referer error correction successful', data: { billingid, billingSource } };
           } catch (error) {
+               console.error('Error during referer error correction:', error,{billingid, entity_id, entity_type});
                await transaction.rollback();
                return { success: false, message: 'Transaction failed' };
           }

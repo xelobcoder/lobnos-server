@@ -12,7 +12,7 @@ const salaryGradeSchema = zod_1.z.object({
     grade_level: zod_1.z.string().min(1, 'Grade level cannot be empty').max(50, 'Grade level cannot exceed 50 characters'),
     min_salary: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().min(0, 'Minimum salary cannot be negative').optional()),
     max_salary: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().min(0, 'Maximum salary cannot be negative').optional()),
-    description: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().max(500, 'Description cannot exceed 500 characters').optional()),
+    description: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().max(10000, 'Description cannot exceed 500 characters').optional()),
     currency: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().max(3, 'Currency code cannot exceed 3 characters').optional()),
     is_active: zod_1.z.boolean(),
     created_by: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().positive('Created by must be a positive number').optional()),

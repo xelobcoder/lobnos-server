@@ -226,33 +226,31 @@ class PayrollPeriodRepository {
             .update({
             status: 'calculated',
             calculated_by,
-            calculated_at: now,
+            calculated_at: new Date(),
             updated_at: connection.fn.now()
         });
         return affectedRows > 0;
     }
     async markAsApproved(id, approved_by) {
         const connection = await this.connection;
-        const now = new Date().toISOString();
         const affectedRows = await connection('payroll_periods')
             .where({ id })
             .update({
             status: 'approved',
             approved_by,
-            approved_at: now,
+            approved_at: new Date(),
             updated_at: connection.fn.now()
         });
         return affectedRows > 0;
     }
     async markAsLocked(id, locked_by) {
         const connection = await this.connection;
-        const now = new Date().toISOString();
         const affectedRows = await connection('payroll_periods')
             .where({ id })
             .update({
             status: 'locked',
             locked_by,
-            locked_at: now,
+            locked_at: new Date(),
             updated_at: connection.fn.now()
         });
         return affectedRows > 0;

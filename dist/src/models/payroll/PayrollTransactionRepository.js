@@ -119,13 +119,32 @@ class PayrollTransactionRepository {
             .orderBy('employeeid', 'asc');
         return transactions.map(t => this.parseTransactionDetails(t));
     }
-    async getByEmployeeId(employeeid) {
+    async getByEmployeeId(page = 1, pageSize = 10, employeeid) {
+        var _a;
         const connection = await this.connection;
-        const transactions = await connection('payroll_transactions')
+        const offset = (page - 1) * pageSize;
+        const baseQuery = connection('payroll_transactions')
+            .modify((qb) => {
+            if (employeeid !== undefined && employeeid !== null && employeeid !== 'all') {
+                qb.where('payroll_transactions.employeeid', employeeid);
+            }
+        });
+        const rows = await baseQuery
+            .clone()
             .leftJoin('roles', 'payroll_transactions.employeeid', 'roles.employeeid')
-            .where({ 'payroll_transactions.employeeid': employeeid })
-            .orderBy('created_at', 'desc');
-        return transactions.map(t => this.parseTransactionDetails(t));
+            .orderBy('payroll_transactions.created_at', 'desc')
+            .limit(pageSize)
+            .offset(offset);
+        const countResult = await baseQuery
+            .clone()
+            .count({ total: '*' });
+        const total = Number(((_a = countResult[0]) === null || _a === void 0 ? void 0 : _a.total) || 0);
+        return {
+            data: rows.map(t => this.parseTransactionDetails(t)),
+            total,
+            page,
+            pageSize
+        };
     }
     async getByEmployeeAndPeriod(employeeid, payroll_period_id) {
         const connection = await this.connection;
@@ -162,17 +181,22 @@ class PayrollTransactionRepository {
         return this.updateStatus(id, 'approved');
     }
     async markAsPaid(id, payment_date, payment_method, payment_reference) {
-        const connection = await this.connection;
-        const affectedRows = await connection('payroll_transactions')
-            .where({ id })
-            .update({
-            status: 'paid',
-            payment_date,
-            payment_method,
-            payment_reference,
-            updated_at: connection.fn.now()
-        });
-        return affectedRows > 0;
+        try {
+            const connection = await this.connection;
+            const affectedRows = await connection('payroll_transactions')
+                .where({ id })
+                .update({
+                status: 'paid',
+                payment_date,
+                payment_method,
+                payment_reference,
+                updated_at: connection.fn.now()
+            });
+            return affectedRows > 0;
+        }
+        catch (err) {
+            throw err;
+        }
     }
     async markAsCancelled(id) {
         return this.updateStatus(id, 'cancelled');

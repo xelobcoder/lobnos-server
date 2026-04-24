@@ -66,8 +66,8 @@ router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selected
      handleAuthenticationEmployee as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, {}, {}, { tenantId: string; }>,
      handleOverLoad(isAuthorizedRoleAdmin),
      refundAllTransactionHandler as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
-router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, WriteOffTransaction as RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>);
-router.post('/api/v1/billing/correction/source', handleOverLoad(correctRefererErrorPostRegistrationHandler));
+router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, WriteOffTransaction as unknown as  RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>);
+router.post('/api/v1/billing/correction/source', isAuthorizedRoleAdmin, handleOverLoad(correctRefererErrorPostRegistrationHandler));
 
 
 // Services Routes

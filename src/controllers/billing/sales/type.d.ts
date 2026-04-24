@@ -30,6 +30,18 @@ export type UpdatePreviousWitnessNoteBodyParams = {
 
 
 
+export type IDetermineStageOfRefund ={
+    serviceid: number;
+    employeeid: number;
+    purpose: string;
+    trackId: number;
+    serviceCategory?: string;
+    serviceCategoryName: string;
+    billingid: number;
+    categoryTrackId: number;
+}
+
+
 export type updateRefundCashRequestBodyType = {
     serviceid: number;
     employeeid: number,

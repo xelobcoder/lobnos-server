@@ -8,7 +8,6 @@ import { parseCookies } from '../../middleware/validateTenancy';
 import { getAllCompanyProfiles } from '../../models/settings/companyProfile';
 import ApplicationSettings from '../../models/application/appsettings/appset';
 import ResultSettings from '../../models/application/appsettings/resultSettings';
-import { configuration } from '../../hooks/configuration';
 
 export class AuthController {
     private authRepo: AuthenticationRepository | null = null;
@@ -39,10 +38,16 @@ export class AuthController {
             }
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);
             const { role, username, employeeid } = user;
+            const applicationSettings = new ApplicationSettings();
+            const settings = await applicationSettings.getAllAppSettings(tenantId);
+
             res.status(200).json({
                 status: true,
                 accessToken: tokens.accessToken,
-                user: { role, employeeid, username, email }
+                user: { role, employeeid, username, email },
+                settings: {
+                    allowScientistToRegisterClient: settings?.allowScientistToRegisterClient,
+                }
             });
         } catch (error: any) {
             res.status(400).json({ message: error.message });
@@ -86,7 +91,9 @@ export class AuthController {
                     },
                     result: resultsettings,
                     user: {
-                        role, employeeid, username, 
+                        role,
+                        employeeid,
+                        username,
                         email
                     },
                     company: company,

@@ -518,7 +518,8 @@ const correctRefererErrorPostRegistrationHandler = async (req, res) => {
             return res.status(400).json({ success: false, message: 'Invalid entity_id' });
         }
         const pEmployeeId = parseInt(employeeId.toString(), 10);
-        const result = await customerBillingCheckout_1.CustomerBillingCheckout.correctRefererErrorPostRegistration(tenantId, pEmployeeId, entity_type, parseInt(entity_id.toString(), 10), billingid, branchid);
+        const result = await customerBillingCheckout_1.CustomerBillingCheckout.
+            correctRefererErrorPostRegistration(tenantId, pEmployeeId, entity_type, parseInt(entity_id.toString(), 10), billingid, branchid);
         if (typeof result === 'string') {
             return res.status(400).json({ success: false, message: result });
         }

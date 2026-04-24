@@ -263,7 +263,7 @@ export class PayrollPeriodRepository {
                .update({
                     status: 'calculated',
                     calculated_by,
-                    calculated_at: now,
+                    calculated_at: new Date(),
                     updated_at: connection.fn.now()
                });
 
@@ -272,14 +272,13 @@ export class PayrollPeriodRepository {
 
      async markAsApproved(id: number, approved_by: number): Promise<boolean> {
           const connection = await this.connection;
-          const now = new Date().toISOString();
 
           const affectedRows = await connection('payroll_periods')
                .where({ id })
                .update({
                     status: 'approved',
                     approved_by,
-                    approved_at: now,
+                    approved_at: new Date(),
                     updated_at: connection.fn.now()
                });
 
@@ -288,14 +287,13 @@ export class PayrollPeriodRepository {
 
      async markAsLocked(id: number, locked_by: number): Promise<boolean> {
           const connection = await this.connection;
-          const now = new Date().toISOString();
 
           const affectedRows = await connection('payroll_periods')
                .where({ id })
                .update({
                     status: 'locked',
                     locked_by,
-                    locked_at: now,
+                    locked_at: new Date(),
                     updated_at: connection.fn.now()
                });
 

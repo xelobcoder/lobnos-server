@@ -173,7 +173,7 @@ exports.MonthAppointmentsController = MonthAppointmentsController;
 async function loadPractionerAvailableSlotsController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
-        const { employeeid, appointment_date = new Date().toISOString() } = request.query;
+        const { employeeid, appointment_date = new Date() } = request.query;
         if (!employeeid || isNaN(Number(employeeid))) {
             return (0, helper_1.customError)("Bad Request. Employee ID not provided", 404, response);
         }

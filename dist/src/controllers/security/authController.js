@@ -38,10 +38,15 @@ class AuthController {
             }
             const user = await new RolesRepository_1.default(tenantId).getRoleByEmail(email);
             const { role, username, employeeid } = user;
+            const applicationSettings = new appset_1.default();
+            const settings = await applicationSettings.getAllAppSettings(tenantId);
             res.status(200).json({
                 status: true,
                 accessToken: tokens.accessToken,
-                user: { role, employeeid, username, email }
+                user: { role, employeeid, username, email },
+                settings: {
+                    allowScientistToRegisterClient: settings === null || settings === void 0 ? void 0 : settings.allowScientistToRegisterClient,
+                }
             });
         }
         catch (error) {
@@ -89,7 +94,9 @@ class AuthController {
                     },
                     result: resultsettings,
                     user: {
-                        role, employeeid, username,
+                        role,
+                        employeeid,
+                        username,
                         email
                     },
                     company: company,

@@ -8,6 +8,8 @@ const PayrollPeriodRepository_1 = require("../../models/payroll/PayrollPeriodRep
 const PayrollTransactionRepository_1 = require("../../models/payroll/PayrollTransactionRepository");
 const PayrollCalculationService_1 = require("./PayrollCalculationService");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const ExpenseInvoiceRepo_1 = __importDefault(require("../../models/Expenses/ExpenseInvoiceRepo"));
+const ExpenseService_1 = __importDefault(require("../../models/Expenses/ExpenseService"));
 class PayrollProcessingService {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -160,8 +162,7 @@ class PayrollProcessingService {
     /**
      * Mark payroll as paid
      */
-    async markPayrollAsPaid(payroll_period_id, payment_date, payment_method, payment_references // employeeid -> reference
-    ) {
+    async markPayrollAsPaid(payroll_period_id, payment_date, payment_method, employeeid, branchid, payment_references) {
         const connection = await (0, KnexConnections_1.default)(this.tenantId);
         return connection.transaction(async (trx) => {
             const trxPeriodRepo = new PayrollPeriodRepository_1.PayrollPeriodRepository(this.tenantId, trx);
@@ -181,6 +182,96 @@ class PayrollProcessingService {
             }
             // Mark period as paid
             await trxPeriodRepo.markAsPaid(payroll_period_id);
+            const actorEmployeeId = employeeid;
+            const actorBranchId = branchid;
+            const expenseCategoryRecord = await trx('dboexpensecategory')
+                .where({ category: 'salary' })
+                .first();
+            let category;
+            if (!expenseCategoryRecord) {
+                const [newCategoryId] = await trx('dboexpensecategory')
+                    .insert({
+                    category: 'salary',
+                    createdon: new Date(),
+                    employeeid: actorEmployeeId,
+                });
+                category = newCategoryId;
+            }
+            else {
+                category = expenseCategoryRecord.id;
+            }
+            const merchantRecord = await trx('expense_merchants')
+                .where({ name: 'PAYROLL' })
+                .first();
+            let merchantid;
+            if (!merchantRecord) {
+                const [newMerchantId] = await trx('expense_merchants')
+                    .insert({
+                    name: 'PAYROLL',
+                    email: 'system-payroll-automated',
+                    phone: '0000000000',
+                    notes: 'Auto created merchant for payroll payments',
+                    created_at: new Date(),
+                    created_by: actorEmployeeId,
+                });
+                merchantid = newMerchantId;
+            }
+            else {
+                merchantid = merchantRecord.id;
+            }
+            const totalNetSalary = Number(period.total_net_salary || 0);
+            const expenseRecord = {
+                isassociatedservice: 0,
+                serviceid: null,
+                branchid: actorBranchId,
+                category,
+                employeeid: actorEmployeeId,
+                amount: totalNetSalary,
+                merchant: merchantid,
+                date: new Date(payment_date),
+                id: null,
+                createdon: new Date(),
+                approvedby: null,
+                approved: 0,
+                approvedon: null,
+                name: `Payroll Expense - ${period.period_name} (${payroll_period_id})`,
+                description: `Payroll for ${period.period_name} (${period.period_start_date} to ${period.period_end_date}) paid on ${payment_date}`
+            };
+            const invoiceRepo = new ExpenseInvoiceRepo_1.default(actorEmployeeId, actorBranchId, this.tenantId);
+            const payrollExpense = await invoiceRepo.createExpensesAndInvoice([expenseRecord], {
+                invoice_number: `PAYROLL-${payroll_period_id}-${Date.now()}`,
+                invoice_date: new Date(payment_date),
+                due_date: new Date(payment_date),
+                merchant_id: merchantid,
+                tax_amount: 0,
+                total_amount: totalNetSalary,
+                status: 'Paid'
+            }, trx);
+            const expenseApproval = await new ExpenseService_1.default(actorEmployeeId, actorBranchId, this.tenantId)
+                .updateExpenseDecision(this.tenantId, 'approved', [{
+                    expenseid: payrollExpense.expenseIds[0],
+                    information: 'Payroll payment',
+                    employeeid: actorEmployeeId
+                }], trx);
+            if (!expenseApproval) {
+                throw new Error('Failed to approve payroll expense');
+            }
+            const paymentResult = await invoiceRepo.addPayment({
+                expense_id: payrollExpense.expenseIds[0],
+                invoice_id: payrollExpense.invoiceId,
+                payment_date,
+                method: payment_method,
+                amount: totalNetSalary
+            }, trx);
+            await trx('payroll_periods')
+                .where({ id: payroll_period_id })
+                .update({
+                expense_synced: true,
+                expense_id: payrollExpense.expenseIds[0],
+                expense_invoice_id: payrollExpense.invoiceId,
+                expense_payment_id: (paymentResult === null || paymentResult === void 0 ? void 0 : paymentResult.paymentId) || null,
+                updated_at: trx.fn.now()
+            });
             return true;
         });
     }

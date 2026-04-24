@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
 import { customError, responseError } from "../../hooks/helper";
 import { Billing } from "../../models/billing/billing";
-import { billErrors } from "../../models/billing/billingclientTypes";
+import { billErrors, TBillingData } from "../../models/billing/billingclientTypes";
 import { Refund } from "../../models/billing/RefundClass";
 import { wrapperTryCatch } from "../../models/generics/trycatch";
 import { OperationsFailures } from "../../models/operations/types";
-import { RefundRequestBodyParams, UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType } from "./sales/type";
+import { IDetermineStageOfRefund, RefundRequestBodyParams, UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType } from "./sales/type";
 import logger from "../../hooks/logger";
 import { MultiBillingRepo } from "../../models/billing/billnew";
 import { BillingUpdateRepo } from "../../models/billing/billing_update";
@@ -13,15 +13,16 @@ import { WriteOff } from "../../models/billing/WriteOff";
 import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingEnterprise";
 import OutstandingClass from "../../models/billing/outstanding/outstanding_class";
 import User from "../../LobnosAuth/user";
+import { MultiTBillingDataShared } from "../../models/billing/multi/billing_shared_types";
 
-export async function handleNewBilling(request: Request, response: Response) {
+export async function handleNewBilling(request: Request<{}, {}, { patientid: number }, { tenantId: string }>, response: Response) {
 	async function validate() {
 		const { patientid } = request.body;
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString());
 
 		let bill = await new Billing(patientid).BillNewTransaction(tenantIdP,
-			request.body);
+			request.body as any);
 		if (typeof bill == "string" && bill == billErrors.already) {
 			return response.send({ message: bill, statusCode: 200, status: "success" });
 		} else if (bill && typeof bill == "number") {
@@ -34,7 +35,7 @@ export async function handleNewBilling(request: Request, response: Response) {
 }
 
 
-export async function handleMultiNewBilling(request: Request, response: Response) {
+export async function handleMultiNewBilling(request: Request<{}, {}, { patientid: number }, { tenantId: string }>, response: Response) {
 	async function validate() {
 		if (!request.body || !request.body.patientid) {
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
@@ -42,7 +43,7 @@ export async function handleMultiNewBilling(request: Request, response: Response
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString());
 
-		let bill = await new MultiBillingRepo(tenantIdP).billNewTransaction(request.body);
+		let bill = await new MultiBillingRepo(tenantIdP).billNewTransaction(request.body as unknown as MultiTBillingDataShared);
 		if (typeof bill === "string") {
 			return customError(bill, 404, response);
 		} else if (typeof bill === "number") {
@@ -55,7 +56,7 @@ export async function handleMultiNewBilling(request: Request, response: Response
 }
 
 
-export async function outstandingReport(request: Request, response: Response) {
+export async function outstandingReport(request: Request<{}, {}, {}, { tenantId: string, startdate: string, enddate: string }>, response: Response) {
 	try {
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString(), 10);
@@ -68,7 +69,7 @@ export async function outstandingReport(request: Request, response: Response) {
 	}
 }
 
-export async function handleMultiUpdateBilling(request: Request, response: Response) {
+export async function handleMultiUpdateBilling(request: Request<{}, {}, { patientid: number }, { tenantId: string, billingid: string }>, response: Response) {
 	async function validate() {
 		if (!request.body || !request.body.patientid) {
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
@@ -76,7 +77,7 @@ export async function handleMultiUpdateBilling(request: Request, response: Respo
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString());
 
-		let bill = await BillingUpdateRepo.updateBillingTransaction(tenantIdP, parseInt(request.query.billingid.toString()), request.body);
+		let bill = await BillingUpdateRepo.updateBillingTransaction(tenantIdP, parseInt(request.query.billingid.toString()), request.body as MultiTBillingDataShared);
 		if (typeof bill === "string") {
 			return customError(bill, 404, response);
 		}
@@ -92,7 +93,7 @@ export async function handleMultiUpdateBilling(request: Request, response: Respo
 
 
 
-export async function canInitiateBill(request: Request, response: Response) {
+export async function canInitiateBill(request: Request<{}, {}, {}, { patientid: string, tenantId: string }>, response: Response) {
 	try {
 		let { patientid, tenantId } = request.query;
 		if (!patientid) return customError(`Bad Request. patientid required`, 404, response);
@@ -111,11 +112,11 @@ export async function canInitiateBill(request: Request, response: Response) {
 	}
 }
 
-export async function getSavedCLientBillingInformation(request: Request, response: Response) {
+export async function getSavedCLientBillingInformation(request: Request<{}, {}, {}, { billingid: string, tenantId: string }>, response: Response) {
 	try {
 		const { billingid, tenantId } = request.query;
 		const tenantIdP: number = parseInt(tenantId.toString(), 10);
-		const billingClass = await new Billing(null).getClientBillingInformation(tenantIdP, parseInt(billingid.toString()));
+		const billingClass = await new Billing(0).getClientBillingInformation(tenantIdP, parseInt(billingid.toString()));
 		response.send({ result: billingClass })
 	} catch (err) {
 		console.log(err)
@@ -126,18 +127,18 @@ export async function getSavedCLientBillingInformation(request: Request, respons
 
 
 
-export async function determineStageOfRefundRequestHandler(request: Request, response: Response) {
+export async function determineStageOfRefundRequestHandler(request: Request<{}, {}, IDetermineStageOfRefund  , { tenantId: string }>, response: Response) {
 	try {
 		const { tenantId } = request.query
 		const tenantIdP: number = parseInt(tenantId.toString(), 10);
-		const result = await new Billing(null).determineStageOfRefundRequest(tenantIdP, { ...request.body, serviceCategoryName: request.body.serviceCategory });
+		const result = await new Billing(0).determineStageOfRefundRequest(tenantIdP, { ...request.body, serviceCategoryName: request.body.serviceCategory } );
 		response.send({ stage: result });
 	} catch (err) {
 
 	}
 }
 
-export async function requestForRefundHandler(request: Request<{}, {}, RefundRequestBodyParams>, response: Response) {
+export async function requestForRefundHandler(request: Request<{}, {}, RefundRequestBodyParams, { tenantId: string }>, response: Response) {
 	try {
 		const { categoryTrackId, billingid, serviceid, employeeid, taxIncluded, refundMessage, trackId } = request.body;
 
@@ -169,7 +170,7 @@ export async function requestForRefundHandler(request: Request<{}, {}, RefundReq
 
 
 
-export async function updateBilledTransaction(request: Request, response: Response): Promise<void> {
+export async function updateBilledTransaction(request: Request<{}, {}, { isConditionsUnderstood: boolean }, { billingid: string, tenantId: string }>, response: Response): Promise<void> {
 	try {
 		const { billingid, tenantId } = request.query;
 		const billId = parseInt(billingid.toString());
@@ -182,7 +183,7 @@ export async function updateBilledTransaction(request: Request, response: Respon
 				transaction might lead to data overwritten in favor of this current Transaction. Please ensure you understand the implications of this action before proceeding.`
 			})
 		} else {
-			const outcome = await new Billing(null).updatePreviousTransaction(tenantIdP, request.body, billId);
+			const outcome = await new Billing(0).updatePreviousTransaction(tenantIdP, request.body as unknown as TBillingData, billId);
 			response.send({ status: outcome });
 		}
 	} catch (err) {
@@ -219,7 +220,7 @@ export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {},
 
 
 
-export async function updateWitnessWitnessNote(request: Request<{}, {}, UpdatePreviousWitnessNoteBodyParams>, response: Response) {
+export async function updateWitnessWitnessNote(request: Request<{}, {}, UpdatePreviousWitnessNoteBodyParams, { tenantId: string }>, response: Response) {
 	try {
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
 		const { witnesses, serviceid } = request.body;
@@ -252,14 +253,14 @@ export async function updateWitnessWitnessNote(request: Request<{}, {}, UpdatePr
 
 		const updateMessage = await Refund.updateWitnessStatus(tenantId, witness, serviceid, employeeid, message)
 		return response.send({ status: updateMessage })
-	} catch (err) {
+	} catch (err: any) {
 		logger.log(err);
 		responseError(response);
 	}
 }
 
 
-export async function approveRequestForRefund(request: Request<{}, {}, { serviceid: number, employeeid: number, isApprove: '0' | "1" }>, response: Response) {
+export async function approveRequestForRefund(request: Request<{}, {}, { serviceid: number, employeeid: number, isApprove: '0' | "1", }, { tenantId: string }>, response: Response) {
 	try {
 		const { serviceid, employeeid, isApprove } = request.body;
 		const parsedApproveStatement = parseInt(isApprove);
@@ -280,7 +281,7 @@ export async function approveRequestForRefund(request: Request<{}, {}, { service
 
 
 export async function requestForRefundCashIssueOut(
-	request: Request<{}, {}, updateRefundCashRequestBodyType
+	request: Request<{}, {}, updateRefundCashRequestBodyType, { tenantId: string }
 	>,
 	response: Response
 ) {
@@ -342,7 +343,7 @@ export async function getTransactionBillDataHandler(request: Request<{}, {}, {},
 		}
 		const billId = parseInt(billingid.toString());
 		const tenantIdP: number = parseInt(tenantId.toString(), 10);
-		const billData = await new Billing(null).getTransactionBillData(tenantIdP, billId);
+		const billData = await new Billing(0).getTransactionBillData(tenantIdP, billId);
 		response.send({ result: billData });
 	} catch (err) {
 		responseError(response);
@@ -350,7 +351,8 @@ export async function getTransactionBillDataHandler(request: Request<{}, {}, {},
 }
 
 
-export async function refundAllTransactionHandler(request: Request<{ selectedPaymentMode: number, billingid: number, employeeid: number }>, response: Response) {
+export async function refundAllTransactionHandler(request: Request<{ selectedPaymentMode: number, billingid: number, employeeid: number }, {}, {},
+	{ tenantId: string, reason: string }>, response: Response) {
 	const { billingid, employeeid, selectedPaymentMode } = request.params
 	const isAllNumber = !isNaN(billingid) && !isNaN(employeeid) && !isNaN(selectedPaymentMode);
 
@@ -387,7 +389,7 @@ export async function getServiceRefundItem(request: Request<{}, {}, {}, { servic
 }
 
 
-export async function WriteOffTransaction(request: Request, response: Response) {
+export async function WriteOffTransaction(request: Request<{}, {}, { billingid: number, reason: string, employeeid: number }, { tenantId: string, reason: string }>, response: Response) {
 	try {
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString());
@@ -396,7 +398,7 @@ export async function WriteOffTransaction(request: Request, response: Response) 
 		if (!billingid || !reason || !employeeid) {
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
 		}
-		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid, reason, employeeid);
+		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid,  employeeid,reason);
 
 		if (typeof result === "string") return response.send({ status: false, message: result });
 		if (!result) return customError("Write off failed", 404, response);

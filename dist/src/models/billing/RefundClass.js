@@ -275,7 +275,8 @@ class Refund {
             const isRefundCompleted = await this.isServiceRefundConcluded(tenantId, serviceid);
             if (isRefundCompleted)
                 return "Refund already concluded for this service" /* OperationsFailures.refundAlreadyConcluded */;
-            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [isApprove, employeeid, serviceid]);
+            const approvalDate = new Date();
+            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [isApprove, approvalDate, employeeid, serviceid]);
             return (0, helper_1.rowAffected)(result);
         }
         catch (err) {

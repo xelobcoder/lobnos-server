@@ -290,6 +290,7 @@ export default class Expenses implements IExpenseRepository {
                     date,
                } = expenseData;
 
+               const dateObj = new Date(date);
 
                const queryParams = [
                     name,
@@ -299,7 +300,7 @@ export default class Expenses implements IExpenseRepository {
                     description,
                     merchant,
                     category,
-                    date,
+                    dateObj,
                     id,
                ];
 

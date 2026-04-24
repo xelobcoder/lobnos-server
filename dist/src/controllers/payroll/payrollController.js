@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllPayrollHistoryHandler = exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculateEmployeeHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createPayrollPeriodHandler = void 0;
+exports.getAllPayrollHistoryHandler = exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculateEmployeeHandler = exports.getPayrollReversalErrorsHandler = exports.getPayrollReversalsHandler = exports.reversePayrollPeriodHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createPayrollPeriodHandler = void 0;
 const PayrollProcessingService_1 = require("../../services/payroll/PayrollProcessingService");
+const PayrollReversalService_1 = require("../../services/payroll/PayrollReversalService");
 const PayrollPeriodRepository_1 = require("../../models/payroll/PayrollPeriodRepository");
 const PayrollTransactionRepository_1 = require("../../models/payroll/PayrollTransactionRepository");
 const TaxConfigurationRepository_1 = require("../../models/payroll/TaxConfigurationRepository");
@@ -103,8 +104,8 @@ const processPayrollHandler = async (req, res) => {
         });
     }
     catch (error) {
-        const errroMessage = error.message;
-        (0, helper_1.customError)(errroMessage || 'Failed to process payroll', 500, res);
+        console.log(error);
+        (0, helper_1.customError)('Failed to process payroll', 500, res);
     }
 };
 exports.processPayrollHandler = processPayrollHandler;
@@ -176,6 +177,10 @@ const markPayrollPaidHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
         const periodId = parseInt(req.params.id);
+        const employeeid = parseInt(req.body.employeeid);
+        const branchid = parseInt(req.body.branchid);
+        if (!branchid || !employeeid)
+            return (0, helper_1.customError)('Branch ID and Employee ID are required', 400, res);
         const { payment_date, payment_method, payment_references } = req.body;
         if (!periodId) {
             return (0, helper_1.customError)('Period ID is required', 400, res);
@@ -187,7 +192,12 @@ const markPayrollPaidHandler = async (req, res) => {
             ? new Map(Object.entries(payment_references).map(([k, v]) => [parseInt(k), v]))
             : undefined;
         const service = new PayrollProcessingService_1.PayrollProcessingService(tenantId);
-        await service.markPayrollAsPaid(periodId, payment_date, payment_method, referencesMap);
+        let refinedPaymentMethod = payment_method;
+        if (payment_method.trim() == "Bank Transfer")
+            refinedPaymentMethod = "bank_transfer";
+        if (payment_method.trim() == "MoMo")
+            refinedPaymentMethod = "mobile_money";
+        await service.markPayrollAsPaid(periodId, payment_date, refinedPaymentMethod, employeeid, branchid, referencesMap);
         res.json({
             status: 'success',
             statusCode: 200,
@@ -199,6 +209,82 @@ const markPayrollPaidHandler = async (req, res) => {
     }
 };
 exports.markPayrollPaidHandler = markPayrollPaidHandler;
+const reversePayrollPeriodHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const periodId = parseInt(req.params.id);
+        const employeeid = parseInt(req.body.employeeid);
+        const branchid = parseInt(req.body.branchid);
+        const reason = req.body.reason;
+        if (!periodId) {
+            return (0, helper_1.customError)('Period ID is required', 400, res);
+        }
+        if (!employeeid || !branchid) {
+            return (0, helper_1.customError)('Branch ID and Employee ID are required', 400, res);
+        }
+        const service = new PayrollReversalService_1.PayrollReversalService(tenantId);
+        const result = await service.reversePayrollPeriod({
+            payroll_period_id: periodId,
+            reversed_by: employeeid,
+            branchid,
+            reason
+        });
+        res.json({
+            status: 'success',
+            statusCode: 200,
+            message: 'Payroll period reversed successfully',
+            result
+        });
+    }
+    catch (error) {
+        utility_1.PrimeSqlErrorHandler.handleError(error, res);
+    }
+};
+exports.reversePayrollPeriodHandler = reversePayrollPeriodHandler;
+const getPayrollReversalsHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const payroll_period_id = req.query.payroll_period_id ? parseInt(req.query.payroll_period_id) : undefined;
+        const page = req.query.page ? parseInt(req.query.page) : 1;
+        const count = req.query.count ? parseInt(req.query.count) : 10;
+        if (!tenantId) {
+            return (0, helper_1.customError)('Tenant ID is required', 400, res);
+        }
+        const service = new PayrollReversalService_1.PayrollReversalService(tenantId);
+        const result = await service.getPayrollReversals({ payroll_period_id, page, count });
+        res.json({
+            status: 'success',
+            statusCode: 200,
+            result
+        });
+    }
+    catch (error) {
+        utility_1.PrimeSqlErrorHandler.handleError(error, res);
+    }
+};
+exports.getPayrollReversalsHandler = getPayrollReversalsHandler;
+const getPayrollReversalErrorsHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const payroll_period_id = req.query.payroll_period_id ? parseInt(req.query.payroll_period_id) : undefined;
+        const page = req.query.page ? parseInt(req.query.page) : 1;
+        const count = req.query.count ? parseInt(req.query.count) : 10;
+        if (!tenantId) {
+            return (0, helper_1.customError)('Tenant ID is required', 400, res);
+        }
+        const service = new PayrollReversalService_1.PayrollReversalService(tenantId);
+        const result = await service.getPayrollReversalErrors({ payroll_period_id, page, count });
+        res.json({
+            status: 'success',
+            statusCode: 200,
+            result
+        });
+    }
+    catch (error) {
+        utility_1.PrimeSqlErrorHandler.handleError(error, res);
+    }
+};
+exports.getPayrollReversalErrorsHandler = getPayrollReversalErrorsHandler;
 /**
  * Recalculate employee payroll
  */
@@ -279,16 +365,17 @@ exports.getPayrollTransactionsHandler = getPayrollTransactionsHandler;
 const getEmployeePayrollHistoryHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const employeeid = parseInt(req.params.employeeid);
-        if (!tenantId || !employeeid) {
-            return (0, helper_1.customError)('Tenant ID and Employee ID are required', 400, res);
-        }
+        const employeeid = req.params.employeeid == 'all' ? undefined : parseInt(req.params.employeeid.toString()) || undefined;
+        const count = parseInt(req.query.count) || 10;
+        const page = parseInt(req.query.page) || 1;
+        if ((count && isNaN(count)) || (page && isNaN(page)))
+            return (0, helper_1.customError)('Count and Page must be numbers', 400, res);
         const repo = new PayrollTransactionRepository_1.PayrollTransactionRepository(tenantId);
-        const transactions = await repo.getByEmployeeId(employeeid);
+        const transactions = await repo.getByEmployeeId(page, count, employeeid);
         res.json({
             status: 'success',
             statusCode: 200,
-            result: transactions
+            result: transactions.data
         });
     }
     catch (error) {
