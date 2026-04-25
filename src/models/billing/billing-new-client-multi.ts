@@ -164,6 +164,7 @@ export class SubmitCustomerBilling {
                 updatedBillingData.cart = data.packageTestList;
             }
 
+
             const conn = await this.connection;
             const trx = await conn.transaction();
 
@@ -190,6 +191,10 @@ export class SubmitCustomerBilling {
                 updatedBillingData,
                 billingID, taxValue, taxIncluded, taxList, trx, hasRelatedBilling,
                 this.payload.billingid);
+
+
+            // console.log(processTestCart, "processTestCart")
+            // throw new Error("testing");
 
             const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(
                 updatedBillingData as unknown as MultiTBillingDataShared,
@@ -539,11 +544,12 @@ export class SubmitCustomerBilling {
                 const source = billingData.billingSource as number;
                 const userAdjustedValue = item?.userAdjustedValue ? parseFloat(item.userAdjustedValue?.toString() || "0") : null;
                 const userAdjustmentType = item?.userAdjustmentType || null;
+                const pricedToBeUsed = billingData.isPackageUsed ? item.cost || item.discountedValue: item.actualPrice;
 
                 const data = {
                     billingid: billingID,
                     trackId: item.testid,
-                    cost: item.actualPrice,
+                    cost: pricedToBeUsed,
                     employeeid: billingData.employeeid,
                     serviceCategory: serviceCategory[source],
                     categoryTrackId: billingData.billingSource,

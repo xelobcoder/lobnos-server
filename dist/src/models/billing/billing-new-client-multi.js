@@ -132,6 +132,8 @@ class SubmitCustomerBilling {
             const taxList = updatedBillingData.taxList || null;
             const taxIncluded = updatedBillingData.taxIncluded || false;
             const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList, trx, hasRelatedBilling, this.payload.billingid);
+            // console.log(processTestCart, "processTestCart")
+            // throw new Error("testing");
             const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(updatedBillingData, (updatedBillingData.servicesProvided || []).map(service => (Object.assign(Object.assign({}, service), { amountPaid: typeof service.amountPaid === 'number' ? service.amountPaid : 0, status: service.status || 'pending' }))), billingID, taxValue, taxList, hasRelatedBilling, this.payload.billingid);
             const allEntries = [...processNonTestServices, ...processTestCart];
             const Multi = new billing_shared_1.BillingSharedRepo();
@@ -405,10 +407,11 @@ class SubmitCustomerBilling {
             const source = billingData.billingSource;
             const userAdjustedValue = (item === null || item === void 0 ? void 0 : item.userAdjustedValue) ? parseFloat(((_a = item.userAdjustedValue) === null || _a === void 0 ? void 0 : _a.toString()) || "0") : null;
             const userAdjustmentType = (item === null || item === void 0 ? void 0 : item.userAdjustmentType) || null;
+            const pricedToBeUsed = billingData.isPackageUsed ? item.cost || item.discountedValue : item.actualPrice;
             const data = {
                 billingid: billingID,
                 trackId: item.testid,
-                cost: item.actualPrice,
+                cost: pricedToBeUsed,
                 employeeid: billingData.employeeid,
                 serviceCategory: billingclientTypes_1.serviceCategory[source],
                 categoryTrackId: billingData.billingSource,

@@ -160,12 +160,12 @@ class Appointment {
             appointment_time: zod_1.z.string().max(10).optional(),
             appointment_date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
             inviteMethod: zod_1.z.string().max(20).optional(),
-            purpose: zod_1.z.string().max(500).optional(),
-            title: zod_1.z.string().max(300).optional(),
-            preference: zod_1.z.string().max(50).optional(),
+            purpose: zod_1.z.string(),
+            title: zod_1.z.string().optional(),
+            preference: zod_1.z.string().optional(),
             practioner: zod_1.z.number().int().optional(),
-            location: zod_1.z.string().max(50).optional(),
-            notes: zod_1.z.string().max(500).nullable().optional(),
+            location: zod_1.z.string().optional(),
+            notes: zod_1.z.string().nullable().optional(),
         }).strict();
         const parseResult = updateSchema.safeParse(normalizedData);
         if (!parseResult.success) {

@@ -56,13 +56,13 @@ export async function updateAppointmentController(request: Request, response: Re
 			status: z.string().max(50).optional(),
 			appointment_time: z.string().max(10).optional(),
 			appointment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
-			inviteMethod: z.string().max(20).optional(),
-			purpose: z.string().max(500).optional(),
-			title: z.string().max(300).optional(),
-			preference: z.string().max(50).optional(),
+			inviteMethod: z.string().optional(),
+			purpose: z.string(),
+			title: z.string().optional(),
+			preference: z.string().optional(),
 			practioner: z.number().int().optional(),
-			location: z.string().max(50).optional(),
-			notes: z.string().max(500).nullable().optional(),
+			location: z.string().optional(),
+			notes: z.string().nullable().optional(),
 		}).strict();
 
 		const unParsedCleanPayload = {
