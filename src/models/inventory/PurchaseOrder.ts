@@ -82,7 +82,7 @@ export class PurchaseOrderModel {
           }
 
           const orderId = this.generateOrderId();
-          const orderDate = request.order_date || new Date().toISOString().split('T')[0];
+          const orderDate = request.order_date || new Date();
           const totalAmount = this.calculateOrderTotal(request.items);
 
           const orderData = {
@@ -97,8 +97,8 @@ export class PurchaseOrderModel {
                communication_notes: request.communication_notes || null,
                notes: request.notes || null,
                created_by: null,
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
+               created_at: new Date(),
+               updated_at: new Date()
           };
 
           const trx = await connection.transaction();
@@ -126,8 +126,8 @@ export class PurchaseOrderModel {
                          line_total: lineTotal,
                          status: 'pending' as const,
                          notes: item.notes || null,
-                         created_at: new Date().toISOString(),
-                         updated_at: new Date().toISOString()
+                         created_at: new Date(),
+                         updated_at: new Date()
                     };
                });
 
@@ -328,7 +328,7 @@ export class PurchaseOrderModel {
           }
 
           const updateData: any = {
-               updated_at: new Date().toISOString()
+               updated_at: new Date()
           };
 
           if (updates.supplier_id !== undefined) updateData.supplier_id = updates.supplier_id;
@@ -364,14 +364,14 @@ export class PurchaseOrderModel {
                     .where({ id })
                     .update({
                          status: 'cancelled',
-                         updated_at: new Date().toISOString()
+                         updated_at: new Date()
                     });
 
                await trx('inv_purchase_order_items')
                     .where('order_id', id)
                     .update({
                          status: 'cancelled',
-                         updated_at: new Date().toISOString()
+                         updated_at: new Date()
                     });
 
                await trx.commit();
@@ -445,7 +445,7 @@ export class PurchaseOrderModel {
                .where('id', orderId)
                .update({
                     status: newStatus,
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date()
                });
      }
 
@@ -508,7 +508,7 @@ export class PurchaseOrderModel {
                          order_id: orderId,
                          order_item_id: receiptData.order_item_id,
                          receipt_number: receiptNumber,
-                         received_date: receiptData.received_date || new Date().toISOString().split('T')[0],
+                         received_date: receiptData.received_date || new Date(),
                          received_by: request.received_by,
                          quantity_received: receiptData.quantity_received,
                          batch_number: receiptData.batch_number || null,
@@ -522,11 +522,11 @@ export class PurchaseOrderModel {
                          image_url: null,
                          purchase_unit: receiptData.purchase_unit || null,
                          units_per_purchase_unit: receiptData.units_per_purchase_unit || null,
-                         created_at: new Date().toISOString()
+                         created_at: new Date()
                     };
 
                     await trx('inv_purchase_order_receipts').insert(receipt);
-                    receipts.push(receipt as PurchaseOrderReceipt);
+                    receipts.push(receipt as unknown as PurchaseOrderReceipt);
 
                     if (receipt.condition_status === 'good' || receipt.condition_status === 'acceptable') {
                          if (orderItem.inventory_item_id) {
@@ -549,8 +549,8 @@ export class PurchaseOrderModel {
                                    .update({
                                         current_stock: newStock,
                                         status: this.calculateStockStatus(newStock, inventoryItem.min_stock, inventoryItem.max_stock),
-                                        last_updated: new Date().toISOString(),
-                                        updated_at: new Date().toISOString()
+                                        last_updated: new Date(),
+                                        updated_at: new Date()
                                    });
 
                               const transaction = {
@@ -571,15 +571,15 @@ export class PurchaseOrderModel {
                                    reason: 'Purchase order receipt',
                                    reference_id: receipt.id,
                                    performed_by: request.received_by,
-                                   transaction_date: new Date().toISOString(),
+                                   transaction_date: new Date(),
                                    notes: receiptData.purchase_unit
                                         ? `Received ${receiptData.quantity_received} ${receiptData.purchase_unit} (${consumptionQuantity} ${inventoryItem.consumption_unit}) from purchase order ${order.order_number}`
                                         : `Received ${receiptData.quantity_received} units from purchase order ${order.order_number}`,
-                                   created_at: new Date().toISOString()
+                                   created_at: new Date()
                               };
 
                               await trx('inv_inventory_transactions').insert(transaction);
-                              transactions.push(transaction as InventoryTransaction);
+                              transactions.push(transaction as unknown as InventoryTransaction);
                          }
                     }
 
@@ -607,7 +607,7 @@ export class PurchaseOrderModel {
                               quantity_received: updatedQuantityReceived,
                               status: itemStatus,
                               line_total: receivedLineTotal,
-                              updated_at: new Date().toISOString()
+                              updated_at: new Date()
                          });
                }
 
@@ -625,7 +625,7 @@ export class PurchaseOrderModel {
                     .where('id', orderId)
                     .update({
                          total_amount: newTotal,
-                         updated_at: new Date().toISOString()
+                         updated_at: new Date()
                     });
 
                await trx.commit();

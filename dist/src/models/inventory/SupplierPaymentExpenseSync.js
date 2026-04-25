@@ -20,19 +20,16 @@ class SupplierPaymentExpenseSync {
             if (!paymentRecord) {
                 throw new Error("Payment not found");
             }
-            let isAlreadySynced = false;
-            try {
-                const syncedCheck = await trx('inv_supplier_payments')
-                    .where('id', paymentId)
-                    .where('expense_synced', true)
-                    .first();
-                isAlreadySynced = !!syncedCheck;
-            }
-            catch (error) {
-                isAlreadySynced = false;
-            }
+            const isAlreadySynced = !!paymentRecord.expense_synced || !!paymentRecord.expense_id || !!paymentRecord.expense_invoice_id;
             if (isAlreadySynced) {
-                throw new Error("Payment already synced to expense");
+                await trx.rollback();
+                return {
+                    success: true,
+                    message: "Supplier payment already synced to expense",
+                    expense_id: paymentRecord.expense_id || null,
+                    invoice_id: paymentRecord.expense_invoice_id || null,
+                    requiresApproval: false
+                };
             }
             const supplierRecord = await trx('inv_suppliers')
                 .where('id', paymentRecord.supplier_id)
@@ -95,8 +92,8 @@ class SupplierPaymentExpenseSync {
             const invoiceRepo = new ExpenseInvoiceRepo_1.default(employeeid, branchid, tenantId);
             const expense = await invoiceRepo.createExpensesAndInvoice([expenseRecord], {
                 invoice_number: 'INV-' + paymentRecord.payment_id + '-' + Date.now(),
-                invoice_date: new Date(paymentRecord.payment_date).toISOString(),
-                due_date: new Date(paymentRecord.payment_date).toISOString(),
+                invoice_date: new Date(paymentRecord.payment_date),
+                due_date: new Date(paymentRecord.payment_date),
                 merchant_id: merchantid,
                 tax_amount: 0,
                 total_amount: paymentRecord.payment_amount,
@@ -118,7 +115,7 @@ class SupplierPaymentExpenseSync {
                     expense_synced: true,
                     expense_id: expense.expenseIds[0],
                     expense_invoice_id: expense.invoiceId,
-                    updated_at: new Date().toISOString()
+                    updated_at: new Date()
                 });
                 await trx.commit();
             }

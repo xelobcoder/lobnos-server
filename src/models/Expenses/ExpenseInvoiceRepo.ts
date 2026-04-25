@@ -333,7 +333,7 @@ export default class ExpenseInvoiceRepo {
      }
 
      async updateInvoiceStatusIfFullyPaid(invoiceId: number, trx?: any): Promise<void> {
-          const invoiceQuery = 'SELECT total_amount FROM invoices WHERE id = ?';
+          const invoiceQuery = 'SELECT total_amount, status FROM invoices WHERE id = ?';
           const invoice = trx ? await trx.raw(invoiceQuery, [invoiceId]) : await promisifyQuery(this.tenantId, invoiceQuery, [invoiceId]);
           const invoiceData = trx ? invoice[0] : invoice;
 
@@ -347,19 +347,32 @@ export default class ExpenseInvoiceRepo {
           const paymentsQuery = `
                SELECT SUM(amount) as total_paid
                FROM expense_payments
-               WHERE invoice_id = ? AND status = 'Paid'
+               WHERE invoice_id = ? AND status = 'Paid' AND (is_reversed = 0 OR is_reversed IS NULL)
           `;
           const payments = trx ? await trx.raw(paymentsQuery, [invoiceId]) : await promisifyQuery(this.tenantId, paymentsQuery, [invoiceId]);
           const paymentsData = trx ? payments[0] : payments;
           const totalPaid = parseFloat((trx ? paymentsData[0] : paymentsData[0])?.total_paid || 0);
 
+          if (invoiceRecord.status === 'Rejected') {
+               return;
+          }
+
+          let nextStatus: 'Paid' | 'Pending' | null = null;
           if (totalPaid >= invoiceTotal) {
-               const updateQuery = 'UPDATE invoices SET status = ?, updated_on = NOW() WHERE id = ?';
-               if (trx) {
-                    await trx.raw(updateQuery, ['Paid', invoiceId]);
-               } else {
-                    await promisifyQuery(this.tenantId, updateQuery, ['Paid', invoiceId]);
-               }
+               nextStatus = 'Paid';
+          } else if (invoiceRecord.status === 'Paid') {
+               nextStatus = 'Pending';
+          }
+
+          if (!nextStatus || nextStatus === invoiceRecord.status) {
+               return;
+          }
+
+          const updateQuery = 'UPDATE invoices SET status = ?, updated_on = NOW() WHERE id = ?';
+          if (trx) {
+               await trx.raw(updateQuery, [nextStatus, invoiceId]);
+          } else {
+               await promisifyQuery(this.tenantId, updateQuery, [nextStatus, invoiceId]);
           }
      }
 
@@ -683,7 +696,7 @@ export default class ExpenseInvoiceRepo {
                LEFT JOIN expense_merchants ON expensesrecord.merchant = expense_merchants.id
                LEFT JOIN roles ON expense_payments.created_by = roles.employeeid
 
-               WHERE payment_date BETWEEN ? AND ?
+               WHERE payment_date BETWEEN ? AND ? AND (expense_payments.is_reversed = 0 OR expense_payments.is_reversed IS NULL)
           `;
           return promisifyQuery(tenantId, query, [from, to]);
      }
@@ -692,7 +705,7 @@ export default class ExpenseInvoiceRepo {
      async getSumOfPayments(tenantId: number, start: string, end: string): Promise<number> {
           const query = `
                SELECT SUM(amount) as total_payments FROM expense_payments
-               WHERE payment_date BETWEEN ? AND ?
+               WHERE payment_date BETWEEN ? AND ? AND status = 'Paid' AND (is_reversed = 0 OR is_reversed IS NULL)
           `;
           const result = await promisifyQuery(tenantId, query, [start, end]);
           return result[0]?.total_payments || 0;
@@ -732,6 +745,10 @@ export default class ExpenseInvoiceRepo {
                     WHERE id = ?
                `;
                await promisifyQuery(this.tenantId, updatePaymentQuery, [reversalId, paymentId]);
+
+               if (invoice_id) {
+                    await this.updateInvoiceStatusIfFullyPaid(invoice_id);
+               }
                return {
                     success: true,
                     message: `Payment of ${amount} has been successfully reversed`,

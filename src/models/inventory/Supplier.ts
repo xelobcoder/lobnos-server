@@ -30,8 +30,8 @@ export class SupplierModel {
                phone: request.phone || null,
                address: request.address || null,
                is_active: request.is_active !== undefined ? request.is_active : true,
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
+               created_at: new Date() as unknown as string,
+               updated_at: new Date() as any
           };
 
           await connection('inv_suppliers').insert(supplierData);
@@ -112,7 +112,7 @@ export class SupplierModel {
           }
 
           const updateData: any = {
-               updated_at: new Date().toISOString()
+               updated_at: new Date()
           };
 
           if (updates.name !== undefined) updateData.name = updates.name;

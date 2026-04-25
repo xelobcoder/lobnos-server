@@ -224,6 +224,7 @@ export const markPayrollPaidHandler = async (req: Request, res: Response) => {
                message: 'Payroll marked as paid successfully'
           });
      } catch (error) {
+          console.log(error)
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
@@ -232,7 +233,7 @@ export const reversePayrollPeriodHandler = async (req: Request, res: Response) =
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const periodId = parseInt(req.params.id);
-          const employeeid = parseInt(req.body.employeeid as string);
+          const employeeid = parseInt(req.body.reversed_by as string);
           const branchid = parseInt(req.body.branchid as string);
           const reason = req.body.reason as string | undefined;
 
@@ -259,7 +260,7 @@ export const reversePayrollPeriodHandler = async (req: Request, res: Response) =
                result
           });
      } catch (error) {
-          PrimeSqlErrorHandler.handleError(error, res);
+          customError("Error reversing payroll period" + error, 404, res);
      }
 };
 
@@ -292,10 +293,6 @@ export const getPayrollReversalErrorsHandler = async (req: Request, res: Respons
           const payroll_period_id = req.query.payroll_period_id ? parseInt(req.query.payroll_period_id as string) : undefined;
           const page = req.query.page ? parseInt(req.query.page as string) : 1;
           const count = req.query.count ? parseInt(req.query.count as string) : 10;
-
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
 
           const service = new PayrollReversalService(tenantId);
           const result = await service.getPayrollReversalErrors({ payroll_period_id, page, count });
@@ -401,8 +398,6 @@ export const getEmployeePayrollHistoryHandler = async (req: Request<{ employeeid
 
 
           if ((count && isNaN(count)) || (page && isNaN(page))) return customError('Count and Page must be numbers', 400, res);
-
-
           const repo = new PayrollTransactionRepository(tenantId);
           const transactions = await repo.getByEmployeeId(page, count, employeeid);
 

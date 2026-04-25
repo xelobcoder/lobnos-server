@@ -323,7 +323,7 @@ export class InventoryConsumptionController {
 
                     const existingTransaction = await connection('inv_inventory_transactions')
                          .where('item_id', item_id)
-                         .andWhere('ascension_id', ascension_id)
+                         .andWhere('ascensionid', ascension_id)
                          .andWhere('transaction_type', 'consumption')
                          .first();
 
@@ -797,8 +797,8 @@ export class InventoryConsumptionController {
                     test_consumptions: allConsumptionData.filter(c => c.consumption_reason?.toLowerCase().includes('test')).length,
                     wastage_consumptions: allConsumptionData.filter(c => c.consumption_reason?.toLowerCase().includes('wastage')).length,
                     total_quantity_consumed: allConsumptionData.reduce((sum, c) => sum + c.quantity_consumed, 0),
-                    period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                    period_end: endDate as string || new Date().toISOString().split('T')[0]
+                    period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) as any,
+                    period_end: endDate as string || new Date() as any
                };
 
                const consumptions = rawData.map((consumption: any) => ({
@@ -1250,8 +1250,8 @@ export class InventoryConsumptionController {
                               total_quantity_expired: totalExpiredQuantity,
                               unique_batches_affected: uniqueBatches,
                               unique_items_affected: uniqueItems,
-                              period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                              period_end: endDate as string || new Date().toISOString().split('T')[0]
+                              period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) as any,
+                              period_end: endDate as string || new Date() as any
                          }
                     },
                     pagination: {
@@ -1382,8 +1382,8 @@ export class InventoryConsumptionController {
                               total_quantity_wasted: totalNonExpiredQuantity,
                               unique_batches_affected: uniqueBatches,
                               unique_items_affected: uniqueItems,
-                              period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                              period_end: endDate as string || new Date().toISOString().split('T')[0]
+                              period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) as any,
+                              period_end: endDate as string || new Date() as any
                          }
                     },
                     pagination: {

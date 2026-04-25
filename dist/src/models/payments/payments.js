@@ -209,8 +209,8 @@ class Payment {
 					COALESCE(SUM(outstanding), 0) as total_outstanding,
 					COALESCE(SUM(balance), 0) as total_balance,
 					COALESCE(SUM(amountIncurredDueTax), 0) as total_tax_incurred,
-					(SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?  ) as total_expense_payments,
-					COALESCE(SUM(paid) - COALESCE((SELECT SUM(amount) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?), 0), 0) AS net_revenue
+					(SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND COALESCE(is_reversed, 0) = 0) as total_expense_payments,
+					COALESCE(SUM(paid) - COALESCE((SELECT SUM(amount) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND COALESCE(is_reversed, 0) = 0), 0), 0) AS net_revenue
 				FROM billing 
 				WHERE DATE(billedon) BETWEEN ? AND ? AND branchid = ?`, [from, to, from, to, from, to, branchid]);
                 const result = summary[0] || {};

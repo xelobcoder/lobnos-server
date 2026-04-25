@@ -35,10 +35,10 @@ export class BrandModel {
                id: this.generateBrandId(),
                name: request.name,
                inventory_item_id: request.inventory_item_id,
-               created_date: new Date().toISOString(),
+               created_date: new Date(),
                item_count: 0,
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
+               created_at: new Date(),
+               updated_at: new Date()
           };
 
           await connection('inv_brands').insert(brandData);
@@ -47,10 +47,10 @@ export class BrandModel {
                id: brandData.id,
                name: brandData.name,
                inventory_item_id: brandData.inventory_item_id,
-               created_date: brandData.created_date,
-               item_count: brandData.item_count,
-               created_at: brandData.created_at,
-               updated_at: brandData.updated_at
+               created_date: brandData.created_date as any,
+               item_count: brandData.item_count as any,
+               created_at: brandData.created_at as any,
+               updated_at: brandData.updated_at as any
           };
      }
 
@@ -154,7 +154,7 @@ export class BrandModel {
           }
 
           const updateData: any = {
-               updated_at: new Date().toISOString()
+               updated_at: new Date()
           };
 
           if (updates.name !== undefined) updateData.name = updates.name;

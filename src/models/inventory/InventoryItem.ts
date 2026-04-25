@@ -88,9 +88,9 @@ export class InventoryItemModel {
                location_id: request.location_id || null,
                status: status,
                is_active: true,
-               last_updated: new Date().toISOString(),
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
+               last_updated: new Date(),
+               created_at: new Date(),
+               updated_at: new Date()
           };
 
           await connection('inv_inventory_items').insert(itemData);
@@ -287,93 +287,97 @@ export class InventoryItemModel {
      }
 
      async update(id: string, updates: UpdateInventoryItemRequest): Promise<InventoryItem | null> {
-          const connection = await this.connection;
+          try {
+               const connection = await this.connection;
 
-          const currentItem = await this.findById(id);
-          if (!currentItem) {
-               throw new Error('Inventory item not found');
-          }
-
-          // Validate SKU uniqueness if changing
-          if (updates.sku && updates.sku !== currentItem.sku) {
-               const existingSKU = await connection('inv_inventory_items')
-                    .where('sku', updates.sku)
-                    .whereNot('id', id)
-                    .first();
-
-               if (existingSKU) {
-                    throw new Error('Stock Keeping Unit already exists');
+               const currentItem = await this.findById(id);
+               if (!currentItem) {
+                    throw new Error('Inventory item not found');
                }
-          }
 
-          // Validate units if changing
-          if (updates.consumption_unit) {
-               const consumptionUnitExists = await connection('inv_units')
-                    .where('id', updates.consumption_unit)
-                    .first();
+               // Validate SKU uniqueness if changing
+               if (updates.sku && updates.sku !== currentItem.sku) {
+                    const existingSKU = await connection('inv_inventory_items')
+                         .where('sku', updates.sku)
+                         .whereNot('id', id)
+                         .first();
 
-               if (!consumptionUnitExists) {
-                    throw new Error('Invalid consumption unit specified');
+                    if (existingSKU) {
+                         throw new Error('Stock Keeping Unit already exists');
+                    }
                }
-          }
 
-          // Validate stock levels
-          const currentStock = updates.current_stock !== undefined ? updates.current_stock : currentItem.current_stock;
-          const minStock = updates.min_stock !== undefined ? updates.min_stock : currentItem.min_stock;
-          const maxStock = updates.max_stock !== undefined ? updates.max_stock : currentItem.max_stock;
+               // Validate units if changing
+               if (updates.consumption_unit) {
+                    const consumptionUnitExists = await connection('inv_units')
+                         .where('id', updates.consumption_unit)
+                         .first();
 
-          if (currentStock < 0) {
-               throw new Error('Current stock cannot be negative');
-          }
-          if (minStock < 0) {
-               throw new Error('Minimum stock cannot be negative');
-          }
-          if (maxStock > 0 && maxStock < minStock) {
-               throw new Error('Maximum stock must be greater than minimum stock');
-          }
-
-          const updateData: any = {
-               updated_at: new Date().toISOString()
-          };
-
-          // Map camelCase to snake_case
-          if (updates.name !== undefined) updateData.name = updates.name;
-          if (updates.sku !== undefined) updateData.sku = updates.sku;
-          if (updates.description !== undefined) updateData.description = updates.description;
-          if (updates.category_id !== undefined) updateData.category_id = updates.category_id;
-          if (updates.consumption_unit !== undefined) updateData.consumption_unit = updates.consumption_unit;
-          if (updates.current_stock !== undefined) updateData.current_stock = updates.current_stock;
-          if (updates.min_stock !== undefined) updateData.min_stock = updates.min_stock;
-          if (updates.max_stock !== undefined) updateData.max_stock = updates.max_stock;
-          if (updates.location_id !== undefined) updateData.location_id = updates.location_id;
-          if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
-
-          // Recalculate status and total value
-          const newStatus = this.calculateItemStatus(currentStock, minStock);
-          updateData.status = newStatus;
-          updateData.last_updated = new Date().toISOString();
-
-          // Handle category count updates
-          if (updates.category_id !== undefined && updates.category_id !== currentItem.category_id) {
-               // Remove from old category
-               if (currentItem.category_id) {
-                    await connection('inv_categories')
-                         .where('id', currentItem.category_id)
-                         .decrement('item_count', 1);
+                    if (!consumptionUnitExists) {
+                         throw new Error('Invalid consumption unit specified');
+                    }
                }
-               // Add to new category
-               if (updates.category_id) {
-                    await connection('inv_categories')
-                         .where('id', updates.category_id)
-                         .increment('item_count', 1);
+
+               // Validate stock levels
+               const currentStock = updates.current_stock !== undefined ? updates.current_stock : currentItem.current_stock;
+               const minStock = updates.min_stock !== undefined ? updates.min_stock : currentItem.min_stock;
+               const maxStock = updates.max_stock !== undefined ? updates.max_stock : currentItem.max_stock;
+
+               if (currentStock < 0) {
+                    throw new Error('Current stock cannot be negative');
                }
+               if (minStock < 0) {
+                    throw new Error('Minimum stock cannot be negative');
+               }
+               if (maxStock > 0 && maxStock < minStock) {
+                    throw new Error('Maximum stock must be greater than minimum stock');
+               }
+
+               const updateData: any = {
+                    // updated_at: new Date()
+               };
+
+               // Map camelCase to snake_case
+               if (updates.name !== undefined) updateData.name = updates.name;
+               if (updates.sku !== undefined) updateData.sku = updates.sku;
+               if (updates.description !== undefined) updateData.description = updates.description;
+               if (updates.category_id !== undefined) updateData.category_id = updates.category_id;
+               if (updates.consumption_unit !== undefined) updateData.consumption_unit = updates.consumption_unit;
+               if (updates.current_stock !== undefined) updateData.current_stock = updates.current_stock;
+               if (updates.min_stock !== undefined) updateData.min_stock = updates.min_stock;
+               if (updates.max_stock !== undefined) updateData.max_stock = updates.max_stock;
+               if (updates.location_id !== undefined) updateData.location_id = updates.location_id;
+               if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
+
+               // Recalculate status and total value
+               const newStatus = this.calculateItemStatus(currentStock, minStock);
+               updateData.status = newStatus;
+               updateData.last_updated = new Date()
+
+               // Handle category count updates
+               if (updates.category_id !== undefined && updates.category_id !== currentItem.category_id) {
+                    // Remove from old category
+                    if (currentItem.category_id) {
+                         await connection('inv_categories')
+                              .where('id', currentItem.category_id)
+                              .decrement('item_count', 1);
+                    }
+                    // Add to new category
+                    if (updates.category_id) {
+                         await connection('inv_categories')
+                              .where('id', updates.category_id)
+                              .increment('item_count', 1);
+                    }
+               }
+
+               await connection('inv_inventory_items')
+                    .where({ id })
+                    .update(updateData);
+
+               return await this.findById(id);
+          } catch (err: any) {
+               throw err;
           }
-
-          await connection('inv_inventory_items')
-               .where({ id })
-               .update(updateData);
-
-          return await this.findById(id);
      }
 
      async delete(id: string): Promise<boolean> {
@@ -511,7 +515,7 @@ export class InventoryItemModel {
                .first();
 
           return {
-               id: newUnit.id.toString(), 
+               id: newUnit.id.toString(),
                name: newUnit.name,
                description: newUnit.description,
                is_standard: newUnit.is_standard

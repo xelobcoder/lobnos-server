@@ -50,7 +50,7 @@ class SupplierPaymentModel {
             throw new Error('Payment amount must be positive');
         }
         const paymentId = this.generatePaymentId();
-        const paymentDate = request.payment_date || new Date().toISOString().split('T')[0];
+        const paymentDate = request.payment_date || new Date();
         const paymentData = {
             id: `SP-${Date.now()}`,
             payment_id: paymentId,
@@ -67,8 +67,8 @@ class SupplierPaymentModel {
             approved_by: null,
             approved_at: null,
             processed_at: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            created_at: new Date(),
+            updated_at: new Date()
         };
         // Start transaction
         const trx = await connection.transaction();
@@ -97,7 +97,7 @@ class SupplierPaymentModel {
                         order_item_id: allocation.order_item_id || null,
                         allocated_amount: allocation.allocated_amount,
                         allocation_notes: allocation.allocation_notes || null,
-                        created_at: new Date().toISOString()
+                        created_at: new Date()
                     };
                 });
                 await trx('inv_supplier_payment_allocations').insert(allocations);
@@ -263,7 +263,7 @@ class SupplierPaymentModel {
             throw new Error('Cannot update a completed or refunded payment');
         }
         const updateData = {
-            updated_at: new Date().toISOString()
+            updated_at: new Date()
         };
         // Map updates
         if (updates.payment_amount !== undefined) {
@@ -288,7 +288,7 @@ class SupplierPaymentModel {
             updateData.processed_at = updates.processed_at;
         // Set approval timestamp if approving
         if (updates.approved_by && !currentPayment.approved_at) {
-            updateData.approved_at = new Date().toISOString();
+            updateData.approved_at = new Date();
         }
         await connection('inv_supplier_payments')
             .where({ id })
@@ -309,9 +309,9 @@ class SupplierPaymentModel {
             .update({
             payment_status: 'completed',
             approved_by: approvedBy,
-            approved_at: new Date().toISOString(),
-            processed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            approved_at: new Date(),
+            processed_at: new Date(),
+            updated_at: new Date()
         });
         // Get the updated payment
         const updatedPayment = await this.findById(id);
@@ -334,7 +334,7 @@ class SupplierPaymentModel {
             .where({ id })
             .update({
             payment_status: 'cancelled',
-            updated_at: new Date().toISOString()
+            updated_at: new Date()
         });
         return await this.findById(id);
     }
@@ -350,13 +350,13 @@ class SupplierPaymentModel {
         const updateData = {
             payment_status: 'reject',
             approved_by: rejectedBy,
-            processed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            processed_at: new Date(),
+            updated_at: new Date()
         };
         // Add rejection reason to payment notes if provided
         if (rejectionReason) {
             const currentNotes = currentPayment.payment_notes || '';
-            const rejectionNote = `[REJECTED by user ${rejectedBy} on ${new Date().toISOString().split('T')[0]}]: ${rejectionReason}`;
+            const rejectionNote = `[REJECTED by user ${rejectedBy} on ${new Date()}]: ${rejectionReason}`;
             updateData.payment_notes = currentNotes ? `${currentNotes}\n\n${rejectionNote}` : rejectionNote;
         }
         await connection('inv_supplier_payments')
@@ -423,7 +423,7 @@ class SupplierPaymentModel {
             order_item_id: allocation.order_item_id || null,
             allocated_amount: allocation.allocated_amount,
             allocation_notes: allocation.allocation_notes || null,
-            created_at: new Date().toISOString()
+            created_at: new Date()
         };
         await connection('inv_supplier_payment_allocations').insert(allocationData);
         // Update total allocated amount
@@ -516,8 +516,8 @@ class SupplierPaymentModel {
             completed_payments: parseInt(result.completed_payments) || 0,
             failed_payments: parseInt(result.failed_payments) || 0,
             payment_methods_breakdown,
-            period_start: result.period_start || new Date().toISOString().split('T')[0],
-            period_end: result.period_end || new Date().toISOString().split('T')[0]
+            period_start: result.period_start || new Date(),
+            period_end: result.period_end || new Date()
         };
     }
     async updateTotalAllocated(paymentId, trx) {
@@ -553,9 +553,9 @@ class SupplierPaymentModel {
                 source_module: 'inventory',
                 entry_status: 'posted',
                 posted_by: payment.approved_by,
-                posted_at: new Date().toISOString(),
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                posted_at: new Date(),
+                created_at: new Date(),
+                updated_at: new Date()
             });
             // Create journal entry line for cash/bank reduction
             await trx('acc_journal_entry_lines').insert({
@@ -570,9 +570,9 @@ class SupplierPaymentModel {
                 source_module: 'inventory',
                 entry_status: 'posted',
                 posted_by: payment.approved_by,
-                posted_at: new Date().toISOString(),
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                posted_at: new Date(),
+                created_at: new Date(),
+                updated_at: new Date()
             });
             await trx.commit();
         }

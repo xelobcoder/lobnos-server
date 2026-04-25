@@ -1,7 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SupplierPaymentController = void 0;
 const inventory_1 = require("../../models/inventory");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const SupplierPaymentExpenseSync_1 = require("../../models/inventory/SupplierPaymentExpenseSync");
 class SupplierPaymentController {
     getTenantId(req) {
         const tenantId = parseInt(req.query.tenantId);
@@ -391,7 +396,7 @@ class SupplierPaymentController {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
             const { id } = req.params;
-            const { approved_by } = req.body;
+            const { approved_by, branchid: bodyBranchId } = req.body;
             if (!approved_by || typeof approved_by !== "number" || isNaN(approved_by)) {
                 const response = {
                     success: false,
@@ -411,10 +416,41 @@ class SupplierPaymentController {
                 res.status(404).json(response);
                 return;
             }
+            let branchid = bodyBranchId;
+            if (!branchid || typeof branchid !== "number" || isNaN(branchid)) {
+                const connection = await (0, KnexConnections_1.default)(tenantId);
+                const actor = await connection('roles')
+                    .select('branch')
+                    .where({ employeeid: approved_by })
+                    .first();
+                branchid = actor === null || actor === void 0 ? void 0 : actor.branch;
+                if (!branchid) {
+                    const fallbackBranch = await connection('branch')
+                        .select('branchid')
+                        .first();
+                    branchid = fallbackBranch === null || fallbackBranch === void 0 ? void 0 : fallbackBranch.branchid;
+                }
+            }
+            let expenseSync = null;
+            try {
+                if (branchid) {
+                    expenseSync = await SupplierPaymentExpenseSync_1.SupplierPaymentExpenseSync.markSupplierPaymentAsExpense(tenantId, {
+                        paymentId: id,
+                        employeeid: approved_by,
+                        branchid
+                    });
+                }
+                else {
+                    expenseSync = { success: false, message: 'Branch ID not available for expense sync' };
+                }
+            }
+            catch (syncErr) {
+                expenseSync = { success: false, message: (syncErr === null || syncErr === void 0 ? void 0 : syncErr.message) || 'Expense sync failed' };
+            }
             const response = {
                 success: true,
                 message: 'Supplier payment approved successfully',
-                data: payment
+                data: { payment, expenseSync }
             };
             res.json(response);
         }

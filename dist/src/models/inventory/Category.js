@@ -27,8 +27,8 @@ class CategoryModel {
             name: request.name,
             description: request.description || null,
             item_count: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            created_at: new Date(),
+            updated_at: new Date()
         };
         await connection('inv_categories').insert(categoryData);
         return {

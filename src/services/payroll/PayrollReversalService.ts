@@ -1,4 +1,6 @@
+import { response } from 'express';
 import KnexConnection from '../../database/KnexConnections';
+import { customError } from '../../hooks/helper';
 import logger from '../../hooks/logger';
 import Expenses from '../../models/Expenses/ExpenseService';
 import { ensurePayrollReversalTables } from './payrollReversalTablesInit';
@@ -269,6 +271,7 @@ export class PayrollReversalService {
                          metadata: JSON.stringify({ payroll_period_id }),
                          created_at: connection.fn.now()
                     });
+
                } catch (logErr) {
                     logger.error('Failed to persist payroll reversal failure:', logErr);
                }

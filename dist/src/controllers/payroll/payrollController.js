@@ -205,6 +205,7 @@ const markPayrollPaidHandler = async (req, res) => {
         });
     }
     catch (error) {
+        console.log(error);
         utility_1.PrimeSqlErrorHandler.handleError(error, res);
     }
 };
@@ -213,7 +214,7 @@ const reversePayrollPeriodHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
         const periodId = parseInt(req.params.id);
-        const employeeid = parseInt(req.body.employeeid);
+        const employeeid = parseInt(req.body.reversed_by);
         const branchid = parseInt(req.body.branchid);
         const reason = req.body.reason;
         if (!periodId) {
@@ -237,7 +238,7 @@ const reversePayrollPeriodHandler = async (req, res) => {
         });
     }
     catch (error) {
-        utility_1.PrimeSqlErrorHandler.handleError(error, res);
+        (0, helper_1.customError)("Error reversing payroll period" + error, 404, res);
     }
 };
 exports.reversePayrollPeriodHandler = reversePayrollPeriodHandler;
@@ -269,9 +270,6 @@ const getPayrollReversalErrorsHandler = async (req, res) => {
         const payroll_period_id = req.query.payroll_period_id ? parseInt(req.query.payroll_period_id) : undefined;
         const page = req.query.page ? parseInt(req.query.page) : 1;
         const count = req.query.count ? parseInt(req.query.count) : 10;
-        if (!tenantId) {
-            return (0, helper_1.customError)('Tenant ID is required', 400, res);
-        }
         const service = new PayrollReversalService_1.PayrollReversalService(tenantId);
         const result = await service.getPayrollReversalErrors({ payroll_period_id, page, count });
         res.json({

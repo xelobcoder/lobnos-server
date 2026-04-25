@@ -23,8 +23,8 @@ class SupplierModel {
             phone: request.phone || null,
             address: request.address || null,
             is_active: request.is_active !== undefined ? request.is_active : true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            created_at: new Date(),
+            updated_at: new Date()
         };
         await connection('inv_suppliers').insert(supplierData);
         return supplierData;
@@ -91,7 +91,7 @@ class SupplierModel {
             throw new Error('Supplier not found');
         }
         const updateData = {
-            updated_at: new Date().toISOString()
+            updated_at: new Date()
         };
         if (updates.name !== undefined)
             updateData.name = updates.name;

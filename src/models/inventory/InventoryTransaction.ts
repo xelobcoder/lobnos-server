@@ -95,10 +95,10 @@ export class InventoryTransactionModel {
                patientid: request.patientid || null,
                ascensionid: request.ascensionid || null,
                performed_by: request.performed_by || null,
-               transaction_date: new Date().toISOString(),
+               transaction_date: new Date() as any,
                notes: request.notes || null,
                wastage_type: request.wastage_type || null,
-               created_at: new Date().toISOString()
+               created_at: new Date() as any
           };
 
           const trx = await connection.transaction();
@@ -110,8 +110,8 @@ export class InventoryTransactionModel {
                     .where('id', request.item_id)
                     .update({
                          current_stock: newStock,
-                         last_updated: new Date().toISOString(),
-                         updated_at: new Date().toISOString()
+                         last_updated: new Date() as any,
+                         updated_at: new Date() as any
                     });
 
                await trx.commit();
@@ -181,10 +181,10 @@ export class InventoryTransactionModel {
                          patientid: request.patientid || null,
                          ascensionid: request.ascensionid || null,
                          performed_by: request.performed_by || null,
-                         transaction_date: new Date().toISOString(),
+                         transaction_date: new Date() as any,
                          notes: request.notes || null,
                          wastage_type: request.wastage_type || null,
-                         created_at: new Date().toISOString()
+                         created_at: new Date() as any
                     };
 
                     await trx('inv_inventory_transactions').insert(transactionData);
@@ -193,8 +193,8 @@ export class InventoryTransactionModel {
                          .where('id', request.item_id)
                          .update({
                               current_stock: newStock,
-                              last_updated: new Date().toISOString(),
-                              updated_at: new Date().toISOString()
+                              last_updated: new Date() as any,
+                              updated_at: new Date() as any
                          });
 
                     createdTransactions.push(await this.findById(transactionData.id) as InventoryTransaction);

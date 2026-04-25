@@ -248,7 +248,7 @@ export default class BillingStrategy {
                               valid_from: data.valid_from,
                               valid_until: data.valid_until,
                               is_expired: data.is_expired,
-                              createdon: data.createdon,
+                              createdon: new Date(data.createdon),
                               updatedon: data.updatedon,
                               isNHIS: data.isNHIS
                          });

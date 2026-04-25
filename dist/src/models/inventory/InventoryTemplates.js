@@ -25,8 +25,8 @@ class InventoryTemplateModel {
                 createby: createdBy,
                 description: request.description || null,
                 testId: request.testId,
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                created_at: new Date(),
+                updated_at: new Date()
             };
             const [templateId] = await trx('inv_inventory_templates').insert(templateData);
             // Create template items
@@ -35,7 +35,7 @@ class InventoryTemplateModel {
                     template_id: templateId,
                     itemId: item.itemId,
                     quantity: item.quantity,
-                    created_at: new Date().toISOString()
+                    created_at: new Date()
                 }));
                 await trx('inv_inventory_template_items').insert(itemData);
             }
@@ -258,7 +258,7 @@ class InventoryTemplateModel {
                 }
             }
             const updateData = {
-                updated_at: new Date().toISOString()
+                updated_at: new Date()
             };
             if (updates.name !== undefined)
                 updateData.name = updates.name;
@@ -281,7 +281,7 @@ class InventoryTemplateModel {
                         template_id: id,
                         itemId: item.itemId,
                         quantity: item.quantity,
-                        created_at: new Date().toISOString()
+                        created_at: new Date()
                     }));
                     await trx('inv_inventory_template_items').insert(itemData);
                 }
@@ -368,7 +368,7 @@ class InventoryTemplateModel {
                 template_id: templateId,
                 itemId: item.itemId,
                 quantity: item.quantity,
-                created_at: new Date().toISOString()
+                created_at: new Date()
             };
             const [itemId] = await trx('inv_inventory_template_items').insert(itemData);
             // Get the created item with joined data

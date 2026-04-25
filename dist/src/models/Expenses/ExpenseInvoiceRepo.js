@@ -246,7 +246,7 @@ class ExpenseInvoiceRepo {
     }
     async updateInvoiceStatusIfFullyPaid(invoiceId, trx) {
         var _a;
-        const invoiceQuery = 'SELECT total_amount FROM invoices WHERE id = ?';
+        const invoiceQuery = 'SELECT total_amount, status FROM invoices WHERE id = ?';
         const invoice = trx ? await trx.raw(invoiceQuery, [invoiceId]) : await (0, helper_1.promisifyQuery)(this.tenantId, invoiceQuery, [invoiceId]);
         const invoiceData = trx ? invoice[0] : invoice;
         if (!invoiceData || invoiceData.length === 0) {
@@ -257,19 +257,30 @@ class ExpenseInvoiceRepo {
         const paymentsQuery = `
                SELECT SUM(amount) as total_paid
                FROM expense_payments
-               WHERE invoice_id = ? AND status = 'Paid'
+               WHERE invoice_id = ? AND status = 'Paid' AND (is_reversed = 0 OR is_reversed IS NULL)
           `;
         const payments = trx ? await trx.raw(paymentsQuery, [invoiceId]) : await (0, helper_1.promisifyQuery)(this.tenantId, paymentsQuery, [invoiceId]);
         const paymentsData = trx ? payments[0] : payments;
         const totalPaid = parseFloat(((_a = (trx ? paymentsData[0] : paymentsData[0])) === null || _a === void 0 ? void 0 : _a.total_paid) || 0);
+        if (invoiceRecord.status === 'Rejected') {
+            return;
+        }
+        let nextStatus = null;
         if (totalPaid >= invoiceTotal) {
-            const updateQuery = 'UPDATE invoices SET status = ?, updated_on = NOW() WHERE id = ?';
-            if (trx) {
-                await trx.raw(updateQuery, ['Paid', invoiceId]);
-            }
-            else {
-                await (0, helper_1.promisifyQuery)(this.tenantId, updateQuery, ['Paid', invoiceId]);
-            }
+            nextStatus = 'Paid';
+        }
+        else if (invoiceRecord.status === 'Paid') {
+            nextStatus = 'Pending';
+        }
+        if (!nextStatus || nextStatus === invoiceRecord.status) {
+            return;
+        }
+        const updateQuery = 'UPDATE invoices SET status = ?, updated_on = NOW() WHERE id = ?';
+        if (trx) {
+            await trx.raw(updateQuery, [nextStatus, invoiceId]);
+        }
+        else {
+            await (0, helper_1.promisifyQuery)(this.tenantId, updateQuery, [nextStatus, invoiceId]);
         }
     }
     async addPayment(paymentData, trx) {
@@ -523,7 +534,7 @@ class ExpenseInvoiceRepo {
                LEFT JOIN expense_merchants ON expensesrecord.merchant = expense_merchants.id
                LEFT JOIN roles ON expense_payments.created_by = roles.employeeid
 
-               WHERE payment_date BETWEEN ? AND ?
+               WHERE payment_date BETWEEN ? AND ? AND (expense_payments.is_reversed = 0 OR expense_payments.is_reversed IS NULL)
           `;
         return (0, helper_1.promisifyQuery)(tenantId, query, [from, to]);
     }
@@ -531,7 +542,7 @@ class ExpenseInvoiceRepo {
         var _a;
         const query = `
                SELECT SUM(amount) as total_payments FROM expense_payments
-               WHERE payment_date BETWEEN ? AND ?
+               WHERE payment_date BETWEEN ? AND ? AND status = 'Paid' AND (is_reversed = 0 OR is_reversed IS NULL)
           `;
         const result = await (0, helper_1.promisifyQuery)(tenantId, query, [start, end]);
         return ((_a = result[0]) === null || _a === void 0 ? void 0 : _a.total_payments) || 0;
@@ -561,6 +572,9 @@ class ExpenseInvoiceRepo {
                     WHERE id = ?
                `;
             await (0, helper_1.promisifyQuery)(this.tenantId, updatePaymentQuery, [reversalId, paymentId]);
+            if (invoice_id) {
+                await this.updateInvoiceStatusIfFullyPaid(invoice_id);
+            }
             return {
                 success: true,
                 message: `Payment of ${amount} has been successfully reversed`,

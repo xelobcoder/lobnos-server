@@ -41,8 +41,8 @@ export class StorageLocationModel {
                temperature_range: request.temperature_range || null,
                hazardous_materials: request.hazardous_materials || false,
                is_active: request.is_active !== undefined ? request.is_active : true,
-               created_at: new Date().toISOString(),
-               updated_at: new Date().toISOString()
+               created_at: new Date() as any  ,
+               updated_at: new Date()  as any
           };
 
           await connection('inv_storage_locations').insert(locationData);
@@ -134,7 +134,7 @@ export class StorageLocationModel {
           }
 
           const updateData: any = {
-               updated_at: new Date().toISOString()
+               updated_at: new Date()
           };
 
           if (updates.name !== undefined) updateData.name = updates.name;

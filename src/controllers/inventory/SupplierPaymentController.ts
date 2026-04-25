@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { SupplierPaymentModel } from '../../models/inventory';
+import KnexConnection from '../../database/KnexConnections';
+import { SupplierPaymentExpenseSync } from '../../models/inventory/SupplierPaymentExpenseSync';
 import {
      CreateSupplierPaymentRequest,
      UpdateSupplierPaymentRequest,
@@ -457,7 +459,7 @@ export class SupplierPaymentController {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
                const { id } = req.params;
-               const { approved_by } = req.body;
+               const { approved_by, branchid: bodyBranchId } = req.body;
 
                if (!approved_by || typeof approved_by !== "number" || isNaN(approved_by)) {
                     const response: ApiResponse<null> = {
@@ -481,10 +483,42 @@ export class SupplierPaymentController {
                     return;
                }
 
+               let branchid = bodyBranchId;
+               if (!branchid || typeof branchid !== "number" || isNaN(branchid)) {
+                    const connection = await KnexConnection(tenantId);
+                    const actor = await connection('roles')
+                         .select('branch')
+                         .where({ employeeid: approved_by })
+                         .first();
+                    branchid = actor?.branch;
+
+                    if (!branchid) {
+                         const fallbackBranch = await connection('branch')
+                              .select('branchid')
+                              .first();
+                         branchid = fallbackBranch?.branchid;
+                    }
+               }
+
+               let expenseSync: any = null;
+               try {
+                    if (branchid) {
+                         expenseSync = await SupplierPaymentExpenseSync.markSupplierPaymentAsExpense(tenantId, {
+                              paymentId: id,
+                              employeeid: approved_by,
+                              branchid
+                         });
+                    } else {
+                         expenseSync = { success: false, message: 'Branch ID not available for expense sync' };
+                    }
+               } catch (syncErr: any) {
+                    expenseSync = { success: false, message: syncErr?.message || 'Expense sync failed' };
+               }
+
                const response: ApiResponse<any> = {
                     success: true,
                     message: 'Supplier payment approved successfully',
-                    data: payment
+                    data: { payment, expenseSync }
                };
 
                res.json(response);

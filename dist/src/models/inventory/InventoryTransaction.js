@@ -74,10 +74,10 @@ class InventoryTransactionModel {
             patientid: request.patientid || null,
             ascensionid: request.ascensionid || null,
             performed_by: request.performed_by || null,
-            transaction_date: new Date().toISOString(),
+            transaction_date: new Date(),
             notes: request.notes || null,
             wastage_type: request.wastage_type || null,
-            created_at: new Date().toISOString()
+            created_at: new Date()
         };
         const trx = await connection.transaction();
         try {
@@ -86,8 +86,8 @@ class InventoryTransactionModel {
                 .where('id', request.item_id)
                 .update({
                 current_stock: newStock,
-                last_updated: new Date().toISOString(),
-                updated_at: new Date().toISOString()
+                last_updated: new Date(),
+                updated_at: new Date()
             });
             await trx.commit();
             return await this.findById(transactionData.id);
@@ -148,18 +148,18 @@ class InventoryTransactionModel {
                     patientid: request.patientid || null,
                     ascensionid: request.ascensionid || null,
                     performed_by: request.performed_by || null,
-                    transaction_date: new Date().toISOString(),
+                    transaction_date: new Date(),
                     notes: request.notes || null,
                     wastage_type: request.wastage_type || null,
-                    created_at: new Date().toISOString()
+                    created_at: new Date()
                 };
                 await trx('inv_inventory_transactions').insert(transactionData);
                 await trx('inv_inventory_items')
                     .where('id', request.item_id)
                     .update({
                     current_stock: newStock,
-                    last_updated: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
+                    last_updated: new Date(),
+                    updated_at: new Date()
                 });
                 createdTransactions.push(await this.findById(transactionData.id));
             }
