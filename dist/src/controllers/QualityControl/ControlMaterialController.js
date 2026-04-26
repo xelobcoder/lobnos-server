@@ -30,7 +30,7 @@ class ControlMaterialController {
                 return res.status(400).json({ error: 'Device ID is required' });
             }
             const result = await repository.create(Object.assign(Object.assign({}, materialData), { deviceId }));
-            const status = typeof result === 'number' && result >= 0;
+            const status = typeof result === 'number' && result >= -1;
             res.status(201).json({ status });
         }
         catch (error) {

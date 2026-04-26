@@ -749,6 +749,38 @@ export default class ExpenseInvoiceRepo {
                if (invoice_id) {
                     await this.updateInvoiceStatusIfFullyPaid(invoice_id);
                }
+
+               const supplierPayment = await promisifyQuery(
+                    this.tenantId,
+                    `
+                         SELECT id, payment_status
+                         FROM inv_supplier_payments
+                         WHERE expense_id = ?
+                              OR (? IS NOT NULL AND expense_invoice_id = ?)
+                         ORDER BY updated_at DESC
+                         LIMIT 1
+                    `,
+                    [expense_id, invoice_id, invoice_id]
+               );
+
+               if (supplierPayment && supplierPayment.length > 0) {
+                    const sp = supplierPayment[0];
+                    if (sp.payment_status !== 'refunded') {
+                         const note = `\n\n[EXPENSE PAYMENT REVERSED] payment_id=${paymentId}, reversal_id=${reversalId}${reversalReason ? `, reason=${reversalReason}` : ''}`;
+                         await promisifyQuery(
+                              this.tenantId,
+                              `
+                                   UPDATE inv_supplier_payments
+                                   SET payment_status = 'refunded',
+                                        payment_notes = CONCAT(COALESCE(payment_notes, ''), ?),
+                                        updated_at = NOW()
+                                   WHERE id = ?
+                              `,
+                              [note, sp.id]
+                         );
+                    }
+               }
+
                return {
                     success: true,
                     message: `Payment of ${amount} has been successfully reversed`,

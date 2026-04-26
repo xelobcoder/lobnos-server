@@ -13,6 +13,8 @@ const billingclientTypes_1 = require("./billingclientTypes");
 const queries_1 = require("./queries");
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
 const ascension_1 = require("../operations/ascension");
+const FinanceLedgerService_1 = require("../../services/finance/FinanceLedgerService");
+const financeLedgerInit_1 = require("../../services/finance/financeLedgerInit");
 class BillingSharedRepo {
     static calculateTotalDiscount(data) {
         return parseFloat(TiifuWorkingClass_1.TiifuWorkingClass.reduceListInOF(data, 'discount') || 0);
@@ -191,10 +193,36 @@ class BillingSharedRepo {
             throw new Error("Failed to generate billing ID");
         }
     }
-    static async insertBillHistory(trx, billingID, paymentMode, paid, employeeID, billingType) {
+    static async insertBillHistory(tenantId, trx, billingID, paymentMode, paid, employeeID, billingType) {
+        var _a;
         try {
+            await (0, financeLedgerInit_1.ensureFinanceLedgerTables)(tenantId);
             const insertion = await trx.raw("INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)", [billingID, paymentMode, paid, employeeID, billingType]);
-            return (0, helper_1.rowAffected)(insertion);
+            const inserted = (0, helper_1.rowAffected)(insertion);
+            if (inserted) {
+                const historyId = ((_a = insertion === null || insertion === void 0 ? void 0 : insertion[0]) === null || _a === void 0 ? void 0 : _a.insertId) || (insertion === null || insertion === void 0 ? void 0 : insertion.insertId);
+                const billingRow = await trx('billing')
+                    .select('branchid', 'billedon')
+                    .where({ billingid: billingID })
+                    .first();
+                if (historyId) {
+                    await FinanceLedgerService_1.FinanceLedgerService.recordEntry({
+                        tenantId,
+                        trx,
+                        occurredAt: (billingRow === null || billingRow === void 0 ? void 0 : billingRow.billedon) || new Date(),
+                        direction: billingType,
+                        amount: Number(paid || 0),
+                        accountRef: FinanceLedgerService_1.FinanceLedgerService.mapPaymentModeToAccountRef(paymentMode),
+                        sourceModule: 'billing',
+                        sourceTable: 'billinghx',
+                        sourcePk: Number(historyId),
+                        billingid: billingID,
+                        employeeid: employeeID ? Number(employeeID) : null,
+                        branchid: (billingRow === null || billingRow === void 0 ? void 0 : billingRow.branchid) ? Number(billingRow.branchid) : null,
+                    });
+                }
+            }
+            return inserted;
         }
         catch (error) {
             console.error("Error inserting billing history:", error);

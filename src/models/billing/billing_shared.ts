@@ -9,6 +9,8 @@ import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeR
 import { TestAscension } from "../operations/ascension";
 import { query } from "winston";
 import OutsourcedCases from "../organization/outsourcingOrganization/outsourcedCases";
+import { FinanceLedgerService } from "../../services/finance/FinanceLedgerService";
+import { ensureFinanceLedgerTables } from "../../services/finance/financeLedgerInit";
 
 export class BillingSharedRepo {
      private static calculateTotalDiscount(data: any[]) {
@@ -212,13 +214,41 @@ export class BillingSharedRepo {
 
      }
 
-     static async insertBillHistory(trx: any, billingID: number, paymentMode: any, paid: any, employeeID: any, billingType: any): Promise<boolean> {
+     static async insertBillHistory(tenantId: number, trx: any, billingID: number, paymentMode: any, paid: any, employeeID: any, billingType: any): Promise<boolean> {
           try {
+               await ensureFinanceLedgerTables(tenantId);
                const insertion = await trx.raw(
                     "INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)",
                     [billingID, paymentMode, paid, employeeID, billingType]
                );
-               return rowAffected(insertion)
+               const inserted = rowAffected(insertion);
+
+               if (inserted) {
+                    const historyId = insertion?.[0]?.insertId || insertion?.insertId;
+                    const billingRow = await trx('billing')
+                         .select('branchid', 'billedon')
+                         .where({ billingid: billingID })
+                         .first();
+
+                    if (historyId) {
+                         await FinanceLedgerService.recordEntry({
+                              tenantId,
+                              trx,
+                              occurredAt: billingRow?.billedon || new Date(),
+                              direction: billingType,
+                              amount: Number(paid || 0),
+                              accountRef: FinanceLedgerService.mapPaymentModeToAccountRef(paymentMode),
+                              sourceModule: 'billing',
+                              sourceTable: 'billinghx',
+                              sourcePk: Number(historyId),
+                              billingid: billingID,
+                              employeeid: employeeID ? Number(employeeID) : null,
+                              branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
+                         });
+                    }
+               }
+
+               return inserted;
           } catch (error) {
                console.error("Error inserting billing history:", error);
                return false;

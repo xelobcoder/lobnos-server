@@ -1,4 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
+import { v4 as uuidv4 } from 'uuid';
 
 
 interface ControlMaterial {
@@ -45,9 +46,10 @@ export class ControlMaterialRepository {
     async create(materialData: ControlMaterial): Promise<number> {
         try {
             const conn = await this.connection;
-            const [id] = await conn('control_materials')
-                .insert(materialData)
-            return id;
+            const id = uuidv4();
+            const returned_value = await conn('control_materials')
+                .insert({...materialData ,id, openedDate: new Date(materialData.openedDate)})
+            return returned_value[0]
         } catch (error) {
             console.error('Control material creation error:', error);
             throw error;

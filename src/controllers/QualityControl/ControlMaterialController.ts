@@ -21,7 +21,7 @@ export class ControlMaterialController {
             }
             
             const result = await repository.create({ ...materialData, deviceId });
-            const status = typeof result === 'number' && result >= 0;
+            const status = typeof result === 'number' && result >= -1;
             res.status(201).json({ status });
         } catch (error) {
             res.status(500).json({ error: 'Failed to create control material' });

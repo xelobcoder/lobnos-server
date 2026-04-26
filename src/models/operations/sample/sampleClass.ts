@@ -18,7 +18,7 @@ export class SampleHandler extends TestAscension {
 
 	private static async updateSampleStatusForAscension(tenantId: number, record: updateSampleStatusCollection): Promise<boolean> {
 		const { rejectionmessage, approvalstatus, ascensionId, validatedby, validatedon } = record;
-		const row = await promisifyQuery(tenantId, q_update_sample_status_validation, [approvalstatus, rejectionmessage, validatedon, validatedby, ascensionId])
+		const row = await promisifyQuery(tenantId, q_update_sample_status_validation, [approvalstatus, rejectionmessage, new Date(validatedon), validatedby, ascensionId])
 		return rowAffected(row);
 	}
 	public static async updateTestSampleApprovalStatusBulk(tenantId: number, collection: updateSampleStatusCollection[]): Promise<boolean | null> {

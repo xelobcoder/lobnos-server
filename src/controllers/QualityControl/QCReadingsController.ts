@@ -18,7 +18,7 @@ export class QCReadingsController {
             const sessionData = req.body;
             
             const status = await repository.create(sessionData);
-            res.status(201).json({ status });
+            res.status(201).json({ status: typeof status == "number" && status > -1 ? true: false });
         } catch (error) {
             console.error('Failed to create QC session:', error);
             res.status(500).json({ error: 'Failed to create QC session' });
@@ -197,6 +197,8 @@ export class QCReadingsController {
             const repository = new QCReadingsRepository(tenantId);
             const { sessionId } = req.params;
             const { controlId } = req.params;
+
+            console.log({controlId,sessionId})
             
             if (!sessionId || !controlId) {
                 return res.status(400).json({ error: 'Both sessionId and controlId are required' });

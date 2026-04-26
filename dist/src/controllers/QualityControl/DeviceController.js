@@ -16,7 +16,7 @@ class DeviceController {
             const repository = new DeviceRepository_1.DeviceRepository(tenantId);
             const deviceData = req.body;
             const result = await repository.create(deviceData);
-            const status = typeof result === 'number' && result >= 0;
+            const status = typeof result === 'number' && result >= -1;
             res.status(201).json({ status });
         }
         catch (error) {

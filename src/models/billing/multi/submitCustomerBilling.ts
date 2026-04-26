@@ -202,6 +202,7 @@ export class SubmitCustomerBilling {
                         }
 
                         await BillingSharedRepo.insertBillHistory(
+                            this.tenantId,
                             trx,
                             billingID,
                             paymentMode,

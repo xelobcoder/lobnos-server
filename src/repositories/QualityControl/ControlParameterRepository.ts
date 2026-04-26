@@ -1,6 +1,6 @@
 import KnexConnection from "../../database/KnexConnections";
 import { IControlParameter, IControlParameterUpdate, IControlParameterWithMaterial } from "../../schemas/ControlParameterSchema";
-
+import { v4 as uuidv4 } from 'uuid';
 interface PaginatedResponse<T> {
     data: T[];
     total: number;
@@ -20,7 +20,6 @@ export class ControlParameterRepository {
     async create(parameterData: IControlParameter[]): Promise<number[]> {
         try {
             const conn = await this.connection;
-            
             // Delete existing parameters for this control material that aren't in the new set
             if (parameterData.length > 0) {
                 const controlMaterialId = parameterData[0].controlMaterialId;
@@ -36,20 +35,24 @@ export class ControlParameterRepository {
                 parameterData.map(async param => {
                     const { id, ...paramWithoutId } = param;
                     const existing = await conn('control_parameters')
-                        .where({ 
+                        .where({
                             controlMaterialId: param.controlMaterialId,
-                            parameter: param.parameter 
+                            parameter: param.parameter
                         })
                         .first();
 
                     if (existing) {
                         await conn('control_parameters')
                             .where({ id: existing.id })
-                            .update(paramWithoutId);
+                            .update({
+                                ...paramWithoutId, createdAt: new Date(paramWithoutId.createdAt),
+                                updatedAt: new Date(paramWithoutId.updatedAt)
+                            });
                         return existing.id;
                     } else {
+                        const generatedId = uuidv4()
                         const [newId] = await conn('control_parameters')
-                            .insert(paramWithoutId)
+                            .insert({ ...paramWithoutId, id: generatedId, updatedby: paramWithoutId.createdby })
                             .returning('id');
                         return newId;
                     }
@@ -62,14 +65,21 @@ export class ControlParameterRepository {
         }
     }
 
-    async update(controlId: string, updates: IControlParameterUpdate[]): Promise<boolean> {
+    async update(controlId: string, updates: IControlParameter[]): Promise<boolean> {
         try {
             const conn = await this.connection;
             const results = await Promise.all(
-                updates.map(update => 
+                updates.map(update =>
                     conn('control_parameters')
-                        .where({ controlMaterialId: controlId, parameter: update.parameter })
-                        .update(update)
+                        .where({
+                            controlMaterialId: controlId,
+                            parameter: update.parameter
+
+                        })
+                        .update({
+                            ...update, createdAt: new Date(update.createdAt),
+                            updatedAt: new Date(update.updatedAt)
+                        })
                 )
             );
             return results.some(result => result > 0);
@@ -110,7 +120,7 @@ export class ControlParameterRepository {
         try {
             const conn = await this.connection;
             const offset = (page - 1) * limit;
-            
+
             const [total] = await conn('control_parameters')
                 .count('id as count');
 

@@ -146,7 +146,7 @@ class SubmitCustomerBilling {
                         if (!paymentMode || !employeeId) {
                             throw new Error("Missing mode or employeeid in payment record.");
                         }
-                        await billing_shared_1.BillingSharedRepo.insertBillHistory(trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
+                        await billing_shared_1.BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
                 await trx.commit();

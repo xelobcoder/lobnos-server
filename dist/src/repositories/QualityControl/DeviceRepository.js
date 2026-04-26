@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeviceRepository = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const uuid_1 = require("uuid");
 class DeviceRepository {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -13,8 +14,9 @@ class DeviceRepository {
     async create(deviceData) {
         try {
             const conn = await this.connection;
+            const id = (0, uuid_1.v4)();
             const result = await conn('devices')
-                .insert(deviceData);
+                .insert(Object.assign(Object.assign({}, deviceData), { id, updatedby: deviceData.createdby }));
             return result[0];
         }
         catch (error) {

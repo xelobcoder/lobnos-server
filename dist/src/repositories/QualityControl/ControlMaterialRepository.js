@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ControlMaterialRepository = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const uuid_1 = require("uuid");
 class ControlMaterialRepository {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -13,9 +14,10 @@ class ControlMaterialRepository {
     async create(materialData) {
         try {
             const conn = await this.connection;
-            const [id] = await conn('control_materials')
-                .insert(materialData);
-            return id;
+            const id = (0, uuid_1.v4)();
+            const returned_value = await conn('control_materials')
+                .insert(Object.assign(Object.assign({}, materialData), { id, openedDate: new Date(materialData.openedDate) }));
+            return returned_value[0];
         }
         catch (error) {
             console.error('Control material creation error:', error);

@@ -119,6 +119,7 @@ export class BillingUpdateRepo {
 
             // Insert billing history
             await BillingSharedRepo.insertBillHistory(
+                this.tenantId,
                 trx,
                 billingID,
                 billingData.paymentmode,

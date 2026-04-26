@@ -87,7 +87,7 @@ class MultiBillingRepo {
                     const promoRepo = new PrimeBillingPromoCodeRepo_1.PrimeBillingPromoCodeRepo(this.tenantId);
                     await promoRepo.incrementUsage(billingData.promo.id, trx);
                 }
-                await billing_shared_1.BillingSharedRepo.insertBillHistory(trx, billingID, billingData.paymentmode, billingData.paid, billingData.employeeid, "credit");
+                await billing_shared_1.BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, billingData.paymentmode, billingData.paid, billingData.employeeid, "credit");
                 await trx.commit();
             }
             return billingID;

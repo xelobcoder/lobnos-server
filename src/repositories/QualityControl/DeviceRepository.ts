@@ -1,5 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
-
+import { v4 as uuidv4 } from 'uuid';
 
 
 interface Device {
@@ -39,8 +39,9 @@ export class DeviceRepository {
     async create(deviceData: Device): Promise<number> {
         try {
             const conn = await this.connection;
+            const id = uuidv4();
             const result = await conn('devices')
-                .insert(deviceData);
+                .insert({ ...deviceData, id, updatedby: deviceData.createdby });
             return result[0];
         } catch (error) {
             console.error('Device creation error:', error);

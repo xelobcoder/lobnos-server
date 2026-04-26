@@ -1,6 +1,8 @@
 
 
 import KnexConnection from "../../database/KnexConnections";
+import { v4 as uuidv4 } from 'uuid';
+
 
 interface QCSession {
     id?: string;
@@ -80,9 +82,10 @@ export class QCSessionsRepository {
     async create(sessionData: QCSession, trx?: any): Promise<boolean> {
         try {
             const conn = trx || await this.connection;
-            const [id] = await conn('qc_sessions')
-                .insert(sessionData);
-            return id == 0;
+            const id = uuidv4();
+            const returned_value = await conn('qc_sessions')
+                .insert({ ...sessionData, id })
+            return returned_value[0]
         } catch (error) {
             console.error('QC session creation error:', error);
             throw error;

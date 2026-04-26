@@ -149,6 +149,7 @@ export class MultiBillingRepo {
 				}
 
 				await BillingSharedRepo.insertBillHistory(
+					this.tenantId,
 					trx,
 					billingID,
 					billingData.paymentmode,

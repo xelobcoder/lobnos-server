@@ -16,6 +16,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ControlParameterRepository = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const uuid_1 = require("uuid");
 class ControlParameterRepository {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -45,12 +46,13 @@ class ControlParameterRepository {
                 if (existing) {
                     await conn('control_parameters')
                         .where({ id: existing.id })
-                        .update(paramWithoutId);
+                        .update(Object.assign(Object.assign({}, paramWithoutId), { createdAt: new Date(paramWithoutId.createdAt), updatedAt: new Date(paramWithoutId.updatedAt) }));
                     return existing.id;
                 }
                 else {
+                    const generatedId = (0, uuid_1.v4)();
                     const [newId] = await conn('control_parameters')
-                        .insert(paramWithoutId)
+                        .insert(Object.assign(Object.assign({}, paramWithoutId), { id: generatedId, updatedby: paramWithoutId.createdby }))
                         .returning('id');
                     return newId;
                 }
@@ -66,8 +68,11 @@ class ControlParameterRepository {
         try {
             const conn = await this.connection;
             const results = await Promise.all(updates.map(update => conn('control_parameters')
-                .where({ controlMaterialId: controlId, parameter: update.parameter })
-                .update(update)));
+                .where({
+                controlMaterialId: controlId,
+                parameter: update.parameter
+            })
+                .update(Object.assign(Object.assign({}, update), { createdAt: new Date(update.createdAt), updatedAt: new Date(update.updatedAt) }))));
             return results.some(result => result > 0);
         }
         catch (error) {

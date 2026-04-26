@@ -26,6 +26,7 @@ const logger_1 = __importDefault(require("../../hooks/logger"));
 const outsourcedCases_1 = __importDefault(require("../../models/organization/outsourcingOrganization/outsourcedCases"));
 const SupplierPaymentExpenseSync_1 = require("../../models/inventory/SupplierPaymentExpenseSync");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
+const PayrollReversalService_1 = require("../../services/payroll/PayrollReversalService");
 const initializeExpense = (requestQuery) => {
     const { employeeid, branchid, tenantId, expenseId } = requestQuery;
     const pTenantId = parseInt(tenantId.toString());
@@ -890,6 +891,40 @@ const reverseExpensePayment = async (request, response) => {
         }
         // Get branchid from query or use 0 as default
         const branchid = request.query.branchid ? parseInt(request.query.branchid.toString()) : 0;
+        const paymentRow = await (0, helper_1.promisifyQuery)(pTenantId, `SELECT id, expense_id, invoice_id FROM expense_payments WHERE id = ?`, [parseInt(paymentId.toString())]);
+        if (!paymentRow || paymentRow.length === 0) {
+            return (0, helper_1.customError)(`Payment reversal failed: Payment with ID ${paymentId} not found`, 404, response);
+        }
+        const payment = paymentRow[0];
+        const payrollPeriod = await (0, helper_1.promisifyQuery)(pTenantId, `
+				SELECT id
+				FROM payroll_periods
+				WHERE expense_payment_id = ?
+					OR (? IS NOT NULL AND expense_invoice_id = ?)
+					OR (? IS NOT NULL AND expense_id = ?)
+				ORDER BY id DESC
+				LIMIT 1
+			`, [
+            payment.id,
+            payment.invoice_id,
+            payment.invoice_id,
+            payment.expense_id,
+            payment.expense_id
+        ]);
+        if (payrollPeriod && payrollPeriod.length > 0) {
+            const payrollService = new PayrollReversalService_1.PayrollReversalService(pTenantId);
+            const result = await payrollService.reversePayrollPeriod({
+                payroll_period_id: payrollPeriod[0].id,
+                reversed_by: pEmployeeid,
+                branchid,
+                reason: reversalReason
+            });
+            return response.send({
+                status: "success",
+                data: result,
+                message: "Payroll payment reversed successfully"
+            });
+        }
         const invoiceRepo = new ExpenseInvoiceRepo_1.default(pEmployeeid, branchid, pTenantId);
         const result = await invoiceRepo.reversePayment(parseInt(paymentId.toString()), reversalReason);
         response.send({

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QCReadingsRepository = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const uuid_1 = require("uuid");
 class QCReadingsRepository {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -19,8 +20,9 @@ class QCReadingsRepository {
             if (!session) {
                 throw new Error('Invalid session ID: Session must be created before adding readings');
             }
+            const generatedId = (0, uuid_1.v4)();
             const [id] = await conn('qc_readings')
-                .insert(Object.assign(Object.assign({}, readingData), { createdAt: conn.fn.now() }));
+                .insert(Object.assign(Object.assign({}, readingData), { id: generatedId, createdAt: conn.fn.now() }));
             return id > 0;
         }
         catch (error) {

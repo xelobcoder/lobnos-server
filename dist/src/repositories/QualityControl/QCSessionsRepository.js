@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QCSessionsRepository = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const uuid_1 = require("uuid");
 class QCSessionsRepository {
     async getRecentReadingsWithDetails(limit = 10) {
         const conn = await this.connection;
@@ -37,9 +38,10 @@ class QCSessionsRepository {
     async create(sessionData, trx) {
         try {
             const conn = trx || await this.connection;
-            const [id] = await conn('qc_sessions')
-                .insert(sessionData);
-            return id == 0;
+            const id = (0, uuid_1.v4)();
+            const returned_value = await conn('qc_sessions')
+                .insert(Object.assign(Object.assign({}, sessionData), { id }));
+            return returned_value[0];
         }
         catch (error) {
             console.error('QC session creation error:', error);

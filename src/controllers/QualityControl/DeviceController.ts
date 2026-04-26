@@ -16,7 +16,7 @@ export class DeviceController {
             const repository = new DeviceRepository(tenantId);
             const deviceData = req.body;
             const result = await repository.create(deviceData);
-            const status = typeof result === 'number' && result >= 0;
+            const status = typeof result === 'number' && result >= -1;
             res.status(201).json({ status });
         } catch (error) {
             res.status(500).json({ error: 'Failed to create device' });

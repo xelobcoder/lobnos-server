@@ -70,7 +70,7 @@ class BillingUpdateRepo {
             if (!result)
                 throw new Error("unable to update billing record");
             // Insert billing history
-            await billing_shared_1.BillingSharedRepo.insertBillHistory(trx, billingID, billingData.paymentmode, billingData.paid, billingData.employeeid, "credit");
+            await billing_shared_1.BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, billingData.paymentmode, billingData.paid, billingData.employeeid, "credit");
             await trx.commit();
         }
         catch (error) {

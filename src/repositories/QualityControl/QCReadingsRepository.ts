@@ -1,4 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
+import { v4 as uuidv4 } from 'uuid';
 
 interface QCReading {
     id?: string;
@@ -38,9 +39,12 @@ export class QCReadingsRepository {
                 throw new Error('Invalid session ID: Session must be created before adding readings');
             }
 
+            const generatedId = uuidv4();
+
             const [id] = await conn('qc_readings')
                 .insert({
                     ...readingData,
+                    id: generatedId,
                     createdAt: conn.fn.now()
                 });
             return id > 0;

@@ -57,7 +57,7 @@ router.post('/api/v1/qc-readings/batch', qcReadingsController.addReadingsToSessi
 router.put('/api/v1/qc-readings/:id', qcReadingsController.update.bind(qcReadingsController));
 router.delete('/api/v1/qc-readings/session/:sessionId', qcReadingsController.deleteBySessionId.bind(qcReadingsController));
 router.get('/api/v1/qc-readings/:id', qcReadingsController.getById.bind(qcReadingsController));
-router.get('/api/v1/qc-readings/session/:sessionId/:control', qcReadingsController.getBySessionAndControlId.bind(qcReadingsController));
+router.get('/api/v1/qc-readings/session/:sessionId/:controlId', qcReadingsController.getBySessionAndControlId.bind(qcReadingsController));
 router.get('/api/v1/qc-readings/session/:sessionId', qcReadingsController.getBySessionId.bind(qcReadingsController));
 router.get('/api/v1/qc-readings/status', qcReadingsController.getByStatus.bind(qcReadingsController));
 router.get('/api/v1/qc-readings', qcReadingsController.getPaginated.bind(qcReadingsController));
