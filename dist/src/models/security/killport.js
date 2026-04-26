@@ -16,10 +16,19 @@ const killProcessOnPort = (port) => {
                 resolve();
                 return;
             }
-            let pending = lines.length;
-            lines.forEach(line => {
+            const pids = Array.from(new Set(lines
+                .map(line => {
                 const parts = line.trim().split(/\s+/);
-                const pid = parts[parts.length - 1];
+                return parts[parts.length - 1];
+            })
+                .filter(pid => pid && pid !== '0')));
+            if (pids.length === 0) {
+                console.log(`No killable process found on port ${port}`);
+                resolve();
+                return;
+            }
+            let pending = pids.length;
+            pids.forEach(pid => {
                 console.log(`Killing process ${pid} running on port ${port}`);
                 (0, child_process_1.exec)(`taskkill /F /PID ${pid}`, (killErr, killStdout, killStderr) => {
                     if (killErr || killStderr) {
@@ -37,5 +46,3 @@ const killProcessOnPort = (port) => {
     });
 };
 exports.killProcessOnPort = killProcessOnPort;
-const port = process.env.NODE_ENV == 'development' ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT || 5000;
-(0, exports.killProcessOnPort)(Number(port));

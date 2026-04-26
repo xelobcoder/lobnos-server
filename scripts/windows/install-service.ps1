@@ -1,7 +1,7 @@
 param(
-     [string]$ServiceName = "LobnosServer",
-     [string]$DisplayName = "Lobnos Server",
-     [string]$Description = "Lobnos backend API service",
+     [string]$ServiceName = "PrimeLabSystemRuntime",
+     [string]$DisplayName = "Prime Lab System Runtime",
+     [string]$Description = "Prime Lab System Runtime",
      [switch]$BuildBeforeInstall,
      [switch]$StartNow,
      [string]$NodePath,
@@ -42,7 +42,7 @@ if (-not (Test-IsAdministrator)) {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path
-$appEntry = Join-Path $repoRoot "dist\src\app.js"
+$appEntry = Join-Path $repoRoot "dist\src\start.js"
 
 
 if ($BuildBeforeInstall) {
@@ -103,7 +103,7 @@ if (-not (Test-Path $logsDir)) {
 $serviceStdOut = Join-Path $logsDir "lobnos-service-out.log"
 $serviceStdErr = Join-Path $logsDir "lobnos-service-error.log"
 
-& $NssmPath install $ServiceName $NodePath "--env-file=.env" ".\\dist\\src\\app.js" | Out-Null
+& $NssmPath install $ServiceName $NodePath "--env-file=.env" ".\\dist\\src\\start.js" | Out-Null
 & $NssmPath set $ServiceName AppDirectory $repoRoot | Out-Null
 & $NssmPath set $ServiceName DisplayName $DisplayName | Out-Null
 & $NssmPath set $ServiceName Description $Description | Out-Null

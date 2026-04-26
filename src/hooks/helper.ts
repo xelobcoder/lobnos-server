@@ -92,7 +92,33 @@ async function promisifyQuery(tenantId: number, query: string, values: any[] = [
 			? await primeTenancyConnector(tenantId)
 			: databaseConnectionPool;
 
-		connection = await pool.getConnection();
+		const start = Date.now();
+		const maxWaitMs = Number(process.env.DB_CONNECT_RETRY_MAX_MS || 60000);
+		let attempt = 0;
+		while (true) {
+			try {
+				connection = await pool.getConnection();
+				break;
+			} catch (err: any) {
+				attempt += 1;
+				const code = err?.code || '';
+				const retryableCodes = new Set([
+					'ECONNREFUSED',
+					'PROTOCOL_CONNECTION_LOST',
+					'ER_CON_COUNT_ERROR',
+					'ETIMEDOUT',
+					'ENOTFOUND',
+					'EAI_AGAIN'
+				]);
+
+				if (!retryableCodes.has(code) || Date.now() - start > maxWaitMs) {
+					throw err;
+				}
+
+				const delay = Math.min(5000, 250 * Math.pow(2, Math.min(4, attempt - 1)));
+				await new Promise((resolve) => setTimeout(resolve, delay));
+			}
+		}
 		// Ensure legacy grouped queries are compatible on direct mysql2 pool connections.
 		await connection.query("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");
 		const [result] = await connection.query(query, values);

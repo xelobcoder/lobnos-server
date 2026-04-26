@@ -1,5 +1,5 @@
 param(
-     [string]$ServiceName = "LobnosServer",
+     [string]$ServiceName = "PrimeLabSystemRuntime",
      [string]$NssmPath
 )
 

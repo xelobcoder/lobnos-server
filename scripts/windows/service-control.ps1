@@ -1,7 +1,7 @@
 param(
      [ValidateSet("start", "stop", "restart", "status")]
      [string]$Action,
-     [string]$ServiceName = "LobnosServer"
+     [string]$ServiceName = "PrimeLabSystemRuntime"
 )
 
 $ErrorActionPreference = "Stop"
