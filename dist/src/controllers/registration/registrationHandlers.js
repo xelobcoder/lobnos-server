@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPatientImagePathHandler = exports.getRegistrationSettings = exports.getEmergencyContactInformation = exports.getAddressingInformation = exports.checkMobileNumber = exports.getPersonalInformation = exports.updateAddressingInformation = exports.updateEmergencyContactInformation = exports.updatePersonalInformation = exports.addNewPatient = void 0;
+exports.getPatientImagePathHandler = exports.getRegistrationSettings = exports.getEmergencyContactInformation = exports.getAddressingInformation = exports.checkMobileNumber = exports.getPersonalInformation = exports.updateAddressingInformation = exports.updateEmergencyContactInformation = exports.getPatientAuditHistoryHandler = exports.updatePersonalInformation = exports.addNewPatient = void 0;
 const registration_1 = __importDefault(require("../../models/registration/registration"));
 const DatabaseQueriesHelper_1 = __importDefault(require("../../database/DatabaseQueriesHelper"));
 const helper_1 = require("../../hooks/helper");
@@ -32,10 +32,26 @@ const updatePersonalInformation = async (request, response) => {
         response.send({ status: result });
     }
     catch (error) {
-        (0, helper_1.customError)("Error updating personal information", 500, response);
+        (0, helper_1.customError)((error === null || error === void 0 ? void 0 : error.message) || "Error updating personal information", 500, response);
     }
 };
 exports.updatePersonalInformation = updatePersonalInformation;
+const getPatientAuditHistoryHandler = async (request, response) => {
+    const tenantId = parseInt(request.query.tenantId, 10);
+    const { patientid } = request.query;
+    const parsedPatientId = parseInt(patientid);
+    if (!patientid || isNaN(parsedPatientId)) {
+        return (0, helper_1.customError)("patientid not included in the request", 400, response);
+    }
+    try {
+        const result = await registration_1.default.getPatientAuditHistory(tenantId, parsedPatientId);
+        response.send({ status: true, result });
+    }
+    catch (error) {
+        (0, helper_1.customError)((error === null || error === void 0 ? void 0 : error.message) || "Error fetching patient audit history", 500, response);
+    }
+};
+exports.getPatientAuditHistoryHandler = getPatientAuditHistoryHandler;
 const updateEmergencyContactInformation = async (request, response) => {
     const tenantId = parseInt(request.query.tenantId, 10);
     const { patientid } = request.query;

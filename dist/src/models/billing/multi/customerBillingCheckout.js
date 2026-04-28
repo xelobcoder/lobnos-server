@@ -10,6 +10,8 @@ const billingclientTypes_1 = require("../billingclientTypes");
 const PrimeBillingPromoCodeRepo_1 = require("../repositories/PrimeBillingPromoCodeRepo");
 const packageBillingHelper_1 = require("./packageBillingHelper");
 const PrimeBillingEnterprise_1 = require("./PrimeBillingEnterprise");
+const billing_shared_1 = require("../billing_shared");
+const appLevelTriggers_1 = require("../../../database/appLevelTriggers");
 class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBillingEnterprise {
     constructor(tenantId) {
         super(tenantId);
@@ -24,7 +26,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
         const billing = CustomerBillingCheckoutSingleton.getInstance(params.tenantId);
         return billing.handleCheckout(params);
     }
-    async handleCheckout({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, ispricingcheckout, isPromo, isPackageUsed, packageid, entitytype, entityid, tenantId }) {
+    async handleCheckout({ patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, promoCode, ispricingcheckout, isPromo, isPackageUsed, packageid, entitytype, entityid, employeeid, tenantId }) {
+        var _a, _b, _c, _d, _e, _f;
         if (!patientId && !ispricingcheckout)
             return { success: false, message: 'No patientId provided' };
         if (branchid === undefined || branchid === null)
@@ -121,6 +124,84 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             return { success: false, message: 'Paid amount exceeds total payable amount', data: { balance } };
         }
         const isFreeMode = (paymentDetails === null || paymentDetails === void 0 ? void 0 : paymentDetails.mode) === 'free';
+        const computeAdjustmentTotals = (items) => {
+            let discountTotal = 0;
+            let surchargeTotal = 0;
+            if (!Array.isArray(items))
+                return { discountTotal, surchargeTotal };
+            for (const item of items) {
+                const adjType = typeof (item === null || item === void 0 ? void 0 : item.userAdjustmentType) === 'string' ? item.userAdjustmentType.toLowerCase() : item === null || item === void 0 ? void 0 : item.userAdjustmentType;
+                const adjValueRaw = item === null || item === void 0 ? void 0 : item.userAdjustedValue;
+                const adjValue = Math.abs(Number(adjValueRaw || 0));
+                if (adjType === 'discount' && adjValue > 0) {
+                    discountTotal += adjValue;
+                    continue;
+                }
+                if (adjType === 'surcharge' && adjValue > 0) {
+                    surchargeTotal += adjValue;
+                    continue;
+                }
+                const promoDiscount = Number((item === null || item === void 0 ? void 0 : item.promoDiscount) || 0);
+                if (promoDiscount > 0)
+                    continue;
+                const itemDiscount = Math.abs(Number((item === null || item === void 0 ? void 0 : item.discount) || 0));
+                if (itemDiscount > 0) {
+                    discountTotal += itemDiscount;
+                }
+            }
+            return { discountTotal, surchargeTotal };
+        };
+        const adjustmentItems = [
+            ...(Array.isArray(recalculatedCart) ? recalculatedCart : []),
+            ...(Array.isArray(recalculatedServicesList) ? recalculatedServicesList : []),
+            ...(Array.isArray(recalculatedPackageList) ? recalculatedPackageList : [])
+        ];
+        const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
+        if (employeeid && !isFreeMode) {
+            try {
+                await billing_shared_1.DiscountLimitService.enforceOnly({
+                    tenantId,
+                    employeeid,
+                    subtotal: toFixed2(subtotal),
+                    payable: amountPayable,
+                    discountTotal: computedAdjustments.discountTotal,
+                    surchargeTotal: computedAdjustments.surchargeTotal
+                });
+            }
+            catch (err) {
+                return { success: false, message: err && err.message ? err.message : 'Discount/surcharge limit validation failed' };
+            }
+        }
+        const discountLimitInfo = employeeid ? await billing_shared_1.DiscountLimitService.getRoleLimitInfo({ tenantId, employeeid }) : null;
+        const exposedRule = discountLimitInfo && discountLimitInfo.rule
+            ? {
+                role: discountLimitInfo.role,
+                max_discount_per_transaction: (_a = discountLimitInfo.rule.max_discount_per_transaction) !== null && _a !== void 0 ? _a : null,
+                min_transaction_total_for_discount: (_b = discountLimitInfo.rule.min_transaction_total_for_discount) !== null && _b !== void 0 ? _b : null,
+                max_discount_per_day: (_c = discountLimitInfo.rule.max_discount_per_day) !== null && _c !== void 0 ? _c : null,
+                max_surcharge_per_transaction: (_d = discountLimitInfo.rule.max_surcharge_per_transaction) !== null && _d !== void 0 ? _d : null,
+                min_transaction_total_for_surcharge: (_e = discountLimitInfo.rule.min_transaction_total_for_surcharge) !== null && _e !== void 0 ? _e : null,
+                max_surcharge_per_day: (_f = discountLimitInfo.rule.max_surcharge_per_day) !== null && _f !== void 0 ? _f : null,
+                usage_date: discountLimitInfo.usageDate,
+                daily_used_discount: discountLimitInfo.dailyUsedDiscount,
+                daily_remaining_discount: discountLimitInfo.dailyRemainingDiscount,
+                daily_used_surcharge: discountLimitInfo.dailyUsedSurcharge,
+                daily_remaining_surcharge: discountLimitInfo.dailyRemainingSurcharge,
+                rule_found: discountLimitInfo.ruleFound,
+                allowed_role: discountLimitInfo.allowedRole
+            }
+            : (discountLimitInfo
+                ? {
+                    role: discountLimitInfo.role,
+                    usage_date: discountLimitInfo.usageDate,
+                    daily_used_discount: discountLimitInfo.dailyUsedDiscount,
+                    daily_remaining_discount: discountLimitInfo.dailyRemainingDiscount,
+                    daily_used_surcharge: discountLimitInfo.dailyUsedSurcharge,
+                    daily_remaining_surcharge: discountLimitInfo.dailyRemainingSurcharge,
+                    rule_found: false,
+                    allowed_role: discountLimitInfo.allowedRole
+                }
+                : null);
         if (isFreeMode) {
             const zeroOutItem = (item) => (Object.assign(Object.assign({}, item), { totalpayable: 0, totalcost: 0, discountedValue: 0, amountIncurredDueTax: 0, price: 0, actualPrice: 0, originalPrice: 0, servicePrice: 0 }));
             recalculatedCart = recalculatedCart.map(zeroOutItem);
@@ -157,6 +238,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                     paymentReceived: true,
                     taxIncluded: false,
                     taxList: undefined,
+                    discountLimitInfo: exposedRule,
                     entitytype,
                     entityId: entityid,
                     ispricingcheckout,
@@ -196,6 +278,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                 paymentReceived: false,
                 taxIncluded,
                 taxList,
+                discountLimitInfo: exposedRule,
                 entitytype,
                 entityId: entityid,
                 ispricingcheckout,
@@ -315,6 +398,10 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                     isLocked: 1,
                     isCorrected: 1,
                 });
+                const updatedService = await transaction('dboservices').where({ serviceid: service.serviceid }).first();
+                if (updatedService) {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(transaction, updatedService, employeeId ? employeeId.toString() : undefined);
+                }
             }
             await transaction('billing')
                 .where('billingid', billingid)

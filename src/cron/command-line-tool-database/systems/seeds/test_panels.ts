@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { generateNextTestPanelId } from '../../../../testpanel/testPanelId';
 
 exports.seed = async function (knex) {
 
@@ -43,7 +44,9 @@ exports.seed = async function (knex) {
                     seenNames.add(normalizedName);
 
                     await knex.transaction(async (trx) => {
+                         const id = await generateNextTestPanelId(trx);
                          const panelData = {
+                              id,
                               name: testPanel.name,
                               category: testPanel.category,
                               price: testPanel.price || 0,
@@ -57,12 +60,9 @@ exports.seed = async function (knex) {
                               created_on: currentDate
                          };
 
-                         await trx('test_panels').insert(panelData);
-
-                         const insertedPanel = await trx('test_panels')
-                              .where('name', testPanel.name)
-                              .orderBy('id', 'desc')
-                              .first();
+                         const inserted = await trx('test_panels').insert(panelData);
+                         const primKey = Array.isArray(inserted) ? inserted[0] : inserted;
+                         const insertedPanel = await trx('test_panels').where('prim_key', primKey).first();
 
                          if (!insertedPanel) {
                               throw new Error(`Failed to retrieve inserted test panel: ${testPanel.name}`);

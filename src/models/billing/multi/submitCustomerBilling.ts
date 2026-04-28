@@ -1,11 +1,12 @@
 import KnexConnection from "../../../database/KnexConnections";
-import { BillingSharedRepo } from "../billing_shared";
+import { BillingSharedRepo, DiscountLimitService } from "../billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry } from "../billingclientTypes";
 import { BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { CustomerBillingCheckout } from "./customerBillingCheckout";
 import { PrimeBillingPromoCodeRepo } from "../repositories/PrimeBillingPromoCodeRepo";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
+import { applyDboservicesAfterInsert } from "../../../database/appLevelTriggers";
 
 export class SubmitCustomerBilling {
     private payload: any;
@@ -18,6 +19,7 @@ export class SubmitCustomerBilling {
     }
 
     async submit(): Promise<{ status: boolean; message: string; billingid?: number }> {
+        let trx: any;
         try {
             const {
                 tenantId,
@@ -63,6 +65,7 @@ export class SubmitCustomerBilling {
                 packageid,
                 entityid,
                 entitytype,
+                employeeid,
                 tenantId
             });
 
@@ -94,7 +97,7 @@ export class SubmitCustomerBilling {
             }
 
             const conn = await this.connection;
-            const trx = await conn.transaction();
+            trx = await conn.transaction();
             const billingID = await BillingSharedRepo.generateBillingID(
                 this.payload.patientid,
                 this.tenantId,
@@ -102,6 +105,54 @@ export class SubmitCustomerBilling {
                 this.payload.employeeid,
                 trx
             );
+
+            const computeAdjustmentTotals = (items: any[]) => {
+                let discountTotal = 0;
+                let surchargeTotal = 0;
+                if (!Array.isArray(items)) return { discountTotal, surchargeTotal };
+                for (const item of items) {
+                    const adjType = typeof item?.userAdjustmentType === 'string' ? item.userAdjustmentType.toLowerCase() : item?.userAdjustmentType;
+                    const adjValue = Math.abs(Number(item?.userAdjustedValue || 0));
+                    if (adjType === 'discount' && adjValue > 0) {
+                        discountTotal += adjValue;
+                        continue;
+                    }
+                    if (adjType === 'surcharge' && adjValue > 0) {
+                        surchargeTotal += adjValue;
+                        continue;
+                    }
+                    const promoDiscount = Number(item?.promoDiscount || 0);
+                    if (promoDiscount > 0) continue;
+                    const itemDiscount = Math.abs(Number(item?.discount || 0));
+                    if (itemDiscount > 0) {
+                        discountTotal += itemDiscount;
+                    }
+                }
+                return { discountTotal, surchargeTotal };
+            };
+
+            const adjustmentItems = [
+                ...(Array.isArray(data.cart) ? data.cart : []),
+                ...(Array.isArray(data.servicesList) ? data.servicesList : []),
+                ...(Array.isArray(data.packageTestList) ? data.packageTestList : [])
+            ];
+            const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
+            const totalDiscountFromCheckout = !data.isPromo && typeof data.totaldiscount === 'number' ? data.totaldiscount : 0;
+            const totalSurchargeFromCheckout = typeof data.totalsurcharge === 'number' ? data.totalsurcharge : 0;
+            const effectiveDiscountTotal = Math.max(Number(totalDiscountFromCheckout || 0), Number(computedAdjustments.discountTotal || 0));
+            const effectiveSurchargeTotal = Math.max(Number(totalSurchargeFromCheckout || 0), Number(computedAdjustments.surchargeTotal || 0));
+
+            await DiscountLimitService.enforceAndRecord({
+                tenantId: this.tenantId,
+                trx,
+                employeeid: this.payload.employeeid,
+                billingid: billingID,
+                subtotal: typeof data.subtotal === 'number' ? data.subtotal : undefined,
+                payable: typeof data.amountPayable === 'number' ? data.amountPayable : undefined,
+                discountTotal: effectiveDiscountTotal || 0,
+                surchargeTotal: effectiveSurchargeTotal || 0,
+                branchid: updatedBillingData.branchid
+            });
 
             const taxValue = updatedBillingData.taxValue || 0;
             const taxList = updatedBillingData.taxList || null;
@@ -157,7 +208,7 @@ export class SubmitCustomerBilling {
                     promoCodeId: data.promoCodeId || promoCode,
                 }
 
-            
+
                 const result = await trx("billing")
                     .where("billingid", billingID)
                     .update({
@@ -217,6 +268,13 @@ export class SubmitCustomerBilling {
             }
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         } catch (error: any) {
+            if (trx) {
+                try {
+                    await trx.rollback();
+                } catch {
+                    // ignore rollback errors
+                }
+            }
             console.log("Error in submitCustomerBilling:", error);
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
         }
@@ -477,9 +535,51 @@ export class SubmitCustomerBilling {
                     packageid
                 });
 
-                if (outcome && item[5] != 5 && item[1]) {
+                const serviceid =
+                    typeof outcome === "number"
+                        ? outcome
+                        : Array.isArray(outcome)
+                            ? outcome[0]
+                            : outcome?.serviceid;
+
+                if (serviceid && typeof serviceid === "number") {
+                    await applyDboservicesAfterInsert(queryRunner, {
+                        serviceid,
+                        billingid,
+                        trackId,
+                        cost,
+                        employeeid,
+                        serviceCategory,
+                        categoryTrackId,
+                        clinicianId,
+                        organizationId,
+                        registrationType,
+                        branchid,
+                        isoutsourced,
+                        outsourceid,
+                        serviceAddedOn,
+                        taxList,
+                        taxValue,
+                        amountIncurredDueTax,
+                        taxIncluded,
+                        discount,
+                        totalcost,
+                        totalpayable,
+                        isNHIS,
+                        isPHIS,
+                        insuranceid,
+                        claimCode,
+                        hasNightAdjustment,
+                        nightAdjustmentMode,
+                        nightAdjustmentValue,
+                        isPackageUsed,
+                        packageid
+                    }, employeeid ? employeeid.toString() : undefined);
+                }
+
+                if (serviceid && item[5] != 5 && item[1]) {
                     try {
-                        await BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                        await BillingSharedRepo.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
                     } catch (err) {
                         throw new Error(billErrors.unableToLoadTestAscension);
                     }

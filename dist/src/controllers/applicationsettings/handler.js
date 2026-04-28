@@ -405,7 +405,7 @@ const checkoutBillingHandler = async (req, res) => {
         const tenantId = parseInt(req.query.tenantId, 10);
         if (!tenantId)
             return res.status(400).json({ success: false, message: 'Missing tenantId' });
-        const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, entityid, ispricingcheckout, entitytype, promoCode, isPromo, isPackageUsed, packageid } = req.body;
+        const { patientId, billingid, cart, servicesList, paymentDetails, branchid, billingSource, referalCode, entityid, ispricingcheckout, entitytype, promoCode, isPromo, isPackageUsed, packageid, employeeid } = req.body;
         const result = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
             patientId,
             billingid,
@@ -422,6 +422,7 @@ const checkoutBillingHandler = async (req, res) => {
             isPromo,
             isPackageUsed,
             packageid,
+            employeeid,
             tenantId
         });
         if (result.success) {

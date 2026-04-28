@@ -17,7 +17,10 @@ import {
      handleMultiNewBilling,
      handleMultiUpdateBilling,
      WriteOffTransaction,
-     outstandingReport
+     outstandingReport,
+     listDiscountLimitRules,
+     upsertDiscountLimitRule,
+     getDiscountDailyUsage
 } from "./controllers";
 import {
      createServicesHandler,
@@ -68,6 +71,9 @@ router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selected
      refundAllTransactionHandler as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
 router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, WriteOffTransaction as unknown as  RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>);
 router.post('/api/v1/billing/correction/source', isAuthorizedRoleAdmin, handleOverLoad(correctRefererErrorPostRegistrationHandler));
+router.get('/api/v1/billing/discount-limits', isAuthorizedRoleAdmin, handleOverLoad(listDiscountLimitRules));
+router.post('/api/v1/billing/discount-limits', isAuthorizedRoleAdmin, handleOverLoad(upsertDiscountLimitRule));
+router.get('/api/v1/billing/discount-limits/daily-usage', isAuthorizedRoleAdmin, handleOverLoad(getDiscountDailyUsage));
 
 
 // Services Routes

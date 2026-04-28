@@ -7,6 +7,8 @@ import logger from "../hooks/logger";
 import { PrimeLimsTabletestdetails } from "../database/DatabaseTableSchema";
 import MasterTestPanelRepository from "../models/system-admin/MasterTestPanelRepository";
 import KnexConnection from "../database/KnexConnections";
+import { applyTestPanelsAfterInsert } from "../database/appLevelTriggers";
+import { generateNextTestPanelId } from "./testPanelId";
 
 
 interface TestPanel {
@@ -141,21 +143,54 @@ export const testpanel = {
 	},
 
 	postPanel: async (tenantId: number, request: Request, response: Response) => {
-		const isFieldsOkay = !Object.values(request.body).some((value) => !value);
-		if (isFieldsOkay) {
-			request.body.samplevolume = parseInt(request.body.samplevolume);
-			const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body;
-			const panelExist = await testpanel.panelExist(tenantId, test);
-			if (panelExist) {
-				return response.send({ statusCode: 200, status: "success", message: "Panel already exists" });
-			} else {
-				const query = `INSERT INTO test_panels (name, price, category, unit, qty_required, sample_container, description, sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-				const values = [test, price, category, unit, samplevolume, samplecontainer, description, sample];
-				const outcome = rowAffected(await promisifyQuery(tenantId, query, values));
-				return outcome
-					? response.send({ statusCode: 201, status: "success", message: "Panel created successfully" })
-					: response.send({ statusCode: 200, status: "error", message: "Panel creation failed" });
+		try {
+			const isFieldsOkay = !Object.values(request.body).some((value) => !value);
+			if (isFieldsOkay) {
+				request.body.samplevolume = parseInt(request.body.samplevolume);
+				const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body;
+				const connection = await KnexConnection(tenantId);
+				const trx = await connection.transaction();
+				try {
+					const existing = await trx("test_panels")
+						.select("id")
+						.whereRaw("LOWER(name) = LOWER(?)", [String(test).trim()])
+						.first();
+					if (existing) {
+						await trx.rollback();
+						return response.send({ statusCode: 200, status: "success", message: "Panel already exists" });
+					}
+
+					const id = await generateNextTestPanelId(trx);
+					const inserted = await trx("test_panels").insert({
+						id,
+						name: test,
+						price,
+						category,
+						unit,
+						qty_required: samplevolume,
+						sample_container: samplecontainer,
+						description,
+						sample,
+						iscustom: 0,
+					});
+					const primKey = Array.isArray(inserted) ? inserted[0] : inserted;
+					if (!primKey || Number(primKey) <= 0) {
+						await trx.rollback();
+						return response.send({ statusCode: 200, status: "error", message: "Panel creation failed" });
+					}
+
+					await applyTestPanelsAfterInsert(trx, { testid: Number(id), price: Number(price ?? 0), iscustom: 0 });
+					await trx.commit();
+					return response.send({ statusCode: 201, status: "success", message: "Panel created successfully" });
+				} catch (err) {
+					await trx.rollback();
+					throw err;
+				}
 			}
+			return response.send({ statusCode: 400, status: "error", message: "All fields must have values" });
+		} catch (err) {
+			logger.error(err);
+			return response.status(500).send({ statusCode: 500, status: "error", message: (err as Error).message });
 		}
 	},
 
@@ -591,8 +626,25 @@ export const testpanel = {
 			}
 
 			const connection = await KnexConnection(tenantId);
-			const result = await connection('test_panels').insert({ name: testname, iscustom });
-			return result && result.length > 0;
+			const trx = await connection.transaction();
+			try {
+				const id = await generateNextTestPanelId(trx);
+				const inserted = await trx('test_panels').insert({ id, name: testname, iscustom });
+				const primKey = Array.isArray(inserted) ? inserted[0] : inserted;
+				const panel = await trx("test_panels").select("id", "price", "iscustom").where({ prim_key: primKey }).first();
+				if (panel?.id) {
+					await applyTestPanelsAfterInsert(trx, {
+						testid: Number(panel.id),
+						price: Number(panel.price ?? 0),
+						iscustom: Number(panel.iscustom ?? iscustom),
+					});
+				}
+				await trx.commit();
+				return !!(primKey && Number(primKey) > 0);
+			} catch (err) {
+				await trx.rollback();
+				throw err;
+			}
 		} catch (err) {
 			console.log(err);
 			throw new Error("Test creation failed");

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleMultiUpdateBilling = exports.outstandingReport = exports.handleMultiNewBilling = exports.handleNewBilling = void 0;
+exports.getDiscountDailyUsage = exports.upsertDiscountLimitRule = exports.listDiscountLimitRules = exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleMultiUpdateBilling = exports.outstandingReport = exports.handleMultiNewBilling = exports.handleNewBilling = void 0;
 const helper_1 = require("../../hooks/helper");
 const billing_1 = require("../../models/billing/billing");
 const billingclientTypes_1 = require("../../models/billing/billingclientTypes");
@@ -16,6 +16,7 @@ const WriteOff_1 = require("../../models/billing/WriteOff");
 const PrimeBillingEnterprise_1 = require("../../models/billing/multi/PrimeBillingEnterprise");
 const outstanding_class_1 = __importDefault(require("../../models/billing/outstanding/outstanding_class"));
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 async function handleNewBilling(request, response) {
     async function validate() {
         const { patientid } = request.body;
@@ -369,3 +370,88 @@ async function WriteOffTransaction(request, response) {
     }
 }
 exports.WriteOffTransaction = WriteOffTransaction;
+async function listDiscountLimitRules(request, response) {
+    try {
+        const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
+        const conn = await (0, KnexConnections_1.default)(tenantIdP);
+        const rules = await conn('discount_limit_rules').select('*').orderBy('role', 'asc');
+        response.send({ status: true, rules });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err);
+    }
+}
+exports.listDiscountLimitRules = listDiscountLimitRules;
+async function upsertDiscountLimitRule(request, response) {
+    try {
+        const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
+        const { role, is_active, max_discount_per_transaction, min_transaction_total_for_discount, max_discount_per_day, max_surcharge_per_transaction, min_transaction_total_for_surcharge, max_surcharge_per_day, updated_by_employeeid } = request.body || {};
+        if (!role || typeof role !== 'string') {
+            return (0, helper_1.customError)('role is required', 400, response);
+        }
+        const normalizedRole = role.trim().toLowerCase().replace(/\s+/g, ' ');
+        const conn = await (0, KnexConnections_1.default)(tenantIdP);
+        const allowedRoles = new Set([
+            'crm',
+            'customer representative',
+            'customer service representative',
+            'manager',
+            'accountant',
+            'admin',
+            'super-admin',
+            'superadmin',
+            'super admin'
+        ]);
+        if (!allowedRoles.has(normalizedRole)) {
+            return (0, helper_1.customError)('role is not allowed for discount rules', 400, response);
+        }
+        const existingRoles = await conn('roles').distinct('role as role');
+        const existingSet = new Set((existingRoles || []).map((r) => String(r.role || '').trim().toLowerCase().replace(/\s+/g, ' ')).filter(Boolean));
+        if (!existingSet.has(normalizedRole)) {
+            return (0, helper_1.customError)('role not found in system roles', 400, response);
+        }
+        const payload = {
+            role: normalizedRole,
+            is_active: typeof is_active === 'boolean' ? is_active : true,
+            max_discount_per_transaction: max_discount_per_transaction !== null && max_discount_per_transaction !== void 0 ? max_discount_per_transaction : null,
+            min_transaction_total_for_discount: min_transaction_total_for_discount !== null && min_transaction_total_for_discount !== void 0 ? min_transaction_total_for_discount : null,
+            max_discount_per_day: max_discount_per_day !== null && max_discount_per_day !== void 0 ? max_discount_per_day : null,
+            max_surcharge_per_transaction: max_surcharge_per_transaction !== null && max_surcharge_per_transaction !== void 0 ? max_surcharge_per_transaction : null,
+            min_transaction_total_for_surcharge: min_transaction_total_for_surcharge !== null && min_transaction_total_for_surcharge !== void 0 ? min_transaction_total_for_surcharge : null,
+            max_surcharge_per_day: max_surcharge_per_day !== null && max_surcharge_per_day !== void 0 ? max_surcharge_per_day : null,
+            updated_by_employeeid: updated_by_employeeid !== null && updated_by_employeeid !== void 0 ? updated_by_employeeid : null,
+            updated_at: conn.fn.now()
+        };
+        await conn('discount_limit_rules')
+            .insert(Object.assign(Object.assign({}, payload), { created_at: conn.fn.now() }))
+            .onConflict(['role'])
+            .merge(payload);
+        response.send({ status: true });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err);
+    }
+}
+exports.upsertDiscountLimitRule = upsertDiscountLimitRule;
+async function getDiscountDailyUsage(request, response) {
+    try {
+        const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
+        const conn = await (0, KnexConnections_1.default)(tenantIdP);
+        const date = request.query.date ? String(request.query.date) : null;
+        const employeeid = request.query.employeeid ? parseInt(String(request.query.employeeid), 10) : null;
+        const role = request.query.role ? String(request.query.role).trim().toLowerCase().replace(/\s+/g, ' ') : null;
+        const q = conn('discount_daily_usage').select('*').orderBy([{ column: 'usage_date', order: 'desc' }, { column: 'role', order: 'asc' }]);
+        if (date)
+            q.where('usage_date', date);
+        if (employeeid)
+            q.where('employeeid', employeeid);
+        if (role)
+            q.where('role', role);
+        const usage = await q;
+        response.send({ status: true, usage });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(response, err);
+    }
+}
+exports.getDiscountDailyUsage = getDiscountDailyUsage;

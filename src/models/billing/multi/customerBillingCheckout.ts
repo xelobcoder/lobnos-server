@@ -7,6 +7,8 @@ import { PrimeBillingPromoCodeRepo } from "../repositories/PrimeBillingPromoCode
 import { EntityType } from "./billing_shared_types";
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
+import { DiscountLimitService } from "../billing_shared";
+import { applyDboservicesAfterUpdate } from "../../../database/appLevelTriggers";
 
 
 
@@ -41,6 +43,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           packageid,
           entitytype,
           entityid,
+          employeeid,
           tenantId
      }: any): Promise<{ success: boolean; message: string; data?: any }> {
           if (!patientId && !ispricingcheckout) return { success: false, message: 'No patientId provided' };
@@ -157,6 +160,84 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
 
           const isFreeMode = paymentDetails?.mode === 'free';
 
+          const computeAdjustmentTotals = (items: any[]) => {
+               let discountTotal = 0;
+               let surchargeTotal = 0;
+               if (!Array.isArray(items)) return { discountTotal, surchargeTotal };
+               for (const item of items) {
+                    const adjType = typeof item?.userAdjustmentType === 'string' ? item.userAdjustmentType.toLowerCase() : item?.userAdjustmentType;
+                    const adjValueRaw = item?.userAdjustedValue;
+                    const adjValue = Math.abs(Number(adjValueRaw || 0));
+                    if (adjType === 'discount' && adjValue > 0) {
+                         discountTotal += adjValue;
+                         continue;
+                    }
+                    if (adjType === 'surcharge' && adjValue > 0) {
+                         surchargeTotal += adjValue;
+                         continue;
+                    }
+                    const promoDiscount = Number(item?.promoDiscount || 0);
+                    if (promoDiscount > 0) continue;
+                    const itemDiscount = Math.abs(Number(item?.discount || 0));
+                    if (itemDiscount > 0) {
+                         discountTotal += itemDiscount;
+                    }
+               }
+               return { discountTotal, surchargeTotal };
+          };
+
+          const adjustmentItems = [
+               ...(Array.isArray(recalculatedCart) ? recalculatedCart : []),
+               ...(Array.isArray(recalculatedServicesList) ? recalculatedServicesList : []),
+               ...(Array.isArray(recalculatedPackageList) ? recalculatedPackageList : [])
+          ];
+          const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
+          if (employeeid && !isFreeMode) {
+               try {
+                    await DiscountLimitService.enforceOnly({
+                         tenantId,
+                         employeeid,
+                         subtotal: toFixed2(subtotal),
+                         payable: amountPayable,
+                         discountTotal: computedAdjustments.discountTotal,
+                         surchargeTotal: computedAdjustments.surchargeTotal
+                    });
+               } catch (err: any) {
+                    return { success: false, message: err && err.message ? err.message : 'Discount/surcharge limit validation failed' };
+               }
+          }
+
+          const discountLimitInfo = employeeid ? await DiscountLimitService.getRoleLimitInfo({ tenantId, employeeid }) : null;
+          const exposedRule = discountLimitInfo && discountLimitInfo.rule
+               ? {
+                    role: discountLimitInfo.role,
+                    max_discount_per_transaction: discountLimitInfo.rule.max_discount_per_transaction ?? null,
+                    min_transaction_total_for_discount: discountLimitInfo.rule.min_transaction_total_for_discount ?? null,
+                    max_discount_per_day: discountLimitInfo.rule.max_discount_per_day ?? null,
+                    max_surcharge_per_transaction: discountLimitInfo.rule.max_surcharge_per_transaction ?? null,
+                    min_transaction_total_for_surcharge: discountLimitInfo.rule.min_transaction_total_for_surcharge ?? null,
+                    max_surcharge_per_day: discountLimitInfo.rule.max_surcharge_per_day ?? null,
+                    usage_date: discountLimitInfo.usageDate,
+                    daily_used_discount: discountLimitInfo.dailyUsedDiscount,
+                    daily_remaining_discount: discountLimitInfo.dailyRemainingDiscount,
+                    daily_used_surcharge: discountLimitInfo.dailyUsedSurcharge,
+                    daily_remaining_surcharge: discountLimitInfo.dailyRemainingSurcharge,
+                    rule_found: discountLimitInfo.ruleFound,
+                    allowed_role: discountLimitInfo.allowedRole
+               }
+               : (discountLimitInfo
+                    ? {
+                         role: discountLimitInfo.role,
+                         usage_date: discountLimitInfo.usageDate,
+                         daily_used_discount: discountLimitInfo.dailyUsedDiscount,
+                         daily_remaining_discount: discountLimitInfo.dailyRemainingDiscount,
+                         daily_used_surcharge: discountLimitInfo.dailyUsedSurcharge,
+                         daily_remaining_surcharge: discountLimitInfo.dailyRemainingSurcharge,
+                         rule_found: false,
+                         allowed_role: discountLimitInfo.allowedRole
+                    }
+                    : null);
+
           if (isFreeMode) {
                const zeroOutItem = (item: any) => ({
                     ...item,
@@ -225,6 +306,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                          paymentReceived: true,
                          taxIncluded: false,
                          taxList: undefined,
+                         discountLimitInfo: exposedRule,
                          entitytype,
                          entityId: entityid,
                          ispricingcheckout,
@@ -285,6 +367,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     paymentReceived: false,
                     taxIncluded,
                     taxList,
+                    discountLimitInfo: exposedRule,
                     entitytype,
                     entityId: entityid,
                     ispricingcheckout,
@@ -426,9 +509,13 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                               isCorrected: 1,
                          });
 
+                    const updatedService = await transaction('dboservices').where({ serviceid: service.serviceid }).first();
+                    if (updatedService) {
+                         await applyDboservicesAfterUpdate(transaction, updatedService, employeeId ? employeeId.toString() : undefined);
+                    }
                }
 
-                await transaction('billing')
+               await transaction('billing')
                     .where('billingid', billingid)
                     .update({
                          adjustmentType: 'referer-error',
@@ -441,7 +528,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                await transaction.commit();
                return { success: true, message: 'Referer error correction successful', data: { billingid, billingSource } };
           } catch (error) {
-               console.error('Error during referer error correction:', error,{billingid, entity_id, entity_type});
+               console.error('Error during referer error correction:', error, { billingid, entity_id, entity_type });
                await transaction.rollback();
                return { success: false, message: 'Transaction failed' };
           }

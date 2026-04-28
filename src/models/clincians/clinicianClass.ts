@@ -10,6 +10,7 @@ import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSc
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
 import KnexConnection from "../../database/KnexConnections";
+import { applyClinicianAfterDelete, applyClinicianAfterInsert } from "../../database/appLevelTriggers";
 
 export default class ClinicianClass {
 
@@ -83,6 +84,7 @@ export default class ClinicianClass {
 
 	public async insertCliniciansBulk(tenantId: number, clinicians: Array<Partial<PrimeLimsTableclinicianbasicinfo>>): Promise<Array<number | string>> {
 		const results: Array<number | string> = [];
+		const connection = await KnexConnection(tenantId);
 		for (const record of clinicians) {
 			const { name, phone, email, location, address, occupation, organization } = record;
 			if (!name || !phone) {
@@ -91,11 +93,22 @@ export default class ClinicianClass {
 			}
 			try {
 				const values = [name, phone, email ? email : null, location, address, occupation, organization];
-				const result = await promisifyQuery(tenantId, SQLQueries.insertClinicianBasicInfo, values);
-				const { insertId } = result;
-				if (insertId !== 0) {
-					results.push(insertId);
-				} else {
+				const trx = await connection.transaction();
+				try {
+					const [result] = await trx.raw(SQLQueries.insertClinicianBasicInfo, values);
+					const insertId = result?.insertId || result?.[0]?.insertId;
+					if (insertId !== 0 && insertId !== undefined) {
+						const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
+						const identifier = row?.identifier ? String(row.identifier) : "";
+						await applyClinicianAfterInsert(trx, { clinicianid: Number(insertId), identifier });
+						await trx.commit();
+						results.push(insertId);
+					} else {
+						await trx.rollback();
+						results.push("Insert failed");
+					}
+				} catch (err) {
+					await trx.rollback();
 					results.push("Insert failed");
 				}
 			} catch (err: { message?: string; sqlState?: string; sqlMessage?: string } | any) {
@@ -204,8 +217,19 @@ export default class ClinicianClass {
 	}
 
 	public async deleteClinicians(tenantId: number, id: number): Promise<boolean | string> {
-		const result = await promisifyQuery(tenantId, SQLQueries.deleteClinicianById, [id])
-		return rowAffected(result);
+		const connection = await KnexConnection(tenantId);
+		const trx = await connection.transaction();
+		try {
+			const deleted = await trx("clinicianbasicinfo").where({ id }).del();
+			if (deleted > 0) {
+				await applyClinicianAfterDelete(trx, id);
+			}
+			await trx.commit();
+			return deleted > 0;
+		} catch (err) {
+			await trx.rollback();
+			throw err;
+		}
 	}
 
 	private async isClinicianExist(tenantId: number, email: string, mobile: string): Promise<boolean> {
@@ -226,6 +250,9 @@ export default class ClinicianClass {
 			const [result] = await trx.raw(SQLQueries.insertClinicianBasicInfo, values);
 			const insertId = result?.insertId || result?.[0]?.insertId;
 			if (insertId !== 0 && insertId !== undefined) {
+				const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
+				const identifier = row?.identifier ? String(row.identifier) : "";
+				await applyClinicianAfterInsert(trx, { clinicianid: Number(insertId), identifier });
 				const random = require("crypto").randomBytes(5).toString("hex");
 				const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
 				await trx.raw(tempCredentials, [random]);

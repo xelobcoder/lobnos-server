@@ -4,6 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const helper_1 = require("../../hooks/helper");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
@@ -73,6 +74,7 @@ class Organization {
                     const [result] = await trx.raw(queries_1.q_create_an_organization, values);
                     const insertId = (result === null || result === void 0 ? void 0 : result.insertId) || ((_a = result === null || result === void 0 ? void 0 : result[0]) === null || _a === void 0 ? void 0 : _a.insertId);
                     if (insertId !== 0 && insertId !== undefined) {
+                        await (0, appLevelTriggers_1.applyOrganizationAfterInsert)(trx, Number(insertId));
                         const referralRepo = new ReferralCodingRepo_1.ReferralCodingRepo(tenantId);
                         await referralRepo.create({ entity_id: insertId, entity_type: 'organization', code: 0 }, trx);
                         await trx.commit();
@@ -140,6 +142,7 @@ class Organization {
             });
             const insertId = typeof result === "number" && result > 0;
             if (insertId) {
+                await (0, appLevelTriggers_1.applyOrganizationAfterInsert)(trx, Number(result));
                 const referralRepo = new ReferralCodingRepo_1.ReferralCodingRepo(tenantId);
                 await referralRepo.create({ entity_id: result, entity_type: 'organization', code: 0 }, trx);
                 await trx.commit();

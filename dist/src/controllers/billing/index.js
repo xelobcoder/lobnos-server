@@ -39,6 +39,9 @@ router.get("/api/v1/billing/previous/transaction/data", controllers_1.getTransac
 router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode", handlerAscensionBillingCheck_1.handleAuthenticationEmployee, (0, helper_1.handleOverLoad)(validateTenancy_1.isAuthorizedRoleAdmin), controllers_1.refundAllTransactionHandler);
 router.post('/api/v1/billing/write-off/transaction', validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.WriteOffTransaction);
 router.post('/api/v1/billing/correction/source', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handler_2.correctRefererErrorPostRegistrationHandler));
+router.get('/api/v1/billing/discount-limits', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.listDiscountLimitRules));
+router.post('/api/v1/billing/discount-limits', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.upsertDiscountLimitRule));
+router.get('/api/v1/billing/discount-limits/daily-usage', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.getDiscountDailyUsage));
 // Services Routes
 router.post("/api/v1/billing/services", servicesHandler_1.createServicesHandler);
 router.put("/api/v1/billing/services", servicesHandler_1.updateServicesHandler);

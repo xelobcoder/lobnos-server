@@ -1,6 +1,7 @@
 
 import { PrimeLimsTableorganization } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
+import { applyOrganizationAfterInsert } from "../../database/appLevelTriggers";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import User from "../../LobnosAuth/user";
@@ -107,6 +108,7 @@ class Organization {
 					const [result] = await trx.raw(q_create_an_organization, values);
 					const insertId = result?.insertId || result?.[0]?.insertId;
 					if (insertId !== 0 && insertId !== undefined) {
+						await applyOrganizationAfterInsert(trx, Number(insertId));
 						const referralRepo = new ReferralCodingRepo(tenantId);
 						await referralRepo.create({ entity_id: insertId, entity_type: 'organization', code: 0 }, trx);
 						await trx.commit();
@@ -172,6 +174,7 @@ class Organization {
 			const insertId = typeof result === "number" && result > 0;
 
 			if (insertId) {
+				await applyOrganizationAfterInsert(trx, Number(result));
 				const referralRepo = new ReferralCodingRepo(tenantId);
 				await referralRepo.create({ entity_id: result, entity_type: 'organization', code: 0 }, trx);
 				await trx.commit();

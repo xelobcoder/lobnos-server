@@ -24,7 +24,7 @@ const rejectedSampleApproval = async (request, response) => {
         const { tenantId } = request.query;
         const tenantIdP = parseInt(tenantId);
         const approval = await sampleClass_1.SampleHandler.updateTestSampleApprovalStatusBulk(tenantIdP, request.body);
-        response.send({ status: "success", message: "Sample approved successfully." });
+        response.send({ status: approval.status ? "success" : "error", message: approval.message });
     }
     catch (error) {
         logger_1.default.error(error);

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Billing = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const helper_1 = require("../../hooks/helper");
 const testpanelList_1 = require("../../testpanel/testpanelList");
@@ -775,6 +776,10 @@ class Billing {
                     .where({
                     serviceid: serviceid
                 });
+                const updatedService = await trx("dboservices").where({ serviceid }).first();
+                if (updatedService) {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(trx, updatedService, employeeid ? employeeid.toString() : undefined);
+                }
                 await trx("dbobillingrefundtable").update({
                     isRefundCompleted: 1,
                     isRefundMatterClosed: 1,
@@ -1096,9 +1101,48 @@ class Billing {
                     isPackageUsed,
                     packageid
                 });
-                if (outcome && item[5] != 5 && item[1]) {
+                const serviceid = typeof outcome === "number"
+                    ? outcome
+                    : Array.isArray(outcome)
+                        ? outcome[0]
+                        : outcome === null || outcome === void 0 ? void 0 : outcome.serviceid;
+                if (serviceid && typeof serviceid === "number") {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterInsert)(queryRunner, {
+                        serviceid,
+                        billingid,
+                        trackId,
+                        cost,
+                        employeeid,
+                        serviceCategory,
+                        categoryTrackId,
+                        clinicianId,
+                        organizationId,
+                        registrationType,
+                        branchid,
+                        isoutsourced,
+                        outsourceid,
+                        serviceAddedOn,
+                        taxList,
+                        taxValue,
+                        amountIncurredDueTax,
+                        taxIncluded,
+                        discount,
+                        totalcost,
+                        totalpayable,
+                        isNHIS,
+                        isPHIS,
+                        insuranceid,
+                        claimCode,
+                        hasNightAdjustment,
+                        nightAdjustmentMode,
+                        nightAdjustmentValue,
+                        isPackageUsed,
+                        packageid,
+                    }, employeeid ? employeeid.toString() : undefined);
+                }
+                if (serviceid && item[5] != 5 && item[1]) {
                     try {
-                        await this.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                        await this.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
                     }
                     catch (err) {
                         throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);
@@ -1113,14 +1157,17 @@ class Billing {
         return insertionErrors;
     }
     async AddtoTestAscenstion(tenantId, serviceid, billingid, testid, trx) {
+        var _a;
         try {
             if (!billingid || !serviceid || !testid)
                 return false;
             const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
             const isInserted = await queryRunner.raw(queries_1.AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
-            // const result = await TestApprovalClass.addAprovalItem(tenantId, isInserted.insertId, trx);
-            // console.log(result)
-            return isInserted.insertId;
+            const ascensionid = (isInserted === null || isInserted === void 0 ? void 0 : isInserted.insertId) || ((_a = isInserted === null || isInserted === void 0 ? void 0 : isInserted[0]) === null || _a === void 0 ? void 0 : _a.insertId) || false;
+            if (ascensionid && typeof ascensionid === "number") {
+                await (0, appLevelTriggers_1.applyTestAscensionAfterInsertApprovalSettings)(queryRunner, ascensionid);
+            }
+            return ascensionid;
         }
         catch (err) {
             console.log(err);

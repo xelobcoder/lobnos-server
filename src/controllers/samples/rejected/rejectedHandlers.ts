@@ -23,7 +23,7 @@ export const rejectedSampleApproval = async (request: Request<{}, {}, {}, { tena
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId);
 		const approval = await SampleHandler.updateTestSampleApprovalStatusBulk(tenantIdP, request.body as any);
-		response.send({ status: "success", message: "Sample approved successfully." });
+		response.send({ status: approval.status ? "success" : "error", message: approval.message });
 	} catch (error) {
 		logger.error(error);
 		responseError(response);

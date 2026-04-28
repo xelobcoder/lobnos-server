@@ -59,6 +59,13 @@ export class TestAscension extends Operations {
 		return rowAffected(result);
 	}
 
+	public static async initialdbogeneraltestEdit(billingid: number, ascensionid: number, trx?: any) {
+		const connection = await trx || KnexConnection;
+		return trx ? trx("dbogeneraltesteditcount").insert({ ascensionid, billingid, counter: 0,updatedon: new Date()  })
+			: await connection("dbogeneraltesteditcount").
+				insert({ ascensionid, billingid, counter: 0, updatedon: new Date() })
+	}
+
 
 
 	public static async incrementTestEditCount(tenantId: number, billingid: number, ascensionid: number): Promise<boolean> {
@@ -130,7 +137,7 @@ export class TestAscension extends Operations {
 				params.push(`%${word}%`, `%${word}%`, `%${word}%`);
 			});
 		}
-		query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
+		query += ` ORDER BY b.billingid ${sortby} GROUP BY billingid LIMIT ? OFFSET ?`;
 		return await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
 	}
 

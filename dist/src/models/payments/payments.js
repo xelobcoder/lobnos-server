@@ -9,6 +9,7 @@ const helper_1 = require("../../hooks/helper");
 const billingclientTypes_1 = require("../billing/billingclientTypes");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const queries_2 = require("../../controllers/billing/sales/Extensive/queries");
+const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 class Payment {
     constructor(patientid) {
         this.getClientTransactionInformation = async (tenantId, records) => {
@@ -270,6 +271,10 @@ class Payment {
                     paidamount: 0,
                     paymentstatus: 'paid'
                 });
+                const updated = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+                if (updated) {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(trx, updated);
+                }
                 continue;
             }
             if (remaining <= 0)
@@ -284,6 +289,10 @@ class Payment {
                     paidamount: newPaid,
                     paymentstatus: newStatus
                 });
+                const updated = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+                if (updated) {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(trx, updated);
+                }
                 remaining -= toPay;
             }
         }
@@ -300,6 +309,10 @@ class Payment {
                 paidamount: totalpayable,
                 paymentstatus: 'paid'
             });
+            const updated = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+            if (updated) {
+                await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(trx, updated);
+            }
         }
     }
 }

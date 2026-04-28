@@ -44,6 +44,17 @@ class MultiBillingRepo {
             if (allEntries.length > 0) {
                 // ENFORCEMENT: Each item totalcost is after night adjustment and item discount, but before promo. Tax is calculated per item and summed.
                 const billing_final_values = billing_shared_1.BillingSharedRepo.calculateBillingVariablesFinal(serviceEntries, testResult, billingData.paid);
+                await billing_shared_1.DiscountLimitService.enforceAndRecord({
+                    tenantId: this.tenantId,
+                    trx,
+                    employeeid: billingData.employeeid,
+                    billingid: billingID,
+                    subtotal: billing_final_values.payable + billing_final_values.totalDiscount,
+                    payable: billing_final_values.payable,
+                    discountTotal: billing_final_values.totalDiscount,
+                    surchargeTotal: 0,
+                    branchid: billingData.branchid
+                });
                 const loadAllServices = await new billing_shared_1.BillingSharedRepo()
                     .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
                 if (loadAllServices.length > 0) {

@@ -21,6 +21,7 @@ const billing_shared_types_1 = require("./billing_shared_types");
 const billingclientTypes_1 = require("../billingclientTypes");
 const customerBillingCheckout_1 = require("./customerBillingCheckout");
 const PrimeBillingPromoCodeRepo_1 = require("../repositories/PrimeBillingPromoCodeRepo");
+const appLevelTriggers_1 = require("../../../database/appLevelTriggers");
 class SubmitCustomerBilling {
     constructor(payload, tenantId) {
         this.payload = payload;
@@ -28,6 +29,7 @@ class SubmitCustomerBilling {
         this.connection = (0, KnexConnections_1.default)(this.tenantId);
     }
     async submit() {
+        let trx;
         try {
             const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, entitytype, entityId, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "entitytype", "entityId", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
@@ -45,6 +47,7 @@ class SubmitCustomerBilling {
                 packageid,
                 entityid,
                 entitytype,
+                employeeid,
                 tenantId
             });
             if (typeof checkoutResult === 'string' || Array.isArray(checkoutResult)) {
@@ -70,8 +73,55 @@ class SubmitCustomerBilling {
                 updatedBillingData.cart = data.packageTestList;
             }
             const conn = await this.connection;
-            const trx = await conn.transaction();
+            trx = await conn.transaction();
             const billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, this.payload.branchid, this.payload.employeeid, trx);
+            const computeAdjustmentTotals = (items) => {
+                let discountTotal = 0;
+                let surchargeTotal = 0;
+                if (!Array.isArray(items))
+                    return { discountTotal, surchargeTotal };
+                for (const item of items) {
+                    const adjType = typeof (item === null || item === void 0 ? void 0 : item.userAdjustmentType) === 'string' ? item.userAdjustmentType.toLowerCase() : item === null || item === void 0 ? void 0 : item.userAdjustmentType;
+                    const adjValue = Math.abs(Number((item === null || item === void 0 ? void 0 : item.userAdjustedValue) || 0));
+                    if (adjType === 'discount' && adjValue > 0) {
+                        discountTotal += adjValue;
+                        continue;
+                    }
+                    if (adjType === 'surcharge' && adjValue > 0) {
+                        surchargeTotal += adjValue;
+                        continue;
+                    }
+                    const promoDiscount = Number((item === null || item === void 0 ? void 0 : item.promoDiscount) || 0);
+                    if (promoDiscount > 0)
+                        continue;
+                    const itemDiscount = Math.abs(Number((item === null || item === void 0 ? void 0 : item.discount) || 0));
+                    if (itemDiscount > 0) {
+                        discountTotal += itemDiscount;
+                    }
+                }
+                return { discountTotal, surchargeTotal };
+            };
+            const adjustmentItems = [
+                ...(Array.isArray(data.cart) ? data.cart : []),
+                ...(Array.isArray(data.servicesList) ? data.servicesList : []),
+                ...(Array.isArray(data.packageTestList) ? data.packageTestList : [])
+            ];
+            const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
+            const totalDiscountFromCheckout = !data.isPromo && typeof data.totaldiscount === 'number' ? data.totaldiscount : 0;
+            const totalSurchargeFromCheckout = typeof data.totalsurcharge === 'number' ? data.totalsurcharge : 0;
+            const effectiveDiscountTotal = Math.max(Number(totalDiscountFromCheckout || 0), Number(computedAdjustments.discountTotal || 0));
+            const effectiveSurchargeTotal = Math.max(Number(totalSurchargeFromCheckout || 0), Number(computedAdjustments.surchargeTotal || 0));
+            await billing_shared_1.DiscountLimitService.enforceAndRecord({
+                tenantId: this.tenantId,
+                trx,
+                employeeid: this.payload.employeeid,
+                billingid: billingID,
+                subtotal: typeof data.subtotal === 'number' ? data.subtotal : undefined,
+                payable: typeof data.amountPayable === 'number' ? data.amountPayable : undefined,
+                discountTotal: effectiveDiscountTotal || 0,
+                surchargeTotal: effectiveSurchargeTotal || 0,
+                branchid: updatedBillingData.branchid
+            });
             const taxValue = updatedBillingData.taxValue || 0;
             const taxList = updatedBillingData.taxList || null;
             const taxIncluded = updatedBillingData.taxIncluded || false;
@@ -154,6 +204,14 @@ class SubmitCustomerBilling {
             return { status: true, message: "Billing submitted successfully", billingid: billingID };
         }
         catch (error) {
+            if (trx) {
+                try {
+                    await trx.rollback();
+                }
+                catch (_b) {
+                    // ignore rollback errors
+                }
+            }
             console.log("Error in submitCustomerBilling:", error);
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
         }
@@ -359,9 +417,48 @@ class SubmitCustomerBilling {
                     isPackageUsed,
                     packageid
                 });
-                if (outcome && item[5] != 5 && item[1]) {
+                const serviceid = typeof outcome === "number"
+                    ? outcome
+                    : Array.isArray(outcome)
+                        ? outcome[0]
+                        : outcome === null || outcome === void 0 ? void 0 : outcome.serviceid;
+                if (serviceid && typeof serviceid === "number") {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterInsert)(queryRunner, {
+                        serviceid,
+                        billingid,
+                        trackId,
+                        cost,
+                        employeeid,
+                        serviceCategory,
+                        categoryTrackId,
+                        clinicianId,
+                        organizationId,
+                        registrationType,
+                        branchid,
+                        isoutsourced,
+                        outsourceid,
+                        serviceAddedOn,
+                        taxList,
+                        taxValue,
+                        amountIncurredDueTax,
+                        taxIncluded,
+                        discount,
+                        totalcost,
+                        totalpayable,
+                        isNHIS,
+                        isPHIS,
+                        insuranceid,
+                        claimCode,
+                        hasNightAdjustment,
+                        nightAdjustmentMode,
+                        nightAdjustmentValue,
+                        isPackageUsed,
+                        packageid
+                    }, employeeid ? employeeid.toString() : undefined);
+                }
+                if (serviceid && item[5] != 5 && item[1]) {
                     try {
-                        await billing_shared_1.BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                        await billing_shared_1.BillingSharedRepo.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
                     }
                     catch (err) {
                         throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);

@@ -12,6 +12,7 @@ router.put("/api/v1/register/personalinformation", registrationHandlers_1.update
 router.put("/api/v1/register/emmergencycontactinformation", registrationHandlers_1.updateEmergencyContactInformation);
 router.put("/api/v1/register/addressinginformation", registrationHandlers_1.updateAddressingInformation);
 router.get("/api/v1/register/personalinformation", registrationHandlers_1.getPersonalInformation);
+router.get("/api/v1/register/personalinformation/audit", registrationHandlers_1.getPatientAuditHistoryHandler);
 router.get("/api/v1/register/checkmobile", registrationHandlers_1.checkMobileNumber);
 router.get("/api/v1/register/addressingformation", registrationHandlers_1.getAddressingInformation);
 router.get("/api/v1/register/emmergencycontactinformation", registrationHandlers_1.getEmergencyContactInformation);

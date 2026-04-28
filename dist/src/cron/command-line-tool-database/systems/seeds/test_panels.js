@@ -25,6 +25,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
+const testPanelId_1 = require("../../../../testpanel/testPanelId");
 exports.seed = async function (knex) {
     await knex.raw('SET FOREIGN_KEY_CHECKS = 0;');
     await knex('testcreationrules').del();
@@ -55,7 +56,9 @@ exports.seed = async function (knex) {
                 }
                 seenNames.add(normalizedName);
                 await knex.transaction(async (trx) => {
+                    const id = await (0, testPanelId_1.generateNextTestPanelId)(trx);
                     const panelData = {
+                        id,
                         name: testPanel.name,
                         category: testPanel.category,
                         price: testPanel.price || 0,
@@ -68,11 +71,9 @@ exports.seed = async function (knex) {
                         iscustom: testPanel.iscustom || 0,
                         created_on: currentDate
                     };
-                    await trx('test_panels').insert(panelData);
-                    const insertedPanel = await trx('test_panels')
-                        .where('name', testPanel.name)
-                        .orderBy('id', 'desc')
-                        .first();
+                    const inserted = await trx('test_panels').insert(panelData);
+                    const primKey = Array.isArray(inserted) ? inserted[0] : inserted;
+                    const insertedPanel = await trx('test_panels').where('prim_key', primKey).first();
                     if (!insertedPanel) {
                         throw new Error(`Failed to retrieve inserted test panel: ${testPanel.name}`);
                     }

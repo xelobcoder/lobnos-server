@@ -6,6 +6,7 @@ import { paginationQuery, promisifyQuery, rowAffected, customError } from "../..
 import { billErrors } from "../billing/billingclientTypes";
 import KnexConnection from "../../database/KnexConnections";
 import { QUERY_EXPENSE_PAYMENTS_SUMMARY } from "../../controllers/billing/sales/Extensive/queries";
+import { applyDboservicesAfterUpdate } from "../../database/appLevelTriggers";
 
 
 
@@ -66,6 +67,10 @@ class Payment {
 						paidamount: 0,
 						paymentstatus: 'paid'
 					});
+				const updated = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+				if (updated) {
+					await applyDboservicesAfterUpdate(trx, updated);
+				}
 				continue;
 			}
 			if (remaining <= 0) break;
@@ -79,6 +84,10 @@ class Payment {
 						paidamount: newPaid,
 						paymentstatus: newStatus
 					});
+				const updated = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+				if (updated) {
+					await applyDboservicesAfterUpdate(trx, updated);
+				}
 				remaining -= toPay;
 			}
 		}
@@ -96,6 +105,10 @@ class Payment {
 					paidamount: totalpayable,
 					paymentstatus: 'paid'
 				});
+			const updated = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+			if (updated) {
+				await applyDboservicesAfterUpdate(trx, updated);
+			}
 		}
 	}
 

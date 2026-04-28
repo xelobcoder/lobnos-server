@@ -1,0 +1,13 @@
+autoAddClients
+autoDeleteClient
+create_commission_payment
+insertIntoServicesTracking
+insertintooutsourceTraking
+trg_dboservices_insert
+trg_dboservices_update
+trg_dboservices_delete
+insertIntoDboTestApprovalTable2
+insertIntoContactNaccount
+onDeleteClinician
+onInsertClinician
+inserttestdetails

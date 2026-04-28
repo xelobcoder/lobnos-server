@@ -434,7 +434,8 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			promoCode,
 			isPromo,
 			isPackageUsed,
-			packageid
+			packageid,
+			employeeid
 		} = req.body;
 
 		const result = await CustomerBillingCheckout.checkoutCustomerBilling({
@@ -453,6 +454,7 @@ export const checkoutBillingHandler = async (req: Request, res: Response) => {
 			isPromo,
 			isPackageUsed,
 			packageid,
+			employeeid,
 			tenantId
 		});
 		if (result.success) {

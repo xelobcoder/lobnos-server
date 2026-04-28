@@ -14,7 +14,12 @@ import {
        getTestCreationRule,
        completeFlowByPassHandler,
        completeFlowByPassMultipleHandler,
-       CheckPaymentStatus
+       CheckPaymentStatus,
+       setResultDeliveryPreference,
+       getResultDeliveryPreference,
+       recordResultDelivery,
+       recordResultHandover,
+       getResultDeliveryChain
 } from "./resultHandlers"
 import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestTotalCasesByHourForSpecificDay, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear } from './resultanalysis'
 import { billingIdChecker } from "../../middleware/redis/handlerAscensionBillingCheck";
@@ -69,6 +74,12 @@ router.get("/api/v1/result/criticalvalues/unseen", criticalValuesUnseenHandler)
 // Result Printout 
 router.get("/api/v1/result/printout/ascension/getResult", CheckPaymentStatus, handleOverLoad(getResultPrintoutHandler))
 router.get("/api/v1/result/printout/ascension/multiple/getResult", CheckPaymentStatus, handleOverLoad(getResultPrintMultipleHandler))
+
+router.post('/api/v1/result/delivery/preference', handleOverLoad(setResultDeliveryPreference));
+router.get('/api/v1/result/delivery/preference/:billingid', handleOverLoad(getResultDeliveryPreference));
+router.post('/api/v1/result/delivery/record', handleOverLoad(recordResultDelivery));
+router.post('/api/v1/result/delivery/handover', handleOverLoad(recordResultHandover));
+router.get('/api/v1/result/delivery/chain/:billingid', handleOverLoad(getResultDeliveryChain));
 
 
 

@@ -10,6 +10,8 @@ const helper_1 = require("../hooks/helper");
 const logger_1 = __importDefault(require("../hooks/logger"));
 const MasterTestPanelRepository_1 = __importDefault(require("../models/system-admin/MasterTestPanelRepository"));
 const KnexConnections_1 = __importDefault(require("../database/KnexConnections"));
+const appLevelTriggers_1 = require("../database/appLevelTriggers");
+const testPanelId_1 = require("./testPanelId");
 const resolveLookupId = async (tenantId, tableName, idColumn, nameColumn, value) => {
     if (value === undefined || value === null || value === "") {
         return null;
@@ -111,22 +113,54 @@ exports.testpanel = {
         }
     },
     postPanel: async (tenantId, request, response) => {
-        const isFieldsOkay = !Object.values(request.body).some((value) => !value);
-        if (isFieldsOkay) {
-            request.body.samplevolume = parseInt(request.body.samplevolume);
-            const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body;
-            const panelExist = await exports.testpanel.panelExist(tenantId, test);
-            if (panelExist) {
-                return response.send({ statusCode: 200, status: "success", message: "Panel already exists" });
+        try {
+            const isFieldsOkay = !Object.values(request.body).some((value) => !value);
+            if (isFieldsOkay) {
+                request.body.samplevolume = parseInt(request.body.samplevolume);
+                const { test, price, category, unit, sample, samplevolume, samplecontainer, description } = request.body;
+                const connection = await (0, KnexConnections_1.default)(tenantId);
+                const trx = await connection.transaction();
+                try {
+                    const existing = await trx("test_panels")
+                        .select("id")
+                        .whereRaw("LOWER(name) = LOWER(?)", [String(test).trim()])
+                        .first();
+                    if (existing) {
+                        await trx.rollback();
+                        return response.send({ statusCode: 200, status: "success", message: "Panel already exists" });
+                    }
+                    const id = await (0, testPanelId_1.generateNextTestPanelId)(trx);
+                    const inserted = await trx("test_panels").insert({
+                        id,
+                        name: test,
+                        price,
+                        category,
+                        unit,
+                        qty_required: samplevolume,
+                        sample_container: samplecontainer,
+                        description,
+                        sample,
+                        iscustom: 0,
+                    });
+                    const primKey = Array.isArray(inserted) ? inserted[0] : inserted;
+                    if (!primKey || Number(primKey) <= 0) {
+                        await trx.rollback();
+                        return response.send({ statusCode: 200, status: "error", message: "Panel creation failed" });
+                    }
+                    await (0, appLevelTriggers_1.applyTestPanelsAfterInsert)(trx, { testid: Number(id), price: Number(price !== null && price !== void 0 ? price : 0), iscustom: 0 });
+                    await trx.commit();
+                    return response.send({ statusCode: 201, status: "success", message: "Panel created successfully" });
+                }
+                catch (err) {
+                    await trx.rollback();
+                    throw err;
+                }
             }
-            else {
-                const query = `INSERT INTO test_panels (name, price, category, unit, qty_required, sample_container, description, sample) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-                const values = [test, price, category, unit, samplevolume, samplecontainer, description, sample];
-                const outcome = (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, query, values));
-                return outcome
-                    ? response.send({ statusCode: 201, status: "success", message: "Panel created successfully" })
-                    : response.send({ statusCode: 200, status: "error", message: "Panel creation failed" });
-            }
+            return response.send({ statusCode: 400, status: "error", message: "All fields must have values" });
+        }
+        catch (err) {
+            logger_1.default.error(err);
+            return response.status(500).send({ statusCode: 500, status: "error", message: err.message });
         }
     },
     addSampleType: async (request, response) => {
@@ -484,6 +518,7 @@ exports.testpanel = {
         return packets[0]['count'];
     },
     createCustomTest: async function (tenantId, testname, iscustom = 1) {
+        var _a, _b;
         try {
             if (!testname) {
                 throw new Error("Testname required");
@@ -492,8 +527,26 @@ exports.testpanel = {
                 return "EXIST";
             }
             const connection = await (0, KnexConnections_1.default)(tenantId);
-            const result = await connection('test_panels').insert({ name: testname, iscustom });
-            return result && result.length > 0;
+            const trx = await connection.transaction();
+            try {
+                const id = await (0, testPanelId_1.generateNextTestPanelId)(trx);
+                const inserted = await trx('test_panels').insert({ id, name: testname, iscustom });
+                const primKey = Array.isArray(inserted) ? inserted[0] : inserted;
+                const panel = await trx("test_panels").select("id", "price", "iscustom").where({ prim_key: primKey }).first();
+                if (panel === null || panel === void 0 ? void 0 : panel.id) {
+                    await (0, appLevelTriggers_1.applyTestPanelsAfterInsert)(trx, {
+                        testid: Number(panel.id),
+                        price: Number((_a = panel.price) !== null && _a !== void 0 ? _a : 0),
+                        iscustom: Number((_b = panel.iscustom) !== null && _b !== void 0 ? _b : iscustom),
+                    });
+                }
+                await trx.commit();
+                return !!(primKey && Number(primKey) > 0);
+            }
+            catch (err) {
+                await trx.rollback();
+                throw err;
+            }
         }
         catch (err) {
             console.log(err);

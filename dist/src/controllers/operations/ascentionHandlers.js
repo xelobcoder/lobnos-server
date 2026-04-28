@@ -193,7 +193,7 @@ async function updateValidationSampleHandler(request, response) {
             return (0, helper_1.customError)("invalid request body provided", 400, response);
         const tenantIdP = parseInt(tenantId.toString());
         const updateInfo = await sampleClass_1.SampleHandler.updateTestSampleApprovalStatusBulk(tenantIdP, testcollection);
-        response.send({ tenantId, status: updateInfo, message: updateInfo === true ? "status updated successfully" : 'update of sample status failed' });
+        response.send({ tenantId, status: updateInfo.status, message: updateInfo.message });
     }
     catch (err) {
         console.log(err);

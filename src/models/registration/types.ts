@@ -49,7 +49,7 @@ export interface IRegistration {
   checkEmailOrMobileExist(email: string, mobile: number): boolean;
   checkPatientIdExist(patientid: number): Promise<boolean>;
   getPatientBasicData(patientid: number | string): Promise<NewRegistration | null>;
-  addPersonalInformation(records: NewRegistration): Promise<registrationOutcome | void>;
+  addPersonalInformation(records: NewRegistration): Promise<number | void>;
   addressingInformation(paientid: number, records: addressInformation): Promise<boolean | void>;
   addNewPatient(data: NewRegistration): Promise<number>;
   updatePersonalInformation(patientdata: NewRegistration): Promise<boolean>;

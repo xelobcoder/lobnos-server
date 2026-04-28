@@ -31,7 +31,25 @@ export const updatePersonalInformation = async (
 		const result = await Registration.UpdatePersonalInformation(tenantId, data, parsedPatientId);
 		response.send({ status: result });
 	} catch (error) {
-		customError("Error updating personal information", 500, response);
+		customError(error?.message || "Error updating personal information", 500, response);
+	}
+};
+
+export const getPatientAuditHistoryHandler = async (
+	request: Request<{}, {}, {}, { tenantId: string; patientid: string }>,
+	response: Response
+) => {
+	const tenantId: number = parseInt(request.query.tenantId, 10);
+	const { patientid } = request.query;
+	const parsedPatientId = parseInt(patientid);
+	if (!patientid || isNaN(parsedPatientId)) {
+		return customError("patientid not included in the request", 400, response);
+	}
+	try {
+		const result = await Registration.getPatientAuditHistory(tenantId, parsedPatientId);
+		response.send({ status: true, result });
+	} catch (error) {
+		customError(error?.message || "Error fetching patient audit history", 500, response);
 	}
 };
 
@@ -252,7 +270,7 @@ export const getPatientImagePathHandler = async (
 			imagePath,
 		});
 
-	} catch (error:any) {
+	} catch (error: any) {
 		logger.log(error);
 		customError("Error fetching image path", 500, res);
 	}

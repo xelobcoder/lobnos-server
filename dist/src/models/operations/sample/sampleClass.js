@@ -19,21 +19,26 @@ class SampleHandler extends ascension_1.TestAscension {
         return (0, helper_1.rowAffected)(row);
     }
     static async updateTestSampleApprovalStatusBulk(tenantId, collection) {
-        if (collection.length === 0)
-            return null;
+        if (collection.length === 0) {
+            return { status: false, message: "No records provided for update." };
+        }
         for (let i = 0; i < collection.length; i++) {
             try {
                 const { testid, validatedby, rejectionmessage, billingid, approvalstatus, id: ascensionId, validatedon } = collection[i];
                 const hasValidParams = testid && billingid && validatedby && validatedon && ascensionId && [0, 1].includes(approvalstatus);
-                if (!hasValidParams || (approvalstatus === 0 && rejectionmessage == null))
-                    continue;
+                if (!hasValidParams) {
+                    return { status: false, message: "Missing or invalid fields in sample update payload." };
+                }
+                if (approvalstatus === 0 && rejectionmessage == null) {
+                    return { status: false, message: "Rejection message is required for rejected samples." };
+                }
                 await this.updateSampleStatusForAscension(tenantId, Object.assign(Object.assign({}, collection[i]), { ascensionId }));
             }
             catch (err) {
-                return false;
+                return { status: false, message: (err === null || err === void 0 ? void 0 : err.message) || "Failed to update sample status." };
             }
         }
-        return true;
+        return { status: true, message: "Status updated successfully." };
     }
     static async getPendingUnvalidatedSamples(tenantId, pagination, startdate, enddate, sortby = 'ASC', searchstring, billingid) {
         let query = queries_2.q_get_pending_collected_but_unvalidated_samples;

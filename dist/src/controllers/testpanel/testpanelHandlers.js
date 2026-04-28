@@ -13,6 +13,8 @@ const TestCreationRulesRepository_1 = __importDefault(require("../../models/Test
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const MasterTestPanelRepository_1 = __importDefault(require("../../models/system-admin/MasterTestPanelRepository"));
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const appLevelTriggers_1 = require("../../database/appLevelTriggers");
+const testPanelId_1 = require("../../testpanel/testPanelId");
 // Category Handlers
 const getCategories = (req, res) => {
     (0, categories_1.getCategory)(req, res);
@@ -384,7 +386,7 @@ exports.putBulkTestPricingUpdate = putBulkTestPricingUpdate;
 const DEADLOCK_MAX_RETRIES = 3;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function importOneMasterTest(masterTestId, connection, masterRepo) {
-    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14;
+    var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t, _u, _v, _w, _x, _y, _z, _0, _1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, _16;
     const masterPanel = await masterRepo.getMasterPanelByTestId(masterTestId);
     if (!masterPanel) {
         return { success: false, skipped: false, masterTestId, name: String(masterTestId), error: 'master test not found' };
@@ -459,7 +461,9 @@ async function importOneMasterTest(masterTestId, connection, masterRepo) {
                     targetSampleContainerId = Number((_g = tenantSampleContainer === null || tenantSampleContainer === void 0 ? void 0 : tenantSampleContainer.id) !== null && _g !== void 0 ? _g : targetSampleContainerId);
                 }
             }
+            const id = await (0, testPanelId_1.generateNextTestPanelId)(trx);
             const insertedPanel = await trx('test_panels').insert({
+                id,
                 name: masterPanel.name,
                 category: targetDepartment.id,
                 price: Number((_h = masterPanel.price) !== null && _h !== void 0 ? _h : 0),
@@ -478,6 +482,11 @@ async function importOneMasterTest(masterTestId, connection, masterRepo) {
                 return { success: false, skipped: false, masterTestId, name: masterPanel.name, error: 'failed to resolve imported test id' };
             }
             const newTestId = Number(newPanel.id);
+            await (0, appLevelTriggers_1.applyTestPanelsAfterInsert)(trx, {
+                testid: newTestId,
+                price: Number((_q = masterPanel.price) !== null && _q !== void 0 ? _q : 0),
+                iscustom: Number((_r = masterPanel.iscustom) !== null && _r !== void 0 ? _r : 0),
+            });
             const masterDetails = await masterRepo.getMasterTestDetailsByTestId(masterTestId);
             if (masterDetails) {
                 await trx('testdetails')
@@ -491,23 +500,23 @@ async function importOneMasterTest(masterTestId, connection, masterRepo) {
                     post_Tat: masterDetails.post_Tat,
                     tatCount: masterDetails.tatCount,
                     updatedon: trx.fn.now(),
-                    updatedby: Number((_q = masterDetails.updatedby) !== null && _q !== void 0 ? _q : defaultEmployeeId),
-                    isoutsourced: Number((_r = masterDetails.isoutsourced) !== null && _r !== void 0 ? _r : 0),
-                    showtrend: Number((_s = masterDetails.showtrend) !== null && _s !== void 0 ? _s : 0),
+                    updatedby: Number((_s = masterDetails.updatedby) !== null && _s !== void 0 ? _s : defaultEmployeeId),
+                    isoutsourced: Number((_t = masterDetails.isoutsourced) !== null && _t !== void 0 ? _t : 0),
+                    showtrend: Number((_u = masterDetails.showtrend) !== null && _u !== void 0 ? _u : 0),
                     testprice: masterDetails.testprice,
-                    hasGenderVariation: Number((_t = masterDetails.hasGenderVariation) !== null && _t !== void 0 ? _t : 0),
-                    hasChildrenLimit: Number((_u = masterDetails.hasChildrenLimit) !== null && _u !== void 0 ? _u : 0),
-                    childrenlimit: (_v = masterDetails.childrenlimit) !== null && _v !== void 0 ? _v : '',
-                    useLiterature: Number((_w = masterDetails.useLiterature) !== null && _w !== void 0 ? _w : 0),
-                    hasDrugs: Number((_x = masterDetails.hasDrugs) !== null && _x !== void 0 ? _x : 0),
-                    outSourcingList: (_y = masterDetails.outSourcingList) !== null && _y !== void 0 ? _y : null,
-                    post_TatEvaluation: (_z = masterDetails.post_TatEvaluation) !== null && _z !== void 0 ? _z : 'min',
-                    pre_TatEvaluation: (_0 = masterDetails.pre_TatEvaluation) !== null && _0 !== void 0 ? _0 : 'min',
-                    tatEvaluation: (_1 = masterDetails.tatEvaluation) !== null && _1 !== void 0 ? _1 : 'min',
-                    deviceInterfaceMapping: (_2 = masterDetails.deviceInterfaceMapping) !== null && _2 !== void 0 ? _2 : null,
-                    reportitle: (_3 = masterDetails.reportitle) !== null && _3 !== void 0 ? _3 : null,
-                    method: (_4 = masterDetails.method) !== null && _4 !== void 0 ? _4 : null,
-                    instrumentation: (_5 = masterDetails.instrumentation) !== null && _5 !== void 0 ? _5 : '',
+                    hasGenderVariation: Number((_v = masterDetails.hasGenderVariation) !== null && _v !== void 0 ? _v : 0),
+                    hasChildrenLimit: Number((_w = masterDetails.hasChildrenLimit) !== null && _w !== void 0 ? _w : 0),
+                    childrenlimit: (_x = masterDetails.childrenlimit) !== null && _x !== void 0 ? _x : '',
+                    useLiterature: Number((_y = masterDetails.useLiterature) !== null && _y !== void 0 ? _y : 0),
+                    hasDrugs: Number((_z = masterDetails.hasDrugs) !== null && _z !== void 0 ? _z : 0),
+                    outSourcingList: (_0 = masterDetails.outSourcingList) !== null && _0 !== void 0 ? _0 : null,
+                    post_TatEvaluation: (_1 = masterDetails.post_TatEvaluation) !== null && _1 !== void 0 ? _1 : 'min',
+                    pre_TatEvaluation: (_2 = masterDetails.pre_TatEvaluation) !== null && _2 !== void 0 ? _2 : 'min',
+                    tatEvaluation: (_3 = masterDetails.tatEvaluation) !== null && _3 !== void 0 ? _3 : 'min',
+                    deviceInterfaceMapping: (_4 = masterDetails.deviceInterfaceMapping) !== null && _4 !== void 0 ? _4 : null,
+                    reportitle: (_5 = masterDetails.reportitle) !== null && _5 !== void 0 ? _5 : null,
+                    method: (_6 = masterDetails.method) !== null && _6 !== void 0 ? _6 : null,
+                    instrumentation: (_7 = masterDetails.instrumentation) !== null && _7 !== void 0 ? _7 : '',
                 });
             }
             const masterSetupLiterature = await masterRepo.getMasterSetupLiteratureByTestId(masterTestId);
@@ -519,14 +528,14 @@ async function importOneMasterTest(masterTestId, connection, masterRepo) {
                     await trx('setupliteraturereview')
                         .where({ testid: newTestId })
                         .update({
-                        literature: (_6 = masterSetupLiterature.literature) !== null && _6 !== void 0 ? _6 : '',
+                        literature: (_8 = masterSetupLiterature.literature) !== null && _8 !== void 0 ? _8 : '',
                         updated_on: trx.fn.now(),
                     });
                 }
                 else {
                     await trx('setupliteraturereview').insert({
                         testid: newTestId,
-                        literature: (_7 = masterSetupLiterature.literature) !== null && _7 !== void 0 ? _7 : '',
+                        literature: (_9 = masterSetupLiterature.literature) !== null && _9 !== void 0 ? _9 : '',
                     });
                 }
             }
@@ -543,9 +552,9 @@ async function importOneMasterTest(masterTestId, connection, masterRepo) {
                 const insertedCategory = await trx('testdetailcategory').insert({
                     categoryname: category.categoryname,
                     testid: newTestId,
-                    createdby: (_8 = category.createdby) !== null && _8 !== void 0 ? _8 : String(defaultEmployeeId),
-                    updatedby: (_9 = category.updatedby) !== null && _9 !== void 0 ? _9 : null,
-                    deleted: Number((_10 = category.deleted) !== null && _10 !== void 0 ? _10 : 0),
+                    createdby: (_10 = category.createdby) !== null && _10 !== void 0 ? _10 : String(defaultEmployeeId),
+                    updatedby: (_11 = category.updatedby) !== null && _11 !== void 0 ? _11 : null,
+                    deleted: Number((_12 = category.deleted) !== null && _12 !== void 0 ? _12 : 0),
                 });
                 const newCategoryId = Array.isArray(insertedCategory) ? insertedCategory[0] : insertedCategory;
                 categoryIdMap.set(Number(category.categoryid), Number(newCategoryId));
@@ -558,18 +567,18 @@ async function importOneMasterTest(masterTestId, connection, masterRepo) {
                     name: rule.name,
                     field: rule.field,
                     value: rule.value,
-                    hasunits: Number((_11 = rule.hasunits) !== null && _11 !== void 0 ? _11 : 0),
+                    hasunits: Number((_13 = rule.hasunits) !== null && _13 !== void 0 ? _13 : 0),
                     units: rule.units,
                     plan: rule.plan,
                     plain: rule.plain,
                     ordering: rule.ordering,
-                    isValueTracked: Number((_12 = rule.isValueTracked) !== null && _12 !== void 0 ? _12 : 0),
+                    isValueTracked: Number((_14 = rule.isValueTracked) !== null && _14 !== void 0 ? _14 : 0),
                     textReference: rule.textReference,
                     upperlimit: rule.upperlimit,
                     lowerlimit: rule.lowerlimit,
                     category: rule.category,
                     options: rule.options,
-                    undercategory: Number((_13 = rule.undercategory) !== null && _13 !== void 0 ? _13 : 0),
+                    undercategory: Number((_15 = rule.undercategory) !== null && _15 !== void 0 ? _15 : 0),
                     categoryid: mappedCategoryId !== null && mappedCategoryId !== void 0 ? mappedCategoryId : null,
                     valueAlert: rule.valueAlert,
                     alert: rule.alert,
@@ -605,7 +614,7 @@ async function importOneMasterTest(masterTestId, connection, masterRepo) {
                 skipped: false,
                 masterTestId,
                 name: masterPanel.name,
-                error: (_14 = transactionError === null || transactionError === void 0 ? void 0 : transactionError.message) !== null && _14 !== void 0 ? _14 : 'import failed',
+                error: (_16 = transactionError === null || transactionError === void 0 ? void 0 : transactionError.message) !== null && _16 !== void 0 ? _16 : 'import failed',
             };
         }
         break;

@@ -8,6 +8,8 @@ import TestCreationRulesRepository from "../../models/TestCreation/TestCreationR
 import logger from "../../hooks/logger";
 import MasterTestPanelRepository from "../../models/system-admin/MasterTestPanelRepository";
 import KnexConnection from "../../database/KnexConnections";
+import { applyTestPanelsAfterInsert } from "../../database/appLevelTriggers";
+import { generateNextTestPanelId } from "../../testpanel/testPanelId";
 
 
 // Category Handlers
@@ -473,7 +475,9 @@ async function importOneMasterTest(
                     }
                }
 
+               const id = await generateNextTestPanelId(trx);
                const insertedPanel = await trx('test_panels').insert({
+                    id,
                     name: masterPanel.name,
                     category: targetDepartment.id,
                     price: Number(masterPanel.price ?? 0),
@@ -494,6 +498,11 @@ async function importOneMasterTest(
                }
 
                const newTestId = Number(newPanel.id);
+               await applyTestPanelsAfterInsert(trx, {
+                    testid: newTestId,
+                    price: Number(masterPanel.price ?? 0),
+                    iscustom: Number(masterPanel.iscustom ?? 0),
+               });
                const masterDetails = await masterRepo.getMasterTestDetailsByTestId(masterTestId);
                if (masterDetails) {
                     await trx('testdetails')

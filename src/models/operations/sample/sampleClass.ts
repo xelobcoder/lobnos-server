@@ -21,25 +21,36 @@ export class SampleHandler extends TestAscension {
 		const row = await promisifyQuery(tenantId, q_update_sample_status_validation, [approvalstatus, rejectionmessage, new Date(validatedon), validatedby, ascensionId])
 		return rowAffected(row);
 	}
-	public static async updateTestSampleApprovalStatusBulk(tenantId: number, collection: updateSampleStatusCollection[]): Promise<boolean | null> {
-		if (collection.length === 0) return null;
+	public static async updateTestSampleApprovalStatusBulk(
+		tenantId: number,
+		collection: updateSampleStatusCollection[]
+	): Promise<{ status: boolean; message: string }> {
+		if (collection.length === 0) {
+			return { status: false, message: "No records provided for update." };
+		}
 		for (let i = 0; i < collection.length; i++) {
 			try {
 				const { testid, validatedby, rejectionmessage, billingid, approvalstatus, id: ascensionId, validatedon } = collection[i];
 
 				const hasValidParams = testid && billingid && validatedby && validatedon && ascensionId && [0, 1].includes(approvalstatus);
 
-				if (!hasValidParams || (approvalstatus === 0 && rejectionmessage == null)) continue
+				if (!hasValidParams) {
+					return { status: false, message: "Missing or invalid fields in sample update payload." };
+				}
+
+				if (approvalstatus === 0 && rejectionmessage == null) {
+					return { status: false, message: "Rejection message is required for rejected samples." };
+				}
 
 				await this.updateSampleStatusForAscension(
 					tenantId,
 					{ ...collection[i], ascensionId });
 
-			} catch (err) {
-				return false;
+			} catch (err: any) {
+				return { status: false, message: err?.message || "Failed to update sample status." };
 			}
 		}
-		return true;
+		return { status: true, message: "Status updated successfully." };
 	}
 
 	public static async getPendingUnvalidatedSamples(tenantId: number, pagination: { count: number, page: number },

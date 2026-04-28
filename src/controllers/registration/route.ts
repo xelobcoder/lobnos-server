@@ -5,6 +5,7 @@ import {
   updateEmergencyContactInformation,
   updateAddressingInformation,
   getPersonalInformation,
+  getPatientAuditHistoryHandler,
   checkMobileNumber,
   getAddressingInformation,
   getEmergencyContactInformation,
@@ -20,6 +21,7 @@ router.put("/api/v1/register/personalinformation", updatePersonalInformation);
 router.put("/api/v1/register/emmergencycontactinformation", updateEmergencyContactInformation);
 router.put("/api/v1/register/addressinginformation", updateAddressingInformation);
 router.get("/api/v1/register/personalinformation", getPersonalInformation);
+router.get("/api/v1/register/personalinformation/audit", getPatientAuditHistoryHandler);
 router.get("/api/v1/register/checkmobile", checkMobileNumber);
 router.get("/api/v1/register/addressingformation", getAddressingInformation);
 router.get("/api/v1/register/emmergencycontactinformation", getEmergencyContactInformation);

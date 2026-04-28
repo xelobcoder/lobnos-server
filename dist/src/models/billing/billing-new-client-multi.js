@@ -21,8 +21,8 @@ const billing_shared_types_1 = require("./multi/billing_shared_types");
 const billingclientTypes_1 = require("./billingclientTypes");
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
 const customerBillingCheckout_1 = require("./multi/customerBillingCheckout");
-const OutsourcedTestTrackingRepo_1 = require("../operations/OutsourcedTestTrackingRepo");
 const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDataSource");
+const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
         var _a, _b, _c, _d;
@@ -60,9 +60,9 @@ class SubmitCustomerBilling {
         // 3. compare the two and forward the details to the frontend
     }
     async submit() {
-        var _a;
+        var _a, _b;
         try {
-            const _b = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _b, rest = __rest(_b, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
+            const _c = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _c, rest = __rest(_c, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -122,26 +122,34 @@ class SubmitCustomerBilling {
             const conn = await this.connection;
             const trx = await conn.transaction();
             let billingID = 0;
-            if (!hasRelatedBilling) {
-                billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid || this.payload.patientId, this.tenantId, this.payload.branchid || this.payload.branchId, this.payload.employeeid || this.payload.employeeId, trx);
-            }
-            else {
-                billingID = this.payload.billingid;
-            }
-            const taxValue = updatedBillingData.taxValue || 0;
-            const taxList = updatedBillingData.taxList || null;
-            const taxIncluded = updatedBillingData.taxIncluded || false;
-            const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList, trx, hasRelatedBilling, this.payload.billingid);
-            // console.log(processTestCart, "processTestCart")
-            // throw new Error("testing");
-            const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(updatedBillingData, (updatedBillingData.servicesProvided || []).map(service => (Object.assign(Object.assign({}, service), { amountPaid: typeof service.amountPaid === 'number' ? service.amountPaid : 0, status: service.status || 'pending' }))), billingID, taxValue, taxList, hasRelatedBilling, this.payload.billingid);
-            const allEntries = [...processNonTestServices, ...processTestCart];
-            const Multi = new billing_shared_1.BillingSharedRepo();
-            if (allEntries.length > 0) {
-                const loadAllServices = await Multi
-                    .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
+            let finalBillingIdForEvent = 0;
+            try {
+                if (!hasRelatedBilling) {
+                    billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid || this.payload.patientId, this.tenantId, this.payload.branchid || this.payload.branchId, this.payload.employeeid || this.payload.employeeId, trx);
+                }
+                else {
+                    billingID = this.payload.billingid;
+                }
+                finalBillingIdForEvent = billingID;
+                const taxValue = updatedBillingData.taxValue || 0;
+                const taxList = updatedBillingData.taxList || null;
+                const taxIncluded = updatedBillingData.taxIncluded || false;
+                const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList, trx, hasRelatedBilling, this.payload.billingid);
+                const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(updatedBillingData, (updatedBillingData.servicesProvided || []).map(service => (Object.assign(Object.assign({}, service), { amountPaid: typeof service.amountPaid === 'number' ? service.amountPaid : 0, status: service.status || 'pending' }))), billingID, taxValue, taxList, hasRelatedBilling, this.payload.billingid);
+                const allEntries = [...processNonTestServices, ...processTestCart];
+                if (allEntries.length === 0) {
+                    throw new Error("No billable services/tests found.");
+                }
+                const Multi = new billing_shared_1.BillingSharedRepo();
+                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
                 if (loadAllServices.length > 0) {
-                    throw new Error(billing_shared_types_1.BillErrors.UnableToLoadServices);
+                    const firstErr = loadAllServices[0];
+                    const messageFromErr = typeof firstErr === "string"
+                        ? firstErr
+                        : firstErr && typeof firstErr.message === "string"
+                            ? firstErr.message
+                            : null;
+                    throw new Error(messageFromErr || billing_shared_types_1.BillErrors.UnableToLoadServices);
                 }
                 let totalcost = 0;
                 let totalservicesAmount = 0;
@@ -203,6 +211,10 @@ class SubmitCustomerBilling {
                         relatedBillingid: parseInt(this.payload.billingid),
                         isLocked: 1,
                     });
+                    const updatedServices = await trx("dboservices").where({ billingid: this.payload.billingid });
+                    for (const service of updatedServices) {
+                        await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(trx, service, (_b = (employeeid || this.payload.employeeid)) === null || _b === void 0 ? void 0 : _b.toString());
+                    }
                 }
                 const dataToUpdate = {
                     patientid: updatedBillingData.patientId,
@@ -233,7 +245,6 @@ class SubmitCustomerBilling {
                     writeoff: writeOffOutstanding ? writeOffAmount : 0,
                     lastupdatedby: employeeid || this.payload.employeeid,
                 };
-                // if adjustment is addition we need to add the related billin item to this current one and update the old instead of creating a new one
                 let AdditionAdjustmentBillingData = null;
                 if (isAdjustment && adjustmentType === "addition" && this.payload.billingid) {
                     let previousTransaction = await trx("billing").where({ billingid: this.payload.billingid }).first();
@@ -297,6 +308,7 @@ class SubmitCustomerBilling {
                 }
                 const finalUpdateData = hasRelatedBilling && adjustmentType == "addition" ? AdditionAdjustmentBillingData : dataToUpdate;
                 const finalBillingId = hasRelatedBilling && adjustmentType == "addition" ? parseInt(this.payload.billingid) : billingID;
+                finalBillingIdForEvent = finalBillingId;
                 const result = await trx("billing")
                     .update(finalUpdateData).where({ billingid: finalBillingId });
                 if (!result)
@@ -306,7 +318,7 @@ class SubmitCustomerBilling {
                     await promoRepo.incrementUsage(data.promoDetails.id, trx);
                 }
                 const paymentsArr = Array.isArray(this.payload.payments) ? this.payload.payments : [];
-                if (Array.isArray(paymentsArr) && paymentsArr.length > 0) {
+                if (paymentsArr.length > 0) {
                     for (const payment of paymentsArr) {
                         const paymentMode = payment.mode;
                         const paymentAmount = payment.amount;
@@ -318,10 +330,17 @@ class SubmitCustomerBilling {
                     }
                 }
                 await trx.commit();
-                const parsedEmployeeId = parseInt(employeeid.toString(), 10);
-                const repo = new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId);
-                await repo.paymentConfirmationEvent(tenantId, finalBillingId, parsedEmployeeId);
             }
+            catch (error) {
+                try {
+                    await trx.rollback();
+                }
+                catch (_d) { }
+                throw error;
+            }
+            const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
+            const repo = new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId);
+            await repo.paymentConfirmationEvent(tenantId, finalBillingIdForEvent || billingID, parsedEmployeeId);
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         }
         catch (error) {
@@ -591,20 +610,51 @@ class SubmitCustomerBilling {
                     claimscheckcode: item.claimscheckcode ? item.claimscheckcode : null,
                     relatedbillingid: item.relatedbillingid
                 });
-                if (isoutsourced && outsourceid) {
-                    const outsourcedTestTrackingRepo = new OutsourcedTestTrackingRepo_1.OutsourcedTestTrackingRepo(tenantId);
-                    await outsourcedTestTrackingRepo.create({
-                        testid: trackId,
-                        serviceid: outcome[0],
-                        outsourceid,
+                const serviceid = typeof outcome === "number"
+                    ? outcome
+                    : Array.isArray(outcome)
+                        ? outcome[0]
+                        : outcome === null || outcome === void 0 ? void 0 : outcome.serviceid;
+                if (serviceid && typeof serviceid === "number") {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterInsert)(queryRunner, {
+                        serviceid,
+                        billingid,
+                        trackId,
+                        cost,
                         employeeid,
-                        status: 0,
-                        comments: "New outsourced service added, waiting for dispatch",
-                    }, queryRunner);
+                        serviceCategory,
+                        categoryTrackId,
+                        clinicianId,
+                        organizationId,
+                        registrationType,
+                        branchid,
+                        isoutsourced,
+                        outsourceid,
+                        serviceAddedOn,
+                        taxList,
+                        taxValue,
+                        amountIncurredDueTax,
+                        taxIncluded,
+                        discount,
+                        totalcost,
+                        totalpayable,
+                        isNHIS,
+                        isPHIS,
+                        insuranceid,
+                        claimCode,
+                        hasNightAdjustment,
+                        nightAdjustmentMode,
+                        nightAdjustmentValue,
+                        isPackageUsed,
+                        packageid,
+                        nhismembershipid: item.nhismembershipid ? item.nhismembershipid : null,
+                        claimscheckcode: item.claimscheckcode ? item.claimscheckcode : null,
+                        relatedbillingid: item.relatedbillingid
+                    }, employeeid ? employeeid.toString() : undefined);
                 }
-                if (outcome && item[5] != 5 && item[1]) {
+                if (serviceid && item[5] != 5 && item[1]) {
                     try {
-                        await billing_shared_1.BillingSharedRepo.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+                        await billing_shared_1.BillingSharedRepo.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
                     }
                     catch (err) {
                         throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);
@@ -694,6 +744,10 @@ class SubmitCustomerBilling {
             const shallowDeleted = await transaction('dboservices')
                 .where({ serviceid })
                 .update({ 'isDeleted': 1, deletedAt: new Date(), isdeletedBy: employeeid });
+            const shallowDeletedService = await transaction('dboservices').where({ serviceid }).first();
+            if (shallowDeletedService) {
+                await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(transaction, shallowDeletedService, employeeid ? employeeid.toString() : undefined);
+            }
             if (shallowDeleted) {
                 const testAscensionDeletion = await transaction('test_ascension')
                     .where({ serviceid })
@@ -736,6 +790,10 @@ class SubmitCustomerBilling {
                     await transaction('dboservices')
                         .update({ status: 'voided' })
                         .where({ billingid: workingBillinId, serviceid });
+                }
+                const voidedService = await transaction('dboservices').where({ serviceid }).first();
+                if (voidedService) {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(transaction, voidedService, employeeid ? employeeid.toString() : undefined);
                 }
                 if (!updatedBillRecord) {
                     await transaction.rollback();

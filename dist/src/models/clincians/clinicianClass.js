@@ -9,6 +9,7 @@ const helper_1 = require("../../hooks/helper");
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const ReferralCodingRepo_1 = require("../referral/repositories/ReferralCodingRepo");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 class ClinicianClass {
     /**
      * Build WHERE clause and parameters for filtering clinicians
@@ -73,7 +74,9 @@ class ClinicianClass {
         return { whereClause, params };
     }
     async insertCliniciansBulk(tenantId, clinicians) {
+        var _a;
         const results = [];
+        const connection = await (0, KnexConnections_1.default)(tenantId);
         for (const record of clinicians) {
             const { name, phone, email, location, address, occupation, organization } = record;
             if (!name || !phone) {
@@ -82,12 +85,24 @@ class ClinicianClass {
             }
             try {
                 const values = [name, phone, email ? email : null, location, address, occupation, organization];
-                const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.insertClinicianBasicInfo, values);
-                const { insertId } = result;
-                if (insertId !== 0) {
-                    results.push(insertId);
+                const trx = await connection.transaction();
+                try {
+                    const [result] = await trx.raw(queries_1.default.insertClinicianBasicInfo, values);
+                    const insertId = (result === null || result === void 0 ? void 0 : result.insertId) || ((_a = result === null || result === void 0 ? void 0 : result[0]) === null || _a === void 0 ? void 0 : _a.insertId);
+                    if (insertId !== 0 && insertId !== undefined) {
+                        const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
+                        const identifier = (row === null || row === void 0 ? void 0 : row.identifier) ? String(row.identifier) : "";
+                        await (0, appLevelTriggers_1.applyClinicianAfterInsert)(trx, { clinicianid: Number(insertId), identifier });
+                        await trx.commit();
+                        results.push(insertId);
+                    }
+                    else {
+                        await trx.rollback();
+                        results.push("Insert failed");
+                    }
                 }
-                else {
+                catch (err) {
+                    await trx.rollback();
                     results.push("Insert failed");
                 }
             }
@@ -177,8 +192,20 @@ class ClinicianClass {
         return 0;
     }
     async deleteClinicians(tenantId, id) {
-        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.default.deleteClinicianById, [id]);
-        return (0, helper_1.rowAffected)(result);
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const trx = await connection.transaction();
+        try {
+            const deleted = await trx("clinicianbasicinfo").where({ id }).del();
+            if (deleted > 0) {
+                await (0, appLevelTriggers_1.applyClinicianAfterDelete)(trx, id);
+            }
+            await trx.commit();
+            return deleted > 0;
+        }
+        catch (err) {
+            await trx.rollback();
+            throw err;
+        }
     }
     async isClinicianExist(tenantId, email, mobile) {
         if (!email || !mobile)
@@ -197,6 +224,9 @@ class ClinicianClass {
             const [result] = await trx.raw(queries_1.default.insertClinicianBasicInfo, values);
             const insertId = (result === null || result === void 0 ? void 0 : result.insertId) || ((_a = result === null || result === void 0 ? void 0 : result[0]) === null || _a === void 0 ? void 0 : _a.insertId);
             if (insertId !== 0 && insertId !== undefined) {
+                const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
+                const identifier = (row === null || row === void 0 ? void 0 : row.identifier) ? String(row.identifier) : "";
+                await (0, appLevelTriggers_1.applyClinicianAfterInsert)(trx, { clinicianid: Number(insertId), identifier });
                 const random = require("crypto").randomBytes(5).toString("hex");
                 const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
                 await trx.raw(tempCredentials, [random]);

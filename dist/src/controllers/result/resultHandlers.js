@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
+exports.getResultDeliveryChain = exports.recordResultHandover = exports.recordResultDelivery = exports.getResultDeliveryPreference = exports.setResultDeliveryPreference = exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const companyProfile_1 = require("../../models/settings/companyProfile");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
@@ -19,6 +19,7 @@ const TestCreationRulesRepository_1 = __importDefault(require("../../models/Test
 const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
 const requestAcess_1 = __importDefault(require("../../models/security/RequestAcessResult/requestAcess"));
 const services_1 = require("../../models/services/services");
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
@@ -511,3 +512,147 @@ const completeFlowByPassMultipleHandler = async (req, res) => {
     }
 };
 exports.completeFlowByPassMultipleHandler = completeFlowByPassMultipleHandler;
+const setResultDeliveryPreference = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const { billingid, requested_mode, requested_mode_detail, employeeid } = req.body || {};
+        const pBillingId = parseInt(String(billingid), 10);
+        if (!pBillingId || isNaN(pBillingId)) {
+            return (0, helper_1.customError)("billingid must be a number", 400, res);
+        }
+        if (!requested_mode || typeof requested_mode !== 'string') {
+            return (0, helper_1.customError)("requested_mode is required", 400, res);
+        }
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const billing = await conn('billing').select('patientid').where({ billingid: pBillingId }).first();
+        if (!billing || !billing.patientid) {
+            return (0, helper_1.customError)("billing record not found", 404, res);
+        }
+        const payload = {
+            billingid: pBillingId,
+            patientid: billing.patientid,
+            requested_mode: requested_mode.trim().toLowerCase(),
+            requested_mode_detail: requested_mode_detail !== null && requested_mode_detail !== void 0 ? requested_mode_detail : null,
+            updated_by_employeeid: employeeid !== null && employeeid !== void 0 ? employeeid : null,
+            updated_at: conn.fn.now()
+        };
+        await conn('patient_result_delivery_preference')
+            .insert(Object.assign(Object.assign({}, payload), { created_at: conn.fn.now() }))
+            .onConflict(['billingid'])
+            .merge(payload);
+        res.send({ status: true });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.setResultDeliveryPreference = setResultDeliveryPreference;
+const getResultDeliveryPreference = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const billingid = parseInt(String(req.params.billingid || req.query.billingid), 10);
+        if (!billingid || isNaN(billingid)) {
+            return (0, helper_1.customError)("billingid must be a number", 400, res);
+        }
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const pref = await conn('patient_result_delivery_preference').where({ billingid }).first();
+        res.send({ status: true, preference: pref || null });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.getResultDeliveryPreference = getResultDeliveryPreference;
+const recordResultDelivery = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const { billingid, delivered_mode, delivered_by_employeeid, notes } = req.body || {};
+        const pBillingId = parseInt(String(billingid), 10);
+        const pEmployeeId = parseInt(String(delivered_by_employeeid), 10);
+        if (!pBillingId || isNaN(pBillingId)) {
+            return (0, helper_1.customError)("billingid must be a number", 400, res);
+        }
+        if (!pEmployeeId || isNaN(pEmployeeId)) {
+            return (0, helper_1.customError)("delivered_by_employeeid must be a number", 400, res);
+        }
+        if (!delivered_mode || typeof delivered_mode !== 'string') {
+            return (0, helper_1.customError)("delivered_mode is required", 400, res);
+        }
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const billing = await conn('billing').select('patientid', 'branchid').where({ billingid: pBillingId }).first();
+        if (!billing || !billing.patientid) {
+            return (0, helper_1.customError)("billing record not found", 404, res);
+        }
+        const pref = await conn('patient_result_delivery_preference').where({ billingid: pBillingId }).first();
+        const requestedMode = pref ? pref.requested_mode : null;
+        const [id] = await conn('result_delivery_log').insert({
+            billingid: pBillingId,
+            patientid: billing.patientid,
+            requested_mode: requestedMode,
+            delivered_mode: delivered_mode.trim().toLowerCase(),
+            delivered_by_employeeid: pEmployeeId,
+            delivered_at: conn.fn.now(),
+            notes: notes !== null && notes !== void 0 ? notes : null
+        });
+        res.status(201).send({ status: true, id });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.recordResultDelivery = recordResultDelivery;
+const recordResultHandover = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const { billingid, from_employeeid, to_employeeid, status, notes } = req.body || {};
+        const pBillingId = parseInt(String(billingid), 10);
+        const pFrom = parseInt(String(from_employeeid), 10);
+        const pTo = parseInt(String(to_employeeid), 10);
+        if (!pBillingId || isNaN(pBillingId) || !pFrom || isNaN(pFrom) || !pTo || isNaN(pTo)) {
+            return (0, helper_1.customError)("billingid, from_employeeid and to_employeeid must be numbers", 400, res);
+        }
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const billing = await conn('billing').select('patientid').where({ billingid: pBillingId }).first();
+        const patientid = billing && billing.patientid ? billing.patientid : null;
+        const [id] = await conn('result_handover_log').insert({
+            billingid: pBillingId,
+            patientid,
+            from_employeeid: pFrom,
+            to_employeeid: pTo,
+            status: status ? String(status).trim().toLowerCase() : 'handover',
+            notes: notes !== null && notes !== void 0 ? notes : null,
+            created_at: conn.fn.now()
+        });
+        res.status(201).send({ status: true, id });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.recordResultHandover = recordResultHandover;
+const getResultDeliveryChain = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const billingid = parseInt(String(req.params.billingid), 10);
+        if (!billingid || isNaN(billingid)) {
+            return (0, helper_1.customError)("billingid must be a number", 400, res);
+        }
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const handovers = await conn('result_handover_log')
+            .leftJoin('roles as r_from', 'result_handover_log.from_employeeid', 'r_from.employeeid')
+            .leftJoin('roles as r_to', 'result_handover_log.to_employeeid', 'r_to.employeeid')
+            .select('result_handover_log.*', 'r_from.username as from_username', 'r_from.role as from_role', 'r_to.username as to_username', 'r_to.role as to_role')
+            .where('result_handover_log.billingid', billingid)
+            .orderBy('result_handover_log.created_at', 'asc');
+        const deliveries = await conn('result_delivery_log')
+            .leftJoin('roles as r_deliver', 'result_delivery_log.delivered_by_employeeid', 'r_deliver.employeeid')
+            .select('result_delivery_log.*', 'r_deliver.username as delivered_by_username', 'r_deliver.role as delivered_by_role')
+            .where('result_delivery_log.billingid', billingid)
+            .orderBy('result_delivery_log.delivered_at', 'asc');
+        res.send({ status: true, billingid, handovers, deliveries });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.getResultDeliveryChain = getResultDeliveryChain;

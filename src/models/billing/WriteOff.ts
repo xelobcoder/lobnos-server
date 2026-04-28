@@ -1,5 +1,6 @@
 
 import KnexConnection from '../../database/KnexConnections';
+import { applyDboservicesAfterUpdate } from '../../database/appLevelTriggers';
 import { promisifyQuery, rowAffected } from '../../hooks/helper';
 import { OperationsFailures } from '../operations/types';
 
@@ -77,6 +78,11 @@ export class WriteOff {
                               isRefunded: 1,
                               discount: 0,
                          });
+
+                    const updatedService = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+                    if (updatedService) {
+                         await applyDboservicesAfterUpdate(trx, updatedService, employeeid ? employeeid.toString() : undefined);
+                    }
 
                     const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date().toISOString()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
 

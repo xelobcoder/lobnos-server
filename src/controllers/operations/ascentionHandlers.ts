@@ -224,7 +224,7 @@ export async function updateValidationSampleHandler(request: Request<{}, {}, {
         if (!(Array.isArray(testcollection)) || testcollection.length === 0) return customError("invalid request body provided", 400, response);
         const tenantIdP = parseInt(tenantId.toString());
         const updateInfo = await SampleHandler.updateTestSampleApprovalStatusBulk(tenantIdP, testcollection);
-        response.send({ tenantId, status: updateInfo, message: updateInfo === true ? "status updated successfully" : 'update of sample status failed' })
+        response.send({ tenantId, status: updateInfo.status, message: updateInfo.message })
     } catch (err) {
         console.log(err)
         responseError(response);

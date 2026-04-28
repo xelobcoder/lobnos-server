@@ -2,6 +2,7 @@
 import { IDetermineStageOfRefund, updateRefundCashRequestBodyType } from "../../controllers/billing/sales/type";
 import { PrimeLimsTablebilling, PrimeLimsTablebillinghx, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices, PrimeLimsTablepaymentmodes } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
+import { applyDboservicesAfterInsert, applyDboservicesAfterUpdate, applyTestAscensionAfterInsertApprovalSettings } from "../../database/appLevelTriggers";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import { testpanel } from "../../testpanel/testpanelList";
@@ -1061,6 +1062,11 @@ export class Billing {
 						serviceid: serviceid
 					})
 
+				const updatedService = await trx("dboservices").where({ serviceid }).first();
+				if (updatedService) {
+					await applyDboservicesAfterUpdate(trx, updatedService, employeeid ? employeeid.toString() : undefined);
+				}
+
 
 				await trx("dbobillingrefundtable").update({
 					isRefundCompleted: 1,
@@ -1484,9 +1490,51 @@ export class Billing {
 					packageid
 				});
 
-				if (outcome && item[5] != 5 && item[1]) {
+				const serviceid =
+					typeof outcome === "number"
+						? outcome
+						: Array.isArray(outcome)
+							? outcome[0]
+							: outcome?.serviceid;
+
+				if (serviceid && typeof serviceid === "number") {
+					await applyDboservicesAfterInsert(queryRunner, {
+						serviceid,
+						billingid,
+						trackId,
+						cost,
+						employeeid,
+						serviceCategory,
+						categoryTrackId,
+						clinicianId,
+						organizationId,
+						registrationType,
+						branchid,
+						isoutsourced,
+						outsourceid,
+						serviceAddedOn,
+						taxList,
+						taxValue,
+						amountIncurredDueTax,
+						taxIncluded,
+						discount,
+						totalcost,
+						totalpayable,
+						isNHIS,
+						isPHIS,
+						insuranceid,
+						claimCode,
+						hasNightAdjustment,
+						nightAdjustmentMode,
+						nightAdjustmentValue,
+						isPackageUsed,
+						packageid,
+					}, employeeid ? employeeid.toString() : undefined);
+				}
+
+				if (serviceid && item[5] != 5 && item[1]) {
 					try {
-						await this.AddtoTestAscenstion(tenantId, outcome[0], billingid, item[1], queryRunner);
+						await this.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
 					} catch (err) {
 						throw new Error(billErrors.unableToLoadTestAscension);
 					}
@@ -1505,9 +1553,11 @@ export class Billing {
 			if (!billingid || !serviceid || !testid) return false;
 			const queryRunner = trx || await KnexConnection(tenantId);
 			const isInserted = await queryRunner.raw(AddtoTestAscenstionQuery, [testid, serviceid, billingid]);
-			// const result = await TestApprovalClass.addAprovalItem(tenantId, isInserted.insertId, trx);
-			// console.log(result)
-			return isInserted.insertId;
+			const ascensionid = isInserted?.insertId || isInserted?.[0]?.insertId || false;
+			if (ascensionid && typeof ascensionid === "number") {
+				await applyTestAscensionAfterInsertApprovalSettings(queryRunner, ascensionid);
+			}
+			return ascensionid;
 		} catch (err) {
 			console.log(err)
 			if (err && err.code && err.errno == 1526 && err.code == 'ER_NO_PARTITION_FOR_GIVEN_VALUE'.trim()) {

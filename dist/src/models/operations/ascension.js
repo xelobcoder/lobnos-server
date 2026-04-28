@@ -44,6 +44,12 @@ class TestAscension extends operations_1.default {
         const result = await (0, helper_1.promisifyQuery)(tenantId, query, [sanitizedDate, employeeid, ascensionId]);
         return (0, helper_1.rowAffected)(result);
     }
+    static async initialdbogeneraltestEdit(billingid, ascensionid, trx) {
+        const connection = await trx || KnexConnections_1.default;
+        return trx ? trx("dbogeneraltesteditcount").insert({ ascensionid, billingid, counter: 0, updatedon: new Date() })
+            : await connection("dbogeneraltesteditcount").
+                insert({ ascensionid, billingid, counter: 0, updatedon: new Date() });
+    }
     static async incrementTestEditCount(tenantId, billingid, ascensionid) {
         const current_count_value = await (0, helper_1.promisifyQuery)(tenantId, ascensionQueries_1.q_get_AscensionEditCount, [billingid, ascensionid]);
         if (current_count_value.length > 0) {
@@ -106,7 +112,7 @@ class TestAscension extends operations_1.default {
                 params.push(`%${word}%`, `%${word}%`, `%${word}%`);
             });
         }
-        query += ` ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
+        query += ` ORDER BY b.billingid ${sortby} GROUP BY billingid LIMIT ? OFFSET ?`;
         return await (0, helper_1.promisifyQuery)(tenantId, query, [...params, count, (page - 1) * count]);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {

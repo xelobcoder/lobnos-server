@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WriteOff = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const helper_1 = require("../../hooks/helper");
 class WriteOff {
     static async writeOffTransaction(tenantId, billingid, employeeid, reason) {
@@ -76,6 +77,10 @@ class WriteOff {
                     isRefunded: 1,
                     discount: 0,
                 });
+                const updatedService = await trx('dboservices').where({ serviceid: service.serviceid }).first();
+                if (updatedService) {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(trx, updatedService, employeeid ? employeeid.toString() : undefined);
+                }
                 const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date().toISOString()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
                 await trx('dbobillingrefundtable')
                     .where('serviceid', service.serviceid)

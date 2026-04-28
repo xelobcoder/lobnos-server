@@ -20,6 +20,7 @@ import RolesRepository, { IEmployee } from "../../models/settings/users/RolesRep
 import { TestDetailCategoryType } from "../../models/operations/testFieldsCategoryClass";
 import RequestAccess from "../../models/security/RequestAcessResult/requestAcess";
 import { Services } from "../../models/services/services";
+import KnexConnection from "../../database/KnexConnections";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -636,3 +637,166 @@ export const completeFlowByPassMultipleHandler = async (req: Request, res: Respo
 		res.status(500).json({ status: 'error', message: 'Internal server error' });
 	}
 }
+
+export const setResultDeliveryPreference = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
+		const { billingid, requested_mode, requested_mode_detail, employeeid } = req.body || {};
+		const pBillingId = parseInt(String(billingid), 10);
+		if (!pBillingId || isNaN(pBillingId)) {
+			return customError("billingid must be a number", 400, res);
+		}
+		if (!requested_mode || typeof requested_mode !== 'string') {
+			return customError("requested_mode is required", 400, res);
+		}
+
+		const conn = await KnexConnection(tenantId);
+		const billing = await conn('billing').select('patientid').where({ billingid: pBillingId }).first();
+		if (!billing || !billing.patientid) {
+			return customError("billing record not found", 404, res);
+		}
+		const payload = {
+			billingid: pBillingId,
+			patientid: billing.patientid,
+			requested_mode: requested_mode.trim().toLowerCase(),
+			requested_mode_detail: requested_mode_detail ?? null,
+			updated_by_employeeid: employeeid ?? null,
+			updated_at: conn.fn.now()
+		};
+
+		await conn('patient_result_delivery_preference')
+			.insert({ ...payload, created_at: conn.fn.now() })
+			.onConflict(['billingid'])
+			.merge(payload as any);
+
+		res.send({ status: true });
+	} catch (err) {
+		responseError(res, err);
+	}
+};
+
+export const getResultDeliveryPreference = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
+		const billingid = parseInt(String(req.params.billingid || req.query.billingid), 10);
+		if (!billingid || isNaN(billingid)) {
+			return customError("billingid must be a number", 400, res);
+		}
+		const conn = await KnexConnection(tenantId);
+		const pref = await conn('patient_result_delivery_preference').where({ billingid }).first();
+		res.send({ status: true, preference: pref || null });
+	} catch (err) {
+		responseError(res, err);
+	}
+};
+
+export const recordResultDelivery = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
+		const { billingid, delivered_mode, delivered_by_employeeid, notes } = req.body || {};
+		const pBillingId = parseInt(String(billingid), 10);
+		const pEmployeeId = parseInt(String(delivered_by_employeeid), 10);
+
+		if (!pBillingId || isNaN(pBillingId)) {
+			return customError("billingid must be a number", 400, res);
+		}
+		if (!pEmployeeId || isNaN(pEmployeeId)) {
+			return customError("delivered_by_employeeid must be a number", 400, res);
+		}
+		if (!delivered_mode || typeof delivered_mode !== 'string') {
+			return customError("delivered_mode is required", 400, res);
+		}
+
+		const conn = await KnexConnection(tenantId);
+		const billing = await conn('billing').select('patientid', 'branchid').where({ billingid: pBillingId }).first();
+		if (!billing || !billing.patientid) {
+			return customError("billing record not found", 404, res);
+		}
+
+		const pref = await conn('patient_result_delivery_preference').where({ billingid: pBillingId }).first();
+		const requestedMode = pref ? pref.requested_mode : null;
+
+		const [id] = await conn('result_delivery_log').insert({
+			billingid: pBillingId,
+			patientid: billing.patientid,
+			requested_mode: requestedMode,
+			delivered_mode: delivered_mode.trim().toLowerCase(),
+			delivered_by_employeeid: pEmployeeId,
+			delivered_at: conn.fn.now(),
+			notes: notes ?? null
+		});
+
+		res.status(201).send({ status: true, id });
+	} catch (err) {
+		responseError(res, err);
+	}
+};
+
+export const recordResultHandover = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
+		const { billingid, from_employeeid, to_employeeid, status, notes } = req.body || {};
+		const pBillingId = parseInt(String(billingid), 10);
+		const pFrom = parseInt(String(from_employeeid), 10);
+		const pTo = parseInt(String(to_employeeid), 10);
+		if (!pBillingId || isNaN(pBillingId) || !pFrom || isNaN(pFrom) || !pTo || isNaN(pTo)) {
+			return customError("billingid, from_employeeid and to_employeeid must be numbers", 400, res);
+		}
+
+		const conn = await KnexConnection(tenantId);
+		const billing = await conn('billing').select('patientid').where({ billingid: pBillingId }).first();
+		const patientid = billing && billing.patientid ? billing.patientid : null;
+
+		const [id] = await conn('result_handover_log').insert({
+			billingid: pBillingId,
+			patientid,
+			from_employeeid: pFrom,
+			to_employeeid: pTo,
+			status: status ? String(status).trim().toLowerCase() : 'handover',
+			notes: notes ?? null,
+			created_at: conn.fn.now()
+		});
+
+		res.status(201).send({ status: true, id });
+	} catch (err) {
+		responseError(res, err);
+	}
+};
+
+export const getResultDeliveryChain = async (req: Request, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
+		const billingid = parseInt(String(req.params.billingid), 10);
+		if (!billingid || isNaN(billingid)) {
+			return customError("billingid must be a number", 400, res);
+		}
+
+		const conn = await KnexConnection(tenantId);
+		const handovers = await conn('result_handover_log')
+			.leftJoin('roles as r_from', 'result_handover_log.from_employeeid', 'r_from.employeeid')
+			.leftJoin('roles as r_to', 'result_handover_log.to_employeeid', 'r_to.employeeid')
+			.select(
+				'result_handover_log.*',
+				'r_from.username as from_username',
+				'r_from.role as from_role',
+				'r_to.username as to_username',
+				'r_to.role as to_role'
+			)
+			.where('result_handover_log.billingid', billingid)
+			.orderBy('result_handover_log.created_at', 'asc');
+
+		const deliveries = await conn('result_delivery_log')
+			.leftJoin('roles as r_deliver', 'result_delivery_log.delivered_by_employeeid', 'r_deliver.employeeid')
+			.select(
+				'result_delivery_log.*',
+				'r_deliver.username as delivered_by_username',
+				'r_deliver.role as delivered_by_role'
+			)
+			.where('result_delivery_log.billingid', billingid)
+			.orderBy('result_delivery_log.delivered_at', 'asc');
+
+		res.send({ status: true, billingid, handovers, deliveries });
+	} catch (err) {
+		responseError(res, err);
+	}
+};

@@ -1,16 +1,139 @@
 import { PrimeLimsTablenew_patients, PrimeLimsTablepatientemmergencycontactinformation, PrimeLimsTablepatientsaddress } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import { applyNewPatientAfterInsert } from "../../database/appLevelTriggers";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
 import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
 import { OperationsFailures } from "../operations/types";
-import { q_filter_patient_using_billingid_query, q_filter_patients, q_new_registation, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
+import { q_filter_patient_using_billingid_query, q_filter_patients, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
 import { addressInformation, NewRegistration, PatientRecords, registrationOutcome } from "./types";
 import { Request, Response } from "express";
 
 export default class Registration {
+	private static normalizePhoneTo10(value: any): string | null {
+		if (value === undefined || value === null) return null;
+		const raw = String(value).trim();
+		if (!raw) return null;
+		const digits = raw.replace(/\D/g, "");
+		if (!digits) return null;
+		if (digits.length > 10) return digits.slice(-10);
+		return digits;
+	}
+
+	private static serializeAuditRecord(record: any) {
+		if (!record || typeof record !== "object") return record;
+		const normalized = { ...record };
+		Object.keys(normalized).forEach((key) => {
+			const value = normalized[key];
+			if (value instanceof Date) {
+				normalized[key] = value.toISOString();
+			}
+		});
+		return normalized;
+	}
+
+	private static buildPatientChangedFields(previousData: any, newData: any): Array<{ field: string; oldValue: any; newValue: any }> {
+		const previous = Registration.serializeAuditRecord(previousData) || {};
+		const current = Registration.serializeAuditRecord(newData) || {};
+		const keys = new Set([...Object.keys(previous), ...Object.keys(current)]);
+		const ignoredKeys = new Set(['date']);
+		const changedFields: Array<{ field: string; oldValue: any; newValue: any }> = [];
+
+		for (const key of keys) {
+			if (ignoredKeys.has(key)) continue;
+			const oldValue = previous[key] ?? null;
+			const newValue = current[key] ?? null;
+			if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+				changedFields.push({ field: key, oldValue, newValue });
+			}
+		}
+		return changedFields;
+	}
+
+	static async createPatientAuditLog(tenantId: number, payload: {
+		patientid: number;
+		section: string;
+		actionType: string;
+		changedByEmployeeId?: number | null;
+		previousData: any;
+		newData: any;
+	}) {
+		const changedFields = Registration.buildPatientChangedFields(payload.previousData, payload.newData);
+		if (changedFields.length === 0) return false;
+		const conn = await KnexConnection(tenantId);
+		const snapshot = payload.newData && typeof payload.newData === 'object' ? payload.newData : {};
+		try {
+			await conn('patient_audit_log').insert({
+				auditid: conn.raw('UUID()'),
+
+				patientid: snapshot.patientid ?? payload.patientid,
+				fullpatientid: snapshot.fullpatientid,
+				designation: snapshot.designation ?? null,
+				firstname: snapshot.firstname,
+				email: snapshot.email ?? null,
+				dob: snapshot.dob ?? null,
+				age: snapshot.age,
+				gender: snapshot.gender ?? null,
+				marital_status: snapshot.marital_status ?? null,
+				mobile_number: snapshot.mobile_number ?? null,
+				agetype: snapshot.agetype,
+				occupation: snapshot.occupation ?? null,
+				date: snapshot.date ?? conn.fn.now(),
+				activation_status: snapshot.activation_status ?? 'FALSE',
+				lastname: snapshot.lastname,
+				middlename: snapshot.middlename ?? null,
+				organization: snapshot.organization ?? null,
+				contactpointer: snapshot.contactpointer ?? 'self',
+				whatAppcontact: snapshot.whatAppcontact ?? null,
+				registeredby: snapshot.registeredby,
+				relativecontactname: snapshot.relativecontactname ?? null,
+				relativecontactnumber: snapshot.relativecontactnumber ?? null,
+				whatsapp_country_code: snapshot.whatsapp_country_code ?? null,
+				mobile_country_code: snapshot.mobile_country_code ?? null,
+
+				section: payload.section,
+				action_type: payload.actionType,
+				changed_by_employeeid: payload.changedByEmployeeId ?? null,
+				changed_fields: JSON.stringify(changedFields),
+				changed_at: conn.fn.now()
+			});
+		} catch {
+			return false;
+		}
+		return true;
+	}
+
+	static async getPatientAuditHistory(tenantId: number, patientid: number) {
+		const conn = await KnexConnection(tenantId);
+		const hasAuditTable = await conn.schema.hasTable('patient_audit_log');
+		if (!hasAuditTable) return [];
+		const rows = await conn('patient_audit_log')
+			.leftJoin('roles', 'patient_audit_log.changed_by_employeeid', 'roles.employeeid')
+			.select(
+				'patient_audit_log.*',
+				'roles.username as changed_by_username',
+				'roles.role as changed_by_role'
+			)
+			.where('patient_audit_log.patientid', patientid)
+			.orderBy('patient_audit_log.changed_at', 'desc');
+
+		return rows.map((row: any) => ({
+			...row,
+			changed_fields: (() => {
+				if (row.changed_fields === undefined || row.changed_fields === null) return [];
+				if (typeof row.changed_fields === 'string') {
+					try {
+						return JSON.parse(row.changed_fields);
+					} catch {
+						return [];
+					}
+				}
+				return row.changed_fields;
+			})()
+		}));
+	}
 
 	private static getMissingRequiredPatientField(records: Partial<NewRegistration>): keyof Pick<NewRegistration, "firstname" | "lastname" | "gender" | "age" | "ageType"> | null {
 		const requiredFields: Array<keyof Pick<NewRegistration, "firstname" | "lastname" | "gender" | "age" | "ageType">> = ["firstname", "lastname", "gender", "age", "ageType"];
@@ -82,7 +205,7 @@ export default class Registration {
 		return rows.length > 0 ? rows[0] : null;
 	}
 
-	public static async addPersonalInformation(tenantId: number, records: NewRegistration): Promise<registrationOutcome | void | string> {
+	public static async addPersonalInformation(tenantId: number, records: NewRegistration): Promise<number | void | string> {
 		try {
 			const missingField = this.getMissingRequiredPatientField(records);
 			if (missingField) {
@@ -155,31 +278,48 @@ export default class Registration {
 
 				const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
 				const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
-				const values = [
-					firstname,
-					lastname,
-					middlename,
-					email,
-					age,
-					ageType,
-					dob,
-					maritalstatus,
-					persistedMobileNumber,
-					occupation,
-					gender,
-					patientOrganization,
-					generatedId,
-					mobileownership,
-					designation,
-					employeeid,
-					relativecontactname,
-					sanitizedRelativeContact,
-					whatsappCountryCode,
-					mobileCountryCode,
-					sanitizedWhatsApp
-				];
-				const result = await promisifyQuery(tenantId, q_new_registation, values);
-				return result.insertId;
+				const connection = await KnexConnection(tenantId);
+				const createdPatientId = await connection.transaction(async (trx) => {
+					const insertOutcome = await trx("new_patients").insert({
+						firstname,
+						lastname,
+						middlename: middlename ?? null,
+						email: email ?? null,
+						age,
+						agetype: ageType,
+						dob,
+						marital_status: maritalstatus ?? null,
+						mobile_number: persistedMobileNumber,
+						occupation: occupation ?? null,
+						gender: gender ?? null,
+						organization: patientOrganization ?? null,
+						fullpatientid: generatedId,
+						contactpointer: mobileownership,
+						designation: designation ?? null,
+						registeredby: employeeid,
+						relativecontactname: relativecontactname ?? null,
+						relativecontactnumber: sanitizedRelativeContact ?? null,
+						whatsapp_country_code: whatsappCountryCode ?? null,
+						mobile_country_code: mobileCountryCode ?? null,
+						whatAppcontact: sanitizedWhatsApp ?? null,
+					});
+
+					const patientid = Array.isArray(insertOutcome) ? insertOutcome[0] : insertOutcome;
+
+					if (!patientid || typeof patientid !== "number") {
+						throw new Error("Failed to create patient");
+					}
+
+					await applyNewPatientAfterInsert(trx, {
+						patientid,
+						firstname,
+						lastname,
+					});
+
+					return patientid;
+				});
+
+				return createdPatientId;
 			}
 		} catch (error) {
 			logger.error("Error in adding personal information:", error);
@@ -251,6 +391,7 @@ export default class Registration {
 	static async UpdatePersonalInformation(tenantId: number, clientdata: NewRegistration, patientid: number): Promise<boolean | string> {
 		const isPatientId = await this.checkPatientIdExist(tenantId, patientid);
 		if (!isPatientId) return OperationsFailures.notFound;
+		const previousData = await this.getPatientDataUsingPatientId(tenantId, patientid);
 		const {
 			designation,
 			firstname,
@@ -268,7 +409,8 @@ export default class Registration {
 			occupation,
 			patientOrganization,
 			years,
-			whatAppcontact
+			whatAppcontact,
+			employeeid
 		} = clientdata;
 
 		const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
@@ -277,7 +419,8 @@ export default class Registration {
 
 		const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
 		const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
-		const persistedMobileNumber = mobileownership === 'relative' ? null : mobile;
+		const persistedMobileNumber = mobileownership === 'relative' ? null : Registration.normalizePhoneTo10(mobile);
+		const persistedWhatsappNumber = Registration.normalizePhoneTo10(whatAppcontact);
 
 		const values = [
 			firstname,
@@ -293,11 +436,23 @@ export default class Registration {
 			occupation,
 			gender,
 			patientOrganization,
-			whatAppcontact,
+			persistedWhatsappNumber,
 			patientid,
 		];
 		const result = await promisifyQuery(tenantId, q_patient_update_personal_information, values);
-		return rowAffected(result);
+		const updated = rowAffected(result);
+		if (updated) {
+			const newData = await this.getPatientDataUsingPatientId(tenantId, patientid);
+			await this.createPatientAuditLog(tenantId, {
+				patientid,
+				section: 'personal_information',
+				actionType: 'UPDATE',
+				changedByEmployeeId: employeeid ? parseInt(employeeid.toString(), 10) : null,
+				previousData,
+				newData
+			});
+		}
+		return updated;
 	}
 
 	public async getPatientInfoUsingBillingId(tenantId: number, billingid: number) {

@@ -14,6 +14,7 @@ import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingE
 import OutstandingClass from "../../models/billing/outstanding/outstanding_class";
 import User from "../../LobnosAuth/user";
 import { MultiTBillingDataShared } from "../../models/billing/multi/billing_shared_types";
+import KnexConnection from "../../database/KnexConnections";
 
 export async function handleNewBilling(request: Request<{}, {}, { patientid: number }, { tenantId: string }>, response: Response) {
 	async function validate() {
@@ -405,5 +406,103 @@ export async function WriteOffTransaction(request: Request<{}, {}, { billingid: 
 		response.send({ status: true });
 	} catch (err) {
 		responseError(response);
+	}
+}
+
+export async function listDiscountLimitRules(request: Request<{}, {}, {}, { tenantId: string }>, response: Response) {
+	try {
+		const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
+		const conn = await KnexConnection(tenantIdP);
+		const rules = await conn('discount_limit_rules').select('*').orderBy('role', 'asc');
+		response.send({ status: true, rules });
+	} catch (err) {
+		responseError(response, err);
+	}
+}
+
+export async function upsertDiscountLimitRule(request: Request<{}, {}, any, { tenantId: string }>, response: Response) {
+	try {
+		const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
+		const {
+			role,
+			is_active,
+			max_discount_per_transaction,
+			min_transaction_total_for_discount,
+			max_discount_per_day,
+			max_surcharge_per_transaction,
+			min_transaction_total_for_surcharge,
+			max_surcharge_per_day,
+			updated_by_employeeid
+		} = request.body || {};
+
+		if (!role || typeof role !== 'string') {
+			return customError('role is required', 400, response);
+		}
+
+		const normalizedRole = role.trim().toLowerCase().replace(/\s+/g, ' ');
+		const conn = await KnexConnection(tenantIdP);
+		const allowedRoles = new Set([
+			'crm',
+			'customer representative',
+			'customer service representative',
+			'manager',
+			'accountant',
+			'admin',
+			'super-admin',
+			'superadmin',
+			'super admin'
+		]);
+		if (!allowedRoles.has(normalizedRole)) {
+			return customError('role is not allowed for discount rules', 400, response);
+		}
+
+		const existingRoles = await conn('roles').distinct('role as role');
+		const existingSet = new Set((existingRoles || []).map((r: any) => String(r.role || '').trim().toLowerCase().replace(/\s+/g, ' ')).filter(Boolean));
+		if (!existingSet.has(normalizedRole)) {
+			return customError('role not found in system roles', 400, response);
+		}
+
+		const payload = {
+			role: normalizedRole,
+			is_active: typeof is_active === 'boolean' ? is_active : true,
+			max_discount_per_transaction: max_discount_per_transaction ?? null,
+			min_transaction_total_for_discount: min_transaction_total_for_discount ?? null,
+			max_discount_per_day: max_discount_per_day ?? null,
+			max_surcharge_per_transaction: max_surcharge_per_transaction ?? null,
+			min_transaction_total_for_surcharge: min_transaction_total_for_surcharge ?? null,
+			max_surcharge_per_day: max_surcharge_per_day ?? null,
+			updated_by_employeeid: updated_by_employeeid ?? null,
+			updated_at: conn.fn.now()
+		};
+
+		await conn('discount_limit_rules')
+			.insert({ ...payload, created_at: conn.fn.now() })
+			.onConflict(['role'])
+			.merge(payload as any);
+
+		response.send({ status: true });
+	} catch (err) {
+		responseError(response, err);
+	}
+}
+
+export async function getDiscountDailyUsage(request: Request<{}, {}, {}, { tenantId: string; date?: string; employeeid?: string; role?: string }>, response: Response) {
+	try {
+		const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
+		const conn = await KnexConnection(tenantIdP);
+
+		const date = request.query.date ? String(request.query.date) : null;
+		const employeeid = request.query.employeeid ? parseInt(String(request.query.employeeid), 10) : null;
+		const role = request.query.role ? String(request.query.role).trim().toLowerCase().replace(/\s+/g, ' ') : null;
+
+		const q = conn('discount_daily_usage').select('*').orderBy([{ column: 'usage_date', order: 'desc' }, { column: 'role', order: 'asc' }]);
+		if (date) q.where('usage_date', date);
+		if (employeeid) q.where('employeeid', employeeid);
+		if (role) q.where('role', role);
+
+		const usage = await q;
+		response.send({ status: true, usage });
+	} catch (err) {
+		responseError(response, err);
 	}
 }

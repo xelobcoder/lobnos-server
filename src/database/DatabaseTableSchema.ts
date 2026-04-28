@@ -552,6 +552,8 @@ export type PrimeLimsTabledboservices_audit = {
   action_type?: string;
   action_timestamp?: Date | string;
   actor?: string;
+  userAdjustmentType?: string;
+  userAdjustedValue?: number;
 };
 
 export type PrimeLimsTabledbotestresultapproval = {
@@ -2147,4 +2149,3 @@ export type PrimeLimsTableweekly_sales_summary = {
   totalSales: number;
   salesPercentage: number;
 };
-

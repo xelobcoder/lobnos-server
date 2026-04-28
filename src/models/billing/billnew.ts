@@ -1,7 +1,7 @@
 import { Knex } from "knex";
 import { SalesSessionRepo } from "./repositories/SalesSessionRepo";
 import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
-import { BillingSharedRepo } from "./billing_shared";
+import { BillingSharedRepo, DiscountLimitService } from "./billing_shared";
 import KnexConnection from "../../database/KnexConnections";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 
@@ -91,6 +91,18 @@ export class MultiBillingRepo {
 					serviceEntries,
 					testResult,
 					billingData.paid)
+
+				await DiscountLimitService.enforceAndRecord({
+					tenantId: this.tenantId,
+					trx,
+					employeeid: billingData.employeeid,
+					billingid: billingID,
+					subtotal: billing_final_values.payable + billing_final_values.totalDiscount,
+					payable: billing_final_values.payable,
+					discountTotal: billing_final_values.totalDiscount,
+					surchargeTotal: 0,
+					branchid: billingData.branchid
+				});
 
 
 
