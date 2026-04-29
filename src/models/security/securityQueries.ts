@@ -1,33 +1,37 @@
 export const queries = {
-	insertLoginHistory: `
+  insertLoginHistory: `
     INSERT INTO loginlogs (employeeid, loginSessionId, logoutTime, browserInformation)
     VALUES (?, ?, ?, ?)
   `,
-	getCurrentUserLoginSessions: `
-    SELECT * FROM sessionTracker
+  insertSessionTracker: `
+    INSERT INTO sessiontracker (employeeid, loginSessionId, logoutTime, loginhxid)
+    VALUES (?, ?, ?, ?)
+  `,
+  getCurrentUserLoginSessions: `
+    SELECT * FROM sessiontracker
     WHERE logoutTime > ? AND employeeid = ?
   `,
-	getCurrentUserLoginSessionsWithDetails: `
-    SELECT * FROM sessionTracker AS st
-    INNER JOIN loginLogs AS ll ON ll.employeeid = st.employeeid
+  getCurrentUserLoginSessionsWithDetails: `
+    SELECT * FROM sessiontracker AS st
+    INNER JOIN loginlogs AS ll ON ll.employeeid = st.employeeid
     WHERE st.logoutTime > ? AND st.employeeid = ? AND ll.loggedout = 0
   `,
-	destroyUserSessionsSelect: `
-    SELECT * FROM sessionTracker WHERE employeeid = ?
+  destroyUserSessionsSelect: `
+    SELECT * FROM sessiontracker WHERE employeeid = ?
   `,
-	destroyUserSessionsDelete: `
-    DELETE FROM sessionTracker WHERE employeeid = ?
+  destroyUserSessionsDelete: `
+    DELETE FROM sessiontracker WHERE employeeid = ?
   `,
-	updateLoginLogs: `
+  updateLoginLogs: `
     UPDATE loginlogs SET loggedout = 1, actualLogout = ? WHERE keyid = ?
   `,
-	getEmployeeLoginHistory: `
+  getEmployeeLoginHistory: `
     SELECT * FROM loginlogs WHERE employeeid = ? OFFSET ? LIMIT ?
   `,
-	getEmployeeLastLoginSession: `
+  getEmployeeLastLoginSession: `
     SELECT * FROM loginlogs WHERE employeeid = ? ORDER BY id DESC
   `,
-	getGeneralLoginHistory: `
+  getGeneralLoginHistory: `
     SELECT 
       ll.browserInformation,
       ll.employeeid,
@@ -39,7 +43,7 @@ export const queries = {
     FROM loginlogs AS ll
     INNER JOIN roles AS rl ON rl.employeeid = ll.employeeid
   `,
-	getDboSystemSecurity: `
+  getDboSystemSecurity: `
     SELECT * FROM dbosystemsecurity
   `,
 };

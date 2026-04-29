@@ -2,6 +2,7 @@ import { responseError, customError } from "../../hooks/helper";
 import User from "../../LobnosAuth/user";
 import Security from "../../models/security/securityClass";
 import { Request, Response } from "express";
+import KnexConnection from "../../database/KnexConnections";
 
 export const getLoggedSessions = async (request: Request, response: Response) => {
      try {
@@ -65,7 +66,8 @@ export const getLoginHistory = async (request: Request, response: Response) => {
           const { page, count, employeeid } = request.query;
           const security = new Security(null);
           if (!isNaN(Number(page)) && !isNaN(Number(count))) {
-               const history = await security.getGeneralLoginHistory(Number(page), Number(count), parseInt(employeeid.toString()) || null);
+               const tenantId = parseInt(request.query.tenantId.toString(), 10);
+               const history = await security.getGeneralLoginHistory(tenantId, Number(page), Number(count), employeeid ? parseInt(employeeid.toString(), 10) : null);
                response.send(history);
           } else {
                return customError("bad request", 400, response);
@@ -73,5 +75,31 @@ export const getLoginHistory = async (request: Request, response: Response) => {
      } catch (err) {
           console.log(err);
           responseError(response);
+     }
+};
+
+export const getRolesAuditLog = async (
+     request: Request<{}, {}, {}, { tenantId: string; page?: string; count?: string; employeeid?: string; action?: string }>,
+     response: Response
+) => {
+     try {
+          const tenantId = parseInt(request.query.tenantId.toString(), 10);
+          const page = request.query.page ? parseInt(request.query.page.toString(), 10) : 1;
+          const count = request.query.count ? parseInt(request.query.count.toString(), 10) : 50;
+          const employeeid = request.query.employeeid ? parseInt(request.query.employeeid.toString(), 10) : null;
+          const action = request.query.action ? String(request.query.action).trim().toUpperCase() : null;
+
+          if (isNaN(page) || isNaN(count) || page <= 0 || count <= 0) {
+               return customError("bad request", 400, response);
+          }
+
+          const conn = await KnexConnection(tenantId);
+          const q = conn("roles_audit_log").select("*").orderBy("id", "desc");
+          if (employeeid) q.where("employeeid", employeeid);
+          if (action) q.where("action", action);
+          const rows = await q.limit(count).offset((page - 1) * count);
+          response.send({ status: true, page, count, rows });
+     } catch (err) {
+          responseError(response, err);
      }
 };

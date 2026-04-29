@@ -20,6 +20,7 @@ const RolesRepository_1 = __importDefault(require("../../models/settings/users/R
 const requestAcess_1 = __importDefault(require("../../models/security/RequestAcessResult/requestAcess"));
 const services_1 = require("../../models/services/services");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const resultDelivery_1 = __importDefault(require("./resultDelivery"));
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
@@ -65,12 +66,13 @@ const getPreviousResultEntryRecordsIfAny = async function (request, response) {
                 let result = records === null || records === void 0 ? void 0 : records.result;
                 const decryptedResult = await (0, resultEncryptionReferer_1.default)(result, "decryption");
                 if (decryptedResult != undefined) {
+                    const resultDeliveryPreference = await new resultDelivery_1.default(billingid, tenantIdP).getResultDeliveryForTransaction();
                     const { resources } = decryptedResult;
                     if (resources && Array.isArray(resources) && resources.length > 0) {
                         result = result.map((item, index) => {
                             return Object.assign(Object.assign({}, item), { value: resources[index]['value'] });
                         });
-                        return response.send(Object.assign(Object.assign({}, records), { result }));
+                        return response.send(Object.assign(Object.assign({}, records), { result, resultDeliveryPreference }));
                     }
                 }
                 return response.send(records);
@@ -536,11 +538,8 @@ const setResultDeliveryPreference = async (req, res) => {
             updated_by_employeeid: employeeid !== null && employeeid !== void 0 ? employeeid : null,
             updated_at: conn.fn.now()
         };
-        await conn('patient_result_delivery_preference')
-            .insert(Object.assign(Object.assign({}, payload), { created_at: conn.fn.now() }))
-            .onConflict(['billingid'])
-            .merge(payload);
-        res.send({ status: true });
+        const status = await new resultDelivery_1.default(billing, tenantId).setResultDeliveryPreference(payload);
+        res.send({ status });
     }
     catch (err) {
         (0, helper_1.responseError)(res, err);
@@ -554,8 +553,7 @@ const getResultDeliveryPreference = async (req, res) => {
         if (!billingid || isNaN(billingid)) {
             return (0, helper_1.customError)("billingid must be a number", 400, res);
         }
-        const conn = await (0, KnexConnections_1.default)(tenantId);
-        const pref = await conn('patient_result_delivery_preference').where({ billingid }).first();
+        const pref = await new resultDelivery_1.default(billingid, tenantId).getResultDeliveryForTransaction();
         res.send({ status: true, preference: pref || null });
     }
     catch (err) {

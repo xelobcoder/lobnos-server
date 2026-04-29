@@ -1,5 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
-import { BillingSharedRepo } from "./billing_shared";
+import { BillingSharedRepo, DiscountLimitService } from "./billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry, ValidationError } from "./billingclientTypes";
 import { BillingTestItem, CustomerInitResponse } from "./multi/billingTypes";
@@ -108,6 +108,7 @@ export class SubmitCustomerBilling {
                 packageid,
                 entityid,
                 entitytype,
+                employeeid,
                 tenantId
             });
 
@@ -179,6 +180,71 @@ export class SubmitCustomerBilling {
                     billingID = this.payload.billingid;
                 }
                 finalBillingIdForEvent = billingID;
+
+                const computeAdjustmentTotals = (items: any[]) => {
+                    let discountTotal = 0;
+                    let surchargeTotal = 0;
+                    if (!Array.isArray(items)) return { discountTotal, surchargeTotal };
+                    for (const item of items) {
+                        const adjType = typeof item?.userAdjustmentType === 'string' ? item.userAdjustmentType.toLowerCase() : item?.userAdjustmentType;
+                        const adjValue = Math.abs(Number(item?.userAdjustedValue || 0));
+                        if (adjType === 'discount' && adjValue > 0) {
+                            discountTotal += adjValue;
+                            continue;
+                        }
+                        if (adjType === 'surcharge' && adjValue > 0) {
+                            surchargeTotal += adjValue;
+                            continue;
+                        }
+                        const promoDiscount = Number(item?.promoDiscount || 0);
+                        if (promoDiscount > 0) continue;
+                        const itemDiscount = Math.abs(Number(item?.discount || 0));
+                        if (itemDiscount > 0) {
+                            discountTotal += itemDiscount;
+                        }
+                    }
+                    return { discountTotal, surchargeTotal };
+                };
+
+                const adjustmentItems = [
+                    ...(Array.isArray(data.cart) ? data.cart : []),
+                    ...(Array.isArray(data.servicesList) ? data.servicesList : []),
+                    ...(Array.isArray(data.packageTestList) ? data.packageTestList : [])
+                ];
+                const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
+                const totalDiscountFromCheckout = !data.isPromo && typeof data.totaldiscount === 'number' ? data.totaldiscount : 0;
+                const totalSurchargeFromCheckout = typeof data.totalsurcharge === 'number' ? data.totalsurcharge : 0;
+                const effectiveDiscountTotal = Math.max(Number(totalDiscountFromCheckout || 0), Number(computedAdjustments.discountTotal || 0));
+                const effectiveSurchargeTotal = Math.max(Number(totalSurchargeFromCheckout || 0), Number(computedAdjustments.surchargeTotal || 0));
+
+                const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid || this.payload.employeeId).toString(), 10);
+                if (!parsedEmployeeId || isNaN(parsedEmployeeId)) throw new Error("Missing employeeid for discount validation.");
+
+                const previousBilling = hasRelatedBilling
+                    ? await trx("billing").where({ billingid: billingID }).first()
+                    : null;
+                const previousDiscount = previousBilling ? Number(previousBilling.discount || 0) : 0;
+                const previousSurcharges = previousBilling ? Number(previousBilling.surcharges || 0) : 0;
+
+                const isAddition = !!(hasRelatedBilling && this.payload.adjustmentType === "addition" && this.payload.billingid);
+                const newDiscountTotal = isAddition ? previousDiscount + effectiveDiscountTotal : effectiveDiscountTotal;
+                const newSurchargeTotal = isAddition ? previousSurcharges + effectiveSurchargeTotal : effectiveSurchargeTotal;
+                const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
+                const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
+
+console.log({computedAdjustments, totalDiscountFromCheckout, totalSurchargeFromCheckout,effectiveDiscountTotal,effectiveSurchargeTotal, deltaDiscount, deltaSurcharge})
+               
+await DiscountLimitService.enforceAndRecord({
+                    tenantId: this.tenantId,
+                    trx,
+                    employeeid: parsedEmployeeId,
+                    billingid: billingID,
+                    subtotal: typeof data.subtotal === 'number' ? data.subtotal : undefined,
+                    payable: typeof data.amountPayable === 'number' ? data.amountPayable : undefined,
+                    discountTotal: deltaDiscount || 0,
+                    surchargeTotal: deltaSurcharge || 0,
+                    branchid: updatedBillingData.branchid
+                });
 
                 const taxValue = updatedBillingData.taxValue || 0;
                 const taxList = updatedBillingData.taxList || null;

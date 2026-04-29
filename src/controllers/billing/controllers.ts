@@ -128,11 +128,11 @@ export async function getSavedCLientBillingInformation(request: Request<{}, {}, 
 
 
 
-export async function determineStageOfRefundRequestHandler(request: Request<{}, {}, IDetermineStageOfRefund  , { tenantId: string }>, response: Response) {
+export async function determineStageOfRefundRequestHandler(request: Request<{}, {}, IDetermineStageOfRefund, { tenantId: string }>, response: Response) {
 	try {
 		const { tenantId } = request.query
 		const tenantIdP: number = parseInt(tenantId.toString(), 10);
-		const result = await new Billing(0).determineStageOfRefundRequest(tenantIdP, { ...request.body, serviceCategoryName: request.body.serviceCategory } );
+		const result = await new Billing(0).determineStageOfRefundRequest(tenantIdP, { ...request.body, serviceCategoryName: request.body.serviceCategory });
 		response.send({ stage: result });
 	} catch (err) {
 
@@ -399,7 +399,7 @@ export async function WriteOffTransaction(request: Request<{}, {}, { billingid: 
 		if (!billingid || !reason || !employeeid) {
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
 		}
-		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid,  employeeid,reason);
+		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid, employeeid, reason);
 
 		if (typeof result === "string") return response.send({ status: false, message: result });
 		if (!result) return customError("Write off failed", 404, response);
@@ -486,19 +486,27 @@ export async function upsertDiscountLimitRule(request: Request<{}, {}, any, { te
 	}
 }
 
-export async function getDiscountDailyUsage(request: Request<{}, {}, {}, { tenantId: string; date?: string; employeeid?: string; role?: string }>, response: Response) {
+export async function getDiscountDailyUsage(request: Request<{}, {}, {}, { tenantId: string; date?: string; count?: number; page?: number; employeeid?: string; role?: string, interestedUserId?: string }>, response: Response) {
 	try {
 		const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
 		const conn = await KnexConnection(tenantIdP);
+		const count = request.query.count ? parseInt(String(request.query.count), 10) : 20;
+		const page = request.query.page ? parseInt(String(request.query.page), 10) : 1;
 
 		const date = request.query.date ? String(request.query.date) : null;
-		const employeeid = request.query.employeeid ? parseInt(String(request.query.employeeid), 10) : null;
 		const role = request.query.role ? String(request.query.role).trim().toLowerCase().replace(/\s+/g, ' ') : null;
+		const interestedUserId = request.query.interestedUserId ? parseInt(String(request.query.interestedUserId), 10) : null;
 
-		const q = conn('discount_daily_usage').select('*').orderBy([{ column: 'usage_date', order: 'desc' }, { column: 'role', order: 'asc' }]);
-		if (date) q.where('usage_date', date);
-		if (employeeid) q.where('employeeid', employeeid);
+		const q = conn('discount_daily_usage').select('*')
+			.orderBy('usage_date', 'desc');
+
+		if (interestedUserId) q.where('employeeid', interestedUserId);
+		if (date) q.where('usage_date', date)
 		if (role) q.where('role', role);
+
+		if (page && count) {
+			q.offset((page - 1) * count).limit(count);
+		}
 
 		const usage = await q;
 		response.send({ status: true, usage });

@@ -3,8 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const node_path_1 = __importDefault(require("node:path"));
+const node_crypto_1 = __importDefault(require("node:crypto"));
 const securityQueries_1 = require("./securityQueries");
 const helper_1 = require("../../hooks/helper");
 class Security {
@@ -17,13 +17,14 @@ class Security {
         return this.employeeid !== null && this.employeeid !== undefined;
     }
     async createSessionId(tenantId) {
-        return jsonwebtoken_1.default.sign(tenantId, this.employeeid, process.env.ACCESS_TOKEN_SECRET);
+        return node_crypto_1.default.randomUUID();
     }
     validDurationProvided() {
         return this.loginDuration > 0 && this.loginDuration <= 6;
     }
     async insertLoginHistory(tenantId, browserInformation) {
-        const expiryTime = Date.now() + this.loginDuration * 60 * 60 * 1000;
+        var _a, _b, _c;
+        const expiryTime = new Date(Date.now() + this.loginDuration * 60 * 60 * 1000);
         if (!this.isEmployeeid()) {
             throw new Error("employeeid not provided");
         }
@@ -33,21 +34,27 @@ class Security {
         let sessionId = await this.createSessionId(tenantId);
         const query = securityQueries_1.queries.insertLoginHistory;
         const values = [this.employeeid, sessionId, expiryTime, JSON.stringify(browserInformation)];
-        await (0, helper_1.promisifyQuery)(tenantId, query, values);
-        return expiryTime;
+        const insertResult = await (0, helper_1.promisifyQuery)(tenantId, query, values);
+        const loginHistoryId = (_c = (_a = insertResult === null || insertResult === void 0 ? void 0 : insertResult.insertId) !== null && _a !== void 0 ? _a : (_b = insertResult === null || insertResult === void 0 ? void 0 : insertResult[0]) === null || _b === void 0 ? void 0 : _b.insertId) !== null && _c !== void 0 ? _c : null;
+        if (loginHistoryId !== null) {
+            const sessionQuery = securityQueries_1.queries.insertSessionTracker;
+            const sessionValues = [this.employeeid, sessionId, expiryTime, loginHistoryId];
+            await (0, helper_1.promisifyQuery)(tenantId, sessionQuery, sessionValues);
+        }
+        return expiryTime.getTime();
     }
-    currentTimeInMillis() {
-        return Date.now();
+    currentTime() {
+        return new Date();
     }
     async getCurrentLoginCounts(tenantId) {
         const query = `SELECT COUNT(*) AS count FROM loginlogs WHERE logoutTime > ?`;
-        const result = await (0, helper_1.promisifyQuery)(tenantId, query, [this.currentTimeInMillis()]);
+        const result = await (0, helper_1.promisifyQuery)(tenantId, query, [this.currentTime()]);
         return result.length > 0 ? result[0]["count"] : 0;
     }
     async getCurrentUserLoginSessions(tenantId) {
         if (this.isEmployeeid()) {
             const query = securityQueries_1.queries.getCurrentUserLoginSessions;
-            const data = await (0, helper_1.promisifyQuery)(tenantId, query, [this.currentTimeInMillis(), this.employeeid]);
+            const data = await (0, helper_1.promisifyQuery)(tenantId, query, [this.currentTime(), this.employeeid]);
             return data;
         }
         return [];
@@ -55,7 +62,7 @@ class Security {
     async getCurrentUserLoginSessionsWithDetails(tenantId) {
         if (this.isEmployeeid()) {
             const query = securityQueries_1.queries.getCurrentUserLoginSessionsWithDetails;
-            let data = await (0, helper_1.promisifyQuery)(tenantId, query, [this.currentTimeInMillis(), this.employeeid]);
+            let data = await (0, helper_1.promisifyQuery)(tenantId, query, [this.currentTime(), this.employeeid]);
             if (data.length > 0) {
                 data = data.map((item) => {
                     if (item.hasOwnProperty("browserInformation")) {
@@ -90,7 +97,7 @@ class Security {
             if (sessionsKeys.length > 0) {
                 const updates = sessionsKeys.map(async (item) => {
                     const queryUpdate = securityQueries_1.queries.updateLoginLogs;
-                    const updated = await (0, helper_1.promisifyQuery)(tenantId, queryUpdate, [Date.now(), item]);
+                    const updated = await (0, helper_1.promisifyQuery)(tenantId, queryUpdate, [new Date(), item]);
                     return (0, helper_1.rowAffected)(updated);
                 });
                 const results = await Promise.all(updates);

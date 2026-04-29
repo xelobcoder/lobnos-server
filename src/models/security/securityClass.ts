@@ -1,6 +1,6 @@
 "use strict";
-import jwt from "jsonwebtoken";
 import path from "node:path";
+import crypto from "node:crypto";
 import { queries } from "./securityQueries";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 
@@ -21,7 +21,7 @@ class Security {
      }
 
      public async createSessionId(tenantId: number): Promise<string> {
-          return jwt.sign(tenantId, this.employeeid, process.env.ACCESS_TOKEN_SECRET);
+          return crypto.randomUUID();
      }
 
      public validDurationProvided(): boolean {
@@ -29,7 +29,7 @@ class Security {
      }
 
      public async insertLoginHistory(tenantId: number, browserInformation: any): Promise<number> {
-          const expiryTime = Date.now() + this.loginDuration * 60 * 60 * 1000;
+          const expiryTime = new Date(Date.now() + this.loginDuration * 60 * 60 * 1000);
           if (!this.isEmployeeid()) {
                throw new Error("employeeid not provided");
           }
@@ -39,24 +39,35 @@ class Security {
           let sessionId = await this.createSessionId(tenantId);
           const query = queries.insertLoginHistory;
           const values = [this.employeeid, sessionId, expiryTime, JSON.stringify(browserInformation)];
-          await promisifyQuery(tenantId, query, values);
-          return expiryTime;
+          const insertResult = await promisifyQuery(tenantId, query, values);
+
+          const loginHistoryId =
+               insertResult?.insertId ??
+               insertResult?.[0]?.insertId ??
+               null;
+
+          if (loginHistoryId !== null) {
+               const sessionQuery = queries.insertSessionTracker;
+               const sessionValues = [this.employeeid, sessionId, expiryTime, loginHistoryId];
+               await promisifyQuery(tenantId, sessionQuery, sessionValues);
+          }
+          return expiryTime.getTime();
      }
 
-     public currentTimeInMillis(): number {
-          return Date.now();
+     public currentTime(): Date {
+          return new Date();
      }
 
      public async getCurrentLoginCounts(tenantId: number): Promise<number> {
           const query = `SELECT COUNT(*) AS count FROM loginlogs WHERE logoutTime > ?`;
-          const result = await promisifyQuery(tenantId, query, [this.currentTimeInMillis()]);
+          const result = await promisifyQuery(tenantId, query, [this.currentTime()]);
           return result.length > 0 ? result[0]["count"] : 0;
      }
 
      public async getCurrentUserLoginSessions(tenantId: number): Promise<any[]> {
           if (this.isEmployeeid()) {
                const query = queries.getCurrentUserLoginSessions;
-               const data = await promisifyQuery(tenantId, query, [this.currentTimeInMillis(), this.employeeid]);
+               const data = await promisifyQuery(tenantId, query, [this.currentTime(), this.employeeid]);
                return data;
           }
           return [];
@@ -65,7 +76,7 @@ class Security {
      public async getCurrentUserLoginSessionsWithDetails(tenantId: number): Promise<any[]> {
           if (this.isEmployeeid()) {
                const query = queries.getCurrentUserLoginSessionsWithDetails;
-               let data = await promisifyQuery(tenantId, query, [this.currentTimeInMillis(), this.employeeid]);
+               let data = await promisifyQuery(tenantId, query, [this.currentTime(), this.employeeid]);
                if (data.length > 0) {
                     data = data.map((item: any) => {
                          if (item.hasOwnProperty("browserInformation")) {
@@ -100,7 +111,7 @@ class Security {
                if (sessionsKeys.length > 0) {
                     const updates = sessionsKeys.map(async (item) => {
                          const queryUpdate = queries.updateLoginLogs;
-                         const updated = await promisifyQuery(tenantId, queryUpdate, [Date.now(), item]);
+                         const updated = await promisifyQuery(tenantId, queryUpdate, [new Date(), item]);
                          return rowAffected(updated);
                     });
                     const results = await Promise.all(updates);

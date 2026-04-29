@@ -111,6 +111,7 @@ class SubmitCustomerBilling {
             const totalSurchargeFromCheckout = typeof data.totalsurcharge === 'number' ? data.totalsurcharge : 0;
             const effectiveDiscountTotal = Math.max(Number(totalDiscountFromCheckout || 0), Number(computedAdjustments.discountTotal || 0));
             const effectiveSurchargeTotal = Math.max(Number(totalSurchargeFromCheckout || 0), Number(computedAdjustments.surchargeTotal || 0));
+            console.log({ computedAdjustments, totalDiscountFromCheckout, totalSurchargeFromCheckout, effectiveDiscountTotal, effectiveSurchargeTotal });
             await billing_shared_1.DiscountLimitService.enforceAndRecord({
                 tenantId: this.tenantId,
                 trx,

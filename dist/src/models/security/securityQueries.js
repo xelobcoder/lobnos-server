@@ -6,20 +6,24 @@ exports.queries = {
     INSERT INTO loginlogs (employeeid, loginSessionId, logoutTime, browserInformation)
     VALUES (?, ?, ?, ?)
   `,
+    insertSessionTracker: `
+    INSERT INTO sessiontracker (employeeid, loginSessionId, logoutTime, loginhxid)
+    VALUES (?, ?, ?, ?)
+  `,
     getCurrentUserLoginSessions: `
-    SELECT * FROM sessionTracker
+    SELECT * FROM sessiontracker
     WHERE logoutTime > ? AND employeeid = ?
   `,
     getCurrentUserLoginSessionsWithDetails: `
-    SELECT * FROM sessionTracker AS st
-    INNER JOIN loginLogs AS ll ON ll.employeeid = st.employeeid
+    SELECT * FROM sessiontracker AS st
+    INNER JOIN loginlogs AS ll ON ll.employeeid = st.employeeid
     WHERE st.logoutTime > ? AND st.employeeid = ? AND ll.loggedout = 0
   `,
     destroyUserSessionsSelect: `
-    SELECT * FROM sessionTracker WHERE employeeid = ?
+    SELECT * FROM sessiontracker WHERE employeeid = ?
   `,
     destroyUserSessionsDelete: `
-    DELETE FROM sessionTracker WHERE employeeid = ?
+    DELETE FROM sessiontracker WHERE employeeid = ?
   `,
     updateLoginLogs: `
     UPDATE loginlogs SET loggedout = 1, actualLogout = ? WHERE keyid = ?

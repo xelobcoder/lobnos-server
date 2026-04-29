@@ -10,9 +10,11 @@ const helper_1 = require("../hooks/helper");
 const securityClass_1 = __importDefault(require("../models/security/securityClass"));
 const logger_1 = __importDefault(require("../hooks/logger"));
 const RolesRepository_1 = __importDefault(require("../models/settings/users/RolesRepository"));
+const RolesAuditRepository_1 = __importDefault(require("../models/settings/users/RolesAuditRepository"));
 const TiifuWorkingClass_1 = require("../database/TiifuWorkingClass");
 const KnexConnections_1 = __importDefault(require("../database/KnexConnections"));
 const createNewAccount = async (req) => {
+    var _a, _b;
     try {
         const { name, password, role, email, branch } = req.body;
         const tenantId = parseInt(req.query.tenantId);
@@ -52,6 +54,36 @@ const createNewAccount = async (req) => {
             date_created: new Date(),
             activation: 1,
             pin: req.body.pin ? parseInt(req.body.pin) : 0,
+        });
+        const createdRow = await connection("roles")
+            .select([
+            "employeeid",
+            "username",
+            "role",
+            "pin",
+            "date_created",
+            "time",
+            "activation",
+            "email",
+            "permissions",
+            "updated_on",
+            "emailAuthenticated",
+            "branch",
+            "mobile",
+            "alternativeMobile",
+            "dob"
+        ])
+            .where({ employeeid: insertResult })
+            .first();
+        const actorEmployeeidRaw = ((_a = req === null || req === void 0 ? void 0 : req.body) === null || _a === void 0 ? void 0 : _a.employeeid) || ((_b = req === null || req === void 0 ? void 0 : req.body) === null || _b === void 0 ? void 0 : _b.employeeId);
+        const actorEmployeeid = actorEmployeeidRaw ? parseInt(actorEmployeeidRaw.toString(), 10) : null;
+        await RolesAuditRepository_1.default.insertAudit({
+            tenantId,
+            action: "INSERT",
+            employeeid: insertResult,
+            actorEmployeeid: actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : null,
+            oldData: null,
+            newData: RolesAuditRepository_1.default.sanitizeRoleRow(createdRow)
         });
         return { userId: insertResult };
     }
@@ -151,15 +183,47 @@ const getAllLogins = async (tenantId, records) => {
 };
 exports.getAllLogins = getAllLogins;
 const deleteAccount = async (req, res) => {
+    var _a, _b, _c;
     const { id } = req.body;
     if (!id) {
         res.status(400).send({ status: 400, message: "Bad Request" });
         return;
     }
     const tenantId = parseInt(req.query.tenantId);
-    const queryString = `DELETE FROM roles WHERE EMPLOYEEID = ?`;
-    const result = await (0, helper_1.promisifyQuery)(tenantId, queryString, [parseInt(id)]);
-    if ((0, helper_1.rowAffected)(result)) {
+    const conn = await (0, KnexConnections_1.default)(tenantId);
+    const targetEmployeeid = parseInt(id.toString(), 10);
+    const oldRow = await conn("roles")
+        .select([
+        "employeeid",
+        "username",
+        "role",
+        "pin",
+        "date_created",
+        "time",
+        "activation",
+        "email",
+        "permissions",
+        "updated_on",
+        "emailAuthenticated",
+        "branch",
+        "mobile",
+        "alternativeMobile",
+        "dob"
+    ])
+        .where({ employeeid: targetEmployeeid })
+        .first();
+    const result = await conn("roles").where({ employeeid: targetEmployeeid }).del();
+    if (result > 0) {
+        const actorEmployeeidRaw = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.employeeid) || ((_b = req.body) === null || _b === void 0 ? void 0 : _b.employeeId) || ((_c = req.query) === null || _c === void 0 ? void 0 : _c.employeeid);
+        const actorEmployeeid = actorEmployeeidRaw ? parseInt(actorEmployeeidRaw.toString(), 10) : null;
+        await RolesAuditRepository_1.default.insertAudit({
+            tenantId,
+            action: "DELETE",
+            employeeid: targetEmployeeid,
+            actorEmployeeid: actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : null,
+            oldData: RolesAuditRepository_1.default.sanitizeRoleRow(oldRow),
+            newData: null
+        });
         res.status(200).send({
             statusCode: 200,
             status: "success",
@@ -215,7 +279,28 @@ const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
         throw new Error("PIN is already in use");
     }
     try {
-        return await knex('roles')
+        const targetEmployeeid = parseInt(employeeid.toString(), 10);
+        const oldRow = await knex("roles")
+            .select([
+            "employeeid",
+            "username",
+            "role",
+            "pin",
+            "date_created",
+            "time",
+            "activation",
+            "email",
+            "permissions",
+            "updated_on",
+            "emailAuthenticated",
+            "branch",
+            "mobile",
+            "alternativeMobile",
+            "dob"
+        ])
+            .where({ employeeid: targetEmployeeid })
+            .first();
+        const updateCount = await knex('roles')
             .where('employeeid', employeeid)
             .update({
             username: name,
@@ -228,6 +313,39 @@ const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
             pin: pin ? parseInt(pin.toString()) : null,
             dob: dob || null,
         });
+        if (updateCount > 0) {
+            const newRow = await knex("roles")
+                .select([
+                "employeeid",
+                "username",
+                "role",
+                "pin",
+                "date_created",
+                "time",
+                "activation",
+                "email",
+                "permissions",
+                "updated_on",
+                "emailAuthenticated",
+                "branch",
+                "mobile",
+                "alternativeMobile",
+                "dob"
+            ])
+                .where({ employeeid: targetEmployeeid })
+                .first();
+            const actorEmployeeidRaw = (body === null || body === void 0 ? void 0 : body.employeeId) || (body === null || body === void 0 ? void 0 : body.updated_by_employeeid) || (body === null || body === void 0 ? void 0 : body.actor_employeeid) || body.employeeid;
+            const actorEmployeeid = actorEmployeeidRaw ? parseInt(actorEmployeeidRaw.toString(), 10) : null;
+            await RolesAuditRepository_1.default.insertAudit({
+                tenantId,
+                action: "UPDATE",
+                employeeid: targetEmployeeid,
+                actorEmployeeid: actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : null,
+                oldData: RolesAuditRepository_1.default.sanitizeRoleRow(oldRow),
+                newData: RolesAuditRepository_1.default.sanitizeRoleRow(newRow)
+            });
+        }
+        return updateCount;
     }
     catch (error) {
         logger_1.default.error(error);
@@ -236,17 +354,73 @@ const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
 };
 exports.updateUserBasicInfo = updateUserBasicInfo;
 const activateAUser = async (req, res) => {
+    var _a, _b, _c;
     try {
         const { id, currentv } = req.body;
         if (!id)
             return res.send({ status: 400, message: "Bad Request" });
-        const queryString = `UPDATE roles SET ACTIVATION = ? WHERE EMPLOYEEID = ?`;
         const tenantId = parseInt(req.query.tenantId);
-        const status = await (0, helper_1.promisifyQuery)(tenantId, queryString, [currentv, id]);
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const targetEmployeeid = parseInt(id.toString(), 10);
+        const oldRow = await conn("roles")
+            .select([
+            "employeeid",
+            "username",
+            "role",
+            "pin",
+            "date_created",
+            "time",
+            "activation",
+            "email",
+            "permissions",
+            "updated_on",
+            "emailAuthenticated",
+            "branch",
+            "mobile",
+            "alternativeMobile",
+            "dob"
+        ])
+            .where({ employeeid: targetEmployeeid })
+            .first();
+        const status = await conn("roles")
+            .where({ employeeid: targetEmployeeid })
+            .update({ activation: currentv });
+        if (status > 0) {
+            const newRow = await conn("roles")
+                .select([
+                "employeeid",
+                "username",
+                "role",
+                "pin",
+                "date_created",
+                "time",
+                "activation",
+                "email",
+                "permissions",
+                "updated_on",
+                "emailAuthenticated",
+                "branch",
+                "mobile",
+                "alternativeMobile",
+                "dob"
+            ])
+                .where({ employeeid: targetEmployeeid })
+                .first();
+            const actorEmployeeidRaw = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.employeeid) || ((_b = req.body) === null || _b === void 0 ? void 0 : _b.employeeId) || ((_c = req.query) === null || _c === void 0 ? void 0 : _c.employeeid);
+            const actorEmployeeid = actorEmployeeidRaw ? parseInt(actorEmployeeidRaw.toString(), 10) : null;
+            await RolesAuditRepository_1.default.insertAudit({
+                tenantId,
+                action: "UPDATE",
+                employeeid: targetEmployeeid,
+                actorEmployeeid: actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : null,
+                oldData: RolesAuditRepository_1.default.sanitizeRoleRow(oldRow),
+                newData: RolesAuditRepository_1.default.sanitizeRoleRow(newRow)
+            });
+        }
         res.status(200).send({
             statusCode: 200,
             status: "success",
-            message: (0, helper_1.rowAffected)(status) ? "record updated successfully" : "record not updated",
+            message: status > 0 ? "record updated successfully" : "record not updated",
         });
     }
     catch (error) {
@@ -271,13 +445,67 @@ const getPermissions = async (tenantId, employeeid, res) => {
 };
 exports.getPermissions = getPermissions;
 const updateUserPermission = async (req, res) => {
+    var _a, _b, _c;
     try {
         const { id } = req.query;
         const permissions = req.body;
-        const queryString = `UPDATE roles SET PERMISSIONS = ? WHERE EMPLOYEEID = ?`;
         const tenantId = parseInt(req.query.tenantId);
-        const update = await (0, helper_1.promisifyQuery)(tenantId, queryString, [JSON.stringify(permissions), parseInt(id)]);
-        if ((0, helper_1.rowAffected)(update)) {
+        const conn = await (0, KnexConnections_1.default)(tenantId);
+        const targetEmployeeid = parseInt(id, 10);
+        const oldRow = await conn("roles")
+            .select([
+            "employeeid",
+            "username",
+            "role",
+            "pin",
+            "date_created",
+            "time",
+            "activation",
+            "email",
+            "permissions",
+            "updated_on",
+            "emailAuthenticated",
+            "branch",
+            "mobile",
+            "alternativeMobile",
+            "dob"
+        ])
+            .where({ employeeid: targetEmployeeid })
+            .first();
+        const update = await conn("roles")
+            .where({ employeeid: targetEmployeeid })
+            .update({ permissions: JSON.stringify(permissions) });
+        if (update > 0) {
+            const newRow = await conn("roles")
+                .select([
+                "employeeid",
+                "username",
+                "role",
+                "pin",
+                "date_created",
+                "time",
+                "activation",
+                "email",
+                "permissions",
+                "updated_on",
+                "emailAuthenticated",
+                "branch",
+                "mobile",
+                "alternativeMobile",
+                "dob"
+            ])
+                .where({ employeeid: targetEmployeeid })
+                .first();
+            const actorEmployeeidRaw = ((_a = req.body) === null || _a === void 0 ? void 0 : _a.employeeid) || ((_b = req.body) === null || _b === void 0 ? void 0 : _b.employeeId) || ((_c = req.query) === null || _c === void 0 ? void 0 : _c.employeeid);
+            const actorEmployeeid = actorEmployeeidRaw ? parseInt(actorEmployeeidRaw.toString(), 10) : null;
+            await RolesAuditRepository_1.default.insertAudit({
+                tenantId,
+                action: "UPDATE",
+                employeeid: targetEmployeeid,
+                actorEmployeeid: actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : null,
+                oldData: RolesAuditRepository_1.default.sanitizeRoleRow(oldRow),
+                newData: RolesAuditRepository_1.default.sanitizeRoleRow(newRow)
+            });
             res.send({ statusCode: 200, message: "updated successfully", status: "success" });
         }
         else {

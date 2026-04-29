@@ -71,7 +71,7 @@ class User {
     }
     async getUserDataById(employeeid, tenantId) {
         try {
-            const result = await (0, helper_1.promisifyQuery)(tenantId, queries.SELECT_USERDATA_BY_EMPLOYEE_ID, [tenantId, employeeid]);
+            const result = await (0, helper_1.promisifyQuery)(tenantId, queries.SELECT_USERDATA_BY_EMPLOYEE_ID, [employeeid]);
             return result;
         }
         catch (err) {
@@ -205,7 +205,7 @@ class User {
         return jsonwebtoken_1.default.sign(Object.assign({}, data), process.env.ACCESS_TOKEN_SECRET, { expiresIn });
     }
     async getUserRole(employeeid, tenantId) {
-        const data = await (0, helper_1.promisifyQuery)(tenantId, queries.SELECT_ROLE_BY_EMPLOYEE_ID, [tenantId, employeeid]);
+        const data = await (0, helper_1.promisifyQuery)(tenantId, queries.SELECT_ROLE_BY_EMPLOYEE_ID, [employeeid]);
         return data.length > 0 ? data[0]["role"] : null;
     }
     async getExpectedRole(employeeid, expected, tenantId) {
@@ -222,7 +222,7 @@ class User {
     }
     async userExistWithId(id, tenantId) {
         try {
-            const result = await (0, helper_1.promisifyQuery)(tenantId, queries.SELECT_USER_BY_EMPLOYEE_ID, [tenantId, id]);
+            const result = await (0, helper_1.promisifyQuery)(tenantId, queries.SELECT_USER_BY_EMPLOYEE_ID, [id]);
             return result.length === 0 ? false : result;
         }
         catch (err) {

@@ -57,7 +57,7 @@ class User {
 	}
 	public async getUserDataById(employeeid: number, tenantId: number): Promise<any> {
 		try {
-			const result = await promisifyQuery(tenantId, queries.SELECT_USERDATA_BY_EMPLOYEE_ID, [tenantId, employeeid]);
+			const result = await promisifyQuery(tenantId, queries.SELECT_USERDATA_BY_EMPLOYEE_ID, [employeeid]);
 			return result;
 		} catch (err) {
 			logger.error(err);
@@ -201,7 +201,7 @@ class User {
 	}
 
 	public async getUserRole(employeeid: number, tenantId: number): Promise<string | null> {
-		const data = await promisifyQuery(tenantId, queries.SELECT_ROLE_BY_EMPLOYEE_ID, [tenantId, employeeid]);
+		const data = await promisifyQuery(tenantId, queries.SELECT_ROLE_BY_EMPLOYEE_ID, [employeeid]);
 		return data.length > 0 ? data[0]["role"] : null;
 	}
 
@@ -218,7 +218,7 @@ class User {
 
 	public async userExistWithId(id: number, tenantId: number): Promise<any> {
 		try {
-			const result = await promisifyQuery(tenantId, queries.SELECT_USER_BY_EMPLOYEE_ID, [tenantId, id]);
+			const result = await promisifyQuery(tenantId, queries.SELECT_USER_BY_EMPLOYEE_ID, [id]);
 			return result.length === 0 ? false : result;
 		} catch (err) {
 			logger.error(err);

@@ -41,18 +41,15 @@ router.get('/api/v1/result/delivery/chain/:billingid', (0, helper_1.handleOverLo
 router.get("/api/v1/result/criticalvalues/logging/paginated", loggingCriticalValueAlertHandlers_1.getPaginatedLoggingCriticalValueAlerts);
 router.get("/api/v1/result/criticalvalues/logging/:crKeyId", loggingCriticalValueAlertHandlers_1.getCriticalDetails);
 exports.default = router;
-// result criticalValues logging 
 router.post('/api/v1/result/criticalvalues/logging', loggingCriticalValueAlertHandlers_1.createLoggingCriticalValueAlert);
 router.get('/api/v1/result/criticalvalues/logging', loggingCriticalValueAlertHandlers_1.getAllLoggingCriticalValueAlerts);
 router.put('/api/v1/result/criticalvalues/logging/:id', loggingCriticalValueAlertHandlers_1.updateLoggingCriticalValueAlert);
 router.delete('/api/v1/result/criticalvalues/logging/:id', loggingCriticalValueAlertHandlers_1.deleteLoggingCriticalValueAlert);
-// results audit logs route
 router.post('/api/v1/result/auditlogs', testResultsAuditLogsController_1.TestResultsAuditLogsController.create);
 router.get('/api/v1/result/auditlogs/paginated', testResultsAuditLogsController_1.TestResultsAuditLogsController.listPaginated);
 router.get('/api/v1/result/auditlogs/:id', (0, helper_1.handleOverLoad)(testResultsAuditLogsController_1.TestResultsAuditLogsController.getById));
 router.get('/api/v1/result/auditlogs', testResultsAuditLogsController_1.TestResultsAuditLogsController.listAll);
 router.delete('/api/v1/result/auditlogs/:id', testResultsAuditLogsController_1.TestResultsAuditLogsController.delete);
-// result printing or viewing tracking
 // result printing or viewing tracking
 router.post('/api/v1/result/printingtracking', ResultPrintingTrackingController_1.ResultPrintingTrackingController.create);
 router.get('/api/v1/result/printingtracking/ascension/:ascensionid', ResultPrintingTrackingController_1.ResultPrintingTrackingController.getByAscensionId);

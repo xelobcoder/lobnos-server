@@ -437,16 +437,22 @@ async function getDiscountDailyUsage(request, response) {
     try {
         const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
         const conn = await (0, KnexConnections_1.default)(tenantIdP);
+        const count = request.query.count ? parseInt(String(request.query.count), 10) : 20;
+        const page = request.query.page ? parseInt(String(request.query.page), 10) : 1;
         const date = request.query.date ? String(request.query.date) : null;
-        const employeeid = request.query.employeeid ? parseInt(String(request.query.employeeid), 10) : null;
         const role = request.query.role ? String(request.query.role).trim().toLowerCase().replace(/\s+/g, ' ') : null;
-        const q = conn('discount_daily_usage').select('*').orderBy([{ column: 'usage_date', order: 'desc' }, { column: 'role', order: 'asc' }]);
+        const interestedUserId = request.query.interestedUserId ? parseInt(String(request.query.interestedUserId), 10) : null;
+        const q = conn('discount_daily_usage').select('*')
+            .orderBy('usage_date', 'desc');
+        if (interestedUserId)
+            q.where('employeeid', interestedUserId);
         if (date)
             q.where('usage_date', date);
-        if (employeeid)
-            q.where('employeeid', employeeid);
         if (role)
             q.where('role', role);
+        if (page && count) {
+            q.offset((page - 1) * count).limit(count);
+        }
         const usage = await q;
         response.send({ status: true, usage });
     }

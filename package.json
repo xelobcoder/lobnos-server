@@ -1,5 +1,5 @@
 {
-  "name": "PLS",
+  "name": "PrimeLabSystem(PLS)",
   "version": "0.0.1",
   "description": "High Performance Laboratory Information System",
   "main": "app.js",

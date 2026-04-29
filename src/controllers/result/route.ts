@@ -82,28 +82,16 @@ router.post('/api/v1/result/delivery/handover', handleOverLoad(recordResultHando
 router.get('/api/v1/result/delivery/chain/:billingid', handleOverLoad(getResultDeliveryChain));
 
 
-
-
-
 // criticalcallout 
 router.get("/api/v1/result/criticalvalues/logging/paginated", getPaginatedLoggingCriticalValueAlerts)
 router.get("/api/v1/result/criticalvalues/logging/:crKeyId", getCriticalDetails)
+
 export default router;
-
-
-
-// result criticalValues logging 
-
-
 
 router.post('/api/v1/result/criticalvalues/logging', createLoggingCriticalValueAlert);
 router.get('/api/v1/result/criticalvalues/logging', getAllLoggingCriticalValueAlerts);
 router.put('/api/v1/result/criticalvalues/logging/:id', updateLoggingCriticalValueAlert);
 router.delete('/api/v1/result/criticalvalues/logging/:id', deleteLoggingCriticalValueAlert);
-
-
-
-// results audit logs route
 
 
 router.post('/api/v1/result/auditlogs', TestResultsAuditLogsController.create);
@@ -112,22 +100,16 @@ router.get('/api/v1/result/auditlogs/:id', handleOverLoad(TestResultsAuditLogsCo
 router.get('/api/v1/result/auditlogs', TestResultsAuditLogsController.listAll);
 router.delete('/api/v1/result/auditlogs/:id', TestResultsAuditLogsController.delete);
 
-
-// result printing or viewing tracking
 // result printing or viewing tracking
 router.post('/api/v1/result/printingtracking', ResultPrintingTrackingController.create);
 router.get('/api/v1/result/printingtracking/ascension/:ascensionid', ResultPrintingTrackingController.getByAscensionId);
 router.get('/api/v1/result/printingtracking', ResultPrintingTrackingController.listAll);
 router.delete('/api/v1/result/printingtracking/:id', ResultPrintingTrackingController.delete);
 
-
 // result trends
 router.get("/api/v1/result/trends", handleOverLoad(getTestTrendsHandler));
 
 
-
-
 // BYPASS COMPLETE FLOW FOR ASCENSION WHEN BILLING IS SUBMITTED
-
 router.post('/api/v1/operations/ascension/bypass/mutiple/completeflow/bypass-multiple', handleOverLoad(completeFlowByPassMultipleHandler));
 router.post('/api/v1/operations/ascension/completeflow/bypass', handleOverLoad(completeFlowByPassHandler));

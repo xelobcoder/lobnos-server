@@ -991,10 +991,10 @@ export type PrimeLimsTableloginlogs = {
   loginTime: Date | string;
   employeeid: number;
   loginSessionId: string;
-  logoutTime: number;
+  logoutTime: Date | string;
   browserInformation: string;
   loggedout: number;
-  actualLogout?: number;
+  actualLogout?: Date | string;
 };
 
 export type PrimeLimsTablemainstoresupply = {

@@ -5,6 +5,7 @@ import {
      logoutUser,
      getLoggedUsersCount,
      getLoginHistory,
+     getRolesAuditLog,
 } from "./handlers";
 import { AuthController } from "./authController";
 import { checkTokenExists, isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
@@ -41,11 +42,12 @@ router.get('/api/v1/prime/validate-user-pin', handleOverLoad(checkLicenseAccess)
 
 
 
-router.get("/api/v1/security/getloggedsessions", getLoggedSessions);
-router.get("/api/v1/security/getloggedsessions/update", updateLoggedSessions);
-router.get("/api/v1/security/user/logout", logoutUser);
-router.get("/api/v1/security/users/logged/count", getLoggedUsersCount);
-router.get("/api/v1/security/users/getlogin/history", getLoginHistory);
+router.get("/api/v1/security/getloggedsessions", checkTokenExists, isAuthorizedRoleAdmin, getLoggedSessions);
+router.get("/api/v1/security/getloggedsessions/update", checkTokenExists, isAuthorizedRoleAdmin, updateLoggedSessions);
+router.get("/api/v1/security/user/logout", checkTokenExists, isAuthorizedRoleAdmin, logoutUser);
+router.get("/api/v1/security/users/logged/count", checkTokenExists, isAuthorizedRoleAdmin, getLoggedUsersCount);
+router.get("/api/v1/security/users/getlogin/history", checkTokenExists, isAuthorizedRoleAdmin, getLoginHistory);
+router.get("/api/v1/security/roles/audit-log", checkTokenExists, isAuthorizedRoleAdmin, getRolesAuditLog);
 
 
 

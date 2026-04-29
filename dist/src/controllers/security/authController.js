@@ -13,6 +13,7 @@ const validateTenancy_1 = require("../../middleware/validateTenancy");
 const companyProfile_1 = require("../../models/settings/companyProfile");
 const appset_1 = __importDefault(require("../../models/application/appsettings/appset"));
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
+const securityClass_1 = __importDefault(require("../../models/security/securityClass"));
 class AuthController {
     constructor() {
         this.authRepo = null;
@@ -38,12 +39,20 @@ class AuthController {
             }
             const user = await new RolesRepository_1.default(tenantId).getRoleByEmail(email);
             const { role, username, employeeid } = user;
+            const security = new securityClass_1.default(parseInt(String(employeeid), 10));
+            const canInitiate = await security.getCanInitiateLogin(tenantId);
+            if (!canInitiate) {
+                res.status(200).json({ status: false, error: 'multipleLogins' });
+                return;
+            }
+            const sessionExpiryTime = await security.insertLoginHistory(tenantId, browserInfo !== null && browserInfo !== void 0 ? browserInfo : {});
             const applicationSettings = new appset_1.default();
             const settings = await applicationSettings.getAllAppSettings(tenantId);
             res.status(200).json({
                 status: true,
                 accessToken: tokens.accessToken,
                 user: { role, employeeid, username, email },
+                sessionExpiryTime,
                 settings: {
                     allowScientistToRegisterClient: settings === null || settings === void 0 ? void 0 : settings.allowScientistToRegisterClient,
                 }

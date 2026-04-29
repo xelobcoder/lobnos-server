@@ -21,6 +21,7 @@ import { TestDetailCategoryType } from "../../models/operations/testFieldsCatego
 import RequestAccess from "../../models/security/RequestAcessResult/requestAcess";
 import { Services } from "../../models/services/services";
 import KnexConnection from "../../database/KnexConnections";
+import ResultDeliveryClass from "./resultDelivery";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -69,12 +70,14 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: Reque
 				let result = records?.result;
 				const decryptedResult = await resultEncrptionReferer(result as any, "decryption");
 				if (decryptedResult != undefined) {
+					const resultDeliveryPreference = await new ResultDeliveryClass(billingid,tenantIdP).getResultDeliveryForTransaction();
 					const { resources } = decryptedResult;
 					if (resources && Array.isArray(resources) && resources.length > 0) {
 						result = result.map((item: any, index: number) => {
 							return { ...item, value: resources[index]['value'] }
 						})
-						return response.send({ ...records, result });
+
+						return response.send({ ...records, result , resultDeliveryPreference});
 					}
 				}
 				return response.send(records)
@@ -664,12 +667,9 @@ export const setResultDeliveryPreference = async (req: Request, res: Response) =
 			updated_at: conn.fn.now()
 		};
 
-		await conn('patient_result_delivery_preference')
-			.insert({ ...payload, created_at: conn.fn.now() })
-			.onConflict(['billingid'])
-			.merge(payload as any);
+		const status = await new ResultDeliveryClass(billing, tenantId).setResultDeliveryPreference(payload);
 
-		res.send({ status: true });
+		res.send({ status });
 	} catch (err) {
 		responseError(res, err);
 	}
@@ -682,8 +682,7 @@ export const getResultDeliveryPreference = async (req: Request, res: Response) =
 		if (!billingid || isNaN(billingid)) {
 			return customError("billingid must be a number", 400, res);
 		}
-		const conn = await KnexConnection(tenantId);
-		const pref = await conn('patient_result_delivery_preference').where({ billingid }).first();
+		const pref = await new ResultDeliveryClass(billingid, tenantId).getResultDeliveryForTransaction();
 		res.send({ status: true, preference: pref || null });
 	} catch (err) {
 		responseError(res, err);
