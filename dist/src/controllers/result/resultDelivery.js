@@ -14,6 +14,12 @@ class ResultDeliveryClass {
         const connection = await this.connection;
         return await connection('patient_result_delivery_preference').where({ billingid: this.billingid }).first();
     }
+    async getAllResultDeliveryPreferencesForTransaction() {
+        const connection = await this.connection;
+        return await connection('patient_result_delivery_preference')
+            .where({ billingid: this.billingid })
+            .select('*');
+    }
     async setResultDeliveryPreference(payload) {
         const connection = await this.connection;
         await connection('patient_result_delivery_preference')
@@ -22,46 +28,23 @@ class ResultDeliveryClass {
             .merge(payload);
         return true;
     }
-    async getTestResultDeliveryPreference(testid) {
-        const connection = await this.connection;
-        return await connection('test_result_delivery_preference')
-            .where({ billingid: this.billingid, testid })
-            .first();
-    }
-    async getAllTestResultDeliveryPreferences() {
-        const connection = await this.connection;
-        return await connection('test_result_delivery_preference')
-            .where({ billingid: this.billingid })
-            .select('*');
-    }
-    async setTestResultDeliveryPreference(payload) {
-        const connection = await this.connection;
-        await connection('test_result_delivery_preference')
-            .insert(Object.assign(Object.assign({}, payload), { created_at: connection.fn.now(), updated_at: connection.fn.now() }))
-            .onConflict(['billingid', 'testid'])
-            .merge({
-            requested_mode: payload.requested_mode,
-            requested_mode_detail: payload.requested_mode_detail,
-            updated_by_employeeid: payload.updated_by_employeeid,
-            updated_at: connection.fn.now()
-        });
-        return true;
-    }
-    async setMultipleTestResultDeliveryPreferences(preferences) {
-        const connection = await this.connection;
-        const now = connection.fn.now();
-        for (const pref of preferences) {
+    async setMultipleTestResultDeliveryPreferences(preferences, trx) {
+        try {
+            const connection = trx ? await trx : await this.connection;
+            const now = connection.fn.now();
             await connection('patient_result_delivery_preference')
-                .insert(Object.assign(Object.assign({}, pref), { created_at: now, updated_at: now }))
-                .onConflict(['billingid', 'ascensionid'])
-                .merge({
-                requested_mode: pref.requested_mode,
-                requested_mode_detail: pref.requested_mode_detail,
-                updated_by_employeeid: pref.updated_by_employeeid,
-                updated_at: now
+                .insert(Object.assign(Object.assign({}, preferences), { created_at: now, updated_at: now }));
+            await connection('result_delivery_log')
+                .insert({
+                ascensionid: preferences.ascension
             });
+            return true;
         }
-        return true;
+        catch (err) {
+            console.log(err);
+            trx.rollback();
+            throw new Error("Error loading preferences");
+        }
     }
 }
 exports.default = ResultDeliveryClass;

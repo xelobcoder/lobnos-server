@@ -31,7 +31,8 @@ class SubmitCustomerBilling {
     async submit() {
         let trx;
         try {
-            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, entitytype, entityId, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "entitytype", "entityId", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod"]);
+            const _a = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, isPromo, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, payments, status, entitytype, entityId, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod, result_delivery } = _a, rest = __rest(_a, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "isPromo", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "payments", "status", "entitytype", "entityId", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod", "result_delivery"]);
+            console.log(result_delivery);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -132,7 +133,7 @@ class SubmitCustomerBilling {
             const Multi = new billing_shared_1.BillingSharedRepo();
             if (allEntries.length > 0) {
                 const loadAllServicesInsertionErrors = await Multi
-                    .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
+                    .mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, trx);
                 if (loadAllServicesInsertionErrors.length > 0) {
                     throw new Error(billing_shared_types_1.BillErrors.UnableToLoadServices);
                 }

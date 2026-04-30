@@ -15,7 +15,7 @@ async function ascensionStagingHandler(request, response) {
             return response.send({ status: false, message: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */, action: 'Include employeeid in the query' });
         }
         const parsedEmployeeId = parseInt(employeeid.toString());
-        const tenantIdP = parseInt(tenantId.toString());
+        const tenantIdP = parseInt(tenantId ? tenantId.toString() : '0');
         if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP))) {
             return response.send({ status: false, message: "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */ });
         }
@@ -46,12 +46,15 @@ async function ascensionStagingHandler(request, response) {
 }
 exports.ascensionStagingHandler = ascensionStagingHandler;
 async function validatedResultEmployeeGetter(item, tenantId) {
-    const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus, ascension_date } = item;
+    const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus, ascension_date, delivered_by_employeeid, delivered_at, delivered_mode, requested_mode, delivered_by_username } = item;
     const validators = await new testApprovalClass_1.TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
-    return { department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id, ascensionid, fullpatientid, paymentstatus, ascension_date };
+    return {
+        department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id,
+        ascensionid, fullpatientid, paymentstatus, ascension_date, delivered_by_employeeid, delivered_at, delivered_mode, requested_mode, delivered_by_username
+    };
 }
 async function isScientistOrAdmin(employeeId, tenantId) {
-    return await new user_1.default(null, null, null, null, null).getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
+    return await new user_1.default(null).getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
 }
 async function canValidateResults(employeeId, tenantId) {
     const validationSettings = await resultSettings_1.default.getResultEntrySettings(tenantId);

@@ -105,6 +105,11 @@ exports.q_get_all_result_entry_base = `
             tp.id,
             b.clientstatus,
             org.name AS organization,
+            prdp.requested_mode AS requested_mode,
+            drol.username AS delivered_by_username,
+            rdel.delivered_by_employeeid AS delivered_by_employeeid,
+            rdel.delivered_at AS delivered_at,
+            rdel.delivered_mode AS delivered_mode,
             clin.name AS clinicianName
   FROM dboServices AS ds
   INNER JOIN billing AS b ON b.billingid = ds.billingid 
@@ -114,6 +119,9 @@ exports.q_get_all_result_entry_base = `
   LEFT JOIN departments AS d ON d.id = tp.category
   LEFT JOIN organization AS org ON org.id = ds.organizationId
   LEFT JOIN clinicianbasicinfo AS clin ON clin.id = ds.clinicianId
+  LEFT JOIN result_delivery_log AS rdel ON rdel.ascensionid = ss.ascensionid
+  LEFT JOIN patient_result_delivery_preference AS prdp ON prdp.ascension = ss.ascensionid
+  LEFT JOIN roles AS drol ON drol.employeeid = rdel.delivered_by_employeeid
   INNER JOIN new_patients AS np  ON np.patientid = b.patientid
   INNER JOIN dbotestresultapproval AS dta ON dta.ascensionid = ta.id
   WHERE ss.approvalstatus = 1

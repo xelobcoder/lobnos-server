@@ -54,13 +54,13 @@ router.get("/api/v1/billing/multi/init", handleOverLoad(initializeBillingHandler
 router.post("/api/v1/billing/multi/checkout", handleOverLoad(checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", handleOverLoad(submitBillingHandler));
 router.put('/api/v1/billing/multi', handleMultiUpdateBilling);
-router.put("/api/v1/billing", isAuthorizedRoleAdmin, updateBilledTransaction);
+router.put("/api/v1/billing", isAuthorizedRoleAdmin, handleOverLoad(updateBilledTransaction));
 router.get("/api/v1/billing/caninitialbill", canInitiateBill);
 router.get("/api/v1/billing/information/single", getSavedCLientBillingInformation);
 router.post(`/api/v1/billing/previous/request/refund`, determineStageOfRefundRequestHandler);
 router.post(`/api/v1/billing/previous/request/refund/update`, handleOverLoad(requestForRefundHandler));
 router.post("/api/v1/billing/previous/refund/update/previous", updateWitnessWitnessNote as RequestHandler);
-router.post("/api/v1/billing/previous/refund/update/approve", isAuthorizedRoleAdmin, approveRequestForRefund);
+router.post("/api/v1/billing/previous/refund/update/approve", isAuthorizedRoleAdmin, handleOverLoad(approveRequestForRefund));
 router.post("/api/v1/billing/previous/refund/update/cashout", requestForRefundCashIssueOut);
 router.get("/api/v1/billing/previous/refund/update/verification/cashout", verificationBeforeCashoutHandler as unknown as RequestHandler);
 router.get("/api/v1/billing/filtering/service/refund", getServiceRefundItem);

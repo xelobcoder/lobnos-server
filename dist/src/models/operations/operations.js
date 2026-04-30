@@ -237,7 +237,7 @@ class Operations {
 							ta.resultEntryStart,
 							ta.resultEntryEnd,
 
-							rdl.requested_mode,
+							rdp.requested_mode,
 							rdl.delivered_mode,
 							rdl.delivered_at,
 							rrd.username AS delivered_by_name,
@@ -313,9 +313,11 @@ class Operations {
 							LEFT JOIN result_delivery_log AS rdl
 							ON ss.ascensionid = rdl.ascensionid
 
+							LEFT JOIN patient_result_delivery_preference AS rdp
+							ON ss.ascensionid = rdp.ascension
+							
 							LEFT JOIN roles AS rrd
 							ON rrd.employeeid = rdl.delivered_by_employeeid
-
 
 							WHERE ta.billingid = ?
 							AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
@@ -328,6 +330,7 @@ class Operations {
             return await (0, helper_1.promisifyQuery)(tenantid, query, [billingid]);
         }
         catch (err) {
+            console.log(err);
             throw new Error((err === null || err === void 0 ? void 0 : err.message) || "Error fetching ascension overview model transaction details");
         }
     }
@@ -453,7 +456,6 @@ class Operations {
                 const approvalList = await Promise.all(result.map(async (item) => {
                     const { ascensionid } = item;
                     const ascensionApprovalEmployeeList = await new testApprovalClass_1.TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
-                    console.log("Approval List: ", ascensionApprovalEmployeeList);
                     return Object.assign(Object.assign({}, item), { validators: ascensionApprovalEmployeeList });
                 }));
                 return approvalList;

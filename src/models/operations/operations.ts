@@ -245,7 +245,7 @@ export default class Operations {
 							ta.resultEntryStart,
 							ta.resultEntryEnd,
 
-							rdl.requested_mode,
+							rdp.requested_mode,
 							rdl.delivered_mode,
 							rdl.delivered_at,
 							rrd.username AS delivered_by_name,
@@ -321,9 +321,11 @@ export default class Operations {
 							LEFT JOIN result_delivery_log AS rdl
 							ON ss.ascensionid = rdl.ascensionid
 
+							LEFT JOIN patient_result_delivery_preference AS rdp
+							ON ss.ascensionid = rdp.ascension
+							
 							LEFT JOIN roles AS rrd
 							ON rrd.employeeid = rdl.delivered_by_employeeid
-
 
 							WHERE ta.billingid = ?
 							AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
@@ -336,6 +338,7 @@ export default class Operations {
 
 			return await promisifyQuery(tenantid, query, [billingid]);
 		} catch (err: any) {
+			console.log(err)
 			throw new Error(err?.message || "Error fetching ascension overview model transaction details");
 		}
 	}
@@ -408,7 +411,6 @@ export default class Operations {
 				finalQuery += ` AND ds.organizationId = ?`;
 				conditions.push(organizationId as any as string);
 			}
-
 			return { conditions, finalQuery };
 		} catch (err) {
 			return null;
@@ -493,7 +495,6 @@ export default class Operations {
 					result.map(async (item: any) => {
 						const { ascensionid } = item;
 						const ascensionApprovalEmployeeList = await new TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
-						console.log("Approval List: ", ascensionApprovalEmployeeList);
 						return { ...item, validators: ascensionApprovalEmployeeList };
 					}
 

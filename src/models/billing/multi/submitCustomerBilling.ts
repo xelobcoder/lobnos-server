@@ -46,8 +46,11 @@ export class SubmitCustomerBilling {
                 isConditionsUnderstood,
                 hasNightAdjustment,
                 promoMethod,
+                result_delivery,
                 ...rest
             } = this.payload;
+
+            console.log(result_delivery)
 
 
             const checkoutResult = await CustomerBillingCheckout.checkoutCustomerBilling({
@@ -141,7 +144,7 @@ export class SubmitCustomerBilling {
             const totalSurchargeFromCheckout = typeof data.totalsurcharge === 'number' ? data.totalsurcharge : 0;
             const effectiveDiscountTotal = Math.max(Number(totalDiscountFromCheckout || 0), Number(computedAdjustments.discountTotal || 0));
             const effectiveSurchargeTotal = Math.max(Number(totalSurchargeFromCheckout || 0), Number(computedAdjustments.surchargeTotal || 0));
-console.log({computedAdjustments, totalDiscountFromCheckout, totalSurchargeFromCheckout,effectiveDiscountTotal,effectiveSurchargeTotal})
+            console.log({ computedAdjustments, totalDiscountFromCheckout, totalSurchargeFromCheckout, effectiveDiscountTotal, effectiveSurchargeTotal })
             await DiscountLimitService.enforceAndRecord({
                 tenantId: this.tenantId,
                 trx,
@@ -175,7 +178,7 @@ console.log({computedAdjustments, totalDiscountFromCheckout, totalSurchargeFromC
 
             if (allEntries.length > 0) {
                 const loadAllServicesInsertionErrors = await Multi
-                    .mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
+                    .mapAndInsertServices(this.tenantId, allEntries, billingID,patientId, result_delivery, trx);
                 if (loadAllServicesInsertionErrors.length > 0) {
                     throw new Error(BillErrors.UnableToLoadServices);
                 }

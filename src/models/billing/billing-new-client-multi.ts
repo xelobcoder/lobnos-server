@@ -90,6 +90,7 @@ export class SubmitCustomerBilling {
                 isConditionsUnderstood,
                 hasNightAdjustment,
                 promoMethod,
+                result_delivery,
                 ...rest
             } = this.payload;
 
@@ -232,9 +233,8 @@ export class SubmitCustomerBilling {
                 const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
                 const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
 
-console.log({computedAdjustments, totalDiscountFromCheckout, totalSurchargeFromCheckout,effectiveDiscountTotal,effectiveSurchargeTotal, deltaDiscount, deltaSurcharge})
-               
-await DiscountLimitService.enforceAndRecord({
+
+                await DiscountLimitService.enforceAndRecord({
                     tenantId: this.tenantId,
                     trx,
                     employeeid: parsedEmployeeId,
@@ -275,7 +275,7 @@ await DiscountLimitService.enforceAndRecord({
                 }
 
                 const Multi = new BillingSharedRepo();
-                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, trx);
+                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID,patientId, result_delivery, trx);
                 if (loadAllServices.length > 0) {
                     const firstErr = loadAllServices[0] as any;
                     const messageFromErr =

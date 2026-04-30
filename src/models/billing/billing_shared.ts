@@ -14,6 +14,7 @@ import { ensureFinanceLedgerTables } from "../../services/finance/financeLedgerI
 import User from "../../LobnosAuth/user";
 import { applyDboservicesAfterInsert, applyTestAscensionAfterInsertApprovalSettings } from "../../database/appLevelTriggers";
 import { OperationsFailures } from "../operations/types";
+import ResultDeliveryClass from "../../controllers/result/resultDelivery";
 
 export class BillingSharedRepo {
      private static calculateTotalDiscount(data: any[]) {
@@ -611,7 +612,7 @@ export class BillingSharedRepo {
      }
 
 
-     public async mapAndInsertServices(tenantId: number, allEntries: any[], billingid: number, trx?: any) {
+     public async mapAndInsertServices(tenantId: number, allEntries: any[], billingid: number, patientId: number, result_delivery: any, trx?: any) {
           try {
                const servicesMap = allEntries.map((service) => {
                     return [
@@ -656,14 +657,14 @@ export class BillingSharedRepo {
                     ];
                });
 
-               const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
+               const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, patientId, result_delivery, trx);
                return loadAllServices;
           } catch (err: any) {
                await trx.rollback();
                throw err;
           }
      }
-     public async loadMultipleServices(services: any[], billingid: number, tenantId: number, trx?: any) {
+     public async loadMultipleServices(services: any[], billingid: number, tenantId: number, patientId: number, result_delivery: any, trx?: any) {
           const insertionErrors = [];
           const queryRunner = trx || await KnexConnection(tenantId);
 
@@ -768,10 +769,25 @@ export class BillingSharedRepo {
                               if (!ascensionid || typeof ascensionid !== "number") {
                                    throw new Error(billErrors.unableToLoadTestAscension);
                               }
+                              if (Array.isArray(result_delivery.preferences)) {
+                                   const findPrefernceforAscension = result_delivery.preferences.find((item) => item.testid == trackId);
+
+                                   if (findPrefernceforAscension)
+                                        await new ResultDeliveryClass(billingid, tenantId).setMultipleTestResultDeliveryPreferences(
+                                             {
+                                                  updated_by_employeeid: findPrefernceforAscension.employeeid,
+                                                  requested_mode: findPrefernceforAscension.requested_mode,
+                                                  requested_mode_detail: findPrefernceforAscension.requested_mode_detail,
+                                                  patientid: patientId, billingid,
+                                                  ascension: ascensionid
+                                             }, queryRunner);
+                              }
+                              // we must insert into resultdeliverydialog too
                               await TestAscension.initialdbogeneraltestEdit(billingid, ascensionid, queryRunner);
                               await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassCollection', employeeid, queryRunner);
                               await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassSampleValidation', employeeid, queryRunner);
                               await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassProcessing', employeeid, queryRunner);
+
                          } catch (err) {
                               console.log(err)
                               throw new Error(billErrors.unableToLoadTestAscension);

@@ -713,16 +713,11 @@ export const getResultDeliveryPreference = async (req: Request, res: Response) =
 			return customError("billingid must be a number", 400, res);
 		}
 
-		// Get billing-level preference
-		const pref = await new ResultDeliveryClass(billingid, tenantId).getResultDeliveryForTransaction();
-
-		// Get test-specific preferences
-		const testPrefs = await new ResultDeliveryClass(billingid, tenantId).getAllTestResultDeliveryPreferences();
+		const deliveryPrefs = await new ResultDeliveryClass(billingid, tenantId).getAllResultDeliveryPreferencesForTransaction();
 
 		res.send({
 			status: true,
-			preference: pref || null,
-			testPreferences: testPrefs || []
+			preferences: deliveryPrefs || []
 		});
 	} catch (err) {
 		responseError(res, err);
@@ -732,13 +727,13 @@ export const getResultDeliveryPreference = async (req: Request, res: Response) =
 export const recordResultDelivery = async (req: Request, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
-		const { billingid, delivered_mode, delivered_by_employeeid, notes } = req.body || {};
+		const { billingid, ascensionid, delivered_mode, delivered_by_employeeid, notes } = req.body || {};
 		const pBillingId = parseInt(String(billingid), 10);
+		const pAscensionId = ascensionid !== undefined && ascensionid !== null ? parseInt(String(ascensionid), 10) : null;
 		const pEmployeeId = parseInt(String(delivered_by_employeeid), 10);
 
-		if (!pBillingId || isNaN(pBillingId)) {
-			return customError("billingid must be a number", 400, res);
-		}
+		if (!pBillingId || isNaN(pBillingId)) return customError("billingid must be a number", 400, res);
+		if (pAscensionId !== null && isNaN(pAscensionId)) return customError("ascensionid must be a number", 400, res);
 		if (!pEmployeeId || isNaN(pEmployeeId)) {
 			return customError("delivered_by_employeeid must be a number", 400, res);
 		}
@@ -747,26 +742,18 @@ export const recordResultDelivery = async (req: Request, res: Response) => {
 		}
 
 		const conn = await KnexConnection(tenantId);
-		const billing = await conn('billing').select('patientid', 'branchid').where({ billingid: pBillingId }).first();
-		if (!billing || !billing.patientid) {
-			return customError("billing record not found", 404, res);
-		}
 
-		const pref = await conn('patient_result_delivery_preference').where({ billingid: pBillingId }).first();
-		const requestedMode = pref ? pref.requested_mode : null;
-
-		const [id] = await conn('result_delivery_log').insert({
-			billingid: pBillingId,
-			patientid: billing.patientid,
-			requested_mode: requestedMode,
+		const result = await conn('result_delivery_log').update({
+			ascensionid: pAscensionId,
 			delivered_mode: delivered_mode.trim().toLowerCase(),
 			delivered_by_employeeid: pEmployeeId,
 			delivered_at: conn.fn.now(),
 			notes: notes ?? null
-		});
+		}).where({ ascensionid: pAscensionId })
 
-		res.status(201).send({ status: true, id });
+		res.status(201).send({ status: true, result });
 	} catch (err) {
+		console.log(err);
 		responseError(res, err);
 	}
 };

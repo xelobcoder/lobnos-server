@@ -32,14 +32,14 @@ const checkLicenseAccess = async (req, res, next) => {
     }
 };
 router.post('/api/v1/prime/login', (0, helper_1.handleOverLoad)(checkLicenseAccess), (req, res) => authController.login(req, res));
-router.get('/api/v1/prime/validate-token', (0, helper_1.handleOverLoad)(checkLicenseAccess), validateTenancy_1.checkTokenExists, (req, res) => authController.validateToken(req, res));
+router.get('/api/v1/prime/validate-token', (0, helper_1.handleOverLoad)(checkLicenseAccess), (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), (req, res) => authController.validateToken(req, res));
 router.get('/api/v1/prime/validate-user-pin', (0, helper_1.handleOverLoad)(checkLicenseAccess), (req, res) => authController.validateUserPinProvided(req, res));
-router.get("/api/v1/security/getloggedsessions", validateTenancy_1.checkTokenExists, validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.getLoggedSessions));
-router.get("/api/v1/security/getloggedsessions/update", validateTenancy_1.checkTokenExists, validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.updateLoggedSessions));
+router.get("/api/v1/security/getloggedsessions", (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.getLoggedSessions));
+router.get("/api/v1/security/getloggedsessions/update", (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.updateLoggedSessions));
 router.get("/api/v1/security/user/logout", (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.logoutUser));
-router.get("/api/v1/security/users/logged/count", validateTenancy_1.checkTokenExists, validateTenancy_1.isAuthorizedRoleAdmin, handlers_1.getLoggedUsersCount);
-router.get("/api/v1/security/users/getlogin/history", validateTenancy_1.checkTokenExists, validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.getLoginHistory));
-router.get("/api/v1/security/roles/audit-log", validateTenancy_1.checkTokenExists, validateTenancy_1.isAuthorizedRoleAdmin, handlers_1.getRolesAuditLog);
+router.get("/api/v1/security/users/logged/count", (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), validateTenancy_1.isAuthorizedRoleAdmin, handlers_1.getLoggedUsersCount);
+router.get("/api/v1/security/users/getlogin/history", (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.getLoginHistory));
+router.get("/api/v1/security/roles/audit-log", (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.getRolesAuditLog));
 // access request routes
 router.post('/api/v1/security-features/request-access', (0, helper_1.handleOverLoad)(result_acess_controller_1.ResultAccessController.requestAccess));
 router.put('/api/v1/security-features/grant/:requestId', result_acess_controller_1.ResultAccessController.grantAccess);

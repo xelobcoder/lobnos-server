@@ -35,18 +35,20 @@ const checkLicenseAccess = async (req: express.Request, res: express.Response, n
           return res.status(500).json({ status: 'error', message: 'License validation failed: ' + (error as Error).message });
      }
 };
+
+
 router.post('/api/v1/prime/login', handleOverLoad(checkLicenseAccess), (req, res) => authController.login(req, res));
-router.get('/api/v1/prime/validate-token', handleOverLoad(checkLicenseAccess), checkTokenExists, (req, res) => authController.validateToken(req, res));
+router.get('/api/v1/prime/validate-token', handleOverLoad(checkLicenseAccess), handleOverLoad(checkTokenExists), (req, res) => authController.validateToken(req, res));
 router.get('/api/v1/prime/validate-user-pin', handleOverLoad(checkLicenseAccess), (req, res) => authController.validateUserPinProvided(req as unknown as any, res));
 
 
 
-router.get("/api/v1/security/getloggedsessions", checkTokenExists, isAuthorizedRoleAdmin, handleOverLoad(getLoggedSessions));
-router.get("/api/v1/security/getloggedsessions/update", checkTokenExists, isAuthorizedRoleAdmin, handleOverLoad(updateLoggedSessions));
+router.get("/api/v1/security/getloggedsessions", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(getLoggedSessions));
+router.get("/api/v1/security/getloggedsessions/update", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(updateLoggedSessions));
 router.get("/api/v1/security/user/logout", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(logoutUser));
-router.get("/api/v1/security/users/logged/count", checkTokenExists, isAuthorizedRoleAdmin, getLoggedUsersCount);
-router.get("/api/v1/security/users/getlogin/history", checkTokenExists, isAuthorizedRoleAdmin, handleOverLoad(getLoginHistory));
-router.get("/api/v1/security/roles/audit-log", checkTokenExists, isAuthorizedRoleAdmin, getRolesAuditLog);
+router.get("/api/v1/security/users/logged/count", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, getLoggedUsersCount);
+router.get("/api/v1/security/users/getlogin/history", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(getLoginHistory));
+router.get("/api/v1/security/roles/audit-log", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(getRolesAuditLog));
 
 
 

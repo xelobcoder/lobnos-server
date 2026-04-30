@@ -1727,7 +1727,7 @@ export type PrimeLimsTablesessiontracker = {
   id: number;
   loginSessionId: string;
   employeeid: number;
-  logoutTime: number;
+  logoutTime: Date | string;
   loginhxid: number;
 };
 

@@ -17,6 +17,7 @@ const FinanceLedgerService_1 = require("../../services/finance/FinanceLedgerServ
 const financeLedgerInit_1 = require("../../services/finance/financeLedgerInit");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const appLevelTriggers_1 = require("../../database/appLevelTriggers");
+const resultDelivery_1 = __importDefault(require("../../controllers/result/resultDelivery"));
 class BillingSharedRepo {
     static calculateTotalDiscount(data) {
         return parseFloat(TiifuWorkingClass_1.TiifuWorkingClass.reduceListInOF(data, 'discount') || 0);
@@ -511,7 +512,7 @@ class BillingSharedRepo {
             };
         }));
     }
-    async mapAndInsertServices(tenantId, allEntries, billingid, trx) {
+    async mapAndInsertServices(tenantId, allEntries, billingid, patientId, result_delivery, trx) {
         try {
             const servicesMap = allEntries.map((service) => {
                 return [
@@ -555,7 +556,7 @@ class BillingSharedRepo {
                     service.userAdjustmentType ? service.userAdjustmentType : null,
                 ];
             });
-            const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
+            const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, patientId, result_delivery, trx);
             return loadAllServices;
         }
         catch (err) {
@@ -563,7 +564,7 @@ class BillingSharedRepo {
             throw err;
         }
     }
-    async loadMultipleServices(services, billingid, tenantId, trx) {
+    async loadMultipleServices(services, billingid, tenantId, patientId, result_delivery, trx) {
         const insertionErrors = [];
         const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
         for (const item of services) {
@@ -660,6 +661,18 @@ class BillingSharedRepo {
                         if (!ascensionid || typeof ascensionid !== "number") {
                             throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);
                         }
+                        if (Array.isArray(result_delivery.preferences)) {
+                            const findPrefernceforAscension = result_delivery.preferences.find((item) => item.testid == trackId);
+                            if (findPrefernceforAscension)
+                                await new resultDelivery_1.default(billingid, tenantId).setMultipleTestResultDeliveryPreferences({
+                                    updated_by_employeeid: findPrefernceforAscension.employeeid,
+                                    requested_mode: findPrefernceforAscension.requested_mode,
+                                    requested_mode_detail: findPrefernceforAscension.requested_mode_detail,
+                                    patientid: patientId, billingid,
+                                    ascension: ascensionid
+                                }, queryRunner);
+                        }
+                        // we must insert into resultdeliverydialog too
                         await ascension_1.TestAscension.initialdbogeneraltestEdit(billingid, ascensionid, queryRunner);
                         await ascension_1.TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassCollection', employeeid, queryRunner);
                         await ascension_1.TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassSampleValidation', employeeid, queryRunner);
