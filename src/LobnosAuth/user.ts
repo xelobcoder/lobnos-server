@@ -12,10 +12,10 @@ import ResultSettings from "../models/application/appsettings/resultSettings";
 
 
 class User {
-	private name: string;
-	private password: string;
-	private role: string;
-	private email: string;
+	private name: string | null;
+	private password: string | null;
+	private role: string | null;
+	private email: string | null;
 	private branch: number | null;
 
 	constructor(name: string | null = null, password: string | null = null, role: string | null = null, email: string | null = null, branch: number | null = null) {
@@ -26,14 +26,22 @@ class User {
 		this.branch = branch || null;
 	}
 
+
+	makeCompulsoryKeysExist(key: string): void {
+		if (!this[key as keyof User]) throw new Error(`${key} is required`);
+	}
+
+
 	public async checkUserExistUsingEmail(tenantId: number): Promise<boolean> {
-		return await new TiifuWorkingClass("roles").findOne(tenantId, "email", this.email) ? true : false;
+		this.makeCompulsoryKeysExist("email");
+		return await new TiifuWorkingClass("roles").findOne(tenantId, "email", this.email as string) ? true : false;
 	}
 
 	public async hashPassword(): Promise<string> {
+		this.makeCompulsoryKeysExist("password");
 		const salt = await bcrypt.genSalt(10);
-		this.password = await bcrypt.hash(this.password, salt);
-		return this.password;
+		const password = await bcrypt.hash(this.password as string, salt);
+		return password
 	}
 
 	public async isPasswordSame(password: string, hashpassword: string): Promise<boolean> {
@@ -91,12 +99,13 @@ class User {
 
 	public async createUser(tenantId: number): Promise<any> {
 		try {
+			this.makeCompulsoryKeysExist("name");
+			this.makeCompulsoryKeysExist("password");
 			const isUserExist = await this.checkUserExistUsingEmail(tenantId);
 			if (isUserExist) return "user already exist";
 			const hashPassword = await this.hashPassword();
-			return await this.insertionOne(this.name, hashPassword, tenantId);
-		} catch (err) {
-			logger.error(err);
+			return await this.insertionOne(this.name as string, hashPassword, tenantId);
+		} catch (err: any) {
 			throw new Error(err?.message || "error creating user");
 		}
 	}
@@ -106,7 +115,7 @@ class User {
 			const storedPassword = await promisifyQuery(tenantId, queries.SELECT_USER_BY_EMAIL, [tenantId, email]);
 			if (storedPassword.length === 0) return false;
 			return await bcrypt.compare(password, storedPassword[0]?.password);
-		} catch (err) {
+		} catch (err:any) {
 			logger.error(err);
 			throw new Error(err?.message || "something went wrong");
 		}
@@ -118,9 +127,9 @@ class User {
 
 	public async createAccessTokenCredentials(accesskey: string, email: string, data: any, expiresIn: string): Promise<string> {
 		try {
-			const accessToken = jwt.sign({ ...data }, accesskey, { expiresIn });
+			const accessToken = jwt.sign({ ...data }, accesskey, { expiresIn }) as any
 			return accessToken;
-		} catch (err) {
+		} catch (err:any) {
 			logger.error(err);
 			throw new Error(err?.message || "something went wrong");
 		}
@@ -152,7 +161,7 @@ class User {
 			const { token } = request.query;
 			if (!token) return OperationsFailures.invalidTokenProvided
 
-			const tokenValid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string);
+			const tokenValid = await jwt.verify(token, process.env.ACCESS_TOKEN_SECRET as string) as jwt.JwtPayload;
 
 			if (!tokenValid) return OperationsFailures.invalidTokenProvided
 			const { role, employeeid } = tokenValid;
@@ -220,7 +229,7 @@ class User {
 		try {
 			const result = await promisifyQuery(tenantId, queries.SELECT_USER_BY_EMPLOYEE_ID, [id]);
 			return result.length === 0 ? false : result;
-		} catch (err) {
+		} catch (err:any) {
 			logger.error(err);
 			throw new Error(err?.message || "something went wrong");
 		}

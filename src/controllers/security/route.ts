@@ -32,7 +32,6 @@ const checkLicenseAccess = async (req: express.Request, res: express.Response, n
           if (!isValid) return res.status(403).json({ status: 'error', message: 'License expired or invalid' });
           next();
      } catch (error) {
-          console.log('License validation error:', error);
           return res.status(500).json({ status: 'error', message: 'License validation failed: ' + (error as Error).message });
      }
 };
@@ -42,11 +41,11 @@ router.get('/api/v1/prime/validate-user-pin', handleOverLoad(checkLicenseAccess)
 
 
 
-router.get("/api/v1/security/getloggedsessions", checkTokenExists, isAuthorizedRoleAdmin, getLoggedSessions);
-router.get("/api/v1/security/getloggedsessions/update", checkTokenExists, isAuthorizedRoleAdmin, updateLoggedSessions);
-router.get("/api/v1/security/user/logout", checkTokenExists, isAuthorizedRoleAdmin, logoutUser);
+router.get("/api/v1/security/getloggedsessions", checkTokenExists, isAuthorizedRoleAdmin, handleOverLoad(getLoggedSessions));
+router.get("/api/v1/security/getloggedsessions/update", checkTokenExists, isAuthorizedRoleAdmin, handleOverLoad(updateLoggedSessions));
+router.get("/api/v1/security/user/logout", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(logoutUser));
 router.get("/api/v1/security/users/logged/count", checkTokenExists, isAuthorizedRoleAdmin, getLoggedUsersCount);
-router.get("/api/v1/security/users/getlogin/history", checkTokenExists, isAuthorizedRoleAdmin, getLoginHistory);
+router.get("/api/v1/security/users/getlogin/history", checkTokenExists, isAuthorizedRoleAdmin, handleOverLoad(getLoginHistory));
 router.get("/api/v1/security/roles/audit-log", checkTokenExists, isAuthorizedRoleAdmin, getRolesAuditLog);
 
 

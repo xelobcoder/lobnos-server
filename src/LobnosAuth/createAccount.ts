@@ -190,7 +190,7 @@ const userLogin = async (req: UserRequest, res: Response) => {
                     `${security.loginDuration}h`
                );
 
-               const sessionExpiryTime = await security.insertLoginHistory(tenantId, browserInformation);
+               const {sessionExpiryTime }= await security.insertLoginHistory(tenantId, browserInformation);
 
                res.send({
                     status: "success",

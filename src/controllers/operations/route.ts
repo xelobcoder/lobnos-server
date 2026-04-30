@@ -75,7 +75,7 @@ router.get(`/api/v1/operation/pendingcases/all`, getAllPendingCases);
 router.get(`/api/v1/operations/imaging/ultrasound`, getUltrasoundWaitingList);
 router.get(`/api/v1/test/ascension/pendingCases`, PendingTestAscensionHandler)
 router.get(`/api/v1/test/ascension/all/pending`, getAllPendingAscensionsHandler)
-router.get(`/api/v1/phelobotomy/transaction/ascensions`, isAuthorizedRoleScientistPhelobotomist, TransactionTestAscensionHandler);
+router.get(`/api/v1/phelobotomy/transaction/ascensions`, isAuthorizedRoleScientistPhelobotomist, handleOverLoad(TransactionTestAscensionHandler));
 router.get(`/api/v1/phelobotomy/sample/assesment/list`, sampleAssessmentHandler);
 router.get(`/api/v1/sample/client/list/unvalidated`, getPendingUnvalidatedSamplesHandler)
 router.get(`/api/v1/rejected/sample/list`, getRejectedCollectedSampleListHandler)

@@ -18,4 +18,5 @@ router.put("/api/v1/user/authentication/activate", authHandlers_1.activateUser);
 router.get("/api/v1/user/permissions", authHandlers_1.getUserPermissions);
 router.put("/api/v1/user/permissions", authHandlers_1.updatePermissions);
 router.post("/api/v1/login/clinicians", authHandlers_1.authenticateClinician);
+router.post("/api/v1/logins/logout", authHandlers_1.logoutUser);
 exports.default = router;

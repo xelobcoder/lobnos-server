@@ -9,6 +9,7 @@ import { getAllCompanyProfiles } from '../../models/settings/companyProfile';
 import ApplicationSettings from '../../models/application/appsettings/appset';
 import ResultSettings from '../../models/application/appsettings/resultSettings';
 import Security from '../../models/security/securityClass';
+import { Jwt } from 'jsonwebtoken';
 
 export class AuthController {
     private authRepo: AuthenticationRepository | null = null;
@@ -39,21 +40,18 @@ export class AuthController {
             }
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);
             const { role, username, employeeid } = user;
-            const security = new Security(parseInt(String(employeeid), 10));
+            const security = new Security(parseInt(String(employeeid), 10), 6);
             const canInitiate = await security.getCanInitiateLogin(tenantId);
-            if (!canInitiate) {
-                res.status(200).json({ status: false, error: 'multipleLogins' });
-                return;
-            }
-            const sessionExpiryTime = await security.insertLoginHistory(tenantId, browserInfo ?? {});
+            if (!canInitiate) await security.destroyUserSessions(tenantId);
+            const { sessionExpiryTime, loginsessionId } = await security.insertLoginHistory(tenantId, browserInfo ?? {});
             const applicationSettings = new ApplicationSettings();
             const settings = await applicationSettings.getAllAppSettings(tenantId);
-
             res.status(200).json({
                 status: true,
                 accessToken: tokens.accessToken,
                 user: { role, employeeid, username, email },
                 sessionExpiryTime,
+                loginsessionId,
                 settings: {
                     allowScientistToRegisterClient: settings?.allowScientistToRegisterClient,
                 }
@@ -73,7 +71,7 @@ export class AuthController {
             if (!isValid) return res.status(401).json({ message: 'Invalid token', status: false });
             const { expired } = isValid;
             if (expired) return res.status(401).json({ message: 'Token has expired', status: false });
-            const response = await new TokenValidator().decodeAccessToken(token);
+            const response = await new TokenValidator().decodeAccessToken(token) as { email: string }
             const { email } = response;
             if (!email) return res.status(401).json({ message: 'Invalid token', status: false });
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);

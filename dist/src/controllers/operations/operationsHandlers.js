@@ -9,10 +9,10 @@ const helper_1 = require("../../hooks/helper");
 const getAllCollections = async (req, res) => {
     try {
         const { departmentid, branchid, tenantId } = req.query;
-        if (!departmentid || !tenantId)
-            return (0, helper_1.customError)("departmentid or tenantId not included in request query", 400, res);
+        if (!departmentid || !tenantId || !branchid)
+            return (0, helper_1.customError)("departmentid, branchid or tenantId not included in request query", 400, res);
         const tId = parseInt(tenantId, 10);
-        const collections = new operations_1.default(null);
+        const collections = new operations_1.default(0);
         const result = await collections.getLaboratoryTestReadyForResultEntry(tId, departmentid, parseInt(branchid.toString()));
         res.send({ statusCode: 200, message: "success", result });
     }
@@ -69,7 +69,7 @@ const getAllTestPreview = async (req, res) => {
         if (!billingid || !tenantId)
             return (0, helper_1.customError)("billingid or tenantId required", 400, res);
         const tId = parseInt(tenantId, 10);
-        const result = await new operations_1.default(null).getAllTestPreview(tId, parseInt(billingid.toString()));
+        const result = await new operations_1.default(0).getAllTestPreview(tId, parseInt(billingid.toString()));
         res.send({ statusCode: 200, result, status: "success" });
     }
     catch (err) {
@@ -84,7 +84,7 @@ const getAllPendingCases = async (req, res) => {
             return (0, helper_1.customError)("tenantId not included", 400, res);
         const tId = parseInt(tenantId, 10);
         const data = { count, page, departmentid, status, testid, fullname, from, to, billingid };
-        const result = await new operations_1.default(null).getAllCasesResultEntryByMany(tId, data);
+        const result = await new operations_1.default(0).getAllCasesResultEntryByMany(tId, data);
         res.send({ result, statusCode: 200, status: "success" });
     }
     catch (err) {
@@ -98,8 +98,8 @@ const getUltrasoundWaitingList = async (req, res) => {
         if (!tenantId)
             return (0, helper_1.customError)("tenantId not included", 400, res);
         const tId = parseInt(tenantId, 10);
-        const parsedCount = parseInt(count.toString());
-        const parsedPage = parseInt(page.toString());
+        const parsedCount = parseInt(count ? count.toString() || '10' : '10', 10);
+        const parsedPage = parseInt(page ? page.toString() || '1' : '1', 10);
     }
     catch (err) {
         (0, helper_1.responseError)(res);
@@ -115,7 +115,7 @@ const searchLaboratoryOperations = async (req, res) => {
         const tId = parseInt(tenantId, 10);
         const pageNum = Math.max(1, parseInt(page.toString()) || 1);
         const countNum = Math.max(1, Math.min(100, parseInt(count.toString()) || 10));
-        const result = await new operations_1.default(null).searchLaboratoryOperations(tId, {
+        const result = await new operations_1.default(0).searchLaboratoryOperations(tId, {
             patientId: patientId ? parseInt(patientId.toString()) : undefined,
             billingId: billingId ? parseInt(billingId.toString()) : undefined,
             accessionId: accessionId === null || accessionId === void 0 ? void 0 : accessionId.toString(),

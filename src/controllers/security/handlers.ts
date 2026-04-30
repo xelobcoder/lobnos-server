@@ -4,20 +4,20 @@ import Security from "../../models/security/securityClass";
 import { Request, Response } from "express";
 import KnexConnection from "../../database/KnexConnections";
 
-export const getLoggedSessions = async (request: Request, response: Response) => {
+export const getLoggedSessions = async (request: Request<{}, {}, {}, { email: string; tenantId: string }>, response: Response) => {
      try {
           const { email} = request.query;
           const tenantId = parseInt(request.query.tenantId.toString())
           const user = await new User(null, null, null, null, null).getUserDataUsingEmail(email as string,tenantId);
           const employeeid = user["employeeid"];
-          const sessions = await new Security(employeeid).getCurrentUserLoginSessionsWithDetails(tenantId);
+          const sessions = await new Security(employeeid, 6).getCurrentUserLoginSessionsWithDetails(tenantId);
           response.send(sessions);
      } catch (err) {
           responseError(response);
      }
 };
 
-export const updateLoggedSessions = async (request: Request, response: Response) => {
+export const updateLoggedSessions = async (request: Request<{}, {}, {}, { keyupdate: string; email: string; tenantId: string }>, response: Response) => {
      const { keyupdate, email } = request.query;
      if (keyupdate === '1') {
           return;
@@ -27,47 +27,47 @@ export const updateLoggedSessions = async (request: Request, response: Response)
 
           const employeeid = user["employeeid"];
 
-          const status = await new Security(employeeid).destroyUserSessions(tenantId);
+          const status = await new Security(employeeid, 6).destroyUserSessions(tenantId);
 
           response.send({ status });
      }
 };
 
-export const logoutUser = async (request: Request, response: Response) => {
+export const logoutUser = async (request: Request<{}, {}, {}, { userid: string; tenantId: string }>, response: Response) => {
      try {
-          const { employeeid } = request.query;
-          if (!employeeid) {
-               return customError('employeeid not found', 404, response);
+          const { userid } = request.query;
+          if (!userid) {
+               return customError('userid not found', 404, response);
           }
 
-          if (isNaN(Number(employeeid))) {
-               return customError('employeeid type invalid', 404, response);
+          if (isNaN(Number(userid))) {
+               return customError('userid type invalid', 404, response);
           }
           const tenantId = parseInt(request.query.tenantId.toString())
-          const isLoggedOut = await new Security(parseInt(employeeid as string)).destroyUserSessions(tenantId);
+          const isLoggedOut = await new Security(parseInt(userid as string)).destroyUserSessions(tenantId);
           response.send({ status: isLoggedOut });
      } catch (err) {
           responseError(response);
-     }
+     }    
 };
 
-export const getLoggedUsersCount = async (request: Request, response: Response) => {
+export const getLoggedUsersCount = async (request: Request<{}, {}, {}, { tenantId: string,employeeid?: string }>, response: Response) => {
      try {
           const tenantId = parseInt(request.query.tenantId.toString())
-          const loggedCount = await new Security(null).getCurrentLoginCounts(tenantId);
+          const loggedCount = await new Security().getCurrentLoginCounts(tenantId);
           response.send({ loggedCount });
      } catch (err) {
           responseError(response);
      }
 };
 
-export const getLoginHistory = async (request: Request, response: Response) => {
+export const getLoginHistory = async (request: Request<{}, {}, {}, { page: string;interestedid: string; count: string; employeeid?: string; tenantId: number }>  , response: Response) => {
      try {
-          const { page, count, employeeid } = request.query;
-          const security = new Security(null);
+          const { page, count, employeeid ,tenantId ,interestedid} = request.query;
+          const security = new Security(tenantId);
           if (!isNaN(Number(page)) && !isNaN(Number(count))) {
                const tenantId = parseInt(request.query.tenantId.toString(), 10);
-               const history = await security.getGeneralLoginHistory(tenantId, Number(page), Number(count), employeeid ? parseInt(employeeid.toString(), 10) : null);
+               const history = await security.getGeneralLoginHistory(tenantId, Number(page), Number(count), interestedid ? parseInt(interestedid.toString(), 10) : null);
                response.send(history);
           } else {
                return customError("bad request", 400, response);

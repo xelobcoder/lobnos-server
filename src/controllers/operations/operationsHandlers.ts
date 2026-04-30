@@ -5,10 +5,9 @@ import { customError, responseError } from "../../hooks/helper";
 export const getAllCollections = async (req: Request, res: Response) => {
 	try {
 		const { departmentid, branchid, tenantId } = req.query;
-		if (!departmentid || !tenantId)
-			return customError("departmentid or tenantId not included in request query", 400, res);
+		if (!departmentid || !tenantId || !branchid) return customError("departmentid, branchid or tenantId not included in request query", 400, res);
 		const tId = parseInt(tenantId as string, 10);
-		const collections = new Operations(null);
+		const collections = new Operations(0);
 		const result = await collections.getLaboratoryTestReadyForResultEntry(
 			tId,
 			departmentid as any,
@@ -67,7 +66,7 @@ export const getAllTestPreview = async (req: Request, res: Response) => {
 		const { billingid, tenantId } = req.query;
 		if (!billingid || !tenantId) return customError("billingid or tenantId required", 400, res);
 		const tId = parseInt(tenantId as string, 10);
-		const result = await new Operations(null).getAllTestPreview(tId, parseInt(billingid.toString()));
+		const result = await new Operations(0).getAllTestPreview(tId, parseInt(billingid.toString()));
 		res.send({ statusCode: 200, result, status: "success" });
 	} catch (err) {
 		responseError(res);
@@ -80,7 +79,7 @@ export const getAllPendingCases = async (req: Request, res: Response) => {
 		if (!tenantId) return customError("tenantId not included", 400, res);
 		const tId = parseInt(tenantId as string, 10);
 		const data = { count, page, departmentid, status, testid, fullname, from, to, billingid };
-		const result = await new Operations(null).getAllCasesResultEntryByMany(tId, data as any);
+		const result = await new Operations(0).getAllCasesResultEntryByMany(tId, data as any);
 		res.send({ result, statusCode: 200, status: "success" });
 	} catch (err) {
 		responseError(res);
@@ -93,8 +92,8 @@ export const getUltrasoundWaitingList = async (req: Request, res: Response) => {
 		if (!tenantId) return customError("tenantId not included", 400, res);
 		const tId = parseInt(tenantId as string, 10);
 
-		const parsedCount = parseInt(count.toString());
-		const parsedPage = parseInt(page.toString());
+		const parsedCount = parseInt(count ? count.toString() || '10' : '10', 10);
+		const parsedPage = parseInt(page ? page.toString() || '1' : '1', 10);
 	} catch (err) {
 		responseError(res);
 	}
@@ -111,7 +110,7 @@ export const searchLaboratoryOperations = async (req: Request, res: Response) =>
 		const pageNum = Math.max(1, parseInt(page.toString()) || 1);
 		const countNum = Math.max(1, Math.min(100, parseInt(count.toString()) || 10));
 
-		const result = await new Operations(null).searchLaboratoryOperations(tId, {
+		const result = await new Operations(0).searchLaboratoryOperations(tId, {
 			patientId: patientId ? parseInt(patientId.toString()) : undefined,
 			billingId: billingId ? parseInt(billingId.toString()) : undefined,
 			accessionId: accessionId?.toString(),

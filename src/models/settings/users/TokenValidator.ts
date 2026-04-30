@@ -1,16 +1,25 @@
 import jwt from 'jsonwebtoken';
 
 export default class TokenValidator {
-     private secretKey: string;
+     private secretKey: string | undefined
 
      constructor() {
           this.secretKey = process.env.ACCESS_TOKEN_SECRET;
      }
 
-     async validateAccessToken(token: string): Promise<{ expired: boolean | undefined }> {
+
+     initializeSecretKey(): void {
+          if (!this.secretKey) {
+               throw new Error('Access token secret key is not defined in environment variables');
+          }
+     }
+
+     async validateAccessToken(token: string): Promise<{ expired: boolean | undefined } | undefined> {
           try {
-              const verified = jwt.verify(token, this.secretKey);
+               this.initializeSecretKey();
+               const verified = jwt.verify(token, this.secretKey as string) as jwt.JwtPayload;
                if (verified?.email) return { expired: false };
+               return undefined;
           } catch (error) {
                if (error instanceof jwt.TokenExpiredError) {
                     return { expired: true }
@@ -19,9 +28,10 @@ export default class TokenValidator {
           }
      }
 
-     async decodeAccessToken(token: string): Promise<any> {
+     async decodeAccessToken(token: string): Promise<jwt.JwtPayload | null> {
           try {
-               const decoded = jwt.verify(token, this.secretKey);
+               this.initializeSecretKey();
+               const decoded = jwt.verify(token, this.secretKey as string) as jwt.JwtPayload;
                return decoded;
           } catch (error) {
                console.error('Failed to decode access token:', error);

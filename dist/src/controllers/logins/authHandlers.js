@@ -3,11 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.authenticateClinician = exports.updatePermissions = exports.getUserPermissions = exports.activateUser = exports.authenticateUser = exports.updateBasicInfo = exports.deleteAccountHandler = exports.createAccount = exports.getUser = exports.getLogins = void 0;
+exports.logoutUser = exports.authenticateClinician = exports.updatePermissions = exports.getUserPermissions = exports.activateUser = exports.authenticateUser = exports.updateBasicInfo = exports.deleteAccountHandler = exports.createAccount = exports.getUser = exports.getLogins = void 0;
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const createAccount_1 = require("../../LobnosAuth/createAccount");
 const helper_1 = require("../../hooks/helper");
+const validateTenancy_1 = require("../../middleware/validateTenancy");
+const securityClass_1 = __importDefault(require("../../models/security/securityClass"));
+const TokenValidator_1 = __importDefault(require("../../models/settings/users/TokenValidator"));
 const getLogins = async (request, response) => {
     try {
         const tenantIdP = parseInt(request.query.tenantId);
@@ -123,3 +126,46 @@ const authenticateClinician = async (req, res) => {
     }
 };
 exports.authenticateClinician = authenticateClinician;
+const logoutUser = async (req, res) => {
+    try {
+        const headers = req.headers;
+        const cookies = (0, validateTenancy_1.parseCookies)(headers['cookie']);
+        const primeUserHeader = headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'];
+        const primesession = headers['pls-session'] || cookies['pls-session'];
+        if (!primeUserHeader) {
+            return (0, helper_1.customError)('Token not provided', 401, res);
+        }
+        const tenantId = parseInt(req.query.tenantId);
+        if (isNaN(tenantId)) {
+            return (0, helper_1.customError)('tenantId is required', 400, res);
+        }
+        // Decode the token to get the employeeid
+        const decoded = await new TokenValidator_1.default().decodeAccessToken(primeUserHeader.toString());
+        if (!decoded || !decoded.employeeid) {
+            return (0, helper_1.customError)('Invalid token', 401, res);
+        }
+        const employeeid = parseInt(decoded.employeeid.toString());
+        // Destroy all user sessions
+        const security = new securityClass_1.default(employeeid);
+        const sessionDestroyed = await security.destroyUserSessions(tenantId);
+        if (sessionDestroyed) {
+            res.send({
+                status: "success",
+                statusCode: 200,
+                message: "Logout successful. All sessions destroyed."
+            });
+        }
+        else {
+            res.send({
+                status: "success",
+                statusCode: 200,
+                message: "Logout completed. No active sessions found."
+            });
+        }
+    }
+    catch (error) {
+        logger_1.default.error(error);
+        (0, helper_1.customError)('Error during logout', 500, res);
+    }
+};
+exports.logoutUser = logoutUser;

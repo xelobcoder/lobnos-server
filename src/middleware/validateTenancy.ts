@@ -21,12 +21,13 @@ export const parseCookies = (cookieHeader?: string): Record<string, string> => {
 }
 
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
-     const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword'];
+     const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword', '/api/v1/logins/logout'];
      if (bypassRoutes.some(route => request.path.startsWith(route))) return next();
      const headers = request.headers;
      const cookies = parseCookies(headers['cookie'] as string);
      const primeUserHeader = headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'];
      const primesession = headers['pls-session'] || cookies['pls-session'];
+     const loginsession= headers['loginsesionId'] || cookies['loginsesionId'];
      if (!primeUserHeader) return customError('Token not provided', 401, response);
      try {
           const tenantIdRaw = request.query.tenantId;
@@ -34,7 +35,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (isNaN(tenantId)) return customError('tenantId is required', 400, response);
 
           const tokenValue = primeUserHeader.toString();
-          const status = await new TokenValidator().validateAccessToken(tokenValue);
+          const status = await new TokenValidator().validateAccessToken(tokenValue) as { expired: boolean | undefined };
           if (status.expired == null || status.expired == undefined) return customError("Invalid Token Provided", 500, response);
           if (status.expired == true) return customError('Token expired', 500, response);
 
@@ -47,16 +48,13 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (!employeeid || isNaN(employeeid)) return customError('Invalid token', 401, response);
 
           const conn = await KnexConnection(tenantId);
-          const nowMs = Date.now();
+          const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
           const q = conn('sessiontracker')
                .where({ employeeid })
-               .andWhere('logoutTime', '>', nowMs);
-          if (primesession) {
-               q.andWhere('loginSessionId', String(primesession));
-          }
+               .andWhere('logoutTime', '>', now);
+          if (loginsession) q.andWhere('loginSessionId', String(loginsession));
           const active = await q.first();
-          if (!active) return customError('User session expired or logged out', 401, response);
-
+          if (!active) return  response.status(401).json({ status: 'error', message: 'Session expired or invalid',isExpired:true });
           next();
      } catch (error) {
           return customError('Invalid token', 401, response);
@@ -82,7 +80,7 @@ export const ValidateTenancyAgreement = async (request: Request<{}, {}, {}, { te
 }
 
 
-export const isAuthorizedRoleScientistPhelobotomist = async (request: Request, response: Response, next: NextFunction) => {
+export const isAuthorizedRoleScientistPhelobotomist = async (request: Request<{}, {}, {}, { tenantId: string; employeeid: string }>, response: Response, next: NextFunction) => {
      try {
           const { tenantId } = request.query;
           const employeeid = request.query.employeeid;
@@ -102,7 +100,7 @@ export const isAuthorizedRoleScientistPhelobotomist = async (request: Request, r
 }
 
 
-export const isAuthorizedRoleAdmin = async (request: Request, response: Response, next: NextFunction) => {
+export const isAuthorizedRoleAdmin = async (request: Request<{}, {}, { employeeId: number, employeeid: number }, { tenantId: string, employeeid: string }>, response: Response, next: NextFunction) => {
      try {
           const { tenantId } = request.query;
           const employeeid = request.query.employeeid || request.body.employeeid || request.body.employeeId;

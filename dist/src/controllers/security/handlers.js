@@ -14,7 +14,7 @@ const getLoggedSessions = async (request, response) => {
         const tenantId = parseInt(request.query.tenantId.toString());
         const user = await new user_1.default(null, null, null, null, null).getUserDataUsingEmail(email, tenantId);
         const employeeid = user["employeeid"];
-        const sessions = await new securityClass_1.default(employeeid).getCurrentUserLoginSessionsWithDetails(tenantId);
+        const sessions = await new securityClass_1.default(employeeid, 6).getCurrentUserLoginSessionsWithDetails(tenantId);
         response.send(sessions);
     }
     catch (err) {
@@ -31,22 +31,22 @@ const updateLoggedSessions = async (request, response) => {
         const tenantId = parseInt(request.query.tenantId.toString());
         const user = await new user_1.default(null, null, null, null, null).getUserDataUsingEmail(email, tenantId);
         const employeeid = user["employeeid"];
-        const status = await new securityClass_1.default(employeeid).destroyUserSessions(tenantId);
+        const status = await new securityClass_1.default(employeeid, 6).destroyUserSessions(tenantId);
         response.send({ status });
     }
 };
 exports.updateLoggedSessions = updateLoggedSessions;
 const logoutUser = async (request, response) => {
     try {
-        const { employeeid } = request.query;
-        if (!employeeid) {
-            return (0, helper_1.customError)('employeeid not found', 404, response);
+        const { userid } = request.query;
+        if (!userid) {
+            return (0, helper_1.customError)('userid not found', 404, response);
         }
-        if (isNaN(Number(employeeid))) {
-            return (0, helper_1.customError)('employeeid type invalid', 404, response);
+        if (isNaN(Number(userid))) {
+            return (0, helper_1.customError)('userid type invalid', 404, response);
         }
         const tenantId = parseInt(request.query.tenantId.toString());
-        const isLoggedOut = await new securityClass_1.default(parseInt(employeeid)).destroyUserSessions(tenantId);
+        const isLoggedOut = await new securityClass_1.default(parseInt(userid)).destroyUserSessions(tenantId);
         response.send({ status: isLoggedOut });
     }
     catch (err) {
@@ -57,7 +57,7 @@ exports.logoutUser = logoutUser;
 const getLoggedUsersCount = async (request, response) => {
     try {
         const tenantId = parseInt(request.query.tenantId.toString());
-        const loggedCount = await new securityClass_1.default(null).getCurrentLoginCounts(tenantId);
+        const loggedCount = await new securityClass_1.default().getCurrentLoginCounts(tenantId);
         response.send({ loggedCount });
     }
     catch (err) {
@@ -67,11 +67,11 @@ const getLoggedUsersCount = async (request, response) => {
 exports.getLoggedUsersCount = getLoggedUsersCount;
 const getLoginHistory = async (request, response) => {
     try {
-        const { page, count, employeeid } = request.query;
-        const security = new securityClass_1.default(null);
+        const { page, count, employeeid, tenantId, interestedid } = request.query;
+        const security = new securityClass_1.default(tenantId);
         if (!isNaN(Number(page)) && !isNaN(Number(count))) {
             const tenantId = parseInt(request.query.tenantId.toString(), 10);
-            const history = await security.getGeneralLoginHistory(tenantId, Number(page), Number(count), employeeid ? parseInt(employeeid.toString(), 10) : null);
+            const history = await security.getGeneralLoginHistory(tenantId, Number(page), Number(count), interestedid ? parseInt(interestedid.toString(), 10) : null);
             response.send(history);
         }
         else {

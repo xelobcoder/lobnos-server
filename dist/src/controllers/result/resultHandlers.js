@@ -517,18 +517,45 @@ exports.completeFlowByPassMultipleHandler = completeFlowByPassMultipleHandler;
 const setResultDeliveryPreference = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
-        const { billingid, requested_mode, requested_mode_detail, employeeid } = req.body || {};
+        const { billingid, preferences, employeeid } = req.body || {};
         const pBillingId = parseInt(String(billingid), 10);
         if (!pBillingId || isNaN(pBillingId)) {
             return (0, helper_1.customError)("billingid must be a number", 400, res);
-        }
-        if (!requested_mode || typeof requested_mode !== 'string') {
-            return (0, helper_1.customError)("requested_mode is required", 400, res);
         }
         const conn = await (0, KnexConnections_1.default)(tenantId);
         const billing = await conn('billing').select('patientid').where({ billingid: pBillingId }).first();
         if (!billing || !billing.patientid) {
             return (0, helper_1.customError)("billing record not found", 404, res);
+        }
+        // Handle new format with preferences array (test-specific)
+        if (preferences && Array.isArray(preferences) && preferences.length > 0) {
+            const testPreferences = preferences.map((pref) => {
+                var _a, _b, _c;
+                return ({
+                    billingid: pBillingId,
+                    ascensionid: pref.ascensionid,
+                    patientid: billing.patientid,
+                    requested_mode: (pref.requested_mode || '').trim().toLowerCase(),
+                    requested_mode_detail: (_a = pref.requested_mode_detail) !== null && _a !== void 0 ? _a : null,
+                    updated_by_employeeid: (_c = (_b = pref.employeeid) !== null && _b !== void 0 ? _b : employeeid) !== null && _c !== void 0 ? _c : null
+                });
+            });
+            // Validate each preference has testid and requested_mode
+            for (const pref of testPreferences) {
+                if (!pref.ascensionid || isNaN(parseInt(String(pref.ascensionid)))) {
+                    return (0, helper_1.customError)("Each preference must have a valid ascensionid", 400, res);
+                }
+                if (!pref.requested_mode) {
+                    return (0, helper_1.customError)("Each preference must have a requested_mode", 400, res);
+                }
+            }
+            const status = await new resultDelivery_1.default(pBillingId, tenantId).setMultipleTestResultDeliveryPreferences(testPreferences);
+            return res.send({ status, message: `Updated ${testPreferences.length} test preference(s)` });
+        }
+        // Legacy format: single billing-level preference
+        const { requested_mode, requested_mode_detail } = req.body || {};
+        if (!requested_mode || typeof requested_mode !== 'string') {
+            return (0, helper_1.customError)("requested_mode is required", 400, res);
         }
         const payload = {
             billingid: pBillingId,
@@ -538,7 +565,7 @@ const setResultDeliveryPreference = async (req, res) => {
             updated_by_employeeid: employeeid !== null && employeeid !== void 0 ? employeeid : null,
             updated_at: conn.fn.now()
         };
-        const status = await new resultDelivery_1.default(billing, tenantId).setResultDeliveryPreference(payload);
+        const status = await new resultDelivery_1.default(pBillingId, tenantId).setResultDeliveryPreference(payload);
         res.send({ status });
     }
     catch (err) {
@@ -553,8 +580,15 @@ const getResultDeliveryPreference = async (req, res) => {
         if (!billingid || isNaN(billingid)) {
             return (0, helper_1.customError)("billingid must be a number", 400, res);
         }
+        // Get billing-level preference
         const pref = await new resultDelivery_1.default(billingid, tenantId).getResultDeliveryForTransaction();
-        res.send({ status: true, preference: pref || null });
+        // Get test-specific preferences
+        const testPrefs = await new resultDelivery_1.default(billingid, tenantId).getAllTestResultDeliveryPreferences();
+        res.send({
+            status: true,
+            preference: pref || null,
+            testPreferences: testPrefs || []
+        });
     }
     catch (err) {
         (0, helper_1.responseError)(res, err);

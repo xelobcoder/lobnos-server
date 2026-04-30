@@ -10,6 +10,7 @@ import {
      getUserPermissions,
      updatePermissions,
      authenticateClinician,
+     logoutUser,
 } from "./authHandlers";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 
@@ -26,5 +27,8 @@ router.put("/api/v1/user/authentication/activate", activateUser);
 router.get("/api/v1/user/permissions", getUserPermissions);
 router.put("/api/v1/user/permissions", updatePermissions);
 router.post("/api/v1/login/clinicians", authenticateClinician);
+router.post("/api/v1/logins/logout", logoutUser);
+
+
 
 export default router;

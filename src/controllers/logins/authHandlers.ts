@@ -3,7 +3,11 @@ import User from '../../LobnosAuth/user'
 import logger from "../../hooks/logger";
 import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, userLogin, activateAUser, getPermissions, updateUserPermission, UserRequest, NewAccountRequest } from "../../LobnosAuth/createAccount";
 import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
-import { OperationsFailures } from "../../models/operations/types";
+import { OperationsFailures } from "../../models/operations/types"; 
+import { parseCookies } from "../../middleware/validateTenancy";
+import Security from "../../models/security/securityClass";
+import TokenValidator from "../../models/settings/users/TokenValidator";
+
 
 export const getLogins = async (request: Request<{}, {}, {}, { count: number, page: number, sortby: 'ASC' | 'DESC', name: string, email: string, role: string, tenantId: string }>, response: Response) => {
 	try {
@@ -122,5 +126,52 @@ export const authenticateClinician = async (req: Request<{}, {}, { email: string
 	} catch (err) {
 		logger.error(err);
 		customError("Something wrong has occurred", 404, res);
+	}
+};
+
+export const logoutUser = async (req: Request, res: Response) => {
+	try {
+		const headers = req.headers;
+		const cookies = parseCookies(headers['cookie'] as string);
+		const primeUserHeader = headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'];
+		const primesession = headers['pls-session'] || cookies['pls-session'];
+
+		if (!primeUserHeader) {
+			return customError('Token not provided', 401, res);
+		}
+
+		const tenantId = parseInt(req.query.tenantId as string);
+		if (isNaN(tenantId)) {
+			return customError('tenantId is required', 400, res);
+		}
+
+		// Decode the token to get the employeeid
+		const decoded = await new TokenValidator().decodeAccessToken(primeUserHeader.toString());
+		if (!decoded || !decoded.employeeid) {
+			return customError('Invalid token', 401, res);
+		}
+
+		const employeeid = parseInt(decoded.employeeid.toString());
+
+		// Destroy all user sessions
+		const security = new Security(employeeid);
+		const sessionDestroyed = await security.destroyUserSessions(tenantId);
+
+		if (sessionDestroyed) {
+			res.send({
+				status: "success",
+				statusCode: 200,
+				message: "Logout successful. All sessions destroyed."
+			});
+		} else {
+			res.send({
+				status: "success",
+				statusCode: 200,
+				message: "Logout completed. No active sessions found."
+			});
+		}
+	} catch (error) {
+		logger.error(error);
+		customError('Error during logout', 500, res);
 	}
 };

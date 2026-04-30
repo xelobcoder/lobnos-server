@@ -237,6 +237,12 @@ class Operations {
 							ta.resultEntryStart,
 							ta.resultEntryEnd,
 
+							rdl.requested_mode,
+							rdl.delivered_mode,
+							rdl.delivered_at,
+							rrd.username AS delivered_by_name,
+							rdl.notes as delivery_notes,
+
 							rr.username AS collected_by_name,
 							vv.username AS processed_by_name,
 							ee.username AS result_entered_by_name,
@@ -302,6 +308,13 @@ class Operations {
 
 							LEFT JOIN dbotestresultapproval ra
 							ON ra.ascensionid = ta.id
+
+
+							LEFT JOIN result_delivery_log AS rdl
+							ON ss.ascensionid = rdl.ascensionid
+
+							LEFT JOIN roles AS rrd
+							ON rrd.employeeid = rdl.delivered_by_employeeid
 
 
 							WHERE ta.billingid = ?

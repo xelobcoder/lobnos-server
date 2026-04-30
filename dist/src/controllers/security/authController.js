@@ -39,13 +39,11 @@ class AuthController {
             }
             const user = await new RolesRepository_1.default(tenantId).getRoleByEmail(email);
             const { role, username, employeeid } = user;
-            const security = new securityClass_1.default(parseInt(String(employeeid), 10));
+            const security = new securityClass_1.default(parseInt(String(employeeid), 10), 6);
             const canInitiate = await security.getCanInitiateLogin(tenantId);
-            if (!canInitiate) {
-                res.status(200).json({ status: false, error: 'multipleLogins' });
-                return;
-            }
-            const sessionExpiryTime = await security.insertLoginHistory(tenantId, browserInfo !== null && browserInfo !== void 0 ? browserInfo : {});
+            if (!canInitiate)
+                await security.destroyUserSessions(tenantId);
+            const { sessionExpiryTime, loginsessionId } = await security.insertLoginHistory(tenantId, browserInfo !== null && browserInfo !== void 0 ? browserInfo : {});
             const applicationSettings = new appset_1.default();
             const settings = await applicationSettings.getAllAppSettings(tenantId);
             res.status(200).json({
@@ -53,6 +51,7 @@ class AuthController {
                 accessToken: tokens.accessToken,
                 user: { role, employeeid, username, email },
                 sessionExpiryTime,
+                loginsessionId,
                 settings: {
                     allowScientistToRegisterClient: settings === null || settings === void 0 ? void 0 : settings.allowScientistToRegisterClient,
                 }

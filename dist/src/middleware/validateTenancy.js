@@ -21,13 +21,14 @@ const parseCookies = (cookieHeader) => {
 };
 exports.parseCookies = parseCookies;
 const checkTokenExists = async (request, response, next) => {
-    const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword'];
+    const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword', '/api/v1/logins/logout'];
     if (bypassRoutes.some(route => request.path.startsWith(route)))
         return next();
     const headers = request.headers;
     const cookies = (0, exports.parseCookies)(headers['cookie']);
     const primeUserHeader = headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'];
     const primesession = headers['pls-session'] || cookies['pls-session'];
+    const loginsession = headers['loginsesionId'] || cookies['loginsesionId'];
     if (!primeUserHeader)
         return (0, helper_1.customError)('Token not provided', 401, response);
     try {
@@ -50,16 +51,15 @@ const checkTokenExists = async (request, response, next) => {
         if (!employeeid || isNaN(employeeid))
             return (0, helper_1.customError)('Invalid token', 401, response);
         const conn = await (0, KnexConnections_1.default)(tenantId);
-        const nowMs = Date.now();
+        const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
         const q = conn('sessiontracker')
             .where({ employeeid })
-            .andWhere('logoutTime', '>', nowMs);
-        if (primesession) {
-            q.andWhere('loginSessionId', String(primesession));
-        }
+            .andWhere('logoutTime', '>', now);
+        if (loginsession)
+            q.andWhere('loginSessionId', String(loginsession));
         const active = await q.first();
         if (!active)
-            return (0, helper_1.customError)('User session expired or logged out', 401, response);
+            return response.status(401).json({ status: 'error', message: 'Session expired or invalid', isExpired: true });
         next();
     }
     catch (error) {

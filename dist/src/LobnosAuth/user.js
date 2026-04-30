@@ -44,13 +44,19 @@ class User {
         this.email = email || null;
         this.branch = branch || null;
     }
+    makeCompulsoryKeysExist(key) {
+        if (!this[key])
+            throw new Error(`${key} is required`);
+    }
     async checkUserExistUsingEmail(tenantId) {
+        this.makeCompulsoryKeysExist("email");
         return await new TiifuWorkingClass_1.TiifuWorkingClass("roles").findOne(tenantId, "email", this.email) ? true : false;
     }
     async hashPassword() {
+        this.makeCompulsoryKeysExist("password");
         const salt = await bcrypt_1.default.genSalt(10);
-        this.password = await bcrypt_1.default.hash(this.password, salt);
-        return this.password;
+        const password = await bcrypt_1.default.hash(this.password, salt);
+        return password;
     }
     async isPasswordSame(password, hashpassword) {
         return await bcrypt_1.default.compare(password, hashpassword);
@@ -104,6 +110,8 @@ class User {
     }
     async createUser(tenantId) {
         try {
+            this.makeCompulsoryKeysExist("name");
+            this.makeCompulsoryKeysExist("password");
             const isUserExist = await this.checkUserExistUsingEmail(tenantId);
             if (isUserExist)
                 return "user already exist";
@@ -111,7 +119,6 @@ class User {
             return await this.insertionOne(this.name, hashPassword, tenantId);
         }
         catch (err) {
-            logger_1.default.error(err);
             throw new Error((err === null || err === void 0 ? void 0 : err.message) || "error creating user");
         }
     }

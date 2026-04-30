@@ -11,7 +11,6 @@ import (
 	"os"
 	"strconv"
 	"time"
-
 	"github.com/joho/godotenv"
 )
 
@@ -49,9 +48,9 @@ func main() {
 
 	fmt.Println("Password verified successfully")
 
-	serverURL := getEnv("SERVER_URL", "http://localhost:5000")
+	serverURL := getEnv("SERVER_URL", "http://localhost:2399")
 	tenantID := getEnv("TENANT_ID", "1")
-	windowDays := getEnvAsInt("WINDOW_DAYS", 30)
+	windowDays := getEnvAsInt("WINDOW_DAYS", 0)
 	loginDurationPerUser := getEnvAsInt("LOGIN_DURATION_PER_USER", 6)
 
 	startPeriod := *startPeriodFlag

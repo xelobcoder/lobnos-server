@@ -12,7 +12,7 @@ class Security {
 
      constructor(employeeid: number, loginDuration?: number) {
           this.employeeid = employeeid;
-          this.loginDuration = loginDuration || 3;
+          this.loginDuration = loginDuration || 6;
           this.isMaster = true;
      }
 
@@ -28,8 +28,8 @@ class Security {
           return this.loginDuration > 0 && this.loginDuration <= 6;
      }
 
-     public async insertLoginHistory(tenantId: number, browserInformation: any): Promise<number> {
-          const expiryTime = new Date(Date.now() + this.loginDuration * 60 * 60 * 1000);
+     public async insertLoginHistory(tenantId: number, browserInformation: any): Promise<{sessionExpiryTime:number, loginsessionId:string}> {
+          const expiryTime = new Date(Date.now() + (this.loginDuration * 60 * 60 * 1000));
           if (!this.isEmployeeid()) {
                throw new Error("employeeid not provided");
           }
@@ -51,11 +51,11 @@ class Security {
                const sessionValues = [this.employeeid, sessionId, expiryTime, loginHistoryId];
                await promisifyQuery(tenantId, sessionQuery, sessionValues);
           }
-          return expiryTime.getTime();
+          return {loginsessionId: sessionId, sessionExpiryTime: expiryTime.getTime()}
      }
 
-     public currentTime(): Date {
-          return new Date();
+     public currentTime(): string {
+          return new Date().toISOString().slice(0, 19).replace('T', ' ');
      }
 
      public async getCurrentLoginCounts(tenantId: number): Promise<number> {
@@ -95,7 +95,7 @@ class Security {
           return Array.isArray(data) ? data.length === 0 : false;
      }
 
-     public async destroyUserSessions(tenantId: number): Promise<boolean> {
+     public async destroyUserSessions(tenantId: number): Promise<boolean | undefined> {
           let sessionsKeys: number[] = [];
           try {
                const querySelect = queries.destroyUserSessionsSelect;
@@ -104,14 +104,17 @@ class Security {
                     sessionsKeys = result.map((item: any) => item?.loginhxid);
                     const queryDelete = queries.destroyUserSessionsDelete;
                     await promisifyQuery(tenantId, queryDelete, [this.employeeid]);
+                    return true;
                }
+               return true
           } catch (err) {
                console.log(err);
           } finally {
                if (sessionsKeys.length > 0) {
+                    const now = this.currentTime();
                     const updates = sessionsKeys.map(async (item) => {
                          const queryUpdate = queries.updateLoginLogs;
-                         const updated = await promisifyQuery(tenantId, queryUpdate, [new Date(), item]);
+                         const updated = await promisifyQuery(tenantId, queryUpdate, [now, item]);
                          return rowAffected(updated);
                     });
                     const results = await Promise.all(updates);
@@ -185,7 +188,7 @@ class Security {
                     return true;
                     // to be implemented delete resource from computer if the software is run on unauthorized device.
                }
-          } catch (err) {
+          } catch (err:any) {
                if (err.code === "ENOENT") {
                     console.log("no such folder");
                }
