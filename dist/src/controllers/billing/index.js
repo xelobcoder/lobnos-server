@@ -18,7 +18,7 @@ const handler_2 = require("../applicationsettings/handler");
 const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
-router.post("/api/v1/billing/multi", controllers_1.handleMultiNewBilling);
+// router.post("/api/v1/billing/multi", handleMultiNewBilling);   obsolote now replaced with /api/v1/billing/multi/submit for better flow control and error handling in multi billing process
 router.put('/api/v1/billing/pending/remove/service', (0, helper_1.handleOverLoad)(handler_2.removePendingNonPaidServicesHandler));
 router.get('/api/v1/outstanding/report/combined', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.outstandingReport));
 router.get("/api/v1/billing/multi/init", (0, helper_1.handleOverLoad)(handler_2.initializeBillingHandler));
@@ -30,14 +30,14 @@ router.get("/api/v1/billing/caninitialbill", controllers_1.canInitiateBill);
 router.get("/api/v1/billing/information/single", controllers_1.getSavedCLientBillingInformation);
 router.post(`/api/v1/billing/previous/request/refund`, controllers_1.determineStageOfRefundRequestHandler);
 router.post(`/api/v1/billing/previous/request/refund/update`, (0, helper_1.handleOverLoad)(controllers_1.requestForRefundHandler));
-router.post("/api/v1/billing/previous/refund/update/previous", controllers_1.updateWitnessWitnessNote);
+router.post("/api/v1/billing/previous/refund/update/previous", (0, helper_1.handleOverLoad)(controllers_1.updateWitnessWitnessNote));
 router.post("/api/v1/billing/previous/refund/update/approve", validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.approveRequestForRefund));
 router.post("/api/v1/billing/previous/refund/update/cashout", controllers_1.requestForRefundCashIssueOut);
 router.get("/api/v1/billing/previous/refund/update/verification/cashout", controllers_1.verificationBeforeCashoutHandler);
 router.get("/api/v1/billing/filtering/service/refund", controllers_1.getServiceRefundItem);
 router.get("/api/v1/billing/previous/transaction/data", controllers_1.getTransactionBillDataHandler);
 router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode", handlerAscensionBillingCheck_1.handleAuthenticationEmployee, (0, helper_1.handleOverLoad)(validateTenancy_1.isAuthorizedRoleAdmin), controllers_1.refundAllTransactionHandler);
-router.post('/api/v1/billing/write-off/transaction', validateTenancy_1.isAuthorizedRoleAdmin, controllers_1.WriteOffTransaction);
+router.post('/api/v1/billing/write-off/transaction', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.WriteOffTransaction));
 router.post('/api/v1/billing/correction/source', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handler_2.correctRefererErrorPostRegistrationHandler));
 router.get('/api/v1/billing/discount-limits', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.listDiscountLimitRules));
 router.post('/api/v1/billing/discount-limits', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.upsertDiscountLimitRule));

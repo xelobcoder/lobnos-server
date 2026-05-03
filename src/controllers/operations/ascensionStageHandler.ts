@@ -61,8 +61,8 @@ async function validatedResultEmployeeGetter(item: any, tenantId: number) {
 	};
 }
 
-async function isScientistOrAdmin(employeeId: number, tenantId: number): Promise<boolean> {
-	return await new User(null).getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
+async function isScientistOrAdmin(employeeId: number, tenantId: number): Promise<boolean | null> {
+	return await new User().getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
 }
 
 async function canValidateResults(employeeId: number, tenantId: number): Promise<boolean> {

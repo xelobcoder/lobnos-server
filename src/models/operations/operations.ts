@@ -140,8 +140,22 @@ export default class Operations {
 	}
 
 
-	public static async getAscensionOverViewModel(tenantid: number, date: string): Promise<any> {
+	public static async getAscensionOverViewModel(tenantid: number, date: string, filters?: { billingid?: number; patientid?: number }): Promise<any> {
 		try {
+			const params: any[] = [date];
+			let whereConditions = `WHERE DATE(b.billedon) = DATE(?)
+						AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')`;
+
+			if (filters?.billingid) {
+				whereConditions += ` AND b.billingid = ?`;
+				params.push(filters.billingid);
+			}
+
+			if (filters?.patientid) {
+				whereConditions += ` AND p.patientid = ?`;
+				params.push(filters.patientid);
+			}
+
 			const query = `
 									SELECT 
 						p.patientid,
@@ -197,9 +211,7 @@ export default class Operations {
 						LEFT JOIN departments d
 						ON d.id = tp.category
 
-						-- ✅ Your requested filter
-						WHERE DATE(b.billedon) = DATE(?)
-						AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
+						${whereConditions}
 
 						GROUP BY 
 						p.patientid,
@@ -217,7 +229,7 @@ export default class Operations {
 						b.billingid DESC;
 		`
 
-			return await promisifyQuery(tenantid, query, [date]);
+			return await promisifyQuery(tenantid, query, params);
 		} catch (err: any) {
 			throw new Error(err?.message || "Error fetching ascension overview model");
 		}

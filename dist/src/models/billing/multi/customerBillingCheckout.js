@@ -10,8 +10,9 @@ const billingclientTypes_1 = require("../billingclientTypes");
 const PrimeBillingPromoCodeRepo_1 = require("../repositories/PrimeBillingPromoCodeRepo");
 const packageBillingHelper_1 = require("./packageBillingHelper");
 const PrimeBillingEnterprise_1 = require("./PrimeBillingEnterprise");
-const billing_shared_1 = require("../billing_shared");
 const appLevelTriggers_1 = require("../../../database/appLevelTriggers");
+const user_1 = __importDefault(require("../../../LobnosAuth/user"));
+const discount_limit_1 = __importDefault(require("../billing-services/discount-limit"));
 class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBillingEnterprise {
     constructor(tenantId) {
         super(tenantId);
@@ -156,10 +157,11 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             ...(Array.isArray(recalculatedServicesList) ? recalculatedServicesList : []),
             ...(Array.isArray(recalculatedPackageList) ? recalculatedPackageList : [])
         ];
+        const role = await new user_1.default().getUserRole(employeeid, tenantId);
         const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
-        if (employeeid && !isFreeMode) {
+        if (employeeid && !isFreeMode && role && typeof role == "string" && role != "admin") {
             try {
-                await billing_shared_1.DiscountLimitService.enforceOnly({
+                await discount_limit_1.default.enforceOnly({
                     tenantId,
                     employeeid,
                     subtotal: toFixed2(subtotal),
@@ -172,7 +174,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                 return { success: false, message: err && err.message ? err.message : 'Discount/surcharge limit validation failed' };
             }
         }
-        const discountLimitInfo = employeeid ? await billing_shared_1.DiscountLimitService.getRoleLimitInfo({ tenantId, employeeid }) : null;
+        const discountLimitInfo = employeeid ? await discount_limit_1.default.getRoleLimitInfo({ tenantId, employeeid }) : null;
         const exposedRule = discountLimitInfo && discountLimitInfo.rule
             ? {
                 role: discountLimitInfo.role,

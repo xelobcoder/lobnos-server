@@ -13,6 +13,7 @@ export async function applyNewPatientAfterInsert(
 		patientid: payload.patientid,
 		username,
 		password,
+		updated_on: new Date(),
 	});
 
 	await db("patientemmergencycontactinformation").insert({

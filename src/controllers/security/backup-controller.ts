@@ -57,7 +57,7 @@ export class BackupController {
                     validation.data!.backupPath,
                     validation.data!.isFullBackup ?? true,
                     finalBackupMode,
-                    validation.data!.createdBy,
+                    validation.data!.createdBy as any,
                     undefined,
                     encryptBackup
                );
@@ -81,7 +81,7 @@ export class BackupController {
                          duration: result.duration
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -115,7 +115,7 @@ export class BackupController {
                     status: true,
                     data: backups
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -141,7 +141,7 @@ export class BackupController {
                          error: 'Backup not found'
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -159,7 +159,7 @@ export class BackupController {
                     status: true,
                     data: stats
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -260,7 +260,7 @@ export class BackupController {
                     }
                });
 
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -290,7 +290,7 @@ export class BackupController {
                     message: 'Backup schedule created successfully',
                     data: { id: scheduleId }
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -330,7 +330,7 @@ export class BackupController {
                     status: true,
                     data: schedules
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -356,7 +356,7 @@ export class BackupController {
                          error: 'Backup schedule not found'
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -393,7 +393,7 @@ export class BackupController {
                          error: 'Backup schedule not found'
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -419,7 +419,7 @@ export class BackupController {
                          error: 'Backup schedule not found'
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -448,7 +448,8 @@ export class BackupController {
                          error: result.error
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
+               console.log(error)
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -472,7 +473,7 @@ export class BackupController {
                          results: result.results
                     }
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -498,7 +499,7 @@ export class BackupController {
                          error: result.error
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message

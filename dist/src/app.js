@@ -47,6 +47,7 @@ const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
 const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
 const routes_7 = __importDefault(require("./controllers/compliance/routes"));
+const killport_1 = require("./models/security/killport");
 const index_3 = __importDefault(require("./controllers/commission/index"));
 const route_19 = __importDefault(require("./controllers/crm/leads/route"));
 const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
@@ -118,6 +119,7 @@ app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
-app.listen(Number(port), host, (err) => {
+app.listen(Number(port), host, async (err) => {
+    await (0, killport_1.killProcessOnPort)(Number(port));
     console.log(`Server is running at http://${host}:${port}`);
 });

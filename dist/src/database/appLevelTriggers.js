@@ -31,6 +31,7 @@ async function applyNewPatientAfterInsert(db, payload) {
         patientid: payload.patientid,
         username,
         password,
+        updated_on: new Date(),
     });
     await db("patientemmergencycontactinformation").insert({
         patientid: payload.patientid,

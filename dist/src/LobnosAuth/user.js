@@ -136,10 +136,17 @@ class User {
         }
     }
     async applicationAccessToken() {
-        return jsonwebtoken_1.default.sign({ clientid: 74747 }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1y" });
+        const secret = process.env.ACCESS_TOKEN_SECRET;
+        if (!secret)
+            throw new Error("ACCESS_TOKEN_SECRET not configured");
+        return jsonwebtoken_1.default.sign({ clientid: 74747 }, secret, { expiresIn: "1y" });
     }
     async createAccessTokenCredentials(accesskey, email, data, expiresIn) {
         try {
+            if (!accesskey)
+                throw new Error("Access key is required");
+            if (!expiresIn)
+                throw new Error("ExpiresIn is required");
             const accessToken = jsonwebtoken_1.default.sign(Object.assign({}, data), accesskey, { expiresIn });
             return accessToken;
         }
@@ -209,7 +216,12 @@ class User {
         return jsonwebtoken_1.default.verify(token, process.env.ACCESS_TOKEN_SECRET);
     }
     async tokenizeData(data, expiresIn) {
-        return jsonwebtoken_1.default.sign(Object.assign({}, data), process.env.ACCESS_TOKEN_SECRET, { expiresIn });
+        const secret = process.env.ACCESS_TOKEN_SECRET;
+        if (!secret)
+            throw new Error("ACCESS_TOKEN_SECRET not configured");
+        if (!expiresIn)
+            throw new Error("ExpiresIn is required");
+        return jsonwebtoken_1.default.sign(Object.assign({}, data), secret, { expiresIn });
     }
     async getUserRole(employeeid, tenantId) {
         const data = await (0, helper_1.promisifyQuery)(tenantId, queries.SELECT_ROLE_BY_EMPLOYEE_ID, [employeeid]);

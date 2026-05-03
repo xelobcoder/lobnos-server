@@ -16,7 +16,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SubmitCustomerBilling = void 0;
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
-const billing_shared_1 = require("../billing_shared");
 const billing_shared_types_1 = require("./billing_shared_types");
 const billingclientTypes_1 = require("../billingclientTypes");
 const customerBillingCheckout_1 = require("./customerBillingCheckout");
@@ -75,7 +74,7 @@ class SubmitCustomerBilling {
             }
             const conn = await this.connection;
             trx = await conn.transaction();
-            const billingID = await billing_shared_1.BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, this.payload.branchid, this.payload.employeeid, trx);
+            const billingID = await BillingSharedRepo.generateBillingID(this.payload.patientid, this.tenantId, this.payload.branchid, this.payload.employeeid, trx);
             const computeAdjustmentTotals = (items) => {
                 let discountTotal = 0;
                 let surchargeTotal = 0;
@@ -113,7 +112,7 @@ class SubmitCustomerBilling {
             const effectiveDiscountTotal = Math.max(Number(totalDiscountFromCheckout || 0), Number(computedAdjustments.discountTotal || 0));
             const effectiveSurchargeTotal = Math.max(Number(totalSurchargeFromCheckout || 0), Number(computedAdjustments.surchargeTotal || 0));
             console.log({ computedAdjustments, totalDiscountFromCheckout, totalSurchargeFromCheckout, effectiveDiscountTotal, effectiveSurchargeTotal });
-            await billing_shared_1.DiscountLimitService.enforceAndRecord({
+            await DiscountLimitService.enforceAndRecord({
                 tenantId: this.tenantId,
                 trx,
                 employeeid: this.payload.employeeid,
@@ -130,7 +129,7 @@ class SubmitCustomerBilling {
             const processTestCart = await SubmitCustomerBilling.processTestCartWithoutRecalculation(updatedBillingData, billingID, taxValue, taxIncluded, taxList);
             const processNonTestServices = await SubmitCustomerBilling.processNonTestServices(updatedBillingData, updatedBillingData.servicesProvided, billingID, taxValue, taxList);
             const allEntries = [...processNonTestServices, ...processTestCart];
-            const Multi = new billing_shared_1.BillingSharedRepo();
+            const Multi = new BillingSharedRepo();
             if (allEntries.length > 0) {
                 const loadAllServicesInsertionErrors = await Multi
                     .mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, trx);
@@ -198,7 +197,7 @@ class SubmitCustomerBilling {
                         if (!paymentMode || !employeeId) {
                             throw new Error("Missing mode or employeeid in payment record.");
                         }
-                        await billing_shared_1.BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
+                        await BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
                 await trx.commit();
@@ -238,7 +237,7 @@ class SubmitCustomerBilling {
         if (!patientId || typeof patientId !== "number") {
             return "Missing or invalid patientId.";
         }
-        if (!(await billing_shared_1.BillingSharedRepo.checkPatientIdExist(patientId, tenantId))) {
+        if (!(await BillingSharedRepo.checkPatientIdExist(patientId, tenantId))) {
             return "Patient does not exist.";
         }
         if (isPromo && (!promo || !promo.code)) {
@@ -246,7 +245,7 @@ class SubmitCustomerBilling {
         }
         if (payments && Array.isArray(payments)) {
             for (const payment of payments) {
-                if (!payment.mode || !(await billing_shared_1.BillingSharedRepo.validatePaymentModeId(parseInt(payment.mode.toString(), 10), tenantId))) {
+                if (!payment.mode || !(await BillingSharedRepo.validatePaymentModeId(parseInt(payment.mode.toString(), 10), tenantId))) {
                     return "Invalid payment mode in payments array.";
                 }
             }
@@ -460,7 +459,7 @@ class SubmitCustomerBilling {
                 }
                 if (serviceid && item[5] != 5 && item[1]) {
                     try {
-                        await billing_shared_1.BillingSharedRepo.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
+                        await BillingSharedRepo.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
                     }
                     catch (err) {
                         throw new Error(billingclientTypes_1.billErrors.unableToLoadTestAscension);

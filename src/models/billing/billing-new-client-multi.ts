@@ -1,5 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
-import { BillingSharedRepo, DiscountLimitService } from "./billing_shared";
+import { BillingSharedRepo} from "./billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry, ValidationError } from "./billingclientTypes";
 import { BillingTestItem, CustomerInitResponse } from "./multi/billingTypes";
@@ -10,6 +10,8 @@ import { OperationsFailures } from "../operations/types";
 import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
 import OutsourcedCases from "../organization/outsourcingOrganization/outsourcedCases";
 import { applyDboservicesAfterInsert, applyDboservicesAfterUpdate } from "../../database/appLevelTriggers";
+import User from "../../LobnosAuth/user";
+import DiscountLimitService from "./billing-services/discount-limit";
 
 
 export class SubmitCustomerBilling {
@@ -232,20 +234,22 @@ export class SubmitCustomerBilling {
                 const newSurchargeTotal = isAddition ? previousSurcharges + effectiveSurchargeTotal : effectiveSurchargeTotal;
                 const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
                 const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
+                const role = new User().getUserRole(employeeid, tenantId);
+console.log(role);
+                if (role && typeof role == 'string' && role != 'admin') {
+                    await DiscountLimitService.enforceAndRecord({
+                        tenantId: this.tenantId,
+                        trx,
+                        employeeid: parsedEmployeeId,
+                        billingid: billingID,
+                        subtotal: typeof data.subtotal === 'number' ? data.subtotal : undefined,
+                        payable: typeof data.amountPayable === 'number' ? data.amountPayable : undefined,
+                        discountTotal: deltaDiscount || 0,
+                        surchargeTotal: deltaSurcharge || 0,
+                        branchid: updatedBillingData.branchid
+                    });
 
-
-                await DiscountLimitService.enforceAndRecord({
-                    tenantId: this.tenantId,
-                    trx,
-                    employeeid: parsedEmployeeId,
-                    billingid: billingID,
-                    subtotal: typeof data.subtotal === 'number' ? data.subtotal : undefined,
-                    payable: typeof data.amountPayable === 'number' ? data.amountPayable : undefined,
-                    discountTotal: deltaDiscount || 0,
-                    surchargeTotal: deltaSurcharge || 0,
-                    branchid: updatedBillingData.branchid
-                });
-
+                }
                 const taxValue = updatedBillingData.taxValue || 0;
                 const taxList = updatedBillingData.taxList || null;
                 const taxIncluded = updatedBillingData.taxIncluded || false;
@@ -275,7 +279,7 @@ export class SubmitCustomerBilling {
                 }
 
                 const Multi = new BillingSharedRepo();
-                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID,patientId, result_delivery, trx);
+                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, trx);
                 if (loadAllServices.length > 0) {
                     const firstErr = loadAllServices[0] as any;
                     const messageFromErr =
@@ -658,7 +662,7 @@ export class SubmitCustomerBilling {
                     if (!result) {
                         throw new Error("Invalid outsource organization");
                     }
-                    data['outsourceprice'] = result.outsourcePrice
+                    data['outsourceprice']  = result.outsourcePrice;
                 }
                 return data;
             })
@@ -928,8 +932,6 @@ export class SubmitCustomerBilling {
             });
 
             const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
-
-
             return loadAllServices;
         } catch (err) {
             console.log('Error Loading services ', err)

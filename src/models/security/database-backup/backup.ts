@@ -19,7 +19,7 @@ interface BackupLog {
      backup_path?: string;
      error_message?: string;
      duration_seconds?: number;
-     created_by?: string;
+     created_by?: number;
      schedule_id?: number;
      encryption_key_id?: string;
 }
@@ -150,7 +150,7 @@ export default class BackupManager {
           backupPath: string,
           isFullBackup: boolean = true,
           backupMode: 'automated' | 'manual' = 'manual',
-          createdBy?: string,
+          createdBy?: number,
           scheduleId?: number,
           encryptBackup: boolean = false
      ): Promise<{ success: boolean; backupPath?: string; size?: number; error?: string; duration?: number; encryptionKeyId?: string }> {
@@ -177,8 +177,9 @@ export default class BackupManager {
                     const password = config.connection.password;
                     const database = config.connection.database;
 
-                    // Use full path to mysqldump in XAMPP
-                    const mysqldumpPath = '"C:\\xampp\\mysql\\bin\\mysqldump.exe"';
+                    const mysqldumpPath = process.platform === 'win32'
+                         ? '"C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe"'
+                         : 'mysqldump';
                     command = `${mysqldumpPath} -h ${host} -P ${port} -u ${user} --password=${password} ${database} > "${fullPath}"`;
                } else if (config.client === 'postgresql') {
                     const host = config.connection.host;
@@ -282,7 +283,7 @@ export default class BackupManager {
           sourcePath: string,
           backupPath: string,
           backupMode: 'automated' | 'manual' = 'manual',
-          createdBy?: string,
+          createdBy?: number,
           scheduleId?: number,
           encryptBackup: boolean = false
      ): Promise<{ success: boolean; backupPath?: string; size?: number; error?: string; duration?: number; encryptionKeyId?: string }> {
@@ -588,7 +589,7 @@ export default class BackupManager {
                     backupPath,
                     true,
                     mode,
-                    `schedule_${scheduleId}`,
+                    scheduleId,
                     scheduleId,
                     encryptBackup
                );
@@ -607,7 +608,7 @@ export default class BackupManager {
                     error: result.error
                };
 
-          } catch (error) {
+          } catch (error: any) {
                return {
                     success: false,
                     error: error instanceof Error ? error.message : 'Unknown error'
@@ -643,11 +644,11 @@ export default class BackupManager {
                               }
                          }
                          await this.delete(tenantId, backup.id);
-                    } catch (error) {
+                    } catch (error: any) {
                          console.error(`Failed to cleanup backup ${backup.id}:`, error);
                     }
                }
-          } catch (error) {
+          } catch (error: any) {
                console.error('Error during backup cleanup:', error);
           }
      }

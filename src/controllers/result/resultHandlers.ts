@@ -678,7 +678,7 @@ export const setResultDeliveryPreference = async (req: Request, res: Response) =
 				}
 			}
 
-			const status = await new ResultDeliveryClass(pBillingId, tenantId).setMultipleTestResultDeliveryPreferences(testPreferences);
+			const status = await new ResultDeliveryClass(pBillingId, tenantId).setMultipleTestResultDeliveryPreferences(testPreferences as any);
 			return res.send({ status, message: `Updated ${testPreferences.length} test preference(s)` });
 		}
 

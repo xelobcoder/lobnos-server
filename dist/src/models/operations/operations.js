@@ -134,8 +134,19 @@ class Operations {
             throw err;
         }
     }
-    static async getAscensionOverViewModel(tenantid, date) {
+    static async getAscensionOverViewModel(tenantid, date, filters) {
         try {
+            const params = [date];
+            let whereConditions = `WHERE DATE(b.billedon) = DATE(?)
+						AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')`;
+            if (filters === null || filters === void 0 ? void 0 : filters.billingid) {
+                whereConditions += ` AND b.billingid = ?`;
+                params.push(filters.billingid);
+            }
+            if (filters === null || filters === void 0 ? void 0 : filters.patientid) {
+                whereConditions += ` AND p.patientid = ?`;
+                params.push(filters.patientid);
+            }
             const query = `
 									SELECT 
 						p.patientid,
@@ -191,9 +202,7 @@ class Operations {
 						LEFT JOIN departments d
 						ON d.id = tp.category
 
-						-- ✅ Your requested filter
-						WHERE DATE(b.billedon) = DATE(?)
-						AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
+						${whereConditions}
 
 						GROUP BY 
 						p.patientid,
@@ -210,7 +219,7 @@ class Operations {
 						ORDER BY 
 						b.billingid DESC;
 		`;
-            return await (0, helper_1.promisifyQuery)(tenantid, query, [date]);
+            return await (0, helper_1.promisifyQuery)(tenantid, query, params);
         }
         catch (err) {
             throw new Error((err === null || err === void 0 ? void 0 : err.message) || "Error fetching ascension overview model");

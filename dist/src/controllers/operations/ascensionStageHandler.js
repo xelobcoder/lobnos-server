@@ -54,7 +54,7 @@ async function validatedResultEmployeeGetter(item, tenantId) {
     };
 }
 async function isScientistOrAdmin(employeeId, tenantId) {
-    return await new user_1.default(null).getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
+    return await new user_1.default().getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
 }
 async function canValidateResults(employeeId, tenantId) {
     const validationSettings = await resultSettings_1.default.getResultEntrySettings(tenantId);

@@ -136,8 +136,9 @@ class BackupManager {
                 const user = config.connection.user;
                 const password = config.connection.password;
                 const database = config.connection.database;
-                // Use full path to mysqldump in XAMPP
-                const mysqldumpPath = '"C:\\xampp\\mysql\\bin\\mysqldump.exe"';
+                const mysqldumpPath = process.platform === 'win32'
+                    ? '"C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe"'
+                    : 'mysqldump';
                 command = `${mysqldumpPath} -h ${host} -P ${port} -u ${user} --password=${password} ${database} > "${fullPath}"`;
             }
             else if (config.client === 'postgresql') {
@@ -475,7 +476,7 @@ class BackupManager {
             const backupName = `${schedule.schedule_name}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
             const backupPath = await encryption_1.default.getEffectiveStoragePath(tenantId);
             const encryptBackup = true; // Encryption enabled
-            result = await this.performDatabaseBackup(tenantId, backupName, backupPath, true, mode, `schedule_${scheduleId}`, scheduleId, encryptBackup);
+            result = await this.performDatabaseBackup(tenantId, backupName, backupPath, true, mode, scheduleId, scheduleId, encryptBackup);
             // Update last run time
             await this.updateBackupSchedule(tenantId, scheduleId, {
                 last_run: new Date()

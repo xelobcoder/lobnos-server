@@ -10,5 +10,5 @@ const helper_1 = require("../../../hooks/helper");
 const validateTenancy_1 = require("../../../middleware/validateTenancy");
 router.get("/api/v1/financials/billing/summary", validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(FinancialSummaryHandler_1.handleFinancialAnalytics));
 router.get("/api/v1/financials/billing/summary/getKeys", validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(FinancialSummaryHandler_1.handleFinancialAnalyticsGetKeys));
-router.get("/api/v1/financials/billing/summary/daily/breakdown", validateTenancy_1.isAuthorizedRoleAdmin, FinancialSummaryHandler_1.handleSalesSummaryDailyBreakDown);
+router.get("/api/v1/financials/billing/summary/daily/breakdown", validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(FinancialSummaryHandler_1.handleSalesSummaryDailyBreakDown));
 exports.default = router;

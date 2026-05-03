@@ -7,6 +7,20 @@ class PrimeBillingPromoCodeController {
         try {
             const tenantId = parseInt(req.query.tenantId, 10);
             const repo = new PrimeBillingPromoCodeRepo_1.PrimeBillingPromoCodeRepo(tenantId);
+            if (!req.body.code || !req.body.discount_type || req.body.discount_value === undefined || !req.body.valid_from) {
+                return res.status(400).json({ status: false, error: "Missing required fields: code, discount_type, discount_value, valid_from" });
+            }
+            if (req.body.discount_type === 'percentage' && (req.body.discount_value < 0 || req.body.discount_value > 100)) {
+                return res.status(400).json({ status: false, error: "For percentage discount_type, discount_value must be between 0 and 100" });
+            }
+            if (req.body.discount_type === 'flat' && req.body.discount_value < 0) {
+                return res.status(400).json({ status: false, error: "For flat discount_type, discount_value must be a positive number" });
+            }
+            if (!req.body.code || typeof req.body.code !== 'string' || req.body.code.trim() === '' ||
+                req.body.valid_from === undefined || isNaN(Date.parse(req.body.valid_from)) ||
+                (req.body.valid_to !== undefined && isNaN(Date.parse(req.body.valid_to)))) {
+                return res.status(400).json({ status: false, error: "Ensure all required fields are provided and in the correct format." });
+            }
             const id = await repo.create(req.body);
             return res.json({ status: true, id });
         }
@@ -72,9 +86,11 @@ class PrimeBillingPromoCodeController {
     static async list(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId, 10);
+            const page = parseInt(req.query.page, 10) || 1;
+            const count = parseInt(req.query.count, 10) || 20;
             const { campaign_id } = req.query;
             const repo = new PrimeBillingPromoCodeRepo_1.PrimeBillingPromoCodeRepo(tenantId);
-            const promos = await repo.list(campaign_id ? parseInt(campaign_id, 10) : undefined);
+            const promos = await repo.list(page, count, campaign_id ? parseInt(campaign_id, 10) : undefined);
             return res.json({ success: true, promos });
         }
         catch (error) {

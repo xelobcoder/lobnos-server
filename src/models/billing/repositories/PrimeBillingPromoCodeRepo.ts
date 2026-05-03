@@ -30,10 +30,13 @@ export class PrimeBillingPromoCodeRepo {
      async create(data: Omit<PrimeBillingPromoCode, 'id' | 'created_at' | 'updated_at' | 'times_used' | 'is_active'>): Promise<number> {
           try {
                const conn = await this.connection;
-               const [id] = await conn('prime_billing_promo_codes').insert(data);
+               const [id] = await conn('prime_billing_promo_codes').insert({
+                    ...data,
+                    created_at: new Date(),
+                    updated_at: new Date()   
+               });
                return id;
           } catch (error) {
-               console.error('PrimeBillingPromoCode create error:', error);
                throw error;
           }
      }
@@ -43,7 +46,6 @@ export class PrimeBillingPromoCodeRepo {
                const conn = await this.connection;
                return await conn('prime_billing_promo_codes').where({ id }).first();
           } catch (error) {
-               console.error('PrimeBillingPromoCode findById error:', error);
                throw error;
           }
      }
@@ -78,14 +80,14 @@ export class PrimeBillingPromoCodeRepo {
           }
      }
 
-     async list(campaign_id?: number): Promise<PrimeBillingPromoCode[]> {
+     async list(page: number, count: number, campaign_id?: number): Promise<PrimeBillingPromoCode[]> {
           try {
                const conn = await this.connection;
                let query = conn('prime_billing_promo_codes');
                if (campaign_id) {
                     query = query.where({ campaign_id });
                }
-               return await query;
+               return await query.offset((page - 1) * count).limit(count).select();
           } catch (error) {
                console.error('PrimeBillingPromoCode list error:', error);
                throw error;

@@ -57,7 +57,7 @@ exports.logoutUser = logoutUser;
 const getLoggedUsersCount = async (request, response) => {
     try {
         const tenantId = parseInt(request.query.tenantId.toString());
-        const loggedCount = await new securityClass_1.default().getCurrentLoginCounts(tenantId);
+        const loggedCount = await new securityClass_1.default(0).getCurrentLoginCounts(tenantId);
         response.send({ loggedCount });
     }
     catch (err) {

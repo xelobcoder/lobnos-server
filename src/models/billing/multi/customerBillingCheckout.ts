@@ -7,8 +7,9 @@ import { PrimeBillingPromoCodeRepo } from "../repositories/PrimeBillingPromoCode
 import { EntityType } from "./billing_shared_types";
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
-import { DiscountLimitService } from "../billing_shared";
 import { applyDboservicesAfterUpdate } from "../../../database/appLevelTriggers";
+import User from "../../../LobnosAuth/user";
+import DiscountLimitService from "../billing-services/discount-limit";
 
 
 
@@ -191,8 +192,11 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                ...(Array.isArray(recalculatedServicesList) ? recalculatedServicesList : []),
                ...(Array.isArray(recalculatedPackageList) ? recalculatedPackageList : [])
           ];
+
+
+          const role = await new User().getUserRole(employeeid, tenantId);
           const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
-          if (employeeid && !isFreeMode) {
+          if (employeeid && !isFreeMode && role && typeof role == "string" && role != "admin") {
                try {
                     await DiscountLimitService.enforceOnly({
                          tenantId,

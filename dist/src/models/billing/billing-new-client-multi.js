@@ -23,6 +23,8 @@ const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCod
 const customerBillingCheckout_1 = require("./multi/customerBillingCheckout");
 const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDataSource");
 const appLevelTriggers_1 = require("../../database/appLevelTriggers");
+const user_1 = __importDefault(require("../../LobnosAuth/user"));
+const discount_limit_1 = __importDefault(require("./billing-services/discount-limit"));
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
         var _a, _b, _c, _d;
@@ -181,17 +183,21 @@ class SubmitCustomerBilling {
                 const newSurchargeTotal = isAddition ? previousSurcharges + effectiveSurchargeTotal : effectiveSurchargeTotal;
                 const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
                 const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
-                await billing_shared_1.DiscountLimitService.enforceAndRecord({
-                    tenantId: this.tenantId,
-                    trx,
-                    employeeid: parsedEmployeeId,
-                    billingid: billingID,
-                    subtotal: typeof data.subtotal === 'number' ? data.subtotal : undefined,
-                    payable: typeof data.amountPayable === 'number' ? data.amountPayable : undefined,
-                    discountTotal: deltaDiscount || 0,
-                    surchargeTotal: deltaSurcharge || 0,
-                    branchid: updatedBillingData.branchid
-                });
+                const role = new user_1.default().getUserRole(employeeid, tenantId);
+                console.log(role);
+                if (role && typeof role == 'string' && role != 'admin') {
+                    await discount_limit_1.default.enforceAndRecord({
+                        tenantId: this.tenantId,
+                        trx,
+                        employeeid: parsedEmployeeId,
+                        billingid: billingID,
+                        subtotal: typeof data.subtotal === 'number' ? data.subtotal : undefined,
+                        payable: typeof data.amountPayable === 'number' ? data.amountPayable : undefined,
+                        discountTotal: deltaDiscount || 0,
+                        surchargeTotal: deltaSurcharge || 0,
+                        branchid: updatedBillingData.branchid
+                    });
+                }
                 const taxValue = updatedBillingData.taxValue || 0;
                 const taxList = updatedBillingData.taxList || null;
                 const taxIncluded = updatedBillingData.taxIncluded || false;

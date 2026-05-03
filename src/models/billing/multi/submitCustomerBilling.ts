@@ -1,5 +1,4 @@
 import KnexConnection from "../../../database/KnexConnections";
-import { BillingSharedRepo, DiscountLimitService } from "../billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry } from "../billingclientTypes";
 import { BillingTestItem, CustomerInitResponse } from "./billingTypes";

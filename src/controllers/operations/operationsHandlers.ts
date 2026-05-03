@@ -37,10 +37,10 @@ export const getAllEnterResult = async (req: Request, res: Response) => {
 
 export const getAscensionOverViewModelHandler = async (req: Request, res: Response) => {
 	try {
-		const { tenantid, date } = req.query;
+		const { tenantid, date ,patientid,billingid} = req.query;
 		if (!date) return customError("date not included in request query", 400, res);
 		const tId = parseInt(tenantid as string, 10);
-		const result = await Operations.getAscensionOverViewModel(tId, date.toString());
+		const result = await Operations.getAscensionOverViewModel(tId, date.toString(), { patientid: patientid ? parseInt(patientid.toString()) : undefined, billingid: billingid ? parseInt(billingid.toString()) : undefined });
 		res.send({ statusCode: 200, message: "success", result });
 	} catch (err) {
 		responseError(res);

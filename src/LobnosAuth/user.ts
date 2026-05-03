@@ -122,12 +122,16 @@ class User {
 	}
 
 	public async applicationAccessToken(): Promise<string> {
-		return jwt.sign({ clientid: 74747 }, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn: "1y" });
+		const secret = process.env.ACCESS_TOKEN_SECRET;
+		if (!secret) throw new Error("ACCESS_TOKEN_SECRET not configured");
+		return jwt.sign({ clientid: 74747 }, secret, { expiresIn: "1y" } as any);
 	}
 
 	public async createAccessTokenCredentials(accesskey: string, email: string, data: any, expiresIn: string): Promise<string> {
 		try {
-			const accessToken = jwt.sign({ ...data }, accesskey, { expiresIn }) as any
+			if (!accesskey) throw new Error("Access key is required");
+			if (!expiresIn) throw new Error("ExpiresIn is required");
+			const accessToken = jwt.sign({ ...data }, accesskey, { expiresIn } as any);
 			return accessToken;
 		} catch (err:any) {
 			logger.error(err);
@@ -206,7 +210,10 @@ class User {
 	}
 
 	public async tokenizeData(data: any, expiresIn: string): Promise<string> {
-		return jwt.sign({ ...data }, process.env.ACCESS_TOKEN_SECRET as string, { expiresIn });
+		const secret = process.env.ACCESS_TOKEN_SECRET;
+		if (!secret) throw new Error("ACCESS_TOKEN_SECRET not configured");
+		if (!expiresIn) throw new Error("ExpiresIn is required");
+		return jwt.sign({ ...data }, secret, { expiresIn } as any);
 	}
 
 	public async getUserRole(employeeid: number, tenantId: number): Promise<string | null> {

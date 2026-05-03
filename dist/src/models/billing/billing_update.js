@@ -44,7 +44,7 @@ class BillingUpdateRepo {
             // Insert all entries
             const allEntries = [...testEntries, ...serviceEntries];
             if (allEntries.length > 0) {
-                const loadAllServices = await Multi.mapAndInsertServices(tenantId, allEntries, billingID, trx);
+                const loadAllServices = await Multi.mapAndInsertServices(tenantId, allEntries, billingID, billingData.patientid, billingData.result_delivery, trx);
                 if (loadAllServices.length > 0) {
                     throw new Error("Unable to load services");
                 }

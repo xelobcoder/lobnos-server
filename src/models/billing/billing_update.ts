@@ -85,6 +85,8 @@ export class BillingUpdateRepo {
                     tenantId,
                     allEntries,
                     billingID,
+                    billingData.patientid,
+                    billingData.result_delivery,
                     trx
                 );
                 if (loadAllServices.length > 0) {

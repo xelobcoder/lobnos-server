@@ -9,6 +9,7 @@ const billing_shared_types_1 = require("./multi/billing_shared_types");
 const billing_shared_1 = require("./billing_shared");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const PrimeBillingPromoCodeRepo_1 = require("./repositories/PrimeBillingPromoCodeRepo");
+const discount_limit_1 = __importDefault(require("./billing-services/discount-limit"));
 class MultiBillingRepo {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -44,7 +45,7 @@ class MultiBillingRepo {
             if (allEntries.length > 0) {
                 // ENFORCEMENT: Each item totalcost is after night adjustment and item discount, but before promo. Tax is calculated per item and summed.
                 const billing_final_values = billing_shared_1.BillingSharedRepo.calculateBillingVariablesFinal(serviceEntries, testResult, billingData.paid);
-                await billing_shared_1.DiscountLimitService.enforceAndRecord({
+                await discount_limit_1.default.enforceAndRecord({
                     tenantId: this.tenantId,
                     trx,
                     employeeid: billingData.employeeid,

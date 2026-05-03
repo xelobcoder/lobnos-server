@@ -47,7 +47,7 @@ const router = Router();
 
 // Billing Routes
 router.post("/api/v1/billing", handleNewBilling);
-router.post("/api/v1/billing/multi", handleMultiNewBilling);
+// router.post("/api/v1/billing/multi", handleMultiNewBilling);   obsolote now replaced with /api/v1/billing/multi/submit for better flow control and error handling in multi billing process
 router.put('/api/v1/billing/pending/remove/service', handleOverLoad(removePendingNonPaidServicesHandler))
 router.get('/api/v1/outstanding/report/combined', isAuthorizedRoleAdmin, handleOverLoad(outstandingReport));
 router.get("/api/v1/billing/multi/init", handleOverLoad(initializeBillingHandler));
@@ -59,7 +59,7 @@ router.get("/api/v1/billing/caninitialbill", canInitiateBill);
 router.get("/api/v1/billing/information/single", getSavedCLientBillingInformation);
 router.post(`/api/v1/billing/previous/request/refund`, determineStageOfRefundRequestHandler);
 router.post(`/api/v1/billing/previous/request/refund/update`, handleOverLoad(requestForRefundHandler));
-router.post("/api/v1/billing/previous/refund/update/previous", updateWitnessWitnessNote as RequestHandler);
+router.post("/api/v1/billing/previous/refund/update/previous", handleOverLoad(updateWitnessWitnessNote as unknown as RequestHandler ));
 router.post("/api/v1/billing/previous/refund/update/approve", isAuthorizedRoleAdmin, handleOverLoad(approveRequestForRefund));
 router.post("/api/v1/billing/previous/refund/update/cashout", requestForRefundCashIssueOut);
 router.get("/api/v1/billing/previous/refund/update/verification/cashout", verificationBeforeCashoutHandler as unknown as RequestHandler);
@@ -68,8 +68,8 @@ router.get("/api/v1/billing/previous/transaction/data", getTransactionBillDataHa
 router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode",
      handleAuthenticationEmployee as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, {}, {}, { tenantId: string; }>,
      handleOverLoad(isAuthorizedRoleAdmin),
-     refundAllTransactionHandler as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
-router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, WriteOffTransaction as unknown as  RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>);
+     refundAllTransactionHandler as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
+router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, handleOverLoad(WriteOffTransaction as unknown as  RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>));
 router.post('/api/v1/billing/correction/source', isAuthorizedRoleAdmin, handleOverLoad(correctRefererErrorPostRegistrationHandler));
 router.get('/api/v1/billing/discount-limits', isAuthorizedRoleAdmin, handleOverLoad(listDiscountLimitRules));
 router.post('/api/v1/billing/discount-limits', isAuthorizedRoleAdmin, handleOverLoad(upsertDiscountLimitRule));

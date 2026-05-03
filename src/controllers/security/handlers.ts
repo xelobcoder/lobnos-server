@@ -54,7 +54,7 @@ export const logoutUser = async (request: Request<{}, {}, {}, { userid: string; 
 export const getLoggedUsersCount = async (request: Request<{}, {}, {}, { tenantId: string,employeeid?: string }>, response: Response) => {
      try {
           const tenantId = parseInt(request.query.tenantId.toString())
-          const loggedCount = await new Security().getCurrentLoginCounts(tenantId);
+          const loggedCount = await new Security(0).getCurrentLoginCounts(tenantId);
           response.send({ loggedCount });
      } catch (err) {
           responseError(response);
