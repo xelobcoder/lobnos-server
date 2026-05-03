@@ -1,0 +1,228 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const helper_1 = require("../../hooks/helper");
+const appointmentTypes_1 = require("./appointmentTypes");
+const zod_1 = require("zod");
+class Appointment {
+    constructor(employeeid) {
+        this.connection = helper_1.promisifyQuery;
+        this._affectedRows = helper_1.rowAffected;
+        this.employeeid = employeeid;
+    }
+    normalizeDateOnly(value) {
+        if (typeof value === "string") {
+            const trimmed = value.trim();
+            const isoLikeMatch = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T\s].*$/);
+            if (isoLikeMatch) {
+                return isoLikeMatch[1];
+            }
+            if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+                return trimmed;
+            }
+        }
+        const parsed = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+            throw new Error("Invalid appointment_date format");
+        }
+        const year = parsed.getFullYear();
+        const month = `${parsed.getMonth() + 1}`.padStart(2, "0");
+        const day = `${parsed.getDate()}`.padStart(2, "0");
+        return `${year}-${month}-${day}`;
+    }
+    async isAppointmentTimeAvailable(tenantId, date, time) {
+        const refined_date = this.normalizeDateOnly(date);
+        const _mysql_query = "SELECT * FROM appointments WHERE appointment_date = ? AND appointment_time = ?";
+        const rows = await this.connection(tenantId, _mysql_query, [refined_date, time]);
+        return !(Array.isArray(rows) && rows.length > 0);
+    }
+    async createAppointment(tenantId, data) {
+        const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
+        if (!patientid)
+            throw new Error("patientid missing");
+        const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
+        if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time)))
+            return false;
+        const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
+        const result = await this.connection(tenantId, createQuery, [
+            patientid,
+            duration,
+            appointment_time,
+            normalizedAppointmentDate,
+            inviteMethod,
+            purpose,
+            title,
+            preference,
+            practioner,
+            location,
+        ]);
+        return this._affectedRows(result);
+    }
+    async getPatientAppointmentHistory(tenantId, patientid, count = 10, page = 1) {
+        const query = `SELECT 
+	a.appointment_date,
+	a.appointment_time,
+	a.duration,
+	a.preference,
+	a.inviteMethod,
+	a.purpose,
+	a.location,
+	a.title,
+	a.status,
+	r.username AS practione
+	FROM appointments AS a INNER JOIN roles AS r
+	ON a.practioner = r.employeeid
+	WHERE a.patientid = ? ORDER BY a.refid DESC LIMIT ? OFFSET ?`;
+        return await this.connection(tenantId, query, [patientid, count, page]);
+    }
+    async loadMonthAppointments(tenantId, month) {
+        let searchMonth = month;
+        if (typeof month === "string") {
+            searchMonth = appointmentTypes_1.months[month];
+        }
+        if (searchMonth !== undefined) {
+            return await this.connection(tenantId, "SELECT ta.*, r.username AS practioner,r.employeeid AS practionerid FROM appointments AS ta INNER JOIN roles AS r ON ta.practioner = r.employeeid WHERE MONTH(appointment_date) = ?", [month]);
+        }
+        return [];
+    }
+    getCurrentDateString(datestring) {
+        const date = new Date(datestring);
+        return `${date.getFullYear()}-${date.getMonth() + 1}-${`${date.getDate()}`.padStart(2, "0")}`;
+    }
+    convertTimeMinutes(time) {
+        if (time.includes(":")) {
+            const [hour, minutes] = time.split(":");
+            const parsedhour = parseInt(hour);
+            const parsedminutes = parseInt(minutes);
+            return parsedhour * 60 + parsedminutes;
+        }
+    }
+    popAppointment(range, startpoint, array) {
+        return array.filter((item, index) => !(index >= startpoint && index <= startpoint + range - 1));
+    }
+    async getPractionerAvailableTime(tenantId, employeeid, appointment_date) {
+        const currentDate = this.getCurrentDateString(appointment_date);
+        const dataset = await this.connection(tenantId, "SELECT duration, appointment_time FROM appointments WHERE appointment_date = ? AND practioner = ?", [currentDate, employeeid]);
+        if (dataset.length === 0)
+            return appointmentTypes_1.slots;
+        let availSlots = [...appointmentTypes_1.slots];
+        for (let i = 0; i < dataset.length; i++) {
+            const { duration, appointment_time } = dataset[i];
+            const aIndex = availSlots.findIndex((u) => u.trim() === appointment_time.trim());
+            switch (parseInt(duration)) {
+                case 30:
+                    availSlots = this.popAppointment(1, aIndex, availSlots);
+                    break;
+                case 60:
+                    availSlots = this.popAppointment(2, aIndex, availSlots);
+                    break;
+                case 90:
+                    availSlots = this.popAppointment(3, aIndex, availSlots);
+                    break;
+                case 120:
+                    availSlots = this.popAppointment(4, aIndex, availSlots);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return availSlots;
+    }
+    async getDaySchedules(tenantId, type, employeeid, pquery) {
+        let query = "SELECT * FROM appointments WHERE appointment_date = CURRENT_DATE";
+        const values = [];
+        if (employeeid && !isNaN(employeeid) && type !== "general") {
+            query += " AND practioner = ? LIMIT ? OFFSET ? ";
+            values.push(typeof employeeid === "string" ? parseInt(employeeid) : employeeid);
+        }
+        values.push(pquery.count);
+        values.push(pquery.page);
+        return await this.connection(tenantId, query, values);
+    }
+    getAppointmentCount(tenantId) { }
+    /**
+      * Get details of a specific appointment by its ID
+      */
+    async getAppointmentDetails(tenantId, appointmentId) {
+        const query = "SELECT * FROM appointments WHERE refid = ?";
+        const result = await this.connection(tenantId, query, [appointmentId]);
+        return Array.isArray(result) && result.length > 0 ? result[0] : null;
+    }
+    /**
+      * Update an appointment by its ID
+      */
+    async updateAppointment(tenantId, appointmentId, data) {
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m;
+        const normalizedData = Object.assign(Object.assign({}, data), { appointment_date: data.appointment_date ? this.normalizeDateOnly(data.appointment_date) : data.appointment_date });
+        const updateSchema = zod_1.z.object({
+            patientid: zod_1.z.number().int(),
+            duration: zod_1.z.number().int().optional(),
+            status: zod_1.z.string().max(50).optional(),
+            appointment_time: zod_1.z.string().max(10).optional(),
+            appointment_date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+            inviteMethod: zod_1.z.string().max(20).optional(),
+            purpose: zod_1.z.string(),
+            title: zod_1.z.string().optional(),
+            preference: zod_1.z.string().optional(),
+            practioner: zod_1.z.number().int().optional(),
+            location: zod_1.z.string().optional(),
+            notes: zod_1.z.string().nullable().optional(),
+        }).strict();
+        const parseResult = updateSchema.safeParse(normalizedData);
+        if (!parseResult.success) {
+            throw new Error("Invalid appointment update fields: " + JSON.stringify(parseResult.error.format()));
+        }
+        const validData = parseResult.data;
+        const fields = Object.keys(validData);
+        if (fields.length === 0)
+            return false;
+        // Write the full SQL query with all fields explicitly
+        const query = `UPDATE appointments SET
+			patientid = ?,
+			duration = ?,
+			status = ?,
+			appointment_time = ?,
+			appointment_date = ?,
+			inviteMethod = ?,
+			purpose = ?,
+			title = ?,
+			preference = ?,
+			practioner = ?,
+			location = ?,
+			notes = ?
+		WHERE refid = ?`;
+        // Ensure all fields are present in the correct order, use null if missing
+        const values = [
+            (_a = validData.patientid) !== null && _a !== void 0 ? _a : null,
+            (_b = validData.duration) !== null && _b !== void 0 ? _b : null,
+            (_c = validData.status) !== null && _c !== void 0 ? _c : null,
+            (_d = validData.appointment_time) !== null && _d !== void 0 ? _d : null,
+            (_e = validData.appointment_date) !== null && _e !== void 0 ? _e : null,
+            (_f = validData.inviteMethod) !== null && _f !== void 0 ? _f : null,
+            (_g = validData.purpose) !== null && _g !== void 0 ? _g : null,
+            (_h = validData.title) !== null && _h !== void 0 ? _h : null,
+            (_j = validData.preference) !== null && _j !== void 0 ? _j : null,
+            (_k = validData.practioner) !== null && _k !== void 0 ? _k : null,
+            (_l = validData.location) !== null && _l !== void 0 ? _l : null,
+            (_m = validData.notes) !== null && _m !== void 0 ? _m : null,
+            appointmentId
+        ];
+        const result = await this.connection(tenantId, query, values);
+        return this._affectedRows(result);
+    }
+    async deleteAppointment(tenantId, appointmentId) {
+        const query = "DELETE FROM appointments WHERE refid = ?";
+        const result = await this.connection(tenantId, query, [appointmentId]);
+        return this._affectedRows(result);
+    }
+    async getAllAppointments(tenantId, page = 1, count = 10, sortby = 'DESC') {
+        const offset = (page - 1) * count;
+        const query = `
+			SELECT a.*, np.*, r.username AS practioner_name FROM appointments AS a INNER JOIN new_patients AS np 
+		 ON a.patientid = np.patientid
+		 INNER JOIN roles AS r ON a.practioner = r.employeeid   
+			ORDER BY refid ${sortby} LIMIT ? OFFSET ?
+		`;
+        return await this.connection(tenantId, query, [count, offset]);
+    }
+}
+exports.default = Appointment;

@@ -14,7 +14,6 @@ import {
      verificationBeforeCashoutHandler,
      getTransactionBillDataHandler,
      refundAllTransactionHandler,
-     handleMultiNewBilling,
      handleMultiUpdateBilling,
      WriteOffTransaction,
      outstandingReport,

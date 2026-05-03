@@ -13,7 +13,7 @@ const ReferralCodingRepo_1 = require("../../referral/repositories/ReferralCoding
 const billingTypes_1 = require("./billingTypes");
 const packageBillingHelper_1 = require("./packageBillingHelper");
 const PrimeBillingEnterprise_1 = require("./PrimeBillingEnterprise");
-const billing_1 = require("../billing");
+const billing_1 = require("../../../../obso/billing");
 class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBillingEnterprise {
     constructor(tenantId) {
         super(tenantId);

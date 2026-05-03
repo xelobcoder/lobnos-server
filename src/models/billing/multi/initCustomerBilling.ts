@@ -8,7 +8,7 @@ import { ReferralCodingRepo } from "../../referral/repositories/ReferralCodingRe
 import { BillingModuleCodes, BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
-import { Billing } from "../billing";
+import { Billing } from "../../../../obso/billing";
 
 
 class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
@@ -172,7 +172,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           const generalOrNHIS = (!defaultCustomerInitData.entityType || defaultCustomerInitData.entityType == "general" || defaultCustomerInitData.entityType == "nhis");
           const noEntityIdAndGeneralOrNHIS = (generalOrNHIS && !defaultCustomerInitData.entityId && !defaultCustomerInitData.referalCode);
           if (noEntityIdAndGeneralOrNHIS) {
-               ApplicableTest =  defaultCustomerInitData.entityType === "nhis" ? await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, false, true) : await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, true);
+               ApplicableTest = defaultCustomerInitData.entityType === "nhis" ? await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, false, true) : await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, true);
           } else {
                ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);
           }

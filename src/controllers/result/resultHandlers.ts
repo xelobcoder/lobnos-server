@@ -12,7 +12,7 @@ import { CreationRule, previewReportView, resultEntryType } from "../../models/c
 import TestLiteratureSetup from "../../testpanel/literature";
 import resultEncrptionReferer from "../../models/creator/resultEncryptionReferer";
 import Creator from "../../models/creator/creator";
-import { Billing } from "../../models/billing/billing";
+import { Billing } from "../../../obso/billing";
 import { PrimeLimsTabletest_ascension, PrimeLimsTabletest_panels } from "../../database/DatabaseTableSchema";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 import { testAscensionTableTypes } from "../../models/billing/billingclientTypes";

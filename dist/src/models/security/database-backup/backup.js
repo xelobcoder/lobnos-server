@@ -118,7 +118,7 @@ class BackupManager {
             };
         }
     }
-    static async performDatabaseBackup(tenantId, backupName, backupPath, isFullBackup = true, backupMode = 'manual', createdBy, scheduleId, encryptBackup = false) {
+    static async performDatabaseBackup(tenantId, backupName, backupPath, isFullBackup = true, backupMode = 'manual', createdBy = 'system', scheduleId, encryptBackup = false) {
         const startTime = Date.now();
         try {
             if (!fs.existsSync(backupPath)) {

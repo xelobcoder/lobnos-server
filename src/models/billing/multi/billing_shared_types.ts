@@ -73,6 +73,7 @@ export type MultiTBillingDataShared = {
      organizationId?: number;
      testcost: number;
      nhismembershipid?: number;
+     result_delivery:any;
      claimscheckcode?: number;
      billingSource: number;
      paid: number;

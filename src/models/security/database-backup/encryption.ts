@@ -405,7 +405,7 @@ export default class EncryptionManager {
                }
 
                return { valid: true };
-          } catch (error) {
+          } catch (error: any) {
                return { valid: false, error: `Failed to validate storage path: ${error.message}` };
           }
      }

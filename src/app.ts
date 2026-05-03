@@ -133,8 +133,7 @@ const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTI
 
 
 
-app.listen(Number(port), host as any,async  (err) => {
-	await killProcessOnPort(Number(port));
+app.listen(Number(port), host as any, (err) => {
 	console.log(`Server is running at http://${host}:${port}`);
 });
 

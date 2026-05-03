@@ -1,0 +1,48 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const attandanceHandler_1 = require("./attandanceHandler");
+const timetableHandlers_1 = require("./timetableHandlers");
+const shiftsHandlers_1 = require("./shiftsHandlers");
+const AttendanceCycleServiceHandler_1 = require("./AttendanceCycleServiceHandler");
+const tasksHandlers_1 = require("./tasksHandlers");
+const helper_1 = require("../../hooks/helper");
+const router = (0, express_1.Router)();
+// Preferred Shifts routes
+router.post("/api/v1/attendance/preferred-shifts", attandanceHandler_1.createPreferredShiftHandler);
+router.get("/api/v1/attendance/preferred-shifts", attandanceHandler_1.getAllPreferredShiftsHandler);
+router.get("/api/v1/attendance/preferred-shifts/:employeeid", (0, helper_1.handleOverLoad)(attandanceHandler_1.getPreferredShiftHandler));
+router.delete("/api/v1/attendance/preferred-shifts/:employeeid/:shiftid", (0, helper_1.handleOverLoad)(attandanceHandler_1.deletePreferredShiftHandler));
+// Unavailable Days routes
+router.post("/api/v1/employee/unavailable-days", attandanceHandler_1.createUnavailableDayHandler);
+router.get("/api/v1/employee/unavailable-days", attandanceHandler_1.getAllUnavailableDaysHandler);
+router.get("/api/v1/employee/unavailable-days/:employeeid", (0, helper_1.handleOverLoad)(attandanceHandler_1.getUnavailableDayHandler));
+router.delete("/api/v1/employee/unavailable-days/:employeeid", (0, helper_1.handleOverLoad)(attandanceHandler_1.deleteUnavailableDayHandler));
+router.post("/api/v1/attendance/shifts", shiftsHandlers_1.createShiftHandler);
+router.get("/api/v1/attendance/shifts", shiftsHandlers_1.getAllShiftsHandler);
+router.get("/api/v1/attendance/shifts/:id", (0, helper_1.handleOverLoad)(shiftsHandlers_1.getShiftByIdHandler));
+router.put("/api/v1/attendance/shifts/:id", (0, helper_1.handleOverLoad)(shiftsHandlers_1.updateShiftHandler));
+router.delete("/api/v1/attendance/shifts/:id", (0, helper_1.handleOverLoad)(shiftsHandlers_1.deleteShiftHandler));
+//  cycles
+router.post("/api/v1/attendance/cycles", (0, helper_1.handleOverLoad)(AttendanceCycleServiceHandler_1.createAttendanceCycleHandler));
+router.get("/api/v1/attendance/cycles", (0, helper_1.handleOverLoad)(AttendanceCycleServiceHandler_1.getAllAttendanceCyclesHandler));
+router.get("/api/v1/attendance/cycles/:id", (0, helper_1.handleOverLoad)(AttendanceCycleServiceHandler_1.getAttendanceCycleHandler));
+router.put("/api/v1/attendance/cycles/:id", (0, helper_1.handleOverLoad)(AttendanceCycleServiceHandler_1.updateAttendanceCycleHandler));
+router.delete("/api/v1/attendance/cycles/:id", (0, helper_1.handleOverLoad)(AttendanceCycleServiceHandler_1.deleteAttendanceCycleHandler));
+router.get("/api/v1/attendance/employees/summary/:cycleid", (0, helper_1.handleOverLoad)(AttendanceCycleServiceHandler_1.getEmployeeAttendanceSummaryHandler));
+router.get("/api/v1/attendance/timetable", timetableHandlers_1.getAllStaffAttendance);
+router.get("/api/v1/attendance/timetable/:id", timetableHandlers_1.getStaffAttendanceById);
+router.post("/api/v1/attendance/timetable", timetableHandlers_1.createStaffAttendance);
+router.put("/api/v1/attendance/timetable/:id", timetableHandlers_1.updateStaffAttendance);
+router.delete("/api/v1/attendance/timetable/:id", timetableHandlers_1.deleteStaffAttendance);
+router.patch("/api/v1/attendance/timetable/:id/status", timetableHandlers_1.updateAttendanceStatus);
+router.post("/api/v1/attendance/timetable/bulk", timetableHandlers_1.bulkCreateStaffAttendance);
+router.get("/api/v1/attendance/timetable/cycle/:cycleid", timetableHandlers_1.getAttendanceByCycle);
+router.get("/api/v1/attendance/timetable/employee/:employeeId", timetableHandlers_1.getAttendanceByEmployee);
+router.get("/api/v1/attendance/timetable/count", timetableHandlers_1.countAttendanceByStatus);
+router.post('/api/v1/primelims/tasks', tasksHandlers_1.createTask);
+router.get('/api/v1/primelims/tasks/:id', tasksHandlers_1.getTask);
+router.put('/api/v1/primelims/tasks/:id', tasksHandlers_1.updateTask);
+router.delete('/api/v1/primelims/tasks/:id', tasksHandlers_1.deleteTask);
+router.get('/api/v1/primelims/tasks', tasksHandlers_1.listTasks);
+exports.default = router;

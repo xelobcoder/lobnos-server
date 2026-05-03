@@ -1,7 +1,7 @@
 import KnexConnection from "../../../database/KnexConnections";
 import ApplicationSettings from "../../application/appsettings/appset";
 import { ApplicationSettingsData, AppSetting } from "../../application/appsettings/Type";
-import { Billing } from "../billing";
+import { Billing } from "../../../../obso/billing";
 import { serviceCategory } from "../billingclientTypes";
 import { PrimeBillingPromoCodeRepo } from "../repositories/PrimeBillingPromoCodeRepo";
 import { EntityType } from "./billing_shared_types";

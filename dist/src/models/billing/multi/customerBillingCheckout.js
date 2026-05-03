@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CustomerBillingCheckout = void 0;
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
-const billing_1 = require("../billing");
+const billing_1 = require("../../../../obso/billing");
 const billingclientTypes_1 = require("../billingclientTypes");
 const PrimeBillingPromoCodeRepo_1 = require("../repositories/PrimeBillingPromoCodeRepo");
 const packageBillingHelper_1 = require("./packageBillingHelper");

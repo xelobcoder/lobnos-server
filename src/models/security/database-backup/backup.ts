@@ -19,7 +19,7 @@ interface BackupLog {
      backup_path?: string;
      error_message?: string;
      duration_seconds?: number;
-     created_by?: number;
+     created_by: any;
      schedule_id?: number;
      encryption_key_id?: string;
 }
@@ -150,7 +150,7 @@ export default class BackupManager {
           backupPath: string,
           isFullBackup: boolean = true,
           backupMode: 'automated' | 'manual' = 'manual',
-          createdBy?: number,
+          createdBy: number| 'system' = 'system',
           scheduleId?: number,
           encryptBackup: boolean = false
      ): Promise<{ success: boolean; backupPath?: string; size?: number; error?: string; duration?: number; encryptionKeyId?: string }> {

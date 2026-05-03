@@ -25,7 +25,7 @@ import {
 	q_services_refund_status_is_completed,
 } from '../services/queries';
 import { PrimeLimsTablebilling, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices } from '../../database/DatabaseTableSchema';
-import { Billing } from './billing';
+import { Billing } from '../../../obso/billing';
 import { UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType, Witness } from '../../controllers/billing/sales/type';
 import { promisifyQuery, rowAffected, paginationQuery } from '../../hooks/helper';
 import { Services } from '../services/services';
@@ -366,7 +366,7 @@ export class Refund {
 			const isRefundCompleted = await this.isServiceRefundConcluded(tenantId, serviceid);
 			if (isRefundCompleted) return OperationsFailures.refundAlreadyConcluded;
 			const approvalDate = new Date();
-			const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [isApprove,approvalDate, employeeid, serviceid]);
+			const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [isApprove, approvalDate, employeeid, serviceid]);
 			return rowAffected(result);
 		} catch (err) {
 			throw err;
@@ -445,7 +445,7 @@ export class Refund {
 		return OperationsFailures.notFound;
 	}
 
-	static async refundAllItemsOfTransaction(tenantId: number, billingid: number, employeeid: number, selectedPaymentMode: number): Promise<boolean | string| void> {
+	static async refundAllItemsOfTransaction(tenantId: number, billingid: number, employeeid: number, selectedPaymentMode: number): Promise<boolean | string | void> {
 		const validity = await Billing.checkValidityOfBillingid(tenantId, billingid);
 		if (!validity) return OperationsFailures.unfoundID;
 

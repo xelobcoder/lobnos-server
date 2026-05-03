@@ -1,13 +1,12 @@
 import { Request, Response } from "express";
 import { customError, responseError } from "../../hooks/helper";
-import { Billing } from "../../models/billing/billing";
+import { Billing } from "../../../obso/billing";
 import { billErrors, TBillingData } from "../../models/billing/billingclientTypes";
 import { Refund } from "../../models/billing/RefundClass";
 import { wrapperTryCatch } from "../../models/generics/trycatch";
 import { OperationsFailures } from "../../models/operations/types";
 import { IDetermineStageOfRefund, RefundRequestBodyParams, UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType } from "./sales/type";
 import logger from "../../hooks/logger";
-import { MultiBillingRepo } from "../../models/billing/billnew";
 import { BillingUpdateRepo } from "../../models/billing/billing_update";
 import { WriteOff } from "../../models/billing/WriteOff";
 import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingEnterprise";
@@ -35,26 +34,6 @@ export async function handleNewBilling(request: Request<{}, {}, { patientid: num
 	wrapperTryCatch(validate, (err) => console.log(err));
 }
 
-
-export async function handleMultiNewBilling(request: Request<{}, {}, { patientid: number }, { tenantId: string }>, response: Response) {
-	async function validate() {
-		if (!request.body || !request.body.patientid) {
-			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
-		}
-		const { tenantId } = request.query;
-		const tenantIdP = parseInt(tenantId.toString());
-
-		let bill = await new MultiBillingRepo(tenantIdP).billNewTransaction(request.body as unknown as MultiTBillingDataShared);
-		if (typeof bill === "string") {
-			return customError(bill, 404, response);
-		} else if (typeof bill === "number") {
-			return response.send({ status: true, message: "Billing created successfully", billingid: bill });
-		} else {
-			return customError("An error occurred while processing the billing", 500, response);
-		}
-	}
-	wrapperTryCatch(validate, (err) => console.log(err));
-}
 
 
 export async function outstandingReport(request: Request<{}, {}, {}, { tenantId: string, startdate: string, enddate: string }>, response: Response) {
@@ -99,7 +78,7 @@ export async function canInitiateBill(request: Request<{}, {}, {}, { patientid: 
 		let { patientid, tenantId } = request.query;
 		if (!patientid) return customError(`Bad Request. patientid required`, 404, response);
 
-		let ptid: number;
+		let ptid: any = null;
 		if (typeof patientid === "string") ptid = parseInt(patientid);
 		if (isNaN(ptid)) return customError("Bad Request.patientid must a number", 400, response);
 		const BillingClass = new Billing(ptid);
@@ -132,7 +111,7 @@ export async function determineStageOfRefundRequestHandler(request: Request<{}, 
 	try {
 		const { tenantId } = request.query
 		const tenantIdP: number = parseInt(tenantId.toString(), 10);
-		const result = await new Billing(0).determineStageOfRefundRequest(tenantIdP, { ...request.body, serviceCategoryName: request.body.serviceCategory });
+		const result = await new Billing(0).determineStageOfRefundRequest(tenantIdP, { ...request.body, serviceCategoryName: request.body.serviceCategory as any });
 		response.send({ stage: result });
 	} catch (err) {
 

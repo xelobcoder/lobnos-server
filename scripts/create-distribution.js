@@ -19,7 +19,7 @@ const INCLUDE_DIRS = [
   "scripts", // Setup and utility scripts
   "cert", // SSL certificates
   "public", // Static assets
-  "node_modules", // Dependencies
+//   "node_modules", // Dependencies
 ];
 
 const INCLUDE_FILES = [
