@@ -16,11 +16,11 @@ async function ascensionStagingHandler(request, response) {
         }
         const parsedEmployeeId = parseInt(employeeid.toString());
         const tenantIdP = parseInt(tenantId ? tenantId.toString() : '0');
-        if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP))) {
-            return response.send({ status: false, message: "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */ });
+        if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED', 'ULTRASOUND_UNCOMPLETED'].includes((operationsStaging === null || operationsStaging === void 0 ? void 0 : operationsStaging.toString()) || '')) {
+            return response.send({ status: false, message: "You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */ });
         }
         if (operationsStaging === "VALIDATION" && !(await canValidateResults(parsedEmployeeId, tenantIdP))) {
-            return response.send({ status: false, message: `${"You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */}. To validate Result` });
+            return response.send({ status: false, message: `${"You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */}. To validate Result` });
         }
         const queryParams = createQueryParams({
             ascensionid, billingid, patientid,

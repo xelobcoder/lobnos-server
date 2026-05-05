@@ -9,6 +9,7 @@ import {
 import { organizationImageUpload } from './uploadImages'
 import { bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler, dailyOrganizationCommission, deleteOrganization, generateMonthlySalesReport, getOrganizationCommissionByMonth, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationWithDetails, getTopPerformance, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
 import { handleOverLoad } from '../../hooks/helper';
+import { isAuthorizedRoleAdmin } from '../../middleware/validateTenancy';
 
 
 const router = express.Router();
@@ -29,7 +30,7 @@ router.put("/api/v1/organization/update/basic", handleOverLoad(updateOrganizatio
 router.put("/api/v1/organization/update/contact", handleOverLoad(updateOrganizationContact));
 router.put("/api/v1/organization/update/payment", handleOverLoad(updateOrganizationPayment));
 router.post("/api/v1/new/organization/images", handleOverLoad(upload));
-router.delete("/api/v1/organization", handleOverLoad(deleteOrganization));
+router.delete("/api/v1/organization", isAuthorizedRoleAdmin, handleOverLoad(deleteOrganization));
 router.post(`/api/v1/organization/profile/image`, organizationImageUpload, handleOverLoad(uploadOrganizationProfilePicture));
 router.post("/api/v1/organization/billing/test", handleOverLoad(createOrganizationPricingHandler))
 router.get("/api/v1/organization/billing/test", handleOverLoad(getOrganizationPricingHandler))

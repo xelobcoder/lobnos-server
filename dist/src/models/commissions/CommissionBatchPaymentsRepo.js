@@ -6,11 +6,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommissionBatchPaymentsRepo = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const logger_1 = __importDefault(require("../../hooks/logger"));
+const CommissionPaymentExpenseSync_1 = __importDefault(require("./CommissionPaymentExpenseSync"));
 class CommissionBatchPaymentsRepo {
     constructor(tenantId) {
         this.createBatchPaymentWithServices = async (data) => {
+            let trx;
             try {
-                const { startDate, endDate, commissionDue, amountPaid, services, employeeid, paymentMethod, recipientId, recipientType } = data;
+                const { startDate, endDate, commissionDue, amountPaid, services, branchid, employeeid, paymentMethod, recipientId, recipientType } = data;
                 const commissionAmount = parseFloat(commissionDue.toString());
                 const paid = parseFloat(amountPaid.toString());
                 const waivedAmount = commissionAmount - paid;
@@ -42,8 +44,7 @@ class CommissionBatchPaymentsRepo {
                     created_at: new Date(),
                     payment_method: paymentMethod,
                     updated_at: new Date()
-                })
-                    .returning('id');
+                });
                 const batchPaymentId = batchID[0];
                 // insert each service into commission_batch_payment_services
                 for (const serviceId of services) {
@@ -63,11 +64,38 @@ class CommissionBatchPaymentsRepo {
                         created_at: new Date()
                     });
                 }
+                // Automatically convert commission payment to expense within the same transaction
+                const expenseResult = await CommissionPaymentExpenseSync_1.default.markCommissionPaymentAsExpense(this.tenantId, {
+                    batchPaymentId: batchPaymentId,
+                    employeeid,
+                    branchid
+                }, trx); // Pass the transaction
+                if (!expenseResult.success) {
+                    throw new Error(`Failed to convert commission payment to expense: ${expenseResult.message}`);
+                }
+                // Update the commission batch payment with expense sync info
+                await trx('commission_batch_payments')
+                    .where('id', batchPaymentId)
+                    .update({
+                    expense_synced: true,
+                    expense_id: expenseResult.expense_id,
+                    expense_invoice_id: expenseResult.invoice_id,
+                    expense_payment_id: expenseResult.expense_payment_id,
+                    updated_at: new Date()
+                });
                 await trx.commit();
                 return { batchPaymentId };
             }
             catch (error) {
                 logger_1.default.error('Error creating batch payment with services:', error);
+                if (trx && typeof trx.rollback === 'function') {
+                    try {
+                        await trx.rollback();
+                    }
+                    catch (rollbackError) {
+                        logger_1.default.error('Failed to rollback commission batch payment transaction:', rollbackError);
+                    }
+                }
                 throw error;
             }
         };
@@ -110,6 +138,24 @@ class CommissionBatchPaymentsRepo {
             }
             catch (error) {
                 logger_1.default.error('Error fetching batch payment:', error);
+                throw error;
+            }
+        };
+        /**
+         * Convert a commission batch payment to an expense
+         * Called automatically after payment or manually for existing payments
+         */
+        this.convertToExpense = async (batchPaymentId, employeeid, branchid) => {
+            try {
+                const result = await CommissionPaymentExpenseSync_1.default.markCommissionPaymentAsExpense(this.tenantId, {
+                    batchPaymentId,
+                    employeeid,
+                    branchid
+                });
+                return result;
+            }
+            catch (error) {
+                logger_1.default.error('Error converting commission payment to expense:', error);
                 throw error;
             }
         };

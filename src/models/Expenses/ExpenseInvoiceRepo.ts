@@ -84,7 +84,7 @@ export default class ExpenseInvoiceRepo {
                throw new Error('Required fields are missing');
           }
 
-          let merchant_id = invoiceData.merchant_id;
+          let merchant_id = invoiceData.merchant_id as any
           if (!merchant_id) {
                merchant_id = await this.getMerchantFromExpenses(expense_ids);
                if (!merchant_id) {
@@ -659,7 +659,7 @@ export default class ExpenseInvoiceRepo {
 
           const allExpenseIdsQuery = 'SELECT expense_id FROM invoice_expenses WHERE invoice_id = ?';
           const allExpenseLinks = await promisifyQuery(this.tenantId, allExpenseIdsQuery, [invoiceId]);
-          const allExpenseIds = allExpenseLinks.map(link => link.expense_id);
+          const allExpenseIds = allExpenseLinks.map((link: { expense_id: number }) => link.expense_id);
 
           const newTotalAmount = await this.calculateTotalFromExpenses(allExpenseIds);
 
@@ -780,6 +780,27 @@ export default class ExpenseInvoiceRepo {
                          );
                     }
                }
+
+               await promisifyQuery(
+                    this.tenantId,
+                    `
+                         DELETE s FROM commission_batch_payment_services s
+                         JOIN commission_batch_payments p ON s.batch_payment_id = p.id
+                         WHERE p.expense_id = ?
+                            OR (? IS NOT NULL AND p.expense_invoice_id = ?)
+                    `,
+                    [expense_id, invoice_id, invoice_id]
+               );
+
+               await promisifyQuery(
+                    this.tenantId,
+                    `
+                         DELETE FROM commission_batch_payments
+                         WHERE expense_id = ?
+                            OR (? IS NOT NULL AND expense_invoice_id = ?)
+                    `,
+                    [expense_id, invoice_id, invoice_id]
+               );
 
                return {
                     success: true,

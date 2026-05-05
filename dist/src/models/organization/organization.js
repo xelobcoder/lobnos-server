@@ -7,7 +7,6 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const helper_1 = require("../../hooks/helper");
-const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const ReferralCodingRepo_1 = require("../referral/repositories/ReferralCodingRepo");
 const queries_1 = require("./queries");
 const defaultSalesParam = {
@@ -100,24 +99,9 @@ class Organization {
         }
         return results;
     }
-    async deleteOrganization(tenantId, employeeid, isPasswordConfirmed) {
-        if (!this.organizationId || !employeeid || !isPasswordConfirmed)
-            throw new Error("invalid arguments provided");
-        const users = new user_1.default(null, null, null, null, null);
-        const userid = parseInt(employeeid.toString());
-        const user_exist = await users.userExistWithId(tenantId, userid);
-        if (!user_exist)
-            return "user with such credentials do not exist in our records" /* OperationsStatus.userNotFound */;
-        const userRole = await users.getUserRole(tenantId, userid);
-        if (!userRole)
-            return "user with such credentials do not exist in our records" /* OperationsStatus.userNotFound */;
-        const isAuthorizedPersonel = ['admin', 'manager'];
-        if (!isAuthorizedPersonel.includes(userRole))
-            return "Unauthorized to carry order" /* OperationsStatus.unAuthorized */;
-        if (isPasswordConfirmed) {
-            const deleted = await (0, helper_1.promisifyQuery)(tenantId, `DELETE FROM organization WHERE ID = ?`, [this.organizationId]);
-            return (0, helper_1.rowAffected)(deleted);
-        }
+    async deleteOrganization(tenantId) {
+        const deleted = await (0, helper_1.promisifyQuery)(tenantId, `DELETE FROM organization WHERE ID = ?`, [this.organizationId]);
+        return (0, helper_1.rowAffected)(deleted);
     }
     async createAorganization(tenantId, body) {
         const { name, location, street, mobile, address, website, email, gpsMapping, region, type } = body;

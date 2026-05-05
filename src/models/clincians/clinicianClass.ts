@@ -100,7 +100,7 @@ export default class ClinicianClass {
 					if (insertId !== 0 && insertId !== undefined) {
 						const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
 						const identifier = row?.identifier ? String(row.identifier) : "";
-						await applyClinicianAfterInsert(trx, { clinicianid: Number(insertId), identifier });
+						await applyClinicianAfterInsert(tenantId, trx, { clinicianid: Number(insertId), identifier });
 						await trx.commit();
 						results.push(insertId);
 					} else {
@@ -129,10 +129,11 @@ export default class ClinicianClass {
 			key !== 'page' && key !== 'count' && key !== 'role' && filters[key as keyof ClinicianFilterParams]
 		);
 
+
 		// If no filters, use the original logic
 		if (!hasFilters) {
 			if (role && role.toString().trim() === "admin") {
-				return (count && page) ? await paginationQuery({ page : parseInt(page.toString()), count: parseInt(count.toString()) }, SQLQueries.getCliniciansWithExtendedPagination, [], tenantId) :
+				return (count && page) ? await paginationQuery({ page: parseInt(page.toString()), count: parseInt(count.toString()) }, SQLQueries.getCliniciansWithExtendedPagination, [], tenantId) :
 					await promisifyQuery(tenantId, SQLQueries.getAllCliniciansWithPaymentInfo);
 			}
 			else {
@@ -140,6 +141,7 @@ export default class ClinicianClass {
 					await promisifyQuery(tenantId, SQLQueries.getAllClinicians);
 			}
 		}
+
 
 		// Build filter query
 		const { whereClause, params } = this.buildFilterQuery(filters);
@@ -149,7 +151,7 @@ export default class ClinicianClass {
 
 		// Add payment info for admin users
 		if (role && role.toString().trim() === "admin") {
-			baseQuery = `SELECT cbi.*, cpi.* FROM clinicianbasicinfo AS cbi
+			baseQuery = `SELECT cbi.*, cbi.id as clinicianid,cpi.id as clinicianpaymentid, cpi.* FROM clinicianbasicinfo AS cbi
 				LEFT JOIN clinicianpaymentinfo AS cpi ON cbi.id = cpi.clinicianid${whereClause}`;
 		}
 
@@ -179,7 +181,7 @@ export default class ClinicianClass {
 	}
 
 	public async putCliniciansBasic(tenantId: number,
-		records: Partial<PrimeLimsTableclinicianbasicinfo> & {phone: string,email: string,id: number}): Promise<string | boolean> {
+		records: Partial<PrimeLimsTableclinicianbasicinfo> & { phone: string, email: string, id: number }): Promise<string | boolean> {
 		const { name, phone, email, location, address, occupation, id } = records;
 
 		const isPhoneValid = TiifuWorkingClass.isNumberPhoneNumber(phone);
@@ -252,7 +254,7 @@ export default class ClinicianClass {
 			if (insertId !== 0 && insertId !== undefined) {
 				const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
 				const identifier = row?.identifier ? String(row.identifier) : "";
-				await applyClinicianAfterInsert(trx, { clinicianid: Number(insertId), identifier });
+				await applyClinicianAfterInsert(tenantIdP, trx, { clinicianid: Number(insertId), identifier });
 				const random = require("crypto").randomBytes(5).toString("hex");
 				const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
 				await trx.raw(tempCredentials, [random]);

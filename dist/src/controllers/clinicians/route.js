@@ -44,6 +44,7 @@ router.post("/api/v1/orders/processed", clinicianHandlers.postProcessedOrderHand
 router.get('/api/v1/clinicians/all', (0, helper_1.handleOverLoad)(clinicianHandlers.getAllCliniciansHandler));
 router.post('/api/v1/clinicians/bulk', (0, helper_1.handleOverLoad)(clinicianHandlers.bulkInsertCliniciansHandler));
 const billingStrategyHandler_1 = require("./billingStrategyHandler");
+const validateTenancy_1 = require("../../middleware/validateTenancy");
 router.get('/api/v1/billing/testpanel/strategies/panels/:entityType/:associatedid', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getProvidentialBillingHandler));
 router.post('/api/v1/billing/strategies', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.createBillingStrategy));
 router.get('/api/v1/billing/strategies/all', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getAllBillingStrategies));
@@ -59,7 +60,7 @@ router.delete('/api/v1/billing/strategies/remove/entity/:strategyid', (0, helper
 router.get('/api/v1/billing/specialcodeinfo', (0, helper_1.handleOverLoad)(billingStrategyHandler_1.getEntityInfoUsingSpecialCode));
 // payment routes of the clinicians
 const clinicianPaymentHandler = new ClinicianPaymentHandler_1.ClinicianPaymentHandler();
-router.put('/api/v1/clinicians/payments/:id', (req, res) => clinicianPaymentHandler.createPayment(req, res));
-router.get('/api/v1/clinicians/payments/:id', (req, res) => clinicianPaymentHandler.getPaymentById(req, res));
-router.get('/api/v1/clinicians/payments/clinician/:clinicianId', (req, res) => clinicianPaymentHandler.getPaymentsByClinicianId(req, res));
+router.put('/api/v1/clinicians/payments/:id', validateTenancy_1.isAuthorizedRoleAdmin, (req, res) => clinicianPaymentHandler.createPayment(req, res));
+router.get('/api/v1/clinicians/payments/:id', (0, helper_1.handleOverLoad)((req, res) => clinicianPaymentHandler.getPaymentById(req, res)));
+router.get('/api/v1/clinicians/payments/clinician/:clinicianId', (0, helper_1.handleOverLoad)((req, res) => clinicianPaymentHandler.getPaymentsByClinicianId(req, res)));
 exports.default = router;

@@ -2,10 +2,36 @@ const SQLQueries = {
 	getAllClinicians: "SELECT * FROM clinicianbasicinfo",
 
 	getAllCliniciansWithPaymentInfo: `
-			SELECT cbi.*, cpi.*
+					SELECT 
+			cbi.id            AS clinician_id,
+			cbi.name,
+			cbi.location,
+			cbi.address,
+			cbi.occupation,
+			cbi.organization,
+			cbi.updated_on    AS clinician_updated_on,
+			cbi.created_on    AS clinician_created_on,
+			cbi.phone,
+			cbi.email,
+			cbi.identifier,
+
+			cpi.id            AS payment_id,
+			cpi.clinicianid   AS payment_clinician_id,
+			cpi.module,
+			cpi.momo,
+			cpi.bankname,
+			cpi.bankbranch,
+			cpi.accountnumber,
+			cpi.accountname,
+			cpi.updated_on    AS payment_updated_on,
+			cpi.created_on    AS payment_created_on,
+			cpi.commission,
+			cpi.momoname
+
 			FROM clinicianbasicinfo AS cbi
-			LEFT JOIN clinicianpaymentinfo AS cpi ON cbi.id = cpi.clinicianid
-			ORDER BY cbi.name ASC
+			LEFT JOIN clinicianpaymentinfo AS cpi 
+			ON cbi.id = cpi.clinicianid
+			ORDER BY cbi.name ASC;
   			`,
 
 	getClinicianBasicInfo: `SELECT * FROM clinicianBasicInfo WHERE id = ?`,
@@ -13,8 +39,37 @@ const SQLQueries = {
 	getCliniciansWithPagination: `SELECT * FROM clinicianbasicinfo
    LIMIT ? OFFSET ?`,
 
-	getCliniciansWithExtendedPagination: `SELECT * FROM clinicianbasicinfo AS  cbi
-			LEFT JOIN clinicianpaymentinfo AS cpi ON cbi.id = cpi.clinicianid
+	getCliniciansWithExtendedPagination: `
+		SELECT 
+			cbi.id            AS clinician_id,
+			cbi.name,
+			cbi.location,
+			cbi.address,
+			cbi.occupation,
+			cbi.organization,
+			cbi.updated_on    AS clinician_updated_on,
+			cbi.created_on    AS clinician_created_on,
+			cbi.phone,
+			cbi.email,
+			cbi.identifier,
+
+			cpi.id            AS payment_id,
+			cpi.clinicianid   AS payment_clinician_id,
+			cpi.module,
+			cpi.momo,
+			cpi.bankname,
+			cpi.bankbranch,
+			cpi.accountnumber,
+			cpi.accountname,
+			cpi.updated_on    AS payment_updated_on,
+			cpi.created_on    AS payment_created_on,
+			cpi.commission,
+			cpi.momoname
+
+			FROM clinicianbasicinfo AS cbi
+			LEFT JOIN clinicianpaymentinfo AS cpi 
+			ON cbi.id = cpi.clinicianid
+			ORDER BY cbi.name ASC
 			LIMIT ? OFFSET ?
    `,
 

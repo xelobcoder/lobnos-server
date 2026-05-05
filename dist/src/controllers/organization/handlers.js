@@ -63,9 +63,11 @@ const getOrganizationsPayment = async (request, response) => {
 exports.getOrganizationsPayment = getOrganizationsPayment;
 const deleteOrganization = async (request, response) => {
     try {
-        const { organizationid, employeeid, isPasswordConfirmed } = request.query;
+        const { id } = request.query;
+        console.log(request.query);
         const tenantIdP = parseInt(request.query.tenantId.toString());
-        const deletionStatus = await new organization_1.default(parseInt(organizationid.toString())).deleteOrganization(tenantIdP, parseInt(employeeid.toString()), isPasswordConfirmed);
+        const deletionStatus = await new organization_1.default(parseInt(id.toString()))
+            .deleteOrganization(tenantIdP);
         response.send({ status: deletionStatus });
     }
     catch (error) {
@@ -113,7 +115,6 @@ const createAOrganization = async (request, response) => {
         const tenantIdP = parseInt(request.query.tenantId.toString());
         const isCreatedSuccess = await new organization_1.default(null)
             .createAorganization(tenantIdP, request.body);
-        console.log('isCreated', isCreatedSuccess);
         if (isCreatedSuccess === "organization with such name exist" /* OperationsStatus.exist */) {
             return response.send({ message: "organization with such name exist" /* OperationsStatus.exist */, status: 'exist' });
         }

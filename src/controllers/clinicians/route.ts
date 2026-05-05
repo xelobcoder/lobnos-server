@@ -38,6 +38,7 @@ import {
   getProvidentialBillingHandler,
   getEntityInfoUsingSpecialCode,
 } from './billingStrategyHandler';
+import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 
 
 router.get('/api/v1/billing/testpanel/strategies/panels/:entityType/:associatedid', handleOverLoad(getProvidentialBillingHandler));
@@ -57,9 +58,9 @@ router.get('/api/v1/billing/specialcodeinfo', handleOverLoad(getEntityInfoUsingS
 
 const clinicianPaymentHandler = new ClinicianPaymentHandler();
 
-router.put('/api/v1/clinicians/payments/:id', (req, res) => clinicianPaymentHandler.createPayment(req, res));
-router.get('/api/v1/clinicians/payments/:id', (req, res) => clinicianPaymentHandler.getPaymentById(req, res));
-router.get('/api/v1/clinicians/payments/clinician/:clinicianId', (req, res) => clinicianPaymentHandler.getPaymentsByClinicianId(req, res));
+router.put('/api/v1/clinicians/payments/:id', isAuthorizedRoleAdmin,(req, res) => clinicianPaymentHandler.createPayment(req, res));
+router.get('/api/v1/clinicians/payments/:id', handleOverLoad((req:Request, res:Response) => clinicianPaymentHandler.getPaymentById(req, res)));
+router.get('/api/v1/clinicians/payments/clinician/:clinicianId', handleOverLoad((req:Request, res:Response) => clinicianPaymentHandler.getPaymentsByClinicianId(req, res)));
 
 
 export default router;

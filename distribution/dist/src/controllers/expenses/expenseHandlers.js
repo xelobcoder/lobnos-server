@@ -258,8 +258,8 @@ const updateExpenseDecision = async (req, res) => {
             if (decisions.length === 0) {
                 return (0, helper_1.customError)("Decisions array cannot be empty", 400, res);
             }
-            if (decisions.length > 50) {
-                return (0, helper_1.customError)("Maximum 50 decisions can be processed at once", 400, res);
+            if (decisions.length > 2000) {
+                return (0, helper_1.customError)("Maximum 2000 decisions can be processed at once", 400, res);
             }
             for (const decision of decisions) {
                 if (!decision.expenseid || !decision.status) {

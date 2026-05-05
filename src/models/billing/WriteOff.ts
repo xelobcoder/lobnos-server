@@ -84,7 +84,7 @@ export class WriteOff {
                          await applyDboservicesAfterUpdate(trx, updatedService, employeeid ? employeeid.toString() : undefined);
                     }
 
-                    const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date().toISOString()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
+                    const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
 
                     await trx('dbobillingrefundtable')
                          .where('serviceid', service.serviceid)
@@ -98,9 +98,9 @@ export class WriteOff {
                               firstWitness: employeeid,
                               secondWitness: employeeid,
                               thirdWitness: employeeid,
-                              firstWitnessPurpose: comprehensiveMessage,
                               initiatedBy: employeeid,
-                              approvalDate: null,
+                              approvalDate: new Date(),
+                              firstWitnessPurpose: comprehensiveMessage,
                               secondWitnessPurpose: comprehensiveMessage,
                               thirdWitnessPurpose: comprehensiveMessage,
                               firstWitnessDate: new Date(),

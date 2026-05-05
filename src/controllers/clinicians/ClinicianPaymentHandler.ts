@@ -2,26 +2,29 @@ import { ClinicianPaymentRepository, IClinicianPayment } from '../../models/clin
 import { Request, Response } from 'express';
 
 export class ClinicianPaymentHandler {
-    async createPayment(req: Request, res: Response): Promise<void> {
+    async createPayment(req: Request<{}, any, any, { tenantId: string }, Record<string, any>>, res: Response): Promise<void> {
         try {
             const tenantId = parseInt(req.query.tenantId.toString(), 10);
             const repository = new ClinicianPaymentRepository(tenantId);
-            const paymentData :IClinicianPayment = req.body;
-            if (!paymentData.clinicianid || !paymentData.module ) {
+            const paymentData: IClinicianPayment = req.body as any;
+            if (!paymentData.clinicianid || !paymentData.module) {
                 res.status(400).json({ message: 'Missing required payment data: clinicianid and module are required.' });
                 return;
             }
-      
-            Object.keys(paymentData).forEach(key =>
-                paymentData[key] === '' ? delete paymentData[key] : null
+
+            Object.keys(paymentData).forEach((key: any) => {
+                return paymentData[key] === '' ? delete paymentData[key] : null
+            }
             );
-            
+
             paymentData.created_on = new Date();
             paymentData.updated_on = new Date();
             const success = await repository.update(paymentData.clinicianid, paymentData);
+            console.log('Payment creation result:', success);
             if (success) {
-                res.status(201).json({status:success });
+                res.status(201).json({ status: success });
             } else {
+
                 res.status(400).json({ message: 'Failed to create clinician payment' });
             }
         } catch (error) {
@@ -30,7 +33,7 @@ export class ClinicianPaymentHandler {
         }
     }
 
-    async getPaymentById(req: Request, res: Response): Promise<void> {
+    async getPaymentById(req: Request<{ id: string }, any, any, { tenantId: string }, Record<string, any>>, res: Response): Promise<void> {
         try {
             const tenantId = parseInt(req.query.tenantId.toString(), 10);
             const repository = new ClinicianPaymentRepository(tenantId);
@@ -47,7 +50,7 @@ export class ClinicianPaymentHandler {
         }
     }
 
-    async getPaymentsByClinicianId(req: Request, res: Response): Promise<void> {
+    async getPaymentsByClinicianId(req: Request<{ clinicianId: string }, any, any, { tenantId: string }, Record<string, any>>, res: Response): Promise<void> {
         try {
             const tenantId = parseInt(req.query.tenantId.toString(), 10);
             const repository = new ClinicianPaymentRepository(tenantId);

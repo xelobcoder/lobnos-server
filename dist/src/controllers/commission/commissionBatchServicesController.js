@@ -13,9 +13,12 @@ class CommissionBatchServicesController {
         this.processServiceBatching = async (request, response) => {
             try {
                 const batchServicesRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(this.tenantId);
-                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, recipientid, recipient_type, services } = request.body;
+                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, branchid, recipientid, recipient_type, services } = request.body;
                 const startDateObj = new Date(startDate);
                 const endDateObj = new Date(endDate);
+                if (!branchid || !employeeid || !recipientid || !recipient_type) {
+                    return (0, helper_1.customError)("Missing required fields: branchid, employeeid, recipientid, recipient_type", 400, response);
+                }
                 if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
                     return (0, helper_1.customError)("Invalid date format", 400, response);
                 }
@@ -34,6 +37,7 @@ class CommissionBatchServicesController {
                     amountPaid,
                     services: eligibleServices,
                     employeeid,
+                    branchid,
                     paymentMethod,
                     recipientId: recipientid,
                     recipientType: recipient_type

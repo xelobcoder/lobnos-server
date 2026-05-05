@@ -47,7 +47,7 @@ class Refund {
             if (role) {
                 return await this.refundItemProcessed(tenantId, result, user, employeeid, role, 'completed');
             }
-            return "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */;
+            return "You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */;
         }
         return null;
     }

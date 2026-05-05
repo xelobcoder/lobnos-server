@@ -1,4 +1,5 @@
 import { Knex } from "knex";
+import { CommissionDefaultsRepository } from "../models/commissions/CommissionDefaultsRepository";
 
 type DbRunner = Knex | Knex.Transaction;
 
@@ -86,7 +87,7 @@ export async function applyDboservicesAfterInsert(db: DbRunner, service: any, ac
 	await insertDboservicesAudit(db, service, "INSERT", actor);
 
 	if (service.serviceCategory === "SERVICES" && Number(service.categoryTrackId) === 5) {
-		await db("servicestracking").insert({ serviceid: service.serviceid });
+		await db("servicestracking").insert({ serviceid: service.serviceid, employeeid: service.employeeid, status: 0, comments: "New service added, waiting for processing" });
 	}
 
 	const existingRefundRow = await db("dbobillingrefundtable")
@@ -214,11 +215,14 @@ export async function applyOrganizationAfterInsert(db: DbRunner, organizationid:
 		.where({ organizationid })
 		.first();
 	if (!account) {
-		await db("organizationaccountinformation").insert({ organizationid });
+		await db("organizationaccountinformation").insert({ organizationid, });
 	}
 }
 
-export async function applyClinicianAfterInsert(db: DbRunner, payload: { clinicianid: number; identifier: string }) {
+export async function applyClinicianAfterInsert(tenantId: number, db: DbRunner, payload: { clinicianid: number; identifier: string }) {
+	// 1. check for default commissions for clinician exist , if yes use the default value to create the clinician commision amount else create with 0 commission
+	const commissionDefault = await new CommissionDefaultsRepository(tenantId, db).getByTargetType('CLINICIAN');
+	const commissionValue = commissionDefault ? commissionDefault.commission_value : 0;
 	const payment = await db("clinicianpaymentinfo")
 		.select("id")
 		.where({ clinicianid: payload.clinicianid })
@@ -227,6 +231,7 @@ export async function applyClinicianAfterInsert(db: DbRunner, payload: { clinici
 		await db("clinicianpaymentinfo").insert({
 			clinicianid: payload.clinicianid,
 			module: "cash",
+			commission: commissionValue,
 		});
 	}
 

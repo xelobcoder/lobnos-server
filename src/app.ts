@@ -48,7 +48,7 @@ import leadsRouter from './controllers/crm/leads/route';
 import followupsRouter from './controllers/crm/leads/followups.route';
 import payrollRouter from './controllers/payroll/routes';
 import freeServicesRouter from './controllers/billing/FreeServices/routes';
-
+import commissionRouter from './controllers/commissions/commissionDefaultsRoutes';
 
 
 
@@ -118,7 +118,7 @@ app.use('/api/v1/leads', leadsRouter);
 app.use('/api/v1/followups', followupsRouter);
 app.use('/api/v1/payroll', payrollRouter);
 app.use('/api/v1/billing/free-services', freeServicesRouter);
-
+app.use(commissionRouter);
 
 
 
@@ -130,7 +130,6 @@ app.get("/", (req: Request, res: Response) => {
 
 
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
-
 
 
 app.listen(Number(port), host as any, (err) => {

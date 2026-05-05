@@ -8,6 +8,7 @@ const outsourceHandlers_1 = require("./outsourceHandlers");
 const uploadImages_1 = require("./uploadImages");
 const handlers_1 = require("./handlers");
 const helper_1 = require("../../hooks/helper");
+const validateTenancy_1 = require("../../middleware/validateTenancy");
 const router = express_1.default.Router();
 router.get("/api/v1/organization", (0, helper_1.handleOverLoad)(handlers_1.getOrganizations));
 router.get("/api/v1/organization/basic", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationsBasic));
@@ -25,7 +26,7 @@ router.put("/api/v1/organization/update/basic", (0, helper_1.handleOverLoad)(han
 router.put("/api/v1/organization/update/contact", (0, helper_1.handleOverLoad)(handlers_1.updateOrganizationContact));
 router.put("/api/v1/organization/update/payment", (0, helper_1.handleOverLoad)(handlers_1.updateOrganizationPayment));
 router.post("/api/v1/new/organization/images", (0, helper_1.handleOverLoad)(handlers_1.upload));
-router.delete("/api/v1/organization", (0, helper_1.handleOverLoad)(handlers_1.deleteOrganization));
+router.delete("/api/v1/organization", validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.deleteOrganization));
 router.post(`/api/v1/organization/profile/image`, uploadImages_1.organizationImageUpload, (0, helper_1.handleOverLoad)(handlers_1.uploadOrganizationProfilePicture));
 router.post("/api/v1/organization/billing/test", (0, helper_1.handleOverLoad)(handlers_1.createOrganizationPricingHandler));
 router.get("/api/v1/organization/billing/test", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationPricingHandler));

@@ -11,6 +11,7 @@ interface ServiceBatchingRequestBody {
      amountPaid: number;
      paymentMethod: string;
      employeeid: number;
+     branchid: number;
      services: Array<number>;
      recipientid: number;
      recipient_type: 'clinician' | 'organization'
@@ -28,9 +29,12 @@ export class CommissionBatchServicesController {
      processServiceBatching = async (request: Request<{}, {}, ServiceBatchingRequestBody>, response: Response) => {
           try {
                const batchServicesRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
-               const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, recipientid, recipient_type, services } = request.body;
+               const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, branchid, recipientid, recipient_type, services } = request.body;
                const startDateObj = new Date(startDate);
                const endDateObj = new Date(endDate);
+               if (!branchid || !employeeid || !recipientid || !recipient_type) {
+                    return customError("Missing required fields: branchid, employeeid, recipientid, recipient_type", 400, response);
+               }
                if (isNaN(startDateObj.getTime()) || isNaN(endDateObj.getTime())) {
                     return customError("Invalid date format", 400, response);
                }
@@ -53,6 +57,7 @@ export class CommissionBatchServicesController {
                     amountPaid,
                     services: eligibleServices,
                     employeeid,
+                    branchid,
                     paymentMethod,
                     recipientId: recipientid,
                     recipientType: recipient_type
@@ -124,7 +129,7 @@ export class CommissionBatchServicesController {
      getBatchBreakdown = async (request: Request, response: Response) => {
           try {
                const { batchid } = request.params;
-               const batchPaymentsRepo = new CommissionBatchPaymentServicesRepo (this.tenantId);
+               const batchPaymentsRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
                const batchBreakdown = await batchPaymentsRepo.getBatchPaymentServices(parseInt(batchid));
                return response.send({
                     status: true,

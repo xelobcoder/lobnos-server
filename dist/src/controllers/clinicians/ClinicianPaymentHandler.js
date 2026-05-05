@@ -12,10 +12,13 @@ class ClinicianPaymentHandler {
                 res.status(400).json({ message: 'Missing required payment data: clinicianid and module are required.' });
                 return;
             }
-            Object.keys(paymentData).forEach(key => paymentData[key] === '' ? delete paymentData[key] : null);
+            Object.keys(paymentData).forEach((key) => {
+                return paymentData[key] === '' ? delete paymentData[key] : null;
+            });
             paymentData.created_on = new Date();
             paymentData.updated_on = new Date();
             const success = await repository.update(paymentData.clinicianid, paymentData);
+            console.log('Payment creation result:', success);
             if (success) {
                 res.status(201).json({ status: success });
             }

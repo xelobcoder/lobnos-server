@@ -56,11 +56,13 @@ export const getOrganizationsPayment = async (request: Request<{}, {}, {}, { ten
 	}
 };
 
-export const deleteOrganization = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string, employeeid: string, isPasswordConfirmed: string }>, response: Response): Promise<void> => {
+export const deleteOrganization = async (request: Request<{}, {}, {}, { tenantId: string, id:number }>, response: Response): Promise<void> => {
 	try {
-		const { organizationid, employeeid, isPasswordConfirmed } = request.query;
+		const {id } = request.query;
+		console.log(request.query)
 		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const deletionStatus = await new Organization(parseInt(organizationid.toString())).deleteOrganization(tenantIdP, parseInt(employeeid.toString()), isPasswordConfirmed as any)
+		const deletionStatus = await new Organization(parseInt(id.toString()))
+			.deleteOrganization(tenantIdP)
 		response.send({ status: deletionStatus });
 	} catch (error) {
 		console.error("Error in deleteOrganization:", error);
@@ -107,7 +109,6 @@ export const createAOrganization = async (request: Request<{}, {}, {}, { tenantI
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const isCreatedSuccess = await new Organization(null)
 			.createAorganization(tenantIdP, request.body as OrganizationRequestBody);
-		console.log('isCreated', isCreatedSuccess)
 		if (isCreatedSuccess === OperationsStatus.exist) {
 			return response.send({ message: OperationsStatus.exist, status: 'exist' })
 		}

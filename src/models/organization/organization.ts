@@ -132,21 +132,9 @@ class Organization {
 		return results;
 	}
 
-	async deleteOrganization(tenantId: number, employeeid: number, isPasswordConfirmed: false) {
-		if (!this.organizationId || !employeeid || !isPasswordConfirmed)
-			throw new Error("invalid arguments provided");
-		const users = new User(null, null, null, null, null);
-		const userid = parseInt(employeeid.toString());
-		const user_exist = await users.userExistWithId(tenantId, userid);
-		if (!user_exist) return OperationsStatus.userNotFound;
-		const userRole = await users.getUserRole(tenantId, userid);
-		if (!userRole) return OperationsStatus.userNotFound;
-		const isAuthorizedPersonel = ['admin', 'manager'];
-		if (!isAuthorizedPersonel.includes(userRole)) return OperationsStatus.unAuthorized;
-		if (isPasswordConfirmed) {
-			const deleted = await promisifyQuery(tenantId, `DELETE FROM organization WHERE ID = ?`, [this.organizationId]);
-			return rowAffected(deleted);
-		}
+	async deleteOrganization(tenantId: number) {
+		const deleted = await promisifyQuery(tenantId, `DELETE FROM organization WHERE ID = ?`, [this.organizationId]);
+		return rowAffected(deleted);
 	}
 
 	async createAorganization(tenantId: number, body: OrganizationRequestBody): Promise<boolean | string> {

@@ -503,7 +503,7 @@ class ExpenseInvoiceRepo {
         }
         const allExpenseIdsQuery = 'SELECT expense_id FROM invoice_expenses WHERE invoice_id = ?';
         const allExpenseLinks = await (0, helper_1.promisifyQuery)(this.tenantId, allExpenseIdsQuery, [invoiceId]);
-        const allExpenseIds = allExpenseLinks.map(link => link.expense_id);
+        const allExpenseIds = allExpenseLinks.map((link) => link.expense_id);
         const newTotalAmount = await this.calculateTotalFromExpenses(allExpenseIds);
         const updateQuery = 'UPDATE invoices SET total_amount = ?, updated_on = NOW() WHERE id = ?';
         await (0, helper_1.promisifyQuery)(this.tenantId, updateQuery, [newTotalAmount, invoiceId]);
@@ -596,6 +596,17 @@ class ExpenseInvoiceRepo {
                               `, [note, sp.id]);
                 }
             }
+            await (0, helper_1.promisifyQuery)(this.tenantId, `
+                         DELETE s FROM commission_batch_payment_services s
+                         JOIN commission_batch_payments p ON s.batch_payment_id = p.id
+                         WHERE p.expense_id = ?
+                            OR (? IS NOT NULL AND p.expense_invoice_id = ?)
+                    `, [expense_id, invoice_id, invoice_id]);
+            await (0, helper_1.promisifyQuery)(this.tenantId, `
+                         DELETE FROM commission_batch_payments
+                         WHERE expense_id = ?
+                            OR (? IS NOT NULL AND expense_invoice_id = ?)
+                    `, [expense_id, invoice_id, invoice_id]);
             return {
                 success: true,
                 message: `Payment of ${amount} has been successfully reversed`,

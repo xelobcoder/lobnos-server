@@ -26,7 +26,7 @@ class ClinicianPaymentRepository {
         try {
             const conn = await this.connection;
             return await conn('clinicianpaymentinfo')
-                .where({ id })
+                .where({ clinicianid: id })
                 .first();
         }
         catch (error) {
@@ -63,9 +63,27 @@ class ClinicianPaymentRepository {
     async update(clinicianid, updates) {
         try {
             const conn = await this.connection;
+            const existingRecord = await conn('clinicianpaymentinfo').where({ clinicianid })
+                .first();
+            if (!existingRecord) {
+                const clinicianBasicInfo = await conn('clinicianbasicinfo').where({ id: clinicianid }).first();
+                if (clinicianBasicInfo) {
+                    const newPaymentData = {
+                        clinicianid,
+                        module: updates.module || 'default',
+                        created_on: new Date(),
+                        updated_on: new Date(),
+                    };
+                    const created = await this.create(newPaymentData, conn);
+                    return created;
+                }
+                return false;
+            }
+            console.log('Existing record:', existingRecord);
             const result = await conn('clinicianpaymentinfo')
-                .where({ clinicianid })
+                .where({ clinicianid: updates.clinicianid })
                 .update(updates);
+            console.log('Update result:', result, updates);
             return result > 0;
         }
         catch (error) {

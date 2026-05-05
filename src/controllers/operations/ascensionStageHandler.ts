@@ -17,7 +17,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 		const parsedEmployeeId = parseInt(employeeid.toString());
 		const tenantIdP = parseInt(tenantId ? tenantId.toString() : '0');
 
-		if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP))) {
+		if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED','ULTRASOUND_UNCOMPLETED'].includes(operationsStaging?.toString() || '')) {
 			return response.send({ status: false, message: OperationsFailures.dontHaveAccessPermission });
 		}
 

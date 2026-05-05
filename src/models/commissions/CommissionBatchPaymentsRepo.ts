@@ -1,5 +1,7 @@
 import KnexConnection from "../../database/KnexConnections";
 import logger from "../../hooks/logger";
+import CommissionPaymentExpenseSync from "./CommissionPaymentExpenseSync";
+
 
 interface CommissionBatchPayment {
      id?: number;
@@ -26,6 +28,7 @@ interface CommissionPaymentParameter {
      recipientId?: number;
      paymentMethod?: string;
      employeeid: number;
+     branchid: number;
      amountPaid: number;
      services: Array<number>;
 }
@@ -50,8 +53,9 @@ export class CommissionBatchPaymentsRepo {
      }
 
      createBatchPaymentWithServices = async (data: CommissionPaymentParameter) => {
+          let trx: any;
           try {
-               const { startDate, endDate, commissionDue, amountPaid, services, employeeid, paymentMethod, recipientId, recipientType } = data;
+               const { startDate, endDate, commissionDue, amountPaid, services, branchid, employeeid, paymentMethod, recipientId, recipientType } = data;
                const commissionAmount = parseFloat(commissionDue.toString());
                const paid = parseFloat(amountPaid.toString());
                const waivedAmount = commissionAmount - paid;
@@ -87,8 +91,7 @@ export class CommissionBatchPaymentsRepo {
                          created_at: new Date(),
                          payment_method: paymentMethod,
                          updated_at: new Date()
-                    })
-                    .returning('id');
+                    });
 
                const batchPaymentId = batchID[0];
 
@@ -112,10 +115,40 @@ export class CommissionBatchPaymentsRepo {
                          });
                }
 
+               // Automatically convert commission payment to expense within the same transaction
+               const expenseResult = await CommissionPaymentExpenseSync.markCommissionPaymentAsExpense(this.tenantId, {
+                    batchPaymentId: batchPaymentId,
+                    employeeid,
+                    branchid
+               }, trx); // Pass the transaction
+
+               if (!expenseResult.success) {
+                    throw new Error(`Failed to convert commission payment to expense: ${expenseResult.message}`);
+               }
+
+               // Update the commission batch payment with expense sync info
+               await trx('commission_batch_payments')
+                    .where('id', batchPaymentId)
+                    .update({
+                         expense_synced: true,
+                         expense_id: expenseResult.expense_id,
+                         expense_invoice_id: expenseResult.invoice_id,
+                         expense_payment_id: expenseResult.expense_payment_id,
+                         updated_at: new Date() as any
+                    });
+
                await trx.commit();
+
                return { batchPaymentId };
           } catch (error) {
                logger.error('Error creating batch payment with services:', error);
+               if (trx && typeof trx.rollback === 'function') {
+                    try {
+                         await trx.rollback();
+                    } catch (rollbackError) {
+                         logger.error('Failed to rollback commission batch payment transaction:', rollbackError);
+                    }
+               }
                throw error;
           }
      }
@@ -142,23 +175,23 @@ export class CommissionBatchPaymentsRepo {
                     batch = batch.where('recipient_type', recipient_type);
                }
 
-               if(!recipient_id && !recipient_type){
+               if (!recipient_id && !recipient_type) {
                     batch = batch.leftJoin("organization", "organization.id", "commission_batch_payments.recipient_id")
-                    .leftJoin("clinicianbasicinfo", "clinicianbasicinfo.id", "commission_batch_payments.recipient_id")
-                    .select(
-                         conn.raw(`CASE 
+                         .leftJoin("clinicianbasicinfo", "clinicianbasicinfo.id", "commission_batch_payments.recipient_id")
+                         .select(
+                              conn.raw(`CASE 
                               WHEN commission_batch_payments.recipient_type = 'organization' THEN organization.name
                               WHEN commission_batch_payments.recipient_type = 'clinician' THEN clinicianbasicinfo.name
                               ELSE 'Unknown'
                          END as recipient_name`)
-                    );
+                         );
                }
-               
+
 
                if (startDate && endDate) {
                     batch = batch.where('start_date', '>=', startDate).andWhere('end_date', '<=', endDate);
                }
-               
+
                if (batchid) {
                     batch = batch.where('id', batchid);
                }
@@ -170,6 +203,24 @@ export class CommissionBatchPaymentsRepo {
                return await batch;
           } catch (error) {
                logger.error('Error fetching batch payment:', error);
+               throw error;
+          }
+     }
+
+     /**
+      * Convert a commission batch payment to an expense
+      * Called automatically after payment or manually for existing payments
+      */
+     convertToExpense = async (batchPaymentId: number, employeeid: number, branchid: number) => {
+          try {
+               const result = await CommissionPaymentExpenseSync.markCommissionPaymentAsExpense(this.tenantId, {
+                    batchPaymentId,
+                    employeeid,
+                    branchid
+               });
+               return result;
+          } catch (error) {
+               logger.error('Error converting commission payment to expense:', error);
                throw error;
           }
      }

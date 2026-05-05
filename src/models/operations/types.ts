@@ -34,7 +34,7 @@ export const enum OperationsFailures {
 	unauthorized = 'Unauthorized access.',
 	internalServerError = 'An internal server error occurred.',
 	dontHavePermission = "You do not have permission to delete this resources",
-	dontHaveAccessPermission = "You do not have permission to access this resources",
+	dontHaveAccessPermission = "You do not have permission to access this resources.Contact administrator for more information",
 	invalidRequestBodyType = "The type of request body is invalid",
 	sessionNotFound = "No active sales session found for the current date.",
 	cannotCreateSessionForDate = "Cannot create a session for the provided date. A session already exists for this date.",
