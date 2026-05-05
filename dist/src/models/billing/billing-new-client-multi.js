@@ -184,7 +184,6 @@ class SubmitCustomerBilling {
                 const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
                 const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
                 const role = new user_1.default().getUserRole(employeeid, tenantId);
-                console.log(role);
                 if (role && typeof role == 'string' && role != 'admin') {
                     await discount_limit_1.default.enforceAndRecord({
                         tenantId: this.tenantId,

@@ -76,10 +76,13 @@ class CommissionBatchServicesController {
     }
     async getBatchInformation(request, response) {
         try {
-            const { batchid, recipient_id, recipient_type, startDate, endDate } = request.query;
+            const { batchid, recipient_id, recipient_type, startDate, endDate, page, count, sortby } = request.query;
             const batchPaymentsRepo = new CommissionBatchPaymentsRepo_1.CommissionBatchPaymentsRepo(this.tenantId);
             const batchInfo = await batchPaymentsRepo.getBatch({
                 batchid: parseInt(batchid),
+                page: page ? parseInt(page) : 1,
+                count: count ? parseInt(count) : 10,
+                sortby: sortby === 'ASC' ? 'ASC' : 'DESC',
                 startDate: startDate ? new Date(startDate) : undefined,
                 endDate: endDate ? new Date(endDate) : undefined,
                 recipient_id: recipient_id ? parseInt(recipient_id) : undefined,

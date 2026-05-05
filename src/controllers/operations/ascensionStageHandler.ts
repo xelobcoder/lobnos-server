@@ -17,7 +17,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 		const parsedEmployeeId = parseInt(employeeid.toString());
 		const tenantIdP = parseInt(tenantId ? tenantId.toString() : '0');
 
-		if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED','ULTRASOUND_UNCOMPLETED'].includes(operationsStaging?.toString() || '')) {
+		if (!(await isScientistOrAdminOrManager(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED', 'ULTRASOUND_UNCOMPLETED'].includes(operationsStaging?.toString() || '')) {
 			return response.send({ status: false, message: OperationsFailures.dontHaveAccessPermission });
 		}
 
@@ -53,7 +53,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 
 async function validatedResultEmployeeGetter(item: any, tenantId: number) {
 	const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id,
-		fullpatientid, paymentstatus, ascension_date,delivered_by_employeeid, delivered_at, delivered_mode,requested_mode ,delivered_by_username} = item;
+		fullpatientid, paymentstatus, ascension_date, delivered_by_employeeid, delivered_at, delivered_mode, requested_mode, delivered_by_username } = item;
 	const validators = await new TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
 	return {
 		department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id,
@@ -65,7 +65,16 @@ async function isScientistOrAdmin(employeeId: number, tenantId: number): Promise
 	return await new User().getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
 }
 
+async function isScientistOrAdminOrManager(employeeId: number, tenantId: number): Promise<boolean | null> {
+	return await new User().getExpectedRole(employeeId, ['scientist', 'admin', 'manager'], tenantId);
+}
+
 async function canValidateResults(employeeId: number, tenantId: number): Promise<boolean> {
+	const isAdminOrManager = await new User().getExpectedRole(employeeId, ['admin', 'manager'], tenantId);
+	if (isAdminOrManager) {
+		return true;
+	}
+
 	const validationSettings = await ResultSettings.getResultEntrySettings(tenantId);
 	return (
 		typeof validationSettings === "object" &&

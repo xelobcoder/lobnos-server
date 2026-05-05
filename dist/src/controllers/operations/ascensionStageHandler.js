@@ -16,7 +16,7 @@ async function ascensionStagingHandler(request, response) {
         }
         const parsedEmployeeId = parseInt(employeeid.toString());
         const tenantIdP = parseInt(tenantId ? tenantId.toString() : '0');
-        if (!(await isScientistOrAdmin(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED', 'ULTRASOUND_UNCOMPLETED'].includes((operationsStaging === null || operationsStaging === void 0 ? void 0 : operationsStaging.toString()) || '')) {
+        if (!(await isScientistOrAdminOrManager(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED', 'ULTRASOUND_UNCOMPLETED'].includes((operationsStaging === null || operationsStaging === void 0 ? void 0 : operationsStaging.toString()) || '')) {
             return response.send({ status: false, message: "You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */ });
         }
         if (operationsStaging === "VALIDATION" && !(await canValidateResults(parsedEmployeeId, tenantIdP))) {
@@ -56,7 +56,14 @@ async function validatedResultEmployeeGetter(item, tenantId) {
 async function isScientistOrAdmin(employeeId, tenantId) {
     return await new user_1.default().getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
 }
+async function isScientistOrAdminOrManager(employeeId, tenantId) {
+    return await new user_1.default().getExpectedRole(employeeId, ['scientist', 'admin', 'manager'], tenantId);
+}
 async function canValidateResults(employeeId, tenantId) {
+    const isAdminOrManager = await new user_1.default().getExpectedRole(employeeId, ['admin', 'manager'], tenantId);
+    if (isAdminOrManager) {
+        return true;
+    }
     const validationSettings = await resultSettings_1.default.getResultEntrySettings(tenantId);
     return (typeof validationSettings === "object" &&
         Array.isArray(validationSettings.staffQualifiedToValidationResult) &&

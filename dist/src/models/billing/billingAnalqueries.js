@@ -43,7 +43,7 @@ BillingAnalytics.weeklySalesTrend = `
         expenses AS (
             SELECT WEEK(payment_date) AS week, COALESCE(SUM(amount), 0) AS total_expenses
             FROM expense_payments
-            WHERE YEAR(payment_date) = ? AND COALESCE(is_reversed, 0) = 0
+            WHERE YEAR(payment_date) = ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
             GROUP BY WEEK(payment_date)
         )
         SELECT s.week,
@@ -90,12 +90,12 @@ BillingAnalyticsWithDate.totalSalesByBranch = `
         (
           SELECT SUM(exp.amount) FROM expense_payments AS exp
             WHERE exp.branchid = dboservices.branchid
-            AND DATE(exp.payment_date) BETWEEN ? AND ? AND COALESCE(exp.is_reversed, 0) = 0
+            AND DATE(exp.payment_date) BETWEEN ? AND ? AND COALESCE(exp.is_reversed, 0) = 0 AND exp.status = 'Paid'
         ) AS total_expenses,
          COALESCE(SUM(dboservices.paidamount), 0) - (
             SELECT SUM(exp.amount) FROM expense_payments AS exp
             WHERE exp.branchid = dboservices.branchid
-            AND DATE(exp.payment_date) BETWEEN ? AND ? AND COALESCE(exp.is_reversed, 0) = 0
+            AND DATE(exp.payment_date) BETWEEN ? AND ? AND COALESCE(exp.is_reversed, 0) = 0 AND exp.status = 'Paid'
         ) AS net_revenue,
          b.name
         FROM dboservices
@@ -176,7 +176,7 @@ BillingAnalyticsWithDate.monthlySalesTrend = `
             expenses AS (
                 SELECT MONTHNAME(DATE_SUB(payment_date, INTERVAL DAYOFMONTH(payment_date)-1 DAY)) AS month, COALESCE(SUM(amount), 0) AS total_expenses
                 FROM expense_payments
-                WHERE YEAR(payment_date) = ? AND COALESCE(is_reversed, 0) = 0
+                WHERE YEAR(payment_date) = ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
                 GROUP BY MONTH(payment_date)
             )
             SELECT s.month, 
@@ -210,7 +210,7 @@ BillingAnalyticsWithDate.dailySalesTrend = `
         SELECT DATE(payment_date) AS date, 
         COALESCE(SUM(amount), 0) AS total_expenses
         FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0
+        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
         GROUP BY DATE(payment_date)
     )
             SELECT s.date, 
@@ -258,7 +258,7 @@ BillingAnalyticsWithDate.yearlySalesTrend = `
         expenses AS (
             SELECT YEAR(payment_date) AS year, COALESCE(SUM(amount), 0) AS total_expenses
             FROM expense_payments
-            WHERE COALESCE(is_reversed, 0) = 0
+            WHERE COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
             GROUP BY YEAR(payment_date)
         )
         SELECT s.year,
@@ -297,7 +297,7 @@ BillingAnalyticsWithDate.hourlySalesTrend = `
     expenses AS (
         SELECT HOUR(payment_date) AS hour, COALESCE(SUM(amount), 0) AS total_expenses
         FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0
+        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
         GROUP BY HOUR(payment_date)
     )
     SELECT s.hour, 

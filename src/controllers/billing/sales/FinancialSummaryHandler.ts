@@ -246,7 +246,7 @@ export const handleFinancialAnalyticsGetKeys = async function (request: Request,
 
 
 
-export const handleSalesSummaryDailyBreakDown = async function (request: Request<{}, {}, {
+export const handleSalesSummaryDailyBreakDown = async function (request: Request<{}, {},{}, {
 	tenantId: number,
 	targetDate: string,
 	fromDate: string,
@@ -258,7 +258,7 @@ export const handleSalesSummaryDailyBreakDown = async function (request: Request
 		const responseData = await getDailyAnalyticsDashboard(tennatId, targetDate as string, fromDate as string, toDate as string);
 		response.send(responseData);
 		
-	} catch (error) {
+	} catch (error:any) {
 		console.log(error)
 		response.status(500).json({
 			error: "Failed to retrieve function keys",

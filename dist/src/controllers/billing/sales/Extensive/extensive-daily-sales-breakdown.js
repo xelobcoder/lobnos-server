@@ -12,7 +12,7 @@ async function getDailyAnalyticsDashboard(tenantId, targetDate, fromDate = targe
         if (!fromDate || !toDate || !(new Date(fromDate) <= new Date(toDate)))
             return "Invalid date range provided." /* OperationsFailures.invalidDateRange */;
         const db = await (0, KnexConnections_1.default)(tenantId);
-        const [dailyCeoSnapshot, dailyNightAdjustmentImpact, dailyTestTransactionSnapshot, topPerformingBranches, mismatchedPaymentHistory, breakDownPaymentModes, employeesWhoCollectedCash, cliniciansalesdailyData, totalExpensesPeriodComparison, allExpenseCategories, expenseApprovalStatusSummary, expensePaymentsSummary, expensePaymentsFullList, billableExpenses, monthlyExpenseTrend, allIndividualExpenses, unapprovedExpensesPeriod, expensesByBranch, ceoExpenseSummarySnapshot] = await Promise.all([
+        const [dailyCeoSnapshot, dailyNightAdjustmentImpact, dailyTestTransactionSnapshot, topPerformingBranches, mismatchedPaymentHistory, breakDownPaymentModes, employeesWhoCollectedCash, cliniciansalesdailyData, totalExpensesPeriodComparison, allExpenseCategories, expenseApprovalStatusSummary, expensePaymentsSummary, expensePaymentsFullList, billableExpenses, monthlyExpenseTrend, allIndividualExpenses, unapprovedExpensesPeriod, expensesByBranch, ceoExpenseSummarySnapshot, reversedPaymentsList] = await Promise.all([
             db.raw(queries_1.QUERY_DAILY_CEO_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate]),
             db.raw(queries_1.QUERY_NIGHT_ADJUSTMENT_IMPACT, [fromDate, toDate]),
             db.raw(queries_1.QUERY_TEST_TRANSACTION_SNAPSHOT, [fromDate, toDate]),
@@ -31,7 +31,8 @@ async function getDailyAnalyticsDashboard(tenantId, targetDate, fromDate = targe
             db.raw(queries_1.QUERY_ALL_INDIVIDUAL_EXPENSES, [fromDate, toDate]),
             db.raw(queries_1.QUERY_UNAPPROVED_EXPENSES_PERIOD, [toDate, fromDate, toDate]),
             db.raw(queries_1.QUERY_EXPENSES_BY_BRANCH, [fromDate, toDate, fromDate, toDate]),
-            db.raw(queries_1.QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate])
+            db.raw(queries_1.QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate]),
+            db.raw(queries_1.QUERY_REVERSED_EXPENSE_PAYMENTS_LIST, [fromDate, toDate])
         ]);
         return {
             dailyCeoSnapshot: dailyCeoSnapshot[0],

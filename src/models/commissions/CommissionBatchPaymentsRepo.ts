@@ -40,6 +40,10 @@ interface GetBatchParameters {
      recipient_type?: 'clinician' | 'organization';
      startDate?: Date;
      endDate?: Date;
+     page?: number;
+     count?: number;
+     sortby?: 'ASC' | 'DESC';
+
 }
 
 
@@ -85,7 +89,7 @@ export class CommissionBatchPaymentsRepo {
                          total_commission_amount: commissionAmount,
                          payment_amount: paid,
                          waived_amount: waivedAmount,
-                         status: isWaived ? 'partial' : 'completed',
+                         status:  'completed',
                          created_by: employeeid,
                          payment_date: new Date(),
                          created_at: new Date(),
@@ -154,7 +158,7 @@ export class CommissionBatchPaymentsRepo {
      }
 
 
-     getBatch = async ({ batchid, recipient_id, recipient_type, startDate, endDate }: GetBatchParameters) => {
+     getBatch = async ({ batchid, recipient_id, recipient_type, startDate, endDate,page,count,sortby }: GetBatchParameters) => {
           try {
                const conn = await this.connection;
                let batch = conn('commission_batch_payments')
@@ -198,6 +202,13 @@ export class CommissionBatchPaymentsRepo {
 
                if (recipient_id) {
                     batch = batch.where('recipient_id', recipient_id);
+               }
+
+               if (page && count) {
+                    const offset = (page - 1) * count;
+                    batch = batch.orderBy('created_at', sortby || 'DESC').limit(count).offset(offset);
+               } else {
+                    batch = batch.orderBy('created_at', sortby || 'DESC');
                }
 
                return await batch;

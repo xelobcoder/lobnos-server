@@ -19,7 +19,8 @@ import {
 	QUERY_ALL_INDIVIDUAL_EXPENSES,
 	QUERY_UNAPPROVED_EXPENSES_PERIOD,
 	QUERY_EXPENSES_BY_BRANCH,
-	QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT
+	QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT,
+	QUERY_REVERSED_EXPENSE_PAYMENTS_LIST
 } from "./queries";
 
 interface DashboardSnapshot {
@@ -73,7 +74,8 @@ export async function getDailyAnalyticsDashboard(
 			allIndividualExpenses,
 			unapprovedExpensesPeriod,
 			expensesByBranch,
-			ceoExpenseSummarySnapshot
+			ceoExpenseSummarySnapshot,
+			reversedPaymentsList
 		] = await Promise.all([
 			db.raw(QUERY_DAILY_CEO_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate]),
 			db.raw(QUERY_NIGHT_ADJUSTMENT_IMPACT, [fromDate, toDate]),
@@ -93,7 +95,8 @@ export async function getDailyAnalyticsDashboard(
 			db.raw(QUERY_ALL_INDIVIDUAL_EXPENSES, [fromDate, toDate]),
 			db.raw(QUERY_UNAPPROVED_EXPENSES_PERIOD, [toDate, fromDate, toDate]),
 			db.raw(QUERY_EXPENSES_BY_BRANCH, [fromDate, toDate, fromDate, toDate]),
-			db.raw(QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate])
+			db.raw(QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate]),
+			db.raw(QUERY_REVERSED_EXPENSE_PAYMENTS_LIST , [fromDate, toDate])
 		]);
 
 		return {

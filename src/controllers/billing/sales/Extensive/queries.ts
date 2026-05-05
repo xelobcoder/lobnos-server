@@ -9,9 +9,9 @@ export const QUERY_DAILY_CEO_SNAPSHOT = `
             COALESCE(SUM(discount), 0) AS total_discount,
             COALESCE(SUM(outstanding), 0) AS outstanding_debt,
             COALESCE(SUM(r.amountRefunded), 0) AS total_refunds,
-            (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?) AS total_expense_payments,
+            (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND is_reversed = 0) AS total_expense_payments,
             COUNT(dboservices.serviceid) AS total_tests_conducted,
-            COALESCE(SUM(paidamount), 0) - (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ?) AS net_revenue
+            COALESCE(SUM(paidamount), 0) - (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND is_reversed = 0) AS net_revenue
             FROM dboservices
             LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
             WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ? AND ${major_constraints}
@@ -239,7 +239,7 @@ FROM expense_payments p
 JOIN expensesrecord e ON p.expense_id = e.id
 LEFT JOIN expense_merchants em
     ON e.merchant = em.id
-WHERE e.date BETWEEN ? AND ?
+WHERE e.date BETWEEN ? AND ? AND p.status = 'Paid' AND p.is_reversed = 0
 GROUP BY p.status, p.method
 ORDER BY total_reimbursed_amount DESC
 `;
@@ -258,7 +258,7 @@ SELECT
     p.created_by AS paid_by_employee_id
 FROM expense_payments p
 JOIN expensesrecord e ON p.expense_id = e.id
-WHERE e.date BETWEEN ? AND ?
+WHERE e.date BETWEEN ? AND ? AND p.status = 'Paid' AND p.is_reversed = 0
 ORDER BY p.payment_date DESC, p.amount DESC
 `;
 
@@ -299,11 +299,16 @@ em.name AS merchant_name,
     r.username AS submitted_by,
     c.category,
     CASE WHEN e.approved = 1 THEN 'Approved' ELSE 'Pending' END AS approval_status,
+    ep.status AS payment_status,
+    ep.amount AS payment_amount,
+    DATE(ep.payment_date) AS payment_date,
+    CASE WHEN ep.is_reversed = 1 THEN 'Yes' WHEN ep.is_reversed = 0 THEN 'No' ELSE 'Unknown' END AS is_reversed,
     e.employeeid,
     e.branchid,
     e.description
 FROM expensesrecord e
 JOIN dboexpensecategory c ON e.category = c.id
+LEFT JOIN expense_payments ep ON e.id = ep.expense_id AND ep.status = 'Paid' AND ep.is_reversed = 0
 LEFT JOIN roles r
     ON e.employeeid = r.employeeid
 LEFT JOIN expense_merchants em
@@ -312,6 +317,34 @@ LEFT JOIN branch b
     ON e.branchid = b.branchid
 WHERE e.date BETWEEN ? AND ?
 ORDER BY e.date DESC, e.amount DESC
+`;
+
+export const QUERY_REVERSED_EXPENSE_PAYMENTS_LIST = `
+SELECT 
+    p.id AS payment_id,
+    e.id AS expense_id,
+    e.name AS expense_name,
+    e.merchant,
+    e.amount AS claimed_amount,
+    p.amount AS paid_amount,
+    DATE(p.payment_date) AS payment_date,
+    p.method AS payment_method,
+    p.status AS payment_status,
+    CASE WHEN p.is_reversed = 1 THEN 'Yes' ELSE 'No' END AS is_reversed,
+    p.created_by AS paid_by_employee_id,
+    r.username AS paid_by_username,
+    em.name AS merchant_name,
+    b.name AS branch_name,
+    c.category AS expense_category,
+    e.description AS expense_description
+FROM expense_payments p
+INNER JOIN expensesrecord e ON p.expense_id = e.id
+LEFT JOIN roles r ON p.created_by = r.employeeid
+LEFT JOIN expense_merchants em ON e.merchant = em.id
+LEFT JOIN branch b ON e.branchid = b.branchid
+LEFT JOIN dboexpensecategory c ON e.category = c.id
+WHERE p.is_reversed = 1 AND DATE(p.payment_date) BETWEEN ? AND ?
+ORDER BY p.payment_date DESC, p.amount DESC
 `;
 
 export const QUERY_UNAPPROVED_EXPENSES_PERIOD = `
@@ -369,7 +402,7 @@ SELECT
     (SELECT COALESCE(SUM(p.amount), 0) 
      FROM expense_payments p 
      JOIN expensesrecord e ON p.expense_id = e.id 
-     WHERE p.status = 'Paid' AND e.date BETWEEN ? AND ?) 
+     WHERE p.status = 'Paid' AND p.is_reversed = 0 AND e.date BETWEEN ? AND ?) 
         AS total_reimbursed_amount,
     
     (SELECT COALESCE(SUM(er.amount), 0) 

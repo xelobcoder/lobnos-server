@@ -2,6 +2,7 @@ import Organization from "../../models/organization/organization";
 import { newOrganization, OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "../../models/organization/OrgaInterfac";
 import { getUploadedImages } from "./uploadImages";
 import OrganizationalBilling from "../../models/organization/organizationBilling";
+import { OrganizationAnalyticsRepository } from "../../models/organization/organization-analytics/organizationAnalyticsRepository";
 import { HTTPSTATUSERRORS } from "../../Errors/HTTPErrors";
 import { customError, responseError } from "../../hooks/helper";
 import { Request, Response } from "express";
@@ -56,9 +57,9 @@ export const getOrganizationsPayment = async (request: Request<{}, {}, {}, { ten
 	}
 };
 
-export const deleteOrganization = async (request: Request<{}, {}, {}, { tenantId: string, id:number }>, response: Response): Promise<void> => {
+export const deleteOrganization = async (request: Request<{}, {}, {}, { tenantId: string, id: number }>, response: Response): Promise<void> => {
 	try {
-		const {id } = request.query;
+		const { id } = request.query;
 		console.log(request.query)
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const deletionStatus = await new Organization(parseInt(id.toString()))
@@ -187,6 +188,56 @@ export const getOrganizationCommissionByMonth = async (request: Request<{}, {}, 
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		const commissionByMonth = await new Organization(id).monthSales(tenantIdP);
 		response.send({ commissionByMonth });
+	} catch (error) {
+		responseError(response);
+	}
+};
+
+export const getOrganizationsCommissionByDate = async (
+	request: Request<{}, {}, {}, { tenantId: string, startDate: string, endDate: string, page?: string, count?: string, sortby?: 'ASC' | 'DESC' }>,
+	response: Response
+): Promise<void> => {
+	try {
+		const { startDate, endDate, page = '1', count = '10', sortby = 'DESC' } = request.query;
+		const tenantIdP = parseInt(request.query.tenantId.toString());
+
+		if (!startDate || !endDate) {
+			return customError('startDate and endDate query params are required', 400, response);
+		}
+
+		const result = await OrganizationAnalyticsRepository.getOrganizationsCommissionByDate(tenantIdP, {
+			startDate: startDate.toString(),
+			endDate: endDate.toString(),
+			page: parseInt(page.toString()),
+			count: parseInt(count.toString()),
+			sortby: sortby === 'ASC' ? 'ASC' : 'DESC'
+		});
+
+		response.send({ result });
+	} catch (error) {
+		responseError(response);
+	}
+};
+
+export const getOrganizationCommission = async (
+	request: Request<{}, {}, {}, { tenantId: string, organizationid: string, startDate: string, endDate: string }>,
+	response: Response
+): Promise<void> => {
+	try {
+		const { organizationid, startDate, endDate } = request.query;
+		if (!organizationid || !startDate || !endDate) {
+			return customError('organizationid, startDate and endDate query params are required', 400, response);
+		}
+		const tenantIdP = parseInt(request.query.tenantId.toString());
+		const id = parseInt(organizationid.toString());
+
+		const result = await OrganizationAnalyticsRepository.getOrganizationCommission(
+			tenantIdP,
+			id,
+			startDate.toString(),
+			endDate.toString()
+		);
+		response.send({ result });
 	} catch (error) {
 		responseError(response);
 	}

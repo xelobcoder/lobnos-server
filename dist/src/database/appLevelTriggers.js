@@ -217,7 +217,10 @@ async function applyOrganizationAfterInsert(db, organizationid) {
         .where({ organizationid })
         .first();
     if (!account) {
-        await db("organizationaccountinformation").insert({ organizationid, });
+        // insert default commission value for the organization if global commission default exist for organization
+        const commissionDefault = await new CommissionDefaultsRepository_1.CommissionDefaultsRepository(0, db).getByTargetType('ORGANIZATION');
+        const commissionValue = commissionDefault ? commissionDefault.commission_value : 0;
+        await db("organizationaccountinformation").insert({ organizationid, commission: commissionValue });
     }
 }
 exports.applyOrganizationAfterInsert = applyOrganizationAfterInsert;

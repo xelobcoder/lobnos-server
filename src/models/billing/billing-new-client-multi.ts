@@ -8,7 +8,6 @@ import { CustomerBillingCheckout } from "./multi/customerBillingCheckout";
 import { EntityType } from "../clincians/c.dev.type";
 import { OperationsFailures } from "../operations/types";
 import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
-import OutsourcedCases from "../organization/outsourcingOrganization/outsourcedCases";
 import { applyDboservicesAfterInsert, applyDboservicesAfterUpdate } from "../../database/appLevelTriggers";
 import User from "../../LobnosAuth/user";
 import DiscountLimitService from "./billing-services/discount-limit";
@@ -235,7 +234,7 @@ export class SubmitCustomerBilling {
                 const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
                 const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
                 const role = new User().getUserRole(employeeid, tenantId);
-console.log(role);
+
                 if (role && typeof role == 'string' && role != 'admin') {
                     await DiscountLimitService.enforceAndRecord({
                         tenantId: this.tenantId,

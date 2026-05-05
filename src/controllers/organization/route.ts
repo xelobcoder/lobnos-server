@@ -7,7 +7,7 @@ import {
      getOutsourcedCasesPaginated
 } from "./outsourceHandlers"
 import { organizationImageUpload } from './uploadImages'
-import { bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler, dailyOrganizationCommission, deleteOrganization, generateMonthlySalesReport, getOrganizationCommissionByMonth, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationWithDetails, getTopPerformance, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
+import { bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler, dailyOrganizationCommission, deleteOrganization, generateMonthlySalesReport, getOrganizationCommission, getOrganizationCommissionByMonth, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationsCommissionByDate, getOrganizationWithDetails, getTopPerformance, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
 import { handleOverLoad } from '../../hooks/helper';
 import { isAuthorizedRoleAdmin } from '../../middleware/validateTenancy';
 
@@ -20,6 +20,8 @@ router.get("/api/v1/organization/contactperson", handleOverLoad(getOrganizations
 router.get("/api/v1/organization/payment", handleOverLoad(getOrganizationsPayment));
 router.get("/api/v1/organization/daily", handleOverLoad(dailyOrganizationCommission));
 router.get("/api/v1/organization/monthly", handleOverLoad(getOrganizationCommissionByMonth));
+router.get("/api/v1/organization/commission/summary", handleOverLoad(getOrganizationsCommissionByDate));
+router.get("/api/v1/organization/commission", handleOverLoad(getOrganizationCommission));
 router.get(`/api/v1/organization/profile/image`, handleOverLoad(getOrganizationImage));
 router.get("/api/v1/organization/id", handleOverLoad(getOrganizationId));
 router.get("/api/v1/organization/performance/top", handleOverLoad(getTopPerformance));

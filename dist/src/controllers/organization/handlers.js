@@ -3,10 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bulkInsertOrganizationsHandler = exports.getOrganizationPricingHandler = exports.createOrganizationPricingHandler = exports.generateMonthlySalesReport = exports.getTopPerformance = exports.getOrganizationId = exports.getOrganizationCommissionByMonth = exports.dailyOrganizationCommission = exports.upload = exports.updateOrganizationPayment = exports.updateOrganizationContact = exports.updateOrganizationBasic = exports.createAOrganization = exports.getOrganizationImage = exports.uploadOrganizationProfilePicture = exports.getOrganizationWithDetails = exports.deleteOrganization = exports.getOrganizationsPayment = exports.getOrganizationsContact = exports.getOrganizationsBasic = exports.getOrganizations = void 0;
+exports.bulkInsertOrganizationsHandler = exports.getOrganizationPricingHandler = exports.createOrganizationPricingHandler = exports.generateMonthlySalesReport = exports.getTopPerformance = exports.getOrganizationId = exports.getOrganizationCommission = exports.getOrganizationsCommissionByDate = exports.getOrganizationCommissionByMonth = exports.dailyOrganizationCommission = exports.upload = exports.updateOrganizationPayment = exports.updateOrganizationContact = exports.updateOrganizationBasic = exports.createAOrganization = exports.getOrganizationImage = exports.uploadOrganizationProfilePicture = exports.getOrganizationWithDetails = exports.deleteOrganization = exports.getOrganizationsPayment = exports.getOrganizationsContact = exports.getOrganizationsBasic = exports.getOrganizations = void 0;
 const organization_1 = __importDefault(require("../../models/organization/organization"));
 const uploadImages_1 = require("./uploadImages");
 const organizationBilling_1 = __importDefault(require("../../models/organization/organizationBilling"));
+const organizationAnalyticsRepository_1 = require("../../models/organization/organization-analytics/organizationAnalyticsRepository");
 const helper_1 = require("../../hooks/helper");
 const getOrganizations = async (req, res) => {
     try {
@@ -210,6 +211,43 @@ const getOrganizationCommissionByMonth = async (request, response) => {
     }
 };
 exports.getOrganizationCommissionByMonth = getOrganizationCommissionByMonth;
+const getOrganizationsCommissionByDate = async (request, response) => {
+    try {
+        const { startDate, endDate, page = '1', count = '10', sortby = 'DESC' } = request.query;
+        const tenantIdP = parseInt(request.query.tenantId.toString());
+        if (!startDate || !endDate) {
+            return (0, helper_1.customError)('startDate and endDate query params are required', 400, response);
+        }
+        const result = await organizationAnalyticsRepository_1.OrganizationAnalyticsRepository.getOrganizationsCommissionByDate(tenantIdP, {
+            startDate: startDate.toString(),
+            endDate: endDate.toString(),
+            page: parseInt(page.toString()),
+            count: parseInt(count.toString()),
+            sortby: sortby === 'ASC' ? 'ASC' : 'DESC'
+        });
+        response.send({ result });
+    }
+    catch (error) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.getOrganizationsCommissionByDate = getOrganizationsCommissionByDate;
+const getOrganizationCommission = async (request, response) => {
+    try {
+        const { organizationid, startDate, endDate } = request.query;
+        if (!organizationid || !startDate || !endDate) {
+            return (0, helper_1.customError)('organizationid, startDate and endDate query params are required', 400, response);
+        }
+        const tenantIdP = parseInt(request.query.tenantId.toString());
+        const id = parseInt(organizationid.toString());
+        const result = await organizationAnalyticsRepository_1.OrganizationAnalyticsRepository.getOrganizationCommission(tenantIdP, id, startDate.toString(), endDate.toString());
+        response.send({ result });
+    }
+    catch (error) {
+        (0, helper_1.responseError)(response);
+    }
+};
+exports.getOrganizationCommission = getOrganizationCommission;
 const getOrganizationId = async (req, res) => {
     try {
         // const organizationId = await Organization.getOrganizationId(req, res);
