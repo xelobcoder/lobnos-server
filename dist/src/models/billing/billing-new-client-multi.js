@@ -25,6 +25,7 @@ const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDa
 const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const discount_limit_1 = __importDefault(require("./billing-services/discount-limit"));
+const commission_configurations_1 = require("../commissions/commission-configurations");
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
         var _a, _b, _c, _d;
@@ -404,6 +405,18 @@ class SubmitCustomerBilling {
                 catch (_d) { }
                 throw error;
             }
+            // ==================== CALCULATE COMMISSIONS ====================
+            // After successful commit, calculate commissions for all services in this billing
+            try {
+                await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID);
+            }
+            catch (error) {
+                // Log commission calculation errors but don't fail the billing submission
+                commission_configurations_1.CommissionLogger.error('Commission calculation failed after billing submit', {
+                    billingid: finalBillingIdForEvent || billingID,
+                    error: error.message
+                });
+            }
             const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
             const repo = new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId);
             await repo.paymentConfirmationEvent(tenantId, finalBillingIdForEvent || billingID, parsedEmployeeId);
@@ -411,6 +424,79 @@ class SubmitCustomerBilling {
         }
         catch (error) {
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
+        }
+    }
+    /**
+     * Trigger commission calculation for all services in a billing
+     * Called after successful billing submission to calculate and store commissions
+     */
+    static async triggerCommissionCalculation(tenantId, billingId) {
+        try {
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            // Get all services for this billing
+            const services = await connection('dboservices')
+                .where({ billingid: billingId })
+                .select('id', 'serviceid', 'amount', 'clinicianid', 'organizationid', 'created_at', 'serviceCategory');
+            if (!services || services.length === 0) {
+                commission_configurations_1.CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
+                return;
+            }
+            // Create commission engine
+            const engine = commission_configurations_1.CommissionServiceFactory.createEngine(tenantId);
+            // Calculate commission for each service
+            for (const service of services) {
+                try {
+                    const result = await engine.executeCommissionCalculation({
+                        serviceId: service.id,
+                        serviceAmount: service.amount || 0,
+                        clinicianId: service.clinicianid || null,
+                        organizationId: service.organizationid || null,
+                        serviceTypeId: service.serviceid,
+                        serviceCategory: service.serviceCategory || null,
+                        completionDate: service.created_at || new Date(),
+                    });
+                    if (result.reason === 'SUCCESS') {
+                        commission_configurations_1.CommissionLogger.info('Commission calculated successfully', {
+                            service_id: service.id,
+                            tracking_id: result.trackingId,
+                            amount: result.finalCommission,
+                            config_id: result.configId,
+                        });
+                    }
+                    else if (result.reason === 'NO_CONFIG') {
+                        commission_configurations_1.CommissionLogger.warn('No commission configuration found for service', {
+                            service_id: service.id,
+                            clinician_id: service.clinicianid,
+                            organization_id: service.organizationid,
+                            service_category: service.serviceCategory,
+                        });
+                    }
+                    else {
+                        commission_configurations_1.CommissionLogger.error('Commission calculation failed', {
+                            service_id: service.id,
+                            reason: result.reason,
+                            error: result.error,
+                        });
+                    }
+                }
+                catch (error) {
+                    commission_configurations_1.CommissionLogger.error('Error calculating commission for service', {
+                        service_id: service.id,
+                        error: error.message,
+                    });
+                }
+            }
+            commission_configurations_1.CommissionLogger.info('Commission calculation completed for billing', {
+                billingid: billingId,
+                service_count: services.length,
+            });
+        }
+        catch (error) {
+            commission_configurations_1.CommissionLogger.error('Failed to trigger commission calculation', {
+                billingid: billingId,
+                error: error.message,
+            });
+            throw error;
         }
     }
     static async validateBillingRequestBody(billingData, tenantId) {
