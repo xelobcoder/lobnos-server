@@ -17,7 +17,11 @@ router.get('/untracked/services', async (req, res) => {
      await controller.getUntrackedServices(req, res);
 });
 
-
+router.post('/untracked/services', async (req, res) => {
+     const tenantid = parseInt(req.query.tenantId as string);
+     const controller = new CommissionTrackingController(tenantid);
+     await controller.addUntrackedService(req, res);
+});
 
 router.put('/commission/recipient/update-rates/:id', async (req, res) => {
      const tenantid = parseInt(req.query.tenantId as string);

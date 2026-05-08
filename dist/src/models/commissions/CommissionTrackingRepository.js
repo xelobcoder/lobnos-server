@@ -156,8 +156,10 @@ class CommissionTrackingRepo {
             }
             const trackedIds = trackedServiceIds.map((row) => row.service_id);
             let query = conn('dboservices')
-                .select('serviceid', 'totalpayable', 'paidamount', 'status', 'paymentstatus', 'serviceAddedOn', 'serviceCategory', 'clinicianId', 'organizationId', 'tp.name as test_name')
+                .select('serviceid', 'totalpayable', 'paidamount', 'status', 'paymentstatus', 'serviceAddedOn', 'serviceCategory', 'clinicianId', 'organizationId', 'tp.name as test_name', 'cbi.name as clinician_name', 'org.name as organization_name')
                 .leftJoin('test_panels as tp', 'dboservices.trackId', 'tp.id')
+                .leftJoin('clinicianbasicinfo as cbi', 'dboservices.clinicianId', 'cbi.id')
+                .leftJoin('organization as org', 'dboservices.organizationId', 'org.id')
                 .whereNotIn('serviceid', trackedIds)
                 .andWhere(conn.raw("serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
                 .whereNotIn('status', ['voided', 'cancelled', 'refunded', 'written-off']);
@@ -175,6 +177,40 @@ class CommissionTrackingRepo {
         }
         catch (error) {
             logger_1.default.error('Error fetching untracked services:', error);
+            throw error;
+        }
+    }
+    async insertUntrackedService(serviceId, recipientType, recipientId) {
+        try {
+            const conn = await this.connection;
+            const service = await conn('dboservices')
+                .where('serviceid', serviceId)
+                .first();
+            if (!service) {
+                throw new Error(`Service ${serviceId} not found`);
+            }
+            if (['voided', 'cancelled', 'refunded', 'written-off'].includes(service.status)) {
+                throw new Error('Cannot insert a service with invalid status');
+            }
+            const existingTracking = await conn('commission_tracking')
+                .where('service_id', serviceId)
+                .first();
+            if (existingTracking) {
+                throw new Error('Service is already tracked for commission');
+            }
+            const input = {
+                service_id: serviceId,
+                service_amount: parseFloat(String(service.totalpayable)) || 0,
+                service_category: service.serviceCategory || 'CLINICIAN_SPECIAL_BILLING',
+                clinician_id: recipientType === 'clinician' ? recipientId : undefined,
+                organization_id: recipientType === 'organization' ? recipientId : 0,
+                completion_date: service.serviceAddedOn ? new Date(service.serviceAddedOn) : new Date(),
+            };
+            const engine = CommissionServiceFactory_1.CommissionServiceFactory.createEngine(this.tenantId);
+            return await engine.executeCommissionCalculation(input);
+        }
+        catch (error) {
+            logger_1.default.error('Error inserting untracked service:', error);
             throw error;
         }
     }

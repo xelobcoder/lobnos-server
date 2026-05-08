@@ -7,14 +7,19 @@ const CommissionCalculator_1 = require("../utils/CommissionCalculator");
 const PeriodHelper_1 = require("../utils/PeriodHelper");
 const CommissionErrors_1 = require("../errors/CommissionErrors");
 const commissionConfigutationRepo_1 = require("../commissionConfigutationRepo");
+const CommissionDefaultsRepository_1 = require("../../CommissionDefaultsRepository");
 class CommissionEngineService {
-    constructor(configRepo, tierRepo, assignmentRepo, trackingRepo) {
+    constructor(tenantId, configRepo, tierRepo, assignmentRepo, trackingRepo) {
+        this.tenantId = tenantId;
         this.configRepo = configRepo;
         this.tierRepo = tierRepo;
         this.assignmentRepo = assignmentRepo;
         this.trackingRepo = trackingRepo;
         this.resolutionService = new CommissionResolutionService_1.CommissionResolutionService(configRepo, assignmentRepo);
         this.capService = new CommissionCapService_1.CommissionCapService(trackingRepo);
+    }
+    getTenantId() {
+        return this.tenantId;
     }
     /**
      * Execute complete commission calculation for a service
@@ -24,18 +29,66 @@ class CommissionEngineService {
             const recipientType = input.clinician_id ? 'clinician' : 'organization';
             const recipientId = input.clinician_id || input.organization_id;
             const assignment = await this.resolutionService.resolveAssignment(input);
+            let config = null;
+            let assignmentId = undefined;
             if (!assignment) {
-                commissionConfigutationRepo_1.logger.info('No recipient-specific assignment found, default fallback required', {
+                commissionConfigutationRepo_1.logger.info('No recipient-specific assignment found, checking defaults', {
                     recipient_type: recipientType,
                     recipient_id: recipientId,
                     service_id: input.service_id,
                 });
-                return {
-                    final_commission: 0,
-                    reason: 'NO_ASSIGNMENT_REQUIRES_DEFAULT_CHECK',
-                };
+                // Check commission defaults
+                const defaultsRepo = new CommissionDefaultsRepository_1.CommissionDefaultsRepository(this.getTenantId());
+                const defaultConfig = await defaultsRepo.getByTargetType(recipientType.toUpperCase());
+                if (defaultConfig) {
+                    // Create synthetic config from defaults
+                    config = {
+                        id: null, // No real config ID
+                        commission_type: defaultConfig.commission_type.toLowerCase(),
+                        percentage_rate: defaultConfig.commission_type === 'PERCENTAGE' ? defaultConfig.commission_value : null,
+                        fixed_component: defaultConfig.commission_type === 'FIXED' ? defaultConfig.commission_value : null,
+                        min_cap: null,
+                        max_cap: null,
+                        period_cap: null,
+                        period_cap_reset: null,
+                        is_active: true,
+                    };
+                    assignmentId = undefined; // No assignment
+                }
+                else {
+                    // No defaults, record 0 commission
+                    const tracking = await this.trackingRepo.create({
+                        service_id: input.service_id,
+                        service_amount: input.service_amount,
+                        commission_type: 'percentage',
+                        percentage_rate_applied: 0,
+                        fixed_amount_applied: undefined,
+                        tier_id: undefined,
+                        commission_due: 0,
+                        min_cap_adjustment: 0,
+                        max_cap_adjustment: 0,
+                        period_cap_adjustment: 0,
+                        final_commission: 0,
+                        config_id: undefined,
+                        assignment_id: undefined,
+                        recipient_type: recipientType,
+                        recipient_id: recipientId,
+                        cap_period_reference: undefined,
+                        calculated_at: new Date(),
+                        currency: 'GHS',
+                        status: 'pending',
+                    });
+                    return {
+                        final_commission: 0,
+                        tracking_id: tracking.id,
+                        reason: 'SUCCESS',
+                    };
+                }
             }
-            const config = await this.configRepo.getByIdOrThrow(assignment.commission_config_id);
+            else {
+                config = await this.configRepo.getByIdOrThrow(assignment.commission_config_id);
+                assignmentId = assignment.id;
+            }
             let matchedTier = undefined;
             if (config.commission_type === 'tiered') {
                 matchedTier = await this.tierRepo.findMatchingTier(config.id, input.service_amount);
@@ -63,7 +116,7 @@ class CommissionEngineService {
                 period_cap_adjustment: adjustments.periodCapAdjustment,
                 final_commission: adjustments.final,
                 config_id: config.id,
-                assignment_id: assignment.id,
+                assignment_id: assignmentId,
                 recipient_type: recipientType,
                 recipient_id: recipientId,
                 cap_period_reference: periodRefDate,

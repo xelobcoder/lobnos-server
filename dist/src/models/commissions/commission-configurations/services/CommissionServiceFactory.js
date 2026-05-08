@@ -15,7 +15,7 @@ class CommissionServiceFactory {
         const tierRepo = new CommissionTierRepository_1.CommissionTierRepository(tenantId);
         const assignmentRepo = new CommissionAssignmentRepository_1.CommissionAssignmentRepository(tenantId);
         const trackingRepo = new CommissionTrackingRepository_1.CommissionTrackingRepository(tenantId, trx);
-        return new CommissionEngineService_1.CommissionEngineService(configRepo, tierRepo, assignmentRepo, trackingRepo);
+        return new CommissionEngineService_1.CommissionEngineService(tenantId, configRepo, tierRepo, assignmentRepo, trackingRepo);
     }
     static createConfigRepository(tenantId) {
         return new CommissionConfigRepository_1.CommissionConfigRepository(tenantId);

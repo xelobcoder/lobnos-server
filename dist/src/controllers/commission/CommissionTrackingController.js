@@ -125,5 +125,34 @@ class CommissionTrackingController {
             return (0, helper_1.customError)("Failed to fetch untracked services", 500, response);
         }
     }
+    async addUntrackedService(request, response) {
+        try {
+            const { serviceid, recipient_type, recipient_id } = request.body;
+            if (!serviceid || !recipient_type || !recipient_id) {
+                return (0, helper_1.customError)("Missing required fields: serviceid, recipient_type, recipient_id", 400, response);
+            }
+            if (!['clinician', 'organization'].includes(recipient_type)) {
+                return (0, helper_1.customError)("recipient_type must be either 'clinician' or 'organization'", 400, response);
+            }
+            const recipientId = parseInt(recipient_id.toString());
+            if (isNaN(recipientId)) {
+                return (0, helper_1.customError)("recipient_id must be a valid number", 400, response);
+            }
+            const serviceId = parseInt(serviceid.toString());
+            if (isNaN(serviceId)) {
+                return (0, helper_1.customError)("serviceid must be a valid number", 400, response);
+            }
+            const result = await this.commissionTrackingRepo.insertUntrackedService(serviceId, recipient_type, recipientId);
+            return response.send({
+                status: true,
+                message: "Untracked service inserted successfully",
+                data: result
+            });
+        }
+        catch (error) {
+            logger_1.default.error('Error inserting untracked service:', error);
+            return (0, helper_1.customError)((error === null || error === void 0 ? void 0 : error.message) || "Failed to insert untracked service", 500, response);
+        }
+    }
 }
 exports.CommissionTrackingController = CommissionTrackingController;

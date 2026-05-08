@@ -89,7 +89,7 @@ export class CommissionBatchPaymentsRepo {
                          total_commission_amount: commissionAmount,
                          payment_amount: paid,
                          waived_amount: waivedAmount,
-                         status:  'completed',
+                         status: 'completed',
                          created_by: employeeid,
                          payment_date: new Date(),
                          created_at: new Date(),
@@ -158,37 +158,29 @@ export class CommissionBatchPaymentsRepo {
      }
 
 
-     getBatch = async ({ batchid, recipient_id, recipient_type, startDate, endDate,page,count,sortby }: GetBatchParameters) => {
+     getBatch = async ({ batchid, recipient_id, recipient_type, startDate, endDate, page, count, sortby }: GetBatchParameters) => {
           try {
                const conn = await this.connection;
                let batch = conn('commission_batch_payments')
                     .select('commission_batch_payments.*',
-                         'roles.username as created_by_username', 'paymentmodes.PaymentMode as payment_mode')
-                    .leftJoin("roles", "roles.employeeid", "commission_batch_payments.created_by")
-                    .leftJoin("paymentmodes", "paymentmodes.keyID", "commission_batch_payments.payment_method")
-
-               if (recipient_id && recipient_type == "organization") {
-                    batch = batch.leftJoin("organization", "organization.id", "commission_batch_payments.recipient_id")
-                         .select('organization.name as recipient_name')
-                    batch = batch.where('recipient_type', recipient_type);
-               }
-
-               if (recipient_id && recipient_type == "clinician") {
-                    batch = batch.leftJoin("clinicianbasicinfo", "clinicianbasicinfo.id", "commission_batch_payments.recipient_id")
-                         .select('clinicianbasicinfo.name as recipient_name')
-                    batch = batch.where('recipient_type', recipient_type);
-               }
-
-               if (!recipient_id && !recipient_type) {
-                    batch = batch.leftJoin("organization", "organization.id", "commission_batch_payments.recipient_id")
-                         .leftJoin("clinicianbasicinfo", "clinicianbasicinfo.id", "commission_batch_payments.recipient_id")
-                         .select(
-                              conn.raw(`CASE 
+                         'roles.username as created_by_username', 'paymentmodes.PaymentMode as payment_mode',
+                         conn.raw(`CASE 
                               WHEN commission_batch_payments.recipient_type = 'organization' THEN organization.name
                               WHEN commission_batch_payments.recipient_type = 'clinician' THEN clinicianbasicinfo.name
                               ELSE 'Unknown'
                          END as recipient_name`)
-                         );
+                    )
+                    .leftJoin("roles", "roles.employeeid", "commission_batch_payments.created_by")
+                    .leftJoin("paymentmodes", "paymentmodes.keyID", "commission_batch_payments.payment_method")
+                    .leftJoin("organization", "organization.id", "commission_batch_payments.recipient_id")
+                    .leftJoin("clinicianbasicinfo", "clinicianbasicinfo.id", "commission_batch_payments.recipient_id")
+
+               if (recipient_id && recipient_type == "organization") {
+                    batch = batch.where('recipient_type', recipient_type);
+               }
+
+               if (recipient_id && recipient_type == "clinician") {
+                    batch = batch.where('recipient_type', recipient_type);
                }
 
 

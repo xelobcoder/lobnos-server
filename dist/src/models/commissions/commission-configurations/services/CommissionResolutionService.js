@@ -19,6 +19,14 @@ class CommissionResolutionService {
             const sorted = this.sortAssignments(assignment);
             return sorted[0];
         }
+        const fallbackAssignments = await this.assignmentRepo.findApplicable({
+            date: input.completion_date,
+            scopeType: 'system',
+        });
+        if (fallbackAssignments && fallbackAssignments.length > 0) {
+            const sortedFallback = this.sortAssignments(fallbackAssignments);
+            return sortedFallback[0];
+        }
         return null;
     }
     sortAssignments(assignments) {

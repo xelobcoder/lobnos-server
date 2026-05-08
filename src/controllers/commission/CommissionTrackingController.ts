@@ -153,4 +153,43 @@ export class CommissionTrackingController {
                return customError("Failed to fetch untracked services", 500, response);
           }
      }
+
+     async addUntrackedService(request: Request, response: Response) {
+          try {
+               const { serviceid, recipient_type, recipient_id } = request.body;
+
+               if (!serviceid || !recipient_type || !recipient_id) {
+                    return customError("Missing required fields: serviceid, recipient_type, recipient_id", 400, response);
+               }
+
+               if (!['clinician', 'organization'].includes(recipient_type as string)) {
+                    return customError("recipient_type must be either 'clinician' or 'organization'", 400, response);
+               }
+
+               const recipientId = parseInt(recipient_id.toString());
+               if (isNaN(recipientId)) {
+                    return customError("recipient_id must be a valid number", 400, response);
+               }
+
+               const serviceId = parseInt(serviceid.toString());
+               if (isNaN(serviceId)) {
+                    return customError("serviceid must be a valid number", 400, response);
+               }
+
+               const result = await this.commissionTrackingRepo.insertUntrackedService(
+                    serviceId,
+                    recipient_type as 'clinician' | 'organization',
+                    recipientId
+               );
+
+               return response.send({
+                    status: true,
+                    message: "Untracked service inserted successfully",
+                    data: result
+               });
+          } catch (error: any) {
+               logger.error('Error inserting untracked service:', error);
+               return customError(error?.message || "Failed to insert untracked service", 500, response);
+          }
+     }
 }

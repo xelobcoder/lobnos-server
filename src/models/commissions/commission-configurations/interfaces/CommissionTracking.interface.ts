@@ -15,8 +15,8 @@ export interface ICommissionTracking {
      max_cap_adjustment: number;
      period_cap_adjustment: number;
      final_commission: number;
-     config_id: number;
-     assignment_id: number;
+     config_id?: number;
+     assignment_id?: number;
      recipient_type: RecipientType;
      recipient_id: number;
      cap_period_reference?: Date;
@@ -41,8 +41,8 @@ export class CommissionTracking implements ICommissionTracking {
      max_cap_adjustment: number;
      period_cap_adjustment: number;
      final_commission: number;
-     config_id: number;
-     assignment_id: number;
+     config_id?: number;
+     assignment_id?: number;
      recipient_type: RecipientType;
      recipient_id: number;
      cap_period_reference?: Date;
