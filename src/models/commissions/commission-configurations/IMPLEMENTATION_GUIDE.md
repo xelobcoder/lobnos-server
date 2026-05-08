@@ -16,13 +16,17 @@ Insert services into database
 [TriggerCommissionCalculation]
        ↓
 [CommissionEngineService.executeCommissionCalculation]
-       ├─ Load service context
-       ├─ Resolve assignment (Clinician → Org → System → Default)
+       ├─ Capture serviceId for tracking only (service list NOT used for rules)
+       ├─ Determine recipient type (clinician or organization)
+       ├─ Resolve commission for recipient:
+       │   ├─ Try recipient-specific config
+       │   ├─ Fall back to recipient default
+       │   └─ Fall back to zero
        ├─ Get commission config
        ├─ Calculate raw commission
        ├─ Apply per-service caps (min/max)
        ├─ Apply period caps (daily/weekly/monthly/quarterly/yearly)
-       ├─ Persist to tracking ledger
+       ├─ Persist to tracking ledger with serviceId reference
        └─ Return result
        ↓
 [CommissionTracking] (immutable audit ledger)

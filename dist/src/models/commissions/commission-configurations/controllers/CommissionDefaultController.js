@@ -6,10 +6,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CommissionDefaultController = void 0;
 const KnexConnections_1 = __importDefault(require("../../../../database/KnexConnections"));
 class CommissionDefaultController {
-    /**
-     * Create a default commission for a recipient
-     * POST /api/v1/commission/defaults
-     */
     static async createDefault(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
@@ -17,12 +13,12 @@ class CommissionDefaultController {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId' });
                 return;
             }
-            const { recipient_type, recipient_id, commission_config_id, is_active = true } = req.body;
-            if (!recipient_type || !recipient_id || !commission_config_id) {
+            const { recipient_type, commission_config_id, is_active = true } = req.body;
+            if (!recipient_type || !commission_config_id) {
                 res.status(400).json({
                     status: 'error',
                     statusCode: 400,
-                    message: 'Missing required fields: recipient_type, recipient_id, commission_config_id',
+                    message: 'Missing required fields: recipient_type, commission_config_id',
                 });
                 return;
             }
@@ -46,10 +42,21 @@ class CommissionDefaultController {
                 });
                 return;
             }
+            // Check if default already exists for this recipient type
+            const existing = await connection('commission_default')
+                .where({ recipient_type, is_active: true })
+                .first();
+            if (existing) {
+                res.status(409).json({
+                    status: 'error',
+                    statusCode: 409,
+                    message: `Default commission for ${recipient_type} already exists. Only one default per recipient type is allowed.`,
+                });
+                return;
+            }
             // Insert default
             const [id] = await connection('commission_default').insert({
                 recipient_type,
-                recipient_id,
                 commission_config_id,
                 is_active,
                 created_at: new Date(),
@@ -63,15 +70,6 @@ class CommissionDefaultController {
             });
         }
         catch (error) {
-            // Handle duplicate key error
-            if (error.code === 'ER_DUP_ENTRY') {
-                res.status(409).json({
-                    status: 'error',
-                    statusCode: 409,
-                    message: 'Default commission for this recipient already exists',
-                });
-                return;
-            }
             res.status(500).json({
                 status: 'error',
                 statusCode: 500,
@@ -80,38 +78,49 @@ class CommissionDefaultController {
         }
     }
     /**
-     * Get default commission for a recipient
-     * GET /api/v1/commission/defaults
+     * Get default commission for a recipient type (global fallback)
+     * GET /api/v1/commission/defaults?recipient_type={type}
      */
     static async getDefault(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const recipientType = req.query.recipientType;
-            const recipientId = parseInt(req.query.recipientId);
-            if (!tenantId || !recipientType || !recipientId || isNaN(tenantId) || isNaN(recipientId)) {
+            const recipientType = req.query.recipient_type;
+            if (!tenantId || !recipientType || isNaN(tenantId)) {
                 res.status(400).json({
                     status: 'error',
                     statusCode: 400,
-                    message: 'Invalid tenantId, recipientType, or recipientId',
+                    message: 'Invalid tenantId or recipient_type',
+                });
+                return;
+            }
+            const validTypes = ['clinician', 'organization'];
+            if (!validTypes.includes(recipientType)) {
+                res.status(400).json({
+                    status: 'error',
+                    statusCode: 400,
+                    message: `Invalid recipient_type. Must be one of: ${validTypes.join(', ')}`,
                 });
                 return;
             }
             const connection = await (0, KnexConnections_1.default)(tenantId);
             const defaults = await connection('commission_default')
-                .where({ recipient_type: recipientType, recipient_id: recipientId, is_active: true })
+                .where({ recipient_type: recipientType, is_active: true })
                 .first();
             if (!defaults) {
                 res.status(404).json({
                     status: 'error',
                     statusCode: 404,
-                    message: 'Default commission not found for this recipient',
+                    message: `No default commission found for ${recipientType}`,
                 });
                 return;
             }
+            const config = await connection('commission_configs')
+                .where({ id: defaults.commission_config_id })
+                .first();
             res.json({
                 status: 'success',
                 statusCode: 200,
-                result: defaults,
+                result: Object.assign(Object.assign({}, defaults), { config: config }),
             });
         }
         catch (error) {
@@ -123,18 +132,59 @@ class CommissionDefaultController {
         }
     }
     /**
-     * Get all defaults by recipient type
-     * GET /api/v1/commission/defaults/type/:recipientType
+     * Get all commission defaults
+     * GET /api/v1/commission/defaults/all
      */
-    static async getDefaultsByType(req, res) {
+    static async getAllDefaults(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const recipientType = req.params.recipientType;
-            if (!tenantId || !recipientType || isNaN(tenantId)) {
+            if (!tenantId || isNaN(tenantId)) {
                 res.status(400).json({
                     status: 'error',
                     statusCode: 400,
-                    message: 'Invalid tenantId or recipientType',
+                    message: 'Invalid tenantId',
+                });
+                return;
+            }
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const defaults = await connection('commission_default')
+                .where({ is_active: true })
+                .select('*');
+            // Get config details for each default
+            const defaultsWithConfig = await Promise.all(defaults.map(async (def) => {
+                const config = await connection('commission_configs')
+                    .where({ id: def.commission_config_id })
+                    .first();
+                return Object.assign(Object.assign({}, def), { config: config });
+            }));
+            res.json({
+                status: 'success',
+                statusCode: 200,
+                result: defaultsWithConfig,
+            });
+        }
+        catch (error) {
+            res.status(500).json({
+                status: 'error',
+                statusCode: 500,
+                message: error.message || 'Failed to retrieve commission defaults',
+            });
+        }
+    }
+    /**
+     * Get all commission routes/configurations for a recipient
+     * GET /api/v1/commission/defaults/recipient-routes?recipient_type={type}&recipient_id={id}
+     */
+    static async getRecipientRoutes(req, res) {
+        try {
+            const tenantId = parseInt(req.query.tenantId);
+            const recipientType = req.query.recipient_type;
+            const recipientId = parseInt(req.query.recipient_id);
+            if (!tenantId || !recipientType || !recipientId || isNaN(tenantId) || isNaN(recipientId)) {
+                res.status(400).json({
+                    status: 'error',
+                    statusCode: 400,
+                    message: 'Invalid tenantId, recipient_type, or recipient_id',
                 });
                 return;
             }
@@ -143,24 +193,64 @@ class CommissionDefaultController {
                 res.status(400).json({
                     status: 'error',
                     statusCode: 400,
-                    message: `Invalid recipientType. Must be one of: ${validTypes.join(', ')}`,
+                    message: `Invalid recipient_type. Must be one of: ${validTypes.join(', ')}`,
                 });
                 return;
             }
             const connection = await (0, KnexConnections_1.default)(tenantId);
-            const defaults = await connection('commission_default')
-                .where({ recipient_type: recipientType, is_active: true });
+            // Get specific assignments for this recipient
+            const assignments = await connection('commission_assignments')
+                .where('scope_type', recipientType)
+                .where('scope_id', recipientId)
+                .orderBy('priority', 'desc')
+                .orderBy('assigned_from', 'desc');
+            // Get assignments with config details
+            const assignmentsWithConfig = await Promise.all(assignments.map(async (assignment) => {
+                const config = await connection('commission_configs')
+                    .where({ id: assignment.commission_config_id })
+                    .first();
+                return {
+                    type: 'assignment',
+                    assignment: assignment,
+                    config: config
+                };
+            }));
+            // Get default for this recipient type
+            const defaultConfig = await connection('commission_default')
+                .where({ recipient_type: recipientType, is_active: true })
+                .first();
+            let defaultWithConfig = null;
+            if (defaultConfig) {
+                const config = await connection('commission_configs')
+                    .where({ id: defaultConfig.commission_config_id })
+                    .first();
+                defaultWithConfig = {
+                    type: 'default',
+                    default: defaultConfig,
+                    config: config
+                };
+            }
+            // Combine results
+            const routes = [
+                ...assignmentsWithConfig,
+                ...(defaultWithConfig ? [defaultWithConfig] : [])
+            ];
             res.json({
                 status: 'success',
                 statusCode: 200,
-                result: defaults,
+                result: {
+                    recipient_type: recipientType,
+                    recipient_id: recipientId,
+                    routes: routes,
+                    total_routes: routes.length
+                },
             });
         }
         catch (error) {
             res.status(500).json({
                 status: 'error',
                 statusCode: 500,
-                message: error.message || 'Failed to retrieve defaults',
+                message: error.message || 'Failed to retrieve recipient routes',
             });
         }
     }

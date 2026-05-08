@@ -70,7 +70,7 @@ export class CommissionAssignmentController {
 
                // Create assignment
                const repository = CommissionServiceFactory.createAssignmentRepository(tenantId);
-               const created = await repository.create(assignment);
+               const created = await repository.create(assignment as Omit<ICommissionAssignment, 'id' | 'created_at'>);
 
                res.status(201).json({
                     status: 'success',
@@ -79,6 +79,7 @@ export class CommissionAssignmentController {
                     result: created,
                });
           } catch (error: any) {
+               console.log(error)
                const statusCode = error.statusCode || 500;
                res.status(statusCode).json({
                     status: 'error',
@@ -134,13 +135,14 @@ export class CommissionAssignmentController {
                const tenantId = parseInt(req.query.tenantId as string);
                const configId = parseInt(req.query.configId as string);
 
-               if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
-                    res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });
-                    return;
-               }
-
                const repository = CommissionServiceFactory.createAssignmentRepository(tenantId);
-               const assignments = await repository.findByConfigId(configId);
+               let assignments: any[] = []
+
+               if (configId) {
+                    assignments = await repository.findByConfigId(configId);
+               } else  {
+                    assignments = await repository.findActive();
+               }
 
                res.json({
                     status: 'success',

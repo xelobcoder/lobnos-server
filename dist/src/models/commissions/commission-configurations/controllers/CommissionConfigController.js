@@ -67,7 +67,7 @@ class CommissionConfigController {
                     return;
                 }
                 const tierRepository = commissionConfigutationRepo_1.CommissionServiceFactory.createTierRepository(tenantId);
-                await tierRepository.createMultiple(tiers);
+                await tierRepository.createMultiple(tiers, createdConfig.id);
             }
             res.status(201).json({
                 status: 'success',

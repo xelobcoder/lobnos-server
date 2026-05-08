@@ -396,6 +396,7 @@ class SubmitCustomerBilling {
                         await billing_shared_1.BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
+                await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
                 await trx.commit();
             }
             catch (error) {
@@ -404,18 +405,6 @@ class SubmitCustomerBilling {
                 }
                 catch (_d) { }
                 throw error;
-            }
-            // ==================== CALCULATE COMMISSIONS ====================
-            // After successful commit, calculate commissions for all services in this billing
-            try {
-                await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID);
-            }
-            catch (error) {
-                // Log commission calculation errors but don't fail the billing submission
-                commission_configurations_1.CommissionLogger.error('Commission calculation failed after billing submit', {
-                    billingid: finalBillingIdForEvent || billingID,
-                    error: error.message
-                });
             }
             const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
             const repo = new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId);
@@ -430,13 +419,13 @@ class SubmitCustomerBilling {
      * Trigger commission calculation for all services in a billing
      * Called after successful billing submission to calculate and store commissions
      */
-    static async triggerCommissionCalculation(tenantId, billingId) {
+    static async triggerCommissionCalculation(tenantId, billingId, trx) {
         try {
-            const connection = await (0, KnexConnections_1.default)(tenantId);
+            const connection = await trx ? trx : (0, KnexConnections_1.default)(tenantId);
             // Get all services for this billing
             const services = await connection('dboservices')
                 .where({ billingid: billingId })
-                .select('id', 'serviceid', 'amount', 'clinicianid', 'organizationid', 'created_at', 'serviceCategory');
+                .select('serviceid', 'paidamount', 'clinicianId', 'organizationId', 'serviceCategory');
             if (!services || services.length === 0) {
                 commission_configurations_1.CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
                 return;
@@ -447,33 +436,31 @@ class SubmitCustomerBilling {
             for (const service of services) {
                 try {
                     const result = await engine.executeCommissionCalculation({
-                        serviceId: service.id,
-                        serviceAmount: service.amount || 0,
-                        clinicianId: service.clinicianid || null,
-                        organizationId: service.organizationid || null,
-                        serviceTypeId: service.serviceid,
-                        serviceCategory: service.serviceCategory || null,
-                        completionDate: service.created_at || new Date(),
+                        service_id: service.serviceid,
+                        service_amount: service.paidamount || 0,
+                        clinician_id: service.clinicianId || null,
+                        organization_id: service.organizationId || null,
+                        service_category: service.serviceCategory || '',
+                        completion_date: service.created_at || new Date(),
                     });
                     if (result.reason === 'SUCCESS') {
                         commission_configurations_1.CommissionLogger.info('Commission calculated successfully', {
-                            service_id: service.id,
-                            tracking_id: result.trackingId,
-                            amount: result.finalCommission,
-                            config_id: result.configId,
+                            service_id: service.serviceid,
+                            tracking_id: result.tracking_id,
+                            amount: result.final_commission,
                         });
                     }
                     else if (result.reason === 'NO_CONFIG') {
                         commission_configurations_1.CommissionLogger.warn('No commission configuration found for service', {
-                            service_id: service.id,
-                            clinician_id: service.clinicianid,
-                            organization_id: service.organizationid,
+                            service_id: service.serviceid,
+                            clinician_id: service.clinicianId,
+                            organization_id: service.organizationId,
                             service_category: service.serviceCategory,
                         });
                     }
                     else {
                         commission_configurations_1.CommissionLogger.error('Commission calculation failed', {
-                            service_id: service.id,
+                            service_id: service.serviceid,
                             reason: result.reason,
                             error: result.error,
                         });
@@ -481,7 +468,7 @@ class SubmitCustomerBilling {
                 }
                 catch (error) {
                     commission_configurations_1.CommissionLogger.error('Error calculating commission for service', {
-                        service_id: service.id,
+                        service_id: service.serviceid,
                         error: error.message,
                     });
                 }
@@ -496,6 +483,7 @@ class SubmitCustomerBilling {
                 billingid: billingId,
                 error: error.message,
             });
+            trx ? await trx.rollback() : null;
             throw error;
         }
     }

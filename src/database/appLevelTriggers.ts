@@ -147,16 +147,16 @@ export async function applyDboservicesAfterInsert(db: DbRunner, service: any, ac
 			commissionPercentage = row?.commission ? Number(row.commission) : 0;
 		}
 
-		await db("commission_tracking").insert({
-			serviceid: service.serviceid,
-			commission_percentage: commissionPercentage,
-			commission_due: (Number(service.totalpayable || 0) * commissionPercentage) / 100,
-			type: commissionType,
-			recipient_id: recipientId,
-			calculated_at: db.fn.now(),
-			created_at: db.fn.now(),
-			updated_at: db.fn.now(),
-		});
+		// await db("commission_tracking").insert({
+		// 	serviceid: service.serviceid,
+		// 	commission_percentage: commissionPercentage,
+		// 	commission_due: (Number(service.totalpayable || 0) * commissionPercentage) / 100,
+		// 	type: commissionType,
+		// 	recipient_id: recipientId,
+		// 	calculated_at: db.fn.now(),
+		// 	created_at: db.fn.now(),
+		// 	updated_at: db.fn.now(),
+		// });
 	}
 }
 

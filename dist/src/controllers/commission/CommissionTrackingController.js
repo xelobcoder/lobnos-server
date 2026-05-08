@@ -79,5 +79,51 @@ class CommissionTrackingController {
             return (0, helper_1.customError)("Failed to update commission tracking", 500, response);
         }
     }
+    async getUntrackedServices(request, response) {
+        try {
+            const { recipient_type, recipient_id, page, count } = request.query;
+            let recipientType;
+            let recipientId;
+            let pageNum;
+            let countNum;
+            if (recipient_type) {
+                if (!['clinician', 'organization'].includes(recipient_type)) {
+                    return (0, helper_1.customError)("recipient_type must be either 'clinician' or 'organization'", 400, response);
+                }
+                recipientType = recipient_type;
+            }
+            if (recipient_id) {
+                const parsedId = parseInt(recipient_id);
+                if (isNaN(parsedId)) {
+                    return (0, helper_1.customError)("recipient_id must be a valid number", 400, response);
+                }
+                recipientId = parsedId;
+            }
+            if (page) {
+                const parsedPage = parseInt(page);
+                if (isNaN(parsedPage) || parsedPage < 1) {
+                    return (0, helper_1.customError)("page must be a positive integer", 400, response);
+                }
+                pageNum = parsedPage;
+            }
+            if (count) {
+                const parsedCount = parseInt(count);
+                if (isNaN(parsedCount) || parsedCount < 1) {
+                    return (0, helper_1.customError)("count must be a positive integer", 400, response);
+                }
+                countNum = parsedCount;
+            }
+            const untrackedServices = await this.commissionTrackingRepo.getUntrackedServices(recipientType, recipientId, pageNum, countNum);
+            return response.send({
+                status: true,
+                message: "Untracked services retrieved successfully",
+                data: untrackedServices
+            });
+        }
+        catch (error) {
+            logger_1.default.error('Error fetching untracked services:', error);
+            return (0, helper_1.customError)("Failed to fetch untracked services", 500, response);
+        }
+    }
 }
 exports.CommissionTrackingController = CommissionTrackingController;

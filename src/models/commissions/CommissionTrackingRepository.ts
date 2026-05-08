@@ -2,16 +2,31 @@ import KnexConnection from "../../database/KnexConnections";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
 import { CommissionBatchPaymentServicesRepo } from "./CommissionBatchPaymentServicesRepo";
-
+import { CommissionServiceFactory } from "./commission-configurations/services/CommissionServiceFactory";
+import { CommissionInput } from "./commission-configurations/interfaces";
 
 interface CommissionTracking {
      id?: number;
-     serviceid: number;
-     commission_percentage: number;
+     service_id: number;
+     service_amount: number;
+     commission_type: 'percentage' | 'fixed' | 'tiered' | 'hybrid';
+     percentage_rate_applied?: number;
+     fixed_amount_applied?: number;
+     tier_id?: number;
      commission_due: number;
-     type: 'clinician' | 'organization';
+     min_cap_adjustment?: number;
+     max_cap_adjustment?: number;
+     period_cap_adjustment?: number;
+     final_commission?: number;
+     config_id?: number;
+     assignment_id?: number;
+     recipient_type: 'clinician' | 'organization';
      recipient_id: number;
+     cap_period_reference?: string | Date;
      calculated_at?: Date;
+     currency?: string;
+     status?: string;
+     notes?: string;
      created_at?: Date;
      updated_at?: Date;
 }
@@ -66,11 +81,11 @@ export class CommissionTrackingRepo {
      ): Promise<any[]> {
           try {
                const conn = await this.connection;
-               const applicationsettings  = await new ApplicationSettings().getAllAppSettings(this.tenantId);
-               let isPaidAmountUsed =  false;
+               const applicationsettings = await new ApplicationSettings().getAllAppSettings(this.tenantId);
+               let isPaidAmountUsed = false;
 
                if (applicationsettings) {
-                     isPaidAmountUsed = applicationsettings['useamountpaidforcommissioncalculation'] ?  parseInt((applicationsettings['useamountpaidforcommissioncalculation']).toString()) == 1 : false;
+                    isPaidAmountUsed = applicationsettings['useamountpaidforcommissioncalculation'] ? parseInt((applicationsettings['useamountpaidforcommissioncalculation']).toString()) == 1 : false;
                }
                let query = conn('commission_tracking as ct')
                     .select(
@@ -78,14 +93,16 @@ export class CommissionTrackingRepo {
                          'ds.totalpayable',
                          "ds.paidamount",
                          'ds.serviceAddedOn',
+                         'ct.*',
+                         'ct.commission_type',
                          'ds.serviceCategory',
                          'tp.name as test_name',
                     )
-                    .leftJoin('dboservices as ds', 'ct.serviceid', 'ds.serviceid')
+                    .leftJoin('dboservices as ds', 'ct.service_id', 'ds.serviceid')
                     .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
                     .where(conn.raw("ds.serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
-                    .andWhere(function () {
-                         this.whereRaw('ds.clinicianId IS NOT NULL').orWhereRaw('ds.organizationId IS NOT NULL');
+                    .andWhere((builder: any) => {
+                         builder.whereRaw('ds.clinicianId IS NOT NULL').orWhereRaw('ds.organizationId IS NOT NULL');
                     });
 
                if (type === 'clinician') {
@@ -104,7 +121,7 @@ export class CommissionTrackingRepo {
                }
 
                if (type) {
-                    query = query.andWhere('ct.type', type);
+                    query = query.andWhere('ct.recipient_type', type);
                }
 
                if (start_date && end_date) {
@@ -141,9 +158,9 @@ export class CommissionTrackingRepo {
           try {
                const conn = await this.connection;
                const results = await conn('commission_tracking')
-                    .whereIn('serviceid', servicesArray.map(id => parseInt(id.toString())))
-                    .select('serviceid');
-               const trackedServiceIds = results.map((row: any) => row.serviceid);
+                    .whereIn('service_id', servicesArray.map(id => parseInt(id.toString())))
+                    .select('service_id');
+               const trackedServiceIds = results.map((row: any) => row.service_id);
                const untrackedServiceIds = servicesArray.filter(id => !trackedServiceIds.includes(id));
                return untrackedServiceIds;
           } catch (error) {
@@ -156,69 +173,106 @@ export class CommissionTrackingRepo {
      async calculateCommissionDue(servicesArray: number[]): Promise<number> {
           try {
                const conn = await this.connection;
-               const services: ServiceInfo[] = await conn('dboservices')
+               const services: Array<{
+                    serviceid: number;
+                    totalpayable: string | number;
+                    clinicianId: number | null;
+                    organizationId: number | null;
+                    serviceCategory?: string | null;
+                    serviceAddedOn?: Date | string | null;
+               }> = await conn('dboservices')
                     .whereIn('serviceid', servicesArray)
-                    .select('serviceid', 'totalpayable', 'clinicianId', 'organizationId');
+                    .select('serviceid', 'totalpayable', 'clinicianId', 'organizationId', 'serviceCategory', 'serviceAddedOn');
 
-               const clinicianIds = [...new Set(services.map(s => s.clinicianId).filter(id => id))];
-               const orgIds = [...new Set(services.map(s => s.organizationId).filter(id => id))];
+               if (services.length === 0) {
+                    return 0;
+               }
 
-               const clinicianInfos: ClinicianCommission[] = clinicianIds.length > 0 ? await conn('clinicianpaymentinfo')
-                    .whereIn('clinicianid', clinicianIds)
-                    .select('clinicianid', 'commission') : [];
-
-
-               const orgInfos: OrgCommission[] = orgIds.length > 0 ? await conn('organizationaccountinformation')
-                    .whereIn('organizationid', orgIds)
-                    .select('organizationid', 'commission') : [];
-
-
-               const clinicianMap = new Map<number, number>(clinicianInfos.map(c => [c.clinicianid, parseFloat(c.commission) || 0]));
-               const orgMap = new Map<number, number>(orgInfos.map(o => [o.organizationid, parseFloat(o.commission) || 0]));
-               const insertData = [];
-
+               const engine = CommissionServiceFactory.createEngine(this.tenantId);
+               let insertedCount = 0;
 
                for (const service of services) {
-                    let commission_percentage = 0;
-                    let commission_type: 'clinician' | 'organization' | null = null;
-                    let recipient_id: number | null = null;
-                    if (service.clinicianId) {
-                         commission_percentage = clinicianMap.get(service.clinicianId) || 0;
-                         commission_type = 'clinician';
-                         recipient_id = service.clinicianId;
-                    } else if (service.organizationId) {
-                         commission_percentage = orgMap.get(service.organizationId) || 0;
-                         commission_type = 'organization';
-                         recipient_id = service.organizationId;
+                    const completionDate = service.serviceAddedOn
+                         ? new Date(service.serviceAddedOn)
+                         : new Date();
+
+                    if (!service.clinicianId && !service.organizationId) {
+                         continue;
                     }
-                    if (recipient_id && commission_type) {
-                         const commission_due = (parseFloat(String(service.totalpayable)) * commission_percentage) / 100;
-                         insertData.push({
-                              serviceid: service.serviceid,
-                              commission_percentage,
-                              commission_due,
-                              type: commission_type,
-                              recipient_id,
-                              calculated_at: new Date(),
-                              created_at: new Date(),
-                              updated_at: new Date()
-                         });
+
+                    const input: CommissionInput = {
+                         service_id: service.serviceid,
+                         service_amount: parseFloat(String(service.totalpayable)) || 0,
+                         service_category: service.serviceCategory || 'CLINICIAN_SPECIAL_BILLING',
+                         clinician_id: service.clinicianId ?? undefined,
+                         organization_id: service.organizationId ?? 0,
+                         completion_date:
+                              Number.isNaN(completionDate.getTime()) ? new Date() : completionDate,
+                    };
+
+                    const result = await engine.executeCommissionCalculation(input);
+                    if (result.reason === 'SUCCESS' && result.tracking_id) {
+                         insertedCount += 1;
                     }
                }
 
-
-               if (insertData.length > 0) {
-                    const insertedCount = await conn.transaction(async trx => {
-                         await trx('commission_tracking').insert(insertData);
-                         return insertData.length;
-                    });
-                    return insertedCount;
-               }
-
-
-               return 0;
+               return insertedCount;
           } catch (error) {
                logger.error('Error calculating commission due:', error);
+               throw error;
+          }
+     }
+
+     async getUntrackedServices(recipientType?: 'clinician' | 'organization', recipientId?: number, page?: number, count?: number): Promise<any[]> {
+          try {
+               const conn = await this.connection;
+               let trackedServiceIds: any[] = [];
+
+               if (recipientType && recipientId !== undefined) {
+                    trackedServiceIds = await conn('commission_tracking')
+                         .where('recipient_type', recipientType)
+                         .andWhere('recipient_id', recipientId)
+                         .select('service_id');
+               } else {
+                    // If no recipient specified, get all tracked service IDs
+                    trackedServiceIds = await conn('commission_tracking')
+                         .select('service_id');
+               }
+
+               const trackedIds = trackedServiceIds.map((row: any) => row.service_id);
+
+               let query = conn('dboservices')
+                    .select(
+                         'serviceid',
+                         'totalpayable',
+                         'paidamount',
+                         'status',
+                         'paymentstatus',
+                         'serviceAddedOn',
+                         'serviceCategory',
+                         'clinicianId',
+                         'organizationId',
+                         'tp.name as test_name'
+                    )
+                    .leftJoin('test_panels as tp', 'dboservices.trackId', 'tp.id')
+                    .whereNotIn('serviceid', trackedIds)
+                    .andWhere(conn.raw("serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
+                    .whereNotIn('status', ['voided', 'cancelled', 'refunded', 'written-off']);
+
+               if (recipientType === 'clinician' && recipientId !== undefined) {
+                    query = query.andWhere('clinicianId', recipientId);
+               } else if (recipientType === 'organization' && recipientId !== undefined) {
+                    query = query.andWhere('organizationId', recipientId);
+               }
+
+               if (page !== undefined && count !== undefined) {
+                    const offset = (page - 1) * count;
+                    query = query.offset(offset).limit(count);
+               }
+
+               return await query;
+          } catch (error) {
+               logger.error('Error fetching untracked services:', error);
                throw error;
           }
      }

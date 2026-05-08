@@ -63,6 +63,7 @@ class CommissionAssignmentController {
             });
         }
         catch (error) {
+            console.log(error);
             const statusCode = error.statusCode || 500;
             res.status(statusCode).json({
                 status: 'error',
@@ -111,12 +112,14 @@ class CommissionAssignmentController {
         try {
             const tenantId = parseInt(req.query.tenantId);
             const configId = parseInt(req.query.configId);
-            if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
-                res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });
-                return;
-            }
             const repository = commissionConfigutationRepo_1.CommissionServiceFactory.createAssignmentRepository(tenantId);
-            const assignments = await repository.findByConfigId(configId);
+            let assignments = [];
+            if (configId) {
+                assignments = await repository.findByConfigId(configId);
+            }
+            else {
+                assignments = await repository.findActive();
+            }
             res.json({
                 status: 'success',
                 statusCode: 200,

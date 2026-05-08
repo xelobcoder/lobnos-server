@@ -21,7 +21,7 @@ export class OrganizationAnalyticsRepository {
     INNER JOIN organization o
         ON s.organizationId = o.id
     LEFT JOIN commission_tracking ct
-        ON ct.serviceid = s.serviceid AND ct.type = 'organization' AND ct.recipient_id = o.id
+        ON ct.service_id = s.serviceid AND ct.recipient_type = 'organization' AND ct.recipient_id = o.id
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = s.serviceid
     WHERE
@@ -58,7 +58,7 @@ export class OrganizationAnalyticsRepository {
     INNER JOIN organization o
         ON s.organizationId = o.id
     LEFT JOIN commission_tracking ct
-        ON ct.serviceid = s.serviceid AND ct.type = 'organization' AND ct.recipient_id = o.id
+        ON ct.service_id = s.serviceid AND ct.recipient_type = 'organization' AND ct.recipient_id = o.id
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = s.serviceid
     WHERE

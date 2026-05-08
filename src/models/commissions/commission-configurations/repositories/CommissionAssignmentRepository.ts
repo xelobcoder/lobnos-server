@@ -33,16 +33,20 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
           }
      }
 
-     async findActive(onDate: Date): Promise<ICommissionAssignment[]> {
+     async findActive(onDate?: Date): Promise<ICommissionAssignment[]> {
           try {
                const connection = await KnexConnection(this.tenantId);
-               const records = await connection('commission_assignments')
+               const query = connection('commission_assignments')
                     .where('is_active', true)
-                    .where('assigned_from', '<=', onDate)
-                    .where((builder: Knex.QueryBuilder) => {
-                         builder.whereNull('assigned_to').orWhere('assigned_to', '>=', onDate);
-                    })
-                    .orderBy('assigned_from', 'desc');
+
+               if (onDate) {
+                    query.where('assigned_from', '<=', onDate)
+                         .where((builder: Knex.QueryBuilder) => {
+                              builder.whereNull('assigned_to').orWhere('assigned_to', '>=', onDate);
+                         })
+               }
+
+               const records = await query.orderBy('assigned_from', 'desc');
 
                return records.map((record) => new CommissionAssignment(record));
           } catch (error) {
@@ -54,8 +58,6 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
           date: Date;
           scopeType: string;
           scopeId?: number;
-          serviceId?: number;
-          serviceCategory?: string;
      }): Promise<ICommissionAssignment[]> {
           try {
                const connection = await KnexConnection(this.tenantId);
@@ -67,37 +69,17 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
                          builder.whereNull('assigned_to').orWhere('assigned_to', '>=', params.date);
                     });
 
-               // Scope matching: clinician, organization, or system
                if (params.scopeType === 'clinician' && params.scopeId) {
-                    query = query.where((builder: Knex.QueryBuilder) => {
-                         builder.where('scope_type', 'clinician').where('scope_id', params.scopeId);
-                    });
+                    query = query.where('scope_type', 'clinician').where('scope_id', params.scopeId);
                } else if (params.scopeType === 'organization' && params.scopeId) {
-                    query = query.where((builder: Knex.QueryBuilder) => {
-                         builder.where('scope_type', 'organization').where('scope_id', params.scopeId);
-                    });
+                    query = query.where('scope_type', 'organization').where('scope_id', params.scopeId);
                } else {
                     query = query.where('scope_type', 'system');
                }
 
-               // Service matching: exact service_id OR category OR global
-               if (params.serviceId) {
-                    query = query.where((builder: Knex.QueryBuilder) => {
-                         builder.where('service_id', params.serviceId);
-                    });
-               } else if (params.serviceCategory) {
-                    query = query.where((builder: Knex.QueryBuilder) => {
-                         builder
-                              .where('service_category', params.serviceCategory)
-                              .orWhereNull('service_category');
-                    });
-               } else {
-                    query = query.where((builder: Knex.QueryBuilder) => {
-                         builder.whereNull('service_id').whereNull('service_category');
-                    });
-               }
-
                const records = await query.orderBy('priority', 'desc').orderBy('assigned_from', 'desc');
+
+               console.log(records,query.toString());
 
                return records.map((record) => new CommissionAssignment(record));
           } catch (error) {

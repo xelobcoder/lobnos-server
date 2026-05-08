@@ -8,8 +8,6 @@ export interface ICommissionAssignmentRepository {
           date: Date;
           scopeType: string;
           scopeId?: number;
-          serviceId?: number;
-          serviceCategory?: string;
      }): Promise<ICommissionAssignment[]>;
      create(
           assignment: Omit<ICommissionAssignment, 'id' | 'created_at'>

@@ -109,12 +109,16 @@ export class CommissionTrackingController {
                     limit
                );
 
+
+               console.log(unpaid, recipientType, recipientId, limit);
+
                res.json({
                     status: 'success',
                     statusCode: 200,
                     result: unpaid,
                });
           } catch (error: any) {
+               console.log('Error fetching unpaid tracking records', error);
                res.status(500).json({
                     status: 'error',
                     statusCode: 500,

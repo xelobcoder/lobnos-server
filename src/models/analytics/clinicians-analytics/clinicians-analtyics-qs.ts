@@ -514,7 +514,7 @@ export const q_get_clinicians_commission_by_date = `
     INNER JOIN clinicianbasicinfo c
         ON s.clinicianId = c.id
     LEFT JOIN commission_tracking ct
-        ON ct.serviceid = s.serviceid AND ct.type = 'clinician' AND ct.recipient_id = c.id
+        ON ct.service_id = s.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = s.serviceid
     WHERE

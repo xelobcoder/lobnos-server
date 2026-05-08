@@ -41,7 +41,6 @@ export class CommissionTierRepository implements ICommissionTierRepository {
                     })
                     .orderBy('sort_order', 'asc')
                     .first();
-
                return record ? new CommissionTier(record) : null;
           } catch (error) {
                throw new DatabaseError(
@@ -71,13 +70,15 @@ export class CommissionTierRepository implements ICommissionTierRepository {
      }
 
      async createMultiple(
-          tiers: Omit<ICommissionTier, 'id' | 'created_at'>[]
+          tiers: Omit<ICommissionTier, 'id' | 'created_at'>[],
+          commission_config_id: number
      ): Promise<ICommissionTier[]> {
           try {
                const connection = await KnexConnection(this.tenantId);
                const tiersWithTimestamp = tiers.map((tier) => ({
                     ...tier,
                     created_at: new Date(),
+                    commission_config_id,
                }));
 
                const ids = await connection('commission_tiers').insert(tiersWithTimestamp);
@@ -88,6 +89,7 @@ export class CommissionTierRepository implements ICommissionTierRepository {
 
                return created;
           } catch (error) {
+               console.log('Error creating multiple commission tiers:', error);
                if (error instanceof DatabaseError) throw error;
                throw new DatabaseError('Failed to create multiple commission tiers', error);
           }

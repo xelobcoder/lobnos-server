@@ -8,12 +8,13 @@ const CommissionTracking_interface_1 = require("../interfaces/CommissionTracking
 const CommissionErrors_1 = require("../errors/CommissionErrors");
 const KnexConnections_1 = __importDefault(require("../../../../database/KnexConnections"));
 class CommissionTrackingRepository {
-    constructor(tenantId) {
+    constructor(tenantId, trx) {
         this.tenantId = tenantId;
+        this.connection = trx ? trx : (0, KnexConnections_1.default)(this.tenantId);
     }
     async findById(id) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             const record = await connection('commission_tracking').where('id', id).first();
             return record ? new CommissionTracking_interface_1.CommissionTracking(record) : null;
         }
@@ -23,7 +24,7 @@ class CommissionTrackingRepository {
     }
     async findByServiceId(serviceId) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             const records = await connection('commission_tracking')
                 .where('service_id', serviceId)
                 .orderBy('calculated_at', 'desc');
@@ -35,7 +36,7 @@ class CommissionTrackingRepository {
     }
     async findByRecipient(recipientType, recipientId, limit) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             let query = connection('commission_tracking')
                 .where('recipient_type', recipientType)
                 .where('recipient_id', recipientId)
@@ -52,7 +53,7 @@ class CommissionTrackingRepository {
     }
     async findByStatus(status, limit) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             let query = connection('commission_tracking')
                 .where('status', status)
                 .orderBy('calculated_at', 'desc');
@@ -68,7 +69,7 @@ class CommissionTrackingRepository {
     }
     async findUnpaid(recipientType, limit) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             let query = connection('commission_tracking')
                 .where('status', '!=', 'paid')
                 .where('status', '!=', 'voided')
@@ -88,7 +89,7 @@ class CommissionTrackingRepository {
     }
     async findByPeriod(recipientType, recipientId, periodRef, statuses) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             const records = await connection('commission_tracking')
                 .where('recipient_type', recipientType)
                 .where('recipient_id', recipientId)
@@ -103,7 +104,7 @@ class CommissionTrackingRepository {
     }
     async getPeriodTotal(recipientType, recipientId, periodRef, statuses) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             const result = await connection('commission_tracking')
                 .where('recipient_type', recipientType)
                 .where('recipient_id', recipientId)
@@ -119,7 +120,8 @@ class CommissionTrackingRepository {
     }
     async create(tracking) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
+            console.log(tracking);
             const [id] = await connection('commission_tracking').insert(Object.assign(Object.assign({}, tracking), { created_at: new Date(), updated_at: new Date() }));
             const created = await this.findById(id);
             if (!created) {
@@ -135,7 +137,7 @@ class CommissionTrackingRepository {
     }
     async updateStatus(id, status) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             await connection('commission_tracking').where('id', id).update({
                 status,
                 updated_at: new Date(),
@@ -147,7 +149,7 @@ class CommissionTrackingRepository {
     }
     async getSummary(recipientType) {
         try {
-            const connection = await (0, KnexConnections_1.default)(this.tenantId);
+            const connection = await this.connection;
             let query = connection('commission_tracking')
                 .where('status', '!=', 'voided');
             if (recipientType) {

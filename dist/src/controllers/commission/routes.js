@@ -10,6 +10,11 @@ router.get('/detailed/list', async (req, res) => {
     const controller = new CommissionTrackingController_1.CommissionTrackingController(tenantid);
     await controller.getCommissionTrackingByType(req, res);
 });
+router.get('/untracked/services', async (req, res) => {
+    const tenantid = parseInt(req.query.tenantId);
+    const controller = new CommissionTrackingController_1.CommissionTrackingController(tenantid);
+    await controller.getUntrackedServices(req, res);
+});
 router.put('/commission/recipient/update-rates/:id', async (req, res) => {
     const tenantid = parseInt(req.query.tenantId);
     const controller = new CommissionTrackingController_1.CommissionTrackingController(tenantid);

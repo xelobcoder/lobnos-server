@@ -14,7 +14,7 @@ export interface CommissionInput {
 export interface CommissionCalculationResult {
      final_commission: number;
      tracking_id?: number;
-     reason: 'SUCCESS' | 'NO_CONFIG' | 'ERROR';
+     reason: 'SUCCESS' | 'NO_CONFIG' | 'NO_ASSIGNMENT_REQUIRES_DEFAULT_CHECK' | 'ERROR';
      error?: string;
 }
 

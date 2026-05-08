@@ -30,25 +30,24 @@ export class CommissionEngineService {
       */
      async executeCommissionCalculation(input: CommissionInput): Promise<CommissionCalculationResult> {
           try {
-               // Step 1: Resolve applicable assignment
+               const recipientType = input.clinician_id ? 'clinician' : 'organization';
+               const recipientId = input.clinician_id || input.organization_id;
                const assignment = await this.resolutionService.resolveAssignment(input);
-
+     
                if (!assignment) {
-                    logger.warn('No commission configuration found', {
+                    logger.info('No recipient-specific assignment found, default fallback required', {
+                         recipient_type: recipientType,
+                         recipient_id: recipientId,
                          service_id: input.service_id,
-                         organization_id: input.organization_id,
-                         clinician_id: input.clinician_id,
                     });
                     return {
                          final_commission: 0,
-                         reason: 'NO_CONFIG',
+                         reason: 'NO_ASSIGNMENT_REQUIRES_DEFAULT_CHECK',
                     };
                }
 
-               // Step 2: Get configuration
                const config = await this.configRepo.getByIdOrThrow(assignment.commission_config_id);
 
-               // Step 3: Calculate raw commission
                let matchedTier = undefined;
                if (config.commission_type === 'tiered') {
                     matchedTier = await this.tierRepo.findMatchingTier(config.id, input.service_amount);
@@ -63,11 +62,7 @@ export class CommissionEngineService {
                     matchedTier
                );
 
-               // Step 4: Determine recipient type (clinician or organization)
-               const recipientType = input.clinician_id ? 'clinician' : 'organization';
-               const recipientId = input.clinician_id || input.organization_id;
-
-               // Step 5: Apply all caps
+               // Step 4: Apply all caps
                const adjustments = await this.capService.applyCaps(
                     config,
                     rawCommission,
@@ -76,13 +71,11 @@ export class CommissionEngineService {
                     recipientId
                );
 
-               // Step 6: Determine period reference date if period cap exists
                let periodRefDate: Date | undefined;
                if (config.period_cap && config.period_cap_reset) {
                     periodRefDate = PeriodHelper.getPeriodReferenceDate(input.completion_date, config.period_cap_reset);
                }
 
-               // Step 7: Persist tracking record
                const tracking = await this.trackingRepo.create({
                     service_id: input.service_id,
                     service_amount: input.service_amount,
@@ -105,6 +98,8 @@ export class CommissionEngineService {
                     status: 'pending',
                });
 
+               console.log(tracking)
+
                logger.info('Commission calculated successfully', {
                     service_id: input.service_id,
                     tracking_id: tracking.id,
@@ -118,30 +113,21 @@ export class CommissionEngineService {
                     tracking_id: tracking.id,
                     reason: 'SUCCESS',
                };
-          } catch (error) {
+          } catch (error:any) {
+               console.log(error)
                logger.error('Commission calculation failed', {
                     error: error instanceof Error ? error.message : String(error),
                     service_id: input.service_id,
                });
 
-               return {
-                    final_commission: 0,
-                    reason: 'ERROR',
-                    error: error instanceof Error ? error.message : 'Unknown error',
-               };
+              throw new Error(error)
           }
      }
 
-     /**
-      * Get commission summary by type
-      */
      async getCommissionSummary(recipientType?: string): Promise<Record<string, any>> {
           return this.trackingRepo.getSummary(recipientType);
      }
 
-     /**
-      * Get unpaid commissions
-      */
      async getUnpaidCommissions(recipientType?: string, limit?: number) {
           return this.trackingRepo.findUnpaid(recipientType, limit);
      }

@@ -54,7 +54,7 @@ export class CommissionConfigController {
 
                // Validate configuration
                try {
-                    CommissionValidator.validateConfig(config);
+                    CommissionValidator.validateConfig(config as any);
                } catch (validationError: any) {
                     res.status(400).json({
                          status: 'error',
@@ -67,8 +67,8 @@ export class CommissionConfigController {
 
                // Create the configuration
                const repository = CommissionServiceFactory.createConfigRepository(tenantId);
-               const createdConfig = await repository.create(config);
-
+               const createdConfig = await repository.create(config as any);
+          
                // Create tiers if provided for tiered commission
                if (commission_type === 'tiered' && Array.isArray(tiers) && tiers.length > 0) {
                     try {
@@ -83,7 +83,7 @@ export class CommissionConfigController {
                          return;
                     }
                     const tierRepository = CommissionServiceFactory.createTierRepository(tenantId);
-                    await tierRepository.createMultiple(tiers);
+                    await tierRepository.createMultiple(tiers, createdConfig.id);
                }
 
                res.status(201).json({
@@ -219,7 +219,7 @@ export class CommissionConfigController {
                };
 
                try {
-                    CommissionValidator.validateConfig(newConfig);
+                    CommissionValidator.validateConfig(newConfig as any);
                } catch (validationError: any) {
                     res.status(400).json({
                          status: 'error',
@@ -230,7 +230,7 @@ export class CommissionConfigController {
                     return;
                }
 
-               const createdConfig = await repository.create(newConfig);
+               const createdConfig = await repository.create(newConfig as any);
 
                res.json({
                     status: 'success',

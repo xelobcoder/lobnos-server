@@ -102,7 +102,7 @@ export class CommissionBatchPaymentsRepo {
                // insert each service into commission_batch_payment_services
                for (const serviceId of services) {
                     const commissionDueForService = await conn('commission_tracking')
-                         .where('serviceid', serviceId)
+                         .where('service_id', serviceId)
                          .first()
                          .then((row: any) => row ? parseFloat(row.commission_due) : 0);
                     const waivedForService = isWaived ? waiverAmountPerService : 0;

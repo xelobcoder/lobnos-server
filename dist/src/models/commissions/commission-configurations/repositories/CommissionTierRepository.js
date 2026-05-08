@@ -66,15 +66,16 @@ class CommissionTierRepository {
             throw new CommissionErrors_1.DatabaseError('Failed to create commission tier', error);
         }
     }
-    async createMultiple(tiers) {
+    async createMultiple(tiers, commission_config_id) {
         try {
             const connection = await (0, KnexConnections_1.default)(this.tenantId);
-            const tiersWithTimestamp = tiers.map((tier) => (Object.assign(Object.assign({}, tier), { created_at: new Date() })));
+            const tiersWithTimestamp = tiers.map((tier) => (Object.assign(Object.assign({}, tier), { created_at: new Date(), commission_config_id })));
             const ids = await connection('commission_tiers').insert(tiersWithTimestamp);
             const created = await Promise.all(ids.map((id) => this.findById(id).then((t) => t)));
             return created;
         }
         catch (error) {
+            console.log('Error creating multiple commission tiers:', error);
             if (error instanceof CommissionErrors_1.DatabaseError)
                 throw error;
             throw new CommissionErrors_1.DatabaseError('Failed to create multiple commission tiers', error);

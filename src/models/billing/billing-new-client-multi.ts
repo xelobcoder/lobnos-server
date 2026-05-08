@@ -494,6 +494,7 @@ export class SubmitCustomerBilling {
                     }
                 }
 
+                await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
                 await trx.commit();
             } catch (error: any) {
                 try {
@@ -502,17 +503,6 @@ export class SubmitCustomerBilling {
                 throw error;
             }
 
-            // ==================== CALCULATE COMMISSIONS ====================
-            // After successful commit, calculate commissions for all services in this billing
-            try {
-                await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID);
-            } catch (error: any) {
-                // Log commission calculation errors but don't fail the billing submission
-                CommissionLogger.error('Commission calculation failed after billing submit', {
-                    billingid: finalBillingIdForEvent || billingID,
-                    error: error.message
-                });
-            }
 
             const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
             const repo = new PrimeEventsSMSDataSource(tenantId);
@@ -528,15 +518,14 @@ export class SubmitCustomerBilling {
      * Trigger commission calculation for all services in a billing
      * Called after successful billing submission to calculate and store commissions
      */
-    static async triggerCommissionCalculation(tenantId: number, billingId: number): Promise<void> {
+    static async triggerCommissionCalculation(tenantId: number, billingId: number, trx: any): Promise<void> {
         try {
-            const connection = await KnexConnection(tenantId);
+            const connection = await trx ? trx : KnexConnection(tenantId);
 
             // Get all services for this billing
             const services = await connection('dboservices')
                 .where({ billingid: billingId })
-                .select('id', 'serviceid', 'amount', 'clinicianid', 'organizationid', 'created_at', 'serviceCategory');
-
+                .select( 'serviceid', 'paidamount', 'clinicianId', 'organizationId',  'serviceCategory');
             if (!services || services.length === 0) {
                 CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
                 return;
@@ -549,39 +538,37 @@ export class SubmitCustomerBilling {
             for (const service of services) {
                 try {
                     const result = await engine.executeCommissionCalculation({
-                        serviceId: service.id,
-                        serviceAmount: service.amount || 0,
-                        clinicianId: service.clinicianid || null,
-                        organizationId: service.organizationid || null,
-                        serviceTypeId: service.serviceid,
-                        serviceCategory: service.serviceCategory || null,
-                        completionDate: service.created_at || new Date(),
+                        service_id: service.serviceid,
+                        service_amount: service.paidamount || 0,
+                        clinician_id: service.clinicianId || null,
+                        organization_id: service.organizationId|| null,
+                        service_category: service.serviceCategory || '',
+                        completion_date: service.created_at || new Date(),
                     });
 
                     if (result.reason === 'SUCCESS') {
                         CommissionLogger.info('Commission calculated successfully', {
-                            service_id: service.id,
-                            tracking_id: result.trackingId,
-                            amount: result.finalCommission,
-                            config_id: result.configId,
+                            service_id: service.serviceid,
+                            tracking_id: result.tracking_id,
+                            amount: result.final_commission,
                         });
                     } else if (result.reason === 'NO_CONFIG') {
                         CommissionLogger.warn('No commission configuration found for service', {
-                            service_id: service.id,
-                            clinician_id: service.clinicianid,
-                            organization_id: service.organizationid,
+                            service_id: service.serviceid,
+                            clinician_id: service.clinicianId,
+                            organization_id: service.organizationId,
                             service_category: service.serviceCategory,
                         });
                     } else {
                         CommissionLogger.error('Commission calculation failed', {
-                            service_id: service.id,
+                            service_id: service.serviceid,
                             reason: result.reason,
                             error: result.error,
                         });
                     }
                 } catch (error: any) {
                     CommissionLogger.error('Error calculating commission for service', {
-                        service_id: service.id,
+                        service_id: service.serviceid,
                         error: error.message,
                     });
                 }
@@ -596,6 +583,8 @@ export class SubmitCustomerBilling {
                 billingid: billingId,
                 error: error.message,
             });
+
+            trx ? await trx.rollback() : null;
             throw error;
         }
     }

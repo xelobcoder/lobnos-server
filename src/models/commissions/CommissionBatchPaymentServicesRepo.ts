@@ -62,10 +62,11 @@ export class CommissionBatchPaymentServicesRepo {
                }
 
                if (serviceIds.length > 0) {
+                    const trackingRepo = new CommissionTrackingRepo(this.tenantId);
                     for (const serviceId of serviceIds) {
-                         const notCommissioned = await new CommissionTrackingRepo(this.tenantId).validateServiceTrackedMultiple([serviceId]);
+                         const notCommissioned = await trackingRepo.validateServiceTrackedMultiple([serviceId]);
                          if (notCommissioned.length > 0) {
-                              await new CommissionTrackingRepo(this.tenantId).calculateCommissionDue(notCommissioned);
+                              await trackingRepo.calculateCommissionDue(notCommissioned);
                          }
                     }
                }
@@ -79,8 +80,15 @@ export class CommissionBatchPaymentServicesRepo {
           try {
                const conn = await this.connection;
                const paymentHistory = await conn('commission_batch_payment_services as cbps')
-                    .leftJoin("commission_tracking as ct", "ct.serviceid", "cbps.serviceid ")
-                    .select(("cbps.*"), ("ct.commission_percentage"), ("ct.type"), ("ct.recipient_id"))
+                    .leftJoin("commission_tracking as ct", "ct.service_id", "cbps.serviceid")
+                    .select(
+                         "cbps.*",
+                         "ct.percentage_rate_applied as percentage_rate_applied",
+                         "ct.commission_type as commission_type",
+                         "ct.recipient_type as recipient_type",
+                         "ct.recipient_id as recipient_id",
+                         "ct.final_commission as final_commission"
+                    )
                     .where('cbps.serviceid', serviceid);
                return paymentHistory;
           } catch (error) {
@@ -93,8 +101,15 @@ export class CommissionBatchPaymentServicesRepo {
           try {
                const conn = await this.connection;
                const services = await conn('commission_batch_payment_services as cbps')
-                    .leftJoin("commission_tracking as ct", "ct.serviceid", "cbps.serviceid ")
-                    .select(("cbps.*"), ("ct.commission_percentage"), ("ct.type"), ("ct.recipient_id"))
+                    .leftJoin("commission_tracking as ct", "ct.service_id", "cbps.serviceid")
+                    .select(
+                         "cbps.*",
+                         "ct.percentage_rate_applied as percentage_rate_applied",
+                         "ct.commission_type as commission_type",
+                         "ct.recipient_type as recipient_type",
+                         "ct.recipient_id as recipient_id",
+                         "ct.final_commission as final_commission"
+                    )
                     .where('cbps.batch_payment_id', batchid);
                return services;
           } catch (error) {

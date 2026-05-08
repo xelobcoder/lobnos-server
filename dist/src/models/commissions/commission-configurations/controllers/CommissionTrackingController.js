@@ -96,6 +96,7 @@ class CommissionTrackingController {
             }
             const repository = commissionConfigutationRepo_1.CommissionServiceFactory.createTrackingRepository(tenantId);
             const unpaid = await repository.findByRecipient(recipientType, recipientId, limit);
+            console.log(unpaid, recipientType, recipientId, limit);
             res.json({
                 status: 'success',
                 statusCode: 200,
@@ -103,6 +104,7 @@ class CommissionTrackingController {
             });
         }
         catch (error) {
+            console.log('Error fetching unpaid tracking records', error);
             res.status(500).json({
                 status: 'error',
                 statusCode: 500,

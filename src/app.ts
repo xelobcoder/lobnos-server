@@ -48,7 +48,6 @@ import leadsRouter from './controllers/crm/leads/route';
 import followupsRouter from './controllers/crm/leads/followups.route';
 import payrollRouter from './controllers/payroll/routes';
 import freeServicesRouter from './controllers/billing/FreeServices/routes';
-import commissionRouter from './controllers/commissions/commissionDefaultsRoutes';
 import commissionConfigRouter from './models/commissions/commission-configurations/controllers/routes';
 
 
@@ -120,7 +119,7 @@ app.use('/api/v1/followups', followupsRouter);
 app.use('/api/v1/payroll', payrollRouter);
 app.use('/api/v1/billing/free-services', freeServicesRouter);
 app.use('/api/v1/commission', commissionConfigRouter);
-app.use(commissionRouter);
+
 
 
 

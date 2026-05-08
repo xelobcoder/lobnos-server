@@ -8,11 +8,11 @@ import { CommissionTrackingRepository } from '../repositories/CommissionTracking
  * Factory for creating CommissionEngineService with all dependencies
  */
 export class CommissionServiceFactory {
-     static createEngine(tenantId: number): CommissionEngineService {
+     static createEngine(tenantId: number, trx?: any): CommissionEngineService {
           const configRepo = new CommissionConfigRepository(tenantId);
           const tierRepo = new CommissionTierRepository(tenantId);
           const assignmentRepo = new CommissionAssignmentRepository(tenantId);
-          const trackingRepo = new CommissionTrackingRepository(tenantId);
+          const trackingRepo = new CommissionTrackingRepository(tenantId, trx);
 
           return new CommissionEngineService(configRepo, tierRepo, assignmentRepo, trackingRepo);
      }
@@ -29,7 +29,7 @@ export class CommissionServiceFactory {
           return new CommissionAssignmentRepository(tenantId);
      }
 
-     static createTrackingRepository(tenantId: number): CommissionTrackingRepository {
-          return new CommissionTrackingRepository(tenantId);
+     static createTrackingRepository(tenantId: number, trx?: any): CommissionTrackingRepository {
+          return new CommissionTrackingRepository(tenantId, trx);
      }
 }

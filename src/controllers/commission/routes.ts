@@ -11,6 +11,12 @@ router.get('/detailed/list', async (req, res) => {
      await controller.getCommissionTrackingByType(req, res);
 });
 
+router.get('/untracked/services', async (req, res) => {
+     const tenantid = parseInt(req.query.tenantId as string);
+     const controller = new CommissionTrackingController(tenantid);
+     await controller.getUntrackedServices(req, res);
+});
+
 
 
 router.put('/commission/recipient/update-rates/:id', async (req, res) => {
@@ -20,7 +26,7 @@ router.put('/commission/recipient/update-rates/:id', async (req, res) => {
 });
 
 
-router.post('/commission/batch/process-services',isAuthorizedRoleAdmin, async (req, res) => {
+router.post('/commission/batch/process-services', isAuthorizedRoleAdmin, async (req, res) => {
      const tenantid = parseInt(req.query.tenantId as string);
      const controller = new CommissionBatchServicesController(tenantid);
      await controller.processServiceBatching(req as any, res);

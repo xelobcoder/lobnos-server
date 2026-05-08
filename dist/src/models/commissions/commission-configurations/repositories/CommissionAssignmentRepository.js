@@ -36,13 +36,15 @@ class CommissionAssignmentRepository {
     async findActive(onDate) {
         try {
             const connection = await (0, KnexConnections_1.default)(this.tenantId);
-            const records = await connection('commission_assignments')
-                .where('is_active', true)
-                .where('assigned_from', '<=', onDate)
-                .where((builder) => {
-                builder.whereNull('assigned_to').orWhere('assigned_to', '>=', onDate);
-            })
-                .orderBy('assigned_from', 'desc');
+            const query = connection('commission_assignments')
+                .where('is_active', true);
+            if (onDate) {
+                query.where('assigned_from', '<=', onDate)
+                    .where((builder) => {
+                    builder.whereNull('assigned_to').orWhere('assigned_to', '>=', onDate);
+                });
+            }
+            const records = await query.orderBy('assigned_from', 'desc');
             return records.map((record) => new CommissionAssignment_interface_1.CommissionAssignment(record));
         }
         catch (error) {
@@ -58,39 +60,17 @@ class CommissionAssignmentRepository {
                 .where((builder) => {
                 builder.whereNull('assigned_to').orWhere('assigned_to', '>=', params.date);
             });
-            // Scope matching: clinician, organization, or system
             if (params.scopeType === 'clinician' && params.scopeId) {
-                query = query.where((builder) => {
-                    builder.where('scope_type', 'clinician').where('scope_id', params.scopeId);
-                });
+                query = query.where('scope_type', 'clinician').where('scope_id', params.scopeId);
             }
             else if (params.scopeType === 'organization' && params.scopeId) {
-                query = query.where((builder) => {
-                    builder.where('scope_type', 'organization').where('scope_id', params.scopeId);
-                });
+                query = query.where('scope_type', 'organization').where('scope_id', params.scopeId);
             }
             else {
                 query = query.where('scope_type', 'system');
             }
-            // Service matching: exact service_id OR category OR global
-            if (params.serviceId) {
-                query = query.where((builder) => {
-                    builder.where('service_id', params.serviceId);
-                });
-            }
-            else if (params.serviceCategory) {
-                query = query.where((builder) => {
-                    builder
-                        .where('service_category', params.serviceCategory)
-                        .orWhereNull('service_category');
-                });
-            }
-            else {
-                query = query.where((builder) => {
-                    builder.whereNull('service_id').whereNull('service_category');
-                });
-            }
             const records = await query.orderBy('priority', 'desc').orderBy('assigned_from', 'desc');
+            console.log(records, query.toString());
             return records.map((record) => new CommissionAssignment_interface_1.CommissionAssignment(record));
         }
         catch (error) {

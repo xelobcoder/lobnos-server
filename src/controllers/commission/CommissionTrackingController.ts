@@ -95,4 +95,62 @@ export class CommissionTrackingController {
                return customError("Failed to update commission tracking", 500, response);
           }
      }
+
+     async getUntrackedServices(request: Request, response: Response) {
+          try {
+               const { recipient_type, recipient_id, page, count } = request.query;
+
+               let recipientType: 'clinician' | 'organization' | undefined;
+               let recipientId: number | undefined;
+               let pageNum: number | undefined;
+               let countNum: number | undefined;
+
+               if (recipient_type) {
+                    if (!['clinician', 'organization'].includes(recipient_type as string)) {
+                         return customError("recipient_type must be either 'clinician' or 'organization'", 400, response);
+                    }
+                    recipientType = recipient_type as 'clinician' | 'organization';
+               }
+
+               if (recipient_id) {
+                    const parsedId = parseInt(recipient_id as string);
+                    if (isNaN(parsedId)) {
+                         return customError("recipient_id must be a valid number", 400, response);
+                    }
+                    recipientId = parsedId;
+               }
+
+               if (page) {
+                    const parsedPage = parseInt(page as string);
+                    if (isNaN(parsedPage) || parsedPage < 1) {
+                         return customError("page must be a positive integer", 400, response);
+                    }
+                    pageNum = parsedPage;
+               }
+
+               if (count) {
+                    const parsedCount = parseInt(count as string);
+                    if (isNaN(parsedCount) || parsedCount < 1) {
+                         return customError("count must be a positive integer", 400, response);
+                    }
+                    countNum = parsedCount;
+               }
+
+               const untrackedServices = await this.commissionTrackingRepo.getUntrackedServices(
+                    recipientType,
+                    recipientId,
+                    pageNum,
+                    countNum
+               );
+
+               return response.send({
+                    status: true,
+                    message: "Untracked services retrieved successfully",
+                    data: untrackedServices
+               });
+          } catch (error) {
+               logger.error('Error fetching untracked services:', error);
+               return customError("Failed to fetch untracked services", 500, response);
+          }
+     }
 }
