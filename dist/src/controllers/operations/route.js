@@ -20,6 +20,10 @@ router.get(`/api/v1/operations/laboratory/search`, (0, helper_1.handleOverLoad)(
 router.get(`/api/v1/operations/ascension/staging`, (0, helper_1.handleOverLoad)(ascensionStageHandler_1.ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, operationsHandlers_1.getAllEnterResult);
 router.get('/api/v1/operations/overview/folder', operationsHandlers_1.getAscensionOverViewModelHandler);
+router.post('/api/v1/ultrasound/images/upload', operationsHandlers_1.uploadUltrasoundImagesHandler);
+router.get('/api/v1/ultrasound/images/:ascensionid', operationsHandlers_1.getUltrasoundImagesHandler);
+router.delete('/api/v1/ultrasound/images/:id', operationsHandlers_1.deleteUltrasoundImageHandler);
+router.get('/api/v1/ultrasound/images/file/:filename', operationsHandlers_1.serveUltrasoundImageHandler);
 router.get('/api/v1/operations/overview/folder/open/transaction', operationsHandlers_1.getAscensionOverViewModelTransactionHandler);
 router.get(`/api/v1/operations/test/result`, operationsHandlers_1.getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, operationsHandlers_1.getAllPendingCases);

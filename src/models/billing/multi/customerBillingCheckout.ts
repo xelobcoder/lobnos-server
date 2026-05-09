@@ -497,6 +497,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     return { success: false, message: 'No services found for the provided billingid' };
                }
 
+
+
                for (const service of transactionServices) {
                     await transaction('dboservices')
                          .where('serviceid', service.serviceid)
@@ -505,11 +507,10 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                               serviceCategory: serviceCategory[billingSource],
                               clinicianId: billingSource === 6 ? entity_id : null,
                               organizationId: billingSource === 2 ? entity_id : null,
-                              categoryTrackId: entity_id,
+                              categoryTrackId: billingSource,
                               isNHIS: billingSource === 4 ? 1 : 0,
                               isPHIS: billingSource === 3 ? 1 : 0,
                               insuranceid: billingSource === 4 || billingSource === 3 ? entity_id : null,
-                              isLocked: 1,
                               isCorrected: 1,
                          });
 

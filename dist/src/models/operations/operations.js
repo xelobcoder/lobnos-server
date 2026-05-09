@@ -136,9 +136,12 @@ class Operations {
     }
     static async getAscensionOverViewModel(tenantid, date, filters) {
         try {
-            const params = [date];
-            let whereConditions = `WHERE DATE(b.billedon) = DATE(?)
-						AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')`;
+            const params = [];
+            let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0`;
+            if (date && date !== "all") {
+                whereConditions += ` AND DATE(b.billedon) = DATE(?)`;
+                params.push(date);
+            }
             if (filters === null || filters === void 0 ? void 0 : filters.billingid) {
                 whereConditions += ` AND b.billingid = ?`;
                 params.push(filters.billingid);
@@ -201,6 +204,9 @@ class Operations {
 
 						LEFT JOIN departments d
 						ON d.id = tp.category
+
+						LEFT JOIN dbobillingrefundtable rf
+						ON rf.serviceid = ta.serviceid
 
 						${whereConditions}
 
@@ -639,6 +645,53 @@ class Operations {
         catch (err) {
             console.log('Error in searchLaboratoryOperations:', err);
             throw new Error(`Failed to retrieve laboratory operations data. Please try again later.`);
+        }
+    }
+    static async uploadUltrasoundImages(tenantId, data) {
+        try {
+            const { ascensionid, testid, patientid, filename } = data;
+            const query = `INSERT INTO ultrasound_images (ascensionid, testid, patientid, filename, created_at) VALUES (?, ?, ?, ?, NOW())`;
+            const result = await (0, helper_1.promisifyQuery)(tenantId, query, [ascensionid, testid, patientid, filename]);
+            return (0, helper_1.rowAffected)(result);
+        }
+        catch (err) {
+            console.log('Error in uploadUltrasoundImages:', err);
+            return false;
+        }
+    }
+    static async getUltrasoundImagesByAscension(tenantId, ascensionid) {
+        try {
+            if (!ascensionid || isNaN(ascensionid)) {
+                return [];
+            }
+            const query = `SELECT id, filename, created_at FROM ultrasound_images WHERE ascensionid = ? ORDER BY created_at DESC`;
+            return await (0, helper_1.promisifyQuery)(tenantId, query, [ascensionid]);
+        }
+        catch (err) {
+            console.log('Error in getUltrasoundImagesByAscension:', err);
+            return [];
+        }
+    }
+    static async getUltrasoundImageById(tenantId, id) {
+        try {
+            const query = `SELECT * FROM ultrasound_images WHERE id = ?`;
+            const results = await (0, helper_1.promisifyQuery)(tenantId, query, [id]);
+            return results[0];
+        }
+        catch (err) {
+            console.log('Error in getUltrasoundImageById:', err);
+            return null;
+        }
+    }
+    static async deleteUltrasoundImage(tenantId, id) {
+        try {
+            const query = `DELETE FROM ultrasound_images WHERE id = ?`;
+            const result = await (0, helper_1.promisifyQuery)(tenantId, query, [id]);
+            return (0, helper_1.rowAffected)(result);
+        }
+        catch (err) {
+            console.log('Error in deleteUltrasoundImage:', err);
+            return false;
         }
     }
 }

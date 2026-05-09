@@ -169,7 +169,11 @@ export default class ApplicationSettings {
 			automakecommissionpaymentsexpense,
 			pinOnResultEntry,
 			pinOnResultValidation,
-			useamountpaidforcommissioncalculation
+			useamountpaidforcommissioncalculation,
+			allowManagerToApproveExpenses,
+			allowManagerToRefund,
+			allowManagerToProcessPayroll,
+			allowManagerToProcessCommission,
 		} = data;
 
 		try {
@@ -211,6 +215,10 @@ export default class ApplicationSettings {
 					pinOnResultEntry: pinOnResultEntry ?? 0,
 					pinOnResultValidation: pinOnResultValidation ?? 0,
 					allowScientistToRegisterClient: allowScientistToRegisterClient ?? 0,
+					allowManagerToApproveExpenses: allowManagerToApproveExpenses ?? 0,
+					allowManagerToRefund: allowManagerToRefund ?? 0,
+					allowManagerToProcessPayroll: allowManagerToProcessPayroll ?? 0,
+					allowManagerToProcessCommission: allowManagerToProcessCommission ?? 0,
 				};
 				let affectedRows = 0;
 				if (existing) {

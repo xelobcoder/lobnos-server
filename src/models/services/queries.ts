@@ -162,7 +162,7 @@ LIMIT ? OFFSET ?;
 
 
 
-export const q_services_refund_status_change_admin_approve = `UPDATE dbobillingrefundtable SET isRefundApproved = ? , approvalDate = ?, approvedby = ?  WHERE serviceid = ?`;
+export const q_services_refund_status_change_admin_approve = `UPDATE dbobillingrefundtable SET isRefundApproved = ? ,isRefundInitiated = 1, approvalDate = ?, approvedby = ?  WHERE serviceid = ?`;
 
 export const q_services_refund_status_is_approved = `SELECT * FROM dbobillingrefundtable WHERE isRefundApproved = 1 AND serviceid = ?`;
 export const q_services_refund_status_is_completed = `SELECT * FROM dbobillingrefundtable WHERE isRefundCompleted = 1 AND serviceid = ?`;

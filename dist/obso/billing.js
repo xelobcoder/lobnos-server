@@ -65,12 +65,9 @@ class Billing {
     async getClientBillingInformation(tenantId, billingid) {
         if (!billingid)
             throw new Error("billingid not provided");
-        if (typeof billingid !== "number") {
+        if (typeof billingid !== "number")
             throw new TypeError("billingid must be a number");
-        }
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        // Note: Witness fields (firstWitness, secondWitness, thirdWitness) can be null
-        // LEFT JOIN ensures data is returned even when witness IDs are null, resulting in null witness names
         const servicesProfile = await connection('dboservices')
             .select('dboservices.*', 'dbobillingrefundtable.*', 'organization.name as organizationName', 'clinicianbasicinfo.name as clinicianName', 'roles_first.username as firstWitnessName', 'roles_second.username as secondWitnessName', 'roles_third.username as thirdWitnessName', 'roles_initiated.username as initiatedByName', 'deleted_by_role.username as deletedByName', 'roles_approved.username as approvedByName')
             .leftJoin('dbobillingrefundtable', 'dboservices.serviceid', 'dbobillingrefundtable.serviceid')

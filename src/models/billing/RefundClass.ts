@@ -31,6 +31,7 @@ import { promisifyQuery, rowAffected, paginationQuery } from '../../hooks/helper
 import { Services } from '../services/services';
 import { PrimeBillingEnterprise } from './multi/PrimeBillingEnterprise';
 import KnexConnection from '../../database/KnexConnections';
+import ApplicationSettings from '../application/appsettings/appset';
 
 
 type dbReturned = PrimeLimsTabledbobillingrefundtable & PrimeLimsTabledboservices & PrimeLimsTablebilling[];
@@ -316,38 +317,47 @@ export class Refund {
 		tenantId: number,
 		employeeid: number,
 		serviceid: number,
-		reason: string
+		reason: string,
+		trx?: any
 	): Promise<boolean | string> {
-		if (
-			!serviceid ||
-			!employeeid ||
-			typeof serviceid !== 'number' ||
-			typeof employeeid !== 'number'
-		) {
-			return false;
+		try {
+			if (
+				!serviceid ||
+				!employeeid ||
+				typeof serviceid !== 'number' ||
+				typeof employeeid !== 'number'
+			) {
+				return false;
+			}
+
+			const role = await new User().getUserRole(employeeid, tenantId);
+			if (!role) return false;
+
+			const withnessStatus = await this.withnessStatus(tenantId, serviceid);
+			const stringifyRole = role.toString().trim();
+
+			if (withnessStatus == 'allWitnessesAssigned') return OperationsFailures.allWitnessesAssigned;
+			if (withnessStatus == "thirdWitness") return OperationsFailures.nopermissiontobethirdwitness;
+
+			await this.updateWitnessOfRefund(
+				tenantId, {
+				serviceid,
+				employeeid,
+				witnesStatus: withnessStatus as string,
+				reason,
+			});
+
+			const applicationsettings = await new ApplicationSettings()
+				.getAllAppSettings(tenantId);
+
+			const { allowManagerToRefund } = applicationsettings;
+			if (['admin', 'superadmin'].includes(stringifyRole) || (stringifyRole == 'manager' && parseInt(allowManagerToRefund.toString()) == 1)) {
+				const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [1, new Date(), employeeid, serviceid]);
+				return rowAffected(result);
+			}
+		} catch (error: any) {
+			return error.message;
 		}
-
-		const role = await new User(null, null, null, null, null).getUserRole(employeeid, tenantId);
-		if (!role) return false;
-
-		const withnessStatus = await this.withnessStatus(tenantId, serviceid);
-
-		if (role !== 'admin' && withnessStatus && withnessStatus === 'allWitnessesAssigned') {
-			return OperationsFailures.nopermissiontobethirdwitness;
-		}
-
-		if (role === 'admin') {
-			const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [1, employeeid, serviceid]);
-			return rowAffected(result);
-		}
-
-		return await this.updateWitnessOfRefund(
-			tenantId, {
-			serviceid,
-			employeeid,
-			witnesStatus: withnessStatus as string,
-			reason,
-		});
 	}
 
 	async isAmountRefundedOut(tenantId: number, serviceid: number): Promise<boolean | null> {

@@ -71,6 +71,10 @@ export type ApplicationSettingsData = {
      automakeoutsourcepaymentsexpense?: numberBoolean;
      automakecommissionpaymentsexpense?: numberBoolean;
      useamountpaidforcommissioncalculation?: numberBoolean;
+     allowManagerToApproveExpenses?: numberBoolean;
+     allowManagerToRefund?: numberBoolean;
+     allowManagerToProcessPayroll?: numberBoolean;
+     allowManagerToProcessCommission?: numberBoolean;
 };
 
 

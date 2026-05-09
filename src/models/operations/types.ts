@@ -15,6 +15,7 @@ export const enum OperationsFailures {
 	invalidResquestQuery = 'Invalid request query parameters.',
 	billingStrategyNotFound = 'Billing strategy not found.',
 	invalidDateRange = 'Invalid date range provided.',
+	allWitnessesAssigned = 'All witnesses assigned for this refund transaction',
 	invalidEmailFormat = 'Invalid email format provided.',
 	billingSessionAlreadyEnded = "sale session already ended",
 	billingSessionNotFound = "sale session not found",

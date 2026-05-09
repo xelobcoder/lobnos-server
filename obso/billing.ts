@@ -100,12 +100,8 @@ export class Billing {
 
 	public async getClientBillingInformation(tenantId: number, billingid: number) {
 		if (!billingid) throw new Error("billingid not provided");
-		if (typeof billingid !== "number") {
-			throw new TypeError("billingid must be a number");
-		}
+		if (typeof billingid !== "number") throw new TypeError("billingid must be a number");
 		const connection = await KnexConnection(tenantId);
-		// Note: Witness fields (firstWitness, secondWitness, thirdWitness) can be null
-		// LEFT JOIN ensures data is returned even when witness IDs are null, resulting in null witness names
 		const servicesProfile: PrimeLimsTablebilling[] = await connection('dboservices')
 			.select('dboservices.*', 'dbobillingrefundtable.*', 'organization.name as organizationName',
 				'clinicianbasicinfo.name as clinicianName', 'roles_first.username as firstWitnessName',

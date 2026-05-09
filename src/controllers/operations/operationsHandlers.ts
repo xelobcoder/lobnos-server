@@ -1,6 +1,174 @@
 import { Request, Response } from "express";
 import Operations from "../../models/operations/operations";
-import { customError, responseError } from "../../hooks/helper";
+import { customError, responseError, handleOverLoad } from "../../hooks/helper";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// Configure multer for ultrasound images
+const ultrasoundStorage = multer.diskStorage({
+	destination: (req, file, cb) => {
+		const uploadPath = path.join(process.cwd(), "public", "uploads", "ultrasound");
+		if (!fs.existsSync(uploadPath)) {
+			fs.mkdirSync(uploadPath, { recursive: true });
+		}
+		cb(null, uploadPath);
+	},
+	filename: (req, file, cb) => {
+		const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+		cb(null, `ultrasound-${uniqueSuffix}${path.extname(file.originalname)}`);
+	}
+});
+
+const uploadUltrasound = multer({
+	storage: ultrasoundStorage,
+	limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+	fileFilter: (req, file, cb) => {
+		const allowedTypes = /jpeg|jpg|png|gif/;
+		const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+		const mimetype = allowedTypes.test(file.mimetype);
+		if (extname && mimetype) {
+			return cb(null, true);
+		}
+		cb(new Error("Only image files are allowed!"));
+	}
+}).array("file", 10);
+
+export const uploadUltrasoundImagesHandler = handleOverLoad(async (req: Request, res: Response) => {
+	uploadUltrasound(req, res, async (err) => {
+		if (err) {
+			return customError(err.message, 400, res);
+		}
+
+		const files = req.files as Express.Multer.File[];
+		if (!files || files.length === 0) {
+			return customError("No files uploaded", 400, res);
+		}
+
+		const { ascensionid, testid, patientid } = req.body;
+		const { tenantId } = req.query;
+
+		if (!ascensionid || !testid || !patientid || !tenantId) {
+			// Clean up uploaded files if validation fails
+			files.forEach(file => fs.unlinkSync(file.path));
+			return customError("ascensionid, testid, patientid and tenantId are required", 400, res);
+		}
+
+		const tId = parseInt(tenantId as string, 10);
+		const uploadPromises = files.map(file =>
+			Operations.uploadUltrasoundImages(tId, {
+				ascensionid: parseInt(ascensionid),
+				testid: parseInt(testid),
+				patientid: parseInt(patientid),
+				filename: file.filename
+			})
+		);
+
+		const results = await Promise.all(uploadPromises);
+		const successCount = results.filter(r => r).length;
+
+		res.send({
+			statusCode: 200,
+			message: `${successCount} images uploaded successfully`,
+			results: files.map(f => f.filename)
+		});
+	});
+});
+
+export const getUltrasoundImagesHandler = handleOverLoad(async (req: Request, res: Response) => {
+	try {
+		const { ascensionid } = req.params;
+		const { tenantId } = req.query;
+
+		if (!ascensionid || !tenantId) {
+			return customError("ascensionid and tenantId are required", 400, res);
+		}
+
+		const tId = parseInt(tenantId as string, 10);
+		const ascId = parseInt(ascensionid);
+
+		if (isNaN(ascId)) {
+			return res.send({
+				statusCode: 200,
+				message: "success",
+				result: []
+			});
+		}
+
+		const images = await Operations.getUltrasoundImagesByAscension(tId, ascId);
+
+		res.send({
+			statusCode: 200,
+			message: "success",
+			result: images
+		});
+	} catch (err) {
+		responseError(res);
+	}
+});
+
+export const deleteUltrasoundImageHandler = handleOverLoad(async (req: Request, res: Response) => {
+	try {
+		const { id } = req.params;
+		const { tenantId } = req.query;
+
+		if (!id || !tenantId) {
+			return customError("id and tenantId are required", 400, res);
+		}
+
+		const tId = parseInt(tenantId as string, 10);
+		const imageId = parseInt(id);
+
+		if (isNaN(imageId)) {
+			return customError("Invalid image ID", 400, res);
+		}
+
+		// 1. Get image info to find filename
+		const image = await Operations.getUltrasoundImageById(tId, imageId);
+		if (!image) {
+			return customError("Image not found", 404, res);
+		}
+
+		// 2. Delete from database
+		const deleted = await Operations.deleteUltrasoundImage(tId, imageId);
+		if (!deleted) {
+			return customError("Failed to delete image from database", 500, res);
+		}
+
+		// 3. Delete from filesystem
+		const filePath = path.join(process.cwd(), "public", "uploads", "ultrasound", image.filename);
+		if (fs.existsSync(filePath)) {
+			try {
+				fs.unlinkSync(filePath);
+			} catch (err) {
+				console.error(`Failed to delete file: ${filePath}`, err);
+				// We don't return error here because database record is already gone
+			}
+		}
+
+		res.send({
+			statusCode: 200,
+			message: "Image deleted successfully"
+		});
+	} catch (err) {
+		responseError(res);
+	}
+});
+
+export const serveUltrasoundImageHandler = handleOverLoad(async (req: Request, res: Response) => {
+	try {
+		const { filename } = req.params;
+		const filePath = path.join(process.cwd(), "public", "uploads", "ultrasound", filename);
+
+		if (fs.existsSync(filePath)) {
+			res.sendFile(filePath);
+		} else {
+			res.status(404).send("Image not found");
+		}
+	} catch (err) {
+		responseError(res);
+	}
+});
 
 export const getAllCollections = async (req: Request, res: Response) => {
 	try {
@@ -37,15 +205,27 @@ export const getAllEnterResult = async (req: Request, res: Response) => {
 
 export const getAscensionOverViewModelHandler = async (req: Request, res: Response) => {
 	try {
-		const { tenantid, date ,patientid,billingid} = req.query;
-		if (!date) return customError("date not included in request query", 400, res);
+		const { tenantid, date, patientid, billingid } = req.query;
+
+		// Date is required unless we are filtering by patientid or billingid
+		if (!date && !patientid && !billingid) {
+			return customError("date, patientid or billingid must be included in request query", 400, res);
+		}
+
 		const tId = parseInt(tenantid as string, 10);
-		const result = await Operations.getAscensionOverViewModel(tId, date.toString(), { patientid: patientid ? parseInt(patientid.toString()) : undefined, billingid: billingid ? parseInt(billingid.toString()) : undefined });
+		const result = await Operations.getAscensionOverViewModel(
+			tId,
+			date ? date.toString() : "all",
+			{
+				patientid: patientid ? parseInt(patientid.toString()) : undefined,
+				billingid: billingid ? parseInt(billingid.toString()) : undefined
+			}
+		);
 		res.send({ statusCode: 200, message: "success", result });
 	} catch (err) {
 		responseError(res);
 	}
-}
+};
 
 
 

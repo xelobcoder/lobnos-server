@@ -118,28 +118,15 @@ export async function determineStageOfRefundRequestHandler(request: Request<{}, 
 	}
 }
 
-export async function requestForRefundHandler(request: Request<{}, {}, RefundRequestBodyParams, { tenantId: string }>, response: Response) {
+export async function requestForRefundHandler(request: Request<{}, {}, RefundRequestBodyParams, { tenantId: string | number }>, response: Response) {
 	try {
 		const { categoryTrackId, billingid, serviceid, employeeid, taxIncluded, refundMessage, trackId } = request.body;
-
 		const isValidRequestBody = categoryTrackId && !isNaN(categoryTrackId)
 			&& billingid && !isNaN(billingid) && employeeid && !isNaN(employeeid) && [1, 0].includes(taxIncluded) && refundMessage && refundMessage.toString().length > 3
-
+		const tenantId = parseInt(request.query.tenantId.toString(), 10);
 		if (isValidRequestBody) {
-			const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-
-			const result = await Refund.initiateRefundofServices(tenantId, employeeid, serviceid, refundMessage);
-			response.send({ status: result });
-
-			const role = new User(null, null, null, null, null);
-			const userRole = await role.getUserRole(employeeid, tenantId);
-
-			if (['manager', 'admin', 'superadmin'].includes(userRole || '')) {
-				const request = await Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
-				response.send({ status: request });
-			}
-			return result;
-
+			const request = await Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
+			response.send({ status: request });
 		} else {
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
 		}
@@ -177,11 +164,11 @@ export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {},
 	status: "completed" | "pending",
 	count: string,
 	page: string,
-	orderDirection: 'ASC' | 'DESC',
+	sortby: 'ASC' | 'DESC',
 	tenantId: string,
 	employeeid: number
 }>, response: Response) {
-	const { page = 10, count = 1, status, employeeid, orderDirection } = request.query;
+	const { page = 10, count = 1, status, employeeid, sortby } = request.query;
 	const parsedPage = parseInt(page.toString());
 	const parsedCount = parseInt(count.toString());
 
@@ -191,7 +178,7 @@ export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {},
 
 	try {
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-		const result = await Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, orderDirection, employeeid);
+		const result = await Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, sortby, employeeid);
 		response.send({ result })
 	} catch (err) {
 		responseError(response);

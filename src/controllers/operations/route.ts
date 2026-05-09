@@ -8,6 +8,10 @@ import {
   searchLaboratoryOperations,
   getAscensionOverViewModelHandler,
   getAscensionOverViewModelTransactionHandler,
+  uploadUltrasoundImagesHandler,
+  getUltrasoundImagesHandler,
+  deleteUltrasoundImageHandler,
+  serveUltrasoundImageHandler,
 } from "./operationsHandlers"
 
 import {
@@ -69,6 +73,10 @@ router.get(`/api/v1/operations/laboratory/search`, handleOverLoad(searchLaborato
 router.get(`/api/v1/operations/ascension/staging`, handleOverLoad(ascensionStagingHandler));
 router.get(`/api/v1/operations/collection/result`, getAllEnterResult);
 router.get('/api/v1/operations/overview/folder', getAscensionOverViewModelHandler);
+router.post('/api/v1/ultrasound/images/upload', uploadUltrasoundImagesHandler);
+router.get('/api/v1/ultrasound/images/:ascensionid', getUltrasoundImagesHandler);
+router.delete('/api/v1/ultrasound/images/:id', deleteUltrasoundImageHandler);
+router.get('/api/v1/ultrasound/images/file/:filename', serveUltrasoundImageHandler);
 router.get('/api/v1/operations/overview/folder/open/transaction', getAscensionOverViewModelTransactionHandler);
 router.get(`/api/v1/operations/test/result`, getAllTestPreview);
 router.get(`/api/v1/operation/pendingcases/all`, getAllPendingCases);
