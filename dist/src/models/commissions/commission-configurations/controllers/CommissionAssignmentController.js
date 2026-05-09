@@ -236,8 +236,6 @@ class CommissionAssignmentController {
                 date: onDate,
                 scopeType: clinicianId ? 'clinician' : organizationId ? 'organization' : 'system',
                 scopeId: clinicianId || organizationId || undefined,
-                serviceId,
-                serviceCategory: undefined,
             });
             res.json({
                 status: 'success',

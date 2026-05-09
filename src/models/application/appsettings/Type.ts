@@ -38,6 +38,7 @@ export type ApplicationSettingsData = {
      PaidBillsBeforeTransaction: number;
      completeFlow: number;
      approvalbeforeprinting: number;
+     show_watermark: numberBoolean;
      pinOnResultValidation: number;
      withnessRefund: number;
      smsActivated: number;

@@ -142,6 +142,7 @@ export default class ApplicationSettings {
 			DeactivateBilling24hrs,
 			BackgroundColor,
 			PaidBillsBeforeTransaction,
+			show_watermark,
 			completeFlow,
 			approvalbeforeprinting,
 			includeTax,
@@ -178,6 +179,7 @@ export default class ApplicationSettings {
 					bulkregistration,
 					fontsize,
 					textcolor,
+					show_watermark: show_watermark ?? existing?.show_watermark ?? 0,
 					BackgroundColor,
 					DeactivateBilling24hrs,
 					PaidBillsBeforeTransaction,
@@ -285,7 +287,7 @@ export default class ApplicationSettings {
 	async isApprovalSetTrue(tenantId: number) {
 		const result = await this.getAllAppSettings(tenantId);
 		if (result) {
-			const approval_status: numberBoolean = result[0]["approvalbeforeprinting"] ;
+			const approval_status = result.approvalbeforeprinting as numberBoolean;
 			return !(parseInt(approval_status as unknown as string) === 0);
 		}
 		return false;

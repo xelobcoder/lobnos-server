@@ -106,14 +106,16 @@ class ApplicationSettings {
     }
     async updateApplicationSettings(tenantId, data) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation } = data;
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, show_watermark, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation } = data;
         try {
             const result = await connection.transaction(async (trx) => {
+                var _b;
                 const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
                 const record = {
                     bulkregistration,
                     fontsize,
                     textcolor,
+                    show_watermark: (_b = show_watermark !== null && show_watermark !== void 0 ? show_watermark : existing === null || existing === void 0 ? void 0 : existing.show_watermark) !== null && _b !== void 0 ? _b : 0,
                     BackgroundColor,
                     DeactivateBilling24hrs,
                     PaidBillsBeforeTransaction,
@@ -216,7 +218,7 @@ class ApplicationSettings {
     async isApprovalSetTrue(tenantId) {
         const result = await this.getAllAppSettings(tenantId);
         if (result) {
-            const approval_status = result[0]["approvalbeforeprinting"];
+            const approval_status = result.approvalbeforeprinting;
             return !(parseInt(approval_status) === 0);
         }
         return false;

@@ -79,7 +79,7 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
 
                const records = await query.orderBy('priority', 'desc').orderBy('assigned_from', 'desc');
 
-               console.log(records,query.toString());
+               console.log(records, query.toString());
 
                return records.map((record) => new CommissionAssignment(record));
           } catch (error) {

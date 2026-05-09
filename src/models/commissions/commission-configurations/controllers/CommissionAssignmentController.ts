@@ -140,7 +140,7 @@ export class CommissionAssignmentController {
 
                if (configId) {
                     assignments = await repository.findByConfigId(configId);
-               } else  {
+               } else {
                     assignments = await repository.findActive();
                }
 
@@ -284,8 +284,6 @@ export class CommissionAssignmentController {
                     date: onDate,
                     scopeType: clinicianId ? 'clinician' : organizationId ? 'organization' : 'system',
                     scopeId: clinicianId || organizationId || undefined,
-                    serviceId,
-                    serviceCategory: undefined,
                });
 
                res.json({
