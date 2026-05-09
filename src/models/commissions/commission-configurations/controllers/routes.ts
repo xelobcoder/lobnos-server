@@ -3,6 +3,7 @@ import { CommissionConfigController } from './CommissionConfigController';
 import { CommissionAssignmentController } from './CommissionAssignmentController';
 import { CommissionTrackingController } from './CommissionTrackingController';
 import { CommissionDefaultController } from './CommissionDefaultController';
+import { CommissionAnalyticsController } from './CommissionAnalyticsController';
 
 const router = Router();
 
@@ -30,6 +31,15 @@ router.get('/tracking/status/:status', CommissionTrackingController.getByStatus)
 router.get('/tracking/recipient', CommissionTrackingController.getByRecipient);
 router.get('/tracking/period-total', CommissionTrackingController.getPeriodTotal);
 router.put('/tracking/:id/status', CommissionTrackingController.updateStatus);
+
+// COMMISSION ANALYTICS
+router.get('/analytics/dashboard', CommissionAnalyticsController.getComprehensiveDashboard);
+router.get('/analytics/by-period', CommissionAnalyticsController.getCommissionsByPeriod);
+router.get('/analytics/by-recipient', CommissionAnalyticsController.getCommissionsByRecipient);
+router.get('/analytics/by-status', CommissionAnalyticsController.getPaymentsByStatus);
+router.get('/analytics/efficiency', CommissionAnalyticsController.getRecipientPaymentEfficiency);
+router.get('/analytics/summary', CommissionAnalyticsController.getPaymentSummary);
+router.get('/analytics/recipient/:recipientId', CommissionAnalyticsController.getRecipientCommissionsByPeriod);
 
 // COMMISSION DEFAULTS
 router.post('/defaults', CommissionDefaultController.createDefault);

@@ -5,6 +5,7 @@ const CommissionConfigController_1 = require("./CommissionConfigController");
 const CommissionAssignmentController_1 = require("./CommissionAssignmentController");
 const CommissionTrackingController_1 = require("./CommissionTrackingController");
 const CommissionDefaultController_1 = require("./CommissionDefaultController");
+const CommissionAnalyticsController_1 = require("./CommissionAnalyticsController");
 const router = (0, express_1.Router)();
 // COMMISSION CONFIGS
 router.post('/configs', CommissionConfigController_1.CommissionConfigController.createConfig);
@@ -28,6 +29,14 @@ router.get('/tracking/status/:status', CommissionTrackingController_1.Commission
 router.get('/tracking/recipient', CommissionTrackingController_1.CommissionTrackingController.getByRecipient);
 router.get('/tracking/period-total', CommissionTrackingController_1.CommissionTrackingController.getPeriodTotal);
 router.put('/tracking/:id/status', CommissionTrackingController_1.CommissionTrackingController.updateStatus);
+// COMMISSION ANALYTICS
+router.get('/analytics/dashboard', CommissionAnalyticsController_1.CommissionAnalyticsController.getComprehensiveDashboard);
+router.get('/analytics/by-period', CommissionAnalyticsController_1.CommissionAnalyticsController.getCommissionsByPeriod);
+router.get('/analytics/by-recipient', CommissionAnalyticsController_1.CommissionAnalyticsController.getCommissionsByRecipient);
+router.get('/analytics/by-status', CommissionAnalyticsController_1.CommissionAnalyticsController.getPaymentsByStatus);
+router.get('/analytics/efficiency', CommissionAnalyticsController_1.CommissionAnalyticsController.getRecipientPaymentEfficiency);
+router.get('/analytics/summary', CommissionAnalyticsController_1.CommissionAnalyticsController.getPaymentSummary);
+router.get('/analytics/recipient/:recipientId', CommissionAnalyticsController_1.CommissionAnalyticsController.getRecipientCommissionsByPeriod);
 // COMMISSION DEFAULTS
 router.post('/defaults', CommissionDefaultController_1.CommissionDefaultController.createDefault);
 router.get('/defaults', CommissionDefaultController_1.CommissionDefaultController.getDefault);
