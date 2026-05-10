@@ -15,6 +15,7 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const PrimeBillingCampaignController_1 = require("./PrimeBillingCampaignController");
 const PrimePromoCode_1 = require("./PrimePromoCode");
 const handler_2 = require("../applicationsettings/handler");
+const TransactionManagementController_1 = require("../../models/billing/management/TransactionManagementController");
 const router = (0, express_1.Router)();
 // Billing Routes
 router.post("/api/v1/billing", controllers_1.handleNewBilling);
@@ -42,6 +43,12 @@ router.post('/api/v1/billing/correction/source', validateTenancy_1.isAuthorizedR
 router.get('/api/v1/billing/discount-limits', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.listDiscountLimitRules));
 router.post('/api/v1/billing/discount-limits', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.upsertDiscountLimitRule));
 router.get('/api/v1/billing/discount-limits/daily-usage', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.getDiscountDailyUsage));
+// Transaction Management Routes
+router.get('/api/v1/billing/management/details/:billingid', validateTenancy_1.isAuthorizedRoleAdmin, TransactionManagementController_1.TransactionManagementController.getFullTransactionDetails);
+router.get('/api/v1/billing/management/audit/:billingid', validateTenancy_1.isAuthorizedRoleAdmin, TransactionManagementController_1.TransactionManagementController.getTransactionAuditHistory);
+router.put('/api/v1/billing/management/payment-history', validateTenancy_1.isAuthorizedRoleAdmin, TransactionManagementController_1.TransactionManagementController.updatePaymentHistory);
+router.put('/api/v1/billing/management/transaction', validateTenancy_1.isAuthorizedRoleAdmin, TransactionManagementController_1.TransactionManagementController.editTransaction);
+router.post('/api/v1/billing/management/void/:billingid', validateTenancy_1.isAuthorizedRoleAdmin, TransactionManagementController_1.TransactionManagementController.voidTransaction);
 // Services Routes
 router.post("/api/v1/billing/services", servicesHandler_1.createServicesHandler);
 router.put("/api/v1/billing/services", servicesHandler_1.updateServicesHandler);

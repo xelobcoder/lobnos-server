@@ -149,6 +149,7 @@ export type PrimeLimsTablebilling = {
 
   additionalinformation: string | null;
   writeoff: number | null;
+  lastupdatedby?: number;
 }
 
 export type PrimeLimsTablebillinghx = {

@@ -80,7 +80,7 @@ export class CommissionAnalyticsWithDate {
 
           sqlQuery = sqlQuery.orderBy('period', 'asc');
 
-          return await sqlQuery;
+          return await sqlQuery as unknown as PeriodAnalytics[];
      }
 
      async getCommissionsByRecipient(query: CommissionAnalyticsQuery): Promise<RecipientAnalytics[]> {
@@ -114,7 +114,7 @@ export class CommissionAnalyticsWithDate {
                .orderBy('recipient_id', 'asc')
                .orderBy('period', 'asc');
 
-          return await sqlQuery;
+          return await sqlQuery as RecipientAnalytics[];
      }
 
      async getRecipientCommissionsByPeriod(query: CommissionAnalyticsQuery): Promise<PeriodAnalytics[]> {
@@ -147,7 +147,7 @@ export class CommissionAnalyticsWithDate {
 
           sqlQuery = sqlQuery.orderBy('period', 'asc');
 
-          return await sqlQuery;
+          return await sqlQuery as unknown as PeriodAnalytics[];
      }
 
      async getPeriodStatistics(query: CommissionAnalyticsQuery): Promise<any> {
@@ -207,9 +207,18 @@ export class CommissionAnalyticsWithDate {
           const connection = await this.connection;
 
           let sqlQuery = connection('commission_batch_payments')
+               .leftJoin('organization', function () {
+                    this.on('commission_batch_payments.recipient_id', '=', 'organization.id')
+                         .andOn('commission_batch_payments.recipient_type', '=', connection.raw('?', ['organization']));
+               })
+               .leftJoin('clinicianbasicinfo', function () {
+                    this.on('commission_batch_payments.recipient_id', '=', 'clinicianbasicinfo.id')
+                         .andOn('commission_batch_payments.recipient_type', '=', connection.raw('?', ['clinician']));
+               })
                .select(
                     'recipient_id',
                     'recipient_type',
+                    connection.raw('COALESCE(organization.name, clinicianbasicinfo.name) as recipient_name'),
                     connection.raw('CAST(SUM(payment_amount) AS DECIMAL(12,2)) as total_paid'),
                     connection.raw('CAST(SUM(total_commission_amount) AS DECIMAL(12,2)) as total_due'),
                     connection.raw('CAST(SUM(waived_amount) AS DECIMAL(12,2)) as total_waived'),
@@ -218,6 +227,10 @@ export class CommissionAnalyticsWithDate {
                )
                .whereRaw('COALESCE(payment_date, created_at) BETWEEN ? AND ?', [query.startDate, query.endDate])
                .groupBy('recipient_id', 'recipient_type');
+
+          if (query.recipientType) {
+               sqlQuery = sqlQuery.where('recipient_type', query.recipientType);
+          }
 
           if (query.status) {
                sqlQuery = sqlQuery.where('status', query.status);

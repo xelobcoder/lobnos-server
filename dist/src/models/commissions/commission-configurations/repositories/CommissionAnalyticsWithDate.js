@@ -95,9 +95,20 @@ class CommissionAnalyticsWithDate {
     async getRecipientPaymentEfficiency(query) {
         const connection = await this.connection;
         let sqlQuery = connection('commission_batch_payments')
-            .select('recipient_id', 'recipient_type', connection.raw('CAST(SUM(payment_amount) AS DECIMAL(12,2)) as total_paid'), connection.raw('CAST(SUM(total_commission_amount) AS DECIMAL(12,2)) as total_due'), connection.raw('CAST(SUM(waived_amount) AS DECIMAL(12,2)) as total_waived'), connection.raw('COUNT(*) as payment_batches'), connection.raw('ROUND((SUM(payment_amount) / SUM(total_commission_amount)) * 100, 2) as payment_percentage'))
+            .leftJoin('organization', function () {
+            this.on('commission_batch_payments.recipient_id', '=', 'organization.id')
+                .andOn('commission_batch_payments.recipient_type', '=', connection.raw('?', ['organization']));
+        })
+            .leftJoin('clinicianbasicinfo', function () {
+            this.on('commission_batch_payments.recipient_id', '=', 'clinicianbasicinfo.id')
+                .andOn('commission_batch_payments.recipient_type', '=', connection.raw('?', ['clinician']));
+        })
+            .select('recipient_id', 'recipient_type', connection.raw('COALESCE(organization.name, clinicianbasicinfo.name) as recipient_name'), connection.raw('CAST(SUM(payment_amount) AS DECIMAL(12,2)) as total_paid'), connection.raw('CAST(SUM(total_commission_amount) AS DECIMAL(12,2)) as total_due'), connection.raw('CAST(SUM(waived_amount) AS DECIMAL(12,2)) as total_waived'), connection.raw('COUNT(*) as payment_batches'), connection.raw('ROUND((SUM(payment_amount) / SUM(total_commission_amount)) * 100, 2) as payment_percentage'))
             .whereRaw('COALESCE(payment_date, created_at) BETWEEN ? AND ?', [query.startDate, query.endDate])
             .groupBy('recipient_id', 'recipient_type');
+        if (query.recipientType) {
+            sqlQuery = sqlQuery.where('recipient_type', query.recipientType);
+        }
         if (query.status) {
             sqlQuery = sqlQuery.where('status', query.status);
         }

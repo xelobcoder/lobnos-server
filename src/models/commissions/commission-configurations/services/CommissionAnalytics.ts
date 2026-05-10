@@ -171,6 +171,7 @@ export class CommissionAnalytics {
                     averagePaid: item.average_paid || 0,
                })),
                recipientEfficiency: efficiencyData.map((item: any) => ({
+                    recipient_name: item.recipient_name || `Recipient ${item.recipient_id}`,
                     recipientId: item.recipient_id,
                     recipientType: item.recipient_type,
                     totalPaid: item.total_paid || 0,
