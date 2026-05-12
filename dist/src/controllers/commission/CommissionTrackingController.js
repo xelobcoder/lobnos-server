@@ -41,8 +41,8 @@ class CommissionTrackingController {
     async updateCommissionTracking(request, response) {
         try {
             const { id } = request.params;
-            const { serviceid, commissionRate, recipientType, recipientId } = request.body;
-            if (!serviceid || !commissionRate || !recipientType || !recipientId) {
+            const { serviceId, newCommissionAmount: commissionRate, recipientType, recipientId } = request.body;
+            if (!serviceId || !commissionRate || !recipientType || !recipientId) {
                 return (0, helper_1.customError)("Missing required fields", 400, response);
             }
             if (isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
@@ -52,11 +52,11 @@ class CommissionTrackingController {
             const commissionTrackingRepo = this.commissionTrackingRepo;
             const batchServicesRepo = this.batchServicesRepo;
             const conn = await this.connection;
-            const isBatched = await batchServicesRepo.isServiceBatched(serviceid);
+            const isBatched = await batchServicesRepo.isServiceBatched(serviceId);
             if (isBatched)
                 return (0, helper_1.customError)("Cannot update commission rate for a service that is already included in a batch payment", 400, response);
             const totalpayable = await conn('dboservices')
-                .where('serviceid', serviceid)
+                .where('serviceid', serviceId)
                 .first()
                 .then((row) => row ? parseFloat(row.totalpayable) : 0);
             const newCommissionAmount = parseFloat(((totalpayable * commissionRate) / 100).toFixed(2));

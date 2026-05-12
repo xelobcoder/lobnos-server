@@ -183,9 +183,12 @@ export class CommissionBatchPaymentsRepo {
                     batch = batch.where('recipient_type', recipient_type);
                }
 
+               if (recipient_type && !recipient_id) {
+                    batch = batch.where('recipient_type', recipient_type);
+               }
 
                if (startDate && endDate) {
-                    batch = batch.where('start_date', '>=', startDate).andWhere('end_date', '<=', endDate);
+                    batch = batch.where('start_date', '>=', conn.raw("DATE(?)", [startDate])).andWhere('end_date', '<=', conn.raw("DATE(?)", [endDate]));
                }
 
                if (batchid) {

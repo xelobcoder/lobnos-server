@@ -120,6 +120,7 @@ app.get("/", (req, res) => {
     res.status(200).json({ message: "success" });
 });
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
-app.listen(Number(port), host, (err) => {
-    console.log(`Server is running at http://${host}:${port}`);
+const os_1 = __importDefault(require("os"));
+app.listen(Number(port), os_1.default.hostname(), (err) => {
+    console.log(`Server is running at http://${os_1.default.hostname()}:${port}`);
 });

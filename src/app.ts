@@ -133,8 +133,12 @@ app.get("/", (req: Request, res: Response) => {
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
 
 
-app.listen(Number(port), host as any, (err) => {
-	console.log(`Server is running at http://${host}:${port}`);
+import os from 'os';
+
+
+
+app.listen(Number(port), os.hostname() as any, (err) => {
+	console.log(`Server is running at http://${os.hostname()}:${port}`);
 });
 
 

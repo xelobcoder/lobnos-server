@@ -39,10 +39,12 @@ class CommissionTrackingRepo {
                 .select('ct.*', 'ds.totalpayable', "ds.paidamount", 'ds.serviceAddedOn', 'ct.*', 'ct.commission_type', 'ds.serviceCategory', 'tp.name as test_name')
                 .leftJoin('dboservices as ds', 'ct.service_id', 'ds.serviceid')
                 .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                .leftJoin('commission_batch_payment_services as cbps', 'ct.service_id', 'cbps.serviceid')
                 .where(conn.raw("ds.serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
                 .andWhere((builder) => {
                 builder.whereRaw('ds.clinicianId IS NOT NULL').orWhereRaw('ds.organizationId IS NOT NULL');
-            });
+            })
+                .whereNull('cbps.id');
             if (type === 'clinician') {
                 query = query
                     .leftJoin("clinicianbasicinfo as cbi", "ct.recipient_id", "cbi.id")

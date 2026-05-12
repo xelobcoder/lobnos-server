@@ -30,8 +30,20 @@ export class CommissionBatchServicesController {
           try {
                const batchServicesRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, branchid, recipientid, recipient_type, services } = request.body;
-               const startDateObj = new Date(startDate);
-               const endDateObj = new Date(endDate);
+
+               const parseDate = (dateStr: string): Date => {
+                    const parts = dateStr.split('/');
+                    if (parts.length === 3) {
+                         const day = parseInt(parts[0], 10);
+                         const month = parseInt(parts[1], 10);
+                         const year = parseInt(parts[2], 10);
+                         return new Date(year, month - 1, day);
+                    }
+                    return new Date(dateStr);
+               };
+
+               const startDateObj = parseDate(startDate);
+               const endDateObj = parseDate(endDate);
                if (!branchid || !employeeid || !recipientid || !recipient_type) {
                     return customError("Missing required fields: branchid, employeeid, recipientid, recipient_type", 400, response);
                }
@@ -82,14 +94,14 @@ export class CommissionBatchServicesController {
 
      async getBatchInformation(request: Request, response: Response) {
           try {
-               const { batchid, recipient_id, recipient_type, startDate, endDate ,page,count,sortby} = request.query;
+               const { batchid, recipient_id, recipient_type, startDate, endDate, page, count, sortby } = request.query;
 
                const batchPaymentsRepo = new CommissionBatchPaymentsRepo(this.tenantId);
                const batchInfo = await batchPaymentsRepo.getBatch
                     (
                          {
                               batchid: parseInt(batchid as string),
-                              page:  page ? parseInt(page as string) : 1,
+                              page: page ? parseInt(page as string) : 1,
                               count: count ? parseInt(count as string) : 10,
                               sortby: sortby === 'ASC' ? 'ASC' : 'DESC',
                               startDate: startDate ? new Date(startDate as string) : undefined,

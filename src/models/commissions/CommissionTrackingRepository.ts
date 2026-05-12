@@ -100,10 +100,12 @@ export class CommissionTrackingRepo {
                     )
                     .leftJoin('dboservices as ds', 'ct.service_id', 'ds.serviceid')
                     .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
+                    .leftJoin('commission_batch_payment_services as cbps', 'ct.service_id', 'cbps.serviceid')
                     .where(conn.raw("ds.serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
                     .andWhere((builder: any) => {
                          builder.whereRaw('ds.clinicianId IS NOT NULL').orWhereRaw('ds.organizationId IS NOT NULL');
-                    });
+                    })
+                    .whereNull('cbps.id');
 
                if (type === 'clinician') {
                     query = query
