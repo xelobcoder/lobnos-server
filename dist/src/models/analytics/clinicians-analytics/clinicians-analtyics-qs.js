@@ -1,10 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.q_get_clinicians_commission_by_date = exports.q_get_clinician_commission = exports.q_can_overallChange = exports.q_can_caseSummaryDaily = exports.q_can_topOutsourcedTests = exports.q_can_monthlyTestBreakdown = exports.q_can_yearlyGrowthStats = exports.q_can_casesByOutsourced = exports.q_can_casesByShift = exports.q_can_paymentTypeSummary = exports.q_can_clinicianRevenueVsTotal = exports.q_can_casesByDayOfWeek = exports.q_can_yearlyCaseComparison = exports.q_can_yearlyCaseChange = exports.q_can_monthlyCaseChange = exports.q_can_dailyCaseChange = exports.q_can_caseSummaryDailyAll = exports.q_can_caseSummaryDailyRecent = exports.q_can_caseSummaryYearly = exports.q_can_caseSummaryMonthly = exports.q_can_yearlyTotals = exports.q_can_monthlyTotals = exports.q_can_overallTotals = void 0;
-const constraints = ` (dboservices.status='active' AND dboservices.isRefunded = 0 AND dboservices.clinicianId IS NOT NULL AND dboservices.serviceCategory='CLINICIAN_SPECIAL_BILLING' AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
+const constraints = `(dboservices.status ='active' AND dboservices.isRefunded = 0 AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
 exports.q_can_overallTotals = `
 SELECT COUNT(*) AS total_rows, SUM(cost) AS total_cost, SUM(totalpayable)AS payable, SUM(amountIncurredDueTax) AS amountIncurredDueTax
-FROM \`dboservices\` AS RF
+FROM dboservices 
 WHERE clinicianId = ? AND ${constraints}
 `;
 exports.q_can_monthlyTotals = `
@@ -68,10 +68,10 @@ SELECT
     YEAR(serviceAddedOn) AS year,
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    SUM(CASE WHEN (serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND clinicianId > 0)  THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
+    SUM(CASE WHEN clinicianId = ?  THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
     SUM(totalpayable) AS clinicians_revenue_generated
 FROM dboservices
-WHERE YEAR(serviceAddedOn) = ? AND clinicianId IS NOT NULL
+WHERE YEAR(serviceAddedOn) = ? AND clinicianId IS NOT NULL AND (serviceCategory IN ('CLINICIAN_SPECIAL_BILLING', 'NHIS', 'PHIS')) AND clinicianId > 0
 GROUP BY YEAR(serviceAddedOn), DATE(serviceAddedOn)
 ORDER BY DATE(serviceAddedOn);
 

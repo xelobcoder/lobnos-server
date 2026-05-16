@@ -13,7 +13,7 @@ export default class FinancialAnalyticsPrimeLabSystem {
 }
 
 
-export async function UtilityFinancial(tenantId: number, key: string, branchid: number | null, startdate: string | Date, enddate: string | Date) {
+export async function UtilityFinancial(tenantId: number, key: string, branchid: number | null, startdate: string | Date | null, enddate: string | Date | null) {
 	const isDateKey = ['dailySalesTrend'].includes(key);
 	const year = startdate ? new Date(startdate).getFullYear() : new Date().getFullYear();
 	if (key === 'monthlySalesTrend') {

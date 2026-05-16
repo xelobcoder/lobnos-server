@@ -1,9 +1,9 @@
-const constraints = ` (dboservices.status='active' AND dboservices.isRefunded = 0 AND dboservices.clinicianId IS NOT NULL AND dboservices.serviceCategory='CLINICIAN_SPECIAL_BILLING' AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
+const constraints = `(dboservices.status ='active' AND dboservices.isRefunded = 0 AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
 
 
 export const q_can_overallTotals = `
 SELECT COUNT(*) AS total_rows, SUM(cost) AS total_cost, SUM(totalpayable)AS payable, SUM(amountIncurredDueTax) AS amountIncurredDueTax
-FROM \`dboservices\` AS RF
+FROM dboservices 
 WHERE clinicianId = ? AND ${constraints}
 `;
 
@@ -82,10 +82,10 @@ SELECT
     YEAR(serviceAddedOn) AS year,
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    SUM(CASE WHEN (serviceCategory = 'CLINICIAN_SPECIAL_BILLING' AND clinicianId > 0)  THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
+    SUM(CASE WHEN clinicianId = ?  THEN totalpayable ELSE 0 END) AS clinician_revenue_generated,
     SUM(totalpayable) AS clinicians_revenue_generated
 FROM dboservices
-WHERE YEAR(serviceAddedOn) = ? AND clinicianId IS NOT NULL
+WHERE YEAR(serviceAddedOn) = ? AND clinicianId IS NOT NULL AND (serviceCategory IN ('CLINICIAN_SPECIAL_BILLING', 'NHIS', 'PHIS')) AND clinicianId > 0
 GROUP BY YEAR(serviceAddedOn), DATE(serviceAddedOn)
 ORDER BY DATE(serviceAddedOn);
 

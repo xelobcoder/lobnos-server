@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { ApiResponse } from '../../models/inventory/types';
 import KnexConnection from '../../database/KnexConnections';
-import { getAccountName } from '../../config/accountConfig';
+import { getAccountName } from '../../accountingModule/config/accountConfig';
 
 export interface JournalEntry {
      id: string;

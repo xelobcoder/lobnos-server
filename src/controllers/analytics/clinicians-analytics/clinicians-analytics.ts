@@ -408,7 +408,6 @@ export default class ClinicianAnalyticsHandlers {
      }
 
      public async getEndpoints(req: Request, res: Response) {
-          const { tenantId } = req.query
           try {
                return res.status(200).json({
                     success: true,

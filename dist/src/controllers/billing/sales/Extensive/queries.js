@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT = exports.QUERY_EXPENSES_BY_BRANCH = exports.QUERY_UNAPPROVED_EXPENSES_PERIOD = exports.QUERY_REVERSED_EXPENSE_PAYMENTS_LIST = exports.QUERY_ALL_INDIVIDUAL_EXPENSES = exports.QUERY_MONTHLY_EXPENSE_TREND = exports.QUERY_BILLABLE_EXPENSES = exports.QUERY_EXPENSE_PAYMENTS_FULL_LIST = exports.QUERY_EXPENSE_PAYMENTS_SUMMARY = exports.QUERY_EXPENSE_APPROVAL_STATUS_SUMMARY = exports.QUERY_ALL_EXPENSE_CATEGORIES = exports.QUERY_TOTAL_EXPENSES_PERIOD_COMPARISON = exports.CLINCIAN_SALES_PAYMENT = exports.QUERY_EMPLOYEES_COLLECTED_CASH = exports.QUERY_BREAK_DOWN_PAYMENT_MODES = exports.QUERY_MISMATCHED_PAYMENT_HISTORY = exports.QUERY_TOP_PERFORMING_BRANCHES = exports.QUERY_TEST_TRANSACTION_SNAPSHOT = exports.QUERY_NIGHT_ADJUSTMENT_IMPACT = exports.QUERY_DAILY_CEO_SNAPSHOT = void 0;
+exports.QUERY_ULTRASOUND_DETAILED_SUMMARY = exports.QUERY_DAILY_SALES_SUMMARY_BY_SECTION = exports.QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT = exports.QUERY_EXPENSES_BY_BRANCH = exports.QUERY_UNAPPROVED_EXPENSES_PERIOD = exports.QUERY_REVERSED_EXPENSE_PAYMENTS_LIST = exports.QUERY_ALL_INDIVIDUAL_EXPENSES = exports.QUERY_MONTHLY_EXPENSE_TREND = exports.QUERY_BILLABLE_EXPENSES = exports.QUERY_EXPENSE_PAYMENTS_FULL_LIST = exports.QUERY_EXPENSE_PAYMENTS_SUMMARY = exports.QUERY_EXPENSE_APPROVAL_STATUS_SUMMARY = exports.QUERY_ALL_EXPENSE_CATEGORIES = exports.QUERY_TOTAL_EXPENSES_PERIOD_COMPARISON = exports.CLINCIAN_SALES_PAYMENT = exports.QUERY_EMPLOYEES_COLLECTED_CASH = exports.QUERY_BREAK_DOWN_PAYMENT_MODES = exports.QUERY_MISMATCHED_PAYMENT_HISTORY = exports.QUERY_TOP_PERFORMING_BRANCHES = exports.QUERY_TEST_TRANSACTION_SNAPSHOT = exports.QUERY_NIGHT_ADJUSTMENT_IMPACT = exports.QUERY_DAILY_CEO_SNAPSHOT = void 0;
 const major_constraints = `dboservices.serviceAddedOn IS NOT NULL AND dboservices.status IN('refunded','active'
 )`;
 exports.QUERY_DAILY_CEO_SNAPSHOT = `
@@ -53,6 +53,7 @@ SELECT
     SUM(dboservices.paidamount) AS actual_revenue,
     SUM(dboservices.discount) AS total_discount,
     SUM(dboservices.outstanding) AS total_outstanding,
+    dd.department,
     SUM(dboservices.totalcost) AS total_cost,
     SUM(dbobillingrefundtable.amountRefunded) AS total_refunds
     FROM dboservices 
@@ -64,6 +65,7 @@ SELECT
         ON dboservices.serviceid = dbobillingrefundtable.serviceid
     LEFT JOIN roles r
         ON dboservices.employeeid = r.employeeid
+        LEFT JOIN departments AS dd ON dd.id = tp.category
     WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ?  AND  ${major_constraints}
     GROUP BY
         dboservices.trackId,
@@ -389,4 +391,78 @@ SELECT
      JOIN expensesrecord er ON ie.expense_id = er.id 
      WHERE er.date BETWEEN ? AND ?) 
         AS total_billable_to_clients_amount
+`;
+// breakdown down according to ultrasound sections and lab sections 
+exports.QUERY_DAILY_SALES_SUMMARY_BY_SECTION = `
+SELECT
+    dboservices.serviceAddedOn AS serviceAddedOn,
+    CAST(dboservices.serviceAddedOn AS DATE) AS test_date,
+    dboservices.trackId AS trackId,
+    dboservices.serviceCategory AS serviceCategory,
+    CASE
+        WHEN dboservices.serviceCategory = 'SERVICES' THEN ads.serviceName
+        ELSE tp.name
+    END AS test_panel_name,
+    COUNT(dboservices.serviceid) AS test_count,
+    SUM(dboservices.totalpayable) AS accrued_revenue,
+    SUM(dboservices.paidamount) AS actual_revenue,
+    SUM(dboservices.discount) AS total_discount,
+    SUM(dboservices.outstanding) AS total_outstanding,
+    SUM(dboservices.totalcost) AS total_cost,
+    SUM(dbobillingrefundtable.amountRefunded) AS total_refunds
+    FROM dboservices 
+    LEFT JOIN test_panels tp
+        ON dboservices.serviceCategory <> 'SERVICES' AND tp.id = dboservices.trackId
+    LEFT JOIN additionalservices ads
+        ON dboservices.serviceCategory = 'SERVICES' AND dboservices.trackId = ads.keyid
+    LEFT JOIN dbobillingrefundtable 
+        ON dboservices.serviceid = dbobillingrefundtable.serviceid
+    LEFT JOIN roles r
+        ON dboservices.employeeid = r.employeeid
+    WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ?  AND  ${major_constraints}
+    GROUP BY
+        dboservices.trackId,
+        dboservices.serviceAddedOn,
+        dboservices.serviceCategory,
+        tp.name,
+        ads.serviceName
+    ORDER BY
+        dboservices.serviceAddedOn,
+    dboservices.trackId DESC
+`;
+// ULTRASOUND SUMMARY: TOTAL AMOUNT, CASES COUNT, BREAKDOWN BY EACH TEST WITH FINANCIALS
+exports.QUERY_ULTRASOUND_DETAILED_SUMMARY = `
+SELECT
+    CAST(dboservices.serviceAddedOn AS DATE) AS report_date,
+    COALESCE(tp.name, 'Unknown') AS ultrasound_test_name,
+    dboservices.trackId AS test_id,
+    COUNT(dboservices.serviceid) AS total_cases,
+    COUNT(CASE WHEN dboservices.status = 'active' THEN 1 END) AS total_cases_active,
+    COUNT(CASE WHEN dboservices.status = 'refunded' THEN 1 END) AS total_cases_refunded,
+    SUM(dboservices.totalpayable) AS total_amount_charged,
+    SUM(dboservices.paidamount) AS total_amount_paid,
+    SUM(COALESCE(dbobillingrefundtable.amountRefunded, 0)) AS total_amount_refunded,
+    SUM(dboservices.discount) AS total_discount,
+    d.department AS department_name,
+    SUM(dboservices.outstanding) AS total_outstanding,
+    SUM(dboservices.totalcost) AS total_cost,
+    ROUND(SUM(dboservices.paidamount) / SUM(dboservices.totalpayable) * 100, 2) AS collection_percentage
+FROM dboservices 
+INNER JOIN test_panels tp
+    ON tp.id = dboservices.trackId
+INNER JOIN departments d
+    ON d.id = tp.category
+LEFT JOIN dbobillingrefundtable 
+    ON dboservices.serviceid = dbobillingrefundtable.serviceid
+WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ? 
+    AND ${major_constraints}
+    AND dboservices.serviceCategory <> 'SERVICES'
+    AND LOWER(d.department) = 'ultrasound'
+GROUP BY
+    CAST(dboservices.serviceAddedOn AS DATE),
+    dboservices.trackId,
+    COALESCE(tp.name, 'Unknown')
+ORDER BY
+    report_date DESC,
+    total_amount_charged DESC
 `;

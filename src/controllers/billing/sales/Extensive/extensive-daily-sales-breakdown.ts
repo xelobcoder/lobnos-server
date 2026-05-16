@@ -20,7 +20,9 @@ import {
 	QUERY_UNAPPROVED_EXPENSES_PERIOD,
 	QUERY_EXPENSES_BY_BRANCH,
 	QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT,
-	QUERY_REVERSED_EXPENSE_PAYMENTS_LIST
+	QUERY_REVERSED_EXPENSE_PAYMENTS_LIST,
+	QUERY_DAILY_SALES_SUMMARY_BY_SECTION ,
+	QUERY_ULTRASOUND_DETAILED_SUMMARY
 } from "./queries";
 
 interface DashboardSnapshot {
@@ -43,6 +45,9 @@ interface DashboardSnapshot {
 	unapprovedExpensesPeriod: any[];
 	expensesByBranch: any[];
 	ceoExpenseSummarySnapshot: any[];
+	reversedPaymentsList: any[];
+	dailySalesBySectionGrouped: any[];
+	ultrasoundDetailedSummary: any[];
 }
 
 export async function getDailyAnalyticsDashboard(
@@ -75,7 +80,9 @@ export async function getDailyAnalyticsDashboard(
 			unapprovedExpensesPeriod,
 			expensesByBranch,
 			ceoExpenseSummarySnapshot,
-			reversedPaymentsList
+			reversedPaymentsList,
+			dailySalesBySectionGrouped,
+			ultrasoundDetailedSummary
 		] = await Promise.all([
 			db.raw(QUERY_DAILY_CEO_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate]),
 			db.raw(QUERY_NIGHT_ADJUSTMENT_IMPACT, [fromDate, toDate]),
@@ -96,7 +103,9 @@ export async function getDailyAnalyticsDashboard(
 			db.raw(QUERY_UNAPPROVED_EXPENSES_PERIOD, [toDate, fromDate, toDate]),
 			db.raw(QUERY_EXPENSES_BY_BRANCH, [fromDate, toDate, fromDate, toDate]),
 			db.raw(QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT, [fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate, fromDate, toDate]),
-			db.raw(QUERY_REVERSED_EXPENSE_PAYMENTS_LIST , [fromDate, toDate])
+			db.raw(QUERY_REVERSED_EXPENSE_PAYMENTS_LIST, [fromDate, toDate]),
+			db.raw(QUERY_DAILY_SALES_SUMMARY_BY_SECTION, [fromDate, toDate]),
+			db.raw(QUERY_ULTRASOUND_DETAILED_SUMMARY, [fromDate, toDate])
 		]);
 
 		return {
@@ -119,6 +128,9 @@ export async function getDailyAnalyticsDashboard(
 			unapprovedExpensesPeriod: unapprovedExpensesPeriod[0],
 			expensesByBranch: expensesByBranch[0],
 			ceoExpenseSummarySnapshot: ceoExpenseSummarySnapshot[0],
+			reversedPaymentsList: reversedPaymentsList[0],
+			dailySalesBySectionGrouped: dailySalesBySectionGrouped[0],
+			ultrasoundDetailedSummary: ultrasoundDetailedSummary[0]
 		};
 	} catch (error) {
 		console.error('Error in getDailyAnalyticsDashboard:', error);

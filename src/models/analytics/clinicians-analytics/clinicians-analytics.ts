@@ -159,6 +159,9 @@ class ClinicianAnalytics {
      public static async getTopOutsourcedTests(tenantId: number, clinicianId: number) {
           return await promisifyQuery(tenantId, q_can_topOutsourcedTests, [clinicianId]);
      }
+
+
+
 }
 
 export default ClinicianAnalytics;

@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.JournalController = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
-const accountConfig_1 = require("../../config/accountConfig");
+const accountConfig_1 = require("../../accountingModule/config/accountConfig");
 class JournalController {
     getTenantId(req) {
         const tenantId = parseInt(req.query.tenantId);
