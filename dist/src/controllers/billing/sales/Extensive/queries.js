@@ -2,7 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QUERY_ULTRASOUND_DETAILED_SUMMARY = exports.QUERY_DAILY_SALES_SUMMARY_BY_SECTION = exports.QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT = exports.QUERY_EXPENSES_BY_BRANCH = exports.QUERY_UNAPPROVED_EXPENSES_PERIOD = exports.QUERY_REVERSED_EXPENSE_PAYMENTS_LIST = exports.QUERY_ALL_INDIVIDUAL_EXPENSES = exports.QUERY_MONTHLY_EXPENSE_TREND = exports.QUERY_BILLABLE_EXPENSES = exports.QUERY_EXPENSE_PAYMENTS_FULL_LIST = exports.QUERY_EXPENSE_PAYMENTS_SUMMARY = exports.QUERY_EXPENSE_APPROVAL_STATUS_SUMMARY = exports.QUERY_ALL_EXPENSE_CATEGORIES = exports.QUERY_TOTAL_EXPENSES_PERIOD_COMPARISON = exports.CLINCIAN_SALES_PAYMENT = exports.QUERY_EMPLOYEES_COLLECTED_CASH = exports.QUERY_BREAK_DOWN_PAYMENT_MODES = exports.QUERY_MISMATCHED_PAYMENT_HISTORY = exports.QUERY_TOP_PERFORMING_BRANCHES = exports.QUERY_TEST_TRANSACTION_SNAPSHOT = exports.QUERY_NIGHT_ADJUSTMENT_IMPACT = exports.QUERY_DAILY_CEO_SNAPSHOT = void 0;
 const major_constraints = `dboservices.serviceAddedOn IS NOT NULL AND dboservices.status IN('refunded','active'
-)`;
+) AND (dboservices.isDeleted=0 OR dboservice.isDeleted IS NULL) `;
 exports.QUERY_DAILY_CEO_SNAPSHOT = `
  SELECT 
             COALESCE(SUM(totalcost), 0) AS totalCost,
@@ -144,32 +144,34 @@ exports.QUERY_EMPLOYEES_COLLECTED_CASH = `
 `;
 exports.CLINCIAN_SALES_PAYMENT = `
     SELECT
-        CAST(s.serviceAddedOn AS DATE) AS sale_date,
+        CAST(dboservices.serviceAddedOn AS DATE) AS sale_date,
         c.id AS clinician_id,
         c.name AS clinician_name,
         c.phone AS clinician_phone,
         c.occupation AS occupation,
         c.organization AS organization,
         COUNT(0) AS total_services,
-        SUM(s.totalcost) AS total_value,
-        SUM(CASE WHEN s.categoryTrackId = 6 THEN 1 ELSE 0 END) AS additional_services_count,
-        SUM(CASE WHEN s.categoryTrackId <> 6 THEN 1 ELSE 0 END) AS test_panels_count
-    FROM dboservices s
-    JOIN clinicianbasicinfo c ON s.clinicianId = c.id
-    WHERE s.clinicianId <> 0
-    AND s.serviceAddedOn IS NOT NULL
-    AND s.totalcost > 0
-    AND DATE(s.serviceAddedOn) BETWEEN ? AND ?
+        SUM(dboservices.totalcost) AS total_value,
+        SUM(CASE WHEN dboservices.categoryTrackId = 5 THEN 1 ELSE 0 END) AS additional_services_count,
+        SUM(CASE WHEN dboservices.categoryTrackId <> 5 THEN 1 ELSE 0 END) AS test_panels_count
+    FROM dboservices 
+    JOIN clinicianbasicinfo c ON dboservices.clinicianId = c.id
+    WHERE dboservices.clinicianId <> 0
+    AND dboservices.serviceAddedOn IS NOT NULL
+    AND dboservices.totalcost > 0
+    AND DATE(dboservices.serviceAddedOn) BETWEEN ? AND ? AND (${major_constraints}) AND (
+        dboservices.serviceCategory IN ('CLINICIAN_SPECIAL_BILLING', 'NHIS', 'PHIS')
+    )
     GROUP BY
-        CAST(s.serviceAddedOn AS DATE),
+        CAST(dboservices.serviceAddedOn AS DATE),
         c.id,
         c.name,
         c.phone,
         c.occupation,
         c.organization
     ORDER BY
-        CAST(s.serviceAddedOn AS DATE) DESC,
-        SUM(s.totalcost) DESC
+        CAST(dboservices.serviceAddedOn AS DATE) DESC,
+        SUM(dboservices.totalcost) DESC
 `;
 // EXPENSE QUERIES FOR CEO DASHBOARD
 exports.QUERY_TOTAL_EXPENSES_PERIOD_COMPARISON = `

@@ -4,15 +4,9 @@ import KnexConnection from "../../database/KnexConnections";
 import { applyOrganizationAfterInsert } from "../../database/appLevelTriggers";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
-import User from "../../LobnosAuth/user";
 import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
 import { newOrganization, OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "./OrgaInterfac";
 import {
-	MONTHLYSALESQUERY,
-	WEEKLYSALESQUERY,
-	DAILYSALESQUERY,
-	TODAYSALESQUERY,
-	YEARLYSALESQUERY,
 	q_accountInfo,
 	q_update_org_basic_info,
 	q_create_an_organization,
@@ -21,7 +15,6 @@ import {
 	q_org_payment,
 	q_org_contact,
 	q_updateOrg_payment_info,
-	q_top_performance_organization,
 	q_organizationid_is_valid,
 	q_organization_total_count,
 	paginated_org_data
@@ -257,67 +250,8 @@ class Organization {
 		return result;
 	}
 
-	protected async getCommissionRate(tenantId: number): Promise<number> {
-		let commissionRate = 0;
-		const organizationInfo = await this.organizationAccountInfo(tenantId);
-		if (organizationInfo.length !== 0 && organizationInfo[0]["commission"] !== 0) {
-			commissionRate = organizationInfo[0]["commission"];
-		}
-		return commissionRate;
-	}
 
-	private async calculateRate<T extends { payable: string }>(tenantId: number, data: T[]) {
-		const commissionRate = await this.getCommissionRate(tenantId);
-		const payable = data[0]["payable"];
-		const rate = parseFloat(payable) * (parseFloat(commissionRate.toString()) / 100);
-		return { ...data[0], commissionRate: rate };
-	}
-
-	public async monthSales(tenantId: number): Promise<any> {
-		let monthly = await promisifyQuery(tenantId, MONTHLYSALESQUERY, [this.organizationId]);
-		if (monthly.length === 0) {
-			return defaultSalesParam;
-		}
-		monthly = await this.calculateRate(tenantId, monthly);
-		return monthly;
-	}
-
-	public async daySales(tenantId: number): Promise<any> {
-		let result = await promisifyQuery(tenantId, TODAYSALESQUERY, [this.organizationId]);
-		if (result.length === 0) {
-			return defaultSalesParam;
-		}
-		result = await this.calculateRate(tenantId, result);
-		return result;
-	}
-
-	public async weeklySales(tenantId: number): Promise<any[]> {
-		const commissionRate = await this.getCommissionRate(tenantId);
-		let result = await promisifyQuery(tenantId, WEEKLYSALESQUERY, [this.organizationId]);
-		if (result.length === 0) {
-			return [];
-		}
-		result = result.map((item: any) => {
-			const commission = parseFloat(item?.payable) * (parseFloat(commissionRate.toString()) / 100);
-			return { ...item, value: commission, name: item?.weeklySales };
-		});
-		return result;
-	}
-
-	public async getYearlySales(tenantId: number): Promise<any> {
-		let result = await promisifyQuery(tenantId, YEARLYSALESQUERY, [this.organizationId]);
-		if (result.length === 0) {
-			return defaultSalesParam;
-		}
-		result = await this.calculateRate(tenantId, result);
-		return result;
-	}
-
-	public async getDailySales(tenantId: number): Promise<any[]> {
-		let result = await promisifyQuery(tenantId, DAILYSALESQUERY, [this.organizationId]);
-		result = await Promise.all(result.map(async (a: any) => await this.calculateRate(tenantId, [a])));
-		return result;
-	}
+	
 	static async getOrganizationTotalCount(tenantId: number): Promise<number> {
 		const result = await promisifyQuery(tenantId, q_organization_total_count);
 		if (result.length > 0) {
@@ -335,41 +269,6 @@ class Organization {
 		return await promisifyQuery(tenantId, "SELECT * FROM organization WHERE id = ?", [this.organizationId]);
 	}
 
-	public async generateOrganizationalSalesReport(tenantId: number): Promise<any> {
-		if (!this.organizationId) return false;
-		const monthly = await this.monthSales(tenantId);
-		const today = await this.daySales(tenantId);
-		const weekly = await this.weeklySales(tenantId);
-		const daily = await this.getDailySales(tenantId);
-		const yearly = await this.getYearlySales(tenantId);
-		const sales = { monthly, today, weekly, yearly, daily };
-		return sales;
-	}
-
-	async getTopPerformance(tenantId: number, requestQuery: { count: number, from?: string, to?: string }): Promise<any[]> {
-		const { count, from, to } = requestQuery;
-		let q_query = q_top_performance_organization;
-		let conditions = [];
-		let parameters = [];
-		if (from && to) {
-			conditions.push(`pt.date BETWEEN ? AND ?`);
-			parameters.push(from, to);
-		} else if (from && !to) {
-			conditions.push(`pt.date BETWEEN ? AND CURRENT_DATE`);
-			parameters.push(from);
-		}
-		if (conditions.length > 0) {
-			q_query += ` WHERE ${conditions.join(' AND ')}`;
-		}
-		q_query += `
-	GROUP BY o.id, o.name
-	ORDER BY TotalSales DESC
-	LIMIT ?
-  `;
-		parameters.push(count);
-		let result = await promisifyQuery(tenantId, q_query, parameters);
-		return result;
-	}
 }
 
 export default Organization;

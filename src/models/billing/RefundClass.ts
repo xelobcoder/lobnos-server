@@ -319,7 +319,7 @@ export class Refund {
 		serviceid: number,
 		reason: string,
 		trx?: any
-	): Promise<boolean | string> {
+	): Promise<boolean | string | undefined> {
 		try {
 			if (
 				!serviceid ||
@@ -349,6 +349,8 @@ export class Refund {
 
 			const applicationsettings = await new ApplicationSettings()
 				.getAllAppSettings(tenantId);
+
+			if (!applicationsettings) return OperationsFailures.notFound;
 
 			const { allowManagerToRefund } = applicationsettings;
 			if (['admin', 'superadmin'].includes(stringifyRole) || (stringifyRole == 'manager' && parseInt(allowManagerToRefund.toString()) == 1)) {
@@ -441,9 +443,10 @@ export class Refund {
 		if (isRefundAmmountExceeded == null) return OperationsFailures.notFound;
 
 
-		const transactionData = await new Billing(null).getTransactionBillData(tenantId, billingid);
+		const transactionData = await new Billing(0).getTransactionBillData(tenantId, billingid);
 		if (transactionData && Array.isArray(transactionData) && transactionData.length > 0) {
 			const refundableAmount = await this.calculateServiceRefundableAmount(tenantId, serviceid);
+			if (!refundableAmount) return OperationsFailures.notFound;
 			if (refundableAmount <= 0) {
 				return {
 					refundableAmount: 0,

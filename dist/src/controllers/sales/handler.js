@@ -25,7 +25,7 @@ const handleSalesSummaryRange = async (req, res) => {
         const tenantId = parseInt(req.query.tenantId, 10);
         const { branchid, employeeid, from, to } = req.query;
         const parsedBranchid = parseInt(branchid);
-        const summary = await new payments_1.default(null).summaryRangeOfDates(tenantId, from, to, parsedBranchid);
+        const summary = await new payments_1.default(0).summaryRangeOfDates(tenantId, from, to, parsedBranchid);
         const branch = await branches_1.default.find(tenantId, parsedBranchid);
         res.send({ summary, branch });
     }

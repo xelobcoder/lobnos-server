@@ -12,6 +12,7 @@ BillingAnalytics.totalSalesByBranchAndCategory = `SELECT branchid, serviceCatego
 BillingAnalytics.totalSalesByEmployee = `SELECT db.employeeid, COALESCE(SUM(db.totalcost), 0) AS totalCost, COALESCE(SUM(db.paidamount), 0) AS totalPaid, COALESCE(SUM(db.totalpayable), 0) AS totalPayable, COALESCE(SUM(db.discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded,
      rr.username FROM dboservices AS db JOIN roles AS rr ON rr.employeeid = db.employeeid LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid
      WHERE YEAR(db.serviceAddedOn) = ? ${major_constraints} GROUP BY db.employeeid;`;
+BillingAnalytics.totalSalesByClinician = `SELECT db.clinicianId, db.status, COUNT(*) AS totalServicesRendered, COALESCE(SUM(db.totalcost), 0) AS totalCost, COALESCE(SUM(db.paidamount), 0) AS totalPaid, COALESCE(SUM(db.totalpayable), 0) AS totalPayable, COALESCE(SUM(db.discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded, c.name FROM dboservices AS db JOIN clinicianbasicinfo AS c ON c.id = db.clinicianId LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid WHERE YEAR(db.serviceAddedOn) = ? ${major_constraints} GROUP BY db.clinicianId;`;
 BillingAnalytics.monthlySalesTrend = `SELECT MONTHNAME(serviceAddedOn) AS month, COALESCE(SUM(totalcost), 0) AS totalCost, COALESCE(SUM(paidamount), 0) AS totalPaid, COALESCE(SUM(totalpayable), 0) AS totalPayable, COALESCE(SUM(discount), 0) AS totalDiscount, COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY MONTH(serviceAddedOn) ORDER BY MONTH(serviceAddedOn) DESC;`;
 BillingAnalytics.dailySalesTrend = `SELECT
     DATE(serviceAddedOn) AS date,
@@ -83,8 +84,9 @@ BillingAnalyticsWithDate.totalSalesByBranch = `
         SELECT 
         dboservices.branchid,
     COALESCE(SUM(dboservices.totalcost), 0) AS totalCost, 
-        COALESCE(SUM(dboservices.paidamount), 0) actual_revenue,
-        COALESCE(SUM(dboservices.totalpayable), 0) AS accrued_revenue,
+        COALESCE(SUM(dboservices.paidamount), 0) paid_amount,
+        COALESCE(SUM(dboservices.outstanding), 0) AS accrued_revenue,
+        COALESCE(SUM(dboservices.totalpayable), 0) AS actual_revenue,
         COALESCE(SUM(dboservices.discount), 0) AS total_discount,
         COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
         (
@@ -158,6 +160,23 @@ BillingAnalyticsWithDate.totalSalesByEmployee = `
         LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
         WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
         GROUP BY dboservices.employeeid;
+    `;
+BillingAnalyticsWithDate.totalSalesByClinician = `
+        SELECT
+            dboservices.clinicianId,
+            dboservices.status,
+            COUNT(*) AS totalServicesRendered,
+            COALESCE(SUM(dboservices.totalcost), 0) AS totalCost,
+            COALESCE(SUM(dboservices.paidamount), 0) AS totalPaid,
+            COALESCE(SUM(dboservices.totalpayable), 0) AS totalPayable,
+            COALESCE(SUM(dboservices.discount), 0) AS totalDiscount,
+            COALESCE(SUM(r.amountRefunded), 0) AS totalRefunded,
+            c.name AS clinician_name
+        FROM dboservices
+        JOIN clinicianbasicinfo AS c ON c.id = dboservices.clinicianId
+        LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
+        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
+        GROUP BY dboservices.clinicianId;
     `;
 BillingAnalyticsWithDate.monthlySalesTrend = `
        WITH sales AS (

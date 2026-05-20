@@ -35,6 +35,7 @@ export type ApplicationSettingsData = {
      textcolor: string;
      BackgroundColor: string;
      DeactivateBilling24hrs: number;
+      allowManagerToRefund: numberBoolean;
      PaidBillsBeforeTransaction: number;
      completeFlow: number;
      approvalbeforeprinting: number;
@@ -42,7 +43,7 @@ export type ApplicationSettingsData = {
      pinOnResultValidation: number;
      withnessRefund: number;
      smsActivated: number;
-     allowScientistToRegisterClient:numberBoolean;
+     allowScientistToRegisterClient: numberBoolean;
      pinOnResultEntry: number;
      patientIdGenerationMethod: string | null;
      automakesupplierpaymentsexpense: numberBoolean;
@@ -72,9 +73,12 @@ export type ApplicationSettingsData = {
      automakecommissionpaymentsexpense?: numberBoolean;
      useamountpaidforcommissioncalculation?: numberBoolean;
      allowManagerToApproveExpenses?: numberBoolean;
-     allowManagerToRefund?: numberBoolean;
      allowManagerToProcessPayroll?: numberBoolean;
      allowManagerToProcessCommission?: numberBoolean;
+     isCommissionEarnedOnClinicianBilling: numberBoolean;
+     isCommissionEarnedOnOrganizationalBilling: numberBoolean;
+     isCommissionEarnedOnNHISBilling: numberBoolean;
+     isCommissionEarnedOnPHISBilling: numberBoolean;
 };
 
 

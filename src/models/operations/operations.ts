@@ -315,6 +315,9 @@ export default class Operations {
 
 							FROM test_ascension ta
 
+							LEFT JOIN dboservices AS trx ON trx.serviceid = ta.serviceid
+							LEFT JOIN dbobillingrefundtable AS ddd ON ddd.serviceid = ta.serviceid
+						
 							LEFT JOIN test_panels tp 
 							ON tp.id = ta.testid
 
@@ -347,8 +350,8 @@ export default class Operations {
 							ON rrd.employeeid = rdl.delivered_by_employeeid
 
 							WHERE ta.billingid = ?
-							AND (d.department IS NULL OR LOWER(d.department) <> 'ultrasound')
-
+							AND (d.department IS NOT NULL OR LOWER(d.department) <> 'ultrasound')
+							AND (trx.isDeleted = 0 OR trx.isDeleted IS NULL) AND ddd.isRefundCompleted <> 1
 							ORDER BY 
 							ta.id ASC,
 							ss.keyid ASC,

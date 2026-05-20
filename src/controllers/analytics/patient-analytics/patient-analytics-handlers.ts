@@ -3,7 +3,7 @@ import { PatientAnalytics } from '../../../models/analytics/patient-analytics/pa
 
 const analytics = new PatientAnalytics();
 
-export const getAgeDistributionHandler = async (req: Request, res: Response): Promise<void> => {
+export const getAgeDistributionHandler = async (req: Request<{}, {}, {}, { tenantId: string | number, interval: number, min_age: number, max_age: number }>, res: Response): Promise<void> => {
      try {
           const { tenantId, interval, min_age, max_age } = req.query;
           const result = await analytics.getAgeDistribution(

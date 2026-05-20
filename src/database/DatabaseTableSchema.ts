@@ -110,6 +110,8 @@ export type PrimeLimsTablebilling = {
   totalcost: number;
   paid: number;
   payable: number;
+  voidedby:number;
+  voidedat: string | Date,
   totalrefunded: number;
   discount: number;
   outstanding: number;
@@ -487,7 +489,9 @@ export type PrimeLimsTabledboservices = {
   categoryTrackId: number;
   clinicianId?: number;
   organizationId?: number;
+  voidedat: string | Date,
   registrationType?: string;
+  voidedby:number;
   branchid: number;
   isoutsourced: number;
   paidstatus: string;

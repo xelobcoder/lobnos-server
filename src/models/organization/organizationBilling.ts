@@ -139,7 +139,7 @@ export default class OrganizationalBilling extends Organization {
      * @returns A promise that resolves to the refined test array with discounted values.
      */
     public async getRefinedTestArray(tenantId: number, testList: any[]): Promise<{ id: number, discountedValue: number, concessionMode: string, concessionValue: number }[]> {
-        const allTest = await new CustomTest(null, null).loadTestWithDetails(tenantId);
+        const allTest = await new CustomTest(0,'').loadTestWithDetails(tenantId);
         const refinedTestArray: { id: number, discountedValue: number, concessionMode: string, concessionValue: number }[] = [];
 
         for (const test of testList) {

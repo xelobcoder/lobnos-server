@@ -1,4 +1,4 @@
-const constraints = `(dboservices.status ='active' AND dboservices.isRefunded = 0 AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND dboservices.categoryTrackId= 6 AND ( dboservices.paymentstatus ='partial' OR dboservices.paymentstatus = 'paid') )`;
+const constraints = `dboservices.status IN ('active','refunded') AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND dboservices.categoryTrackId= 6 AND (isDeleted = 0 OR isDeleted IS NULL)`;
 
 
 export const q_can_overallTotals = `
@@ -14,7 +14,7 @@ SELECT
     SUM(dboservices.cost) AS total_cost, 
     SUM(dboservices.totalpayable) AS total_payable, 
     SUM(dboservices.amountIncurredDueTax) AS total_tax 
-FROM \`dboservices\` 
+FROM dboservices
 WHERE dboservices.clinicianId = ? AND ${constraints}
 AND YEAR(dboservices.serviceAddedOn) = ?
 GROUP BY MONTH(dboservices.serviceAddedOn)
@@ -56,10 +56,10 @@ export const q_can_caseSummaryMonthly = `
 
 export const q_can_caseSummaryYearly = `
 SELECT 
-    YEAR(createdAt) AS year,
+    YEAR(serviceAddedon) AS year,
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases,
+    ( ( COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100) AS percentage_clinician_cases,
     SUM(CASE WHEN clinicianId = ? THEN cost END) AS clinician_total_cost,
     SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS clinician_total_payable,
     SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS clinician_total_tax,
@@ -67,9 +67,9 @@ SELECT
     SUM(totalpayable) AS total_payable,
     SUM(amountIncurredDueTax) AS total_tax,
     (SUM(CASE WHEN clinicianId = ? THEN totalpayable END) / NULLIF(SUM(totalpayable), 0)) * 100 AS percentage_revenue
-FROM \`dboservices\`
-WHERE YEAR(createdAt) = YEAR(?) AND ${constraints}
-GROUP BY YEAR(createdAt);
+FROM dboservices
+WHERE  ${constraints}
+GROUP BY YEAR(dboservices.serviceAddedOn);
 `;
 
 
@@ -364,31 +364,31 @@ export const q_can_monthlyTestBreakdown = `
 SELECT 
     tp.name AS test_name, 
     tp.id AS testid,
-    YEAR(ss.serviceAddedOn) AS year,
-    MONTH(ss.serviceAddedOn) AS month,
-    COUNT(DISTINCT ss.trackId) AS total_tests,
-    SUM(ss.cost) AS total_cost,
-    SUM(ss.totalpayable) AS total_payable,
-    SUM(ss.amountIncurredDueTax) AS total_tax,
-    SUM(ss.discount) AS total_discount,
-    COUNT(CASE WHEN ss.hasNightAdjustment = 1 THEN 1 END) as night_adjustments_count,
-    SUM(CASE WHEN ss.hasNightAdjustment = 1 THEN ss.nightAdjustmentValue ELSE 0 END) as total_night_adjustment
-FROM dboservices AS ss 
-INNER JOIN test_panels AS tp ON tp.id = ss.trackId
-WHERE ss.clinicianId = ? AND ${constraints}
-GROUP BY tp.name, tp.id, YEAR(ss.serviceAddedOn), MONTH(ss.serviceAddedOn)
+    YEAR(dboservices.serviceAddedOn) AS year,
+    MONTH(dboservices.serviceAddedOn) AS month,
+    COUNT(DISTINCT dboservices.trackId) AS total_tests,
+    SUM(dboservices.cost) AS total_cost,
+    SUM(dboservices.totalpayable) AS total_payable,
+    SUM(dboservices.amountIncurredDueTax) AS total_tax,
+    SUM(dboservices.discount) AS total_discount,
+    COUNT(CASE WHEN dboservices.hasNightAdjustment = 1 THEN 1 END) as night_adjustments_count,
+    SUM(CASE WHEN dboservices.hasNightAdjustment = 1 THEN dboservices.nightAdjustmentValue ELSE 0 END) as total_night_adjustment
+FROM dboservices  
+INNER JOIN test_panels AS tp ON tp.id = dboservices.trackId
+WHERE dboservices.clinicianId = ? AND ${constraints}
+GROUP BY tp.name, tp.id, YEAR(dboservices.serviceAddedOn), MONTH(dboservices.serviceAddedOn)
 ORDER BY year DESC, month DESC;
 `;
 
 export const q_can_topOutsourcedTests = `
 SELECT 
     tp.name AS test_name, 
-    ss.trackId, 
+    dboservices.trackId, 
     COUNT(*) AS outsourced_test_count
-FROM dboservices AS ss
-INNER JOIN test_panels AS tp ON tp.id = ss.trackId
-WHERE ss.clinicianId = ? AND ss.isoutsourced = 1
-GROUP BY tp.name, ss.trackId
+FROM dboservices 
+INNER JOIN test_panels AS tp ON tp.id = dboservices.trackId
+WHERE dboservices.clinicianId = ? AND dboservices.isoutsourced = 1
+GROUP BY tp.name, dboservices.trackId
 ORDER BY outsourced_test_count DESC
 LIMIT 5;
 `;
@@ -398,16 +398,16 @@ SELECT
     DATE(createdAt) AS date,
     COUNT(CASE WHEN clinicianId = ? THEN 1 END) AS clinician_cases,
     COUNT(*) AS total_cases,
-    (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100 AS percentage_clinician_cases,
-    SUM(CASE WHEN clinicianId = ? THEN cost END) AS clinician_total_cost,
+    ( (COUNT(CASE WHEN clinicianId = ? THEN 1 END) / COUNT(*)) * 100) AS percentage_clinician_cases,
+    SUM(CASE WHEN clinicianId = ?  THEN cost END) AS clinician_total_cost,
     SUM(CASE WHEN clinicianId = ? THEN totalpayable END) AS clinician_total_payable,
     SUM(CASE WHEN clinicianId = ? THEN amountIncurredDueTax END) AS clinician_total_tax,
     SUM(cost) AS total_cost,
     SUM(totalpayable) AS total_payable,
     SUM(amountIncurredDueTax) AS total_tax,
     (SUM(CASE WHEN clinicianId = ? THEN totalpayable END) / NULLIF(SUM(totalpayable), 0)) * 100 AS percentage_revenue
-FROM \`dboservices\`
-WHERE DATE(createdAt) = DATE(?)
+FROM dboservices
+WHERE DATE(createdAt) = DATE(?) AND ${constraints}
 GROUP BY DATE(createdAt);
 `;
 
@@ -464,36 +464,36 @@ FROM previous, current;
 
 export const q_get_clinician_commission = `
     SELECT
-        DATE(s.serviceAddedOn) AS service_date,
-        c.id AS clinician_id,
+        DATE(dboservices.serviceAddedOn) AS service_date,
+        dboservices.id AS clinician_id,
         c.name AS clinician_name,
-        s.serviceid,
+        dboservices.serviceid,
         c.phone AS clinician_phone,
         c.occupation,
         c.organization,
         COUNT(*) AS total_services,
-        SUM(s.totalpayable) AS total_payable,
-        SUM(s.paidamount) AS total_paid,
+        SUM(dboservices.totalpayable) AS total_payable,
+        SUM(dboservices.paidamount) AS total_paid,
         COALESCE(ct.commission_due, 0) AS commission_earned
-    FROM dboservices s
+    FROM dboservices 
     INNER JOIN clinicianbasicinfo c
         ON s.clinicianId = c.id
     LEFT JOIN commission_tracking ct
-        ON ct.service_id = s.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
+        ON ct.service_id = dboservices.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
     LEFT JOIN commission_batch_payment_services AS cbps
-        ON cbps.serviceid = s.serviceid
+        ON cbps.serviceid = dboservices.serviceid
     WHERE
         s.clinicianId = ?
-        AND s.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
-        AND s.status = 'active'
-        AND s.isAdjustment = 0
-        AND DATE(s.serviceAddedOn) >= ?
-        AND s.isRefunded=0
-        AND s.paymentstatus !='pending'
-        AND DATE(s.serviceAddedOn) <= ?
+        AND dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
+        AND dboservices.status = 'active'
+        AND dboservices.isAdjustment = 0
+        AND DATE(dboservices.serviceAddedOn) >= ?
+        AND dboservices.isRefunded=0
+        AND dboservices.paymentstatus !='pending'
+        AND DATE(dboservices.serviceAddedOn) <= ?
         AND cbps.serviceid IS NULL
     GROUP BY 
-       s.serviceid
+       dboservices.serviceid
     ORDER BY 
         service_date DESC
 `;
@@ -507,24 +507,24 @@ export const q_get_clinicians_commission_by_date = `
         DATE(s.serviceAddedOn) AS service_date,
         c.organization,
         COUNT(*) AS total_services,
-        SUM(s.totalpayable) AS total_payable,
-        SUM(s.paidamount) AS total_paid,
+        SUM(dboservices.totalpayable) AS total_payable,
+        SUM(dboservices.paidamount) AS total_paid,
         SUM(COALESCE(ct.commission_due, 0)) AS commission_earned_total
-    FROM dboservices s
+    FROM dboservices 
     INNER JOIN clinicianbasicinfo c
-        ON s.clinicianId = c.id
+        ON dboservices.clinicianId = c.id
     LEFT JOIN commission_tracking ct
-        ON ct.service_id = s.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
+        ON ct.service_id = dboservices.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
     LEFT JOIN commission_batch_payment_services AS cbps
-        ON cbps.serviceid = s.serviceid
+        ON cbps.serviceid = dboservices.serviceid
     WHERE
         s.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
-        AND s.status = 'active'
-        AND s.isRefunded=0
-        AND s.paymentstatus !='pending'
-        AND DATE(s.serviceAddedOn) >= ?
-        AND DATE(s.serviceAddedOn) <= ?
-        AND s.clinicianId IS NOT NULL
+        AND dboservices.status = 'active'
+        AND dboservices.isRefunded=0
+        AND dboservices.paymentstatus !='pending'
+        AND DATE(dboservices.serviceAddedOn) >= ?
+        AND DATE(dboservices.serviceAddedOn) <= ?
+        AND dboservices.clinicianId IS NOT NULL
         AND cbps.serviceid IS NULL
     GROUP BY 
         c.id

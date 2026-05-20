@@ -75,7 +75,10 @@ class WriteOff {
                     amountIncurredDueTax: 0,
                     isLocked: 1,
                     isRefunded: 1,
+                    outstanding: 0,
                     discount: 0,
+                    paidamount: 0,
+                    paymentstatus: 'refunded'
                 });
                 const updatedService = await trx('dboservices').where({ serviceid: service.serviceid }).first();
                 if (updatedService) {

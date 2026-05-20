@@ -77,10 +77,7 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
                     query = query.where('scope_type', 'system');
                }
 
-               const records = await query.orderBy('priority', 'desc').orderBy('assigned_from', 'desc');
-
-               console.log(records, query.toString());
-
+               const records = await query.orderBy('priority', 'desc').orderBy('assigned_from', 'desc')
                return records.map((record) => new CommissionAssignment(record));
           } catch (error) {
                throw new DatabaseError('Failed to find applicable commission assignments', error);

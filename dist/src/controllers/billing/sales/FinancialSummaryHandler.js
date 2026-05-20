@@ -50,7 +50,9 @@ const analyticsFunctions = {
     totalSalesByBranch: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
         return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByBranch'], [startdate, enddate]);
     },
-    totalSalesByClinician: (tenantId, branchid, startdate, enddate, year, outsourceId) => (0, AnalyticsBilling_1.UtilityFinancial)(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
+    totalSalesByClinician: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
+        return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByClinician'], [startdate, enddate]);
+    },
     totalSalesByOrganization: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
         return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByOrganization'], [startdate, enddate]);
     },

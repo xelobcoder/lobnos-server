@@ -88,7 +88,7 @@ class ClinicianAnalytics {
      }
 
      public static async getCaseSummaryYearly(tenantId: number, clinicianId: number) {
-          return await promisifyQuery(tenantId, q_can_caseSummaryYearly, [clinicianId, clinicianId]);
+          return await promisifyQuery(tenantId, q_can_caseSummaryYearly, [clinicianId,clinicianId, clinicianId,clinicianId,clinicianId,clinicianId]);
      }
 
      public static async getCaseSummaryDailyRecent(tenantId: number, clinicianId: number, year: number) {

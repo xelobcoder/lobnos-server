@@ -70,7 +70,6 @@ class CommissionAssignmentRepository {
                 query = query.where('scope_type', 'system');
             }
             const records = await query.orderBy('priority', 'desc').orderBy('assigned_from', 'desc');
-            console.log(records, query.toString());
             return records.map((record) => new CommissionAssignment_interface_1.CommissionAssignment(record));
         }
         catch (error) {

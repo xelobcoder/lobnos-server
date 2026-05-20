@@ -168,16 +168,28 @@ export class TransactionManagementService {
         try {
             await this.repository.updateBilling(billingId, {
                 status: 'voided',
-                lastupdatedby: employeeId
+                lastupdatedby: employeeId,
+                islocked: true,
+                payable: 0,
+                voidedby: employeeId,
+                paid: 0,
+                outstanding: 0,
+                voidedat: new Date()
             }, trx);
 
             const services = await this.repository.getServices(billingId);
             for (const service of services) {
                 await this.repository.updateService(service.serviceid, {
                     status: 'voided',
-                    employeeid: employeeId
+                    employeeid: employeeId,
+                    isLocked: 1,
+                    paidamount: 0,
+                    voidedby: employeeId,
+                    totalpayable: 0,
+                    outstanding: 0,
+                    voidedat: new Date()
                 }, trx);
-            }
+            }          
 
             await trx.commit();
             return true;

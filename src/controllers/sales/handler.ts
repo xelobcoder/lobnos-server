@@ -32,7 +32,7 @@ export const handleSalesSummaryRange = async (
 		const tenantId: number = parseInt(req.query.tenantId, 10);
 		const { branchid, employeeid ,from,to} = req.query;
 		const parsedBranchid = parseInt(branchid)
-		const summary  = await new Payment(null).summaryRangeOfDates(tenantId,from,to,parsedBranchid);
+		const summary  = await new Payment(0).summaryRangeOfDates(tenantId,from,to,parsedBranchid);
 		const branch = await Branch.find(tenantId,parsedBranchid);
 		res.send({summary,branch})
 	} catch (err) {

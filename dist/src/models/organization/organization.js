@@ -216,61 +216,6 @@ class Organization {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_org_contact, [this.organizationId]);
         return result;
     }
-    async getCommissionRate(tenantId) {
-        let commissionRate = 0;
-        const organizationInfo = await this.organizationAccountInfo(tenantId);
-        if (organizationInfo.length !== 0 && organizationInfo[0]["commission"] !== 0) {
-            commissionRate = organizationInfo[0]["commission"];
-        }
-        return commissionRate;
-    }
-    async calculateRate(tenantId, data) {
-        const commissionRate = await this.getCommissionRate(tenantId);
-        const payable = data[0]["payable"];
-        const rate = parseFloat(payable) * (parseFloat(commissionRate.toString()) / 100);
-        return Object.assign(Object.assign({}, data[0]), { commissionRate: rate });
-    }
-    async monthSales(tenantId) {
-        let monthly = await (0, helper_1.promisifyQuery)(tenantId, queries_1.MONTHLYSALESQUERY, [this.organizationId]);
-        if (monthly.length === 0) {
-            return defaultSalesParam;
-        }
-        monthly = await this.calculateRate(tenantId, monthly);
-        return monthly;
-    }
-    async daySales(tenantId) {
-        let result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.TODAYSALESQUERY, [this.organizationId]);
-        if (result.length === 0) {
-            return defaultSalesParam;
-        }
-        result = await this.calculateRate(tenantId, result);
-        return result;
-    }
-    async weeklySales(tenantId) {
-        const commissionRate = await this.getCommissionRate(tenantId);
-        let result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.WEEKLYSALESQUERY, [this.organizationId]);
-        if (result.length === 0) {
-            return [];
-        }
-        result = result.map((item) => {
-            const commission = parseFloat(item === null || item === void 0 ? void 0 : item.payable) * (parseFloat(commissionRate.toString()) / 100);
-            return Object.assign(Object.assign({}, item), { value: commission, name: item === null || item === void 0 ? void 0 : item.weeklySales });
-        });
-        return result;
-    }
-    async getYearlySales(tenantId) {
-        let result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.YEARLYSALESQUERY, [this.organizationId]);
-        if (result.length === 0) {
-            return defaultSalesParam;
-        }
-        result = await this.calculateRate(tenantId, result);
-        return result;
-    }
-    async getDailySales(tenantId) {
-        let result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.DAILYSALESQUERY, [this.organizationId]);
-        result = await Promise.all(result.map(async (a) => await this.calculateRate(tenantId, [a])));
-        return result;
-    }
     static async getOrganizationTotalCount(tenantId) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_organization_total_count);
         if (result.length > 0) {
@@ -285,42 +230,6 @@ class Organization {
     }
     async getOrganizationInfo(tenantId) {
         return await (0, helper_1.promisifyQuery)(tenantId, "SELECT * FROM organization WHERE id = ?", [this.organizationId]);
-    }
-    async generateOrganizationalSalesReport(tenantId) {
-        if (!this.organizationId)
-            return false;
-        const monthly = await this.monthSales(tenantId);
-        const today = await this.daySales(tenantId);
-        const weekly = await this.weeklySales(tenantId);
-        const daily = await this.getDailySales(tenantId);
-        const yearly = await this.getYearlySales(tenantId);
-        const sales = { monthly, today, weekly, yearly, daily };
-        return sales;
-    }
-    async getTopPerformance(tenantId, requestQuery) {
-        const { count, from, to } = requestQuery;
-        let q_query = queries_1.q_top_performance_organization;
-        let conditions = [];
-        let parameters = [];
-        if (from && to) {
-            conditions.push(`pt.date BETWEEN ? AND ?`);
-            parameters.push(from, to);
-        }
-        else if (from && !to) {
-            conditions.push(`pt.date BETWEEN ? AND CURRENT_DATE`);
-            parameters.push(from);
-        }
-        if (conditions.length > 0) {
-            q_query += ` WHERE ${conditions.join(' AND ')}`;
-        }
-        q_query += `
-	GROUP BY o.id, o.name
-	ORDER BY TotalSales DESC
-	LIMIT ?
-  `;
-        parameters.push(count);
-        let result = await (0, helper_1.promisifyQuery)(tenantId, q_query, parameters);
-        return result;
     }
 }
 exports.default = Organization;

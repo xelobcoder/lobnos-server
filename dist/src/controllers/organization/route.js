@@ -14,14 +14,10 @@ router.get("/api/v1/organization", (0, helper_1.handleOverLoad)(handlers_1.getOr
 router.get("/api/v1/organization/basic", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationsBasic));
 router.get("/api/v1/organization/contactperson", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationsContact));
 router.get("/api/v1/organization/payment", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationsPayment));
-router.get("/api/v1/organization/daily", (0, helper_1.handleOverLoad)(handlers_1.dailyOrganizationCommission));
-router.get("/api/v1/organization/monthly", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationCommissionByMonth));
 router.get("/api/v1/organization/commission/summary", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationsCommissionByDate));
 router.get("/api/v1/organization/commission", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationCommission));
 router.get(`/api/v1/organization/profile/image`, (0, helper_1.handleOverLoad)(handlers_1.getOrganizationImage));
 router.get("/api/v1/organization/id", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationId));
-router.get("/api/v1/organization/performance/top", (0, helper_1.handleOverLoad)(handlers_1.getTopPerformance));
-router.get("/api/v1/organization/detail/report/monthly", (0, helper_1.handleOverLoad)(handlers_1.generateMonthlySalesReport));
 router.get("/api/v1/organizations/details", (0, helper_1.handleOverLoad)(handlers_1.getOrganizationWithDetails));
 router.post("/api/v1/new/organizations", (0, helper_1.handleOverLoad)(handlers_1.createAOrganization));
 router.put("/api/v1/organization/update/basic", (0, helper_1.handleOverLoad)(handlers_1.updateOrganizationBasic));

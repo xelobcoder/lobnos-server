@@ -167,31 +167,7 @@ export const upload = async (req: Request<{}, {}, {}, { tenantId: string }>, res
 	}
 };
 
-export const dailyOrganizationCommission = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, response: Response): Promise<void> => {
-	try {
-		const { organizationid } = request.query;
-		if (!organizationid) return customError('organizationid not provided', 400, response);
-		let id = parseInt(organizationid.toString());
-		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const commission = await new Organization(id).daySales(tenantIdP)
-		response.send({ commission });
-	} catch (error) {
-		responseError(response);
-	}
-};
 
-export const getOrganizationCommissionByMonth = async (request: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, response: Response): Promise<void> => {
-	try {
-		const { organizationid } = request.query;
-		if (!organizationid) return customError('organizationid not provided', 400, response);
-		let id = parseInt(organizationid.toString());
-		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const commissionByMonth = await new Organization(id).monthSales(tenantIdP);
-		response.send({ commissionByMonth });
-	} catch (error) {
-		responseError(response);
-	}
-};
 
 export const getOrganizationsCommissionByDate = async (
 	request: Request<{}, {}, {}, { tenantId: string, startDate: string, endDate: string, page?: string, count?: string, sortby?: 'ASC' | 'DESC' }>,
@@ -253,29 +229,7 @@ export const getOrganizationId = async (req: Request, res: Response): Promise<vo
 	}
 };
 
-export const getTopPerformance = async (request: Request<{}, {}, {}, { tenantId: string, count?: string, from?: string, to?: string }>, response: Response): Promise<void> => {
-	try {
-		const tenantIdP = parseInt(request.query.tenantId.toString())
-		const topPerformers = await new Organization(null).getTopPerformance(tenantIdP, request.query as unknown as { count: number, from?: string, to?: string });
-		response.send({ topPerformers });
-	} catch (error) {
-		responseError(response);
-	}
-};
 
-export const generateMonthlySalesReport = async (req: Request<{}, {}, {}, { tenantId: string, organizationid: string }>, res: Response): Promise<void> => {
-	try {
-		let { organizationid } = req.query;
-		if (!organizationid) return customError("Organization id required", 404, res);
-		const orgid = parseInt(organizationid.toString())
-		const tenantIdP = parseInt(req.query.tenantId.toString())
-		const report = await new Organization(orgid).generateOrganizationalSalesReport(tenantIdP);
-		res.status(200).json({ status: "success", statusCode: 200, result: report });
-	} catch (error) {
-		console.error("Error in generateMonthlySalesReport:", error);
-		customError("Something went wrong", 500, res);
-	}
-};
 
 
 

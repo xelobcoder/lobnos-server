@@ -54,8 +54,9 @@ const analyticsFunctions: { [key: string]: Function } = {
 		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranch'], [startdate, enddate]);
 	},
 
-	totalSalesByClinician: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'totalSalesByClinician', branchid, startdate, enddate),
+	totalSalesByClinician: async  (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
+			return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByClinician'], [startdate, enddate]);
+	},
 
 	totalSalesByOrganization: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
 		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByOrganization'], [startdate, enddate]);

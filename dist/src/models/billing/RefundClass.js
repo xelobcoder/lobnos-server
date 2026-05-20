@@ -259,6 +259,8 @@ class Refund {
             });
             const applicationsettings = await new appset_1.default()
                 .getAllAppSettings(tenantId);
+            if (!applicationsettings)
+                return "Resource not found." /* OperationsFailures.notFound */;
             const { allowManagerToRefund } = applicationsettings;
             if (['admin', 'superadmin'].includes(stringifyRole) || (stringifyRole == 'manager' && parseInt(allowManagerToRefund.toString()) == 1)) {
                 const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [1, new Date(), employeeid, serviceid]);
@@ -349,9 +351,11 @@ class Refund {
             return isRefundAmmountExceeded;
         if (isRefundAmmountExceeded == null)
             return "Resource not found." /* OperationsFailures.notFound */;
-        const transactionData = await new billing_1.Billing(null).getTransactionBillData(tenantId, billingid);
+        const transactionData = await new billing_1.Billing(0).getTransactionBillData(tenantId, billingid);
         if (transactionData && Array.isArray(transactionData) && transactionData.length > 0) {
             const refundableAmount = await this.calculateServiceRefundableAmount(tenantId, serviceid);
+            if (!refundableAmount)
+                return "Resource not found." /* OperationsFailures.notFound */;
             if (refundableAmount <= 0) {
                 return {
                     refundableAmount: 0,

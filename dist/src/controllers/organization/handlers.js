@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.bulkInsertOrganizationsHandler = exports.getOrganizationPricingHandler = exports.createOrganizationPricingHandler = exports.generateMonthlySalesReport = exports.getTopPerformance = exports.getOrganizationId = exports.getOrganizationCommission = exports.getOrganizationsCommissionByDate = exports.getOrganizationCommissionByMonth = exports.dailyOrganizationCommission = exports.upload = exports.updateOrganizationPayment = exports.updateOrganizationContact = exports.updateOrganizationBasic = exports.createAOrganization = exports.getOrganizationImage = exports.uploadOrganizationProfilePicture = exports.getOrganizationWithDetails = exports.deleteOrganization = exports.getOrganizationsPayment = exports.getOrganizationsContact = exports.getOrganizationsBasic = exports.getOrganizations = void 0;
+exports.bulkInsertOrganizationsHandler = exports.getOrganizationPricingHandler = exports.createOrganizationPricingHandler = exports.getOrganizationId = exports.getOrganizationCommission = exports.getOrganizationsCommissionByDate = exports.upload = exports.updateOrganizationPayment = exports.updateOrganizationContact = exports.updateOrganizationBasic = exports.createAOrganization = exports.getOrganizationImage = exports.uploadOrganizationProfilePicture = exports.getOrganizationWithDetails = exports.deleteOrganization = exports.getOrganizationsPayment = exports.getOrganizationsContact = exports.getOrganizationsBasic = exports.getOrganizations = void 0;
 const organization_1 = __importDefault(require("../../models/organization/organization"));
 const uploadImages_1 = require("./uploadImages");
 const organizationBilling_1 = __importDefault(require("../../models/organization/organizationBilling"));
@@ -181,36 +181,6 @@ const upload = async (req, res) => {
     }
 };
 exports.upload = upload;
-const dailyOrganizationCommission = async (request, response) => {
-    try {
-        const { organizationid } = request.query;
-        if (!organizationid)
-            return (0, helper_1.customError)('organizationid not provided', 400, response);
-        let id = parseInt(organizationid.toString());
-        const tenantIdP = parseInt(request.query.tenantId.toString());
-        const commission = await new organization_1.default(id).daySales(tenantIdP);
-        response.send({ commission });
-    }
-    catch (error) {
-        (0, helper_1.responseError)(response);
-    }
-};
-exports.dailyOrganizationCommission = dailyOrganizationCommission;
-const getOrganizationCommissionByMonth = async (request, response) => {
-    try {
-        const { organizationid } = request.query;
-        if (!organizationid)
-            return (0, helper_1.customError)('organizationid not provided', 400, response);
-        let id = parseInt(organizationid.toString());
-        const tenantIdP = parseInt(request.query.tenantId.toString());
-        const commissionByMonth = await new organization_1.default(id).monthSales(tenantIdP);
-        response.send({ commissionByMonth });
-    }
-    catch (error) {
-        (0, helper_1.responseError)(response);
-    }
-};
-exports.getOrganizationCommissionByMonth = getOrganizationCommissionByMonth;
 const getOrganizationsCommissionByDate = async (request, response) => {
     try {
         const { startDate, endDate, page = '1', count = '10', sortby = 'DESC' } = request.query;
@@ -259,33 +229,6 @@ const getOrganizationId = async (req, res) => {
     }
 };
 exports.getOrganizationId = getOrganizationId;
-const getTopPerformance = async (request, response) => {
-    try {
-        const tenantIdP = parseInt(request.query.tenantId.toString());
-        const topPerformers = await new organization_1.default(null).getTopPerformance(tenantIdP, request.query);
-        response.send({ topPerformers });
-    }
-    catch (error) {
-        (0, helper_1.responseError)(response);
-    }
-};
-exports.getTopPerformance = getTopPerformance;
-const generateMonthlySalesReport = async (req, res) => {
-    try {
-        let { organizationid } = req.query;
-        if (!organizationid)
-            return (0, helper_1.customError)("Organization id required", 404, res);
-        const orgid = parseInt(organizationid.toString());
-        const tenantIdP = parseInt(req.query.tenantId.toString());
-        const report = await new organization_1.default(orgid).generateOrganizationalSalesReport(tenantIdP);
-        res.status(200).json({ status: "success", statusCode: 200, result: report });
-    }
-    catch (error) {
-        console.error("Error in generateMonthlySalesReport:", error);
-        (0, helper_1.customError)("Something went wrong", 500, res);
-    }
-};
-exports.generateMonthlySalesReport = generateMonthlySalesReport;
 const createOrganizationPricingHandler = async (request, response) => {
     try {
         const responseBody = request.body;

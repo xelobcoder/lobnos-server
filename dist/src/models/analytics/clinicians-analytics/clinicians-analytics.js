@@ -43,7 +43,7 @@ class ClinicianAnalytics {
         };
     }
     static async getCaseSummaryYearly(tenantId, clinicianId) {
-        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryYearly, [clinicianId, clinicianId]);
+        return await (0, helper_1.promisifyQuery)(tenantId, clinicians_analtyics_qs_1.q_can_caseSummaryYearly, [clinicianId, clinicianId, clinicianId, clinicianId, clinicianId, clinicianId]);
     }
     static async getCaseSummaryDailyRecent(tenantId, clinicianId, year) {
         const clinicianDetails = await this.getClinicianInfo(tenantId, clinicianId);

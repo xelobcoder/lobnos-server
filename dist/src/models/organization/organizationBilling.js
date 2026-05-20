@@ -98,7 +98,7 @@ class OrganizationalBilling extends organization_1.default {
      * @returns A promise that resolves to the refined test array with discounted values.
      */
     async getRefinedTestArray(tenantId, testList) {
-        const allTest = await new customTestEntry_1.CustomTest(null, null).loadTestWithDetails(tenantId);
+        const allTest = await new customTestEntry_1.CustomTest(0, '').loadTestWithDetails(tenantId);
         const refinedTestArray = [];
         for (const test of testList) {
             const matchingTest = allTest.find(t => t.testid == test.id);

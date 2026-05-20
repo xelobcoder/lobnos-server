@@ -174,6 +174,10 @@ export default class ApplicationSettings {
 			allowManagerToRefund,
 			allowManagerToProcessPayroll,
 			allowManagerToProcessCommission,
+			isCommissionEarnedOnClinicianBilling,
+			isCommissionEarnedOnOrganizationalBilling,
+			isCommissionEarnedOnNHISBilling,
+			isCommissionEarnedOnPHISBilling
 		} = data;
 
 		try {
@@ -219,6 +223,10 @@ export default class ApplicationSettings {
 					allowManagerToRefund: allowManagerToRefund ?? 0,
 					allowManagerToProcessPayroll: allowManagerToProcessPayroll ?? 0,
 					allowManagerToProcessCommission: allowManagerToProcessCommission ?? 0,
+					isCommissionEarnedOnClinicianBilling: isCommissionEarnedOnClinicianBilling ?? 0,
+					isCommissionEarnedOnOrganizationalBilling: isCommissionEarnedOnOrganizationalBilling ?? 0,
+					isCommissionEarnedOnNHISBilling: isCommissionEarnedOnNHISBilling ?? 0,
+					isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling ?? 0
 				};
 				let affectedRows = 0;
 				if (existing) {
