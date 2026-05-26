@@ -30,6 +30,8 @@ class CommissionCalculator {
                         throw new CommissionErrors_1.TierNotFoundError(config.id, serviceAmount);
                     }
                     return this.calculateTiered(amount, matchedTier);
+                case 'sliding_scale':
+                    return this.calculatePercentage(amount, config.percentage_rate);
                 default:
                     throw new CommissionErrors_1.CalculationError(`Unknown commission type: ${config.commission_type}`);
             }

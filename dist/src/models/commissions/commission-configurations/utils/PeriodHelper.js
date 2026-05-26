@@ -27,6 +27,33 @@ class PeriodHelper {
         }
     }
     /**
+     * Get the reference date for the previous period
+     */
+    static getPreviousPeriodReferenceDate(date, resetType) {
+        const currentRef = this.getPeriodReferenceDate(date, resetType);
+        const d = new Date(currentRef);
+        switch (resetType) {
+            case 'daily':
+                d.setDate(d.getDate() - 1);
+                break;
+            case 'weekly':
+                d.setDate(d.getDate() - 7);
+                break;
+            case 'monthly':
+                d.setMonth(d.getMonth() - 1);
+                break;
+            case 'quarterly':
+                d.setMonth(d.getMonth() - 3);
+                break;
+            case 'yearly':
+                d.setFullYear(d.getFullYear() - 1);
+                break;
+            default:
+                throw new Error(`Unknown period reset type: ${resetType}`);
+        }
+        return this.getPeriodReferenceDate(d, resetType);
+    }
+    /**
      * Get the end date of a period
      */
     static getPeriodEndDate(date, resetType) {

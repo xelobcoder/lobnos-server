@@ -1,4 +1,4 @@
-export type CommissionType = 'percentage' | 'fixed' | 'tiered' | 'hybrid';
+export type CommissionType = 'percentage' | 'fixed' | 'tiered' | 'hybrid' | 'sliding_scale';
 export type PeriodCapReset = 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
 
 export interface ICommissionConfig {
@@ -7,6 +7,7 @@ export interface ICommissionConfig {
      description?: string;
      commission_type: CommissionType;
      percentage_rate?: number;
+     sliding_max_percentage?: number;
      fixed_component?: number;
      min_commission?: number;
      max_commission?: number;
@@ -25,6 +26,7 @@ export class CommissionConfig implements ICommissionConfig {
      description?: string;
      commission_type: CommissionType;
      percentage_rate?: number;
+     sliding_max_percentage?: number;
      fixed_component?: number;
      min_commission?: number;
      max_commission?: number;

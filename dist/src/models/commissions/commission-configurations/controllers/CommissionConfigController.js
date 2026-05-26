@@ -14,7 +14,7 @@ class CommissionConfigController {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId' });
                 return;
             }
-            const { name, commission_type, percentage_rate, fixed_component, min_commission, max_commission, period_cap, period_cap_reset, effective_from, effective_to, is_active = true, tiers, } = req.body;
+            const { name, commission_type, percentage_rate, sliding_max_percentage, fixed_component, min_commission, max_commission, period_cap, period_cap_reset, effective_from, effective_to, is_active = true, tiers, } = req.body;
             if (!name || !commission_type) {
                 res.status(400).json({
                     status: 'error',
@@ -27,6 +27,7 @@ class CommissionConfigController {
                 name,
                 commission_type,
                 percentage_rate: percentage_rate || null,
+                sliding_max_percentage: sliding_max_percentage || null,
                 fixed_component: fixed_component || null,
                 min_commission: min_commission || 0,
                 max_commission: max_commission || 999999,
@@ -163,11 +164,12 @@ class CommissionConfigController {
             const repository = commissionConfigutationRepo_1.CommissionServiceFactory.createConfigRepository(tenantId);
             await repository.softDelete(configId);
             // Create new version with updated fields
-            const { name, commission_type, percentage_rate, fixed_component, min_commission, max_commission, period_cap, period_cap_reset, effective_from, effective_to, is_active = true, } = req.body;
+            const { name, commission_type, percentage_rate, sliding_max_percentage, fixed_component, min_commission, max_commission, period_cap, period_cap_reset, effective_from, effective_to, is_active = true, } = req.body;
             const newConfig = {
                 name,
                 commission_type,
                 percentage_rate: percentage_rate || null,
+                sliding_max_percentage: sliding_max_percentage || null,
                 fixed_component: fixed_component || null,
                 min_commission: min_commission || 0,
                 max_commission: max_commission || 999999,

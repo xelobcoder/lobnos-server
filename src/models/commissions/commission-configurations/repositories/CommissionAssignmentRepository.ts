@@ -8,46 +8,146 @@ import { DatabaseError, AssignmentNotFoundError } from '../commissionConfigutati
 import { ICommissionAssignmentRepository } from './ICommissionAssignmentRepository';
 
 export class CommissionAssignmentRepository implements ICommissionAssignmentRepository {
-     constructor(private tenantId: number) { }
+     private connection: Promise<Knex> | Knex;
+     constructor(private tenantId: number, trx?: any) {
+          this.connection = trx || KnexConnection(this.tenantId);
+     }
+
+     private async getConnection(): Promise<Knex> {
+          return this.connection;
+     }
 
      async findById(id: number): Promise<ICommissionAssignment | null> {
           try {
-               const connection = await KnexConnection(this.tenantId);
-               const record = await connection('commission_assignments').where('id', id).first();
+               const connection = await this.getConnection();
+               const record = await connection('commission_assignments as ca')
+                    .select(
+                         'ca.*',
+                         connection.raw(`
+                              CASE 
+                                   WHEN ca.scope_type = 'clinician' THEN cbi.name 
+                                   WHEN ca.scope_type = 'organization' THEN org.name 
+                                   ELSE 'System' 
+                              END as recipient_name
+                         `)
+                    )
+                    .leftJoin('clinicianbasicinfo as cbi', function () {
+                         this.on('ca.scope_id', '=', 'cbi.id').andOn('ca.scope_type', '=', connection.raw("'clinician'"));
+                    })
+                    .leftJoin('organization as org', function () {
+                         this.on('ca.scope_id', '=', 'org.id').andOn('ca.scope_type', '=', connection.raw("'organization'"));
+                    })
+                    .where('ca.id', id)
+                    .first();
                return record ? new CommissionAssignment(record) : null;
           } catch (error) {
                throw new DatabaseError(`Failed to find commission assignment by id ${id}`, error);
           }
      }
 
-     async findByConfigId(configId: number): Promise<ICommissionAssignment[]> {
+     async findByConfigId(configId: number, page?: number, count?: number): Promise<ICommissionAssignment[]> {
           try {
-               const connection = await KnexConnection(this.tenantId);
-               const records = await connection('commission_assignments')
-                    .where('commission_config_id', configId)
-                    .orderBy('assigned_from', 'desc');
+               const connection = await this.getConnection();
+               let query = connection('commission_assignments as ca')
+                    .select(
+                         'ca.*',
+                         connection.raw(`
+                              CASE 
+                                   WHEN ca.scope_type = 'clinician' THEN cbi.name 
+                                   WHEN ca.scope_type = 'organization' THEN org.name 
+                                   ELSE 'System' 
+                              END as recipient_name
+                         `)
+                    )
+                    .leftJoin('clinicianbasicinfo as cbi', function () {
+                         this.on('ca.scope_id', '=', 'cbi.id').andOn('ca.scope_type', '=', connection.raw("'clinician'"));
+                    })
+                    .leftJoin('organization as org', function () {
+                         this.on('ca.scope_id', '=', 'org.id').andOn('ca.scope_type', '=', connection.raw("'organization'"));
+                    })
+                    .where('ca.commission_config_id', configId)
+                    .orderBy('ca.assigned_from', 'desc');
 
+               if (page !== undefined && count !== undefined) {
+                    const offset = (page - 1) * count;
+                    query = query.offset(offset).limit(count);
+               }
+
+               const records = await query;
                return records.map((record) => new CommissionAssignment(record));
           } catch (error) {
                throw new DatabaseError(`Failed to find assignments for config ${configId}`, error);
           }
      }
 
-     async findActive(onDate?: Date): Promise<ICommissionAssignment[]> {
+     async findActive(params?: {
+          onDate?: Date;
+          page?: number;
+          count?: number;
+          filterType?: string;
+          filterName?: string;
+          status?: string;
+     }): Promise<ICommissionAssignment[]> {
           try {
-               const connection = await KnexConnection(this.tenantId);
-               const query = connection('commission_assignments')
-                    .where('is_active', true)
+               const connection = await this.getConnection();
+               let query = connection('commission_assignments as ca')
+                    .select(
+                         'ca.*',
+                         connection.raw(`
+                              CASE 
+                                   WHEN ca.scope_type = 'clinician' THEN cbi.name 
+                                   WHEN ca.scope_type = 'organization' THEN org.name 
+                                   ELSE 'System' 
+                              END as recipient_name
+                         `)
+                    )
+                    .leftJoin('clinicianbasicinfo as cbi', function () {
+                         this.on('ca.scope_id', '=', 'cbi.id').andOn('ca.scope_type', '=', connection.raw("'clinician'"));
+                    })
+                    .leftJoin('organization as org', function () {
+                         this.on('ca.scope_id', '=', 'org.id').andOn('ca.scope_type', '=', connection.raw("'organization'"));
+                    });
 
-               if (onDate) {
-                    query.where('assigned_from', '<=', onDate)
+               if (params?.status === 'active') {
+                    query.where('ca.is_active', true);
+               } else if (params?.status === 'inactive') {
+                    query.where('ca.is_active', false);
+               }
+               // If status is not provided or set to 'all', we don't filter by is_active here,
+               // but the original code had .where('ca.is_active', true) as default.
+               // Let's make 'active' the default if no status is provided to maintain backward compatibility
+               // unless specifically requested otherwise.
+               else if (!params?.status) {
+                    query.where('ca.is_active', true);
+               }
+
+               if (params?.onDate) {
+                    query.where('ca.assigned_from', '<=', params.onDate)
                          .where((builder: Knex.QueryBuilder) => {
-                              builder.whereNull('assigned_to').orWhere('assigned_to', '>=', onDate);
+                              builder.whereNull('ca.assigned_to').orWhere('ca.assigned_to', '>=', params.onDate);
                          })
                }
 
-               const records = await query.orderBy('assigned_from', 'desc');
+               if (params?.filterType) {
+                    query.where('ca.scope_type', params.filterType);
+               }
 
+               if (params?.filterName) {
+                    const searchName = `%${params.filterName}%`;
+                    query.where((builder: Knex.QueryBuilder) => {
+                         builder.where('cbi.name', 'like', searchName)
+                              .orWhere('org.name', 'like', searchName);
+                    });
+               }
+
+               query = query.orderBy('ca.assigned_from', 'desc');
+
+               if (params?.page !== undefined && params?.count !== undefined) {
+                    const offset = (params.page - 1) * params.count;
+                    query = query.offset(offset).limit(params.count);
+               }
+
+               const records = await query;
                return records.map((record) => new CommissionAssignment(record));
           } catch (error) {
                throw new DatabaseError('Failed to find active commission assignments', error);
@@ -60,24 +160,40 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
           scopeId?: number;
      }): Promise<ICommissionAssignment[]> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = await this.getConnection();
 
-               let query = connection('commission_assignments')
-                    .where('is_active', true)
-                    .where('assigned_from', '<=', params.date)
+               let query = connection('commission_assignments as ca')
+                    .select(
+                         'ca.*',
+                         connection.raw(`
+                              CASE 
+                                   WHEN ca.scope_type = 'clinician' THEN cbi.name 
+                                   WHEN ca.scope_type = 'organization' THEN org.name 
+                                   ELSE 'System' 
+                              END as recipient_name
+                         `)
+                    )
+                    .leftJoin('clinicianbasicinfo as cbi', function () {
+                         this.on('ca.scope_id', '=', 'cbi.id').andOn('ca.scope_type', '=', connection.raw("'clinician'"));
+                    })
+                    .leftJoin('organization as org', function () {
+                         this.on('ca.scope_id', '=', 'org.id').andOn('ca.scope_type', '=', connection.raw("'organization'"));
+                    })
+                    .where('ca.is_active', true)
+                    .where('ca.assigned_from', '<=', params.date)
                     .where((builder: Knex.QueryBuilder) => {
-                         builder.whereNull('assigned_to').orWhere('assigned_to', '>=', params.date);
+                         builder.whereNull('ca.assigned_to').orWhere('ca.assigned_to', '>=', params.date);
                     });
 
                if (params.scopeType === 'clinician' && params.scopeId) {
-                    query = query.where('scope_type', 'clinician').where('scope_id', params.scopeId);
+                    query = query.where('ca.scope_type', 'clinician').where('ca.scope_id', params.scopeId);
                } else if (params.scopeType === 'organization' && params.scopeId) {
-                    query = query.where('scope_type', 'organization').where('scope_id', params.scopeId);
+                    query = query.where('ca.scope_type', 'organization').where('ca.scope_id', params.scopeId);
                } else {
-                    query = query.where('scope_type', 'system');
+                    query = query.where('ca.scope_type', 'system');
                }
 
-               const records = await query.orderBy('priority', 'desc').orderBy('assigned_from', 'desc')
+               const records = await query.orderBy('ca.priority', 'desc').orderBy('ca.assigned_from', 'desc')
                return records.map((record) => new CommissionAssignment(record));
           } catch (error) {
                throw new DatabaseError('Failed to find applicable commission assignments', error);
@@ -88,7 +204,17 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
           assignment: Omit<ICommissionAssignment, 'id' | 'created_at'>
      ): Promise<ICommissionAssignment> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = await this.getConnection();
+
+               // Deactivate existing active assignments for this recipient to ensure "one assignment per recipient"
+               await connection('commission_assignments')
+                    .where({
+                         scope_type: assignment.scope_type,
+                         scope_id: assignment.scope_id || null,
+                         is_active: true
+                    })
+                    .update({ is_active: false });
+
                const [id] = await connection('commission_assignments').insert({
                     ...assignment,
                     created_at: new Date(),
@@ -105,9 +231,26 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
           }
      }
 
+     async createMultiple(
+          assignments: Omit<ICommissionAssignment, 'id' | 'created_at'>[]
+     ): Promise<ICommissionAssignment[]> {
+          const conn = await this.getConnection();
+          const results: ICommissionAssignment[] = [];
+
+          // Use a transaction for multiple creations
+          return await conn.transaction(async (trx) => {
+               const repository = new CommissionAssignmentRepository(this.tenantId, trx);
+               for (const assignment of assignments) {
+                    const created = await repository.create(assignment);
+                    results.push(created);
+               }
+               return results;
+          });
+     }
+
      async softDelete(id: number): Promise<void> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = await this.getConnection();
                await connection('commission_assignments').where('id', id).update({
                     is_active: false,
                });

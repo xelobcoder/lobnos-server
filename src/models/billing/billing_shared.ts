@@ -609,7 +609,7 @@ export class BillingSharedRepo {
      }
 
 
-     public async mapAndInsertServices(tenantId: number, allEntries: any[], billingid: number, patientId: number, result_delivery: any, trx?: any) {
+     public async mapAndInsertServices(tenantId: number, allEntries: any[], billingid: number, patientId: number, result_delivery: any, billeddate: any, trx?: any) {
           try {
                const servicesMap = allEntries.map((service) => {
                     return [
@@ -651,6 +651,7 @@ export class BillingSharedRepo {
                          service.relatedbillingid ? service.relatedbillingid : null,
                          service.userAdjustedValue ? service.userAdjustedValue : 0,
                          service.userAdjustmentType ? service.userAdjustmentType : null,
+                         billeddate
                     ];
                });
 
@@ -669,7 +670,7 @@ export class BillingSharedRepo {
                try {
                     const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment,
                          nightAdjustmentMode, nightAdjustmentValue, isPackageUsed,
-                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType] = item;
+                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType, billeddate] = item;
 
                     const actualDiscount = userAdjustmentType === "discount" ? userAdjustedValue : 0;
 
@@ -686,7 +687,7 @@ export class BillingSharedRepo {
                          branchid,
                          isoutsourced,
                          outsourceid,
-                         serviceAddedOn,
+                         serviceAddedOn: billeddate ? billeddate : serviceAddedOn,
                          taxList,
                          taxValue,
                          amountIncurredDueTax,

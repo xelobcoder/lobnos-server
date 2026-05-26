@@ -10,6 +10,34 @@ class CommissionAssignmentController {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId' });
                 return;
             }
+            const repository = commissionConfigutationRepo_1.CommissionServiceFactory.createAssignmentRepository(tenantId);
+            if (Array.isArray(req.body)) {
+                const assignments = req.body.map(item => ({
+                    commission_config_id: item.commission_config_id,
+                    scope_type: item.scope_type,
+                    scope_id: item.scope_id || null,
+                    service_id: item.service_id || null,
+                    service_category: item.service_category || null,
+                    priority: item.priority || 50,
+                    assigned_from: item.assigned_from ? new Date(item.assigned_from) : new Date(),
+                    assigned_to: item.assigned_to ? new Date(item.assigned_to) : null,
+                    is_active: item.is_active !== undefined ? item.is_active : true,
+                }));
+                for (const a of assignments) {
+                    if (!a.commission_config_id || !a.scope_type) {
+                        res.status(400).json({ status: 'error', statusCode: 400, message: 'Missing required fields in one or more assignments' });
+                        return;
+                    }
+                }
+                const created = await repository.createMultiple(assignments);
+                res.status(201).json({
+                    status: 'success',
+                    statusCode: 201,
+                    message: `${created.length} commission assignments created successfully`,
+                    result: created,
+                });
+                return;
+            }
             const { commission_config_id, scope_type, scope_id, service_id, service_category, priority = 50, assigned_from, assigned_to, is_active = true, } = req.body;
             if (!commission_config_id || !scope_type) {
                 res.status(400).json({
@@ -53,7 +81,6 @@ class CommissionAssignmentController {
             const configRepository = commissionConfigutationRepo_1.CommissionServiceFactory.createConfigRepository(tenantId);
             await configRepository.getByIdOrThrow(commission_config_id);
             // Create assignment
-            const repository = commissionConfigutationRepo_1.CommissionServiceFactory.createAssignmentRepository(tenantId);
             const created = await repository.create(assignment);
             res.status(201).json({
                 status: 'success',
@@ -112,13 +139,24 @@ class CommissionAssignmentController {
         try {
             const tenantId = parseInt(req.query.tenantId);
             const configId = parseInt(req.query.configId);
+            const page = parseInt(req.query.page) || 1;
+            const count = parseInt(req.query.count) || 10;
+            const filterType = req.query.filterType;
+            const filterName = req.query.filterName;
+            const status = req.query.status;
             const repository = commissionConfigutationRepo_1.CommissionServiceFactory.createAssignmentRepository(tenantId);
             let assignments = [];
             if (configId) {
-                assignments = await repository.findByConfigId(configId);
+                assignments = await repository.findByConfigId(configId, page, count);
             }
             else {
-                assignments = await repository.findActive();
+                assignments = await repository.findActive({
+                    page,
+                    count,
+                    filterType,
+                    filterName,
+                    status
+                });
             }
             res.json({
                 status: 'success',
@@ -134,10 +172,6 @@ class CommissionAssignmentController {
             });
         }
     }
-    /**
-     * Update assignment
-     * PUT /api/v1/commission/assignments/:id
-     */
     static async updateAssignment(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);

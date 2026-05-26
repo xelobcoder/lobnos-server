@@ -12,6 +12,7 @@ export interface ICommissionAssignment {
      assigned_to?: Date;
      is_active: boolean;
      created_at: Date;
+     recipient_name?: string;
 }
 
 export class CommissionAssignment implements ICommissionAssignment {
@@ -26,6 +27,7 @@ export class CommissionAssignment implements ICommissionAssignment {
      assigned_to?: Date;
      is_active: boolean;
      created_at: Date;
+     recipient_name?: string;
 
      constructor(data: ICommissionAssignment) {
           Object.assign(this, data);

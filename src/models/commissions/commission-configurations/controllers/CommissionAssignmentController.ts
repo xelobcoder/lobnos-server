@@ -10,6 +10,39 @@ export class CommissionAssignmentController {
                     return;
                }
 
+               const repository = CommissionServiceFactory.createAssignmentRepository(tenantId);
+
+               if (Array.isArray(req.body)) {
+                    const assignments = req.body.map(item => ({
+                         commission_config_id: item.commission_config_id,
+                         scope_type: item.scope_type as 'system' | 'organization' | 'clinician',
+                         scope_id: item.scope_id || null,
+                         service_id: item.service_id || null,
+                         service_category: item.service_category || null,
+                         priority: item.priority || 50,
+                         assigned_from: item.assigned_from ? new Date(item.assigned_from) : new Date(),
+                         assigned_to: item.assigned_to ? new Date(item.assigned_to) : null,
+                         is_active: item.is_active !== undefined ? item.is_active : true,
+                    }));
+
+
+                    for (const a of assignments) {
+                         if (!a.commission_config_id || !a.scope_type) {
+                              res.status(400).json({ status: 'error', statusCode: 400, message: 'Missing required fields in one or more assignments' });
+                              return;
+                         }
+                    }
+
+                    const created = await repository.createMultiple(assignments);
+                    res.status(201).json({
+                         status: 'success',
+                         statusCode: 201,
+                         message: `${created.length} commission assignments created successfully`,
+                         result: created,
+                    });
+                    return;
+               }
+
                const {
                     commission_config_id,
                     scope_type,
@@ -69,7 +102,6 @@ export class CommissionAssignmentController {
                await configRepository.getByIdOrThrow(commission_config_id);
 
                // Create assignment
-               const repository = CommissionServiceFactory.createAssignmentRepository(tenantId);
                const created = await repository.create(assignment as Omit<ICommissionAssignment, 'id' | 'created_at'>);
 
                res.status(201).json({
@@ -134,14 +166,25 @@ export class CommissionAssignmentController {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const configId = parseInt(req.query.configId as string);
+               const page = parseInt(req.query.page as string) || 1;
+               const count = parseInt(req.query.count as string) || 10;
+               const filterType = req.query.filterType as string;
+               const filterName = req.query.filterName as string;
+               const status = req.query.status as string;
 
                const repository = CommissionServiceFactory.createAssignmentRepository(tenantId);
                let assignments: any[] = []
 
                if (configId) {
-                    assignments = await repository.findByConfigId(configId);
+                    assignments = await repository.findByConfigId(configId, page, count);
                } else {
-                    assignments = await repository.findActive();
+                    assignments = await repository.findActive({
+                         page,
+                         count,
+                         filterType,
+                         filterName,
+                         status
+                    });
                }
 
                res.json({
@@ -158,10 +201,7 @@ export class CommissionAssignmentController {
           }
      }
 
-     /**
-      * Update assignment
-      * PUT /api/v1/commission/assignments/:id
-      */
+
      static async updateAssignment(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);

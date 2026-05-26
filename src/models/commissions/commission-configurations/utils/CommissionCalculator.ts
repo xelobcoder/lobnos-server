@@ -46,6 +46,9 @@ export class CommissionCalculator {
                          }
                          return this.calculateTiered(amount, matchedTier);
 
+                    case 'sliding_scale':
+                         return this.calculatePercentage(amount, config.percentage_rate!);
+
                     default:
                          throw new CalculationError(`Unknown commission type: ${config.commission_type}`);
                }

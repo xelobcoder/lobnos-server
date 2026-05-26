@@ -56,7 +56,6 @@ class CommissionEngineService {
                     assignmentId = undefined; // No assignment
                 }
                 else {
-                    // No defaults, record 0 commission
                     const tracking = await this.trackingRepo.create({
                         service_id: input.service_id,
                         service_amount: input.service_amount,
@@ -95,6 +94,25 @@ class CommissionEngineService {
                 if (!matchedTier) {
                     throw new CommissionErrors_1.TierNotFoundError(config.id, input.service_amount);
                 }
+            }
+            // Sliding Scale Logic
+            if (config.commission_type === 'sliding_scale') {
+                const resetType = config.period_cap_reset || 'weekly';
+                const currentPeriodRef = PeriodHelper_1.PeriodHelper.getPeriodReferenceDate(input.completion_date, resetType);
+                const previousPeriodRef = PeriodHelper_1.PeriodHelper.getPreviousPeriodReferenceDate(input.completion_date, resetType);
+                const currentTotal = await this.trackingRepo.getPeriodTotal(recipientType, recipientId, currentPeriodRef, ['pending', 'approved', 'paid']);
+                const previousTotal = await this.trackingRepo.getPeriodTotal(recipientType, recipientId, previousPeriodRef, ['pending', 'approved', 'paid']);
+                // Use max percentage if current period shows improvement over previous
+                const appliedRate = currentTotal > previousTotal
+                    ? config.sliding_max_percentage
+                    : config.percentage_rate;
+                config.percentage_rate = appliedRate;
+                commissionConfigutationRepo_1.logger.info('Sliding scale rate determined', {
+                    recipient_id: recipientId,
+                    current_total: currentTotal,
+                    previous_total: previousTotal,
+                    applied_rate: appliedRate,
+                });
             }
             const rawCommission = CommissionCalculator_1.CommissionCalculator.calculateRawCommission(config, input.service_amount, matchedTier);
             // Step 4: Apply all caps

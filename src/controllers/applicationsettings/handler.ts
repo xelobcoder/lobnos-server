@@ -517,6 +517,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			clinicianId,
 			organizationId,
 			packageid,
+			billeddate,
 			servicesList,
 			entitytype,
 			entityId,
@@ -565,6 +566,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			packageid,
 			servicesList,
 			nhismembershipid,
+			billeddate,
 			result_delivery,
 			claimscheckcode
 		}, tenantId).submit();

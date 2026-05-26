@@ -18,6 +18,7 @@ export class CommissionConfigController {
                     name,
                     commission_type,
                     percentage_rate,
+                    sliding_max_percentage,
                     fixed_component,
                     min_commission,
                     max_commission,
@@ -42,6 +43,7 @@ export class CommissionConfigController {
                     name,
                     commission_type,
                     percentage_rate: percentage_rate || null,
+                    sliding_max_percentage: sliding_max_percentage || null,
                     fixed_component: fixed_component || null,
                     min_commission: min_commission || 0,
                     max_commission: max_commission || 999999,
@@ -68,7 +70,7 @@ export class CommissionConfigController {
                // Create the configuration
                const repository = CommissionServiceFactory.createConfigRepository(tenantId);
                const createdConfig = await repository.create(config as any);
-          
+
                // Create tiers if provided for tiered commission
                if (commission_type === 'tiered' && Array.isArray(tiers) && tiers.length > 0) {
                     try {
@@ -194,6 +196,7 @@ export class CommissionConfigController {
                     name,
                     commission_type,
                     percentage_rate,
+                    sliding_max_percentage,
                     fixed_component,
                     min_commission,
                     max_commission,
@@ -208,6 +211,7 @@ export class CommissionConfigController {
                     name,
                     commission_type,
                     percentage_rate: percentage_rate || null,
+                    sliding_max_percentage: sliding_max_percentage || null,
                     fixed_component: fixed_component || null,
                     min_commission: min_commission || 0,
                     max_commission: max_commission || 999999,

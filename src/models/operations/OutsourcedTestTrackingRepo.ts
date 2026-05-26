@@ -86,7 +86,6 @@ export class OutsourcedTestTrackingRepo {
           return await conn("outsourcedtesttracking").where(filter);
      }
 
-     // Analytics
      async countByStatus(status: number) {
           const conn = await this.connection;
           const result = await conn("outsourcedtesttracking")
@@ -163,10 +162,6 @@ export class OutsourcedTestTrackingRepo {
                .offset((page - 1) * limit);
      }
 
-     /**
-      * Join outsourcedtesttracking with dboservices and calculate profit per record
-      * Profit = totalpayable - outsourcePrice
-      */
      async getProfitByOutsourcedTest(outsourceid?: number, testid?: number) {
           const conn = await this.connection;
           let query = conn('outsourcedtesttracking')

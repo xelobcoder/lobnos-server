@@ -1,6 +1,6 @@
 export type RecipientType = 'clinician' | 'organization';
 export type CommissionStatus = 'pending' | 'approved' | 'paid' | 'voided' | 'adjusted';
-export type CommissionType = 'percentage' | 'fixed' | 'tiered' | 'hybrid';
+export type CommissionType = 'percentage' | 'fixed' | 'tiered' | 'hybrid' | 'sliding_scale';
 
 export interface ICommissionTracking {
      id: number;

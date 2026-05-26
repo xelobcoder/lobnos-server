@@ -65,7 +65,7 @@ class SubmitCustomerBilling {
     async submit() {
         var _a, _b;
         try {
-            const _c = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod, result_delivery } = _c, rest = __rest(_c, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod", "result_delivery"]);
+            const _c = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, billeddate, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod, result_delivery } = _c, rest = __rest(_c, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "billeddate", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod", "result_delivery"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -208,7 +208,7 @@ class SubmitCustomerBilling {
                     throw new Error("No billable services/tests found.");
                 }
                 const Multi = new billing_shared_1.BillingSharedRepo();
-                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, trx);
+                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, billeddate ? billeddate : new Date(), trx);
                 if (loadAllServices.length > 0) {
                     const firstErr = loadAllServices[0];
                     const messageFromErr = typeof firstErr === "string"
@@ -377,7 +377,8 @@ class SubmitCustomerBilling {
                 const finalBillingId = hasRelatedBilling && adjustmentType == "addition" ? parseInt(this.payload.billingid) : billingID;
                 finalBillingIdForEvent = finalBillingId;
                 const result = await trx("billing")
-                    .update(finalUpdateData).where({ billingid: finalBillingId });
+                    .update(Object.assign(Object.assign({}, finalUpdateData), { billedon: billeddate ? billeddate : new Date() }))
+                    .where({ billingid: finalBillingId });
                 if (!result)
                     throw new Error("unable to update billing record");
                 if (data.isPromo && data.promoCode && data.promoDetails.id) {
@@ -396,7 +397,9 @@ class SubmitCustomerBilling {
                         await billing_shared_1.BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
-                await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
+                if ([2, 4, 6].includes(billingSource)) {
+                    await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
+                }
                 await trx.commit();
             }
             catch (error) {

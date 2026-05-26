@@ -1,5 +1,7 @@
 import { Knex } from "knex";
 import { CommissionDefaultsRepository } from "../models/commissions/CommissionDefaultsRepository";
+import OutsourcedCases from "../models/organization/outsourcingOrganization/outsourcedCases";
+import ApplicationSettings from "../models/application/appsettings/appset";
 
 type DbRunner = Knex | Knex.Transaction;
 
@@ -83,7 +85,7 @@ export async function insertDboservicesAudit(
 	});
 }
 
-export async function applyDboservicesAfterInsert(db: DbRunner, service: any, actor?: string) {
+export async function applyDboservicesAfterInsert(db: DbRunner, service: any, actor?: string, tenantId?: number) {
 	await insertDboservicesAudit(db, service, "INSERT", actor);
 
 	if (service.serviceCategory === "SERVICES" && Number(service.categoryTrackId) === 5) {
@@ -107,7 +109,7 @@ export async function applyDboservicesAfterInsert(db: DbRunner, service: any, ac
 	const isOutsourced = Number(service.isoutsourced) === 1;
 	const outsourceId = service.outsourceid ? Number(service.outsourceid) : 0;
 	if (isOutsourced && outsourceId > 0) {
-		await db("outsourcedtesttracking").insert({
+		const [trackingid] = await db("outsourcedtesttracking").insert({
 			serviceid: service.serviceid,
 			testid: service.trackId,
 			outsourceid: outsourceId,
@@ -115,6 +117,24 @@ export async function applyDboservicesAfterInsert(db: DbRunner, service: any, ac
 			status: 0,
 			comments: "New outsourced service added, waiting for dispatch",
 		});
+
+
+		const applicationsettings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		const automatedExpenseEnabled = parseInt(applicationsettings?.automakeoutsourcepaymentsexpense.toString() || '0');
+		if (!automatedExpenseEnabled) return;
+		console.log(applicationsettings['automakeoutsourcepaymentsexpense']);
+		try {
+			await OutsourcedCases.triggerAutomatedExpenseLifecycle(tenantId, {
+				serviceid: service.serviceid,
+				testid: service.trackId,
+				trackingid: trackingid as number,
+				branchid: service.branchid,
+				employeeid: service.employeeid,
+				outsourcedid: outsourceId
+			}, db);
+		} catch (error) {
+			console.error("Failed to trigger automatic expense for outsourced service:", error);
+		}
 	}
 
 	const clinicianId = service.clinicianId ? Number(service.clinicianId) : null;

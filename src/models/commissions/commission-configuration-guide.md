@@ -74,6 +74,23 @@ This guide provides accurate, detailed instructions for setting up and managing 
 | GHₛ100 - GHₛ500 | percentage | 8 | 8% of amount |
 | GHₛ500+ | fixed | 25 | GHₛ25 |
 
+### 5. Sliding Scale Commission
+
+- **Type**: `"sliding_scale"`
+- **Performance-based**: Higher rate if current period performance improves over previous period
+- **Required Fields**:
+  - `commission_type`: "sliding_scale"
+  - `percentage_rate`: Minimum rate (used if no improvement)
+  - `sliding_max_percentage`: Maximum rate (used if improved)
+  - `period_cap_reset`: "daily" | "weekly" | "monthly" (defines the comparison period)
+  - `effective_from`: Date
+  - `is_active`: Boolean
+
+**Example**: 
+- Last week total commission: GHₛ200
+- This week total commission (so far): GHₛ250
+- Improvement detected! → Use 15% instead of 10% for the current service.
+
 ---
 
 ## Setup Workflow

@@ -39,7 +39,7 @@ export class CommissionEngineService {
                const recipientType = input.clinician_id ? 'clinician' : 'organization';
                const recipientId = input.clinician_id || input.organization_id;
                const assignment = await this.resolutionService.resolveAssignment(input);
-     
+
                let config: any = null;
                let assignmentId: number | undefined = undefined;
 
@@ -69,7 +69,6 @@ export class CommissionEngineService {
                          };
                          assignmentId = undefined; // No assignment
                     } else {
-                         // No defaults, record 0 commission
                          const tracking = await this.trackingRepo.create({
                               service_id: input.service_id,
                               service_amount: input.service_amount,
@@ -109,6 +108,41 @@ export class CommissionEngineService {
                     if (!matchedTier) {
                          throw new TierNotFoundError(config.id, input.service_amount);
                     }
+               }
+
+               // Sliding Scale Logic
+               if (config.commission_type === 'sliding_scale') {
+                    const resetType = config.period_cap_reset || 'weekly';
+                    const currentPeriodRef = PeriodHelper.getPeriodReferenceDate(input.completion_date, resetType);
+                    const previousPeriodRef = PeriodHelper.getPreviousPeriodReferenceDate(input.completion_date, resetType);
+
+                    const currentTotal = await this.trackingRepo.getPeriodTotal(
+                         recipientType,
+                         recipientId!,
+                         currentPeriodRef,
+                         ['pending', 'approved', 'paid']
+                    );
+
+                    const previousTotal = await this.trackingRepo.getPeriodTotal(
+                         recipientType,
+                         recipientId!,
+                         previousPeriodRef,
+                         ['pending', 'approved', 'paid']
+                    );
+
+                    // Use max percentage if current period shows improvement over previous
+                    const appliedRate = currentTotal > previousTotal
+                         ? config.sliding_max_percentage
+                         : config.percentage_rate;
+
+                    config.percentage_rate = appliedRate;
+
+                    logger.info('Sliding scale rate determined', {
+                         recipient_id: recipientId,
+                         current_total: currentTotal,
+                         previous_total: previousTotal,
+                         applied_rate: appliedRate,
+                    });
                }
 
                const rawCommission = CommissionCalculator.calculateRawCommission(
@@ -168,14 +202,14 @@ export class CommissionEngineService {
                     tracking_id: tracking.id,
                     reason: 'SUCCESS',
                };
-          } catch (error:any) {
+          } catch (error: any) {
                console.log(error)
                logger.error('Commission calculation failed', {
                     error: error instanceof Error ? error.message : String(error),
                     service_id: input.service_id,
                });
 
-              throw new Error(error)
+               throw new Error(error)
           }
      }
 

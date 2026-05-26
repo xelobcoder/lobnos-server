@@ -97,6 +97,30 @@ export class CommissionValidator {
                     }
                     break;
 
+               case 'sliding_scale':
+                    if (!config.percentage_rate && config.percentage_rate !== 0) {
+                         errors.push({
+                              field: 'percentage_rate',
+                              message: 'Minimum percentage rate is required for sliding scale',
+                              code: 'REQUIRED',
+                         });
+                    }
+                    if (!config.sliding_max_percentage && config.sliding_max_percentage !== 0) {
+                         errors.push({
+                              field: 'sliding_max_percentage',
+                              message: 'Maximum percentage rate is required for sliding scale',
+                              code: 'REQUIRED',
+                         });
+                    }
+                    if (!config.period_cap_reset) {
+                         errors.push({
+                              field: 'period_cap_reset',
+                              message: 'Comparison period (period_cap_reset) is required for sliding scale',
+                              code: 'REQUIRED',
+                         });
+                    }
+                    break;
+
                case 'tiered':
                     if (config.percentage_rate || config.fixed_component) {
                          errors.push({

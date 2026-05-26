@@ -1,6 +1,7 @@
 import KnexConnection from "../../../database/KnexConnections";
 import logger from "../../../hooks/logger";
-import ExpenseInvoiceRepo from "../../Expenses/ExpenseInvoiceRepo";
+import AutomatedExpenseLifecycle from "../../Expenses/AutomatedExpenseLifecycle";
+import Expenses from "../../Expenses/ExpenseService";
 
 
 export default class OutsourcedCases {
@@ -80,12 +81,11 @@ export default class OutsourcedCases {
 
      static async markOutsourceCasesAsExpense(tenantId: number, data: {
           serviceid: number, testid: number, trackingid: number, branchid: number, employeeid: number, outsourcedid?: number
-     }) {
+     }, trx?: any) {
           try {
                const { branchid, employeeid, serviceid, trackingid } = data;
-               const connection = await KnexConnection(tenantId);
+               const connection = trx || await KnexConnection(tenantId);
 
-               // Check if expense already exists for this service to prevent duplicates
                const existingExpense = await connection('expensesrecord')
                     .where({ serviceid: data.serviceid, isassociatedservice: 1 })
                     .first();
@@ -93,7 +93,6 @@ export default class OutsourcedCases {
                     throw new Error("Expense already exists for this outsourced service");
                }
 
-               // check merchants to ensure outsource is a valid merchant, if not  create it
                const dboexpensecategoryRecord = await connection('dboexpensecategory')
                     .where({ category: "outsourcing" })
                     .first();
@@ -110,7 +109,6 @@ export default class OutsourcedCases {
                     category = dboexpensecategoryRecord.id;
                }
 
-               //  ensure merchant exists or create it
                const merchantRecord = await connection('expense_merchants')
                     .where({ name: "outsourcing" })
                     .first();
@@ -131,7 +129,6 @@ export default class OutsourcedCases {
                     merchantid = merchantRecord.id;
                }
 
-               //  load the information from dboservices 
                const serviceInformation = await connection('dboservices')
                     .select('isoutsourced', 'outsourceid')
                     .where({ serviceid: serviceid, isoutsourced: 1 })
@@ -158,7 +155,6 @@ export default class OutsourcedCases {
                     amount: outsourcePrice,
                     merchant: merchantid,
                     date: new Date(),
-                    id: null,
                     createdon: new Date(),
                     approvedby: null,
                     approved: 0,
@@ -167,20 +163,72 @@ export default class OutsourcedCases {
                     description: 'Outsource Expense Due to service ' + data.serviceid + ' at ' + new Date() + ' by employee with ID' + employeeid
                }
 
-               const invoiceRepo = new ExpenseInvoiceRepo(employeeid, branchid, tenantId);
-               const expense = await invoiceRepo.createExpensesAndInvoice([expenseRecord], {
-                    invoice_number: null,
-                    invoice_date: new Date() as any,
-                    due_date: new Date() as any,
-                    merchant_id: merchantid!,
-                    tax_amount: 0,
-                    total_amount: outsourcePrice,
-                    status: 'Pending'
-               })
-               return expense;
+               const expenseService = new Expenses(employeeid, branchid, tenantId, null, connection);
+               const expenseId = await expenseService.generateNewExpense(expenseRecord as any, undefined, connection);
+               return { expenseId };
 
           } catch (err) {
                logger.error('Error in markOutsourceCasesAsExpense:', err);
+               throw err;
+          }
+     }
+
+     static async triggerAutomatedExpenseLifecycle(tenantId: number, data: {
+          serviceid: number, testid: number, trackingid: number, branchid: number, employeeid: number, outsourcedid?: number
+     }, trx?: any) {
+          try {
+               const { branchid, employeeid, serviceid, trackingid } = data;
+               const connection = trx || await KnexConnection(tenantId);
+
+               const existingExpense = await connection('expensesrecord')
+                    .where({ serviceid: data.serviceid, isassociatedservice: 1 })
+                    .first();
+               if (existingExpense) {
+                    return { success: false, message: "Expense already exists" };
+               }
+
+               const serviceInformation = await connection('dboservices')
+                    .select('isoutsourced', 'outsourceid')
+                    .where({ serviceid: serviceid, isoutsourced: 1 })
+                    .first();
+               if (!serviceInformation) throw new Error("Service not found");
+
+               const { outsourceid } = serviceInformation;
+
+               const outsourceOrganizationInformation = await connection('outsourceorganizationservices')
+                    .select('outsourcePrice')
+                    .where({ outsourceid: outsourceid })
+                    .first();
+               if (!outsourceOrganizationInformation) throw new Error("Outsource organization not found");
+
+               const { outsourcePrice } = outsourceOrganizationInformation;
+
+               const paymentMode = await connection('paymentmodes')
+                    .where({ PaymentMode: 'Cash' })
+                    .first();
+               const paymentMethod = paymentMode ? paymentMode.KeyID.toString() : '2';
+
+               const lifecycle = new AutomatedExpenseLifecycle(tenantId);
+               const result = await lifecycle.process({
+                    amount: outsourcePrice,
+                    name: 'Outsource Expense for service ' + data.serviceid,
+                    description: 'Automated Outsource Expense for service ' + data.serviceid + ' at ' + new Date(),
+                    categoryName: "outsourcing",
+                    merchantName: "outsourcing",
+                    date: new Date(),
+                    branchid,
+                    employeeid,
+                    serviceid: data.serviceid,
+                    isassociatedservice: 1,
+                    paymentMethod: paymentMethod,
+                    invoicePrefix: 'OUT-EXP'
+               }, connection);
+               
+
+               return result;
+
+          } catch (err) {
+               logger.error('Error in triggerAutomatedExpenseLifecycle:', err);
                throw err;
           }
      }

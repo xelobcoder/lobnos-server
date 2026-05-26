@@ -78,6 +78,7 @@ export class SubmitCustomerBilling {
                 amountPayable,
                 employeeid,
                 samplingCenter,
+                billeddate,
                 isAdjustment,
                 adjustmentdate,
                 adjustmentType,
@@ -280,7 +281,7 @@ export class SubmitCustomerBilling {
                 }
 
                 const Multi = new BillingSharedRepo();
-                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, trx);
+                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, billeddate ? billeddate : new Date(),trx);
                 if (loadAllServices.length > 0) {
                     const firstErr = loadAllServices[0] as any;
                     const messageFromErr =
@@ -463,7 +464,8 @@ export class SubmitCustomerBilling {
                 finalBillingIdForEvent = finalBillingId;
 
                 const result = await trx("billing")
-                    .update(finalUpdateData).where({ billingid: finalBillingId });
+                    .update({ ...finalUpdateData, billedon: billeddate ? billeddate : new Date() })
+                    .where({ billingid: finalBillingId });
 
                 if (!result) throw new Error("unable to update billing record");
                 if (data.isPromo && data.promoCode && data.promoDetails.id) {
@@ -494,7 +496,9 @@ export class SubmitCustomerBilling {
                     }
                 }
 
-                await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
+                if ([2, 4, 6].includes(billingSource)) {
+                    await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
+                }
                 await trx.commit();
             } catch (error: any) {
                 try {
@@ -525,7 +529,7 @@ export class SubmitCustomerBilling {
             // Get all services for this billing
             const services = await connection('dboservices')
                 .where({ billingid: billingId })
-                .select( 'serviceid', 'paidamount', 'clinicianId', 'organizationId',  'serviceCategory');
+                .select('serviceid', 'paidamount', 'clinicianId', 'organizationId', 'serviceCategory');
             if (!services || services.length === 0) {
                 CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
                 return;
@@ -541,7 +545,7 @@ export class SubmitCustomerBilling {
                         service_id: service.serviceid,
                         service_amount: service.paidamount || 0,
                         clinician_id: service.clinicianId || null,
-                        organization_id: service.organizationId|| null,
+                        organization_id: service.organizationId || null,
                         service_category: service.serviceCategory || '',
                         completion_date: service.created_at || new Date(),
                     });
