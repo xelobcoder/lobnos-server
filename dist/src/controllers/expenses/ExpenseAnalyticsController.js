@@ -264,6 +264,46 @@ class ExpenseAnalyticsController {
             (0, helper_1.customError)('Failed to retrieve expense payment status analytics', 500, res);
         }
     }
+    static async getRejectedExpenseAnalytics(req, res) {
+        try {
+            const { tenantId, startDate, endDate, branchid } = req.query;
+            if (!tenantId || !startDate || !endDate) {
+                return (0, helper_1.customError)('tenantId, startDate, and endDate are required', 400, res);
+            }
+            const analytics = new ExpenseAnalyticsQueries_1.ExpenseAnalyticsQueries(parseInt(tenantId));
+            const result = await analytics.getRejectedExpenseAnalytics(startDate, endDate, branchid ? parseInt(branchid) : undefined);
+            res.status(200).json({
+                status: 'success',
+                statusCode: 200,
+                message: 'Rejected expense analytics retrieved successfully',
+                data: result[0][0]
+            });
+        }
+        catch (error) {
+            console.error('Error in getRejectedExpenseAnalytics:', error);
+            (0, helper_1.customError)('Failed to retrieve rejected expense analytics', 500, res);
+        }
+    }
+    static async getBranchMonthlyExpenseAnalytics(req, res) {
+        try {
+            const { tenantId, startDate, endDate, branchid } = req.query;
+            if (!tenantId || !startDate || !endDate) {
+                return (0, helper_1.customError)('tenantId, startDate, endDate, and branchid are required', 400, res);
+            }
+            const analytics = new ExpenseAnalyticsQueries_1.ExpenseAnalyticsQueries(parseInt(tenantId));
+            const result = await analytics.getBranchMonthlyExpenseAnalytics(startDate, endDate, parseInt(branchid));
+            res.status(200).json({
+                status: 'success',
+                statusCode: 200,
+                message: 'Branch monthly expense analytics retrieved successfully',
+                data: result[0]
+            });
+        }
+        catch (error) {
+            console.error('Error in getBranchMonthlyExpenseAnalytics:', error);
+            (0, helper_1.customError)('Failed to retrieve branch monthly expense analytics', 500, res);
+        }
+    }
     static async getExpenseBuckets(req, res) {
         try {
             const { tenantId, startDate, endDate, branchid } = req.query;

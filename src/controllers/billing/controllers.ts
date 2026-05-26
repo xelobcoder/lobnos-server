@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { customError, responseError } from "../../hooks/helper";
 import { Billing } from "../../../obso/billing";
-import { billErrors, TBillingData } from "../../models/billing/billingclientTypes";
+import { TBillingData } from "../../models/billing/billingclientTypes";
 import { Refund } from "../../models/billing/RefundClass";
 import { wrapperTryCatch } from "../../models/generics/trycatch";
 import { OperationsFailures } from "../../models/operations/types";
@@ -11,28 +11,9 @@ import { BillingUpdateRepo } from "../../models/billing/billing_update";
 import { WriteOff } from "../../models/billing/WriteOff";
 import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingEnterprise";
 import OutstandingClass from "../../models/billing/outstanding/outstanding_class";
-import User from "../../LobnosAuth/user";
 import { MultiTBillingDataShared } from "../../models/billing/multi/billing_shared_types";
 import KnexConnection from "../../database/KnexConnections";
 
-export async function handleNewBilling(request: Request<{}, {}, { patientid: number }, { tenantId: string }>, response: Response) {
-	async function validate() {
-		const { patientid } = request.body;
-		const { tenantId } = request.query;
-		const tenantIdP = parseInt(tenantId.toString());
-
-		let bill = await new Billing(patientid).BillNewTransaction(tenantIdP,
-			request.body as any);
-		if (typeof bill == "string" && bill == billErrors.already) {
-			return response.send({ message: bill, statusCode: 200, status: "success" });
-		} else if (bill && typeof bill == "number") {
-			return response.send({ message: "billing successfully", statusCode: 200, status: "success", billingid: bill });
-		} else {
-			return customError(bill as string || billErrors.error, 400, response);
-		}
-	}
-	wrapperTryCatch(validate, (err) => console.log(err));
-}
 
 
 
@@ -42,6 +23,21 @@ export async function outstandingReport(request: Request<{}, {}, {}, { tenantId:
 		const tenantIdP = parseInt(tenantId.toString(), 10);
 		const { startdate, enddate } = request.query as { startdate: string, enddate: string };
 		const result = await new OutstandingClass(tenantIdP).combinedOutstandingReport(startdate, enddate);
+		response.send({ result });
+	} catch (err) {
+		console.log(err);
+		responseError(response);
+	}
+}
+
+export async function outstandingByServiceCategoryReport(request: Request<{}, {}, {}, { tenantId: string, startdate: string, enddate: string, serviceCategory: string, organizationId?: string }>, response: Response) {
+	try {
+		const { tenantId, startdate, enddate, serviceCategory, organizationId } = request.query;
+		if (!serviceCategory) {
+			return customError("Service category is required", 400, response);
+		}
+		const tenantIdP = parseInt(tenantId.toString(), 10);
+		const result = await new OutstandingClass(tenantIdP).getOutstandingBySpecificServiceCategory(startdate, enddate, serviceCategory, organizationId);
 		response.send({ result });
 	} catch (err) {
 		console.log(err);

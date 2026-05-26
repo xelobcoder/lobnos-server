@@ -61,7 +61,7 @@ export class TestAscension extends Operations {
 
 	public static async initialdbogeneraltestEdit(billingid: number, ascensionid: number, trx?: any) {
 		const connection = await trx || KnexConnection;
-		return trx ? trx("dbogeneraltesteditcount").insert({ ascensionid, billingid, counter: 0,updatedon: new Date()  })
+		return trx ? trx("dbogeneraltesteditcount").insert({ ascensionid, billingid, counter: 0, updatedon: new Date() })
 			: await connection("dbogeneraltesteditcount").
 				insert({ ascensionid, billingid, counter: 0, updatedon: new Date() })
 	}
@@ -137,7 +137,7 @@ export class TestAscension extends Operations {
 				params.push(`%${word}%`, `%${word}%`, `%${word}%`);
 			});
 		}
-		query += ` ORDER BY b.billingid ${sortby} GROUP BY billingid LIMIT ? OFFSET ?`;
+		query += ` GROUP BY billingid ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
 		return await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
 	}
 
@@ -152,7 +152,7 @@ export class TestAscension extends Operations {
 	public static async getAllPendingAscensions(tenantId: number, count: number = 30, page: number = 1): Promise<any[]> {
 		let query = q_pending_sample_uncollected;
 		let params: any[] = [];
-		query += ` ORDER BY b.billedon DESC`;
+		query += ` GROUP BY b.billingid ORDER BY b.billedon DESC`;
 		if (page && count) {
 			const offset = (page - 1) * count;
 			query += ` LIMIT ? OFFSET ?`;

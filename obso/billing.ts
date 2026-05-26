@@ -7,8 +7,6 @@ import { TiifuWorkingClass } from "../src/database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected } from "../src/hooks/helper";
 import { testpanel } from "../src/testpanel/testpanelList";
 import ApplicationSettings from "../src/models/application/appsettings/appset";
-import ClinicianBillingStrategy from "../src/models/clincians/billingstrategy";
-import { getBillingInvoiceData } from "../src/models/invoice/invoice";
 import { TestAscension } from "../src/models/operations/ascension";
 import { OperationsFailures } from "../src/models/operations/types";
 import Organization from "../src/models/organization/organization";
@@ -16,8 +14,7 @@ import OrganizationalBilling from "../src/models/organization/organizationBillin
 import Outsourcing from "../src/models/organization/outsourcingOrganization/outsourcing";
 import Registration from "../src/models/registration/registration";
 import { Services } from "../src/models/services/services";
-import { billErrors, BillingValidationResult, IBillNewClient, Pagination, serviceCategory, ServiceEntry, servicesProvided, TBillingData, TestCart, testServicesProvided } from "../src/models/billing/billingclientTypes";
-import PartitionManager from "../src/models/billing/partitioning";
+import { billErrors, BillingValidationResult, Pagination, serviceCategory, ServiceEntry, servicesProvided, TBillingData, TestCart, testServicesProvided } from "../src/models/billing/billingclientTypes";
 import {
 	AddtoTestAscenstionQuery,
 	currentDateBilledClients,
@@ -32,7 +29,6 @@ import {
 	updatebillHistoryQuery
 } from "../src/models/billing/queries";
 import { Refund } from "../src/models/billing/RefundClass";
-import { SalesSessionRepo } from "../src/models/billing/repositories/SalesSessionRepo";
 
 
 
@@ -1104,53 +1100,6 @@ export class Billing {
 	}
 
 
-	public async BillNewTransaction(tenantId: number, billingData: TBillingData): Promise<number | string | boolean> {
-		let billingid = undefined;
-
-		try {
-			const today = new Date() as unknown as string
-			const sessionExists = await new SalesSessionRepo(tenantId)
-				.hasActiveSessionForDate(today, billingData.samplingCenter);
-
-			if (!sessionExists) return OperationsFailures.sessionNotFound;
-			const billdataValidation = await Billing.validateBillingRequestBody(
-				tenantId,
-				billingData);
-
-			if (billdataValidation !== true) {
-				return billdataValidation;
-			}
-
-			const { taxValue } = await new ApplicationSettings().getAppBillSettings(tenantId);
-
-			let taxList = null;
-
-			if (taxValue > 0) {
-				taxList = await new TiifuWorkingClass("tax").findMany(tenantId, "apply", 'yes');
-				taxList = JSON.stringify(taxList);
-			}
-
-			billingid = await this.billClient(tenantId, billingData, taxValue, taxList);
-
-			if (typeof billingid == "boolean" || !billingid) return billErrors.failed;
-
-			return billingid
-		} catch (err) {
-
-			if (billingid) {
-				await this.cleanUpFailedbillingProcess(tenantId, billingid);
-			}
-
-			if (err?.code && err?.errno == 1526) {
-				const currentYear = new Date().getFullYear();
-				await new PartitionManager("billing", 'billing').addYearPartition(tenantId, currentYear);
-				await new PartitionManager("test_ascension", 'asc').addYearPartition(tenantId, currentYear);
-			}
-
-			return billErrors.error;
-		}
-	}
-
 	private static async validatePaymentModeId(tenantId: number, id: number): Promise<boolean> {
 		const data: PrimeLimsTablepaymentmodes[] = await new TiifuWorkingClass("paymentmodes").findMany(tenantId, "KeyID", id);
 		return Array.isArray(data) && data.length > 0;
@@ -1555,11 +1504,6 @@ export class Billing {
 			}
 			return ascensionid;
 		} catch (err) {
-			console.log(err)
-			if (err && err.code && err.errno == 1526 && err.code == 'ER_NO_PARTITION_FOR_GIVEN_VALUE'.trim()) {
-				const currentYear = new Date().getFullYear();
-				await new PartitionManager("test_ascension", "asc").addYearPartition(tenantId, currentYear);
-			}
 			return false;
 		}
 	}

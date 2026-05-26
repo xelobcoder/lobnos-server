@@ -1,6 +1,5 @@
 import { RequestHandler, Router, Request, Response } from "express";
 import {
-     handleNewBilling,
      canInitiateBill,
      getSavedCLientBillingInformation,
      requestForRefundHandler,
@@ -17,6 +16,7 @@ import {
      handleMultiUpdateBilling,
      WriteOffTransaction,
      outstandingReport,
+     outstandingByServiceCategoryReport,
      listDiscountLimitRules,
      upsertDiscountLimitRule,
      getDiscountDailyUsage
@@ -42,10 +42,9 @@ import { TransactionManagementController } from "../../models/billing/management
 const router = Router();
 
 // Billing Routes
-router.post("/api/v1/billing", handleNewBilling);
-// router.post("/api/v1/billing/multi", handleMultiNewBilling);   obsolote now replaced with /api/v1/billing/multi/submit for better flow control and error handling in multi billing process
 router.put('/api/v1/billing/pending/remove/service', handleOverLoad(removePendingNonPaidServicesHandler))
 router.get('/api/v1/outstanding/report/combined', isAuthorizedRoleAdmin, handleOverLoad(outstandingReport));
+router.get('/api/v1/outstanding/report/service-category', isAuthorizedRoleAdmin, handleOverLoad(outstandingByServiceCategoryReport));
 router.get("/api/v1/billing/multi/init", handleOverLoad(initializeBillingHandler));
 router.post("/api/v1/billing/multi/checkout", handleOverLoad(checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", handleOverLoad(submitBillingHandler));

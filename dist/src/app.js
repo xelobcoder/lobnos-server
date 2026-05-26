@@ -63,8 +63,8 @@ app.use((0, cors_1.default)({
     preflightContinue: false
 }));
 app.use(express_1.default.static("public"));
-app.use(express_1.default.json());
-app.use(express_1.default.urlencoded({ extended: true }));
+app.use(express_1.default.json({ limit: '50mb' }));
+app.use(express_1.default.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger_1.default);
 app.use(validateTenancy_1.ValidateTenancyAgreement);
 // app.use(checkTokenExists)
@@ -117,7 +117,11 @@ app.use('/api/v1/payroll', routes_8.default);
 app.use('/api/v1/billing/free-services', routes_9.default);
 app.use('/api/v1/commission', routes_10.default);
 app.get("/", (req, res) => {
-    res.status(200).json({ message: "success" });
+    res.status(200)
+        .json({
+        message: "success",
+        status: "Healthy"
+    });
 });
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
 const os_1 = __importDefault(require("os"));

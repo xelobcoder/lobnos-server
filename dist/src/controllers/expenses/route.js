@@ -62,6 +62,8 @@ router.get('/api/v1/expenses/analytics/yearly', (0, helper_1.handleOverLoad)(Exp
 router.get('/api/v1/expenses/analytics/branch', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseAnalyticsByBranch));
 router.get('/api/v1/expenses/analytics/top-categories', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getTopExpenseCategories));
 router.get('/api/v1/expenses/analytics/payment-status', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpensePaymentStatusAnalytics));
+router.get('/api/v1/expenses/analytics/rejected', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getRejectedExpenseAnalytics));
+router.get('/api/v1/expenses/analytics/branch-monthly', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getBranchMonthlyExpenseAnalytics));
 router.get('/api/v1/expenses/analytics/buckets', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseBuckets));
 router.get('/api/v1/expenses/analytics/growth-rate', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseGrowthRateAnalytics));
 router.get('/api/v1/expenses/analytics/approval-timeline', (0, helper_1.handleOverLoad)(ExpenseAnalyticsController_1.ExpenseAnalyticsController.getExpenseApprovalTimelineAnalytics));

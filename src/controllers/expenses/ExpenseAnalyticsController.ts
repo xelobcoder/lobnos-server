@@ -105,7 +105,7 @@ export class ExpenseAnalyticsController {
           try {
                const { tenantId, startDate, endDate } = req.query;
 
-               if ( !startDate || !endDate) {
+               if (!startDate || !endDate) {
                     return customError('startDate and endDate are required', 400, res);
                }
 
@@ -312,6 +312,60 @@ export class ExpenseAnalyticsController {
           } catch (error) {
                console.error('Error in getExpensePaymentStatusAnalytics:', error);
                customError('Failed to retrieve expense payment status analytics', 500, res);
+          }
+     }
+
+     static async getRejectedExpenseAnalytics(req: Request, res: Response) {
+          try {
+               const { tenantId, startDate, endDate, branchid } = req.query;
+
+               if (!tenantId || !startDate || !endDate) {
+                    return customError('tenantId, startDate, and endDate are required', 400, res);
+               }
+
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const result = await analytics.getRejectedExpenseAnalytics(
+                    startDate as string,
+                    endDate as string,
+                    branchid ? parseInt(branchid as string) : undefined
+               );
+
+               res.status(200).json({
+                    status: 'success',
+                    statusCode: 200,
+                    message: 'Rejected expense analytics retrieved successfully',
+                    data: result[0][0]
+               });
+          } catch (error) {
+               console.error('Error in getRejectedExpenseAnalytics:', error);
+               customError('Failed to retrieve rejected expense analytics', 500, res);
+          }
+     }
+
+     static async getBranchMonthlyExpenseAnalytics(req: Request, res: Response) {
+          try {
+               const { tenantId, startDate, endDate, branchid } = req.query;
+
+               if (!tenantId || !startDate || !endDate ) {
+                    return customError('tenantId, startDate, endDate, and branchid are required', 400, res);
+               }
+
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const result = await analytics.getBranchMonthlyExpenseAnalytics(
+                    startDate as string,
+                    endDate as string,
+                    parseInt(branchid as string)
+               );
+
+               res.status(200).json({
+                    status: 'success',
+                    statusCode: 200,
+                    message: 'Branch monthly expense analytics retrieved successfully',
+                    data: result[0]
+               });
+          } catch (error) {
+               console.error('Error in getBranchMonthlyExpenseAnalytics:', error);
+               customError('Failed to retrieve branch monthly expense analytics', 500, res);
           }
      }
 

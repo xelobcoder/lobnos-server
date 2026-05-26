@@ -4,17 +4,27 @@ export const q_sample_assessment_list: string = ` SELECT
             t.testid,
             t.billingid,
             t.id,
+            t.collectionStartDate,
+            t.collectionEndDate,
+            sc.name As sampleContainerName,
+            st.name AS sampleType,
             ss.rejectionmessage,
+            dd.department AS category,
             ss.approvalstatus
           from test_ascension AS t
-            INNER JOIN samplestatus AS ss ON ss.ascensionid = t.id
-            INNER JOIN test_panels AS tt ON tt.id = t.testid
+            LEFT JOIN samplestatus AS ss ON ss.ascensionid = t.id
+            LEFT JOIN test_panels AS tt ON tt.id = t.testid
+            LEFT JOIN sampletype AS st  ON tt.sample = st.id
+            LEFT JOIN samplecontainer AS sc ON tt.sample_container = sc.id
+            LEFT JOIN departments AS dd ON dd.id = tt.category
           WHERE t.billingid = ?
             AND ss.approvalstatus IS NULL
             AND t.collectionStartDate IS NOT NULL
             AND t.collectionStartDate IS NOT NULL
             AND t.processingStartDate IS NULL
             AND ss.rejectionmessage IS NULL
+            AND dd.department <> 'ultrasound'
+          AND t.collectionStartDate IS NOT NULL AND t.collectionEndDate IS NOT NULL
         `
 export const q_update_sample_status_validation: string = `
                               UPDATE samplestatus SET approvalstatus=?,

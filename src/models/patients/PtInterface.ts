@@ -14,12 +14,5 @@ export interface IPatient {
 
   getParameters(data: any[]): Promise<any>;
 
-  getPatientBillingRecords(tenantId:number,details: {
-    patientid: number;
-    count?: number;
-    page?: number;
-    startdate?: string;
-    enddate?: string;
-  }): Promise<any>;
 
 }

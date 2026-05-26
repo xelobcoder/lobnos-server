@@ -1,17 +1,17 @@
 const major_constraints = `dboservices.serviceAddedOn IS NOT NULL AND dboservices.status IN('refunded','active'
-) AND (dboservices.isDeleted=0 OR dboservice.isDeleted IS NULL) `
+) AND (dboservices.isDeleted=0 OR dboservices.isDeleted IS NULL) `
 
 export const QUERY_DAILY_CEO_SNAPSHOT = `
  SELECT 
-            COALESCE(SUM(totalcost), 0) AS totalCost,
-            COALESCE(SUM(paidamount), 0) AS actual_revenue,
-            COALESCE(SUM(totalpayable), 0) AS accrued_revenue,
-            COALESCE(SUM(discount), 0) AS total_discount,
-            COALESCE(SUM(outstanding), 0) AS outstanding_debt,
-            COALESCE(SUM(r.amountRefunded), 0) AS total_refunds,
-            (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND is_reversed = 0) AS total_expense_payments,
+            COALESCE(SUM(totalcost), 0) AS gross_revenue,
+            COALESCE(SUM(paidamount), 0) AS cash_collected,
+            COALESCE(SUM(totalpayable), 0) AS earned_revenue,
+            COALESCE(SUM(discount), 0) AS discount,
+            COALESCE(SUM(outstanding), 0) AS outstanding,
+            COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
+            (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND is_reversed = 0) AS expenses_paid,
             COUNT(dboservices.serviceid) AS total_tests_conducted,
-            COALESCE(SUM(paidamount), 0) - (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND is_reversed = 0) AS net_revenue
+            COALESCE(SUM(paidamount), 0) - (SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND is_reversed = 0) AS net_operating_cash
             FROM dboservices
             LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
             WHERE DATE(dboservices.serviceAddedOn) BETWEEN ? AND ? AND ${major_constraints}
@@ -21,7 +21,7 @@ export const QUERY_DAILY_CEO_SNAPSHOT = `
 export const QUERY_NIGHT_ADJUSTMENT_IMPACT = `
 SELECT
     CAST(dboservices.serviceAddedOn AS DATE) AS report_date,
-    SUM(dboservices.totalpayable) AS accrued_revenue,
+    SUM(dboservices.totalpayable) AS earned_revenue,
     SUM(CASE
             WHEN dboservices.hasNightAdjustment = 1 THEN dboservices.totalpayable
             ELSE 0
@@ -50,13 +50,13 @@ SELECT
         ELSE tp.name
     END AS test_panel_name,
     COUNT(dboservices.serviceid) AS test_count,
-    SUM(dboservices.totalpayable) AS accrued_revenue,
-    SUM(dboservices.paidamount) AS actual_revenue,
-    SUM(dboservices.discount) AS total_discount,
-    SUM(dboservices.outstanding) AS total_outstanding,
+    SUM(dboservices.totalpayable) AS earned_revenue,
+    SUM(dboservices.paidamount) AS cash_collected,
+    SUM(dboservices.discount) AS discount,
+    SUM(dboservices.outstanding) AS outstanding,
     dd.department,
-    SUM(dboservices.totalcost) AS total_cost,
-    SUM(dbobillingrefundtable.amountRefunded) AS total_refunds
+    SUM(dboservices.totalcost) AS gross_revenue,
+    SUM(dbobillingrefundtable.amountRefunded) AS total_refunded
     FROM dboservices 
     LEFT JOIN test_panels tp
         ON dboservices.serviceCategory <> 'SERVICES' AND tp.id = dboservices.trackId
@@ -82,12 +82,12 @@ SELECT
 export const QUERY_TOP_PERFORMING_BRANCHES = `
     SELECT
         dboservices.branchid,
-        SUM(dboservices.totalpayable) AS accrued_revenue,
-        SUM(dboservices.paidamount) AS actual_revenue,
-        SUM(dboservices.discount) AS total_discount,
-        SUM(dboservices.outstanding) AS total_outstanding,
+        SUM(dboservices.totalpayable) AS earned_revenue,
+        SUM(dboservices.paidamount) AS cash_collected,
+        SUM(dboservices.discount) AS discount,
+        SUM(dboservices.outstanding) AS outstanding,
         COUNT(dboservices.serviceid) AS total_tests,
-        SUM(dbobillingrefundtable.amountRefunded) AS total_refunds,
+        SUM(dbobillingrefundtable.amountRefunded) AS total_refunded,
         branch.name AS branchname
     FROM dboservices 
     INNER JOIN branch ON branch.branchid = dboservices.branchid
@@ -467,13 +467,13 @@ SELECT
     COUNT(dboservices.serviceid) AS total_cases,
     COUNT(CASE WHEN dboservices.status = 'active' THEN 1 END) AS total_cases_active,
     COUNT(CASE WHEN dboservices.status = 'refunded' THEN 1 END) AS total_cases_refunded,
-    SUM(dboservices.totalpayable) AS total_amount_charged,
-    SUM(dboservices.paidamount) AS total_amount_paid,
-    SUM(COALESCE(dbobillingrefundtable.amountRefunded, 0)) AS total_amount_refunded,
-    SUM(dboservices.discount) AS total_discount,
+    SUM(dboservices.totalpayable) AS earned_revenue,
+    SUM(dboservices.paidamount) AS cash_collected,
+    SUM(COALESCE(dbobillingrefundtable.amountRefunded, 0)) AS total_refunded,
+    SUM(dboservices.discount) AS discount,
     d.department AS department_name,
-    SUM(dboservices.outstanding) AS total_outstanding,
-    SUM(dboservices.totalcost) AS total_cost,
+    SUM(dboservices.outstanding) AS outstanding,
+    SUM(dboservices.totalcost) AS gross_revenue,
     ROUND(SUM(dboservices.paidamount) / SUM(dboservices.totalpayable) * 100, 2) AS collection_percentage
 FROM dboservices 
 INNER JOIN test_panels tp
@@ -492,5 +492,5 @@ GROUP BY
     COALESCE(tp.name, 'Unknown')
 ORDER BY
     report_date DESC,
-    total_amount_charged DESC
+    earned_revenue DESC
 `

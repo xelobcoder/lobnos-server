@@ -213,7 +213,7 @@ class InventoryItemController {
     async getInventoryItems(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { page = '1', count = '10', category_id, location_id, status, search, sortby = 'ASC' } = req.query;
+            const { page, count, category_id, location_id, status, search, sortby = 'ASC' } = req.query;
             const filters = {
                 page: parseInt(page, 10),
                 count: parseInt(count, 10),

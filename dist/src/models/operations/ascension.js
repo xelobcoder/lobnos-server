@@ -112,7 +112,7 @@ class TestAscension extends operations_1.default {
                 params.push(`%${word}%`, `%${word}%`, `%${word}%`);
             });
         }
-        query += ` ORDER BY b.billingid ${sortby} GROUP BY billingid LIMIT ? OFFSET ?`;
+        query += ` GROUP BY billingid ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
         return await (0, helper_1.promisifyQuery)(tenantId, query, [...params, count, (page - 1) * count]);
     }
     static async getTransactionAscentionTestDetails(tenantId, billingid) {
@@ -124,7 +124,7 @@ class TestAscension extends operations_1.default {
     static async getAllPendingAscensions(tenantId, count = 30, page = 1) {
         let query = queries_1.q_pending_sample_uncollected;
         let params = [];
-        query += ` ORDER BY b.billedon DESC`;
+        query += ` GROUP BY b.billingid ORDER BY b.billedon DESC`;
         if (page && count) {
             const offset = (page - 1) * count;
             query += ` LIMIT ? OFFSET ?`;

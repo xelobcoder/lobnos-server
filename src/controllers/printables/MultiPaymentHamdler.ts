@@ -1,12 +1,13 @@
 import { Request, Response } from "express";
 import MultiPayment from "../../models/payments/multi-payment";
+import { OperationsFailures } from "../../models/operations/types";
 
 
 
 export const processMultiServicePayment = async (req: Request, res: Response): Promise<void> => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const { service_payments, total_amount, description, employeeid } = req.body;
+          const { service_payments, total_amount, total_discount, total_waive_off, description, employeeid } = req.body;
 
           if (isNaN(tenantId) || !service_payments || !Array.isArray(service_payments) || service_payments.length === 0) {
                res.status(400).json({ error: 'Invalid tenantId or service_payments data' });
@@ -16,6 +17,8 @@ export const processMultiServicePayment = async (req: Request, res: Response): P
           const paymentData = {
                service_payments,
                total_amount,
+               total_discount: total_discount || 0,
+               total_waive_off: total_waive_off || 0,
                description: description || '',
                employeeid,
                tenantId
@@ -39,13 +42,35 @@ export const getPatientOutstandingPayments = async (req: Request, res: Response)
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const patientId = parseInt(req.query.patientid as string);
+          const billingidRaw = req.query.billingid as string;
           const status = req.query.status as "completed" | "all" | "pending" || "all";
 
-          if (isNaN(patientId)) {
-               res.status(400).json({ error: 'Invalid tenantId or patientId' });
+          if (patientId && isNaN(patientId)) {
+               res.status(400).json({ error: OperationsFailures.invalidResquestQuery });
                return;
           }
-          const paymentsMulti = await new MultiPayment(tenantId).getOutstandingPayments(patientId, status);
+
+          let billingid: number | number[] | undefined;
+          if (billingidRaw) {
+               const rawStr = String(billingidRaw);
+               if (rawStr.includes(',')) {
+                    const ids = rawStr.split(',').map(id => id.trim()).filter(id => id !== "").map(id => parseInt(id));
+                    if (ids.length === 0 || ids.some(id => isNaN(id))) {
+                         res.status(400).json({ error: OperationsFailures.invalidResquestQuery });
+                         return;
+                    }
+                    billingid = ids;
+               } else {
+                    const id = parseInt(rawStr);
+                    if (isNaN(id)) {
+                         res.status(400).json({ error: OperationsFailures.invalidResquestQuery });
+                         return;
+                    }
+                    billingid = id;
+               }
+          }
+
+          const paymentsMulti = await new MultiPayment(tenantId).getOutstandingPayments({ patientid: patientId, billingid, status });
           res.status(200).json({ success: true, data: paymentsMulti });
      } catch (error) {
           console.error('Error fetching outstanding payments:', error);

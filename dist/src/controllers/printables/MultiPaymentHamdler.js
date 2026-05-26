@@ -8,7 +8,7 @@ const multi_payment_1 = __importDefault(require("../../models/payments/multi-pay
 const processMultiServicePayment = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const { service_payments, total_amount, description, employeeid } = req.body;
+        const { service_payments, total_amount, total_discount, total_waive_off, description, employeeid } = req.body;
         if (isNaN(tenantId) || !service_payments || !Array.isArray(service_payments) || service_payments.length === 0) {
             res.status(400).json({ error: 'Invalid tenantId or service_payments data' });
             return;
@@ -16,6 +16,8 @@ const processMultiServicePayment = async (req, res) => {
         const paymentData = {
             service_payments,
             total_amount,
+            total_discount: total_discount || 0,
+            total_waive_off: total_waive_off || 0,
             description: description || '',
             employeeid,
             tenantId
@@ -39,12 +41,33 @@ const getPatientOutstandingPayments = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
         const patientId = parseInt(req.query.patientid);
+        const billingidRaw = req.query.billingid;
         const status = req.query.status || "all";
-        if (isNaN(patientId)) {
-            res.status(400).json({ error: 'Invalid tenantId or patientId' });
+        if (patientId && isNaN(patientId)) {
+            res.status(400).json({ error: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ });
             return;
         }
-        const paymentsMulti = await new multi_payment_1.default(tenantId).getOutstandingPayments(patientId, status);
+        let billingid;
+        if (billingidRaw) {
+            const rawStr = String(billingidRaw);
+            if (rawStr.includes(',')) {
+                const ids = rawStr.split(',').map(id => id.trim()).filter(id => id !== "").map(id => parseInt(id));
+                if (ids.length === 0 || ids.some(id => isNaN(id))) {
+                    res.status(400).json({ error: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ });
+                    return;
+                }
+                billingid = ids;
+            }
+            else {
+                const id = parseInt(rawStr);
+                if (isNaN(id)) {
+                    res.status(400).json({ error: "Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ });
+                    return;
+                }
+                billingid = id;
+            }
+        }
+        const paymentsMulti = await new multi_payment_1.default(tenantId).getOutstandingPayments({ patientid: patientId, billingid, status });
         res.status(200).json({ success: true, data: paymentsMulti });
     }
     catch (error) {

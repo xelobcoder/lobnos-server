@@ -2,8 +2,7 @@ import { PayrollPeriodRepository, IPayrollPeriod } from '../../models/payroll/Pa
 import { PayrollTransactionRepository, IPayrollTransaction } from '../../models/payroll/PayrollTransactionRepository';
 import { PayrollCalculationService, IPayrollCalculationInput } from './PayrollCalculationService';
 import KnexConnection from '../../database/KnexConnections';
-import ExpenseInvoiceRepo from '../../models/Expenses/ExpenseInvoiceRepo';
-import Expenses from '../../models/Expenses/ExpenseService';
+import AutomatedExpenseLifecycle from '../../models/Expenses/AutomatedExpenseLifecycle';
 
 export interface IPayrollProcessingResult {
      payroll_period_id: number;
@@ -11,7 +10,7 @@ export interface IPayrollProcessingResult {
      total_gross_salary: number;
      total_deductions: number;
      total_net_salary: number;
-     period_status: 'draft' | 'calculated'; // New field to indicate final status
+     period_status: 'draft' | 'calculated';
      errors: Array<{ employeeid: number; error: string }>;
 }
 
@@ -26,9 +25,6 @@ export class PayrollProcessingService {
           this.calculationService = new PayrollCalculationService(tenantId);
      }
 
-     /**
-      * Format date strings to YYYY-MM-DD format for calculation service
-      */
      private formatDateForCalculation(dateInput: any): string {
           if (!dateInput) return '';
 
@@ -41,7 +37,6 @@ export class PayrollProcessingService {
                dateString = String(dateInput);
           }
 
-          // If it has 'T', it's ISO format
           if (dateString.includes('T')) {
                return dateString.split('T')[0];
           }
@@ -49,9 +44,6 @@ export class PayrollProcessingService {
           return dateString;
      }
 
-     /**
-      * Process payroll for a given period
-      */
      async processPayrollPeriod(
           payroll_period_id: number,
           employeeIds: number[],
@@ -70,7 +62,6 @@ export class PayrollProcessingService {
           const errors: Array<{ employeeid: number; error: string }> = [];
           const successfulTransactions: IPayrollTransaction[] = [];
 
-          // Calculate payroll for each employee
           const calculationInputs: IPayrollCalculationInput[] = employeeIds.map(employeeid => ({
                employeeid,
                payroll_period_id,
@@ -78,11 +69,9 @@ export class PayrollProcessingService {
                period_end_date: this.formatDateForCalculation(period.period_end_date)
           }));
 
-          // Use database transaction for atomicity
           const connection = await KnexConnection(this.tenantId);
 
           return connection.transaction(async (trx) => {
-               // Create transaction-scoped repositories
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
 
@@ -90,20 +79,17 @@ export class PayrollProcessingService {
                     try {
                          const calculation = await this.calculationService.calculateEmployeePayroll(input);
 
-                         // Check if transaction already exists
                          const existing = await trxTransactionRepo.getByEmployeeAndPeriod(
                               input.employeeid,
                               payroll_period_id
                          );
 
                          if (existing) {
-                              // Update existing transaction
                               await trxTransactionRepo.update(existing.id!, {
                                    ...calculation,
                                    status: 'pending'
                               });
                          } else {
-                              // Create new transaction
                               await trxTransactionRepo.create({
                                    ...calculation,
                                    status: 'pending'
@@ -119,7 +105,6 @@ export class PayrollProcessingService {
                     }
                }
 
-               // Calculate totals
                const totals = {
                     total_gross_salary: successfulTransactions.reduce((sum, t) => sum + t.gross_salary, 0),
                     total_deductions: successfulTransactions.reduce((sum, t) => sum + t.total_deductions, 0),
@@ -127,7 +112,6 @@ export class PayrollProcessingService {
                     employee_count: successfulTransactions.length
                };
 
-               // Update period totals (always update for visibility)
                await trxPeriodRepo.updateTotals(
                     payroll_period_id,
                     totals.total_gross_salary,
@@ -136,11 +120,9 @@ export class PayrollProcessingService {
                     totals.employee_count
                );
 
-               // Only mark as calculated if no errors occurred
                if (errors.length === 0) {
                     await trxPeriodRepo.markAsCalculated(payroll_period_id, calculated_by);
                } else {
-                    // Keep period in 'draft' status when there are errors
                     console.warn(`Payroll period ${payroll_period_id} has ${errors.length} errors - keeping in draft status`);
                }
 
@@ -156,9 +138,6 @@ export class PayrollProcessingService {
           });
      }
 
-     /**
-      * Approve payroll period
-      */
      async approvePayrollPeriod(
           payroll_period_id: number,
           approved_by: number
@@ -179,10 +158,8 @@ export class PayrollProcessingService {
                     throw new Error(`Cannot approve payroll period with status ${period.status}`);
                }
 
-               // Mark period as approved
                await trxPeriodRepo.markAsApproved(payroll_period_id, approved_by);
 
-               // Mark all transactions as approved
                const transactions = await trxTransactionRepo.getByPayrollPeriod(payroll_period_id);
 
                for (const transaction of transactions) {
@@ -195,9 +172,6 @@ export class PayrollProcessingService {
           });
      }
 
-     /**
-      * Lock payroll period (prevent further changes)
-      */
      async lockPayrollPeriod(
           payroll_period_id: number,
           locked_by: number
@@ -221,9 +195,6 @@ export class PayrollProcessingService {
           });
      }
 
-     /**
-      * Mark payroll as paid
-      */
      async markPayrollAsPaid(
           payroll_period_id: number,
           payment_date: string,
@@ -248,7 +219,6 @@ export class PayrollProcessingService {
                     throw new Error(`Cannot mark payroll as paid with status ${period.status}`);
                }
 
-               // Mark all transactions as paid
                const transactions = await trxTransactionRepo.getByPayrollPeriod(payroll_period_id);
 
                for (const transaction of transactions) {
@@ -261,107 +231,32 @@ export class PayrollProcessingService {
                     );
                }
 
-               // Mark period as paid
                await trxPeriodRepo.markAsPaid(payroll_period_id);
-
-               const actorEmployeeId = employeeid;
-               const actorBranchId = branchid;
-
-               const expenseCategoryRecord = await trx('dboexpensecategory')
-                    .where({ category: 'salary' })
-                    .first();
-
-               let category: number;
-               if (!expenseCategoryRecord) {
-                    const [newCategoryId] = await trx('dboexpensecategory')
-                         .insert({
-                              category: 'salary',
-                              createdon: new Date(),
-                              employeeid: actorEmployeeId,
-                         });
-                    category = newCategoryId;
-               } else {
-                    category = expenseCategoryRecord.id;
-               }
-
-               const merchantRecord = await trx('expense_merchants')
-                    .where({ name: 'PAYROLL' })
-                    .first();
-
-               let merchantid: number;
-               if (!merchantRecord) {
-                    const [newMerchantId] = await trx('expense_merchants')
-                         .insert({
-                              name: 'PAYROLL',
-                              email: 'system-payroll-automated',
-                              phone: '0000000000',
-                              notes: 'Auto created merchant for payroll payments',
-                              created_at: new Date(),
-                              created_by: actorEmployeeId,
-                         });
-                    merchantid = newMerchantId;
-               } else {
-                    merchantid = merchantRecord.id;
-               }
 
                const totalNetSalary = Number(period.total_net_salary || 0);
 
-               const expenseRecord = {
-                    isassociatedservice: 0,
-                    serviceid: null,
-                    branchid: actorBranchId,
-                    category,
-                    employeeid: actorEmployeeId,
+               const lifecycle = new AutomatedExpenseLifecycle(this.tenantId);
+               const lifecycleResult = await lifecycle.process({
                     amount: totalNetSalary,
-                    merchant: merchantid,
-                    date: new Date(payment_date),
-                    id: null,
-                    createdon: new Date(),
-                    approvedby: null,
-                    approved: 0,
-                    approvedon: null,
                     name: `Payroll Expense - ${period.period_name} (${payroll_period_id})`,
-                    description: `Payroll for ${period.period_name} (${period.period_start_date} to ${period.period_end_date}) paid on ${payment_date}`
-               };
-
-               const invoiceRepo = new ExpenseInvoiceRepo(actorEmployeeId, actorBranchId, this.tenantId);
-
-               const payrollExpense = await invoiceRepo.createExpensesAndInvoice([expenseRecord as any], {
-                    invoice_number: `PAYROLL-${payroll_period_id}-${Date.now()}`,
-                    invoice_date: new Date(payment_date) as any,
-                    due_date: new Date(payment_date) as any,
-                    merchant_id: merchantid,
-                    tax_amount: 0,
-                    total_amount: totalNetSalary,
-                    status: 'Paid'
-               }, trx);
-
-               const expenseApproval = await new Expenses(actorEmployeeId, actorBranchId, this.tenantId)
-                    .updateExpenseDecision(this.tenantId, 'approved', [{
-                         expenseid: payrollExpense.expenseIds[0],
-                         information: 'Payroll payment',
-                         employeeid: actorEmployeeId
-                    }], trx);
-
-               if (!expenseApproval) {
-                    throw new Error('Failed to approve payroll expense');
-               }
-
-               const paymentResult = await invoiceRepo.addPayment({
-                    expense_id: payrollExpense.expenseIds[0],
-                    invoice_id: payrollExpense.invoiceId,
-                    payment_date,
-                    method: payment_method,
-                    amount: totalNetSalary
+                    description: `Payroll for ${period.period_name} (${period.period_start_date} to ${period.period_end_date}) paid on ${payment_date}`,
+                    categoryName: "salary",
+                    merchantName: "PAYROLL",
+                    merchantEmail: "system-payroll-automated",
+                    date: new Date(payment_date),
+                    branchid,
+                    employeeid,
+                    paymentMethod: payment_method,
+                    invoicePrefix: "PAYROLL"
                }, trx);
 
                await trx('payroll_periods')
                     .where({ id: payroll_period_id })
                     .update({
                          expense_synced: true,
-                         expense_id: payrollExpense.expenseIds[0],
-                         expense_invoice_id: payrollExpense.invoiceId,
-                         expense_payment_id: paymentResult?.paymentId || null,
+                         expense_id: lifecycleResult.expenseId,
+                         expense_invoice_id: lifecycleResult.invoiceId,
+                         expense_payment_id: lifecycleResult.paymentId || null,
                          updated_at: trx.fn.now()
                     });
 
@@ -369,9 +264,6 @@ export class PayrollProcessingService {
           });
      }
 
-     /**
-      * Recalculate specific employee in payroll period
-      */
      async recalculateEmployee(
           payroll_period_id: number,
           employeeid: number
@@ -413,7 +305,6 @@ export class PayrollProcessingService {
                     } as any);
                }
 
-               // Recalculate period totals
                const totals = await trxTransactionRepo.getTotalsByPeriod(payroll_period_id);
                await trxPeriodRepo.updateTotals(
                     payroll_period_id,
@@ -427,9 +318,6 @@ export class PayrollProcessingService {
           });
      }
 
-     /**
-      * Get payroll processing status
-      */
      async getPayrollStatus(payroll_period_id: number): Promise<{
           period: IPayrollPeriod | undefined;
           transaction_count: number;
@@ -450,16 +338,10 @@ export class PayrollProcessingService {
           };
      }
 
-     /**
-      * Create new payroll period
-      */
      async createPayrollPeriod(): Promise<number> {
           return this.periodRepo.createNextPeriod();
      }
 
-     /**
-      * Get active employees for payroll processing
-      */
      async getActiveEmployees(): Promise<number[]> {
           const connection = await KnexConnection(this.tenantId);
 

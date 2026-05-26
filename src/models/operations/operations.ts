@@ -14,13 +14,8 @@ import {
 	q_ultrasound_waitingList,
 } from "./queries";
 import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterResultEntry, resultQuery } from "./types";
-import PartitionManager from "../billing/partitioning";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import { TestApprovalClass } from "./testApprovalClass";
-import { parse } from "node:path";
-import { count } from "node:console";
-import { TestAscension } from "./ascension";
-import test from "node:test";
 
 export default class Operations {
 	private billingid: number;

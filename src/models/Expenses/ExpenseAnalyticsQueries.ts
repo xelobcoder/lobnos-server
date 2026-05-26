@@ -8,9 +8,9 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         DATE(ep.payment_date) AS expense_date,
-        SUM(ep.amount) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT ep.id) AS expense_count,
-        AVG(ep.amount) AS avg_expense_amount,
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees,
         COUNT(DISTINCT er.merchant) AS unique_merchants
       FROM expensesrecord er
@@ -26,7 +26,7 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         'current' AS period,
-       COALESCE(SUM(ep.amount), 0) AS total_expenses,
+       COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
         COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
@@ -39,7 +39,7 @@ export class ExpenseAnalyticsQueries {
 
       SELECT
         'previous' AS period,
-        COALESCE(SUM(ep.amount), 0) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
         COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
@@ -54,15 +54,16 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        er.category,
-        SUM(er.amount) AS total_amount,
-        COUNT(*) AS expense_count
+        ec.category AS category_name,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
+        COUNT(DISTINCT er.id) AS expense_count
       FROM expensesrecord er
-      WHERE er.approved = 1
-        AND er.date >= ?
-        AND er.date <= ?
-      GROUP BY er.category
-      ORDER BY total_amount DESC
+      INNER JOIN expense_payments ep ON er.id = ep.expense_id
+      LEFT JOIN dboexpensecategory ec ON er.category = ec.id
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
+      GROUP BY er.category, ec.category
+      ORDER BY expenses_paid DESC
     `, [startDate, endDate]);
   }
 
@@ -71,16 +72,16 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         r.username AS employee_name,
-        SUM(er.amount) AS total_amount,
-        COUNT(*) AS expense_count
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
+        COUNT(DISTINCT er.id) AS expense_count
       FROM expensesrecord er
+      INNER JOIN expense_payments ep ON er.id = ep.expense_id
       LEFT JOIN roles r ON er.employeeid = r.employeeid
-      WHERE er.approved = 1
-        AND er.date >= ?
-        AND er.date <= ?
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
       GROUP BY r.username
-      ORDER BY total_amount DESC
+      ORDER BY expenses_paid DESC
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
   }
 
@@ -91,7 +92,7 @@ export class ExpenseAnalyticsQueries {
         em.name AS merchant_name,
         DATE(ep.payment_date) AS expense_date,
         em.id AS merchant_id,
-        SUM(ep.amount) AS total_amount,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT ep.id) AS expense_count
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
@@ -99,7 +100,7 @@ export class ExpenseAnalyticsQueries {
       WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) BETWEEN ? AND ?
       GROUP BY em.name
-      ORDER BY expense_date DESC, total_amount DESC
+      ORDER BY expense_date DESC, expenses_paid DESC
     `, [startDate, endDate]);
   }
 
@@ -108,9 +109,9 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         HOUR(ep.payment_date) AS expense_hour,
-        SUM(ep.amount) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(ep.amount) AS avg_expense_amount
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid' AND ep.is_reversed = 0
@@ -125,9 +126,9 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         MONTH(ep.payment_date) AS expense_month,
-        SUM(ep.amount) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(ep.amount) AS avg_expense_amount,
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
@@ -146,9 +147,9 @@ export class ExpenseAnalyticsQueries {
         YEAR(ep.payment_date) AS expense_year,
         MIN(DATE(ep.payment_date)) AS week_start_date,
         MAX(DATE(ep.payment_date)) AS week_end_date,
-        SUM(ep.amount) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(ep.amount) AS avg_expense_amount,
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
@@ -164,9 +165,9 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         QUARTER(ep.payment_date) AS expense_quarter,
-        SUM(ep.amount) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(ep.amount) AS avg_expense_amount
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid' AND ep.is_reversed = 0
@@ -181,9 +182,9 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         YEAR(ep.payment_date) AS expense_year,
-        SUM(ep.amount) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(ep.amount) AS avg_expense_amount,
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount,
         COUNT(DISTINCT er.employeeid) AS unique_employees,
         COUNT(DISTINCT er.merchant) AS unique_merchants
       FROM expensesrecord er
@@ -200,16 +201,16 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         b.name AS branch_name,
-        SUM(ep.amount) AS total_expenses,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(ep.amount) AS avg_expense_amount
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       LEFT JOIN branch b ON er.branchid = b.branchid
       WHERE ep.status = 'Paid' AND ep.is_reversed = 0
         AND DATE(ep.payment_date) BETWEEN ? AND ?
       GROUP BY b.name
-      ORDER BY total_expenses DESC
+      ORDER BY expenses_paid DESC
     `, [startDate, endDate]);
   }
 
@@ -218,17 +219,17 @@ export class ExpenseAnalyticsQueries {
     return connection.raw(`
       SELECT
         ec.category AS category_name,
-        SUM(er.amount) AS total_amount,
-        COUNT(*) AS expense_count,
-        AVG(er.amount) AS avg_amount
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
+        COUNT(DISTINCT er.id) AS expense_count,
+        COALESCE(AVG(ep.amount), 0) AS avg_amount
       FROM expensesrecord er
+      INNER JOIN expense_payments ep ON er.id = ep.expense_id
       LEFT JOIN dboexpensecategory ec ON er.category = ec.id
-      WHERE er.approved = 1
-        AND er.date >= ?
-        AND er.date <= ?
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
       GROUP BY ec.category
-      ORDER BY total_amount DESC
+      ORDER BY expenses_paid DESC
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
   }
 
@@ -236,17 +237,55 @@ export class ExpenseAnalyticsQueries {
     const connection = await KnexConnection(this.tenantId);
     return connection.raw(`
       SELECT
-        COALESCE(ep.status, 'Unpaid') AS payment_status,
-        SUM(er.amount) AS total_amount,
+        CASE 
+          WHEN er.approved = 2 THEN 'Rejected'
+          WHEN er.approved = 0 THEN 'Pending'
+          ELSE COALESCE(ep.status, 'Unapproved')
+        END AS payment_status,
+        SUM(COALESCE(ep.amount, er.amount)) AS total_amount,
         COUNT(DISTINCT er.id) AS expense_count,
-        AVG(er.amount) AS avg_amount
+        AVG(COALESCE(ep.amount, er.amount)) AS avg_amount
       FROM expensesrecord er
-      LEFT JOIN expense_payments ep ON er.id = ep.expense_id
-      WHERE er.approved = 1
-        AND DATE(er.date) BETWEEN ? AND ?
-      GROUP BY COALESCE(ep.status, 'Unpaid')
+      LEFT JOIN expense_payments ep ON er.id = ep.expense_id AND ep.is_reversed = 0
+      WHERE DATE(er.date) BETWEEN ? AND ?
+      GROUP BY payment_status
       ORDER BY total_amount DESC
     `, [startDate, endDate]);
+  }
+
+  async getRejectedExpenseAnalytics(startDate: string, endDate: string, branchid?: number) {
+    const connection = await KnexConnection(this.tenantId);
+    return connection.raw(`
+      SELECT
+        COUNT(*) AS rejected_count,
+        COALESCE(SUM(amount), 0) AS rejected_total_amount,
+        COALESCE(AVG(amount), 0) AS rejected_avg_amount
+      FROM expensesrecord
+      WHERE approved = 2
+        AND DATE(date) BETWEEN ? AND ?
+        ${branchid ? 'AND branchid = ?' : ''}
+    `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
+  }
+
+  async getBranchMonthlyExpenseAnalytics(startDate: string, endDate: string, branchid: number) {
+    const connection = await KnexConnection(this.tenantId);
+    return connection.raw(`
+      SELECT
+        MONTH(ep.payment_date) AS expense_month,
+        YEAR(ep.payment_date) AS expense_year,
+        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
+        COUNT(DISTINCT er.id) AS expense_count,
+        COALESCE(AVG(ep.amount), 0) AS avg_expense_amount,
+        b.name AS branch_name
+      FROM expensesrecord er
+      INNER JOIN expense_payments ep ON er.id = ep.expense_id
+      LEFT JOIN branch b ON er.branchid = b.branchid
+      WHERE ep.status = 'Paid' AND ep.is_reversed = 0
+        AND er.branchid = ?
+        AND DATE(ep.payment_date) BETWEEN ? AND ?
+      GROUP BY YEAR(ep.payment_date), MONTH(ep.payment_date), b.name
+      ORDER BY expense_year ASC, expense_month ASC
+    `, [branchid, startDate, endDate]);
   }
 
   async getExpenseBuckets(startDate: string, endDate: string, branchid?: number) {
@@ -260,8 +299,8 @@ export class ExpenseAnalyticsQueries {
           ELSE 'Extra Large'
         END AS bucket,
         COUNT(*) AS expense_count,
-        SUM(ep.amount) AS total_amount,
-        AVG(ep.amount) AS avg_amount
+        COALESCE(SUM(ep.amount), 0) AS total_amount,
+        COALESCE(AVG(ep.amount), 0) AS avg_amount
       FROM expensesrecord er
       INNER JOIN expense_payments ep ON er.id = ep.expense_id
       WHERE ep.status = 'Paid' AND ep.is_reversed = 0

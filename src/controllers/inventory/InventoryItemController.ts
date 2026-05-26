@@ -252,8 +252,8 @@ export class InventoryItemController {
           try {
                const tenantId = this.getTenantId(req);
                const {
-                    page = '1',
-                    count = '10',
+                    page ,
+                    count ,
                     category_id,
                     location_id,
                     status,

@@ -17,10 +17,8 @@ const outsourcing_1 = __importDefault(require("../src/models/organization/outsou
 const registration_1 = __importDefault(require("../src/models/registration/registration"));
 const services_1 = require("../src/models/services/services");
 const billingclientTypes_1 = require("../src/models/billing/billingclientTypes");
-const partitioning_1 = __importDefault(require("../src/models/billing/partitioning"));
 const queries_1 = require("../src/models/billing/queries");
 const RefundClass_1 = require("../src/models/billing/RefundClass");
-const SalesSessionRepo_1 = require("../src/models/billing/repositories/SalesSessionRepo");
 const N = 2;
 class Billing {
     constructor(patientid) {
@@ -805,41 +803,6 @@ class Billing {
         }
         return unique;
     }
-    async BillNewTransaction(tenantId, billingData) {
-        let billingid = undefined;
-        try {
-            const today = new Date();
-            const sessionExists = await new SalesSessionRepo_1.SalesSessionRepo(tenantId)
-                .hasActiveSessionForDate(today, billingData.samplingCenter);
-            if (!sessionExists)
-                return "No active sales session found for the current date." /* OperationsFailures.sessionNotFound */;
-            const billdataValidation = await Billing.validateBillingRequestBody(tenantId, billingData);
-            if (billdataValidation !== true) {
-                return billdataValidation;
-            }
-            const { taxValue } = await new appset_1.default().getAppBillSettings(tenantId);
-            let taxList = null;
-            if (taxValue > 0) {
-                taxList = await new TiifuWorkingClass_1.TiifuWorkingClass("tax").findMany(tenantId, "apply", 'yes');
-                taxList = JSON.stringify(taxList);
-            }
-            billingid = await this.billClient(tenantId, billingData, taxValue, taxList);
-            if (typeof billingid == "boolean" || !billingid)
-                return billingclientTypes_1.billErrors.failed;
-            return billingid;
-        }
-        catch (err) {
-            if (billingid) {
-                await this.cleanUpFailedbillingProcess(tenantId, billingid);
-            }
-            if ((err === null || err === void 0 ? void 0 : err.code) && (err === null || err === void 0 ? void 0 : err.errno) == 1526) {
-                const currentYear = new Date().getFullYear();
-                await new partitioning_1.default("billing", 'billing').addYearPartition(tenantId, currentYear);
-                await new partitioning_1.default("test_ascension", 'asc').addYearPartition(tenantId, currentYear);
-            }
-            return billingclientTypes_1.billErrors.error;
-        }
-    }
     static async validatePaymentModeId(tenantId, id) {
         const data = await new TiifuWorkingClass_1.TiifuWorkingClass("paymentmodes").findMany(tenantId, "KeyID", id);
         return Array.isArray(data) && data.length > 0;
@@ -1167,11 +1130,6 @@ class Billing {
             return ascensionid;
         }
         catch (err) {
-            console.log(err);
-            if (err && err.code && err.errno == 1526 && err.code == 'ER_NO_PARTITION_FOR_GIVEN_VALUE'.trim()) {
-                const currentYear = new Date().getFullYear();
-                await new partitioning_1.default("test_ascension", "asc").addYearPartition(tenantId, currentYear);
-            }
             return false;
         }
     }

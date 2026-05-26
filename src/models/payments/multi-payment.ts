@@ -1,11 +1,14 @@
 import { PrimeLimsTabledboservices } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
+import AutomatedExpenseLifecycle from "../Expenses/AutomatedExpenseLifecycle";
 
 
 
 type ServicePayment = {
      service_id: number;
      amount: number;
+     discount: number;
+     waive_off: number;
      payment_mode_id: number;
      billing_id: number;
 }
@@ -13,6 +16,8 @@ type ServicePayment = {
 type MultiServicePaymentRequest = {
      service_payments: ServicePayment[];
      total_amount: number;
+     total_discount: number;
+     total_waive_off: number;
      description: string;
      employeeid: number;
      tenantId: number;
@@ -70,10 +75,13 @@ export default class MultiPayment {
                const trx = await connection.transaction();
 
                try {
+                    const waiveOffsPerBilling: Record<number, number> = {};
+
                     for (const servicePayment of paymentData.service_payments) {
                          const service = await trx(this.servicesTable)
-                              .select('*')
-                              .where({ serviceid: servicePayment.service_id })
+                              .join(this.billingTable, `${this.servicesTable}.billingid`, `${this.billingTable}.billingid`)
+                              .select(`${this.servicesTable}.*`, `${this.billingTable}.patientid`)
+                              .where({ [`${this.servicesTable}.serviceid`]: servicePayment.service_id })
                               .first();
 
                          if (!service) {
@@ -85,15 +93,30 @@ export default class MultiPayment {
                          }
 
                          const currentPaid = parseFloat(service.paidamount as string) || 0;
+                         const currentOutstanding = parseFloat(service.outstanding as string) || 0;
+
                          const newPaidAmount = currentPaid + servicePayment.amount;
                          const totalPayable = parseFloat(service.totalpayable as string) || 0;
-                         const newOutstanding = Math.max(0, totalPayable - newPaidAmount);
+
+                         // If there's a waive-off, it reduces the outstanding balance without increasing paid amount
+                         const waiveOffAmount = servicePayment.waive_off || 0;
+                         const newOutstanding = Math.max(0, currentOutstanding - servicePayment.amount - waiveOffAmount);
+
+                         // Track waive-off per billing for billing table update
+                         if (waiveOffAmount > 0) {
+                              waiveOffsPerBilling[servicePayment.billing_id] = (waiveOffsPerBilling[servicePayment.billing_id] || 0) + waiveOffAmount;
+                         }
 
                          let newPaymentStatus = service.paymentstatus;
+                         let newServiceStatus = service.status;
+
                          if (newOutstanding === 0) {
-                              newPaymentStatus = 'Paid';
-                         } else if (newPaidAmount > 0) {
-                              newPaymentStatus = 'Partial';
+                              newPaymentStatus = 'paid';
+                              if (waiveOffAmount > 0 && servicePayment.amount === 0) {
+                                   newServiceStatus = 'written-off';
+                              }
+                         } else if (newPaidAmount > 0 || waiveOffAmount > 0) {
+                              newPaymentStatus = 'partial';
                          }
 
                          await trx(this.servicesTable)
@@ -102,16 +125,37 @@ export default class MultiPayment {
                                    paidamount: newPaidAmount,
                                    outstanding: newOutstanding,
                                    paymentstatus: newPaymentStatus,
+                                   status: newServiceStatus,
                                    totalpayable: totalPayable
                               });
 
-                         await trx(this.bhxTable).insert({
-                              billingid: servicePayment.billing_id,
-                              paymentmode: servicePayment.payment_mode_id,
-                              amount: servicePayment.amount,
-                              employeeid: paymentData.employeeid,
-                              type: 'credit'
-                         });
+                         if (servicePayment.amount > 0) {
+                              await trx(this.bhxTable).insert({
+                                   billingid: servicePayment.billing_id,
+                                   paymentmode: servicePayment.payment_mode_id,
+                                   amount: servicePayment.amount,
+                                   employeeid: paymentData.employeeid,
+                                   type: 'credit'
+                              });
+                         }
+
+                         // If waive_off > 0, insert into expenses as bad debt with full lifecycle (Expense -> Approval -> Invoice -> Payment)
+                         if (waiveOffAmount > 0) {
+                              const lifecycle = new AutomatedExpenseLifecycle(this.tenantId);
+                              await lifecycle.process({
+                                   amount: waiveOffAmount,
+                                   name: `Bad Debt Waive-off - Service ${servicePayment.service_id}`,
+                                   description: `Automated bad debt entry for waived-off amount on service ${servicePayment.service_id}. Billing ID: ${servicePayment.billing_id}. Patient ID: ${service.patientid}`,
+                                   categoryName: "Bad Debt",
+                                   merchantName: "BAD DEBT",
+                                   date: new Date(),
+                                   branchid: service.branchid,
+                                   employeeid: paymentData.employeeid,
+                                   serviceid: servicePayment.service_id,
+                                   isassociatedservice: 1,
+                                   invoicePrefix: "BAD-DEBT"
+                              }, trx);
+                         }
                     }
 
                     const uniqueBillingIds = [...new Set(paymentData.service_payments.map(p => p.billing_id))];
@@ -130,16 +174,40 @@ export default class MultiPayment {
                          const totalPayable = billingServices.reduce((sum, service) => sum + (parseFloat(service.totalpayable as string) || 0), 0);
                          const totalRefunded = billingServices.reduce((sum, service) => sum + (parseFloat(service.amountRefunded as string) || 0), 0);
 
+                         const billingRecord = await trx(this.billingTable).where({ billingid: billingId }).first();
+                         const existingWriteOff = parseFloat(billingRecord?.writeoff as string) || 0;
+                         const currentWaiveOff = waiveOffsPerBilling[billingId] || 0;
+                         const newWriteOff = existingWriteOff + currentWaiveOff;
+
+                         let newStatus = totalOutstanding === 0 ? 'paid' : (totalPaid > 0 ? 'partial' : 'pending');
+
+                         // If the entire outstanding was cleared via waive-off/write-off
+                         if (totalOutstanding === 0 && currentWaiveOff > 0 && totalPaid === existingWriteOff) {
+                              newStatus = 'written-off';
+                         }
+
+                         const updateData: any = {
+                              paid: totalPaid,
+                              outstanding: totalOutstanding,
+                              payable: totalPayable,
+                              status: newStatus,
+                              clientstatus: newStatus,
+                              writeoff: newWriteOff,
+                              lastupdatedby: paymentData.employeeid
+                         };
+
+                         if (currentWaiveOff > 0) {
+                              updateData.adjustmentType = 'written-off';
+                              updateData.adjustmentamount = currentWaiveOff;
+                              updateData.adjustmentReason = `Waived off amount during multi-payment process. Total waived: ${currentWaiveOff}`;
+                              updateData.adjustedBy = paymentData.employeeid;
+                              updateData.adjustmentdate = new Date();
+                              updateData.isAdjustment = 1;
+                         }
 
                          await trx(this.billingTable)
                               .where({ billingid: billingId })
-                              .update({
-                                   paid: totalPaid,
-                                   outstanding: totalOutstanding,
-                                   payable: totalPayable,
-                                   status: totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid'),
-                                   clientstatus: totalOutstanding === 0 ? 'Paid' : (totalPaid > 0 ? 'Partial' : 'Unpaid')
-                              });
+                              .update(updateData);
                     }
 
                     await trx.commit();
@@ -163,28 +231,41 @@ export default class MultiPayment {
                };
           }
      }
-     public async getOutstandingPayments(patientid: number, status: "completed" | "all" | "pending" = "pending") {
+     public async getOutstandingPayments({ patientid, status = "pending", billingid }: { patientid?: number, status?: "completed" | "all" | "pending", billingid?: number | number[] }) {
           const connection = await this.connection;
 
-          let query = connection(this.billingTable).where({ patientid });
+          if (!billingid && !patientid) {
+               return { outstandingAmount: 0, records: [] };
+          }
+
+          let query = connection(this.billingTable);
+
+          if (billingid) {
+               if (Array.isArray(billingid)) {
+                    query = query.whereIn('billingid', billingid);
+               } else {
+                    query = query.where({ billingid });
+               }
+          } else if (patientid) {
+               query = query.where({ patientid });
+          }
           let records: any[] = [];
 
           if (status === "completed") {
-               records = await query
+               records = await query.clone()
                     .whereRaw('outstanding = 0')
                     .select("*")
                     .orderBy('billedon', 'desc')
                     .limit(10);
 
           } else if (status === "pending") {
-               const result = await query
+               const result = await query.clone()
                     .whereRaw('outstanding > 0')
                     .sum('outstanding as totalOutstanding');
                const outstandingAmount = result[0]?.totalOutstanding || 0;
 
                if (outstandingAmount > 0) {
-                    records = await connection(this.billingTable)
-                         .where({ patientid })
+                    records = await query.clone()
                          .whereRaw('outstanding > 0')
                          .select("*")
                          .orderBy('billedon', 'asc');
@@ -228,7 +309,7 @@ export default class MultiPayment {
                return { outstandingAmount, records };
 
           } else if (status === "all") {
-               records = await query
+               records = await query.clone()
                     .select("*")
                     .orderBy('billedon', 'desc')
                     .limit(50);
@@ -268,8 +349,7 @@ export default class MultiPayment {
                     }
                }
 
-               const outstandingResult = await connection(this.billingTable)
-                    .where({ patientid })
+               const outstandingResult = await query.clone()
                     .whereRaw('outstanding > 0')
                     .sum('outstanding as totalOutstanding');
                const outstandingAmount = outstandingResult[0]?.totalOutstanding || 0;
@@ -358,10 +438,10 @@ export default class MultiPayment {
 
      async updateReceiptPrinted(receiptId: number, employeeid: number, printed_at: string): Promise<void> {
           const connection = await this.connection;
-           const extractedDate = new Date(printed_at);
-           if (isNaN(extractedDate.getTime())) {
-                throw new Error('Invalid printed_at date format. Expected a valid date string.');
-           }
+          const extractedDate = new Date(printed_at);
+          if (isNaN(extractedDate.getTime())) {
+               throw new Error('Invalid printed_at date format. Expected a valid date string.');
+          }
           await connection('receipts')
                .where({ id: receiptId })
                .update({ printed: true, printed_at: extractedDate, printed_by: employeeid });

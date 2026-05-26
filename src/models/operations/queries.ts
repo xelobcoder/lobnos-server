@@ -402,6 +402,7 @@ export const q_pending_sample_uncollected: string = `
       b.billingid AS billingid,
       b.billedon AS date,
       b.clientstatus,
+      st.name AS sampletype,
       ts.collectionStartDate,
       ts.id as ascensionid,
       ts.collectionEndDate
@@ -410,8 +411,8 @@ export const q_pending_sample_uncollected: string = `
     INNER JOIN test_ascension AS ts ON ts.billingid = b.billingid
     INNER JOIN test_panels AS tp ON tp.id = ts.testid
     LEFT JOIN departments AS c ON c.id = tp.category
+    LEFT JOIN sampletype AS st ON st.id = tp.sample
     WHERE (ts.collectionEndDate IS NULL OR ts.collectionStartDate IS NULL) AND (c.department IS NOT NULL AND c.department <> 'Ultrasound')
-
     `;
 
 
@@ -434,7 +435,8 @@ export const q_transaction_ascension_phelobotomy_details: string = `
   INNER JOIN test_panels AS p ON t.testid = p.id
   LEFT JOIN samplestatus AS s ON s.ascensionid = t.id
   LEFT  JOIN sampletype AS st ON st.id = p.sample
-  WHERE t.billingid = ? AND (t.collectionStartDate IS NULL OR t.collectionEndDate IS NULL)
+  LEFT JOIN departments AS c ON c.id = p.category
+  WHERE t.billingid = ? AND (t.collectionStartDate IS NULL OR t.collectionEndDate IS NULL) AND c.department <> 'ultrasound'
   `
 
 

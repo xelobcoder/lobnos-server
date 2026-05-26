@@ -6,7 +6,6 @@ import { PatientQuery } from "./queries";
 import { promisifyQuery, customError, convertKeysToLowerCase, rowAffected } from "../../hooks/helper";
 import { OperationsFailures } from "../operations/types";
 import databaseQueries from "../../database/DatabaseQueriesHelper";
-import PartitionManager from "../billing/partitioning";
 import { UpdateCredentialsRequest } from './types';
 import { IPatient } from "./PtInterface";
 import { PrimeLimsTablepatients_credentials } from "../../database/DatabaseTableSchema";
@@ -122,39 +121,7 @@ class Patient extends Registration implements IPatient {
 		return parameters;
 	}
 
-	async getPatientBillingRecords(tenantId: number, details: {
-		patientid: number;
-		count?: number;
-		page?: number;
-		startdate?: string;
-		enddate?: string;
-	}): Promise<any> {
-		const { patientid, count = 10, page = 1, startdate, enddate } = details;
-		if (!patientid || isNaN(patientid)) throw new Error("patientid required");
 
-		let query,
-			values = [];
-
-		if (startdate && enddate) {
-			const startYear = new Date(startdate).getFullYear();
-			const endYear = new Date(enddate).getFullYear();
-			const stMonth = new Date(startdate).getMonth();
-			const edMonth = new Date(enddate).getMonth();
-			let partitions = await new PartitionManager("billing", "billing").TablePartitionPrunner(tenantId, startdate, enddate);
-
-			query = PatientQuery.getPatientBillingRecordsWithPartition;
-			values = [patientid, startYear, endYear, count, (page - 1) * count];
-		} else if (startdate) {
-			const startYear = new Date(startdate).getFullYear();
-			query = PatientQuery.getPatientBillingRecordsStartDate;
-			values = [patientid, startYear, count, (page - 1) * count];
-		} else {
-			query = PatientQuery.getPatientBillingRecords;
-			values = [patientid, count, (page - 1) * count];
-		}
-		const result = await promisifyQuery(tenantId, query, values);
-		return result;
-	}
 
 	async getPatientNotificationSettings(tenantId: number, patientid: number): Promise<PrimeLimsTablepatients_credentials | null> {
 		const notications = await promisifyQuery(tenantId, PatientQuery.getPatientNotificationSettings, [patientid]);

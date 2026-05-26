@@ -18,10 +18,9 @@ const handler_2 = require("../applicationsettings/handler");
 const TransactionManagementController_1 = require("../../models/billing/management/TransactionManagementController");
 const router = (0, express_1.Router)();
 // Billing Routes
-router.post("/api/v1/billing", controllers_1.handleNewBilling);
-// router.post("/api/v1/billing/multi", handleMultiNewBilling);   obsolote now replaced with /api/v1/billing/multi/submit for better flow control and error handling in multi billing process
 router.put('/api/v1/billing/pending/remove/service', (0, helper_1.handleOverLoad)(handler_2.removePendingNonPaidServicesHandler));
 router.get('/api/v1/outstanding/report/combined', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.outstandingReport));
+router.get('/api/v1/outstanding/report/service-category', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(controllers_1.outstandingByServiceCategoryReport));
 router.get("/api/v1/billing/multi/init", (0, helper_1.handleOverLoad)(handler_2.initializeBillingHandler));
 router.post("/api/v1/billing/multi/checkout", (0, helper_1.handleOverLoad)(handler_2.checkoutBillingHandler));
 router.post("/api/v1/billing/multi/submit", (0, helper_1.handleOverLoad)(handler_2.submitBillingHandler));

@@ -29,7 +29,10 @@ exports.q_get_pending_collected_but_unvalidated_samples = `
         INNER JOIN  new_patients as np ON np.patientid = b.patientid
         INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
         INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-        WHERE ss.approvalstatus IS NULL AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL)
+        LEFT JOIN test_panels AS tt ON tt.id = ta.testid
+        LEFT JOIN departments AS dd ON dd.id = tt.category
+        WHERE ss.approvalstatus IS NULL AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL) 
+        AND dd.department <> 'ultrasound'
           
 `;
 exports.q_get_rejected_collected_samples = `

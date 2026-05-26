@@ -34,11 +34,6 @@ export default class ResultAnalysis implements IResultAnalysis {
         return row['caseCount'];
     }
 
-    private async getTestYearCount(tenantId: number, testid: number, year: number): Promise<number> {
-        const defaultYear = year || new Date().getFullYear();
-        const [row] = await promisifyQuery(tenantId, q_test_month_case_count_year, [testid, defaultYear]);
-        return row['caseCount'];
-    }
 
     public async getTestMonthlyCount(tenantId: number, testid: number): Promise<MonthlyCaseData[]> {
         const resultset: MonthlyCaseData[] = [];
