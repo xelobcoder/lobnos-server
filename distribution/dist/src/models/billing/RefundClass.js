@@ -19,6 +19,7 @@ const billing_1 = require("../../../obso/billing");
 const helper_1 = require("../../hooks/helper");
 const services_1 = require("../services/services");
 const PrimeBillingEnterprise_1 = require("./multi/PrimeBillingEnterprise");
+const appset_1 = __importDefault(require("../application/appsettings/appset"));
 class Refund {
     static async initiateRefundofServices(tenantId, employeeid, serviceid, purpose) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_initiate_refund_first_witness, [
@@ -47,7 +48,7 @@ class Refund {
             if (role) {
                 return await this.refundItemProcessed(tenantId, result, user, employeeid, role, 'completed');
             }
-            return "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */;
+            return "You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */;
         }
         return null;
     }
@@ -233,30 +234,42 @@ class Refund {
         const result = await (0, helper_1.promisifyQuery)(tenantId, query, [employeeid, reason, serviceid]);
         return (0, helper_1.rowAffected)(result);
     }
-    static async requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, reason) {
-        if (!serviceid ||
-            !employeeid ||
-            typeof serviceid !== 'number' ||
-            typeof employeeid !== 'number') {
-            return false;
+    static async requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, reason, trx) {
+        try {
+            if (!serviceid ||
+                !employeeid ||
+                typeof serviceid !== 'number' ||
+                typeof employeeid !== 'number') {
+                return false;
+            }
+            const role = await new user_1.default().getUserRole(employeeid, tenantId);
+            if (!role)
+                return false;
+            const withnessStatus = await this.withnessStatus(tenantId, serviceid);
+            const stringifyRole = role.toString().trim();
+            if (withnessStatus == 'allWitnessesAssigned')
+                return "All witnesses assigned for this refund transaction" /* OperationsFailures.allWitnessesAssigned */;
+            if (withnessStatus == "thirdWitness")
+                return " You do not have the permission to be a third witness" /* OperationsFailures.nopermissiontobethirdwitness */;
+            await this.updateWitnessOfRefund(tenantId, {
+                serviceid,
+                employeeid,
+                witnesStatus: withnessStatus,
+                reason,
+            });
+            const applicationsettings = await new appset_1.default()
+                .getAllAppSettings(tenantId);
+            if (!applicationsettings)
+                return "Resource not found." /* OperationsFailures.notFound */;
+            const { allowManagerToRefund } = applicationsettings;
+            if (['admin', 'superadmin'].includes(stringifyRole) || (stringifyRole == 'manager' && parseInt(allowManagerToRefund.toString()) == 1)) {
+                const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [1, new Date(), employeeid, serviceid]);
+                return (0, helper_1.rowAffected)(result);
+            }
         }
-        const role = await new user_1.default(null, null, null, null, null).getUserRole(employeeid, tenantId);
-        if (!role)
-            return false;
-        const withnessStatus = await this.withnessStatus(tenantId, serviceid);
-        if (role !== 'admin' && withnessStatus && withnessStatus === 'allWitnessesAssigned') {
-            return " You do not have the permission to be a third witness" /* OperationsFailures.nopermissiontobethirdwitness */;
+        catch (error) {
+            return error.message;
         }
-        if (role === 'admin') {
-            const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.q_services_refund_status_change_admin_approve, [1, employeeid, serviceid]);
-            return (0, helper_1.rowAffected)(result);
-        }
-        return await this.updateWitnessOfRefund(tenantId, {
-            serviceid,
-            employeeid,
-            witnesStatus: withnessStatus,
-            reason,
-        });
     }
     async isAmountRefundedOut(tenantId, serviceid) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_2.hasAmountRefunded, [serviceid]);
@@ -338,9 +351,11 @@ class Refund {
             return isRefundAmmountExceeded;
         if (isRefundAmmountExceeded == null)
             return "Resource not found." /* OperationsFailures.notFound */;
-        const transactionData = await new billing_1.Billing(null).getTransactionBillData(tenantId, billingid);
+        const transactionData = await new billing_1.Billing(0).getTransactionBillData(tenantId, billingid);
         if (transactionData && Array.isArray(transactionData) && transactionData.length > 0) {
             const refundableAmount = await this.calculateServiceRefundableAmount(tenantId, serviceid);
+            if (!refundableAmount)
+                return "Resource not found." /* OperationsFailures.notFound */;
             if (refundableAmount <= 0) {
                 return {
                     refundableAmount: 0,

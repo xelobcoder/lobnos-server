@@ -75,13 +75,16 @@ class WriteOff {
                     amountIncurredDueTax: 0,
                     isLocked: 1,
                     isRefunded: 1,
+                    outstanding: 0,
                     discount: 0,
+                    paidamount: 0,
+                    paymentstatus: 'refunded'
                 });
                 const updatedService = await trx('dboservices').where({ serviceid: service.serviceid }).first();
                 if (updatedService) {
                     await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(trx, updatedService, employeeid ? employeeid.toString() : undefined);
                 }
-                const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date().toISOString()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
+                const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
                 await trx('dbobillingrefundtable')
                     .where('serviceid', service.serviceid)
                     .update({
@@ -94,9 +97,9 @@ class WriteOff {
                     firstWitness: employeeid,
                     secondWitness: employeeid,
                     thirdWitness: employeeid,
-                    firstWitnessPurpose: comprehensiveMessage,
                     initiatedBy: employeeid,
-                    approvalDate: null,
+                    approvalDate: new Date(),
+                    firstWitnessPurpose: comprehensiveMessage,
                     secondWitnessPurpose: comprehensiveMessage,
                     thirdWitnessPurpose: comprehensiveMessage,
                     firstWitnessDate: new Date(),

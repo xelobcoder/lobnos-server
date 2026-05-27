@@ -532,7 +532,8 @@ exports.testpanel = {
                 const id = await (0, testPanelId_1.generateNextTestPanelId)(trx);
                 const inserted = await trx('test_panels').insert({ id, name: testname, iscustom });
                 const primKey = Array.isArray(inserted) ? inserted[0] : inserted;
-                const panel = await trx("test_panels").select("id", "price", "iscustom").where({ prim_key: primKey }).first();
+                const panel = await trx("test_panels")
+                    .select("id", "price", "iscustom").where({ prim_key: primKey }).first();
                 if (panel === null || panel === void 0 ? void 0 : panel.id) {
                     await (0, appLevelTriggers_1.applyTestPanelsAfterInsert)(trx, {
                         testid: Number(panel.id),

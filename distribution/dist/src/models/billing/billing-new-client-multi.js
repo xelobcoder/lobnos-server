@@ -25,6 +25,7 @@ const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDa
 const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const discount_limit_1 = __importDefault(require("./billing-services/discount-limit"));
+const commission_configurations_1 = require("../commissions/commission-configurations");
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
         var _a, _b, _c, _d;
@@ -64,7 +65,7 @@ class SubmitCustomerBilling {
     async submit() {
         var _a, _b;
         try {
-            const _c = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod, result_delivery } = _c, rest = __rest(_c, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod", "result_delivery"]);
+            const _c = this.payload, { tenantId, patientId, billingid, cart, servicesProvided, paymentDetails, branchid, billingSource, referalCode, promoCode, nhismembershipid, claimscheckcode, isPromo, writeOffOutstanding, isPackageUsed, packageid, amountPayable, employeeid, samplingCenter, billeddate, isAdjustment, adjustmentdate, adjustmentType, organizationId, clinicianId, adjustmentReason, payments, status, entitytype, entityId, isPayAll, entityid, isConditionsUnderstood, hasNightAdjustment, promoMethod, result_delivery } = _c, rest = __rest(_c, ["tenantId", "patientId", "billingid", "cart", "servicesProvided", "paymentDetails", "branchid", "billingSource", "referalCode", "promoCode", "nhismembershipid", "claimscheckcode", "isPromo", "writeOffOutstanding", "isPackageUsed", "packageid", "amountPayable", "employeeid", "samplingCenter", "billeddate", "isAdjustment", "adjustmentdate", "adjustmentType", "organizationId", "clinicianId", "adjustmentReason", "payments", "status", "entitytype", "entityId", "isPayAll", "entityid", "isConditionsUnderstood", "hasNightAdjustment", "promoMethod", "result_delivery"]);
             const checkoutResult = await customerBillingCheckout_1.CustomerBillingCheckout.checkoutCustomerBilling({
                 patientId,
                 billingid,
@@ -184,7 +185,6 @@ class SubmitCustomerBilling {
                 const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
                 const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
                 const role = new user_1.default().getUserRole(employeeid, tenantId);
-                console.log(role);
                 if (role && typeof role == 'string' && role != 'admin') {
                     await discount_limit_1.default.enforceAndRecord({
                         tenantId: this.tenantId,
@@ -208,7 +208,7 @@ class SubmitCustomerBilling {
                     throw new Error("No billable services/tests found.");
                 }
                 const Multi = new billing_shared_1.BillingSharedRepo();
-                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, trx);
+                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, billeddate ? billeddate : new Date(), trx);
                 if (loadAllServices.length > 0) {
                     const firstErr = loadAllServices[0];
                     const messageFromErr = typeof firstErr === "string"
@@ -377,7 +377,8 @@ class SubmitCustomerBilling {
                 const finalBillingId = hasRelatedBilling && adjustmentType == "addition" ? parseInt(this.payload.billingid) : billingID;
                 finalBillingIdForEvent = finalBillingId;
                 const result = await trx("billing")
-                    .update(finalUpdateData).where({ billingid: finalBillingId });
+                    .update(Object.assign(Object.assign({}, finalUpdateData), { billedon: billeddate ? billeddate : new Date() }))
+                    .where({ billingid: finalBillingId });
                 if (!result)
                     throw new Error("unable to update billing record");
                 if (data.isPromo && data.promoCode && data.promoDetails.id) {
@@ -396,6 +397,9 @@ class SubmitCustomerBilling {
                         await billing_shared_1.BillingSharedRepo.insertBillHistory(this.tenantId, trx, billingID, paymentMode, paymentAmount, employeeId, "credit");
                     }
                 }
+                if ([2, 4, 6].includes(billingSource)) {
+                    await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
+                }
                 await trx.commit();
             }
             catch (error) {
@@ -412,6 +416,78 @@ class SubmitCustomerBilling {
         }
         catch (error) {
             return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
+        }
+    }
+    /**
+     * Trigger commission calculation for all services in a billing
+     * Called after successful billing submission to calculate and store commissions
+     */
+    static async triggerCommissionCalculation(tenantId, billingId, trx) {
+        try {
+            const connection = await trx ? trx : (0, KnexConnections_1.default)(tenantId);
+            // Get all services for this billing
+            const services = await connection('dboservices')
+                .where({ billingid: billingId })
+                .select('serviceid', 'paidamount', 'clinicianId', 'organizationId', 'serviceCategory');
+            if (!services || services.length === 0) {
+                commission_configurations_1.CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
+                return;
+            }
+            // Create commission engine
+            const engine = commission_configurations_1.CommissionServiceFactory.createEngine(tenantId);
+            // Calculate commission for each service
+            for (const service of services) {
+                try {
+                    const result = await engine.executeCommissionCalculation({
+                        service_id: service.serviceid,
+                        service_amount: service.paidamount || 0,
+                        clinician_id: service.clinicianId || null,
+                        organization_id: service.organizationId || null,
+                        service_category: service.serviceCategory || '',
+                        completion_date: service.created_at || new Date(),
+                    });
+                    if (result.reason === 'SUCCESS') {
+                        commission_configurations_1.CommissionLogger.info('Commission calculated successfully', {
+                            service_id: service.serviceid,
+                            tracking_id: result.tracking_id,
+                            amount: result.final_commission,
+                        });
+                    }
+                    else if (result.reason === 'NO_CONFIG') {
+                        commission_configurations_1.CommissionLogger.warn('No commission configuration found for service', {
+                            service_id: service.serviceid,
+                            clinician_id: service.clinicianId,
+                            organization_id: service.organizationId,
+                            service_category: service.serviceCategory,
+                        });
+                    }
+                    else {
+                        commission_configurations_1.CommissionLogger.error('Commission calculation failed', {
+                            service_id: service.serviceid,
+                            reason: result.reason,
+                            error: result.error,
+                        });
+                    }
+                }
+                catch (error) {
+                    commission_configurations_1.CommissionLogger.error('Error calculating commission for service', {
+                        service_id: service.serviceid,
+                        error: error.message,
+                    });
+                }
+            }
+            commission_configurations_1.CommissionLogger.info('Commission calculation completed for billing', {
+                billingid: billingId,
+                service_count: services.length,
+            });
+        }
+        catch (error) {
+            commission_configurations_1.CommissionLogger.error('Failed to trigger commission calculation', {
+                billingid: billingId,
+                error: error.message,
+            });
+            trx ? await trx.rollback() : null;
+            throw error;
         }
     }
     static async validateBillingRequestBody(billingData, tenantId) {

@@ -25,7 +25,7 @@ class TestApprovalClass extends operations_1.default {
             const isMinimumApprovalReached = await resultSettings_1.default.isApprovalLimitReached(tenantId, minListUnverified, ascensionid, 'minimum');
             const _approvalState = isMinimumApprovalReached == true ? 1 : 0;
             if (!canStaffApproveResult)
-                return "You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */;
+                return "You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */;
             if (isMaximumApprovalReached)
                 return "Maximun result validation reached" /* OperationsFailures.maximumResultValidation */;
             if (Array.isArray(approvedDetails) && approvedDetails.length == 0) {

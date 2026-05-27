@@ -612,14 +612,12 @@ export default class Creator {
 			const record = await connection.raw(`SELECT * FROM resultentrydrugsreaction WHERE ascensionid = ? AND testid = ? AND drugid = ? `, [ascensionid, testid, drugid]);
 			const hasRecord = Array.isArray(record[0]) ? record[0].length > 0 : false;
 			if (hasRecord) {
-				// If a record exists, we can update it
 				const updateResult = await connection.raw(`UPDATE resultentrydrugsreaction SET reaction = ? WHERE ascensionid = ? AND testid = ? AND drugid = ?`, [sensitivity, ascensionid, testid, drugid]);
 				return rowAffected(updateResult[0]);
 			} else {
 				const insertResult = await connection.raw(`INSERT INTO resultentrydrugsreaction (drugid, reaction, ascensionid, testid) VALUES (?, ?, ?, ?)`, [drugid, sensitivity, ascensionid, testid]);
 				return rowAffected(insertResult[0]);
 			}
-
 		} catch (error) {
 			console.error('Error inserting drug reaction:', error);
 			return false;

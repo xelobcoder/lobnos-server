@@ -52,6 +52,7 @@ const route_19 = __importDefault(require("./controllers/crm/leads/route"));
 const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
 const routes_8 = __importDefault(require("./controllers/payroll/routes"));
 const routes_9 = __importDefault(require("./controllers/billing/FreeServices/routes"));
+const routes_10 = __importDefault(require("./models/commissions/commission-configurations/controllers/routes"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 app.use((0, cors_1.default)({
@@ -62,8 +63,8 @@ app.use((0, cors_1.default)({
     preflightContinue: false
 }));
 app.use(express_1.default.static("public"));
-app.use(express_1.default.json());
-app.use(express_1.default.urlencoded({ extended: true }));
+app.use(express_1.default.json({ limit: '50mb' }));
+app.use(express_1.default.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger_1.default);
 app.use(validateTenancy_1.ValidateTenancyAgreement);
 // app.use(checkTokenExists)
@@ -114,10 +115,16 @@ app.use('/api/v1/leads', route_19.default);
 app.use('/api/v1/followups', followups_route_1.default);
 app.use('/api/v1/payroll', routes_8.default);
 app.use('/api/v1/billing/free-services', routes_9.default);
+app.use('/api/v1/commission', routes_10.default);
 app.get("/", (req, res) => {
-    res.status(200).json({ message: "success" });
+    res.status(200)
+        .json({
+        message: "success",
+        status: "Healthy"
+    });
 });
 const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
-app.listen(Number(port), host, (err) => {
-    console.log(`Server is running at http://${host}:${port}`);
+const os_1 = __importDefault(require("os"));
+app.listen(Number(port), os_1.default.hostname(), (err) => {
+    console.log(`Server is running at http://${os_1.default.hostname()}:${port}`);
 });

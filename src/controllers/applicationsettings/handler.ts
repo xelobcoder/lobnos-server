@@ -13,6 +13,7 @@ import { CustomerBillingInit } from "../../models/billing/multi/initCustomerBill
 import { EntityType } from "../../models/billing/multi/billing_shared_types";
 import { SubmitCustomerBilling } from "../../models/billing/billing-new-client-multi";
 import { CustomerBillingCheckout } from "../../models/billing/multi/customerBillingCheckout";
+import moment from "moment";
 
 
 
@@ -324,7 +325,7 @@ export const getCategoryColumns = async (request: Request<{}, {}, {}, {
 
 			let columns = await TiifuWorkingClass.getTableColumns(tenantIdP, tableName);
 			if (columns.length > 0) {
-				columns = columns.map((item:any) => ({
+				columns = columns.map((item: any) => ({
 					value: item.Field,
 					field: item.Field.replace(/[^\w\s]|_/g, ' ')
 				}));
@@ -529,6 +530,10 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			nhismembershipid,
 			claimscheckcode
 		} = req.body;
+
+		if (billeddate && (billeddate > new Date())) {
+			return customError(OperationsFailures.invalidRequestBodyType, 404, res)
+		}
 
 		const result = await new SubmitCustomerBilling({
 			tenantId,

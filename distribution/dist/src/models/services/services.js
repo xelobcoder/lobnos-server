@@ -101,6 +101,25 @@ class Services {
         }
         return false;
     }
+    static getAllServicesRefered(tenantId, type, id) {
+        const query = type === "clinician"
+            ? `
+                SELECT s.*, c.name AS clinician_name, org.name AS organization_name
+                FROM dboservices s
+                LEFT JOIN clinicianbasicinfo c ON s.clinicianId = c.id
+                LEFT JOIN organization org ON s.organizationId = org.id
+                LEFT JOIN dbobillingrefundtable r ON s.serviceid = r.serviceid
+                WHERE s.clinicianId = ?
+            `
+            : `
+                SELECT s.*, c.name AS clinician_name, org.name AS organization_name
+                FROM dboservices s
+                JOIN clinicianbasicinfo c ON s.clinicianId = c.id
+                JOIN organization org ON s.organizationId = org.id
+                WHERE s.organizationId = ?
+            `;
+        return (0, helper_1.promisifyQuery)(tenantId, query, [id]);
+    }
 }
 exports.Services = Services;
 exports.default = Services;

@@ -3,10 +3,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDiscountDailyUsage = exports.upsertDiscountLimitRule = exports.listDiscountLimitRules = exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleMultiUpdateBilling = exports.outstandingReport = exports.handleNewBilling = void 0;
+exports.getDiscountDailyUsage = exports.upsertDiscountLimitRule = exports.listDiscountLimitRules = exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleMultiUpdateBilling = exports.outstandingByServiceCategoryReport = exports.outstandingReport = void 0;
 const helper_1 = require("../../hooks/helper");
 const billing_1 = require("../../../obso/billing");
-const billingclientTypes_1 = require("../../models/billing/billingclientTypes");
 const RefundClass_1 = require("../../models/billing/RefundClass");
 const trycatch_1 = require("../../models/generics/trycatch");
 const logger_1 = __importDefault(require("../../hooks/logger"));
@@ -14,27 +13,7 @@ const billing_update_1 = require("../../models/billing/billing_update");
 const WriteOff_1 = require("../../models/billing/WriteOff");
 const PrimeBillingEnterprise_1 = require("../../models/billing/multi/PrimeBillingEnterprise");
 const outstanding_class_1 = __importDefault(require("../../models/billing/outstanding/outstanding_class"));
-const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
-async function handleNewBilling(request, response) {
-    async function validate() {
-        const { patientid } = request.body;
-        const { tenantId } = request.query;
-        const tenantIdP = parseInt(tenantId.toString());
-        let bill = await new billing_1.Billing(patientid).BillNewTransaction(tenantIdP, request.body);
-        if (typeof bill == "string" && bill == billingclientTypes_1.billErrors.already) {
-            return response.send({ message: bill, statusCode: 200, status: "success" });
-        }
-        else if (bill && typeof bill == "number") {
-            return response.send({ message: "billing successfully", statusCode: 200, status: "success", billingid: bill });
-        }
-        else {
-            return (0, helper_1.customError)(bill || billingclientTypes_1.billErrors.error, 400, response);
-        }
-    }
-    (0, trycatch_1.wrapperTryCatch)(validate, (err) => console.log(err));
-}
-exports.handleNewBilling = handleNewBilling;
 async function outstandingReport(request, response) {
     try {
         const { tenantId } = request.query;
@@ -49,6 +28,22 @@ async function outstandingReport(request, response) {
     }
 }
 exports.outstandingReport = outstandingReport;
+async function outstandingByServiceCategoryReport(request, response) {
+    try {
+        const { tenantId, startdate, enddate, serviceCategory, organizationId } = request.query;
+        if (!serviceCategory) {
+            return (0, helper_1.customError)("Service category is required", 400, response);
+        }
+        const tenantIdP = parseInt(tenantId.toString(), 10);
+        const result = await new outstanding_class_1.default(tenantIdP).getOutstandingBySpecificServiceCategory(startdate, enddate, serviceCategory, organizationId);
+        response.send({ result });
+    }
+    catch (err) {
+        console.log(err);
+        (0, helper_1.responseError)(response);
+    }
+}
+exports.outstandingByServiceCategoryReport = outstandingByServiceCategoryReport;
 async function handleMultiUpdateBilling(request, response) {
     async function validate() {
         if (!request.body || !request.body.patientid) {
@@ -115,17 +110,10 @@ async function requestForRefundHandler(request, response) {
         const { categoryTrackId, billingid, serviceid, employeeid, taxIncluded, refundMessage, trackId } = request.body;
         const isValidRequestBody = categoryTrackId && !isNaN(categoryTrackId)
             && billingid && !isNaN(billingid) && employeeid && !isNaN(employeeid) && [1, 0].includes(taxIncluded) && refundMessage && refundMessage.toString().length > 3;
+        const tenantId = parseInt(request.query.tenantId.toString(), 10);
         if (isValidRequestBody) {
-            const tenantId = parseInt(request.query.tenantId.toString(), 10);
-            const result = await RefundClass_1.Refund.initiateRefundofServices(tenantId, employeeid, serviceid, refundMessage);
-            response.send({ status: result });
-            const role = new user_1.default(null, null, null, null, null);
-            const userRole = await role.getUserRole(employeeid, tenantId);
-            if (['manager', 'admin', 'superadmin'].includes(userRole || '')) {
-                const request = await RefundClass_1.Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
-                response.send({ status: request });
-            }
-            return result;
+            const request = await RefundClass_1.Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
+            response.send({ status: request });
         }
         else {
             return (0, helper_1.customError)("Invalid response body parameters." /* OperationsFailures.invalidResponseBodyParams */, 404, response);
@@ -160,7 +148,7 @@ async function updateBilledTransaction(request, response) {
 }
 exports.updateBilledTransaction = updateBilledTransaction;
 async function getAlRefundsPaginationHandler(request, response) {
-    const { page = 10, count = 1, status, employeeid, orderDirection } = request.query;
+    const { page = 10, count = 1, status, employeeid, sortby } = request.query;
     const parsedPage = parseInt(page.toString());
     const parsedCount = parseInt(count.toString());
     if (!status || !["pending", "completed"].includes(status)) {
@@ -168,7 +156,7 @@ async function getAlRefundsPaginationHandler(request, response) {
     }
     try {
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
-        const result = await RefundClass_1.Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, orderDirection, employeeid);
+        const result = await RefundClass_1.Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, sortby, employeeid);
         response.send({ result });
     }
     catch (err) {

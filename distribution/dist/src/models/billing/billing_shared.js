@@ -511,7 +511,7 @@ class BillingSharedRepo {
             };
         }));
     }
-    async mapAndInsertServices(tenantId, allEntries, billingid, patientId, result_delivery, trx) {
+    async mapAndInsertServices(tenantId, allEntries, billingid, patientId, result_delivery, billeddate, trx) {
         try {
             const servicesMap = allEntries.map((service) => {
                 return [
@@ -553,6 +553,7 @@ class BillingSharedRepo {
                     service.relatedbillingid ? service.relatedbillingid : null,
                     service.userAdjustedValue ? service.userAdjustedValue : 0,
                     service.userAdjustmentType ? service.userAdjustmentType : null,
+                    billeddate
                 ];
             });
             const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, patientId, result_delivery, trx);
@@ -568,7 +569,7 @@ class BillingSharedRepo {
         const queryRunner = trx || await (0, KnexConnections_1.default)(tenantId);
         for (const item of services) {
             try {
-                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType] = item;
+                const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment, nightAdjustmentMode, nightAdjustmentValue, isPackageUsed, packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType, billeddate] = item;
                 const actualDiscount = userAdjustmentType === "discount" ? userAdjustedValue : 0;
                 const outcome = await queryRunner("dboservices").insert({
                     billingid,
@@ -583,7 +584,7 @@ class BillingSharedRepo {
                     branchid,
                     isoutsourced,
                     outsourceid,
-                    serviceAddedOn,
+                    serviceAddedOn: billeddate ? billeddate : serviceAddedOn,
                     taxList,
                     taxValue,
                     amountIncurredDueTax,

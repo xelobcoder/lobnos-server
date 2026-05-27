@@ -138,7 +138,7 @@ export default class Operations {
 	public static async getAscensionOverViewModel(tenantid: number, date: string | null | undefined, filters?: { billingid?: number; patientid?: number }): Promise<any> {
 		try {
 			const params: any[] = [];
-			let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0`;
+			let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status IS NOT IN ('voided','refunded')`;
 
 			if (date && date !== "all") {
 				whereConditions += ` AND DATE(b.billedon) = DATE(?)`;
@@ -212,6 +212,8 @@ export default class Operations {
 
 						LEFT JOIN dbobillingrefundtable rf
 						ON rf.serviceid = ta.serviceid
+
+						LEFT JOIN dboservices AS dbo ON dbo.serviceid = ta.serviceid
 
 						${whereConditions}
 

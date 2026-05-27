@@ -18,7 +18,7 @@ const getAscensionApprovalDetailsHandler = async (req, res) => {
         const tId = parseInt(tenantId.toString());
         const canStaffApproveResult = await resultSettings_1.default.canStaffApproveResult(tId, employeeId);
         if (!canStaffApproveResult) {
-            (0, helper_1.customError)("You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */ + ' .You do not have permission to approve test', 404, res);
+            (0, helper_1.customError)("You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */ + ' .You do not have permission to approve test', 404, res);
         }
         else {
             const approvalDetails = await new testApprovalClass_1.TestApprovalClass(ascensionId).getAscensionAprovedListDetails(tId);

@@ -462,6 +462,9 @@ const submitBillingHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
         const { amountPayable, cart, servicesProvided, billingSource, paid, status, isConditionsUnderstood, patientid, employeeid, isPackageUsed, hasNightAdjustment, samplingCenter, payments, isPromo, isPayAll, promoMethod, patientId, billingid, paymentDetails, branchid, result_delivery, referalCode, promoCode, clinicianId, organizationId, packageid, billeddate, servicesList, entitytype, entityId, additionalinformation, isAdjustment, writeOffOutstanding, adjustmentType, adjustmentReason, nhismembershipid, claimscheckcode } = req.body;
+        if (billeddate && (billeddate > new Date())) {
+            return (0, helper_1.customError)("The type of request body is invalid" /* OperationsFailures.invalidRequestBodyType */, 404, res);
+        }
         const result = await new billing_new_client_multi_1.SubmitCustomerBilling({
             tenantId,
             amountPayable,

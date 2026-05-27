@@ -92,7 +92,7 @@ class ClinicianClass {
                     if (insertId !== 0 && insertId !== undefined) {
                         const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
                         const identifier = (row === null || row === void 0 ? void 0 : row.identifier) ? String(row.identifier) : "";
-                        await (0, appLevelTriggers_1.applyClinicianAfterInsert)(trx, { clinicianid: Number(insertId), identifier });
+                        await (0, appLevelTriggers_1.applyClinicianAfterInsert)(tenantId, trx, { clinicianid: Number(insertId), identifier });
                         await trx.commit();
                         results.push(insertId);
                     }
@@ -137,7 +137,7 @@ class ClinicianClass {
         let baseQuery = "SELECT * FROM clinicianbasicinfo" + whereClause;
         // Add payment info for admin users
         if (role && role.toString().trim() === "admin") {
-            baseQuery = `SELECT cbi.*, cpi.* FROM clinicianbasicinfo AS cbi
+            baseQuery = `SELECT cbi.*, cbi.id as clinicianid,cpi.id as clinicianpaymentid, cpi.* FROM clinicianbasicinfo AS cbi
 				LEFT JOIN clinicianpaymentinfo AS cpi ON cbi.id = cpi.clinicianid${whereClause}`;
         }
         // Execute query with pagination
@@ -226,7 +226,7 @@ class ClinicianClass {
             if (insertId !== 0 && insertId !== undefined) {
                 const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
                 const identifier = (row === null || row === void 0 ? void 0 : row.identifier) ? String(row.identifier) : "";
-                await (0, appLevelTriggers_1.applyClinicianAfterInsert)(trx, { clinicianid: Number(insertId), identifier });
+                await (0, appLevelTriggers_1.applyClinicianAfterInsert)(tenantIdP, trx, { clinicianid: Number(insertId), identifier });
                 const random = require("crypto").randomBytes(5).toString("hex");
                 const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
                 await trx.raw(tempCredentials, [random]);

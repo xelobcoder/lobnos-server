@@ -180,10 +180,10 @@ class PrimeBillingEnterprise {
             }
             let adjustedValue = discountedBase;
             if (nightAdjustmentMode === "percentage") {
-                adjustedValue = Number((discountedBase + (discountedBase * Number(nightAdjustmentValue) / 100)).toFixed(2));
+                adjustedValue = Number((discountedBase ? discountedBase : 0 + (discountedBase ? discountedBase : 0 * Number(nightAdjustmentValue) / 100)).toFixed(2));
             }
             else if (nightAdjustmentMode === "absolute") {
-                adjustedValue = Number((discountedBase + Number(nightAdjustmentValue)).toFixed(2));
+                adjustedValue = Number((discountedBase ? discountedBase : 0 + Number(nightAdjustmentValue)).toFixed(2));
             }
             return Object.assign(Object.assign({}, test), { discountedValue: adjustedValue, isNightTime: true, totalpayable: adjustedValue, totalcost: adjustedValue });
         });
@@ -225,7 +225,7 @@ class PrimeBillingEnterprise {
         return tests.map(test => {
             const preDiscountValue = Number(test.discountedValue);
             const parsedTaxValue = Number(taxValue);
-            const taxAmount = parseFloat(((preDiscountValue * parsedTaxValue)).toFixed(2));
+            const taxAmount = parseFloat(((preDiscountValue * (parsedTaxValue / 100))).toFixed(2));
             const totalcost = Number((preDiscountValue + taxAmount).toFixed(2));
             return Object.assign(Object.assign({}, test), { amountIncurredDueTax: taxAmount, totalcost, totalpayable: totalcost, discountedValue: test.discountedValue });
         });

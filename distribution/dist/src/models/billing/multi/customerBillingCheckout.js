@@ -393,11 +393,10 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                     serviceCategory: billingclientTypes_1.serviceCategory[billingSource],
                     clinicianId: billingSource === 6 ? entity_id : null,
                     organizationId: billingSource === 2 ? entity_id : null,
-                    categoryTrackId: entity_id,
+                    categoryTrackId: billingSource,
                     isNHIS: billingSource === 4 ? 1 : 0,
                     isPHIS: billingSource === 3 ? 1 : 0,
                     insuranceid: billingSource === 4 || billingSource === 3 ? entity_id : null,
-                    isLocked: 1,
                     isCorrected: 1,
                 });
                 const updatedService = await transaction('dboservices').where({ serviceid: service.serviceid }).first();

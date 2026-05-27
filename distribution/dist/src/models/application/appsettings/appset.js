@@ -106,14 +106,16 @@ class ApplicationSettings {
     }
     async updateApplicationSettings(tenantId, data) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation } = data;
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, show_watermark, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation, allowManagerToApproveExpenses, allowManagerToRefund, allowManagerToProcessPayroll, allowManagerToProcessCommission, isCommissionEarnedOnClinicianBilling, isCommissionEarnedOnOrganizationalBilling, isCommissionEarnedOnNHISBilling, isCommissionEarnedOnPHISBilling } = data;
         try {
             const result = await connection.transaction(async (trx) => {
+                var _b;
                 const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
                 const record = {
                     bulkregistration,
                     fontsize,
                     textcolor,
+                    show_watermark: (_b = show_watermark !== null && show_watermark !== void 0 ? show_watermark : existing === null || existing === void 0 ? void 0 : existing.show_watermark) !== null && _b !== void 0 ? _b : 0,
                     BackgroundColor,
                     DeactivateBilling24hrs,
                     PaidBillsBeforeTransaction,
@@ -145,6 +147,14 @@ class ApplicationSettings {
                     pinOnResultEntry: pinOnResultEntry !== null && pinOnResultEntry !== void 0 ? pinOnResultEntry : 0,
                     pinOnResultValidation: pinOnResultValidation !== null && pinOnResultValidation !== void 0 ? pinOnResultValidation : 0,
                     allowScientistToRegisterClient: allowScientistToRegisterClient !== null && allowScientistToRegisterClient !== void 0 ? allowScientistToRegisterClient : 0,
+                    allowManagerToApproveExpenses: allowManagerToApproveExpenses !== null && allowManagerToApproveExpenses !== void 0 ? allowManagerToApproveExpenses : 0,
+                    allowManagerToRefund: allowManagerToRefund !== null && allowManagerToRefund !== void 0 ? allowManagerToRefund : 0,
+                    allowManagerToProcessPayroll: allowManagerToProcessPayroll !== null && allowManagerToProcessPayroll !== void 0 ? allowManagerToProcessPayroll : 0,
+                    allowManagerToProcessCommission: allowManagerToProcessCommission !== null && allowManagerToProcessCommission !== void 0 ? allowManagerToProcessCommission : 0,
+                    isCommissionEarnedOnClinicianBilling: isCommissionEarnedOnClinicianBilling !== null && isCommissionEarnedOnClinicianBilling !== void 0 ? isCommissionEarnedOnClinicianBilling : 0,
+                    isCommissionEarnedOnOrganizationalBilling: isCommissionEarnedOnOrganizationalBilling !== null && isCommissionEarnedOnOrganizationalBilling !== void 0 ? isCommissionEarnedOnOrganizationalBilling : 0,
+                    isCommissionEarnedOnNHISBilling: isCommissionEarnedOnNHISBilling !== null && isCommissionEarnedOnNHISBilling !== void 0 ? isCommissionEarnedOnNHISBilling : 0,
+                    isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling !== null && isCommissionEarnedOnPHISBilling !== void 0 ? isCommissionEarnedOnPHISBilling : 0
                 };
                 let affectedRows = 0;
                 if (existing) {
@@ -216,7 +226,7 @@ class ApplicationSettings {
     async isApprovalSetTrue(tenantId) {
         const result = await this.getAllAppSettings(tenantId);
         if (result) {
-            const approval_status = result[0]["approvalbeforeprinting"];
+            const approval_status = result.approvalbeforeprinting;
             return !(parseInt(approval_status) === 0);
         }
         return false;

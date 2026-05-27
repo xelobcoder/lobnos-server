@@ -6,10 +6,10 @@ exports.all_outstanding = `
 SELECT 
     SUM(outstanding) AS total_outstanding
 FROM dboservices
-WHERE status = 'active'
-  AND isDeleted IS NULL
+WHERE status IN('active','refunded')
+  AND (isDeleted = 0 OR isDeleted IS NULL)
   AND outstanding > 0
-  AND serviceAddedOn BETWEEN ? AND ?;
+  AND DATE(serviceAddedOn) BETWEEN ? AND ?;
 `;
 // 🔹 2. OUTSTANDING BY PATIENT
 exports.outstanding_by_patient = `
@@ -21,13 +21,12 @@ SELECT
     SUM(s.paidamount) AS total_paid,
     SUM(s.outstanding) AS total_outstanding
 FROM dboservices s
-JOIN billing b ON b.billingid = s.billingid
+LEFT JOIN billing b ON b.billingid = s.billingid
 LEFT JOIN new_patients p ON p.patientid = b.patientid
-WHERE s.status = 'active'
-  AND s.isDeleted IS NULL
+WHERE s.status IN('active','refunded')
+  AND (s.isDeleted = 0 OR s.isDeleted IS NULL)
   AND s.outstanding > 0
-  AND DATE(s.serviceAddedOn) BETWEEN ? AND ?
-GROUP BY b.patientid
+  AND DATE(s.serviceAddedOn) BETWEEN ? AND ?  GROUP BY b.patientid
 ORDER BY total_outstanding DESC;
 `;
 // 🔹 3. OUTSTANDING BY BILL / TRANSACTION
@@ -42,8 +41,8 @@ SELECT
     SUM(s.outstanding) AS total_outstanding
 FROM dboservices s
 JOIN billing b ON b.billingid = s.billingid
-WHERE s.status = 'active'
-  AND s.isDeleted IS NULL
+WHERE s.status IN('active','refunded')
+  AND (s.isDeleted = 0 OR s.isDeleted IS NULL)
   AND DATE(s.serviceAddedOn) BETWEEN ? AND ?
 GROUP BY s.billingid
 HAVING total_outstanding > 0
@@ -58,9 +57,9 @@ SELECT
     SUM(paidamount) AS total_paid,
     SUM(outstanding) AS total_outstanding
 FROM dboservices
-WHERE status = 'active'
-  AND isDeleted IS NULL
-  AND serviceAddedOn BETWEEN ? AND ?
+WHERE status IN('active','refunded')
+  AND (isDeleted = 0 OR isDeleted IS NULL)
+  AND DATE(serviceAddedOn) BETWEEN ? AND ?
 GROUP BY serviceCategory
 ORDER BY total_outstanding DESC;
 `;
@@ -75,9 +74,9 @@ SELECT
     SUM(outstanding) AS total_outstanding
 FROM dboservices
 LEFT JOIN branch ON dboservices.branchid = branch.branchid
-WHERE status = 'active'
-  AND isDeleted IS NULL
-  AND serviceAddedOn BETWEEN ? AND ?
+WHERE status IN('active','refunded')
+  AND (isDeleted = 0 OR isDeleted IS NULL)
+  AND DATE(serviceAddedOn) BETWEEN ? AND ?
 GROUP BY branchid
 ORDER BY total_outstanding DESC;
 `;
@@ -93,9 +92,9 @@ SELECT
 FROM dboservices
 LEFT JOIN organization ON dboservices.organizationId = organization.id
 WHERE organizationId IS NOT NULL
-  AND status = 'active'
-  AND isDeleted IS NULL
-  AND serviceAddedOn BETWEEN ? AND ?
+  AND status IN('active','refunded')
+  AND (isDeleted = 0 OR isDeleted IS NULL)
+  AND DATE(serviceAddedOn) BETWEEN ? AND ?
 GROUP BY organizationId
 ORDER BY total_outstanding DESC;
 `;
@@ -111,10 +110,10 @@ SELECT
     COUNT(*) AS services,
     SUM(outstanding) AS total_outstanding
 FROM dboservices
-WHERE status = 'active'
-  AND isDeleted IS NULL
+WHERE status IN('active','refunded')
+  AND (isDeleted = 0 OR isDeleted IS NULL)
   AND outstanding > 0
-  AND serviceAddedOn BETWEEN ? AND ?
+  AND DATE(serviceAddedOn) BETWEEN ? AND ?
 GROUP BY aging_bucket
 ORDER BY aging_bucket;
 `;
@@ -128,6 +127,7 @@ SELECT
 FROM billing b
 JOIN dboservices s ON s.billingid = b.billingid
 WHERE b.outstanding > 0
+  AND (s.isDeleted = 0 OR s.isDeleted IS NULL)
   AND DATE(s.serviceAddedOn) BETWEEN ? AND ?
 GROUP BY b.billingid
 HAVING difference != 0;
@@ -140,8 +140,8 @@ SELECT
 FROM dboservices s
 JOIN billing b ON b.billingid = s.billingid
 LEFT JOIN new_patients p ON p.patientid = b.patientid
-WHERE s.status = 'active'
-  AND s.isDeleted IS NULL
+WHERE s.status IN('active','refunded')
+  AND (s.isDeleted = 0 OR s.isDeleted IS NULL)
   AND DATE(s.serviceAddedOn) BETWEEN ? AND ?
 GROUP BY b.patientid
 ORDER BY total_outstanding DESC

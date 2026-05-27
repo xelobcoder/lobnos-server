@@ -61,7 +61,8 @@ exports.q_get_rejected_collected_samples = `
         WHERE ss.approvalstatus = 0 AND ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL
           GROUP BY ta.serviceid ORDER BY ta.serviceid ASC  LIMIT ? OFFSET ?
 `;
-exports.insert_critical_value_alert = "INSERT INTO loggingcriticalvaluealert(billingid, testid, statement, createdBy) VALUES (?,?,?,?)";
+exports.insert_critical_value_alert = `
+INSERT INTO loggingcriticalvaluealert (billingid, testid, statement, createdBy) VALUES (?,?,?,?)`;
 exports.get_all_unseen_track = `SELECT
  lc.statement,
  b.billingid,

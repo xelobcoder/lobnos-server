@@ -24,14 +24,14 @@ class IncidentModel {
             severity: request.severity,
             status: 'reported',
             reported_by: employeeId,
-            reported_at: new Date().toISOString(),
+            reported_at: new Date(),
             affected_parties: request.affectedParties,
             location: request.location,
             immediate_actions: request.immediateActions,
             regulatory_reporting: this.shouldTriggerRegulatoryReporting(request.type, request.severity),
             escalated_to: escalatedTo ? JSON.stringify(escalatedTo) : null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            created_at: new Date(),
+            updated_at: new Date()
         };
         await connection('incidents').insert(incidentData);
         const incident = {
@@ -42,14 +42,14 @@ class IncidentModel {
             severity: incidentData.severity,
             status: 'reported',
             employeeId: incidentData.reported_by,
-            reportedAt: incidentData.reported_at,
+            reportedAt: new Date(incidentData.reported_at),
             affectedParties: incidentData.affected_parties,
             location: incidentData.location,
             immediateActions: incidentData.immediate_actions,
             regulatoryReporting: incidentData.regulatory_reporting,
             escalatedTo: escalatedTo,
-            createdAt: incidentData.created_at,
-            updatedAt: incidentData.updated_at
+            createdAt: new Date(incidentData.created_at),
+            updatedAt: new Date(incidentData.updated_at)
         };
         try {
             await this.logAuditTrail({
@@ -185,10 +185,10 @@ class IncidentModel {
                 throw new Error(`Invalid status transition from ${currentIncident.status} to ${updates.status}`);
             }
             if (['resolved', 'closed'].includes(updates.status)) {
-                updates.resolutionDate = new Date().toISOString().split('T')[0];
+                updates.resolutionDate = new Date();
             }
         }
-        updates.updatedAt = new Date().toISOString();
+        updates.updatedAt = new Date();
         const dbUpdateData = {};
         if (updates.status !== undefined)
             dbUpdateData.status = updates.status;
@@ -280,13 +280,13 @@ class IncidentModel {
         const auditEntry = {
             id: `AUDIT-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             incident_id: params.incidentId,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(),
             action: params.action,
             employeeId: params.employeeId,
             oldValue: params.oldValue,
             newValue: params.newValue,
             details: params.details,
-            created_at: new Date().toISOString()
+            created_at: new Date()
         };
         await connection('incident_audit_trail').insert(auditEntry);
     }

@@ -22,8 +22,14 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.applyTestPanelsAfterInsert = exports.applyClinicianAfterDelete = exports.applyClinicianAfterInsert = exports.applyOrganizationAfterInsert = exports.applyTestAscensionAfterInsertApprovalSettings = exports.applyDboservicesAfterDelete = exports.applyDboservicesAfterUpdate = exports.applyDboservicesAfterInsert = exports.insertDboservicesAudit = exports.applyNewPatientAfterDelete = exports.applyNewPatientAfterInsert = void 0;
+const CommissionDefaultsRepository_1 = require("../models/commissions/CommissionDefaultsRepository");
+const outsourcedCases_1 = __importDefault(require("../models/organization/outsourcingOrganization/outsourcedCases"));
+const appset_1 = __importDefault(require("../models/application/appsettings/appset"));
 async function applyNewPatientAfterInsert(db, payload) {
     const username = `${payload.firstname}${payload.lastname}`;
     const password = `${payload.firstname}${payload.lastname}${payload.patientid}`;
@@ -91,10 +97,10 @@ async function insertDboservicesAudit(db, service, action, actor) {
     });
 }
 exports.insertDboservicesAudit = insertDboservicesAudit;
-async function applyDboservicesAfterInsert(db, service, actor) {
+async function applyDboservicesAfterInsert(db, service, actor, tenantId) {
     await insertDboservicesAudit(db, service, "INSERT", actor);
     if (service.serviceCategory === "SERVICES" && Number(service.categoryTrackId) === 5) {
-        await db("servicestracking").insert({ serviceid: service.serviceid });
+        await db("servicestracking").insert({ serviceid: service.serviceid, employeeid: service.employeeid, status: 0, comments: "New service added, waiting for processing" });
     }
     const existingRefundRow = await db("dbobillingrefundtable")
         .select("refundid")
@@ -112,7 +118,7 @@ async function applyDboservicesAfterInsert(db, service, actor) {
     const isOutsourced = Number(service.isoutsourced) === 1;
     const outsourceId = service.outsourceid ? Number(service.outsourceid) : 0;
     if (isOutsourced && outsourceId > 0) {
-        await db("outsourcedtesttracking").insert({
+        const [trackingid] = await db("outsourcedtesttracking").insert({
             serviceid: service.serviceid,
             testid: service.trackId,
             outsourceid: outsourceId,
@@ -120,6 +126,24 @@ async function applyDboservicesAfterInsert(db, service, actor) {
             status: 0,
             comments: "New outsourced service added, waiting for dispatch",
         });
+        const applicationsettings = await new appset_1.default().getAllAppSettings(tenantId);
+        const automatedExpenseEnabled = parseInt((applicationsettings === null || applicationsettings === void 0 ? void 0 : applicationsettings.automakeoutsourcepaymentsexpense.toString()) || '0');
+        if (!automatedExpenseEnabled)
+            return;
+        console.log(applicationsettings['automakeoutsourcepaymentsexpense']);
+        try {
+            await outsourcedCases_1.default.triggerAutomatedExpenseLifecycle(tenantId, {
+                serviceid: service.serviceid,
+                testid: service.trackId,
+                trackingid: trackingid,
+                branchid: service.branchid,
+                employeeid: service.employeeid,
+                outsourcedid: outsourceId
+            }, db);
+        }
+        catch (error) {
+            console.error("Failed to trigger automatic expense for outsourced service:", error);
+        }
     }
     const clinicianId = service.clinicianId ? Number(service.clinicianId) : null;
     const organizationId = service.organizationId ? Number(service.organizationId) : null;
@@ -149,16 +173,16 @@ async function applyDboservicesAfterInsert(db, service, actor) {
                 .first();
             commissionPercentage = (row === null || row === void 0 ? void 0 : row.commission) ? Number(row.commission) : 0;
         }
-        await db("commission_tracking").insert({
-            serviceid: service.serviceid,
-            commission_percentage: commissionPercentage,
-            commission_due: (Number(service.totalpayable || 0) * commissionPercentage) / 100,
-            type: commissionType,
-            recipient_id: recipientId,
-            calculated_at: db.fn.now(),
-            created_at: db.fn.now(),
-            updated_at: db.fn.now(),
-        });
+        // await db("commission_tracking").insert({
+        // 	serviceid: service.serviceid,
+        // 	commission_percentage: commissionPercentage,
+        // 	commission_due: (Number(service.totalpayable || 0) * commissionPercentage) / 100,
+        // 	type: commissionType,
+        // 	recipient_id: recipientId,
+        // 	calculated_at: db.fn.now(),
+        // 	created_at: db.fn.now(),
+        // 	updated_at: db.fn.now(),
+        // });
     }
 }
 exports.applyDboservicesAfterInsert = applyDboservicesAfterInsert;
@@ -216,11 +240,17 @@ async function applyOrganizationAfterInsert(db, organizationid) {
         .where({ organizationid })
         .first();
     if (!account) {
-        await db("organizationaccountinformation").insert({ organizationid });
+        // insert default commission value for the organization if global commission default exist for organization
+        const commissionDefault = await new CommissionDefaultsRepository_1.CommissionDefaultsRepository(0, db).getByTargetType('ORGANIZATION');
+        const commissionValue = commissionDefault ? commissionDefault.commission_value : 0;
+        await db("organizationaccountinformation").insert({ organizationid, commission: commissionValue });
     }
 }
 exports.applyOrganizationAfterInsert = applyOrganizationAfterInsert;
-async function applyClinicianAfterInsert(db, payload) {
+async function applyClinicianAfterInsert(tenantId, db, payload) {
+    // 1. check for default commissions for clinician exist , if yes use the default value to create the clinician commision amount else create with 0 commission
+    const commissionDefault = await new CommissionDefaultsRepository_1.CommissionDefaultsRepository(tenantId, db).getByTargetType('CLINICIAN');
+    const commissionValue = commissionDefault ? commissionDefault.commission_value : 0;
     const payment = await db("clinicianpaymentinfo")
         .select("id")
         .where({ clinicianid: payload.clinicianid })
@@ -229,6 +259,7 @@ async function applyClinicianAfterInsert(db, payload) {
         await db("clinicianpaymentinfo").insert({
             clinicianid: payload.clinicianid,
             module: "cash",
+            commission: commissionValue,
         });
     }
     const credentials = await db("clinicianscredentials")

@@ -524,7 +524,6 @@ class Creator {
             const record = await connection.raw(`SELECT * FROM resultentrydrugsreaction WHERE ascensionid = ? AND testid = ? AND drugid = ? `, [ascensionid, testid, drugid]);
             const hasRecord = Array.isArray(record[0]) ? record[0].length > 0 : false;
             if (hasRecord) {
-                // If a record exists, we can update it
                 const updateResult = await connection.raw(`UPDATE resultentrydrugsreaction SET reaction = ? WHERE ascensionid = ? AND testid = ? AND drugid = ?`, [sensitivity, ascensionid, testid, drugid]);
                 return (0, helper_1.rowAffected)(updateResult[0]);
             }

@@ -72,7 +72,8 @@ export const q_get_rejected_collected_samples = `
           GROUP BY ta.serviceid ORDER BY ta.serviceid ASC  LIMIT ? OFFSET ?
 `
 
-export const insert_critical_value_alert: string = "INSERT INTO loggingcriticalvaluealert(billingid, testid, statement, createdBy) VALUES (?,?,?,?)";
+export const insert_critical_value_alert: string = `
+INSERT INTO loggingcriticalvaluealert (billingid, testid, statement, createdBy) VALUES (?,?,?,?)`;
 
 
 

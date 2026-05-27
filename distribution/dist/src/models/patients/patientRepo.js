@@ -10,7 +10,6 @@ const registration_1 = __importDefault(require("../registration/registration"));
 const queries_1 = require("./queries");
 const helper_1 = require("../../hooks/helper");
 const DatabaseQueriesHelper_1 = __importDefault(require("../../database/DatabaseQueriesHelper"));
-const partitioning_1 = __importDefault(require("../billing/partitioning"));
 const PatientImageRepository_1 = __importDefault(require("../../repositories/patientRepositories/PatientImageRepository"));
 class Patient extends registration_1.default {
     constructor(patientid) {
@@ -106,32 +105,6 @@ class Patient extends registration_1.default {
             }
         });
         return parameters;
-    }
-    async getPatientBillingRecords(tenantId, details) {
-        const { patientid, count = 10, page = 1, startdate, enddate } = details;
-        if (!patientid || isNaN(patientid))
-            throw new Error("patientid required");
-        let query, values = [];
-        if (startdate && enddate) {
-            const startYear = new Date(startdate).getFullYear();
-            const endYear = new Date(enddate).getFullYear();
-            const stMonth = new Date(startdate).getMonth();
-            const edMonth = new Date(enddate).getMonth();
-            let partitions = await new partitioning_1.default("billing", "billing").TablePartitionPrunner(tenantId, startdate, enddate);
-            query = queries_1.PatientQuery.getPatientBillingRecordsWithPartition;
-            values = [patientid, startYear, endYear, count, (page - 1) * count];
-        }
-        else if (startdate) {
-            const startYear = new Date(startdate).getFullYear();
-            query = queries_1.PatientQuery.getPatientBillingRecordsStartDate;
-            values = [patientid, startYear, count, (page - 1) * count];
-        }
-        else {
-            query = queries_1.PatientQuery.getPatientBillingRecords;
-            values = [patientid, count, (page - 1) * count];
-        }
-        const result = await (0, helper_1.promisifyQuery)(tenantId, query, values);
-        return result;
     }
     async getPatientNotificationSettings(tenantId, patientid) {
         const notications = await (0, helper_1.promisifyQuery)(tenantId, queries_1.PatientQuery.getPatientNotificationSettings, [patientid]);

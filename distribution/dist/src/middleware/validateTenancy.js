@@ -75,7 +75,7 @@ const ValidateTenancyAgreement = async (request, response, next) => {
                 return (0, helper_1.customError)("Invalid request query parameters." /* OperationsFailures.invalidResquestQuery */ + ' TenantId not found', 404, response);
             const status = await new tenancyRepo_1.TenancyRepository().validateTenantStanding(tenantId);
             if (!status)
-                return (0, helper_1.customError)("You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
+                return (0, helper_1.customError)("You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
         }
         else {
             if (!request.query.tenantId) {
@@ -101,7 +101,7 @@ const isAuthorizedRoleScientistPhelobotomist = async (request, response, next) =
         const role = userdata ? userdata['role'].toLowerCase().trim() : '';
         const allowedRoles = ["phelobotomist", 'admin', 'manager', 'scientist'];
         if (!allowedRoles.includes(role)) {
-            return (0, helper_1.customError)("You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
+            return (0, helper_1.customError)("You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
         }
         next();
     }
@@ -122,7 +122,7 @@ const isAuthorizedRoleAdmin = async (request, response, next) => {
         const role = userdata ? userdata['role'].toLowerCase().trim() : '';
         const allowedRoles = ['admin', 'super-admin'];
         if (!allowedRoles.includes(role)) {
-            return (0, helper_1.customError)("You do not have permission to access this resources" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
+            return (0, helper_1.customError)("You do not have permission to access this resources.Contact administrator for more information" /* OperationsFailures.dontHaveAccessPermission */, 404, response);
         }
         next();
     }

@@ -32,11 +32,6 @@ class ResultAnalysis {
         const [row] = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_test_month_case_count, [testid, month]);
         return row['caseCount'];
     }
-    async getTestYearCount(tenantId, testid, year) {
-        const defaultYear = year || new Date().getFullYear();
-        const [row] = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_test_month_case_count_year, [testid, defaultYear]);
-        return row['caseCount'];
-    }
     async getTestMonthlyCount(tenantId, testid) {
         const resultset = [];
         for (let month = 1; month <= 12; month++) {

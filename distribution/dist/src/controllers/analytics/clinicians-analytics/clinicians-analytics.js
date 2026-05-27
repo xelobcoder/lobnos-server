@@ -332,7 +332,6 @@ class ClinicianAnalyticsHandlers {
         });
     }
     async getEndpoints(req, res) {
-        const { tenantId } = req.query;
         try {
             return res.status(200).json({
                 success: true,
