@@ -21,7 +21,7 @@ const config = {
         user: process.env.PRODUCTION_DB_USERNAME,
         password: process.env.PRODUCTION_DB_PASSWORD,
         database: process.env.PRODUCTION_DATABASE,
-        port: parseInt(process.env.PRODUCTION_DB_PORT || "3306", 10),
+        port: parseInt(process.env.PRODUCTION_DB_PORT || "2309", 10),
         connectionLimit: 10,
     },
 };

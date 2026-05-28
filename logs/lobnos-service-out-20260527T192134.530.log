@@ -1,0 +1,52 @@
+Killed port 2399 processes: 4468
+SUCCESS: The process with PID 4468 (child process of PID 3632) has been terminated.
+
+Server is running at http://localhost:2399
+[2026-05-27 18:53:26] GET / 200 - 24ms
+[2026-05-27 18:53:27] GET /favicon.ico 404 - 11ms
+Server is running at http://localhost:2399
+Killed port 2399 processes: 21664
+SUCCESS: The process with PID 21664 (child process of PID 3632) has been terminated.
+
+Server is running at http://localhost:2399
+Server is running at http://localhost:2399
+Killed port 2399 processes: 24500
+SUCCESS: The process with PID 24500 (child process of PID 3632) has been terminated.
+
+Server is running at http://localhost:2399
+Killed port 2399 processes: 22128
+SUCCESS: The process with PID 22128 (child process of PID 3632) has been terminated.
+
+Server is running at http://localhost:2399
+Server is running at http://localhost:2399
+Killed port 2399 processes: 13104
+SUCCESS: The process with PID 13104 (child process of PID 3632) has been terminated.
+
+Server is running at http://localhost:2399
+Server is running at http://localhost:2399
+Server is running at http://localhost:2399
+[2026-05-27 19:20:29] GET / 304 - 19ms
+[2026-05-27 19:20:30] GET / 304 - 7ms
+[2026-05-27 19:20:31] GET / 304 - 2ms
+Server is running at http://localhost:2399
+[2026-05-27 19:20:44] GET / 304 - 20ms
+Killed port 2399 processes: 9500
+SUCCESS: The process with PID 9500 (child process of PID 3632) has been terminated.
+
+Server is running at http://localhost:2399
+[2026-05-27 19:21:46] GET / 304 - 27ms
+300
+[2026-05-27 19:21:52] GET / 200 - 24ms
+[2026-05-27 19:21:52] GET /favicon.ico 404 - 8ms
+[2026-05-27 19:21:55] GET / 304 - 2ms
+[2026-05-27 19:34:02] GET / 304 - 2ms
+[2026-05-27 19:34:02] GET / 304 - 2ms
+[2026-05-27 19:34:02] GET / 304 - 1ms
+[2026-05-27 19:34:02] GET / 304 - 1ms
+[2026-05-27 19:34:03] GET / 304 - 1ms
+[2026-05-27 19:34:03] GET / 304 - 1ms
+[2026-05-27 19:34:03] GET / 304 - 1ms
+[2026-05-27 19:34:03] GET / 304 - 3ms
+[2026-05-27 19:34:03] GET / 304 - 1ms
+[2026-05-27 19:34:03] GET / 304 - 1ms
+[2026-05-27 19:34:04] GET / 304 - 1ms

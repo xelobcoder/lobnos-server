@@ -1,4 +1,6 @@
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
 
 const parsePidsFromPowerShell = (stdout: string): number[] => {
     return stdout
@@ -33,11 +35,13 @@ const parsePidsFromNetstat = (stdout: string, port: number): number[] => {
 const execFilePromise = (file: string, args: string[]): Promise<{ stdout: string; stderr: string }> => {
     return new Promise((resolve, reject) => {
         execFile(file, args, { windowsHide: true }, (err, stdout, stderr) => {
+            const out = stdout?.toString() ?? '';
+            const errOut = stderr?.toString() ?? '';
             if (err) {
-                reject({ err, stderr: stderr?.toString() ?? '' });
+                reject({ err, stdout: out, stderr: errOut });
                 return;
             }
-            resolve({ stdout: stdout?.toString() ?? '', stderr: stderr?.toString() ?? '' });
+            resolve({ stdout: out, stderr: errOut });
         });
     });
 };
@@ -49,14 +53,20 @@ const getPidsOnPort = async (port: number): Promise<number[]> => {
             const { stdout } = await execFilePromise('powershell.exe', ['-NoProfile', '-Command', psCommand]);
             const pids = parsePidsFromPowerShell(stdout);
             if (pids.length > 0) return pids;
-        } catch {
-            // Fall back to netstat if PowerShell is unavailable.
+        } catch (error: any) {
+            // PowerShell might fail if the command returns nothing or if PS is restricted.
+            // We fall back to netstat.
         }
 
         try {
             const { stdout } = await execFilePromise('cmd.exe', ['/c', `netstat -ano | findstr :${port}`]);
             return parsePidsFromNetstat(stdout, port);
         } catch (error) {
+            const err = (error as any)?.err;
+            // findstr returns exit code 1 if no matches are found, which is not an error for us.
+            if (err && err.code === 1) {
+                return [];
+            }
             const stderr = (error as any)?.stderr;
             console.error(`Error querying port ${port} with netstat: ${stderr || error}`);
             return [];
@@ -71,7 +81,11 @@ const getPidsOnPort = async (port: number): Promise<number[]> => {
             .filter(Boolean)
             .map(Number)
             .filter(pid => Number.isInteger(pid) && pid > 0);
-    } catch {
+    } catch (error: any) {
+        // lsof returns exit code 1 if no matches are found.
+        if (error.err && error.err.code === 1) {
+            return [];
+        }
         return [];
     }
 };
@@ -83,6 +97,31 @@ const killPids = async (pids: number[], port: number): Promise<void> => {
     }
 
     if (process.platform === 'win32') {
+        // Try to use our specialized PowerShell script first as it handles elevation
+        const scriptPath = path.join(process.cwd(), 'scripts', 'kill-port.ps1');
+        if (fs.existsSync(scriptPath)) {
+            console.log(`Attempting to kill port ${port} using administrative PowerShell script...`);
+            return new Promise((resolve) => {
+                const child = spawn('powershell.exe', [
+                    '-NoProfile',
+                    '-ExecutionPolicy', 'Bypass',
+                    '-File', scriptPath,
+                    '-Port', port.toString(),
+                    '-Silent'
+                ], { stdio: 'inherit', windowsHide: true });
+
+                child.on('close', (code) => {
+                    if (code === 0) {
+                        console.log(`PowerShell script finished successfully.`);
+                    } else {
+                        console.error(`PowerShell script exited with code ${code}`);
+                    }
+                    resolve();
+                });
+            });
+        }
+
+        // Fallback to taskkill if script is missing
         const args = ['/F', '/T', ...pids.flatMap(pid => ['/PID', pid.toString()])];
         try {
             const { stdout, stderr } = await execFilePromise('taskkill', args);
@@ -95,7 +134,7 @@ const killPids = async (pids: number[], port: number): Promise<void> => {
             const stderr = (error as any)?.stderr ?? String(error);
             console.error(`Error killing processes on port ${port}: ${stderr}`);
             if (stderr.toLowerCase().includes('access is denied')) {
-                console.error(`Port ${port} may be owned by a higher-privilege process or service. Run as Administrator or stop the owning service.`);
+                console.error(`Access Denied: Port ${port} is owned by a high-privilege process. Please run this command as Administrator.`);
             }
         }
         return;

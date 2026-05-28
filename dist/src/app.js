@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const os_1 = __importDefault(require("os"));
 const route_1 = __importDefault(require("./controllers/applicationsettings/branches/route"));
 const route_2 = __importDefault(require("./controllers/result/route"));
 const route_3 = __importDefault(require("./controllers/operations/route"));
@@ -47,6 +48,7 @@ const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
 const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
 const routes_7 = __importDefault(require("./controllers/compliance/routes"));
+const logger_1 = __importDefault(require("./hooks/logger"));
 const index_3 = __importDefault(require("./controllers/commission/index"));
 const route_19 = __importDefault(require("./controllers/crm/leads/route"));
 const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
@@ -123,8 +125,16 @@ app.get("/", (req, res) => {
         status: "Healthy"
     });
 });
-const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
-const os_1 = __importDefault(require("os"));
-app.listen(Number(port), os_1.default.hostname(), (err) => {
-    console.log(`Server is running at http://${os_1.default.hostname()}:${port}`);
+app.listen(Number(port), '0.0.0.0', () => {
+    logger_1.default.info(`Server startup successful`, {
+        port: port,
+        env: process.env.NODE_ENV,
+        addresses: {
+            local: `http://localhost:${port}`,
+            network: `http://${os_1.default.hostname()}:${port}`
+        }
+    });
+    console.log(`Server is running at:`);
+    console.log(`  - Local:   http://localhost:${port}`);
+    console.log(`  - Network: http://${os_1.default.hostname()}:${port}`);
 });

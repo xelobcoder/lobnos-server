@@ -9,7 +9,7 @@ const connection_1 = require("./database/connection");
 const configuration_1 = require("./hooks/configuration");
 const logger_1 = __importDefault(require("./hooks/logger"));
 const node_net_1 = __importDefault(require("node:net"));
-const port = process.env.NODE_ENV == 'development' ? process.env.DEVELOPMENT_PORT : process.env.PORT || 5000;
+const port = process.env.NODE_ENV == 'development' ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT || 5000;
 async function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }

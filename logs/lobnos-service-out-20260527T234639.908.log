@@ -1,0 +1,10 @@
+2026-05-27 23:46:15 [[32minfo[39m] Starting server startup sequence {"platform":"win32","arch":"x64","port":"2399","env":"production","pid":16176}
+2026-05-27 23:46:15 [[32minfo[39m] Checking database connectivity... {"platform":"win32","arch":"x64","database":"primelabtestmig"}
+2026-05-27 23:46:15 [[32minfo[39m] Database is ready {"platform":"win32","arch":"x64","database":"primelabtestmig","attempts":1}
+2026-05-27 23:46:15 [[32minfo[39m] Loading main application... {"platform":"win32","arch":"x64"}
+2026-05-27 23:46:17 [[32minfo[39m] Server startup successful {"platform":"win32","arch":"x64","port":"2399","env":"production","addresses":{"local":"http://localhost:2399","network":"http://THAD:2399"}}
+Server is running at:
+  - Local:   http://localhost:2399
+  - Network: http://THAD:2399
+[2026-05-27 23:46:37] GET / 304 - 45ms
+[2026-05-27 23:46:39] GET / 304 - 9ms

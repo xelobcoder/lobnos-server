@@ -1,0 +1,11 @@
+Server is running at http://localhost:2300
+rror","message":"Database not ready (attempt 1): AggregateError"}
+{"level":"error","message":"Database not ready (attempt 2): AggregateError"}
+{"level":"error","message":"Database not ready (attempt 3): AggregateError"}
+{"level":"error","message":"Database not ready (attempt 4): AggregateError"}
+{"level":"error","message":"Database not ready (attempt 5): AggregateError"}
+{"level":"error","message":"Database not ready (attempt 6): AggregateError"}
+Killed port 2300 processes: 3504
+SUCCESS: The process with PID 3504 (child process of PID 3776) has been terminated.
+
+Server is running at http://localhost:2300

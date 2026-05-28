@@ -5,7 +5,7 @@
 echo "Finding process using port 2379..."
 
 # Find the PID of the process using port 2379 (properly formatted)
-PID=$(netstat -ano | grep ':2379 ' | grep 'LISTENING' | awk '{print $5}' | head -1 | tr -d '\r\n')
+PID=$(netstat -ano | grep ':2399 ' | grep 'LISTENING' | awk '{print $5}' | head -1 | tr -d '\r\n')
 
 if [ -z "$PID" ]; then
   echo "No process found running on port 2379"

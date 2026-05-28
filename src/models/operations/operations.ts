@@ -138,7 +138,7 @@ export default class Operations {
 	public static async getAscensionOverViewModel(tenantid: number, date: string | null | undefined, filters?: { billingid?: number; patientid?: number }): Promise<any> {
 		try {
 			const params: any[] = [];
-			let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status IS NOT IN ('voided','refunded')`;
+			let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status <> 'voided' AND dbo.status <> 'refunded'`;
 
 			if (date && date !== "all") {
 				whereConditions += ` AND DATE(b.billedon) = DATE(?)`;
@@ -347,14 +347,14 @@ export default class Operations {
 							ON rrd.employeeid = rdl.delivered_by_employeeid
 
 							WHERE ta.billingid = ?
-							AND (d.department IS NOT NULL OR LOWER(d.department) <> 'ultrasound')
+							AND (d.department IS NOT NULL AND LOWER(d.department) <> 'ultrasound')
 							AND (trx.isDeleted = 0 OR trx.isDeleted IS NULL) AND ddd.isRefundCompleted <> 1
 							ORDER BY 
 							ta.id ASC,
 							ss.keyid ASC,
 							ra.id ASC;
 		`
-
+console.log(query)
 			return await promisifyQuery(tenantid, query, [billingid]);
 		} catch (err: any) {
 			console.log(err)

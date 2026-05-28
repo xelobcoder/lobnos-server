@@ -1,7 +1,12 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.killProcessOnPort = void 0;
 const child_process_1 = require("child_process");
+const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
 const parsePidsFromPowerShell = (stdout) => {
     return stdout
         .split(/\r?\n/)
@@ -30,12 +35,14 @@ const parsePidsFromNetstat = (stdout, port) => {
 const execFilePromise = (file, args) => {
     return new Promise((resolve, reject) => {
         (0, child_process_1.execFile)(file, args, { windowsHide: true }, (err, stdout, stderr) => {
-            var _a, _b, _c;
+            var _a, _b;
+            const out = (_a = stdout === null || stdout === void 0 ? void 0 : stdout.toString()) !== null && _a !== void 0 ? _a : '';
+            const errOut = (_b = stderr === null || stderr === void 0 ? void 0 : stderr.toString()) !== null && _b !== void 0 ? _b : '';
             if (err) {
-                reject({ err, stderr: (_a = stderr === null || stderr === void 0 ? void 0 : stderr.toString()) !== null && _a !== void 0 ? _a : '' });
+                reject({ err, stdout: out, stderr: errOut });
                 return;
             }
-            resolve({ stdout: (_b = stdout === null || stdout === void 0 ? void 0 : stdout.toString()) !== null && _b !== void 0 ? _b : '', stderr: (_c = stderr === null || stderr === void 0 ? void 0 : stderr.toString()) !== null && _c !== void 0 ? _c : '' });
+            resolve({ stdout: out, stderr: errOut });
         });
     });
 };
@@ -48,14 +55,20 @@ const getPidsOnPort = async (port) => {
             if (pids.length > 0)
                 return pids;
         }
-        catch (_a) {
-            // Fall back to netstat if PowerShell is unavailable.
+        catch (error) {
+            // PowerShell might fail if the command returns nothing or if PS is restricted.
+            // We fall back to netstat.
         }
         try {
             const { stdout } = await execFilePromise('cmd.exe', ['/c', `netstat -ano | findstr :${port}`]);
             return parsePidsFromNetstat(stdout, port);
         }
         catch (error) {
+            const err = error === null || error === void 0 ? void 0 : error.err;
+            // findstr returns exit code 1 if no matches are found, which is not an error for us.
+            if (err && err.code === 1) {
+                return [];
+            }
             const stderr = error === null || error === void 0 ? void 0 : error.stderr;
             console.error(`Error querying port ${port} with netstat: ${stderr || error}`);
             return [];
@@ -70,7 +83,11 @@ const getPidsOnPort = async (port) => {
             .map(Number)
             .filter(pid => Number.isInteger(pid) && pid > 0);
     }
-    catch (_b) {
+    catch (error) {
+        // lsof returns exit code 1 if no matches are found.
+        if (error.err && error.err.code === 1) {
+            return [];
+        }
         return [];
     }
 };
@@ -81,6 +98,30 @@ const killPids = async (pids, port) => {
         return;
     }
     if (process.platform === 'win32') {
+        // Try to use our specialized PowerShell script first as it handles elevation
+        const scriptPath = path_1.default.join(process.cwd(), 'scripts', 'kill-port.ps1');
+        if (fs_1.default.existsSync(scriptPath)) {
+            console.log(`Attempting to kill port ${port} using administrative PowerShell script...`);
+            return new Promise((resolve) => {
+                const child = (0, child_process_1.spawn)('powershell.exe', [
+                    '-NoProfile',
+                    '-ExecutionPolicy', 'Bypass',
+                    '-File', scriptPath,
+                    '-Port', port.toString(),
+                    '-Silent'
+                ], { stdio: 'inherit', windowsHide: true });
+                child.on('close', (code) => {
+                    if (code === 0) {
+                        console.log(`PowerShell script finished successfully.`);
+                    }
+                    else {
+                        console.error(`PowerShell script exited with code ${code}`);
+                    }
+                    resolve();
+                });
+            });
+        }
+        // Fallback to taskkill if script is missing
         const args = ['/F', '/T', ...pids.flatMap(pid => ['/PID', pid.toString()])];
         try {
             const { stdout, stderr } = await execFilePromise('taskkill', args);
@@ -95,7 +136,7 @@ const killPids = async (pids, port) => {
             const stderr = (_a = error === null || error === void 0 ? void 0 : error.stderr) !== null && _a !== void 0 ? _a : String(error);
             console.error(`Error killing processes on port ${port}: ${stderr}`);
             if (stderr.toLowerCase().includes('access is denied')) {
-                console.error(`Port ${port} may be owned by a higher-privilege process or service. Run as Administrator or stop the owning service.`);
+                console.error(`Access Denied: Port ${port} is owned by a high-privilege process. Please run this command as Administrator.`);
             }
         }
         return;

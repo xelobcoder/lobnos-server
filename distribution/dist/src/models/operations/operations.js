@@ -137,7 +137,7 @@ class Operations {
     static async getAscensionOverViewModel(tenantid, date, filters) {
         try {
             const params = [];
-            let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0`;
+            let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status <> 'voided' AND dbo.status <> 'refunded'`;
             if (date && date !== "all") {
                 whereConditions += ` AND DATE(b.billedon) = DATE(?)`;
                 params.push(date);
@@ -207,6 +207,8 @@ class Operations {
 
 						LEFT JOIN dbobillingrefundtable rf
 						ON rf.serviceid = ta.serviceid
+
+						LEFT JOIN dboservices AS dbo ON dbo.serviceid = ta.serviceid
 
 						${whereConditions}
 
@@ -338,13 +340,14 @@ class Operations {
 							ON rrd.employeeid = rdl.delivered_by_employeeid
 
 							WHERE ta.billingid = ?
-							AND (d.department IS NOT NULL OR LOWER(d.department) <> 'ultrasound')
+							AND (d.department IS NOT NULL AND LOWER(d.department) <> 'ultrasound')
 							AND (trx.isDeleted = 0 OR trx.isDeleted IS NULL) AND ddd.isRefundCompleted <> 1
 							ORDER BY 
 							ta.id ASC,
 							ss.keyid ASC,
 							ra.id ASC;
 		`;
+            console.log(query);
             return await (0, helper_1.promisifyQuery)(tenantid, query, [billingid]);
         }
         catch (err) {

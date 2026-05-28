@@ -469,7 +469,7 @@ exports.q_get_clinicians_commission_by_date = `
         c.id AS clinician_id,
         c.name AS clinician_name,
         c.phone AS clinician_phone,
-        DATE(s.serviceAddedOn) AS service_date,
+        DATE(dboservices.serviceAddedOn) AS service_date,
         c.organization,
         COUNT(*) AS total_services,
         SUM(dboservices.totalpayable) AS earned_revenue,
@@ -483,7 +483,7 @@ exports.q_get_clinicians_commission_by_date = `
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = dboservices.serviceid
     WHERE
-        s.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
+        dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
         AND dboservices.status = 'active'
         AND dboservices.isRefunded=0
         AND dboservices.paymentstatus !='pending'

@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import cors from "cors";
+import os from 'os';
 import branchesHandler from "./controllers/applicationsettings/branches/route";
 import resultChecker from "./controllers/result/route";
 import operationsRouter from "./controllers/operations/route";
@@ -43,6 +44,7 @@ import smsAnalytics from './controllers/analytics/sms-analytics/route';
 import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 import complianceRouter from './controllers/compliance/routes';
 import { killProcessOnPort } from "./models/security/killport";
+import logger from './hooks/logger';
 import CommissionPaymentsRouter from './controllers/commission/index';
 import leadsRouter from './controllers/crm/leads/route';
 import followupsRouter from './controllers/crm/leads/followups.route';
@@ -130,19 +132,22 @@ app.get("/", (req: Request, res: Response) => {
 		.json({
 			message: "success",
 			status: "Healthy"
-	});
+		});
 });
 
 
-const host = process.env.NODE_ENV == "production" ? process.env.APPHOST_PRODUCTION : process.env.APPHOST_DEVELOPMENT || 'localhost';
-
-
-import os from 'os';
-
-
-
-app.listen(Number(port), os.hostname() as any, (err) => {
-	console.log(`Server is running at http://${os.hostname()}:${port}`);
+app.listen(Number(port), '0.0.0.0', () => {
+	logger.info(`Server startup successful`, {
+		port: port,
+		env: process.env.NODE_ENV,
+		addresses: {
+			local: `http://localhost:${port}`,
+			network: `http://${os.hostname()}:${port}`
+		}
+	});
+	console.log(`Server is running at:`);
+	console.log(`  - Local:   http://localhost:${port}`);
+	console.log(`  - Network: http://${os.hostname()}:${port}`);
 });
 
 
