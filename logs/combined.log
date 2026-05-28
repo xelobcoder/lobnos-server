@@ -86,3 +86,11 @@
 {"arch":"x64","attempts":1,"database":"primelabtestmig","host":"localhost","level":"info","message":"Database is ready","platform":"win32","service":"lobnos-server","timestamp":"2026-05-28T02:18:22.666Z"}
 {"arch":"x64","host":"THAD","level":"info","message":"Loading main application...","platform":"win32","service":"lobnos-server","timestamp":"2026-05-28T02:18:22.666Z"}
 {"addresses":{"local":"http://localhost:2399","network":"http://THAD:2399"},"arch":"x64","env":"production","host":"THAD","level":"info","message":"Server startup successful","platform":"win32","port":"2399","service":"lobnos-server","timestamp":"2026-05-28T02:18:24.980Z"}
+{"arch":"x64","env":"development","host":"THAD","level":"info","message":"Starting server startup sequence","pid":6568,"platform":"win32","port":"2399","service":"lobnos-server","timestamp":"2026-05-28T02:59:08.898Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Attempting to clear port 2399 before startup","platform":"win32","service":"lobnos-server","timestamp":"2026-05-28T02:59:08.903Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Checking port availability","platform":"win32","port":2399,"service":"lobnos-server","timestamp":"2026-05-28T02:59:30.830Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Port 2399 is available","platform":"win32","service":"lobnos-server","timestamp":"2026-05-28T02:59:30.844Z"}
+{"arch":"x64","database":"primelabtestmig","host":"localhost","level":"info","message":"Checking database connectivity...","platform":"win32","service":"lobnos-server","timestamp":"2026-05-28T02:59:30.845Z"}
+{"arch":"x64","attempts":1,"database":"primelabtestmig","host":"localhost","level":"info","message":"Database is ready","platform":"win32","service":"lobnos-server","timestamp":"2026-05-28T02:59:31.039Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Loading main application...","platform":"win32","service":"lobnos-server","timestamp":"2026-05-28T02:59:31.039Z"}
+{"addresses":{"local":"http://localhost:2399","network":"http://THAD:2399"},"arch":"x64","env":"development","host":"THAD","level":"info","message":"Server startup successful","platform":"win32","port":"2399","service":"lobnos-server","timestamp":"2026-05-28T02:59:47.579Z"}
