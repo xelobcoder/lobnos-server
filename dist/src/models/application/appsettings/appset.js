@@ -106,7 +106,7 @@ class ApplicationSettings {
     }
     async updateApplicationSettings(tenantId, data) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, show_watermark, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation, allowManagerToApproveExpenses, allowManagerToRefund, allowManagerToProcessPayroll, allowManagerToProcessCommission, isCommissionEarnedOnClinicianBilling, isCommissionEarnedOnOrganizationalBilling, isCommissionEarnedOnNHISBilling, isCommissionEarnedOnPHISBilling } = data;
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, show_watermark, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation, allowManagerToApproveExpenses, allowManagerToRefund, allowManagerToProcessPayroll, allowManagerToProcessCommission, isCommissionEarnedOnClinicianBilling, isCommissionEarnedOnOrganizationalBilling, isCommissionEarnedOnNHISBilling, isCommissionEarnedOnPHISBilling, makepdfprintingcompulsory, ageVariationLimits } = data;
         try {
             const result = await connection.transaction(async (trx) => {
                 var _b;
@@ -154,7 +154,9 @@ class ApplicationSettings {
                     isCommissionEarnedOnClinicianBilling: isCommissionEarnedOnClinicianBilling !== null && isCommissionEarnedOnClinicianBilling !== void 0 ? isCommissionEarnedOnClinicianBilling : 0,
                     isCommissionEarnedOnOrganizationalBilling: isCommissionEarnedOnOrganizationalBilling !== null && isCommissionEarnedOnOrganizationalBilling !== void 0 ? isCommissionEarnedOnOrganizationalBilling : 0,
                     isCommissionEarnedOnNHISBilling: isCommissionEarnedOnNHISBilling !== null && isCommissionEarnedOnNHISBilling !== void 0 ? isCommissionEarnedOnNHISBilling : 0,
-                    isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling !== null && isCommissionEarnedOnPHISBilling !== void 0 ? isCommissionEarnedOnPHISBilling : 0
+                    isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling !== null && isCommissionEarnedOnPHISBilling !== void 0 ? isCommissionEarnedOnPHISBilling : 0,
+                    ageVariationLimits: ageVariationLimits ? JSON.stringify(ageVariationLimits) : null,
+                    makepdfprintingcompulsory: makepdfprintingcompulsory !== null && makepdfprintingcompulsory !== void 0 ? makepdfprintingcompulsory : 0,
                 };
                 let affectedRows = 0;
                 if (existing) {

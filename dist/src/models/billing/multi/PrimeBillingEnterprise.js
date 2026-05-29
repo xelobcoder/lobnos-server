@@ -167,26 +167,30 @@ class PrimeBillingEnterprise {
         return currentHour >= sHour && currentHour < eHour;
     }
     static applyNightAdjustmentsToTests(tests, billingsettings, type) {
-        if (!Array.isArray(tests) || !billingsettings || !billingsettings.hasNightAdjustment)
+        if (Array.isArray(tests) && billingsettings && billingsettings.hasNightAdjustment) {
+            const { nightAdjustmentValue, nightAdjustmentMode } = billingsettings;
+            const isNight = this.isNightTime(billingsettings);
+            return tests.map(test => {
+                const base = Number(test.discountedValue || 0);
+                // const discount = Number(test.discount || 0);
+                const discountedBase = base;
+                if (!isNight) {
+                    return Object.assign(Object.assign({}, test), { discountedValue: discountedBase, isNightTime: false });
+                }
+                let adjustedValue = discountedBase;
+                if (nightAdjustmentMode === "percentage") {
+                    adjustedValue = Number(((discountedBase ? discountedBase : 0) * (Number(nightAdjustmentValue) / 100)).toFixed(2));
+                    adjustedValue += discountedBase;
+                }
+                else if (nightAdjustmentMode === "absolute") {
+                    adjustedValue = Number(((discountedBase ? discountedBase : 0) + Number(nightAdjustmentValue)).toFixed(2));
+                }
+                return Object.assign(Object.assign({}, test), { discountedValue: adjustedValue, isNightTime: true, totalpayable: adjustedValue, totalcost: adjustedValue });
+            });
+        }
+        else {
             return tests;
-        const { nightAdjustmentValue, nightAdjustmentMode } = billingsettings;
-        const isNight = this.isNightTime(billingsettings);
-        return tests.map(test => {
-            const base = test.discountedValue;
-            // const discount = Number(test.discount || 0);
-            const discountedBase = base;
-            if (!isNight) {
-                return Object.assign(Object.assign({}, test), { discountedValue: discountedBase, isNightTime: false });
-            }
-            let adjustedValue = discountedBase;
-            if (nightAdjustmentMode === "percentage") {
-                adjustedValue = Number((discountedBase ? discountedBase : 0 + (discountedBase ? discountedBase : 0 * Number(nightAdjustmentValue) / 100)).toFixed(2));
-            }
-            else if (nightAdjustmentMode === "absolute") {
-                adjustedValue = Number((discountedBase ? discountedBase : 0 + Number(nightAdjustmentValue)).toFixed(2));
-            }
-            return Object.assign(Object.assign({}, test), { discountedValue: adjustedValue, isNightTime: true, totalpayable: adjustedValue, totalcost: adjustedValue });
-        });
+        }
     }
     static applyDiscountsToTests(tests) {
         try {

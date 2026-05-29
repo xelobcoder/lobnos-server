@@ -177,7 +177,9 @@ export default class ApplicationSettings {
 			isCommissionEarnedOnClinicianBilling,
 			isCommissionEarnedOnOrganizationalBilling,
 			isCommissionEarnedOnNHISBilling,
-			isCommissionEarnedOnPHISBilling
+			isCommissionEarnedOnPHISBilling,
+			makepdfprintingcompulsory,
+			ageVariationLimits
 		} = data;
 
 		try {
@@ -226,7 +228,10 @@ export default class ApplicationSettings {
 					isCommissionEarnedOnClinicianBilling: isCommissionEarnedOnClinicianBilling ?? 0,
 					isCommissionEarnedOnOrganizationalBilling: isCommissionEarnedOnOrganizationalBilling ?? 0,
 					isCommissionEarnedOnNHISBilling: isCommissionEarnedOnNHISBilling ?? 0,
-					isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling ?? 0
+					isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling ?? 0,
+					ageVariationLimits: ageVariationLimits ? JSON.stringify(ageVariationLimits) : null
+					,
+					makepdfprintingcompulsory: makepdfprintingcompulsory ?? 0,
 				};
 				let affectedRows = 0;
 				if (existing) {

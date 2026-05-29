@@ -31,11 +31,13 @@ export type billingsettings = {
 export type ApplicationSettingsData = {
      keyid: number;
      bulkregistration: number;
+     ageVariationLimits: string | null;
      fontsize: string;
      textcolor: string;
      BackgroundColor: string;
      DeactivateBilling24hrs: number;
-      allowManagerToRefund: numberBoolean;
+     allowManagerToRefund: numberBoolean;
+     makepdfprintingcompulsory: numberBoolean;
      PaidBillsBeforeTransaction: number;
      completeFlow: number;
      approvalbeforeprinting: number;

@@ -184,32 +184,38 @@ export class PrimeBillingEnterprise {
 	}
 
 	static applyNightAdjustmentsToTests<T extends { discountedValue?: number; servicePrice?: number; price?: number; discount?: number }>(tests: T[], billingsettings: any, type: 'services' | 'test'): T[] {
-		if (!Array.isArray(tests) || !billingsettings || !billingsettings.hasNightAdjustment) return tests;
-		const { nightAdjustmentValue, nightAdjustmentMode } = billingsettings;
-		const isNight = this.isNightTime(billingsettings);
-		return tests.map(test => {
-			const base = test.discountedValue;
-			// const discount = Number(test.discount || 0);
-			const discountedBase = base;
-			if (!isNight) {
+		if (Array.isArray(tests) && billingsettings && billingsettings.hasNightAdjustment) {
+			const { nightAdjustmentValue, nightAdjustmentMode } = billingsettings;
+			const isNight = this.isNightTime(billingsettings);
+			return tests.map(test => {
+				const base = Number(test.discountedValue || 0);
+				// const discount = Number(test.discount || 0);
+				const discountedBase = base;
+				if (!isNight) {
+					return {
+						...test,
+						discountedValue: discountedBase,
+						isNightTime: false
+					};
+				}
+				let adjustedValue = discountedBase;
+				if (nightAdjustmentMode === "percentage") {
+					adjustedValue = Number(((discountedBase ? discountedBase : 0 )* (Number(nightAdjustmentValue) / 100)).toFixed(2));
+					adjustedValue += discountedBase;
+				} else if (nightAdjustmentMode === "absolute") {
+					adjustedValue = Number(((discountedBase ? discountedBase : 0 )+ Number(nightAdjustmentValue)).toFixed(2));
+				}
 				return {
 					...test,
-					discountedValue: discountedBase,
-					isNightTime: false
+					discountedValue: adjustedValue,
+					isNightTime: true,
+					totalpayable: adjustedValue,
+					totalcost: adjustedValue
 				};
-			}
-			let adjustedValue = discountedBase;
-			if (nightAdjustmentMode === "percentage") {
-				adjustedValue = Number((discountedBase ? discountedBase : 0 + (discountedBase ? discountedBase : 0 * Number(nightAdjustmentValue) / 100)).toFixed(2));
-			} else if (nightAdjustmentMode === "absolute") {
-				adjustedValue = Number((discountedBase ? discountedBase : 0 + Number(nightAdjustmentValue)).toFixed(2));
-			}
-			return {
-				...test,
-				discountedValue: adjustedValue, isNightTime: true, totalpayable: adjustedValue,
-				totalcost: adjustedValue
-			};
-		});
+			});
+		} else {
+			return tests;
+		}
 	}
 
 
