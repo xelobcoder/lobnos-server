@@ -16,7 +16,7 @@
     ]
   },
   "scripts": {
-    "dev": "node --watch --env-file=./.env ./dist/src/start.js",
+    "dev": "node --watch --env-file=./.env ./dist/src/app.js",
     "build": "tsc",
     "tsdev": "npx tsc --w",
     "start": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { if ($IsWindows) { $svc = Get-Service -Name 'PrimeLabSystemRuntime' -ErrorAction SilentlyContinue; if ($null -ne $svc) { & powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/service-control.ps1 -Action restart } else { & powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/install-service.ps1 -StartNow } } else { npm run kill-port; node --env-file=./.env ./dist/src/start.js } }\"",

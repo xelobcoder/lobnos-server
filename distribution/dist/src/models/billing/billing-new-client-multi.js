@@ -415,7 +415,9 @@ class SubmitCustomerBilling {
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         }
         catch (error) {
-            return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
+            console.log(error);
+            commission_configurations_1.logger.error('Failed to submit billing', { error: error.message, payload: this.payload });
+            throw new Error(`Failed to submit billing`);
         }
     }
     /**

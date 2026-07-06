@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.BillingAnalyticsWithDate = exports.BillingAnalytics = void 0;
-const major_constraints = `AND (dboservices.status IN ('active','refunded')) AND (isDeleted = 0 OR isDeleted IS NULL)`;
+const major_constraints = `AND (dboservices.status IN ('active','refunded','written-off')) AND (isDeleted = 0 OR isDeleted IS NULL)`;
 class BillingAnalytics {
 }
 exports.BillingAnalytics = BillingAnalytics;
@@ -11,7 +11,15 @@ BillingAnalytics.totalSalesByOrganization = `SELECT organizationId, COALESCE(SUM
     COUNT(CASE WHEN serviceCategory = 'NHIS' THEN 1 END) AS nhis_services_count,
     COUNT(*) AS total_services_rendered,
     o.name FROM dboservices AS db INNER JOIN organization AS o ON o.id = db.organizationId LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid WHERE YEAR(db.serviceAddedOn) = ? ${major_constraints} GROUP BY db.organizationId;`;
-BillingAnalytics.totalSalesByOutsourcedStatus = `SELECT isoutsourced, COALESCE(SUM(totalcost), 0) AS gross_revenue, COALESCE(SUM(paidamount), 0) AS cash_collected, COALESCE(SUM(totalpayable), 0) AS earned_revenue, COALESCE(SUM(discount), 0) AS discount, COALESCE(SUM(db.outstanding), 0) AS outstanding, COALESCE(SUM(r.amountRefunded), 0) AS total_refunded FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY isoutsourced;`;
+BillingAnalytics.totalSalesByOutsourcedStatus = `SELECT isoutsourced, 
+    COALESCE(SUM(totalcost), 0) AS gross_revenue,
+     COALESCE(SUM(paidamount), 0) AS cash_collected,
+      COALESCE(SUM(totalpayable), 0) AS earned_revenue,
+       COALESCE(SUM(discount), 0) AS discount,
+        COALESCE(SUM(dboservices.outstanding), 0) AS outstanding,
+         COALESCE(SUM(r.amountRefunded), 0) AS total_refunded 
+         FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid 
+         WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY isoutsourced;`;
 BillingAnalytics.totalSalesByBranchAndCategory = `SELECT branchid, serviceCategory, COALESCE(SUM(totalcost), 0) AS gross_revenue, COALESCE(SUM(paidamount), 0) AS cash_collected, COALESCE(SUM(totalpayable), 0) AS earned_revenue, COALESCE(SUM(discount), 0) AS discount, COALESCE(SUM(db.outstanding), 0) AS outstanding, COALESCE(SUM(r.amountRefunded), 0) AS total_refunded FROM dboservices LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid WHERE YEAR(serviceAddedOn) = ? ${major_constraints} GROUP BY branchid, serviceCategory;`;
 BillingAnalytics.totalSalesByEmployee = `SELECT db.employeeid, COALESCE(SUM(db.totalcost), 0) AS gross_revenue, COALESCE(SUM(db.paidamount), 0) AS cash_collected, COALESCE(SUM(db.totalpayable), 0) AS earned_revenue, COALESCE(SUM(db.discount), 0) AS discount, COALESCE(SUM(db.outstanding), 0) AS outstanding, COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
      rr.username FROM dboservices AS db JOIN roles AS rr ON rr.employeeid = db.employeeid LEFT JOIN dbobillingrefundtable r ON db.serviceid = r.serviceid
@@ -131,7 +139,11 @@ BillingAnalyticsWithDate.totalSalesByOrganization = `
         GROUP BY organizationId;
     `;
 BillingAnalyticsWithDate.totalSalesByOutsourcedStatus = `
-        SELECT isoutsourced, COALESCE(SUM(totalcost), 0) AS gross_revenue, COALESCE(SUM(paidamount), 0) AS cash_collected, COALESCE(SUM(totalpayable), 0) AS earned_revenue, COALESCE(SUM(discount), 0) AS discount, COALESCE(SUM(r.amountRefunded), 0) AS total_refunded
+        SELECT isoutsourced, COALESCE(SUM(totalcost), 0) AS gross_revenue, 
+        COALESCE(SUM(paidamount), 0) AS cash_collected,
+         COALESCE(SUM(totalpayable), 0) AS earned_revenue, 
+         COALESCE(SUM(discount), 0) AS discount, 
+         COALESCE(SUM(r.amountRefunded), 0) AS total_refunded
         FROM dboservices
         LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
         WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${major_constraints}
@@ -279,7 +291,7 @@ BillingAnalyticsWithDate.yearlySalesTrend = `
             COALESCE(SUM(r.amountRefunded), 0) AS total_refunded
             FROM dboservices
             LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
-            WHERE dboservices.status IN ('active','refunded')
+            WHERE dboservices.status IN ('active','refunded','written-off') AND (isDeleted = 0 OR isDeleted IS NULL)
             GROUP BY YEAR(serviceAddedOn)
         ),
         expenses AS (

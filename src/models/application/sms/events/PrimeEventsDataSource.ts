@@ -130,7 +130,7 @@ export class PrimeEventsSMSDataSource {
                try {
                     const [hxResult] = await connection.raw(hxQuery, [billingid]);
                     billinghx = Array.isArray(hxResult) ? hxResult : [];
-               } catch (e) { 
+               } catch (e) {
                     throw e;
                }
 
@@ -143,7 +143,7 @@ export class PrimeEventsSMSDataSource {
                const event = await this.repo.findByCode('PAYMENT_CONFIRMATION_SMS');
                if (!event) return;
                const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
-               const smscontent = parsedContent +  '';
+               const smscontent = parsedContent + '';
                const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
                const refid = result[0].patientid;
                return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid, true, employeeid);
@@ -174,6 +174,21 @@ export class PrimeEventsSMSDataSource {
           else if ('mobile' in data && data.mobile) phonee164 = String(data.mobile).replace(/^\+/, '');
           else if ('mobile_number' in data && data.mobile_number) phonee164 = String(data.mobile_number).replace(/^\+/, '');
           return await this.sendSMSMessage(parsedContent as string, phonee164, 'PATIENT_REGISTRATION_SMS', patientid, true, employeeId);
+     }
+
+     async patientBirthDayMessageLogging(tenantId: number, patientid: number, employeeId: number) {
+          const isActive = await this.isEventActive('BIRTHDAY_SMS');
+          if (!isActive) return;
+          const data = await new Registration().getPatientBasicData(tenantId, patientid);
+          const event = await this.repo.findByCode('BIRTHDAY_SMS');
+          if (!data || !event) return;
+          const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
+          let phonee164 = '';
+          if ('phone' in data && data.phone) phonee164 = String(data.phone).replace(/^\+/, '');
+          else if ('phonenumber' in data && data.phonenumber) phonee164 = String(data.phonenumber).replace(/^\+/, '');
+          else if ('mobile' in data && data.mobile) phonee164 = String(data.mobile).replace(/^\+/, '');
+          else if ('mobile_number' in data && data.mobile_number) phonee164 = String(data.mobile_number).replace(/^\+/, '');
+          return await this.sendSMSMessage(parsedContent as string, phonee164, 'BIRTHDAY_SMS', patientid, true, employeeId);
      }
 
 

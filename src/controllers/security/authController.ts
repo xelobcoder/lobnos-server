@@ -39,7 +39,13 @@ export class AuthController {
                 return;
             }
             const user = await new RolesRepository(tenantId).getRoleByEmail(email);
-            const { role, username, employeeid } = user;
+            const { role, username, employeeid, activation } = user;
+            if (parseInt(activation.toString()) == 0) {
+                res.send({
+                    status: false,
+                    message: "User Deactivated For Service.Please Contact Facillity Admin For more Information"
+                })
+            }
             const security = new Security(parseInt(String(employeeid), 10), 6);
             const canInitiate = await security.getCanInitiateLogin(tenantId);
             if (!canInitiate) await security.destroyUserSessions(tenantId);

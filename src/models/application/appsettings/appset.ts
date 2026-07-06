@@ -229,8 +229,7 @@ export default class ApplicationSettings {
 					isCommissionEarnedOnOrganizationalBilling: isCommissionEarnedOnOrganizationalBilling ?? 0,
 					isCommissionEarnedOnNHISBilling: isCommissionEarnedOnNHISBilling ?? 0,
 					isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling ?? 0,
-					ageVariationLimits: ageVariationLimits ? JSON.stringify(ageVariationLimits) : null
-					,
+					ageVariationLimits: ageVariationLimits ? JSON.stringify(ageVariationLimits) : null,
 					makepdfprintingcompulsory: makepdfprintingcompulsory ?? 0,
 				};
 				let affectedRows = 0;

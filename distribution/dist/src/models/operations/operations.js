@@ -134,13 +134,14 @@ class Operations {
             throw err;
         }
     }
-    static async getAscensionOverViewModel(tenantid, date, filters) {
+    static async getAscensionOverViewModel(tenantid, filters) {
         try {
             const params = [];
             let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status <> 'voided' AND dbo.status <> 'refunded'`;
-            if (date && date !== "all") {
-                whereConditions += ` AND DATE(b.billedon) = DATE(?)`;
-                params.push(date);
+            if ((filters === null || filters === void 0 ? void 0 : filters._dateFrom) && filters._dateFrom !== "all") {
+                whereConditions += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+                params.push(filters._dateFrom);
+                params.push(filters._dateEnd);
             }
             if (filters === null || filters === void 0 ? void 0 : filters.billingid) {
                 whereConditions += ` AND b.billingid = ?`;
@@ -149,6 +150,18 @@ class Operations {
             if (filters === null || filters === void 0 ? void 0 : filters.patientid) {
                 whereConditions += ` AND p.patientid = ?`;
                 params.push(filters.patientid);
+            }
+            if (filters === null || filters === void 0 ? void 0 : filters.testname) {
+                whereConditions += ` AND tp.id = ?`;
+                params.push(filters.testname);
+            }
+            if (filters === null || filters === void 0 ? void 0 : filters.patientname) {
+                whereConditions += ` AND REGEXP_REPLACE(
+					LOWER(CONCAT_WS(' ', p.firstname, p.middlename, p.lastname)),
+					'[[:space:]]+',
+					' '
+					) LIKE ?`;
+                params.push(`%${filters.patientname.toLowerCase().trim().replace(/\s+/g, " ")}%`);
             }
             const query = `
 									SELECT 

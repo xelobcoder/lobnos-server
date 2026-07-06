@@ -363,42 +363,33 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
                 return null;
         }
     }
-    static async correctRefererErrorPostRegistration(tenantId, employeeId, entity_type, entity_id, billingid, branchid) {
-        if (!entity_type || !entity_id)
-            return { success: false, message: 'No entity_type or entity_id provided' };
-        if (billingid === undefined || billingid === null)
-            return { success: false, message: 'No billingid provided' };
-        const isBillingIdValid = await billing_1.Billing.checkValidityOfBillingid(tenantId, billingid);
-        if (!isBillingIdValid)
-            return { success: false, message: 'Invalid billingid provided' };
-        if (branchid === undefined || branchid === null)
-            return { success: false, message: 'No branchid provided' };
-        const billingSource = this.determineBillingSourceUsingEntityType(entity_type);
-        if (billingSource === undefined || billingSource === null)
-            return { success: false, message: 'No billingSource provided' };
+    static buildServiceUpdatePayload(billingSource, entity_id) {
+        return {
+            serviceCategory: billingclientTypes_1.serviceCategory[billingSource],
+            clinicianId: billingSource === 6 ? entity_id : null,
+            organizationId: billingSource === 2 ? entity_id : null,
+            categoryTrackId: billingSource,
+            isNHIS: billingSource === 4 ? 1 : 0,
+            isPHIS: billingSource === 3 ? 1 : 0,
+            insuranceid: billingSource === 4 || billingSource === 3 ? entity_id : null,
+            isCorrected: 1,
+        };
+    }
+    static async performRefererErrorCorrection(tenantId, billingid, employeeId, billingSource, entity_id, logContext) {
         const conn = await (0, KnexConnections_1.default)(tenantId);
         const transaction = await conn.transaction();
         try {
-            const transactionServices = await transaction('dboservices')
-                .where('billingid', billingid);
+            const transactionServices = await transaction('dboservices').where('billingid', billingid);
             if (transactionServices.length === 0) {
                 await transaction.rollback();
                 return { success: false, message: 'No services found for the provided billingid' };
             }
+            const updatePayload = this.buildServiceUpdatePayload(billingSource, entity_id);
             for (const service of transactionServices) {
                 await transaction('dboservices')
                     .where('serviceid', service.serviceid)
                     .andWhere('billingid', billingid)
-                    .update({
-                    serviceCategory: billingclientTypes_1.serviceCategory[billingSource],
-                    clinicianId: billingSource === 6 ? entity_id : null,
-                    organizationId: billingSource === 2 ? entity_id : null,
-                    categoryTrackId: billingSource,
-                    isNHIS: billingSource === 4 ? 1 : 0,
-                    isPHIS: billingSource === 3 ? 1 : 0,
-                    insuranceid: billingSource === 4 || billingSource === 3 ? entity_id : null,
-                    isCorrected: 1,
-                });
+                    .update(updatePayload);
                 const updatedService = await transaction('dboservices').where({ serviceid: service.serviceid }).first();
                 if (updatedService) {
                     await (0, appLevelTriggers_1.applyDboservicesAfterUpdate)(transaction, updatedService, employeeId ? employeeId.toString() : undefined);
@@ -418,10 +409,35 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise_1.PrimeBil
             return { success: true, message: 'Referer error correction successful', data: { billingid, billingSource } };
         }
         catch (error) {
-            console.error('Error during referer error correction:', error, { billingid, entity_id, entity_type });
+            console.error('Error during referer error correction:', error, Object.assign({ billingid }, logContext));
             await transaction.rollback();
             return { success: false, message: 'Transaction failed' };
         }
+    }
+    static async correctRefererErrorPostToGeneralRegistration(tenantId, billingid, branchid, employeeId) {
+        if (billingid === undefined || billingid === null)
+            return { success: false, message: 'No billingid provided' };
+        const isBillingIdValid = await billing_1.Billing.checkValidityOfBillingid(tenantId, billingid);
+        if (!isBillingIdValid)
+            return { success: false, message: 'Invalid billingid provided' };
+        if (branchid === undefined || branchid === null)
+            return { success: false, message: 'No branchid provided' };
+        return this.performRefererErrorCorrection(tenantId, billingid, employeeId, 1, undefined, { billingid });
+    }
+    static async correctRefererErrorPostRegistration(tenantId, employeeId, entity_type, entity_id, billingid, branchid) {
+        if (!entity_type || !entity_id)
+            return { success: false, message: 'No entity_type or entity_id provided' };
+        if (billingid === undefined || billingid === null)
+            return { success: false, message: 'No billingid provided' };
+        const isBillingIdValid = await billing_1.Billing.checkValidityOfBillingid(tenantId, billingid);
+        if (!isBillingIdValid)
+            return { success: false, message: 'Invalid billingid provided' };
+        if (branchid === undefined || branchid === null)
+            return { success: false, message: 'No branchid provided' };
+        const billingSource = this.determineBillingSourceUsingEntityType(entity_type);
+        if (billingSource === undefined || billingSource === null)
+            return { success: false, message: 'No billingSource provided' };
+        return this.performRefererErrorCorrection(tenantId, billingid, employeeId, billingSource, entity_id, { entity_id, entity_type, billingid });
     }
 }
 exports.CustomerBillingCheckout = CustomerBillingCheckoutSingleton;

@@ -33,5 +33,31 @@ class BirthdayService {
             totalPages: Math.ceil(total / limit)
         };
     }
+    async getWeekBirthdays(tenantId, { page = 1, limit = 10 }) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const offset = (page - 1) * limit;
+        const [data] = await connection.raw(BirthdayQueries_1.BirthdayQueries.getWeekBirthdays, [limit, offset]);
+        const [countResult] = await connection.raw(BirthdayQueries_1.BirthdayQueries.getWeekBirthdaysCount);
+        const total = countResult[0].total;
+        return {
+            data,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        };
+    }
+    async getMonthBirthdays(tenantId, { page = 1, limit = 10 }) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const offset = (page - 1) * limit;
+        const [data] = await connection.raw(BirthdayQueries_1.BirthdayQueries.getMonthBirthdays, [limit, offset]);
+        const [countResult] = await connection.raw(BirthdayQueries_1.BirthdayQueries.getMonthBirthdaysCount);
+        const total = countResult[0].total;
+        return {
+            data,
+            total,
+            page,
+            totalPages: Math.ceil(total / limit)
+        };
+    }
 }
 exports.BirthdayService = BirthdayService;

@@ -12,4 +12,7 @@ router.get('/api/v1/sms/events/:id/toggle', (0, helper_1.handleOverLoad)(Primesm
 router.put('/api/v1/sms/events/:code/template', (0, helper_1.handleOverLoad)(PrimesmsEventsController_1.PrimesmsEventsController.updateTemplate));
 router.get('/api/v1/birthday-events/today', BirthdayHandlers_1.BirthdayHandlers.getTodaysBirthdays);
 router.get('/api/v1/upcoming-birthdays', BirthdayHandlers_1.BirthdayHandlers.getUpcomingBirthdays);
+router.get('/api/v1/birthday-events/week', BirthdayHandlers_1.BirthdayHandlers.getWeekBirthdays);
+router.get('/api/v1/birthday-events/month', BirthdayHandlers_1.BirthdayHandlers.getMonthBirthdays);
+router.get('/api/v1/birthday-events/all', BirthdayHandlers_1.BirthdayHandlers.getAllBirthdayGroups);
 exports.default = router;

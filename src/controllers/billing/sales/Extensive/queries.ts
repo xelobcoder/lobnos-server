@@ -1,5 +1,4 @@
-const major_constraints = `dboservices.serviceAddedOn IS NOT NULL AND dboservices.status IN('refunded','active'
-) AND (dboservices.isDeleted=0 OR dboservices.isDeleted IS NULL) `
+const major_constraints = `dboservices.serviceAddedOn IS NOT NULL AND dboservices.status IN('refunded','active','written-off') AND (dboservices.isDeleted=0 OR dboservices.isDeleted IS NULL) `
 
 export const QUERY_DAILY_CEO_SNAPSHOT = `
  SELECT 

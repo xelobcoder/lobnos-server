@@ -1,8 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.QUERY_ULTRASOUND_DETAILED_SUMMARY = exports.QUERY_DAILY_SALES_SUMMARY_BY_SECTION = exports.QUERY_CEO_EXPENSE_SUMMARY_SNAPSHOT = exports.QUERY_EXPENSES_BY_BRANCH = exports.QUERY_UNAPPROVED_EXPENSES_PERIOD = exports.QUERY_REVERSED_EXPENSE_PAYMENTS_LIST = exports.QUERY_ALL_INDIVIDUAL_EXPENSES = exports.QUERY_MONTHLY_EXPENSE_TREND = exports.QUERY_BILLABLE_EXPENSES = exports.QUERY_EXPENSE_PAYMENTS_FULL_LIST = exports.QUERY_EXPENSE_PAYMENTS_SUMMARY = exports.QUERY_EXPENSE_APPROVAL_STATUS_SUMMARY = exports.QUERY_ALL_EXPENSE_CATEGORIES = exports.QUERY_TOTAL_EXPENSES_PERIOD_COMPARISON = exports.CLINCIAN_SALES_PAYMENT = exports.QUERY_EMPLOYEES_COLLECTED_CASH = exports.QUERY_BREAK_DOWN_PAYMENT_MODES = exports.QUERY_MISMATCHED_PAYMENT_HISTORY = exports.QUERY_TOP_PERFORMING_BRANCHES = exports.QUERY_TEST_TRANSACTION_SNAPSHOT = exports.QUERY_NIGHT_ADJUSTMENT_IMPACT = exports.QUERY_DAILY_CEO_SNAPSHOT = void 0;
-const major_constraints = `dboservices.serviceAddedOn IS NOT NULL AND dboservices.status IN('refunded','active'
-) AND (dboservices.isDeleted=0 OR dboservices.isDeleted IS NULL) `;
+const major_constraints = `dboservices.serviceAddedOn IS NOT NULL AND dboservices.status IN('refunded','active','written-off') AND (dboservices.isDeleted=0 OR dboservices.isDeleted IS NULL) `;
 exports.QUERY_DAILY_CEO_SNAPSHOT = `
  SELECT 
             COALESCE(SUM(totalcost), 0) AS gross_revenue,

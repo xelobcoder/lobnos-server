@@ -126,19 +126,23 @@ TransactionManagementController.voidTransaction = (0, helper_1.handleOverLoad)(a
         const { billingid } = req.params;
         const { tenantId } = req.query;
         const { employeeid } = req.body;
-        if (!billingid || !tenantId || !employeeid) {
+        if (!billingid || !tenantId || !employeeid)
             return (0, helper_1.customError)("billingid, tenantId, and employeeid are required", 400, res);
-        }
         const service = TransactionManagementFactory_1.TransactionManagementFactory.createService(Number(tenantId));
         const success = await service.voidTransaction(Number(billingid), Number(employeeid));
         if (success) {
             res.send({
                 statusCode: 200,
+                status: true,
                 message: "Transaction voided successfully"
             });
         }
         else {
-            (0, helper_1.customError)("Failed to void transaction", 500, res);
+            res.send({
+                statusCode: 200,
+                status: false,
+                message: "Voiding transaction failed"
+            });
         }
     }
     catch (err) {

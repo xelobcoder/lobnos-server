@@ -11,7 +11,7 @@ import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsD
 import { applyDboservicesAfterInsert, applyDboservicesAfterUpdate } from "../../database/appLevelTriggers";
 import User from "../../LobnosAuth/user";
 import DiscountLimitService from "./billing-services/discount-limit";
-import { CommissionLogger, CommissionServiceFactory } from "../commissions/commission-configurations";
+import { CommissionLogger, CommissionServiceFactory, logger } from "../commissions/commission-configurations";
 
 
 
@@ -281,7 +281,7 @@ export class SubmitCustomerBilling {
                 }
 
                 const Multi = new BillingSharedRepo();
-                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, billeddate ? billeddate : new Date(),trx);
+                const loadAllServices = await Multi.mapAndInsertServices(this.tenantId, allEntries, billingID, patientId, result_delivery, billeddate ? billeddate : new Date(), trx);
                 if (loadAllServices.length > 0) {
                     const firstErr = loadAllServices[0] as any;
                     const messageFromErr =
@@ -514,7 +514,9 @@ export class SubmitCustomerBilling {
 
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         } catch (error: any) {
-            return { status: false, message: error && error.message ? error.message : "Unknown error in billing submission" };
+            console.log(error)
+            logger.error('Failed to submit billing', { error: error.message, payload: this.payload });
+            throw new Error(`Failed to submit billing`);
         }
     }
 

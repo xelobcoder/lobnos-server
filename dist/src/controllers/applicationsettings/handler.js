@@ -508,6 +508,7 @@ const submitBillingHandler = async (req, res) => {
         res.send(result);
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(res, err);
     }
 };
@@ -516,10 +517,18 @@ const correctRefererErrorPostRegistrationHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
         const { entity_type, entity_id, branchid, billingid, employeeId } = req.body;
-        if (!entity_type || !entity_id || !employeeId || !billingid || !branchid) {
+        if (!entity_type || !employeeId || !billingid || !branchid) {
             return res.status(400).json({ success: false, message: 'Missing entity_type or entity_id or employeeId or billingid or branchid' });
         }
+        if (entity_type !== 'walkin' && !entity_id) {
+            return res.status(400).json({ success: false, message: 'Missing entity_id for non-walkin registration' });
+        }
         const isvalid_entity_id = !isNaN(parseInt(entity_id.toString(), 10));
+        if (entity_type === 'walkin') {
+            const correction = await customerBillingCheckout_1.CustomerBillingCheckout.correctRefererErrorPostToGeneralRegistration(tenantId, billingid, branchid, parseInt(employeeId.toString(), 10));
+            const { success, message } = correction;
+            return res.status(success ? 200 : 400).json({ success, message });
+        }
         if (!isvalid_entity_id) {
             return res.status(400).json({ success: false, message: 'Invalid entity_id' });
         }

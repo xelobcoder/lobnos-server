@@ -205,20 +205,23 @@ export const getAllEnterResult = async (req: Request, res: Response) => {
 
 export const getAscensionOverViewModelHandler = async (req: Request, res: Response) => {
 	try {
-		const { tenantid, date, patientid, billingid } = req.query;
+		const { tenantid, _dateFrom, _dateEnd, patientid, billingid, testname, patientname } = req.query;
 
 		// Date is required unless we are filtering by patientid or billingid
-		if (!date && !patientid && !billingid) {
+		if (!_dateFrom && !_dateEnd && !patientid && !billingid) {
 			return customError("date, patientid or billingid must be included in request query", 400, res);
 		}
 
 		const tId = parseInt(tenantid as string, 10);
 		const result = await Operations.getAscensionOverViewModel(
 			tId,
-			date ? date.toString() : "all",
 			{
+				_dateFrom: _dateFrom ? _dateFrom.toString() : undefined,
+				_dateEnd: _dateEnd ? _dateEnd.toString() : undefined,
 				patientid: patientid ? parseInt(patientid.toString()) : undefined,
-				billingid: billingid ? parseInt(billingid.toString()) : undefined
+				billingid: billingid ? parseInt(billingid.toString()) : undefined,
+				testname: testname ? parseInt(testname.toString()) : undefined,
+				patientname: patientname ? patientname.toString() : undefined
 			}
 		);
 		res.send({ statusCode: 200, message: "success", result });

@@ -1,4 +1,4 @@
-const constraints = `dboservices.status IN ('active','refunded') AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND dboservices.categoryTrackId= 6 AND (isDeleted = 0 OR isDeleted IS NULL)`;
+const constraints = `dboservices.status IN ('active','refunded','written-off') AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND dboservices.categoryTrackId= 6 AND (isDeleted = 0 OR isDeleted IS NULL)`;
 
 
 export const q_can_overallTotals = `

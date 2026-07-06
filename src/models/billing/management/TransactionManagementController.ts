@@ -132,20 +132,22 @@ export class TransactionManagementController {
             const { tenantId } = req.query;
             const { employeeid } = req.body;
 
-            if (!billingid || !tenantId || !employeeid) {
-                return customError("billingid, tenantId, and employeeid are required", 400, res);
-            }
-
+            if (!billingid || !tenantId || !employeeid) return customError("billingid, tenantId, and employeeid are required", 400, res);
             const service = TransactionManagementFactory.createService(Number(tenantId));
             const success = await service.voidTransaction(Number(billingid), Number(employeeid));
 
             if (success) {
                 res.send({
                     statusCode: 200,
+                    status: true,
                     message: "Transaction voided successfully"
                 });
             } else {
-                customError("Failed to void transaction", 500, res);
+                res.send({
+                    statusCode: 200,
+                    status: false,
+                    message: "Voiding transaction failed"
+                })
             }
         } catch (err) {
             console.error("Error in voidTransaction:", err);

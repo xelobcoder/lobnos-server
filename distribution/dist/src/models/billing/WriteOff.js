@@ -7,25 +7,27 @@ exports.WriteOff = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const helper_1 = require("../../hooks/helper");
+const AutomatedExpenseLifecycle_1 = __importDefault(require("../Expenses/AutomatedExpenseLifecycle"));
 class WriteOff {
     static async writeOffTransaction(tenantId, billingid, employeeid, reason) {
         try {
+            // we going to use a transaction here to update billing and dboservices tables to ensure data integrity
             const billingQuery = `SELECT * FROM billing WHERE billingid = ?`;
             const billingResult = await (0, helper_1.promisifyQuery)(tenantId, billingQuery, [billingid]);
             if (!billingResult || billingResult.length === 0)
                 return "Resource not found." /* OperationsFailures.notFound */;
-            const { adjustmentType, isAdjustment, paid, payable, islocked } = billingResult[0];
+            const { adjustmentType, isAdjustment, paid, payable, islocked, branchid } = billingResult[0];
             if (islocked == 1)
                 return 'Transaction is locked. Cannot write off.';
             if (isAdjustment == 1 && adjustmentType === 'written-off')
                 return 'Transaction already written off. No further adjustments allowed.';
             if (isAdjustment == 0 || isAdjustment == null || adjustmentType == "addition") {
-                if (payable > paid) {
-                    const outstanding = 0;
-                    const writeOffAmount = payable - paid;
-                    const status = 'written-off';
-                    const updateQuery = `UPDATE billing 
-                          SET isAdjustment = 1,status = ?,
+                const outstanding = 0;
+                const writeOffAmount = payable - paid;
+                const status = 'written-off';
+                const updateQuery = `UPDATE billing 
+                          SET isAdjustment = 1,
+                          status = ?,
                           adjustmentReason = ?,
                           islocked =1,
                           adjustedBy = ?,
@@ -34,14 +36,53 @@ class WriteOff {
                           adjustmentType = 'written-off',  
                           writeoff = ?,
                           outstanding = ? WHERE billingid = ?`;
-                    const result = await (0, helper_1.promisifyQuery)(tenantId, updateQuery, [status, reason, employeeid, writeOffAmount, outstanding, billingid]);
-                    if ((0, helper_1.rowAffected)(result))
-                        return true;
-                    return "Resource not found." /* OperationsFailures.notFound */;
+                const knexConnection = await (0, KnexConnections_1.default)(tenantId);
+                const conn = await knexConnection.transaction();
+                try {
+                    await conn.raw(updateQuery, [status, reason, employeeid, writeOffAmount, outstanding, billingid]);
+                    const alloutstandingServices = await conn('dboservices')
+                        .where({ billingid })
+                        .andWhere('outstanding', '>', 0)
+                        .select('serviceid', 'outstanding');
+                    for (const service of alloutstandingServices) {
+                        await conn('dboservices')
+                            .update({
+                            outstanding: 0,
+                            status: 'written-off',
+                            isLocked: 1,
+                            paymentstatus: 'partial',
+                            amountwrittenoff: service.outstanding,
+                            writtenoffby: employeeid,
+                            writtenoffat: new Date(),
+                            writeoff: service.outstanding
+                        }).where({ serviceid: service.serviceid });
+                    }
+                    const expenseLifecycle = new AutomatedExpenseLifecycle_1.default(tenantId);
+                    await expenseLifecycle.process({
+                        amount: writeOffAmount,
+                        name: 'Bad Debt - Billing #' + billingid,
+                        description: reason,
+                        categoryName: 'Bad Debt',
+                        merchantName: 'System',
+                        date: new Date(),
+                        branchid: branchid,
+                        employeeid: employeeid,
+                        serviceid: billingid,
+                        isassociatedservice: 1,
+                        paymentMethod: 'SYSTEM_AUTO',
+                        invoicePrefix: 'BAD-DEBT'
+                    }, conn);
+                    await conn.commit();
+                    return true;
                 }
-                else {
-                    return 'No outstanding amount to write off.';
+                catch (err) {
+                    await conn.rollback();
+                    console.error('Error during write-off transaction:', err);
+                    return "An internal server error occurred." /* OperationsFailures.internalServerError */ || 'An error occurred while processing the write-off.';
                 }
+            }
+            else {
+                return 'No outstanding amount to write off.';
             }
             return false;
         }

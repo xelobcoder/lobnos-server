@@ -189,6 +189,26 @@ class PrimeEventsSMSDataSource {
             phonee164 = String(data.mobile_number).replace(/^\+/, '');
         return await this.sendSMSMessage(parsedContent, phonee164, 'PATIENT_REGISTRATION_SMS', patientid, true, employeeId);
     }
+    async patientBirthDayMessageLogging(tenantId, patientid, employeeId) {
+        const isActive = await this.isEventActive('BIRTHDAY_SMS');
+        if (!isActive)
+            return;
+        const data = await new registration_1.default().getPatientBasicData(tenantId, patientid);
+        const event = await this.repo.findByCode('BIRTHDAY_SMS');
+        if (!data || !event)
+            return;
+        const parsedContent = await this.parsedEventTemplate(tenantId, data, event.content);
+        let phonee164 = '';
+        if ('phone' in data && data.phone)
+            phonee164 = String(data.phone).replace(/^\+/, '');
+        else if ('phonenumber' in data && data.phonenumber)
+            phonee164 = String(data.phonenumber).replace(/^\+/, '');
+        else if ('mobile' in data && data.mobile)
+            phonee164 = String(data.mobile).replace(/^\+/, '');
+        else if ('mobile_number' in data && data.mobile_number)
+            phonee164 = String(data.mobile_number).replace(/^\+/, '');
+        return await this.sendSMSMessage(parsedContent, phonee164, 'BIRTHDAY_SMS', patientid, true, employeeId);
+    }
     async patientTransactionEventData(tenantId, billingid, employeeId) {
         const isActive = await this.isEventActive('PATIENT_BILLING_SMS');
         if (!isActive)

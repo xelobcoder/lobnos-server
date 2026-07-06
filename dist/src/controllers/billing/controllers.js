@@ -311,7 +311,6 @@ async function getServiceRefundItem(request, response) {
         response.send({ result: refundData });
     }
     catch (err) {
-        console.log(err);
         (0, helper_1.responseError)(response);
     }
 }
@@ -332,6 +331,7 @@ async function WriteOffTransaction(request, response) {
         response.send({ status: true });
     }
     catch (err) {
+        console.log(err);
         (0, helper_1.responseError)(response);
     }
 }

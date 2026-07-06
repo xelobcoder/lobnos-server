@@ -346,7 +346,6 @@ export async function getServiceRefundItem(request: Request<{}, {}, {}, { servic
 		const refundData = await Refund.getAserviceRefundDetails(tenantId, servicedID, employeeid)
 		response.send({ result: refundData });
 	} catch (err) {
-		console.log(err)
 		responseError(response);
 	}
 }
@@ -362,11 +361,11 @@ export async function WriteOffTransaction(request: Request<{}, {}, { billingid: 
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
 		}
 		const result = await WriteOff.writeOffTransaction(tenantIdP, billingid, employeeid, reason);
-
 		if (typeof result === "string") return response.send({ status: false, message: result });
 		if (!result) return customError("Write off failed", 404, response);
 		response.send({ status: true });
 	} catch (err) {
+		console.log(err)	
 		responseError(response);
 	}
 }

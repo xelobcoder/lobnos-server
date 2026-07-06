@@ -135,14 +135,19 @@ export default class Operations {
 	}
 
 
-	public static async getAscensionOverViewModel(tenantid: number, date: string | null | undefined, filters?: { billingid?: number; patientid?: number }): Promise<any> {
+	public static async getAscensionOverViewModel(tenantid: number,
+		filters?: {
+			billingid?: number; patientid?: number, _dateFrom?: string; _dateEnd?: string, testname?: number,
+			patientname?: string
+		}): Promise<any> {
 		try {
 			const params: any[] = [];
 			let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status <> 'voided' AND dbo.status <> 'refunded'`;
 
-			if (date && date !== "all") {
-				whereConditions += ` AND DATE(b.billedon) = DATE(?)`;
-				params.push(date);
+			if (filters?._dateFrom && filters._dateFrom !== "all") {
+				whereConditions += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+				params.push(filters._dateFrom);
+				params.push(filters._dateEnd);
 			}
 
 			if (filters?.billingid) {
@@ -153,6 +158,20 @@ export default class Operations {
 			if (filters?.patientid) {
 				whereConditions += ` AND p.patientid = ?`;
 				params.push(filters.patientid);
+			}
+
+			if (filters?.testname) {
+				whereConditions += ` AND tp.id = ?`;
+				params.push(filters.testname);
+			}
+
+			if (filters?.patientname) {
+				whereConditions += ` AND REGEXP_REPLACE(
+					LOWER(CONCAT_WS(' ', p.firstname, p.middlename, p.lastname)),
+					'[[:space:]]+',
+					' '
+					) LIKE ?`;
+				params.push(`%${filters.patientname.toLowerCase().trim().replace(/\s+/g, " ")}%`);
 			}
 
 			const query = `
@@ -354,7 +373,7 @@ export default class Operations {
 							ss.keyid ASC,
 							ra.id ASC;
 		`
-console.log(query)
+			console.log(query)
 			return await promisifyQuery(tenantid, query, [billingid]);
 		} catch (err: any) {
 			console.log(err)

@@ -466,6 +466,83 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           }
      }
 
+     private static buildServiceUpdatePayload(billingSource: number, entity_id?: number): any {
+          return {
+               serviceCategory: serviceCategory[billingSource],
+               clinicianId: billingSource === 6 ? entity_id : null,
+               organizationId: billingSource === 2 ? entity_id : null,
+               categoryTrackId: billingSource,
+               isNHIS: billingSource === 4 ? 1 : 0,
+               isPHIS: billingSource === 3 ? 1 : 0,
+               insuranceid: billingSource === 4 || billingSource === 3 ? entity_id : null,
+               isCorrected: 1,
+          };
+     }
+
+     private static async performRefererErrorCorrection(
+          tenantId: number,
+          billingid: number,
+          employeeId: number,
+          billingSource: number,
+          entity_id?: number,
+          logContext?: any
+     ): Promise<{ success: boolean; message: string; data?: any }> {
+          const conn = await KnexConnection(tenantId);
+          const transaction = await conn.transaction();
+
+          try {
+               const transactionServices = await transaction('dboservices').where('billingid', billingid);
+               if (transactionServices.length === 0) {
+                    await transaction.rollback();
+                    return { success: false, message: 'No services found for the provided billingid' };
+               }
+
+               const updatePayload = this.buildServiceUpdatePayload(billingSource, entity_id);
+               for (const service of transactionServices) {
+                    await transaction('dboservices')
+                         .where('serviceid', service.serviceid)
+                         .andWhere('billingid', billingid)
+                         .update(updatePayload);
+
+                    const updatedService = await transaction('dboservices').where({ serviceid: service.serviceid }).first();
+                    if (updatedService) {
+                         await applyDboservicesAfterUpdate(transaction, updatedService, employeeId ? employeeId.toString() : undefined);
+                    }
+               }
+
+               await transaction('billing')
+                    .where('billingid', billingid)
+                    .update({
+                         adjustmentType: 'referer-error',
+                         adjustmentReason: 'Referer error correction',
+                         adjustmentdate: new Date(),
+                         isAdjustment: 1,
+                         islocked: 1,
+                         adjustedBy: employeeId,
+                    });
+
+               await transaction.commit();
+               return { success: true, message: 'Referer error correction successful', data: { billingid, billingSource } };
+          } catch (error) {
+               console.error('Error during referer error correction:', error, { billingid, ...logContext });
+               await transaction.rollback();
+               return { success: false, message: 'Transaction failed' };
+          }
+     }
+
+     public static async correctRefererErrorPostToGeneralRegistration(tenantId: number, billingid: number, branchid: number, employeeId: number): Promise<{ success: boolean; message: string; data?: any }> {
+          if (billingid === undefined || billingid === null)
+               return { success: false, message: 'No billingid provided' };
+
+          const isBillingIdValid = await Billing.checkValidityOfBillingid(tenantId, billingid);
+          if (!isBillingIdValid)
+               return { success: false, message: 'Invalid billingid provided' };
+
+          if (branchid === undefined || branchid === null)
+               return { success: false, message: 'No branchid provided' };
+
+          return this.performRefererErrorCorrection(tenantId, billingid, employeeId, 1, undefined, { billingid });
+     }
 
      public static async correctRefererErrorPostRegistration(tenantId: number, employeeId: number, entity_type: EntityType, entity_id: number, billingid: number, branchid: number): Promise<{ success: boolean; message: string; data?: any }> {
           if (!entity_type || !entity_id)
@@ -485,58 +562,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           if (billingSource === undefined || billingSource === null)
                return { success: false, message: 'No billingSource provided' };
 
-          const conn = await KnexConnection(tenantId);
-          const transaction = await conn.transaction();
-
-          try {
-
-               const transactionServices = await transaction('dboservices')
-                    .where('billingid', billingid);
-               if (transactionServices.length === 0) {
-                    await transaction.rollback();
-                    return { success: false, message: 'No services found for the provided billingid' };
-               }
-
-
-
-               for (const service of transactionServices) {
-                    await transaction('dboservices')
-                         .where('serviceid', service.serviceid)
-                         .andWhere('billingid', billingid)
-                         .update({
-                              serviceCategory: serviceCategory[billingSource],
-                              clinicianId: billingSource === 6 ? entity_id : null,
-                              organizationId: billingSource === 2 ? entity_id : null,
-                              categoryTrackId: billingSource,
-                              isNHIS: billingSource === 4 ? 1 : 0,
-                              isPHIS: billingSource === 3 ? 1 : 0,
-                              insuranceid: billingSource === 4 || billingSource === 3 ? entity_id : null,
-                              isCorrected: 1,
-                         });
-
-                    const updatedService = await transaction('dboservices').where({ serviceid: service.serviceid }).first();
-                    if (updatedService) {
-                         await applyDboservicesAfterUpdate(transaction, updatedService, employeeId ? employeeId.toString() : undefined);
-                    }
-               }
-
-               await transaction('billing')
-                    .where('billingid', billingid)
-                    .update({
-                         adjustmentType: 'referer-error',
-                         adjustmentReason: 'Referer error correction',
-                         adjustmentdate: new Date(),
-                         isAdjustment: 1,
-                         islocked: 1,
-                         adjustedBy: employeeId,
-                    })
-               await transaction.commit();
-               return { success: true, message: 'Referer error correction successful', data: { billingid, billingSource } };
-          } catch (error) {
-               console.error('Error during referer error correction:', error, { billingid, entity_id, entity_type });
-               await transaction.rollback();
-               return { success: false, message: 'Transaction failed' };
-          }
+          return this.performRefererErrorCorrection(tenantId, billingid, employeeId, billingSource, entity_id, { entity_id, entity_type, billingid });
      }
 }
 

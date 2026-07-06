@@ -21,21 +21,28 @@ class Payment {
                 const isloadallBool = isloadall === true || (typeof isloadall === 'string' && isloadall === 'true');
                 const connection = await (0, KnexConnections_1.default)(tenantId);
                 let query = connection
-                    .select('np.patientid', 'np.fullpatientid', 'rr.username AS salesperson', connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"), 'np.email', connection.raw("CONCAT('0', np.mobile_number) AS mobileNumber"), 'b.*', connection.raw("(SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource"))
+                    .select('np.patientid', 'np.fullpatientid', 's.serviceAddedOn AS billedon', connection.raw(`CASE WHEN s.status IN ('refunded','voided') THEN s.status ELSE 
+					'active' END AS status`), 's.serviceCategory', 'b.billingid', 'rr.username AS salesperson', connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"), 'np.email', connection.raw("CONCAT('0', np.mobile_number) AS mobileNumber"), connection.raw('SUM(COALESCE(s.totalcost, 0)) AS totalcost'), connection.raw("SUM(COALESCE(s.discount, 0)) AS discount"), connection.raw("SUM(COALESCE(s.paidamount, 0)) AS paidamount"), connection.raw("SUM(COALESCE(s.totalpayable, 0)) AS totalpayable"), connection.raw("SUM(COALESCE(s.outstanding, 0)) AS outstanding"), connection.raw('SUM(COALESCE(s.amountIncurredDueTax, 0)) AS amountIncurredDueTax'), connection.raw('SUM(COALESCE(r.amountRefunded, 0)) AS totalRefunded'), connection.raw(`CASE WHEN userAdjustmentType IS NOT NULL AND userAdjustmentType='surcharge'
+					  THEN SUM(COALESCE(s.userAdjustedValue, 0))
+					  ELSE 0
+					END AS surcharge`), connection.raw("SUM(COALESCE(s.amountwrittenoff ,0)) AS writeoff"), 's.paymentstatus', connection.raw("(SELECT serviceCategory FROM \`dboservices\` WHERE billingid = b.billingid LIMIT 1) AS billingSource"))
                     .from('new_patients AS np')
                     .innerJoin('billing AS b', 'np.patientid', 'b.patientid')
-                    .innerJoin('roles AS rr', 'rr.employeeid', 'b.lastupdatedby');
+                    .innerJoin("dboservices AS s", 's.billingid', 'b.billingid')
+                    .innerJoin('roles AS rr', 'rr.employeeid', 'b.lastupdatedby')
+                    .innerJoin("dbobillingrefundtable AS r", 'r.serviceid', 's.serviceid');
                 if (patientid) {
                     query = query.where('np.patientid', parseInt(patientid.toString()));
                 }
                 if (from) {
                     if (to) {
-                        query = query.whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [from, to]);
+                        query = query.whereRaw('DATE(s.serviceAddedOn) BETWEEN ? AND ?', [from, to]);
                     }
                     else {
-                        query = query.whereRaw('DATE(b.billedon) BETWEEN ? AND CURRENT_DATE', [from]);
+                        query = query.whereRaw('DATE(s.serviceAddedOn) BETWEEN ? AND CURRENT_DATE', [from]);
                     }
                 }
+                query = query.groupBy('b.billingid');
                 query = query.orderBy('b.billingid', 'desc');
                 if (!isloadallBool) {
                     const offset = (page - 1) * count;
@@ -200,36 +207,39 @@ class Payment {
         };
         this.summaryRangeOfDates = async (tenantId, from, to, branchid) => {
             try {
-                const summary = await (0, helper_1.promisifyQuery)(tenantId, `SELECT 
-					COUNT(*) as transactionCount,
-					COALESCE(SUM(totalcost), 0) as total_cost,
-					COALESCE(SUM(paid), 0) as actual_revenue,
-					COALESCE(SUM(payable), 0) as accrued_revenue,
-					COALESCE(SUM(totalrefunded), 0) as total_refunded,
-					COALESCE(SUM(discount), 0) as total_discount,
-					COALESCE(SUM(outstanding), 0) as total_outstanding,
-					COALESCE(SUM(balance), 0) as total_balance,
-					COALESCE(SUM(amountIncurredDueTax), 0) as total_tax_incurred,
-					(SELECT COALESCE(SUM(amount), 0) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND COALESCE(is_reversed, 0) = 0) as total_expense_payments,
-					COALESCE(SUM(paid) - COALESCE((SELECT SUM(amount) FROM expense_payments WHERE DATE(payment_date) BETWEEN ? AND ? AND status = 'Paid' AND COALESCE(is_reversed, 0) = 0), 0), 0) AS net_revenue
-				FROM billing 
-				WHERE DATE(billedon) BETWEEN ? AND ? AND branchid = ? 
-				 `, [from, to, from, to, from, to, branchid]);
-                const result = summary[0] || {};
-                return {
-                    totalTransactionCost: Number(result.total_cost || 0),
-                    totalCost: Number(result.total_cost || 0),
-                    actualRevenue: Number(result.actual_revenue || 0),
-                    accruedRevenue: Number(result.accrued_revenue || 0),
-                    totalRefunded: Number(result.total_refunded || 0),
-                    totalDiscount: Number(result.total_discount || 0),
-                    totalOutstanding: Number(result.total_outstanding || 0),
-                    totalBalance: Number(result.total_balance || 0),
-                    totalTaxIncurred: Number(result.total_tax_incurred || 0),
-                    transactionCount: Number(result.transactionCount || 0),
-                    totalExpensePayments: Number(result.total_expense_payments || 0),
-                    netRevenue: Number(result.net_revenue || 0)
-                };
+                const summary = await (0, helper_1.promisifyQuery)(tenantId, `
+				 WITH sales AS (
+        SELECT 
+        COALESCE(SUM(totalcost), 0) AS gross_revenue, 
+        COALESCE(SUM(paidamount), 0) AS cash_collected, 
+        COALESCE(SUM(totalpayable), 0) AS earned_revenue, 
+        COALESCE(SUM(discount), 0) AS discount, 
+        COALESCE(SUM(outstanding), 0) AS outstanding,
+        COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
+        COUNT(*) AS transactioncount
+        FROM dboservices
+        LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
+        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? AND (dboservices.status IN ('active','refunded','written-off')) AND (isDeleted = 0 OR isDeleted IS NULL)
+    ),
+    expenses AS (
+        SELECT  
+        COALESCE(SUM(amount), 0) AS expenses_paid
+        FROM expense_payments
+        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
+    )
+            SELECT 
+            s.gross_revenue, 
+            s.cash_collected, 
+            s.earned_revenue, 
+            s.discount,
+            s.total_refunded,
+            s.transactioncount,
+            COALESCE(e.expenses_paid, 0) AS expenses_paid,
+            (COALESCE(s.cash_collected, 0) - COALESCE(e.expenses_paid, 0)) AS net_operating_cash,
+            s.outstanding
+            FROM sales s, expenses e;
+				 `, [from, to, from, to]);
+                return summary;
             }
             catch (err) {
                 logger_1.default.error(`Error in summaryRangeOfDates: ${err}`);
