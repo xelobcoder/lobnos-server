@@ -5,7 +5,7 @@ FlowCharts
 asserts
 .qodo
 dist/
-logs/
+
 
 # Backup files and directories
 backups/
