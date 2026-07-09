@@ -13,7 +13,7 @@ export class CustomTest {
 		return await promisifyQuery(tenantId, query);
 	}
 	public async loadTestWithDetails(tenantId: number) {
-		const query = `SELECT * FROM test_panels AS tp INNER JOIN testDetails AS td ON  td.testid = tp.id`;
+		const query = `SELECT * FROM test_panels AS tp INNER JOIN testdetails AS td ON  td.testid = tp.id`;
 		return await promisifyQuery(tenantId, query);
 	}
 

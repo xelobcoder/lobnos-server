@@ -12,7 +12,7 @@ class CustomTest {
         return await (0, helper_1.promisifyQuery)(tenantId, query);
     }
     async loadTestWithDetails(tenantId) {
-        const query = `SELECT * FROM test_panels AS tp INNER JOIN testDetails AS td ON  td.testid = tp.id`;
+        const query = `SELECT * FROM test_panels AS tp INNER JOIN testdetails AS td ON  td.testid = tp.id`;
         return await (0, helper_1.promisifyQuery)(tenantId, query);
     }
     async isCustomTest(tenantId, testname) {
