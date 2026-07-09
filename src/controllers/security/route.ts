@@ -1,11 +1,11 @@
 import express, { Router } from "express";
 import {
-     getLoggedSessions,
-     updateLoggedSessions,
-     logoutUser,
-     getLoggedUsersCount,
-     getLoginHistory,
-     getRolesAuditLog,
+	getLoggedSessions,
+	updateLoggedSessions,
+	logoutUser,
+	getLoggedUsersCount,
+	getLoginHistory,
+	getRolesAuditLog,
 } from "./handlers";
 import { AuthController } from "./authController";
 import { checkTokenExists, isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
@@ -24,16 +24,16 @@ const authController = new AuthController();
 
 
 const checkLicenseAccess = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
-     try {
-          const tenantId = parseInt(req.query.tenantId as string);
-          if (!tenantId) return res.status(400).json({ status: 'error', message: 'tenantId is required' });
-          const repo = new PrimeWindowAccessRepository(tenantId);
-          const isValid = await repo.validateLicense();
-          if (!isValid) return res.status(403).json({ status: 'error', message: 'License expired or invalid' });
-          next();
-     } catch (error) {
-          return res.status(500).json({ status: 'error', message: 'License validation failed: ' + (error as Error).message });
-     }
+	try {
+		const tenantId = parseInt(req.query.tenantId as string);
+		if (!tenantId) return res.status(400).json({ status: 'error', message: 'tenantId is required' });
+		const repo = new PrimeWindowAccessRepository(tenantId);
+		const isValid = await repo.validateLicense();
+		if (!isValid) return res.status(403).json({ status: 'error', message: 'License expired or invalid' });
+		next();
+	} catch (error) {
+		return res.status(500).json({ status: 'error', message: 'License validation failed: ' + (error as Error).message });
+	}
 };
 
 

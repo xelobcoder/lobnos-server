@@ -98,7 +98,8 @@ class AuthController {
             const applicationSettings = new appset_1.default();
             const settings = await applicationSettings.getAllAppSettings(tenantId);
             return res.status(200).json({
-                message: 'Token is valid', status: true,
+                message: 'Token is valid',
+                status: true,
                 user: {
                     loginDuration: 6,
                     daysToExpiration: daysToExpiry || 0,
