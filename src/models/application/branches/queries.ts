@@ -13,4 +13,4 @@ export const q_update_activation =
 
 
 
-     export const g_get_branch = `SELECT * FROM BRANCH WHERE branchid = ? LIMIT 1 `;
+     export const g_get_branch = `SELECT * FROM branch WHERE branchid = ? LIMIT 1 `;

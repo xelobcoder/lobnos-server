@@ -7,4 +7,4 @@ exports.q_branches_get_all = `SELECT * FROM branch WHERE branchid = ?`;
 exports.q_branches_update_single = `UPDATE branch SET name = ?, contact = ?, address = ?, email = ?, managerid = ? WHERE branchid = ?`;
 exports.q_branches_delete_single = `DELETE FROM BRANCH WHERE branchid = ?`;
 exports.q_update_activation = `UPDATE branch SET activation = ? WHERE branchid = ?`;
-exports.g_get_branch = `SELECT * FROM BRANCH WHERE branchid = ? LIMIT 1 `;
+exports.g_get_branch = `SELECT * FROM branch WHERE branchid = ? LIMIT 1 `;
