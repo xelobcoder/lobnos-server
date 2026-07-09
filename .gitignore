@@ -4,6 +4,7 @@ node_modules
 FlowCharts
 asserts
 .qodo
+dist/
 
 # Backup files and directories
 backups/
