@@ -6,7 +6,6 @@ asserts
 .qodo
 dist/
 
-
 # Backup files and directories
 backups/
 *.sql
