@@ -111,7 +111,7 @@ exports.q_get_all_result_entry_base = `
             rdel.delivered_at AS delivered_at,
             rdel.delivered_mode AS delivered_mode,
             clin.name AS clinicianName
-  FROM dboServices AS ds
+  FROM dboservices AS ds
   INNER JOIN billing AS b ON b.billingid = ds.billingid 
   INNER JOIN test_ascension AS ta ON ta.serviceid = ds.serviceid
   INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
@@ -245,7 +245,7 @@ exports.q_get_all_result_entry_partitioning = `SELECT DISTINCT
     clin.name AS clinicianName
 FROM billing PARTITION({billing_table}) AS b
 INNER JOIN test_ascension PARTITION ({asc_table}) AS ta ON ta.billingid = b.billingid
-INNER JOIN dboServices AS ds ON ds.billingid = b.billingid
+INNER JOIN dboservices AS ds ON ds.billingid = b.billingid
 INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
 INNER JOIN test_panels AS tp ON tp.id = ss.testid
 INNER JOIN departments AS d ON d.id = tp.category
@@ -278,7 +278,7 @@ exports.q_get_all_result_entry_partitioning_ultrasound = `SELECT DISTINCT
             clin.name AS clinicianName
         FROM billing PARTITION({billing_table}) AS b
         INNER JOIN test_ascension PARTITION ({asc_table}) AS ta ON ta.billingid = b.billingid
-        INNER JOIN dboServices AS ds ON ds.billingid = b.billingid
+        INNER JOIN dboservices AS ds ON ds.billingid = b.billingid
         INNER JOIN test_panels AS tp ON tp.id = ta.testid
         INNER JOIN departments AS d ON d.id = tp.category
         LEFT JOIN organization AS org ON org.id = ds.organizationId

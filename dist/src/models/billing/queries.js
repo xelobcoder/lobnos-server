@@ -71,7 +71,7 @@ const q_addNewPartition = (tablename, partitionName, year, month) => `
     ADD PARTITION (PARTITION ${partitionName} VALUES LESS THAN (${year}, ${month}));
 `;
 exports.q_addNewPartition = q_addNewPartition;
-exports.q_insert_new_services_billing_test = "INSERT INTO dboServices(billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid,isoutsourced,outsourceid,taxList,amountIncurredDueTax,taxValue,taxIncluded,totalcost,isNHIS,isPHIS,insuranceid,claimCode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+exports.q_insert_new_services_billing_test = "INSERT INTO dboservices(billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid,isoutsourced,outsourceid,taxList,amountIncurredDueTax,taxValue,taxIncluded,totalcost,isNHIS,isPHIS,insuranceid,claimCode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 exports.q_dropTableAllPartition = `ALTER TABLE billing REMOVE PARTITIONING`;
 exports.q_dropSpecificTablePartition = `ALTER TABLE ?? DROP PARTITION ??`;
 exports.q_reorganization_query = `ALTER TABLE billing REORGANIZE PARTITION ?? INTO (`;

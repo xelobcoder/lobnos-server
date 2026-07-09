@@ -10,10 +10,10 @@ export const q_get_specific_services = `SELECT * FROM additionalservices WHERE  
 
 export const q_getAllServices = `SELECT ss.serviceName,ss.servicePrice,ss.createdBy,ss.keyid,rr.username,ss.issystem FROM additionalservices AS ss INNER JOIN roles AS rr ON rr.employeeid = ss.createdBy`;
 
-export const q_delete_billed_services_using_billingid = `DELETE  FROM dboServices WHERE billingid = ?`;
+export const q_delete_billed_services_using_billingid = `DELETE  FROM dboservices WHERE billingid = ?`;
 
-export const q_get_all_services_associated_billingid = `SELECT DISTINCT ss.*,dbo.isRefundCompleted,dbo.isRefundApproved,dbo.isRefundInitiated,dbo.amountRefunded FROM dboServices AS ss INNER JOIN dbobillingrefundtable AS dbo ON dbo.serviceid = ss.serviceid WHERE billingid = ? GROUP BY ss.serviceid, ss.trackId,ss.categoryTrackId`;
-export const q_get_all_services_associated_billingid_exclusive = `SELECT * FROM dboServices AS tt INNER JOIN dbobillingrefundtable AS ss ON ss.serviceid = tt.serviceid WHERE billingid = ? AND ss.isRefundCompleted = 0`;
+export const q_get_all_services_associated_billingid = `SELECT DISTINCT ss.*,dbo.isRefundCompleted,dbo.isRefundApproved,dbo.isRefundInitiated,dbo.amountRefunded FROM dboservices AS ss INNER JOIN dbobillingrefundtable AS dbo ON dbo.serviceid = ss.serviceid WHERE billingid = ? GROUP BY ss.serviceid, ss.trackId,ss.categoryTrackId`;
+export const q_get_all_services_associated_billingid_exclusive = `SELECT * FROM dboservices AS tt INNER JOIN dbobillingrefundtable AS ss ON ss.serviceid = tt.serviceid WHERE billingid = ? AND ss.isRefundCompleted = 0`;
 
 
 
@@ -46,7 +46,7 @@ WHERE
     rf.serviceid = ?
 `;
 
-export const q_services_exist_using_billId_trackId = `SELECT COUNT(*) AS count FROM dboServices WHERE trackId = ? AND billingid = ?`;
+export const q_services_exist_using_billId_trackId = `SELECT COUNT(*) AS count FROM dboservices WHERE trackId = ? AND billingid = ?`;
 
 
 export const q_services_refund_has_withness_data = `

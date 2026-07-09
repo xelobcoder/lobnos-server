@@ -92,7 +92,7 @@ export const q_addNewPartition = (tablename: string, partitionName: string, year
 `;
 
 
-export const q_insert_new_services_billing_test = "INSERT INTO dboServices(billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid,isoutsourced,outsourceid,taxList,amountIncurredDueTax,taxValue,taxIncluded,totalcost,isNHIS,isPHIS,insuranceid,claimCode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+export const q_insert_new_services_billing_test = "INSERT INTO dboservices(billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid,isoutsourced,outsourceid,taxList,amountIncurredDueTax,taxValue,taxIncluded,totalcost,isNHIS,isPHIS,insuranceid,claimCode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
 
 export const q_dropTableAllPartition: string = `ALTER TABLE billing REMOVE PARTITIONING`;

@@ -7,9 +7,9 @@ exports.q_delete_service_created = `DELETE FROM additionalservices WHERE keyid =
 exports.q_getAllServicesByCount = `SELECT ss.serviceName,ss.servicePrice,ss.createdBy,ss.keyid,rr.username FROM additionalservices AS ss INNER JOIN roles AS rr ON rr.employeeid = ss.createdBy LIMIT ? OFFSET ?`;
 exports.q_get_specific_services = `SELECT * FROM additionalservices WHERE  keyid = ?`;
 exports.q_getAllServices = `SELECT ss.serviceName,ss.servicePrice,ss.createdBy,ss.keyid,rr.username,ss.issystem FROM additionalservices AS ss INNER JOIN roles AS rr ON rr.employeeid = ss.createdBy`;
-exports.q_delete_billed_services_using_billingid = `DELETE  FROM dboServices WHERE billingid = ?`;
-exports.q_get_all_services_associated_billingid = `SELECT DISTINCT ss.*,dbo.isRefundCompleted,dbo.isRefundApproved,dbo.isRefundInitiated,dbo.amountRefunded FROM dboServices AS ss INNER JOIN dbobillingrefundtable AS dbo ON dbo.serviceid = ss.serviceid WHERE billingid = ? GROUP BY ss.serviceid, ss.trackId,ss.categoryTrackId`;
-exports.q_get_all_services_associated_billingid_exclusive = `SELECT * FROM dboServices AS tt INNER JOIN dbobillingrefundtable AS ss ON ss.serviceid = tt.serviceid WHERE billingid = ? AND ss.isRefundCompleted = 0`;
+exports.q_delete_billed_services_using_billingid = `DELETE  FROM dboservices WHERE billingid = ?`;
+exports.q_get_all_services_associated_billingid = `SELECT DISTINCT ss.*,dbo.isRefundCompleted,dbo.isRefundApproved,dbo.isRefundInitiated,dbo.amountRefunded FROM dboservices AS ss INNER JOIN dbobillingrefundtable AS dbo ON dbo.serviceid = ss.serviceid WHERE billingid = ? GROUP BY ss.serviceid, ss.trackId,ss.categoryTrackId`;
+exports.q_get_all_services_associated_billingid_exclusive = `SELECT * FROM dboservices AS tt INNER JOIN dbobillingrefundtable AS ss ON ss.serviceid = tt.serviceid WHERE billingid = ? AND ss.isRefundCompleted = 0`;
 exports.q_services_refund_status_change = `UPDATE dbobillingrefundtable SET {withness} = ? , {date} = NOW() ,{withness}Purpose = ? WHERE serviceid = ?`;
 exports.q_refunds_has_witness_before = `SELECT COUNT(*) AS count FROM dbobillingrefundtable WHERE (firstWitness  = ? OR secondWitness = ? OR thirdWitness  = ?) AND serviceid = ? `;
 exports.q_get_a_service_refund_details = `
@@ -36,7 +36,7 @@ INNER JOIN
 WHERE
     rf.serviceid = ?
 `;
-exports.q_services_exist_using_billId_trackId = `SELECT COUNT(*) AS count FROM dboServices WHERE trackId = ? AND billingid = ?`;
+exports.q_services_exist_using_billId_trackId = `SELECT COUNT(*) AS count FROM dboservices WHERE trackId = ? AND billingid = ?`;
 exports.q_services_refund_has_withness_data = `
 SELECT
    CASE
