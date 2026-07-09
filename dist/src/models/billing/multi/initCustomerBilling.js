@@ -227,11 +227,11 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise_1.PrimeBilling
     }
     async getPaymentModes() {
         const conn = await (0, KnexConnections_1.default)(this.tenantId);
-        return await conn('paymentModes').select();
+        return await conn('paymentmodes').select();
     }
     async getConstantCustomerInitData(patientId, billingid) {
         const conn = await (0, KnexConnections_1.default)(this.tenantId);
-        const paymentModes = await conn('paymentModes').select();
+        const paymentModes = await conn('paymentmodes').select();
         let previousRecords = [];
         if (billingid) {
             previousRecords = await conn('dboservices').where('billingid', billingid).select();

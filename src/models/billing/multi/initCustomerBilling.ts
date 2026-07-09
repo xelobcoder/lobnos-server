@@ -257,7 +257,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
 
      private async getPaymentModes() {
           const conn = await KnexConnection(this.tenantId);
-          return await conn('paymentModes').select();
+          return await conn('paymentmodes').select();
      }
 
      private async getConstantCustomerInitData(patientId: number, billingid: number | undefined): Promise<{
@@ -267,7 +267,7 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           previousPaymentHistory: any[]
      }> {
           const conn = await KnexConnection(this.tenantId);
-          const paymentModes = await conn('paymentModes').select();
+          const paymentModes = await conn('paymentmodes').select();
           let previousRecords: PrimeLimsTabledboservices[] = [];
           if (billingid) {
                previousRecords = await conn('dboservices').where('billingid', billingid).select();

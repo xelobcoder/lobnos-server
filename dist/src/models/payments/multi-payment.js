@@ -267,7 +267,7 @@ class MultiPayment {
         }
         const patient = await connection('new_patients').where({ patientid: billing.patientid }).first();
         const paymenthistory = await connection(this.bhxTable)
-            .innerJoin('paymentModes', `${this.bhxTable}.paymentmode`, 'paymentModes.KEYID')
+            .innerJoin('paymentmodes', `${this.bhxTable}.paymentmode`, 'paymentmodes.KEYID')
             .where({ billingid });
         const companyInfo = await connection('companyprofile').first();
         // Generate receipt number
