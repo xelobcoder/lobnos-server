@@ -264,6 +264,50 @@ export class PayrollProcessingService {
           });
      }
 
+     async revertPayrollPeriodStatus(
+          payroll_period_id: number,
+          targetStatus: 'draft' | 'calculated' | 'approved'
+     ): Promise<boolean> {
+          const connection = await KnexConnection(this.tenantId);
+
+          return connection.transaction(async (trx) => {
+               const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
+               const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
+
+               const period = await trxPeriodRepo.getById(payroll_period_id);
+
+               if (!period) {
+                    throw new Error(`Payroll period ${payroll_period_id} not found`);
+               }
+
+               if (period.status === 'paid') {
+                    throw new Error('Cannot revert a paid payroll period. Reverse payment first.');
+               }
+
+               const allowedCurrentStatuses: Array<IPayrollPeriod['status']> = ['draft', 'calculated', 'approved', 'locked'];
+               if (!allowedCurrentStatuses.includes(period.status)) {
+                    throw new Error(`Cannot revert payroll period with status ${period.status}`);
+               }
+
+               const statusOrder: Record<'draft' | 'calculated' | 'approved' | 'locked', number> = {
+                    draft: 1,
+                    calculated: 2,
+                    approved: 3,
+                    locked: 4
+               };
+
+               if (statusOrder[targetStatus] > statusOrder[period.status as 'draft' | 'calculated' | 'approved' | 'locked']) {
+                    throw new Error(`Cannot move payroll period forward to ${targetStatus} using revert`);
+               }
+
+               const transactionStatus = targetStatus === 'approved' ? 'approved' : 'pending';
+               await trxTransactionRepo.updateStatusByPayrollPeriod(payroll_period_id, transactionStatus);
+               await trxPeriodRepo.revertWorkflowStatus(payroll_period_id, targetStatus);
+
+               return true;
+          });
+     }
+
      async recalculateEmployee(
           payroll_period_id: number,
           employeeid: number

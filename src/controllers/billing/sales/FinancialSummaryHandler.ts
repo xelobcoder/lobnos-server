@@ -146,6 +146,7 @@ const analyticsFunctions: { [key: string]: Function } = {
 	dailyOutsourcedAmount: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityOutsourcing(tenantId, 'dailyOutsourcedAmount', branchid, startdate, enddate, year, outsourceId),
 
+
 	monthlyOutsourcedAmount: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityOutsourcing(tenantId, 'monthlyOutsourcedAmount', branchid, startdate, enddate, year, outsourceId),
 

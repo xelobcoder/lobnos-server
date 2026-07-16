@@ -262,7 +262,7 @@ export default class Operations {
 	public static async getAscensionOverViewModelTransaction(tenantid: number, billingid: number): Promise<any> {
 		try {
 			const query = `
-													SELECT 
+							SELECT 
 							ta.id AS ascension_id,
 
 							ta.testid,
@@ -371,9 +371,8 @@ export default class Operations {
 							ORDER BY 
 							ta.id ASC,
 							ss.keyid ASC,
-							ra.id ASC;
-		`
-			console.log(query)
+							ra.id ASC;`
+
 			return await promisifyQuery(tenantid, query, [billingid]);
 		} catch (err: any) {
 			console.log(err)

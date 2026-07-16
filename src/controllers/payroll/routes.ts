@@ -3,6 +3,7 @@ import * as compensationController from './compensationController';
 import * as payrollController from './payrollController';
 import * as salaryGradeController from './salaryGradeController';
 import * as attendanceController from './attendanceController';
+import * as leaveController from './leaveController';
 import * as taxConfigurationController from './taxConfigurationController';
 import * as payrollAnalyticsController from './PayrollAnalyticsController';
 
@@ -35,6 +36,20 @@ payrollRouter.post('/attendance/clock-out', attendanceController.clockOutHandler
 payrollRouter.get('/attendance/overtime/pending', attendanceController.getPendingOvertimeApprovalsHandler);
 payrollRouter.post('/attendance/:id/approve-overtime', attendanceController.approveOvertimeHandler);
 payrollRouter.post('/attendance/bulk', attendanceController.bulkCreateAttendanceHandler);
+payrollRouter.post('/leave', leaveController.createLeaveHandler);
+payrollRouter.get('/leave/status/:status', leaveController.getLeavesByStatusHandler);
+payrollRouter.get('/leave/employee/:employeeid/summary', leaveController.getLeaveSummaryByEmployeeHandler);
+payrollRouter.get('/leave/employee/:employeeid', leaveController.getLeavesByEmployeeIdHandler);
+payrollRouter.get('/leave/balance/:employeeid', leaveController.getLeaveBalanceHandler);
+payrollRouter.post('/leave/balance/initialize', leaveController.initializeLeaveBalanceHandler);
+payrollRouter.put('/leave/balance/:id', leaveController.updateLeaveBalanceHandler);
+payrollRouter.get('/leave/on-date', leaveController.getEmployeesOnLeaveByDateHandler);
+payrollRouter.get('/leave', leaveController.getLeavesByDateRangeHandler);
+payrollRouter.get('/leave/:id', leaveController.getLeaveByIdHandler);
+payrollRouter.put('/leave/:id', leaveController.updateLeaveHandler);
+payrollRouter.post('/leave/:id/approve', leaveController.approveLeaveHandler);
+payrollRouter.post('/leave/:id/reject', leaveController.rejectLeaveHandler);
+payrollRouter.post('/leave/:id/cancel', leaveController.cancelLeaveHandler);
 payrollRouter.post('/tax-configurations', taxConfigurationController.createTaxConfigurationHandler);
 payrollRouter.get('/tax-configurations', taxConfigurationController.getAllTaxConfigurationsHandler);
 payrollRouter.get('/tax-configurations/active', taxConfigurationController.getActiveTaxConfigurationHandler);
@@ -64,10 +79,12 @@ payrollRouter.get('/periods', payrollController.getAllPayrollPeriodsHandler);
 payrollRouter.get('/periods/:id/status', payrollController.getPayrollStatusHandler);
 payrollRouter.get('/periods/:id/transactions', payrollController.getPayrollTransactionsHandler);
 payrollRouter.get('/periods/:id', payrollController.getPayrollPeriodByIdHandler);
+payrollRouter.delete('/periods/:id', payrollController.deletePayrollPeriodHandler);
 payrollRouter.post('/periods/:id/process', payrollController.processPayrollHandler);
 payrollRouter.post('/periods/:id/approve', payrollController.approvePayrollHandler);
 payrollRouter.post('/periods/:id/lock', payrollController.lockPayrollHandler);
 payrollRouter.post('/periods/:id/mark-paid', payrollController.markPayrollPaidHandler);
+payrollRouter.post('/periods/:id/revert-status', payrollController.revertPayrollPeriodStatusHandler);
 payrollRouter.post('/periods/:id/reverse', payrollController.reversePayrollPeriodHandler);
 payrollRouter.post('/periods/:id/recalculate', payrollController.recalculateEmployeeHandler);
 payrollRouter.get('/employee/:employeeid/history', payrollController.getEmployeePayrollHistoryHandler);
@@ -106,6 +123,22 @@ payrollRouter.get('/routes', (req, res) => {
           { method: 'GET', path: '/api/v1/payroll/attendance/overtime/pending', description: 'Get pending overtime approvals' },
           { method: 'POST', path: '/api/v1/payroll/attendance/:id/approve-overtime', description: 'Approve overtime' },
           { method: 'POST', path: '/api/v1/payroll/attendance/bulk', description: 'Bulk create attendance records' },
+
+          // Leave endpoints
+          { method: 'POST', path: '/api/v1/payroll/leave', description: 'Create leave request' },
+          { method: 'GET', path: '/api/v1/payroll/leave?startDate=X&endDate=Y', description: 'Get leave requests by date range' },
+          { method: 'GET', path: '/api/v1/payroll/leave/:id', description: 'Get leave request by ID' },
+          { method: 'PUT', path: '/api/v1/payroll/leave/:id', description: 'Update leave request' },
+          { method: 'POST', path: '/api/v1/payroll/leave/:id/approve', description: 'Approve leave request' },
+          { method: 'POST', path: '/api/v1/payroll/leave/:id/reject', description: 'Reject leave request' },
+          { method: 'POST', path: '/api/v1/payroll/leave/:id/cancel', description: 'Cancel approved leave request' },
+          { method: 'GET', path: '/api/v1/payroll/leave/status/:status', description: 'Get leave requests by status' },
+          { method: 'GET', path: '/api/v1/payroll/leave/employee/:employeeid', description: 'Get leave requests for employee' },
+          { method: 'GET', path: '/api/v1/payroll/leave/employee/:employeeid/summary?year=YYYY', description: 'Get leave summary for employee by year' },
+          { method: 'GET', path: '/api/v1/payroll/leave/on-date?date=YYYY-MM-DD', description: 'Get employees on leave for a specific date' },
+          { method: 'GET', path: '/api/v1/payroll/leave/balance/:employeeid?year=YYYY', description: 'Get leave balance for employee and year' },
+          { method: 'POST', path: '/api/v1/payroll/leave/balance/initialize', description: 'Initialize leave balance for year' },
+          { method: 'PUT', path: '/api/v1/payroll/leave/balance/:id', description: 'Update leave balance' },
 
           // Tax configuration endpoints
           { method: 'POST', path: '/api/v1/payroll/tax-configurations', description: 'Create tax configuration' },

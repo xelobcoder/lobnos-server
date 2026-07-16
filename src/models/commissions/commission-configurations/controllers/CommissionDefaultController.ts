@@ -292,7 +292,7 @@ export class CommissionDefaultController {
       * Update default commission
       * PUT /api/v1/commission/defaults/:id
       */
-     static async updateDefault(req: Request, res: Response): Promise<void> {
+     static async updateDefault(req: Request<{id: string}>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const defaultId = parseInt(req.params.id);
@@ -349,10 +349,10 @@ export class CommissionDefaultController {
       * Delete (deactivate) default commission
       * DELETE /api/v1/commission/defaults/:id
       */
-     static async deleteDefault(req: Request, res: Response): Promise<void> {
+     static async deleteDefault(req: Request<{ id: number | string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const defaultId = parseInt(req.params.id);
+               const defaultId = parseInt(req.params.id.toString());
 
                if (!tenantId || !defaultId || isNaN(tenantId) || isNaN(defaultId)) {
                     res.status(400).json({

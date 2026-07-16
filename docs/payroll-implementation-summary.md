@@ -57,10 +57,9 @@ Comprehensive payroll management system for Lobnos LIMS with multi-tenant suppor
 - Methods: `getActiveByEmployeeId()`, `approve()`, `getTotalAllowancesByEmployee()`
 
 **DeductionRepository (Statutory & Other)**
-- SSNIT, Tier3, NHIS enrollment tracking
 - Loan/advance management with remaining balance tracking
 - Priority-based deduction ordering
-- Methods: `calculateStatutoryDeductions()`, `updateRemainingBalance()`
+- Methods: `updateRemainingBalance()`
 
 **TaxConfigurationRepository**
 - Manage tax bands by year
@@ -87,13 +86,6 @@ Comprehensive payroll management system for Lobnos LIMS with multi-tenant suppor
 - Bonus tax calculation (aggregate, separate, bonus_rate methods)
 - Tax relief calculations (dependents, disability exemption)
 - Methods: `calculateIncomeTax()`, `calculateMonthlyTax()`, `calculateBonusTax()`
-
-**StatutoryDeductionService**
-- SSNIT calculation with configurable ceiling
-- Tier 3 pension calculation
-- NHIS deduction calculation
-- Employer contribution calculation
-- Methods: `calculateStatutoryDeductions()`, `calculateEmployerStatutoryCost()`, `isTaxExempt()`
 
 **PayrollCalculationService**
 - Complete payroll calculation for all compensation types

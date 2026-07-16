@@ -2,8 +2,8 @@ import { CompensationRepository, ICompensation } from '../../models/payroll/Comp
 import { AttendanceRepository } from '../../models/payroll/AttendanceRepository';
 import { AllowanceRepository, BonusRepository } from '../../models/payroll/AllowanceBonusRepository';
 import { OtherDeductionRepository } from '../../models/payroll/DeductionRepository';
+import { TaxConfigurationRepository } from '../../models/payroll/TaxConfigurationRepository';
 import { TaxCalculationService } from './TaxCalculationService';
-import { StatutoryDeductionService } from './StatutoryDeductionService';
 
 export interface IPayrollCalculationInput {
      employeeid: number;
@@ -52,14 +52,16 @@ export interface IPayrollCalculationResult {
      other_deductions_detail: any;
 }
 
+const DEFAULT_NHIS_RATE = 2.5;
+
 export class PayrollCalculationService {
      private compensationRepo: CompensationRepository;
      private attendanceRepo: AttendanceRepository;
      private allowanceRepo: AllowanceRepository;
      private bonusRepo: BonusRepository;
      private deductionRepo: OtherDeductionRepository;
+     private taxConfigRepo: TaxConfigurationRepository;
      private taxService: TaxCalculationService;
-     private statutoryService: StatutoryDeductionService;
 
      constructor(private tenantId: number) {
           this.compensationRepo = new CompensationRepository(tenantId);
@@ -67,8 +69,8 @@ export class PayrollCalculationService {
           this.allowanceRepo = new AllowanceRepository(tenantId);
           this.bonusRepo = new BonusRepository(tenantId);
           this.deductionRepo = new OtherDeductionRepository(tenantId);
+          this.taxConfigRepo = new TaxConfigurationRepository(tenantId);
           this.taxService = new TaxCalculationService(tenantId);
-          this.statutoryService = new StatutoryDeductionService(tenantId);
      }
 
      /**
@@ -115,14 +117,11 @@ export class PayrollCalculationService {
                bonusResult.total_bonuses;
 
           // Calculate statutory deductions
-          const statutory = await this.statutoryService.calculateStatutoryDeductions(
-               employeeid,
-               earnings.basic_salary
-          );
+          const statutory = await this.calculateStatutoryDeductions(earnings.basic_salary);
 
           // Calculate income tax
-          const dependents = await this.statutoryService.getDependentsCount(employeeid);
-          const isTaxExempt = await this.statutoryService.isTaxExempt(employeeid);
+          const dependents = 0;
+          const isTaxExempt = false;
 
           const incomeTax = isTaxExempt
                ? 0
@@ -173,6 +172,40 @@ export class PayrollCalculationService {
                allowances_detail: allowanceResult.allowances_detail,
                bonuses_detail: bonusResult.bonuses_detail,
                other_deductions_detail: otherDeductionResult.other_deductions_detail
+          };
+     }
+
+     private async calculateStatutoryDeductions(basicSalary: number): Promise<{
+          employee_ssnit: number;
+          employer_ssnit: number;
+          employee_tier3: number;
+          employer_tier3: number;
+          nhis: number;
+     }> {
+          const taxConfig = await this.taxConfigRepo.getActive();
+          if (!taxConfig) {
+               throw new Error('No active tax configuration found');
+          }
+
+          const ssnitBase = taxConfig.ssnit_ceiling
+               ? Math.min(basicSalary, taxConfig.ssnit_ceiling)
+               : basicSalary;
+          const pensionBase = taxConfig.pension_ceiling
+               ? Math.min(basicSalary, taxConfig.pension_ceiling)
+               : basicSalary;
+
+          const employeeSSNIT = Math.round((ssnitBase * (taxConfig.employee_ssnit_rate / 100)) * 100) / 100;
+          const employerSSNIT = Math.round((ssnitBase * (taxConfig.employer_ssnit_rate / 100)) * 100) / 100;
+          const employeeTier3 = Math.round((pensionBase * (taxConfig.tier3_employee_rate / 100)) * 100) / 100;
+          const employerTier3 = Math.round((pensionBase * (taxConfig.tier3_employer_rate / 100)) * 100) / 100;
+          const nhis = Math.round((basicSalary * (DEFAULT_NHIS_RATE / 100)) * 100) / 100;
+
+          return {
+               employee_ssnit: employeeSSNIT,
+               employer_ssnit: employerSSNIT,
+               employee_tier3: employeeTier3,
+               employer_tier3: employerTier3,
+               nhis
           };
      }
 

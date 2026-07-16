@@ -106,10 +106,13 @@ class PayrollAnalyticsWithDate {
     /**
      * Get statutory deduction summary
      */
-    async getStatutoryDeductionSummary() {
+    async getStatutoryDeductionSummary(startDate, endDate) {
         const connection = await this.connection;
-        return connection('payroll_employee_statutory_deductions')
-            .select(connection.raw('COUNT(*) as total_employees'), connection.raw('SUM(CASE WHEN ssnit_active = 1 THEN 1 ELSE 0 END) as ssnit_enrolled'), connection.raw('SUM(CASE WHEN tier3_enrolled = 1 THEN 1 ELSE 0 END) as tier3_enrolled'), connection.raw('SUM(CASE WHEN tax_exempt = 1 THEN 1 ELSE 0 END) as tax_exempt_count'), connection.raw('SUM(CASE WHEN nhis_active = 1 THEN 1 ELSE 0 END) as nhis_active_count'), connection.raw('AVG(ssnit_employee_rate) as avg_ssnit_rate'), connection.raw('AVG(tier3_employee_rate) as avg_tier3_employee_rate'), connection.raw('AVG(tier3_employer_rate) as avg_tier3_employer_rate'), connection.raw('AVG(nhis_rate) as avg_nhis_rate'), connection.raw('AVG(dependents_count) as avg_dependents'));
+        return connection('payroll_transactions as pt')
+            .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
+            .select(connection.raw('COUNT(DISTINCT pt.employeeid) as total_employees'), connection.raw('COUNT(DISTINCT CASE WHEN pt.employee_ssnit > 0 THEN pt.employeeid END) as ssnit_enrolled'), connection.raw('COUNT(DISTINCT CASE WHEN pt.employee_tier3 > 0 THEN pt.employeeid END) as tier3_enrolled'), connection.raw('0 as tax_exempt_count'), connection.raw('COUNT(DISTINCT CASE WHEN pt.nhis > 0 THEN pt.employeeid END) as nhis_active_count'), connection.raw('0 as avg_dependents'))
+            .where('pp.period_start_date', '<=', endDate)
+            .where('pp.period_end_date', '>=', startDate);
     }
     /**
      * Get other deductions by type
@@ -189,7 +192,12 @@ class PayrollAnalyticsWithDate {
             .where('role', 'employee')
             .count('employeeid as count')
             .first();
-        const statutory = await connection('payroll_employee_statutory_deductions')
+        const statutory = await connection('payroll_transactions')
+            .where(function () {
+            this.where('employee_ssnit', '>', 0)
+                .orWhere('employee_tier3', '>', 0)
+                .orWhere('nhis', '>', 0);
+        })
             .countDistinct('employeeid as employees_with_statutory')
             .first();
         const totalCount = Number((totalEmployees === null || totalEmployees === void 0 ? void 0 : totalEmployees.count) || 0);

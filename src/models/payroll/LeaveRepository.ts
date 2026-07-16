@@ -30,6 +30,17 @@ export interface ILeaveBalance {
      sick_leave_balance: number;
 }
 
+const editableLeaveFields = [
+     'leave_type',
+     'start_date',
+     'end_date',
+     'total_days',
+     'applied_date',
+     'affects_salary',
+     'reason',
+     'attachments'
+] as const;
+
 // Zod validation schemas
 const leaveSchema = z.object({
      employeeid: z.number().positive('Employee ID must be a positive number'),
@@ -142,8 +153,24 @@ export class LeaveRepository {
                throw new Error('Leave record not found');
           }
 
-          // Merge with existing data for complete validation
-          const completeLeave = { ...existing, ...leave };
+          if (existing.status !== 'pending') {
+               throw new Error('Only pending leave requests can be updated');
+          }
+
+          const sanitizedUpdate = Object.fromEntries(
+               Object.entries(leave).filter(([key, value]) => {
+                    return editableLeaveFields.includes(key as typeof editableLeaveFields[number]) && value !== undefined;
+               })
+          ) as Partial<ILeave>;
+
+          const completeLeave = {
+               ...existing,
+               ...sanitizedUpdate,
+               approved_by: (sanitizedUpdate.approved_by ?? existing.approved_by) ?? undefined,
+               approved_date: (sanitizedUpdate.approved_date ?? existing.approved_date) ?? undefined,
+               reason: (sanitizedUpdate.reason ?? existing.reason) ?? undefined,
+               attachments: (sanitizedUpdate.attachments ?? existing.attachments) ?? undefined
+          };
 
           // Validate complete data using Zod schema
           leaveSchema.parse(completeLeave);
@@ -151,7 +178,7 @@ export class LeaveRepository {
           const connection = await this.connection;
           const affectedRows = await connection('payroll_employee_leave')
                .where({ id })
-               .update({ ...leave, updated_at: connection.fn.now() });
+               .update({ ...sanitizedUpdate, updated_at: connection.fn.now() });
           return affectedRows > 0;
      }
 
@@ -249,8 +276,7 @@ export class LeaveRepository {
                await trx('payroll_employee_leave')
                     .where({ id })
                     .update({ status: 'cancelled', updated_at: trx.fn.now() });
-
-               // Restore leave balance if applicable
+                    
                if (leave.leave_type === 'annual' || leave.leave_type === 'sick') {
                     const balance = await this.getLeaveBalance(leave.employeeid, new Date().getFullYear(), trx);
 

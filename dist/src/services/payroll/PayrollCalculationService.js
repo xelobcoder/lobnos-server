@@ -5,8 +5,9 @@ const CompensationRepository_1 = require("../../models/payroll/CompensationRepos
 const AttendanceRepository_1 = require("../../models/payroll/AttendanceRepository");
 const AllowanceBonusRepository_1 = require("../../models/payroll/AllowanceBonusRepository");
 const DeductionRepository_1 = require("../../models/payroll/DeductionRepository");
+const TaxConfigurationRepository_1 = require("../../models/payroll/TaxConfigurationRepository");
 const TaxCalculationService_1 = require("./TaxCalculationService");
-const StatutoryDeductionService_1 = require("./StatutoryDeductionService");
+const DEFAULT_NHIS_RATE = 2.5;
 class PayrollCalculationService {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -15,8 +16,8 @@ class PayrollCalculationService {
         this.allowanceRepo = new AllowanceBonusRepository_1.AllowanceRepository(tenantId);
         this.bonusRepo = new AllowanceBonusRepository_1.BonusRepository(tenantId);
         this.deductionRepo = new DeductionRepository_1.OtherDeductionRepository(tenantId);
+        this.taxConfigRepo = new TaxConfigurationRepository_1.TaxConfigurationRepository(tenantId);
         this.taxService = new TaxCalculationService_1.TaxCalculationService(tenantId);
-        this.statutoryService = new StatutoryDeductionService_1.StatutoryDeductionService(tenantId);
     }
     /**
      * Calculate full payroll for an employee for a given period
@@ -44,10 +45,10 @@ class PayrollCalculationService {
             allowanceResult.total_allowances +
             bonusResult.total_bonuses;
         // Calculate statutory deductions
-        const statutory = await this.statutoryService.calculateStatutoryDeductions(employeeid, earnings.basic_salary);
+        const statutory = await this.calculateStatutoryDeductions(earnings.basic_salary);
         // Calculate income tax
-        const dependents = await this.statutoryService.getDependentsCount(employeeid);
-        const isTaxExempt = await this.statutoryService.isTaxExempt(employeeid);
+        const dependents = 0;
+        const isTaxExempt = false;
         const incomeTax = isTaxExempt
             ? 0
             : await this.taxService.calculateMonthlyTax(grossSalary, dependents);
@@ -91,6 +92,30 @@ class PayrollCalculationService {
             allowances_detail: allowanceResult.allowances_detail,
             bonuses_detail: bonusResult.bonuses_detail,
             other_deductions_detail: otherDeductionResult.other_deductions_detail
+        };
+    }
+    async calculateStatutoryDeductions(basicSalary) {
+        const taxConfig = await this.taxConfigRepo.getActive();
+        if (!taxConfig) {
+            throw new Error('No active tax configuration found');
+        }
+        const ssnitBase = taxConfig.ssnit_ceiling
+            ? Math.min(basicSalary, taxConfig.ssnit_ceiling)
+            : basicSalary;
+        const pensionBase = taxConfig.pension_ceiling
+            ? Math.min(basicSalary, taxConfig.pension_ceiling)
+            : basicSalary;
+        const employeeSSNIT = Math.round((ssnitBase * (taxConfig.employee_ssnit_rate / 100)) * 100) / 100;
+        const employerSSNIT = Math.round((ssnitBase * (taxConfig.employer_ssnit_rate / 100)) * 100) / 100;
+        const employeeTier3 = Math.round((pensionBase * (taxConfig.tier3_employee_rate / 100)) * 100) / 100;
+        const employerTier3 = Math.round((pensionBase * (taxConfig.tier3_employer_rate / 100)) * 100) / 100;
+        const nhis = Math.round((basicSalary * (DEFAULT_NHIS_RATE / 100)) * 100) / 100;
+        return {
+            employee_ssnit: employeeSSNIT,
+            employer_ssnit: employerSSNIT,
+            employee_tier3: employeeTier3,
+            employer_tier3: employerTier3,
+            nhis
         };
     }
     /**

@@ -200,7 +200,7 @@ export class PayrollTransactionRepository {
           const total = Number(countResult[0]?.total || 0);
 
           return {
-               data: rows.map(t => this.parseTransactionDetails(t)),
+               data: rows.map((t: any) => this.parseTransactionDetails(t)),
                total,
                page,
                pageSize
@@ -250,6 +250,25 @@ export class PayrollTransactionRepository {
                .where({ id })
                .update({ status, updated_at: connection.fn.now() });
           return affectedRows > 0;
+     }
+
+     async updateStatusByPayrollPeriod(payroll_period_id: number, status: 'pending' | 'approved' | 'paid' | 'cancelled'): Promise<boolean> {
+          const connection = await this.connection;
+          const updates: Record<string, any> = {
+               status,
+               updated_at: connection.fn.now()
+          };
+
+          if (status !== 'paid') {
+               updates.payment_date = null;
+               updates.payment_method = null;
+               updates.payment_reference = null;
+          }
+
+          const affectedRows = await connection('payroll_transactions')
+               .where({ payroll_period_id })
+               .update(updates);
+          return affectedRows >= 0;
      }
 
      async markAsApproved(id: number): Promise<boolean> {

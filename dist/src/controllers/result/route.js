@@ -36,6 +36,7 @@ router.post('/api/v1/result/delivery/preference', (0, helper_1.handleOverLoad)(r
 router.get('/api/v1/result/delivery/preference/:billingid', (0, helper_1.handleOverLoad)(resultHandlers_1.getResultDeliveryPreference));
 router.post('/api/v1/result/delivery/record', (0, helper_1.handleOverLoad)(resultHandlers_1.recordResultDelivery));
 router.post('/api/v1/result/delivery/handover', (0, helper_1.handleOverLoad)(resultHandlers_1.recordResultHandover));
+router.get('/api/v1/result/delivery/record/result/undelivered', (0, helper_1.handleOverLoad)(resultHandlers_1.getResultRecordUndelivered));
 router.get('/api/v1/result/delivery/chain/:billingid', (0, helper_1.handleOverLoad)(resultHandlers_1.getResultDeliveryChain));
 // criticalcallout 
 router.get("/api/v1/result/criticalvalues/logging/paginated", loggingCriticalValueAlertHandlers_1.getPaginatedLoggingCriticalValueAlerts);

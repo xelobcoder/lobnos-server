@@ -4,7 +4,7 @@
         {
             "label": "lobnos server",
             "type": "shell",
-            "command": "npm run dev",
+            "command": "pnpm dev",
             "problemMatcher": [],
             "runOptions": {
                 "runOn": "folderOpen"
@@ -13,7 +13,7 @@
         {
             "label": "typescript server",
             "type": "shell",
-            "command": "npx tsc --w",
+            "command": "pnpm tsc --w",
             "problemMatcher": [],
             "runOptions": {
                 "runOn": "folderOpen"

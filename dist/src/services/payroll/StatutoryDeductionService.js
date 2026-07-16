@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.StatutoryDeductionService = void 0;
 const TaxConfigurationRepository_1 = require("../../models/payroll/TaxConfigurationRepository");
 const DeductionRepository_1 = require("../../models/payroll/DeductionRepository");
+const DEFAULT_NHIS_RATE = 2.5;
 class StatutoryDeductionService {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -28,7 +29,7 @@ class StatutoryDeductionService {
         let employeeSSNIT = 0;
         let employerSSNIT = 0;
         if (employeeStatutory.ssnit_active) {
-            const ssnitRate = employeeStatutory.ssnit_employee_rate || taxConfig.employee_ssnit_rate;
+            const ssnitRate = taxConfig.employee_ssnit_rate;
             const employerSSNITRate = taxConfig.employer_ssnit_rate;
             // Apply ceiling if configured
             const ssnitBase = taxConfig.ssnit_ceiling
@@ -41,8 +42,8 @@ class StatutoryDeductionService {
         let employeeTier3 = 0;
         let employerTier3 = 0;
         if (employeeStatutory.tier3_enrolled) {
-            const tier3EmployeeRate = employeeStatutory.tier3_employee_rate || taxConfig.tier3_employee_rate;
-            const tier3EmployerRate = employeeStatutory.tier3_employer_rate || taxConfig.tier3_employer_rate;
+            const tier3EmployeeRate = taxConfig.tier3_employee_rate;
+            const tier3EmployerRate = taxConfig.tier3_employer_rate;
             // Apply ceiling if configured
             const pensionBase = taxConfig.pension_ceiling
                 ? Math.min(basicSalary, taxConfig.pension_ceiling)
@@ -53,7 +54,7 @@ class StatutoryDeductionService {
         // Calculate NHIS (National Health Insurance)
         let nhis = 0;
         if (employeeStatutory.nhis_active) {
-            const nhisRate = employeeStatutory.nhis_rate || 2.5;
+            const nhisRate = DEFAULT_NHIS_RATE;
             nhis = Math.round((basicSalary * (nhisRate / 100)) * 100) / 100;
         }
         return {
@@ -72,21 +73,17 @@ class StatutoryDeductionService {
     async createDefaultStatutoryDeduction(employeeid) {
         const defaultDeduction = {
             employeeid,
-            ssnit_number: null, // Will be assigned later
+            ssnit_number: undefined, // Will be assigned later
             ssnit_active: true, // Default: active (mandatory in Ghana)
-            ssnit_employee_rate: 5.5, // Standard SSNIT rate
             tier3_enrolled: false, // Default: not enrolled
-            tier3_scheme_name: null,
-            tier3_scheme_number: null,
-            tier3_employee_rate: 5,
-            tier3_employer_rate: 5,
-            tin_number: null, // Will be assigned later
+            tier3_scheme_name: undefined,
+            tier3_scheme_number: undefined,
+            tin_number: undefined, // Will be assigned later
             tax_exempt: false, // Default: not exempt
-            tax_exempt_reason: null,
+            tax_exempt_reason: undefined,
             dependents_count: 0, // Default: no dependents
-            nhis_number: null, // Will be assigned later
-            nhis_active: true, // Default: active (mandatory in Ghana)
-            nhis_rate: 2.5 // Standard NHIS rate
+            nhis_number: undefined, // Will be assigned later
+            nhis_active: true // Default: active (mandatory in Ghana)
         };
         try {
             await this.statutoryRepo.create(defaultDeduction);
@@ -113,7 +110,7 @@ class StatutoryDeductionService {
         if (!(employeeStatutory === null || employeeStatutory === void 0 ? void 0 : employeeStatutory.ssnit_active)) {
             return { employee: 0, employer: 0 };
         }
-        const ssnitRate = employeeStatutory.ssnit_employee_rate || taxConfig.employee_ssnit_rate;
+        const ssnitRate = taxConfig.employee_ssnit_rate;
         const employerSSNITRate = taxConfig.employer_ssnit_rate;
         const ssnitBase = taxConfig.ssnit_ceiling
             ? Math.min(basicSalary, taxConfig.ssnit_ceiling)
@@ -135,8 +132,8 @@ class StatutoryDeductionService {
         if (!(employeeStatutory === null || employeeStatutory === void 0 ? void 0 : employeeStatutory.tier3_enrolled)) {
             return { employee: 0, employer: 0 };
         }
-        const tier3EmployeeRate = employeeStatutory.tier3_employee_rate || taxConfig.tier3_employee_rate;
-        const tier3EmployerRate = employeeStatutory.tier3_employer_rate || taxConfig.tier3_employer_rate;
+        const tier3EmployeeRate = taxConfig.tier3_employee_rate;
+        const tier3EmployerRate = taxConfig.tier3_employer_rate;
         const pensionBase = taxConfig.pension_ceiling
             ? Math.min(basicSalary, taxConfig.pension_ceiling)
             : basicSalary;

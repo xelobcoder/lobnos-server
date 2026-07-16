@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Request, RequestHandler, Response } from 'express';
 import { PayrollProcessingService } from '../../services/payroll/PayrollProcessingService';
 import { PayrollReversalService } from '../../services/payroll/PayrollReversalService';
 import { PayrollPeriodRepository } from '../../models/payroll/PayrollPeriodRepository';
@@ -14,8 +14,65 @@ export const createPayrollPeriodHandler = async (req: Request, res: Response) =>
      try {
           const tenantId = parseInt(req.query.tenantId as string);
 
-          const service = new PayrollProcessingService(tenantId);
-          const periodId = await service.createPayrollPeriod();
+          let periodId: number;
+          const payloadStartDate = req.body?.period_start_date || req.body?.start_date;
+          const payloadEndDate = req.body?.period_end_date || req.body?.end_date;
+
+          const customFields = [
+               'period_name',
+               'period_year',
+               'period_month',
+               'period_start_date',
+               'period_end_date',
+               'start_date',
+               'end_date',
+               'payment_date',
+               'attendance_start_date',
+               'attendance_end_date'
+          ];
+
+          const hasCustomInput = customFields.some((field) => req.body?.[field] !== undefined && req.body?.[field] !== null && req.body?.[field] !== '');
+
+          if (req.body && payloadStartDate && payloadEndDate) {
+               const repo = new PayrollPeriodRepository(tenantId);
+               periodId = await repo.createCustomPeriod({
+                    period_name: req.body.period_name,
+                    period_start_date: payloadStartDate,
+                    period_end_date: payloadEndDate,
+                    payment_date: req.body.payment_date,
+                    attendance_start_date: req.body.attendance_start_date,
+                    attendance_end_date: req.body.attendance_end_date
+               });
+          } else if (req.body && req.body.period_year && req.body.period_month) {
+               const periodYear = parseInt(String(req.body.period_year), 10);
+               const periodMonth = parseInt(String(req.body.period_month), 10);
+
+               if (isNaN(periodYear) || periodYear < 2000 || periodYear > 2100) {
+                    return customError('period_year must be between 2000 and 2100', 400, res);
+               }
+               if (isNaN(periodMonth) || periodMonth < 1 || periodMonth > 12) {
+                    return customError('period_month must be between 1 and 12', 400, res);
+               }
+
+               const startDate = new Date(periodYear, periodMonth - 1, 1);
+               const endDate = new Date(periodYear, periodMonth, 0);
+               const paymentDate = req.body.payment_date || new Date(periodYear, periodMonth, 5).toISOString().split('T')[0];
+
+               const repo = new PayrollPeriodRepository(tenantId);
+               periodId = await repo.createCustomPeriod({
+                    period_name: req.body.period_name,
+                    period_start_date: startDate.toISOString().split('T')[0],
+                    period_end_date: endDate.toISOString().split('T')[0],
+                    payment_date: paymentDate,
+                    attendance_start_date: req.body.attendance_start_date,
+                    attendance_end_date: req.body.attendance_end_date
+               });
+          } else if (hasCustomInput) {
+               return customError('For custom period, provide period_start_date/period_end_date (or start_date/end_date), or period_year and period_month', 400, res);
+          } else {
+               const service = new PayrollProcessingService(tenantId);
+               periodId = await service.createPayrollPeriod();
+          }
 
           res.status(201).json({
                status: 'success',
@@ -24,6 +81,16 @@ export const createPayrollPeriodHandler = async (req: Request, res: Response) =>
                result: { id: periodId }
           });
      } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+
+          if (message.includes('already exists') || message.includes('overlaps with an existing period')) {
+               return customError(message, 409, res);
+          }
+
+          if (message.includes('Invalid period start or end date')) {
+               return customError(message, 400, res);
+          }
+
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
@@ -68,6 +135,38 @@ export const getPayrollPeriodByIdHandler = async (req: Request, res: Response) =
                statusCode: 200,
                result: period
           });
+     } catch (error) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+/**
+ * Delete payroll period if unprocessed
+ */
+export const deletePayrollPeriodHandler: RequestHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const periodId = parseInt(req.params.id);
+
+          if (!tenantId || !periodId) {
+               customError('Tenant ID and Period ID are required', 400, res);
+               return;
+          }
+
+          const repo = new PayrollPeriodRepository(tenantId);
+          const deleted = await repo.delete(periodId);
+
+          if (!deleted) {
+               customError('Cannot delete payroll period. Only unprocessed draft periods can be deleted.', 400, res);
+               return;
+          }
+
+          res.status(200).json({
+               status: 'success',
+               statusCode: 200,
+               message: 'Payroll period deleted successfully'
+          });
+          return;
      } catch (error) {
           PrimeSqlErrorHandler.handleError(error, res);
      }
@@ -224,7 +323,40 @@ export const markPayrollPaidHandler = async (req: Request, res: Response) => {
                message: 'Payroll marked as paid successfully'
           });
      } catch (error) {
-          console.log(error)
+          console.log(error instanceof Error ? error.message : error);
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+export const revertPayrollPeriodStatusHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const periodId = parseInt(req.params.id);
+          const targetStatus = String(req.body.target_status || '').trim().toLowerCase();
+
+          if (!tenantId || !periodId) {
+               return customError('Tenant ID and Period ID are required', 400, res);
+          }
+
+          if (!['draft', 'calculated', 'approved'].includes(targetStatus)) {
+               return customError('target_status must be one of: draft, calculated, approved', 400, res);
+          }
+
+          const service = new PayrollProcessingService(tenantId);
+          await service.revertPayrollPeriodStatus(periodId, targetStatus as 'draft' | 'calculated' | 'approved');
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               message: `Payroll period reverted to ${targetStatus} successfully`
+          });
+     } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+
+          if (message.includes('Cannot revert') || message.includes('not found') || message.includes('Cannot move payroll period forward')) {
+               return customError(message, 400, res);
+          }
+
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };

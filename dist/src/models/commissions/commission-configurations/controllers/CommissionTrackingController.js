@@ -10,7 +10,7 @@ class CommissionTrackingController {
     static async getTracking(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const trackingId = parseInt(req.params.id);
+            const trackingId = parseInt(req.params.id.toString());
             if (!tenantId || !trackingId || isNaN(tenantId) || isNaN(trackingId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or trackingId' });
                 return;
@@ -46,7 +46,7 @@ class CommissionTrackingController {
     static async getServiceTracking(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const serviceId = parseInt(req.params.serviceId);
+            const serviceId = parseInt(req.params.serviceId.toString());
             if (!tenantId || !serviceId || isNaN(tenantId) || isNaN(serviceId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or serviceId' });
                 return;
@@ -267,7 +267,7 @@ class CommissionTrackingController {
     static async updateStatus(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const trackingId = parseInt(req.params.id);
+            const trackingId = parseInt(req.params.id.toString());
             const { status } = req.body;
             if (!tenantId || !trackingId || !status || isNaN(tenantId) || isNaN(trackingId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId, trackingId, or status' });

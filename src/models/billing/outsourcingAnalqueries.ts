@@ -1,8 +1,8 @@
 const outsourcing_constraints = `AND d.isoutsourced = 1 AND d.status IN ('active','refunded') `;
 
 export class OutsourcingAnalytics {
-  // Current year outsourcing analytics (following BillingAnalytics pattern)
-  public static dailyOutsourcedAmountLast30Days = `
+	// Current year outsourcing analytics (following BillingAnalytics pattern)
+	public static dailyOutsourcedAmountLast30Days = `
         SELECT
             DATE(d.serviceAddedOn) AS service_date,
             COUNT(*) AS services_count,
@@ -17,7 +17,7 @@ export class OutsourcingAnalytics {
         ORDER BY service_date DESC, daily_billed_amount DESC;
     `;
 
-  public static monthlyOutsourcedAmountLast12Months = `
+	public static monthlyOutsourcedAmountLast12Months = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             COUNT(*) AS total_services,
@@ -32,7 +32,7 @@ export class OutsourcingAnalytics {
         ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-  public static yearlySummaryByFacility = `
+	public static yearlySummaryByFacility = `
         SELECT
             YEAR(d.serviceAddedOn) AS year,
             COUNT(*) AS total_services,
@@ -47,7 +47,7 @@ export class OutsourcingAnalytics {
         ORDER BY year DESC, yearly_billed_amount DESC;
     `;
 
-  public static top20OutsourcedFacilities = `
+	public static top20OutsourcedFacilities = `
         SELECT
             d.outsourceid,
             o.name AS facility_name,
@@ -69,7 +69,7 @@ export class OutsourcingAnalytics {
         LIMIT 20;
     `;
 
-  public static hourlyOutsourcingPattern = `
+	public static hourlyOutsourcingPattern = `
         SELECT
             HOUR(d.serviceAddedOn) AS hour_of_day,
             COUNT(*) AS services_count,
@@ -84,7 +84,7 @@ export class OutsourcingAnalytics {
         ORDER BY hour_of_day;
     `;
 
-  public static topFacilityPerMonth = `
+	public static topFacilityPerMonth = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             o.name AS facility_name,
@@ -100,7 +100,7 @@ export class OutsourcingAnalytics {
         ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-  public static grandSummaryDashboard = `
+	public static grandSummaryDashboard = `
         SELECT
             COUNT(*) AS total_outsourced_services,
             COALESCE(SUM(d.totalpayable), 0) AS grand_total_billed,
@@ -116,7 +116,7 @@ export class OutsourcingAnalytics {
           AND (? IS NULL OR d.outsourceid = ?);
     `;
 
-  public static weeklyOutsourcedTrend = `
+	public static weeklyOutsourcedTrend = `
         SELECT
             WEEK(d.serviceAddedOn) AS week,
             YEAR(d.serviceAddedOn) AS year,
@@ -132,7 +132,7 @@ export class OutsourcingAnalytics {
         ORDER BY year DESC, week DESC;
     `;
 
-  public static quarterlyOutsourcedTrend = `
+	public static quarterlyOutsourcedTrend = `
         SELECT
             QUARTER(d.serviceAddedOn) AS quarter,
             YEAR(d.serviceAddedOn) AS year,
@@ -152,13 +152,13 @@ export class OutsourcingAnalytics {
 
 // Date-range based outsourcing analytics queries
 export class OutsourcingAnalyticsWithDate {
-  // Daily Outsourced Amount with Date Range
-  public static dailyOutsourcedAmount = `
-        SELECT
+	// Daily Outsourced Amount with Date Range
+	public static dailyOutsourcedAmount = `
+    SELECT
             DATE(d.serviceAddedOn) AS service_date,
             COUNT(*) AS services_count,
-            COALESCE(SUM(d.totalpayable), 0) AS daily_billed_amount,
-            COALESCE(SUM(d.outsourceprice), 0) AS daily_outsourced_amount,
+           COALESCE(SUM(d.totalpayable), 0) AS daily_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS outsourced_daily_amount,
             COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS daily_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}
@@ -168,8 +168,8 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY service_date DESC, daily_billed_amount DESC;
     `;
 
-  // Monthly Outsourced Amount with Date Range
-  public static monthlyOutsourcedAmount = `
+	// Monthly Outsourced Amount with Date Range
+	public static monthlyOutsourcedAmount = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             COUNT(*) AS total_services,
@@ -184,8 +184,8 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-  // Yearly Summary by Facility with Date Range
-  public static yearlySummaryByFacility = `
+	// Yearly Summary by Facility with Date Range
+	public static yearlySummaryByFacility = `
         SELECT
             YEAR(d.serviceAddedOn) AS year,
             COUNT(*) AS total_services,
@@ -200,8 +200,8 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY year DESC, yearly_billed_amount DESC;
     `;
 
-  // Top Facilities within Date Range
-  public static topFacilitiesByAmount = `
+	// Top Facilities within Date Range
+	public static topFacilitiesByAmount = `
         SELECT
             d.outsourceid,
             o.name AS facility_name,
@@ -223,8 +223,8 @@ export class OutsourcingAnalyticsWithDate {
         LIMIT 20;
     `;
 
-  // Hourly Pattern for Specific Date
-  public static hourlyOutsourcingPattern = `
+	// Hourly Pattern for Specific Date
+	public static hourlyOutsourcingPattern = `
         SELECT
             HOUR(d.serviceAddedOn) AS hour_of_day,
             COUNT(*) AS services_count,
@@ -239,8 +239,8 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY hour_of_day;
     `;
 
-  // Most Outsourced Facility Per Month within Date Range
-  public static topFacilityPerMonth = `
+	// Most Outsourced Facility Per Month within Date Range
+	public static topFacilityPerMonth = `
         SELECT
             DATE_FORMAT(d.serviceAddedOn, '%Y-%m') AS month,
             o.name AS facility_name,
@@ -256,8 +256,8 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY month DESC, monthly_billed_amount DESC;
     `;
 
-  // Summary Dashboard within Date Range
-  public static summaryDashboard = `
+	// Summary Dashboard within Date Range
+	public static summaryDashboard = `
         SELECT
             COUNT(*) AS total_outsourced_services,
             COALESCE(SUM(d.totalpayable), 0) AS total_billed_amount,
@@ -273,8 +273,8 @@ export class OutsourcingAnalyticsWithDate {
           AND (? IS NULL OR d.outsourceid = ?);
     `;
 
-  // Weekly Outsourced Trend with Date Range
-  public static weeklyOutsourcedTrend = `
+	// Weekly Outsourced Trend with Date Range
+	public static weeklyOutsourcedTrend = `
         SELECT
             WEEK(d.serviceAddedOn) AS week,
             YEAR(d.serviceAddedOn) AS year,
@@ -290,8 +290,8 @@ export class OutsourcingAnalyticsWithDate {
         ORDER BY year DESC, week DESC;
     `;
 
-  // Quarterly Outsourced Trend with Date Range
-  public static quarterlyOutsourcedTrend = `
+	// Quarterly Outsourced Trend with Date Range
+	public static quarterlyOutsourcedTrend = `
         SELECT
             QUARTER(d.serviceAddedOn) AS quarter,
             YEAR(d.serviceAddedOn) AS year,

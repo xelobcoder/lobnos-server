@@ -107,10 +107,10 @@ export class CommissionConfigController {
       * Get commission configuration by ID
       * GET /api/v1/commission/configs/:id
       */
-     static async getConfig(req: Request, res: Response): Promise<void> {
+     static async getConfig(req: Request<{id:number | string}>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const configId = parseInt(req.params.id);
+               const configId = parseInt(req.params.id.toString());
 
                if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });
@@ -121,7 +121,7 @@ export class CommissionConfigController {
                const config = await repository.getByIdOrThrow(configId);
 
                // Get tiers if tiered type
-               let tiers = [];
+               let tiers = [] as any[];
                if (config.commission_type === 'tiered') {
                     const tierRepository = CommissionServiceFactory.createTierRepository(tenantId);
                     tiers = await tierRepository.findByConfigId(configId);
@@ -177,10 +177,10 @@ export class CommissionConfigController {
       * Update commission configuration (soft delete old, create new version)
       * PUT /api/v1/commission/configs/:id
       */
-     static async updateConfig(req: Request, res: Response): Promise<void> {
+     static async updateConfig(req: Request<{id:number | string}>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const configId = parseInt(req.params.id);
+               const configId = parseInt(req.params.id.toString());
 
                if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });
@@ -255,10 +255,10 @@ export class CommissionConfigController {
       * Deactivate commission configuration
       * DELETE /api/v1/commission/configs/:id
       */
-     static async deleteConfig(req: Request, res: Response): Promise<void> {
+     static async deleteConfig(req: Request<{id:number | string}>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const configId = parseInt(req.params.id);
+               const configId = parseInt(req.params.id.toString());
 
                if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });

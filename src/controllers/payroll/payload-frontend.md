@@ -794,60 +794,24 @@ All API responses follow this structure:
 
 ---
 
-# 5. ALLOWANCE & BONUS ENDPOINTS *(Planned - Not Yet Implemented)*
+# 7. LEAVE MANAGEMENT ENDPOINTS
 
-## 5.1 Create Employee Allowance
-**Endpoint**: `POST /api/v1/payroll/allowances?tenantId={tenantId}`
-
-**Request Payload**:
-```json
-{
-  "employeeid": 123,
-  "allowance_type": "housing",
-  "amount": 500.00,
-  "calculation_method": "fixed",
-  "percentage": null,
-  "is_recurring": true,
-  "frequency": "monthly",
-  "is_taxable": true,
-  "effective_from": "2024-01-01",
-  "effective_to": null,
-  "is_active": true,
-  "approved_by": 1
-}
-```
-
-**Success Response (201)**:
-```json
-{
-  "status": "success",
-  "statusCode": 201,
-  "message": "Employee allowance created successfully",
-  "result": {
-    "id": 1
-  }
-}
-```
-
-**Error Responses**:
-- `400`: Invalid allowance type or calculation method
-- `409`: Active allowance already exists for employee/type
-
-## 5.2 Create Employee Bonus
-**Endpoint**: `POST /api/v1/payroll/bonuses?tenantId={tenantId}`
+## 7.1 Create Leave Request
+**Endpoint**: `POST /api/v1/payroll/leave?tenantId={tenantId}`
 
 **Request Payload**:
 ```json
 {
   "employeeid": 123,
-  "bonus_type": "performance",
-  "amount": 1000.00,
-  "bonus_period": "Q4 2024",
-  "is_taxable": true,
-  "tax_method": "aggregate",
+  "leave_type": "annual",
+  "start_date": "2026-08-01",
+  "end_date": "2026-08-10",
+  "total_days": 10,
   "status": "pending",
-  "approved_by": null,
-  "approved_date": null
+  "applied_date": "2026-07-16",
+  "affects_salary": false,
+  "reason": "Annual leave",
+  "attachments": "uploads/payroll/leave-request-123.pdf"
 }
 ```
 
@@ -856,45 +820,18 @@ All API responses follow this structure:
 {
   "status": "success",
   "statusCode": 201,
-  "message": "Employee bonus created successfully",
+  "message": "Leave request created successfully",
   "result": {
     "id": 1
   }
 }
 ```
 
-## 5.3 Get Employee Allowances
-**Endpoint**: `GET /api/v1/payroll/allowances/employee/{employeeId}?tenantId={tenantId}`
+## 7.2 Get Leave By ID
+**Endpoint**: `GET /api/v1/payroll/leave/{id}?tenantId={tenantId}`
 
-**Request**: No body required
-
-**Success Response (200)**:
-```json
-{
-  "status": "success",
-  "statusCode": 200,
-  "result": [
-    {
-      "id": 1,
-      "employeeid": 123,
-      "allowance_type": "housing",
-      "amount": 500.00,
-      "calculation_method": "fixed",
-      "is_recurring": true,
-      "frequency": "monthly",
-      "is_taxable": true,
-      "effective_from": "2024-01-01",
-      "is_active": true,
-      "created_at": "2024-01-01T10:00:00.000Z"
-    }
-  ]
-}
-```
-
-## 5.4 Get Employee Bonuses
-**Endpoint**: `GET /api/v1/payroll/bonuses/employee/{employeeId}?tenantId={tenantId}`
-
-**Request**: No body required
+## 7.3 Get Employee Leave History
+**Endpoint**: `GET /api/v1/payroll/leave/employee/{employeeId}?tenantId={tenantId}`
 
 **Success Response (200)**:
 ```json
@@ -905,32 +842,119 @@ All API responses follow this structure:
     {
       "id": 1,
       "employeeid": 123,
-      "bonus_type": "performance",
-      "amount": 1000.00,
-      "bonus_period": "Q4 2024",
-      "is_taxable": true,
-      "tax_method": "aggregate",
+      "leave_type": "annual",
+      "start_date": "2026-08-01",
+      "end_date": "2026-08-10",
+      "total_days": 10,
       "status": "approved",
-      "approved_by": 1,
-      "approved_date": "2024-12-01T10:00:00.000Z"
+      "applied_date": "2026-07-16",
+      "approved_by": 14,
+      "approved_date": "2026-07-18",
+      "affects_salary": false,
+      "reason": "Annual leave"
     }
   ]
 }
 ```
 
-## 5.5 Update Allowance/Bonus
-**Endpoint**: `PUT /api/v1/payroll/allowances/{id}?tenantId={tenantId}`
-**Endpoint**: `PUT /api/v1/payroll/bonuses/{id}?tenantId={tenantId}`
+## 7.4 Get Leaves By Status
+**Endpoint**: `GET /api/v1/payroll/leave/status/{status}?tenantId={tenantId}`
 
-**Request Payload** (partial update supported):
+Example:
+
+`GET /api/v1/payroll/leave/status/pending?tenantId=3`
+
+## 7.5 Get Leaves By Date Range
+**Endpoint**: `GET /api/v1/payroll/leave?tenantId={tenantId}&startDate=2026-08-01&endDate=2026-08-31`
+
+## 7.6 Update Leave Request
+**Endpoint**: `PUT /api/v1/payroll/leave/{id}?tenantId={tenantId}`
+
+**Request Payload**:
 ```json
 {
-  "amount": 600.00,
-  "effective_to": "2024-12-31"
+  "end_date": "2026-08-12",
+  "total_days": 12,
+  "reason": "Extended by two days"
 }
 ```
 
+## 7.7 Approve Leave Request
+**Endpoint**: `POST /api/v1/payroll/leave/{id}/approve?tenantId={tenantId}`
+
+**Request Payload**:
+```json
+{
+  "approved_by": 14
+}
+```
+
+## 7.8 Reject Leave Request
+**Endpoint**: `POST /api/v1/payroll/leave/{id}/reject?tenantId={tenantId}`
+
+**Request Payload**:
+```json
+{
+  "approved_by": 14
+}
+```
+
+## 7.9 Cancel Leave Request
+**Endpoint**: `POST /api/v1/payroll/leave/{id}/cancel?tenantId={tenantId}`
+
+Only approved leave can be cancelled.
+
+## 7.10 Get Leave Balance
+**Endpoint**: `GET /api/v1/payroll/leave/balance/{employeeId}?tenantId={tenantId}&year=2026`
+
 **Success Response (200)**:
+```json
+{
+  "status": "success",
+  "statusCode": 200,
+  "result": {
+    "id": 1,
+    "employeeid": 123,
+    "leave_year": 2026,
+    "annual_leave_entitlement": 21,
+    "sick_leave_entitlement": 14,
+    "annual_leave_taken": 4,
+    "annual_leave_balance": 17,
+    "sick_leave_taken": 2,
+    "sick_leave_balance": 12
+  }
+}
+```
+
+## 7.11 Initialize Leave Balance For Year
+**Endpoint**: `POST /api/v1/payroll/leave/balance/initialize?tenantId={tenantId}`
+
+**Request Payload**:
+```json
+{
+  "employeeid": 123,
+  "year": 2026
+}
+```
+
+## 7.12 Update Leave Balance
+**Endpoint**: `PUT /api/v1/payroll/leave/balance/{id}?tenantId={tenantId}`
+
+**Request Payload**:
+```json
+{
+  "annual_leave_entitlement": 24,
+  "annual_leave_balance": 20,
+  "sick_leave_entitlement": 16,
+  "sick_leave_balance": 14
+}
+```
+
+## 7.13 Get Employees On Leave For Date
+**Endpoint**: `GET /api/v1/payroll/leave/on-date?tenantId={tenantId}&date=2026-08-05`
+
+## 7.14 Get Leave Summary For Employee
+**Endpoint**: `GET /api/v1/payroll/leave/employee/{employeeId}/summary?tenantId={tenantId}&year=2026`
 ```json
 {
   "status": "success",
@@ -1003,32 +1027,24 @@ All API responses follow this structure:
   ]
 }
 ```
-
 ---
 
 # 6. DEDUCTION ENDPOINTS *(Planned - Not Yet Implemented)*
-
-## 6.1 Setup Statutory Deductions
 **Endpoint**: `POST /api/v1/payroll/deductions/statutory?tenantId={tenantId}`
 
 **Request Payload**:
 ```json
-{
-  "employeeid": 123,
+      "nhis_active": true
   "ssnit_number": "123456789",
   "ssnit_active": true,
-  "ssnit_employee_rate": 5.5,
   "tier3_enrolled": true,
   "tier3_scheme_name": "Premium Pension Scheme",
   "tier3_scheme_number": "TPS123456",
-  "tier3_employee_rate": 5.0,
-  "tier3_employer_rate": 5.0,
   "tin_number": "TIN123456",
   "tax_exempt": false,
   "dependents_count": 2,
   "nhis_number": "NHIS123456",
-  "nhis_active": true,
-  "nhis_rate": 2.5
+  "nhis_active": true
 }
 ```
 
@@ -1439,10 +1455,7 @@ All API responses follow this structure:
   "disability_exemption": 2000,
   "employee_ssnit_rate": 5.5,
   "employer_ssnit_rate": 13.0,
-  "tier3_employee_rate": 5.0,
-  "tier3_employer_rate": 5.0,
   "ssnit_ceiling": 1500,
-  "nhis_rate": 2.5,
   "created_by": 1
 }
 ```
@@ -1491,10 +1504,7 @@ All API responses follow this structure:
     "disability_exemption": 2000,
     "employee_ssnit_rate": 5.5,
     "employer_ssnit_rate": 13.0,
-    "tier3_employee_rate": 5.0,
-    "tier3_employer_rate": 5.0,
     "ssnit_ceiling": 1500,
-    "nhis_rate": 2.5,
     "is_active": true,
     "created_by": 1,
     "created_at": "2024-01-01T10:00:00.000Z"
@@ -1555,10 +1565,7 @@ All API responses follow this structure:
     "disability_exemption": 2000,
     "employee_ssnit_rate": 5.5,
     "employer_ssnit_rate": 13.0,
-    "tier3_employee_rate": 5.0,
-    "tier3_employer_rate": 5.0,
     "ssnit_ceiling": 1500,
-    "nhis_rate": 2.5,
     "is_active": true
   }
 }

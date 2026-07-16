@@ -249,7 +249,7 @@ class Operations {
     static async getAscensionOverViewModelTransaction(tenantid, billingid) {
         try {
             const query = `
-													SELECT 
+							SELECT 
 							ta.id AS ascension_id,
 
 							ta.testid,
@@ -358,9 +358,7 @@ class Operations {
 							ORDER BY 
 							ta.id ASC,
 							ss.keyid ASC,
-							ra.id ASC;
-		`;
-            console.log(query);
+							ra.id ASC;`;
             return await (0, helper_1.promisifyQuery)(tenantid, query, [billingid]);
         }
         catch (err) {

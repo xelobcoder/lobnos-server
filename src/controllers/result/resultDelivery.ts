@@ -33,6 +33,37 @@ export default class ResultDeliveryClass {
           return true;
      }
 
+     async getResultsUndelivered(startDate: string, endDate: string, page: number, count: number) {
+          const connection = await this.connection;
+          const query = connection('patient_result_delivery_preference')
+               .innerJoin('result_delivery_log', 'patient_result_delivery_preference.ascension', 'result_delivery_log.ascensionid')
+               .innerJoin('new_patients', 'patient_result_delivery_preference.patientid', 'new_patients.patientid')
+               .where('delivered_at', null)
+               .orWhere('delivered_mode', null)
+
+          if (startDate && endDate) {
+               query.andWhereBetween('created_at', [startDate, endDate])
+          }
+
+          const totalcountofUndeliveredResults = await query.clone().count('* as total').first();
+          const totalcount = totalcountofUndeliveredResults?.total || 0;
+
+          if (page && count) {
+               const offset = (page - 1) * count;
+               query.offset(offset).limit(count);
+          }
+
+          const dataset = await query.select('result_delivery_log.*',
+               'new_patients.patientid',
+               'new_patients.firstname', 'new_patients.lastname',
+               'new_patients.age', 'new_patients.gender',
+               'new_patients.ageType', 'new_patients.dob', 'new_patients.mobile_number as contact',
+               'new_patients.fullpatientid', 'new_patients.designation',
+               'patient_result_delivery_preference.*');
+          return { totalcount, dataset };
+
+     }
+
      async setMultipleTestResultDeliveryPreferences(preferences: {
           billingid: number;
           ascension: number;
@@ -52,7 +83,7 @@ export default class ResultDeliveryClass {
                     })
 
 
-                    await connection('result_delivery_log')
+               await connection('result_delivery_log')
                     .insert({
                          ascensionid: preferences.ascension
                     })

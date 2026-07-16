@@ -30,7 +30,7 @@ export default class MedicalInterfacingDevicesRepository {
                const connection = await this.connection;
                const result = await connection(this.tablename).insert(device).returning('id');
                return result[0];
-          } catch (error) {
+          } catch (error:any) {
                throw new Error('Failed to create device: ' + error.message);
           }
      }

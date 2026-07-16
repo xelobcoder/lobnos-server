@@ -5,10 +5,10 @@ export class CommissionTrackingController {
       * Get tracking record by ID
       * GET /api/v1/commission/tracking/:id
       */
-     static async getTracking(req: Request, res: Response): Promise<void> {
+     static async getTracking(req: Request<{id:number | string}>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const trackingId = parseInt(req.params.id);
+               const trackingId = parseInt(req.params.id.toString());
 
                if (!tenantId || !trackingId || isNaN(tenantId) || isNaN(trackingId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or trackingId' });
@@ -45,10 +45,10 @@ export class CommissionTrackingController {
       * Get all tracking records for a service
       * GET /api/v1/commission/tracking/service/:serviceId
       */
-     static async getServiceTracking(req: Request, res: Response): Promise<void> {
+     static async getServiceTracking(req: Request<{ serviceId: number }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const serviceId = parseInt(req.params.serviceId);
+               const serviceId = parseInt(req.params.serviceId.toString());
 
                if (!tenantId || !serviceId || isNaN(tenantId) || isNaN(serviceId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or serviceId' });
@@ -177,7 +177,7 @@ export class CommissionTrackingController {
       * Get tracking records by status
       * GET /api/v1/commission/tracking/status/:status
       */
-     static async getByStatus(req: Request, res: Response): Promise<void> {
+     static async getByStatus(req: Request< { status: string } >, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const status = req.params.status;
@@ -298,10 +298,10 @@ export class CommissionTrackingController {
       * Update tracking status (mark as paid, approved, voided, etc.)
       * PUT /api/v1/commission/tracking/:id/status
       */
-     static async updateStatus(req: Request, res: Response): Promise<void> {
+     static async updateStatus(req: Request<{id:number | string}>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const trackingId = parseInt(req.params.id);
+               const trackingId = parseInt(req.params.id.toString());
                const { status } = req.body;
 
                if (!tenantId || !trackingId || !status || isNaN(tenantId) || isNaN(trackingId)) {

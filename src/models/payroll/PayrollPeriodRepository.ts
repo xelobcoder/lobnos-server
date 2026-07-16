@@ -26,6 +26,15 @@ export interface IPayrollPeriod {
      locked_at?: string;
 }
 
+export interface ICreatePayrollPeriodInput {
+     period_name?: string;
+     period_start_date: string;
+     period_end_date: string;
+     payment_date?: string;
+     attendance_start_date?: string;
+     attendance_end_date?: string;
+}
+
 // Zod validation schema
 const payrollPeriodSchema = z.object({
      period_name: z.string().min(1, 'Period name cannot be empty').max(100, 'Period name cannot exceed 100 characters'),
@@ -167,13 +176,75 @@ export class PayrollPeriodRepository {
           };
      }
 
+     private async assertNoDuplicateOrOverlap(period: IPayrollPeriod, excludeId?: number): Promise<void> {
+          const connection = await this.connection;
+
+          const duplicateQuery = connection('payroll_periods')
+               .where({ period_year: period.period_year, period_month: period.period_month });
+
+          if (excludeId) {
+               duplicateQuery.andWhereNot({ id: excludeId });
+          }
+
+          const duplicate = await duplicateQuery.first();
+          if (duplicate) {
+               throw new Error(`Payroll period ${period.period_month}/${period.period_year} already exists`);
+          }
+
+          const overlapQuery = connection('payroll_periods')
+               .where('period_start_date', '<=', period.period_end_date)
+               .andWhere('period_end_date', '>=', period.period_start_date);
+
+          if (excludeId) {
+               overlapQuery.andWhereNot({ id: excludeId });
+          }
+
+          const overlappingPeriod = await overlapQuery.first();
+          if (overlappingPeriod) {
+               throw new Error('Payroll period overlaps with an existing period');
+          }
+     }
+
      async create(period: IPayrollPeriod): Promise<number> {
           // Validate data using Zod schema
           payrollPeriodSchema.parse(period);
+          await this.assertNoDuplicateOrOverlap(period);
 
           const connection = await this.connection;
           const [id] = await connection('payroll_periods').insert(period);
           return id;
+     }
+
+     async createCustomPeriod(input: ICreatePayrollPeriodInput): Promise<number> {
+          const startDate = new Date(input.period_start_date);
+          const endDate = new Date(input.period_end_date);
+
+          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+               throw new Error('Invalid period start or end date');
+          }
+
+          const year = startDate.getFullYear();
+          const month = startDate.getMonth() + 1;
+          const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+               'July', 'August', 'September', 'October', 'November', 'December'];
+
+          const period: IPayrollPeriod = {
+               period_name: input.period_name?.trim() || `${monthNames[month - 1]} ${year}`,
+               period_year: year,
+               period_month: month,
+               period_start_date: input.period_start_date,
+               period_end_date: input.period_end_date,
+               payment_date: input.payment_date || input.period_end_date,
+               attendance_start_date: input.attendance_start_date || input.period_start_date,
+               attendance_end_date: input.attendance_end_date || input.period_end_date,
+               status: 'draft',
+               total_gross_salary: 0,
+               total_deductions: 0,
+               total_net_salary: 0,
+               employee_count: 0
+          };
+
+          return this.create(period);
      }
 
      async getById(id: number): Promise<IPayrollPeriod | undefined> {
@@ -229,6 +300,7 @@ export class PayrollPeriodRepository {
 
           // Validate complete data using Zod schema
           payrollPeriodSchema.parse(completePeriod);
+          await this.assertNoDuplicateOrOverlap(completePeriod, id);
 
           const connection = await this.connection;
           const affectedRows = await connection('payroll_periods')
@@ -251,6 +323,43 @@ export class PayrollPeriodRepository {
           const affectedRows = await connection('payroll_periods')
                .where({ id })
                .update({ status, updated_at: connection.fn.now() });
+          return affectedRows > 0;
+     }
+
+     async revertWorkflowStatus(
+          id: number,
+          status: 'draft' | 'calculated' | 'approved'
+     ): Promise<boolean> {
+          const connection = await this.connection;
+
+          const updates: Record<string, any> = {
+               status,
+               updated_at: connection.fn.now()
+          };
+
+          if (status === 'draft') {
+               updates.approved_by = null;
+               updates.approved_at = null;
+               updates.locked_by = null;
+               updates.locked_at = null;
+          }
+
+          if (status === 'calculated') {
+               updates.approved_by = null;
+               updates.approved_at = null;
+               updates.locked_by = null;
+               updates.locked_at = null;
+          }
+
+          if (status === 'approved') {
+               updates.locked_by = null;
+               updates.locked_at = null;
+          }
+
+          const affectedRows = await connection('payroll_periods')
+               .where({ id })
+               .update(updates);
+
           return affectedRows > 0;
      }
 
@@ -344,6 +453,15 @@ export class PayrollPeriodRepository {
                return false;
           }
 
+          const periodTransactions = await connection('payroll_transactions')
+               .where({ payroll_period_id: id })
+               .count<{ total: number }[]>({ total: '*' });
+
+          const transactionCount = Number((periodTransactions as any)?.[0]?.total || 0);
+          if (transactionCount > 0) {
+               return false;
+          }
+
           const affectedRows = await connection('payroll_periods')
                .where({ id })
                .delete();
@@ -352,7 +470,6 @@ export class PayrollPeriodRepository {
      }
 
      async getCurrentPeriod(): Promise<IPayrollPeriod | undefined> {
-          const connection = await this.connection;
           const now = new Date();
           const currentYear = now.getFullYear();
           const currentMonth = now.getMonth() + 1;
@@ -368,7 +485,6 @@ export class PayrollPeriodRepository {
      }
 
      async createNextPeriod(): Promise<number> {
-          const connection = await this.connection;
           const latest = await this.getLatestPeriod();
 
           let year: number, month: number;
@@ -389,8 +505,8 @@ export class PayrollPeriodRepository {
 
           // Calculate dates
           const startDate = new Date(year, month - 1, 1);
-          const endDate = new Date(year, month, 0); // Last day of month
-          const paymentDate = new Date(year, month, 5); // 5th of next month
+          const endDate = new Date(year, month, 0);
+          const paymentDate = new Date(year, month, 5);
 
           const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
                'July', 'August', 'September', 'October', 'November', 'December'];

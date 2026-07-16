@@ -27,7 +27,7 @@ class PayrollAnalytics {
             queryBuilder.getLeaveStatistics(startDate, endDate),
             queryBuilder.getAllowanceBreakdown(startDate, endDate),
             queryBuilder.getBonusStatistics(startDate, endDate),
-            queryBuilder.getStatutoryDeductionSummary(),
+            queryBuilder.getStatutoryDeductionSummary(startDate, endDate),
             queryBuilder.getOtherDeductionsBreakdown(startDate, endDate),
             queryBuilder.getPayrollTransactionSummary(startDate, endDate),
             queryBuilder.getTopEarningEmployees(startDate, endDate, topEarnersLimit),
@@ -208,7 +208,7 @@ class PayrollAnalytics {
     async getDeductionAnalytics(startDate, endDate) {
         const queryBuilder = new PayrollAnalyticsWithDate_1.PayrollAnalyticsWithDate(this.tenantId);
         const [statutory, other] = await Promise.all([
-            queryBuilder.getStatutoryDeductionSummary(),
+            queryBuilder.getStatutoryDeductionSummary(startDate, endDate),
             queryBuilder.getOtherDeductionsBreakdown(startDate, endDate)
         ]);
         return {
@@ -315,10 +315,6 @@ class PayrollAnalytics {
             tier3_enrolled: Number(data.tier3_enrolled) || 0,
             tax_exempt_count: Number(data.tax_exempt_count) || 0,
             nhis_active_count: Number(data.nhis_active_count) || 0,
-            avg_ssnit_rate: Number(data.avg_ssnit_rate) || 0,
-            avg_tier3_employee_rate: Number(data.avg_tier3_employee_rate) || 0,
-            avg_tier3_employer_rate: Number(data.avg_tier3_employer_rate) || 0,
-            avg_nhis_rate: Number(data.avg_nhis_rate) || 0,
             avg_dependents: Number(data.avg_dependents) || 0
         };
     }

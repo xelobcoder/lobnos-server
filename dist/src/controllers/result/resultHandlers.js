@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getResultDeliveryChain = exports.recordResultHandover = exports.recordResultDelivery = exports.getResultDeliveryPreference = exports.setResultDeliveryPreference = exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
+exports.getResultDeliveryChain = exports.recordResultHandover = exports.recordResultDelivery = exports.getResultRecordUndelivered = exports.getResultDeliveryPreference = exports.setResultDeliveryPreference = exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const companyProfile_1 = require("../../models/settings/companyProfile");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
@@ -591,6 +591,24 @@ const getResultDeliveryPreference = async (req, res) => {
     }
 };
 exports.getResultDeliveryPreference = getResultDeliveryPreference;
+const getResultRecordUndelivered = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        const startDate = req.query.startDate;
+        const endDate = req.query.endDate;
+        const count = req.query.count ? parseInt(req.query.count, 10) : 0;
+        const page = req.query.page ? parseInt(req.query.page, 10) : 1;
+        const undeliveredRecords = await new resultDelivery_1.default(0, tenantId).getResultsUndelivered(startDate, endDate, page, count);
+        res.send({
+            status: true,
+            records: undeliveredRecords || []
+        });
+    }
+    catch (err) {
+        (0, helper_1.responseError)(res, err);
+    }
+};
+exports.getResultRecordUndelivered = getResultRecordUndelivered;
 const recordResultDelivery = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);

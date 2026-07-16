@@ -178,6 +178,37 @@ class PayrollProcessingService {
             return true;
         });
     }
+    async revertPayrollPeriodStatus(payroll_period_id, targetStatus) {
+        const connection = await (0, KnexConnections_1.default)(this.tenantId);
+        return connection.transaction(async (trx) => {
+            const trxPeriodRepo = new PayrollPeriodRepository_1.PayrollPeriodRepository(this.tenantId, trx);
+            const trxTransactionRepo = new PayrollTransactionRepository_1.PayrollTransactionRepository(this.tenantId, trx);
+            const period = await trxPeriodRepo.getById(payroll_period_id);
+            if (!period) {
+                throw new Error(`Payroll period ${payroll_period_id} not found`);
+            }
+            if (period.status === 'paid') {
+                throw new Error('Cannot revert a paid payroll period. Reverse payment first.');
+            }
+            const allowedCurrentStatuses = ['draft', 'calculated', 'approved', 'locked'];
+            if (!allowedCurrentStatuses.includes(period.status)) {
+                throw new Error(`Cannot revert payroll period with status ${period.status}`);
+            }
+            const statusOrder = {
+                draft: 1,
+                calculated: 2,
+                approved: 3,
+                locked: 4
+            };
+            if (statusOrder[targetStatus] > statusOrder[period.status]) {
+                throw new Error(`Cannot move payroll period forward to ${targetStatus} using revert`);
+            }
+            const transactionStatus = targetStatus === 'approved' ? 'approved' : 'pending';
+            await trxTransactionRepo.updateStatusByPayrollPeriod(payroll_period_id, transactionStatus);
+            await trxPeriodRepo.revertWorkflowStatus(payroll_period_id, targetStatus);
+            return true;
+        });
+    }
     async recalculateEmployee(payroll_period_id, employeeid) {
         const connection = await (0, KnexConnections_1.default)(this.tenantId);
         return connection.transaction(async (trx) => {

@@ -92,7 +92,7 @@ class CommissionConfigController {
     static async getConfig(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const configId = parseInt(req.params.id);
+            const configId = parseInt(req.params.id.toString());
             if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });
                 return;
@@ -155,7 +155,7 @@ class CommissionConfigController {
     static async updateConfig(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const configId = parseInt(req.params.id);
+            const configId = parseInt(req.params.id.toString());
             if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });
                 return;
@@ -214,7 +214,7 @@ class CommissionConfigController {
     static async deleteConfig(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const configId = parseInt(req.params.id);
+            const configId = parseInt(req.params.id.toString());
             if (!tenantId || !configId || isNaN(tenantId) || isNaN(configId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or configId' });
                 return;

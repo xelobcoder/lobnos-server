@@ -123,7 +123,7 @@ export class BackupController {
           }
      }
 
-     static async getBackupById(req: Request, res: Response) {
+     static async getBackupById(req: Request<{ id: string }>, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
@@ -167,7 +167,7 @@ export class BackupController {
           }
      }
 
-     static async downloadBackup(req: Request, res: Response) {
+     static async downloadBackup(req: Request<{ id: string }>, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
@@ -338,7 +338,7 @@ export class BackupController {
           }
      }
 
-     static async getBackupScheduleById(req: Request, res: Response) {
+     static async getBackupScheduleById(req: Request<{ id: string }>, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;

@@ -67,7 +67,6 @@ export default class Registration {
 		try {
 			await conn('patient_audit_log').insert({
 				auditid: conn.raw('UUID()'),
-
 				patientid: snapshot.patientid ?? payload.patientid,
 				fullpatientid: snapshot.fullpatientid,
 				designation: snapshot.designation ?? null,
@@ -92,7 +91,6 @@ export default class Registration {
 				relativecontactnumber: snapshot.relativecontactnumber ?? null,
 				whatsapp_country_code: snapshot.whatsapp_country_code ?? null,
 				mobile_country_code: snapshot.mobile_country_code ?? null,
-
 				section: payload.section,
 				action_type: payload.actionType,
 				changed_by_employeeid: payload.changedByEmployeeId ?? null,
@@ -227,7 +225,6 @@ export default class Registration {
 				const sanitizedMobileNumber = removeCountryCodeFromMobile(records.mobile, records.mobileCountryCode);
 				const sanitizedWhatsApp = removeCountryCodeFromMobile(records.whatAppcontact, records.whatsappCountryCode);
 				const sanitizedRelativeContact = removeCountryCodeFromMobile(records.relativecontactnumber, records.relativeCountryCode);
-
 				const {
 					designation,
 					firstname,

@@ -7,15 +7,15 @@ import { OperationsFailures } from "../../../models/operations/types";
 import { uploadImageFile } from "./imageUpload";
 import { customError, responseError } from "../../../hooks/helper";
 
-export const AddCompanyInfoHandler = async (request: Request, response: Response) => {
+export const AddCompanyInfoHandler = async (request: Request<{},{},{name:string,motto:string,email:string,phonenumber:string|number},{tenantId:string|number}>, response: Response) => {
 	try {
 		const { name, motto, email, phonenumber } = request.body;
 		const tenantId = parseInt(request.query.tenantId.toString());
 		const hasNecessaryRequestBodyParams = name && motto && email && phonenumber;
 		if (!hasNecessaryRequestBodyParams) return customError(OperationsFailures.invalidRequestBodyType + ". Necessary request body params not included", 400, response);
-		await insertCompanyProfile(tenantId, request.body);
+		await insertCompanyProfile(tenantId, request.body as any);
 		return response.send({ status: "success" });
-	} catch (err) {
+	} catch (err:any) {
 		console.log(err)
 		return responseError(response);
 	}
@@ -26,7 +26,7 @@ export const getCompanyInfoHandler = async (request: Request, response: Response
 		const tenantId = parseInt(request.query.tenantId.toString());
 		let result = await getAllCompanyProfiles(tenantId);
 		response.send(result);
-	} catch (err) {
+	} catch (err:any) {
 		responseError(response);
 	}
 };

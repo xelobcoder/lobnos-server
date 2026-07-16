@@ -150,11 +150,11 @@ class OutsourcingAnalyticsWithDate {
 exports.OutsourcingAnalyticsWithDate = OutsourcingAnalyticsWithDate;
 // Daily Outsourced Amount with Date Range
 OutsourcingAnalyticsWithDate.dailyOutsourcedAmount = `
-        SELECT
+    SELECT
             DATE(d.serviceAddedOn) AS service_date,
             COUNT(*) AS services_count,
-            COALESCE(SUM(d.totalpayable), 0) AS daily_billed_amount,
-            COALESCE(SUM(d.outsourceprice), 0) AS daily_outsourced_amount,
+           COALESCE(SUM(d.totalpayable), 0) AS daily_billed_amount,
+            COALESCE(SUM(d.outsourceprice), 0) AS outsourced_daily_amount,
             COALESCE(SUM(d.totalpayable), 0) - COALESCE(SUM(d.outsourceprice), 0) AS daily_profit_amount
         FROM dboservices d
         WHERE DATE(d.serviceAddedOn) BETWEEN ? AND ? ${outsourcing_constraints}

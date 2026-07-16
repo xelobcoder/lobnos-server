@@ -313,7 +313,7 @@ class CommissionDefaultController {
     static async deleteDefault(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const defaultId = parseInt(req.params.id);
+            const defaultId = parseInt(req.params.id.toString());
             if (!tenantId || !defaultId || isNaN(tenantId) || isNaN(defaultId)) {
                 res.status(400).json({
                     status: 'error',

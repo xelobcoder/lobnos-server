@@ -19,7 +19,8 @@ import {
        getResultDeliveryPreference,
        recordResultDelivery,
        recordResultHandover,
-       getResultDeliveryChain
+       getResultDeliveryChain,
+       getResultRecordUndelivered
 } from "./resultHandlers"
 import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestTotalCasesByHourForSpecificDay, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear } from './resultanalysis'
 import { billingIdChecker } from "../../middleware/redis/handlerAscensionBillingCheck";
@@ -79,6 +80,7 @@ router.post('/api/v1/result/delivery/preference', handleOverLoad(setResultDelive
 router.get('/api/v1/result/delivery/preference/:billingid', handleOverLoad(getResultDeliveryPreference));
 router.post('/api/v1/result/delivery/record', handleOverLoad(recordResultDelivery));
 router.post('/api/v1/result/delivery/handover', handleOverLoad(recordResultHandover));
+router.get('/api/v1/result/delivery/record/result/undelivered', handleOverLoad(getResultRecordUndelivered));
 router.get('/api/v1/result/delivery/chain/:billingid', handleOverLoad(getResultDeliveryChain));
 
 

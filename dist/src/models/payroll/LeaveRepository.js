@@ -6,6 +6,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.LeaveRepository = void 0;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const zod_1 = require("zod");
+const editableLeaveFields = [
+    'leave_type',
+    'start_date',
+    'end_date',
+    'total_days',
+    'applied_date',
+    'affects_salary',
+    'reason',
+    'attachments'
+];
 // Zod validation schemas
 const leaveSchema = zod_1.z.object({
     employeeid: zod_1.z.number().positive('Employee ID must be a positive number'),
@@ -100,6 +110,7 @@ class LeaveRepository {
             .orderBy('start_date', 'asc');
     }
     async updateLeave(id, leave) {
+        var _a, _b, _c, _d, _e, _f, _g, _h;
         if (!id || typeof id !== 'number' || id <= 0) {
             throw new Error('Valid leave ID is required for update');
         }
@@ -108,14 +119,19 @@ class LeaveRepository {
         if (!existing) {
             throw new Error('Leave record not found');
         }
-        // Merge with existing data for complete validation
-        const completeLeave = Object.assign(Object.assign({}, existing), leave);
+        if (existing.status !== 'pending') {
+            throw new Error('Only pending leave requests can be updated');
+        }
+        const sanitizedUpdate = Object.fromEntries(Object.entries(leave).filter(([key, value]) => {
+            return editableLeaveFields.includes(key) && value !== undefined;
+        }));
+        const completeLeave = Object.assign(Object.assign(Object.assign({}, existing), sanitizedUpdate), { approved_by: (_b = ((_a = sanitizedUpdate.approved_by) !== null && _a !== void 0 ? _a : existing.approved_by)) !== null && _b !== void 0 ? _b : undefined, approved_date: (_d = ((_c = sanitizedUpdate.approved_date) !== null && _c !== void 0 ? _c : existing.approved_date)) !== null && _d !== void 0 ? _d : undefined, reason: (_f = ((_e = sanitizedUpdate.reason) !== null && _e !== void 0 ? _e : existing.reason)) !== null && _f !== void 0 ? _f : undefined, attachments: (_h = ((_g = sanitizedUpdate.attachments) !== null && _g !== void 0 ? _g : existing.attachments)) !== null && _h !== void 0 ? _h : undefined });
         // Validate complete data using Zod schema
         leaveSchema.parse(completeLeave);
         const connection = await this.connection;
         const affectedRows = await connection('payroll_employee_leave')
             .where({ id })
-            .update(Object.assign(Object.assign({}, leave), { updated_at: connection.fn.now() }));
+            .update(Object.assign(Object.assign({}, sanitizedUpdate), { updated_at: connection.fn.now() }));
         return affectedRows > 0;
     }
     async approveLeave(id, approved_by) {
@@ -199,7 +215,6 @@ class LeaveRepository {
             await trx('payroll_employee_leave')
                 .where({ id })
                 .update({ status: 'cancelled', updated_at: trx.fn.now() });
-            // Restore leave balance if applicable
             if (leave.leave_type === 'annual' || leave.leave_type === 'sick') {
                 const balance = await this.getLeaveBalance(leave.employeeid, new Date().getFullYear(), trx);
                 if (balance) {

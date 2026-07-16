@@ -140,7 +140,7 @@ class PayrollTransactionRepository {
             .count({ total: '*' });
         const total = Number(((_a = countResult[0]) === null || _a === void 0 ? void 0 : _a.total) || 0);
         return {
-            data: rows.map(t => this.parseTransactionDetails(t)),
+            data: rows.map((t) => this.parseTransactionDetails(t)),
             total,
             page,
             pageSize
@@ -176,6 +176,22 @@ class PayrollTransactionRepository {
             .where({ id })
             .update({ status, updated_at: connection.fn.now() });
         return affectedRows > 0;
+    }
+    async updateStatusByPayrollPeriod(payroll_period_id, status) {
+        const connection = await this.connection;
+        const updates = {
+            status,
+            updated_at: connection.fn.now()
+        };
+        if (status !== 'paid') {
+            updates.payment_date = null;
+            updates.payment_method = null;
+            updates.payment_reference = null;
+        }
+        const affectedRows = await connection('payroll_transactions')
+            .where({ payroll_period_id })
+            .update(updates);
+        return affectedRows >= 0;
     }
     async markAsApproved(id) {
         return this.updateStatus(id, 'approved');
