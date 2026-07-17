@@ -382,17 +382,33 @@ export class PayrollCalculationService {
                periodEndDate
           );
 
+          console.log("deductions", deductions);
+
           let totalDeductions = 0;
           const deductionsDetail = [];
 
           for (const deduction of deductions) {
-               totalDeductions += deduction.amount;
+               const amount = Number(deduction.amount) || 0;
+               const startDateValue: any = deduction.start_date;
+               const endDateValue: any = deduction.end_date;
+               totalDeductions += amount;
                deductionsDetail.push({
                     type: deduction.deduction_type,
                     name: deduction.deduction_name,
-                    amount: deduction.amount,
-                    priority: deduction.deduction_priority,
-                    remaining_balance: deduction.remaining_balance
+                    amount: Math.round(amount * 100) / 100,
+                    priority: Number(deduction.deduction_priority) || 0,
+                    remaining_balance: Math.round((Number(deduction.remaining_balance) || 0) * 100) / 100,
+                    is_recurring: Boolean(deduction.is_recurring),
+                    frequency: deduction.frequency,
+                    start_date: startDateValue instanceof Date
+                         ? startDateValue.toISOString().split('T')[0]
+                         : String(startDateValue),
+                    end_date: endDateValue
+                         ? (endDateValue instanceof Date
+                              ? endDateValue.toISOString().split('T')[0]
+                              : String(endDateValue))
+                         : undefined,
+                    deduction_definition_id: deduction.deduction_definition_id ? Number(deduction.deduction_definition_id) : undefined
                });
           }
 
