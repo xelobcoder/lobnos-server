@@ -17,11 +17,27 @@ const otherDeductionSchema = zod_1.z.object({
     total_amount: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().positive().optional()),
     remaining_balance: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().min(0, 'Remaining balance cannot be negative').optional()),
     deduction_priority: zod_1.z.number().positive('Deduction priority must be greater than zero').int('Deduction priority must be a whole number'),
-    start_date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format'),
-    end_date: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional()),
+    start_date: zod_1.z.preprocess((val) => {
+        if (val instanceof Date)
+            return val.toISOString().split('T')[0];
+        return val;
+    }, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format')),
+    end_date: zod_1.z.preprocess((val) => {
+        if (val === null || val === undefined)
+            return undefined;
+        if (val instanceof Date)
+            return val.toISOString().split('T')[0];
+        return val;
+    }, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional()),
     is_active: zod_1.z.boolean(),
     approved_by: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().positive('Approved by must be a positive number').optional()),
-    approved_date: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
+    approved_date: zod_1.z.preprocess((val) => {
+        if (val === null || val === undefined)
+            return undefined;
+        if (val instanceof Date)
+            return val.toISOString().split('T')[0];
+        return val;
+    }, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
     remarks: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().max(1000, 'Remarks cannot exceed 1000 characters').optional()),
     attachments: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().max(500, 'Attachments path cannot exceed 500 characters').optional())
 }).refine((data) => {
@@ -75,6 +91,16 @@ class OtherDeductionRepository {
             .where('start_date', '<=', today)
             .where((builder) => {
             builder.whereNull('end_date').orWhere('end_date', '>=', today);
+        })
+            .orderBy('deduction_priority', 'asc');
+    }
+    async getApplicableByEmployeeId(employeeid, periodStartDate, periodEndDate) {
+        const connection = await this.connection;
+        return connection('payroll_employee_other_deductions')
+            .where({ employeeid, is_active: true })
+            .where('start_date', '<=', periodEndDate)
+            .where((builder) => {
+            builder.whereNull('end_date').orWhere('end_date', '>=', periodStartDate);
         })
             .orderBy('deduction_priority', 'asc');
     }

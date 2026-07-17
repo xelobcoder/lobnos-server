@@ -130,6 +130,16 @@ class AllowanceRepository {
         })
             .orderBy('allowance_type');
     }
+    async getApplicableByEmployeeId(employeeid, periodStartDate, periodEndDate) {
+        const connection = await this.connection;
+        return connection('payroll_employee_allowances')
+            .where({ employeeid, is_active: true })
+            .where('effective_from', '<=', periodEndDate)
+            .where((builder) => {
+            builder.whereNull('effective_to').orWhere('effective_to', '>=', periodStartDate);
+        })
+            .orderBy('allowance_type');
+    }
     async getRecurringByEmployeeId(employeeid) {
         const connection = await this.connection;
         const today = new Date().toISOString().split('T')[0];

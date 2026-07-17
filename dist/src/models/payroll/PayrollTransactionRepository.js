@@ -18,11 +18,6 @@ const payrollTransactionSchema = zod_1.z.object({
     total_bonuses: zod_1.z.number().min(0, 'Total bonuses cannot be negative'),
     gross_salary: zod_1.z.number().min(0, 'Gross salary cannot be negative'),
     income_tax: zod_1.z.number().min(0, 'Income tax cannot be negative'),
-    employee_ssnit: zod_1.z.number().min(0, 'Employee SSNIT cannot be negative'),
-    employer_ssnit: zod_1.z.number().min(0, 'Employer SSNIT cannot be negative'),
-    employee_tier3: zod_1.z.number().min(0, 'Employee Tier 3 cannot be negative'),
-    employer_tier3: zod_1.z.number().min(0, 'Employer Tier 3 cannot be negative'),
-    nhis: zod_1.z.number().min(0, 'NHIS cannot be negative'),
     total_other_deductions: zod_1.z.number().min(0, 'Total other deductions cannot be negative'),
     total_deductions: zod_1.z.number().min(0, 'Total deductions cannot be negative'),
     net_salary: zod_1.z.number().min(0, 'Net salary cannot be negative'),
@@ -71,6 +66,8 @@ class PayrollTransactionRepository {
         return value;
     }
     parseTransactionDetails(transaction) {
+        const parsedAllowances = this.parseJsonDetail(transaction.allowances_detail);
+        const normalizedAllowances = Array.isArray(parsedAllowances) ? parsedAllowances : [];
         const parsedOtherDeductions = this.parseJsonDetail(transaction.other_deductions_detail);
         const normalizedOtherDeductions = Array.isArray(parsedOtherDeductions) ? parsedOtherDeductions : [];
         const incomeTaxValue = Number(transaction.income_tax) || 0;
@@ -95,11 +92,6 @@ class PayrollTransactionRepository {
             total_bonuses: Number(transaction.total_bonuses) || 0,
             gross_salary: Number(transaction.gross_salary) || 0,
             income_tax: Number(transaction.income_tax) || 0,
-            employee_ssnit: Number(transaction.employee_ssnit) || 0,
-            employer_ssnit: Number(transaction.employer_ssnit) || 0,
-            employee_tier3: Number(transaction.employee_tier3) || 0,
-            employer_tier3: Number(transaction.employer_tier3) || 0,
-            nhis: Number(transaction.nhis) || 0,
             total_other_deductions: Number(transaction.total_other_deductions) || 0,
             total_deductions: Number(transaction.total_deductions) || 0,
             net_salary: Number(transaction.net_salary) || 0,
@@ -119,7 +111,7 @@ class PayrollTransactionRepository {
                 undefined,
             payment_method: transaction.payment_method || undefined,
             payment_reference: transaction.payment_reference || undefined,
-            allowances_detail: this.parseJsonDetail(transaction.allowances_detail),
+            allowances_detail: normalizedAllowances,
             bonuses_detail: this.parseJsonDetail(transaction.bonuses_detail),
             other_deductions_detail: normalizedOtherDeductions
         };
@@ -279,7 +271,7 @@ class PayrollTransactionRepository {
             .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
             .where({ 'pt.employeeid': employeeid, 'pp.period_year': year })
             .where('pt.status', 'paid')
-            .select(connection.raw('COALESCE(SUM(pt.gross_salary), 0) as ytd_gross'), connection.raw('COALESCE(SUM(pt.net_salary), 0) as ytd_net'), connection.raw('COALESCE(SUM(pt.income_tax), 0) as ytd_tax'), connection.raw('COALESCE(SUM(pt.employee_ssnit), 0) as ytd_ssnit'))
+            .select(connection.raw('COALESCE(SUM(pt.gross_salary), 0) as ytd_gross'), connection.raw('COALESCE(SUM(pt.net_salary), 0) as ytd_net'), connection.raw('COALESCE(SUM(pt.income_tax), 0) as ytd_tax'), connection.raw('0 as ytd_ssnit'))
             .first();
         return result || { ytd_gross: 0, ytd_net: 0, ytd_tax: 0, ytd_ssnit: 0 };
     }
@@ -311,7 +303,7 @@ class PayrollTransactionRepository {
         return {
             data: rows.map((row) => {
                 const parsed = this.parseTransactionDetails(row);
-                return Object.assign(Object.assign({}, parsed), { employee_name: row.employee_name || '', employee_role: row.employee_role || '', email: row.email || '', branch_name: row.branch_name || '' });
+                return Object.assign(Object.assign({}, parsed), { allowances: parsed.allowances_detail, employee_name: row.employee_name || '', employee_role: row.employee_role || '', email: row.email || '', branch_name: row.branch_name || '' });
             }),
             total: Number(total[0].count),
             totalPages
@@ -335,7 +327,7 @@ class PayrollTransactionRepository {
             .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
             .join('roles as r', 'pt.employeeid', 'r.employeeid')
             .leftJoin('branch as b', 'r.branch', 'b.branchid')
-            .select('r.employeeid', 'r.username as employee_name', 'r.role as employee_role', 'r.email', 'b.name as branch_name', connection.raw('MIN(pp.period_start_date) as first_payroll_date'), connection.raw('COUNT(pt.id) as total_payrolls'), connection.raw('COALESCE(SUM(pt.gross_salary), 0) as lifetime_gross'), connection.raw('COALESCE(SUM(pt.net_salary), 0) as lifetime_net'), connection.raw('COALESCE(SUM(pt.total_deductions), 0) as lifetime_deductions'), connection.raw('COALESCE(SUM(pt.income_tax), 0) as lifetime_tax'), connection.raw('COALESCE(SUM(pt.employee_ssnit), 0) as lifetime_ssnit'), connection.raw('COALESCE(SUM(pt.employer_ssnit), 0) as lifetime_employer_ssnit'), connection.raw('COALESCE(SUM(pt.total_allowances), 0) as lifetime_allowances'), connection.raw('COALESCE(SUM(pt.total_bonuses), 0) as lifetime_bonuses'), connection.raw('COALESCE(SUM(pt.employer_cost), 0) as lifetime_employer_cost'))
+            .select('r.employeeid', 'r.username as employee_name', 'r.role as employee_role', 'r.email', 'b.name as branch_name', connection.raw('MIN(pp.period_start_date) as first_payroll_date'), connection.raw('COUNT(pt.id) as total_payrolls'), connection.raw('COALESCE(SUM(pt.gross_salary), 0) as lifetime_gross'), connection.raw('COALESCE(SUM(pt.net_salary), 0) as lifetime_net'), connection.raw('COALESCE(SUM(pt.total_deductions), 0) as lifetime_deductions'), connection.raw('COALESCE(SUM(pt.income_tax), 0) as lifetime_tax'), connection.raw('0 as lifetime_ssnit'), connection.raw('0 as lifetime_employer_ssnit'), connection.raw('COALESCE(SUM(pt.total_allowances), 0) as lifetime_allowances'), connection.raw('COALESCE(SUM(pt.total_bonuses), 0) as lifetime_bonuses'), connection.raw('COALESCE(SUM(pt.employer_cost), 0) as lifetime_employer_cost'))
             .groupBy('r.employeeid', 'r.username', 'r.role', 'r.email', 'b.name')
             .orderBy('r.username', sortDirection);
         if (count !== undefined && page !== undefined) {
@@ -352,7 +344,7 @@ class PayrollTransactionRepository {
     async recalculateTransaction(id, updates) {
         const connection = await this.connection;
         return connection.transaction(async (trx) => {
-            var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
+            var _a, _b, _c, _d, _e, _f, _g, _h;
             const transaction = await trx('payroll_transactions').where({ id }).first();
             if (!transaction || transaction.status === 'locked') {
                 return false;
@@ -366,16 +358,11 @@ class PayrollTransactionRepository {
                 ((_f = updates.total_bonuses) !== null && _f !== void 0 ? _f : transaction.total_bonuses);
             // Recalculate total deductions
             const total_deductions = ((_g = updates.income_tax) !== null && _g !== void 0 ? _g : transaction.income_tax) +
-                ((_h = updates.employee_ssnit) !== null && _h !== void 0 ? _h : transaction.employee_ssnit) +
-                ((_j = updates.employee_tier3) !== null && _j !== void 0 ? _j : transaction.employee_tier3) +
-                ((_k = updates.nhis) !== null && _k !== void 0 ? _k : transaction.nhis) +
-                ((_l = updates.total_other_deductions) !== null && _l !== void 0 ? _l : transaction.total_other_deductions);
+                ((_h = updates.total_other_deductions) !== null && _h !== void 0 ? _h : transaction.total_other_deductions);
             // Recalculate net salary
             const net_salary = gross_salary - total_deductions;
             // Recalculate employer cost
-            const employer_cost = gross_salary +
-                ((_m = updates.employer_ssnit) !== null && _m !== void 0 ? _m : transaction.employer_ssnit) +
-                ((_o = updates.employer_tier3) !== null && _o !== void 0 ? _o : transaction.employer_tier3);
+            const employer_cost = gross_salary;
             // Prepare updated transaction data
             const updatedTransaction = Object.assign(Object.assign(Object.assign({}, transaction), updates), { gross_salary,
                 total_deductions,

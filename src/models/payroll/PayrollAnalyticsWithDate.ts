@@ -176,10 +176,10 @@ export class PayrollAnalyticsWithDate {
                .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
                .select(
                     connection.raw('COUNT(DISTINCT pt.employeeid) as total_employees'),
-                    connection.raw('COUNT(DISTINCT CASE WHEN pt.employee_ssnit > 0 THEN pt.employeeid END) as ssnit_enrolled'),
-                    connection.raw('COUNT(DISTINCT CASE WHEN pt.employee_tier3 > 0 THEN pt.employeeid END) as tier3_enrolled'),
+                    connection.raw('0 as ssnit_enrolled'),
+                    connection.raw('0 as tier3_enrolled'),
                     connection.raw('0 as tax_exempt_count'),
-                    connection.raw('COUNT(DISTINCT CASE WHEN pt.nhis > 0 THEN pt.employeeid END) as nhis_active_count'),
+                    connection.raw('0 as nhis_active_count'),
                     connection.raw('0 as avg_dependents')
                )
                .where('pp.period_start_date', '<=', endDate)
@@ -228,11 +228,11 @@ export class PayrollAnalyticsWithDate {
                     connection.raw('SUM(pt.total_bonuses) as total_bonuses'),
                     connection.raw('SUM(pt.gross_salary) as total_gross_salary'),
                     connection.raw('SUM(pt.income_tax) as total_income_tax'),
-                    connection.raw('SUM(pt.employee_ssnit) as total_employee_ssnit'),
-                    connection.raw('SUM(pt.employer_ssnit) as total_employer_ssnit'),
-                    connection.raw('SUM(pt.employee_tier3) as total_employee_tier3'),
-                    connection.raw('SUM(pt.employer_tier3) as total_employer_tier3'),
-                    connection.raw('SUM(pt.nhis) as total_nhis'),
+                    connection.raw('0 as total_employee_ssnit'),
+                    connection.raw('0 as total_employer_ssnit'),
+                    connection.raw('0 as total_employee_tier3'),
+                    connection.raw('0 as total_employer_tier3'),
+                    connection.raw('0 as total_nhis'),
                     connection.raw('SUM(pt.total_other_deductions) as total_other_deductions'),
                     connection.raw('SUM(pt.total_deductions) as total_deductions'),
                     connection.raw('SUM(pt.net_salary) as total_net_salary'),
@@ -322,17 +322,8 @@ export class PayrollAnalyticsWithDate {
                .count('employeeid as count')
                .first();
 
-          const statutory = await connection('payroll_transactions')
-               .where(function () {
-                    this.where('employee_ssnit', '>', 0)
-                         .orWhere('employee_tier3', '>', 0)
-                         .orWhere('nhis', '>', 0);
-               })
-               .countDistinct('employeeid as employees_with_statutory')
-               .first();
-
           const totalCount = Number(totalEmployees?.count || 0);
-          const statutoryCount = Number(statutory?.employees_with_statutory || 0);
+          const statutoryCount = 0;
 
           return {
                total_employees: totalCount,
@@ -402,8 +393,8 @@ export class PayrollAnalyticsWithDate {
                     connection.raw('SUM(pt.employer_cost) as total_employer_cost'),
                     connection.raw('SUM(pt.total_deductions) as total_deductions'),
                     connection.raw('SUM(pt.income_tax) as total_tax_liability'),
-                    connection.raw('SUM(pt.employer_ssnit + pt.employer_tier3) as total_employer_contributions'),
-                    connection.raw('SUM(pt.employee_ssnit + pt.employee_tier3) as total_employee_contributions'),
+                    connection.raw('0 as total_employer_contributions'),
+                    connection.raw('0 as total_employee_contributions'),
                     connection.raw('SUM(pt.total_allowances) as total_allowances'),
                     connection.raw('SUM(pt.total_bonuses) as total_bonuses'),
                     connection.raw('SUM(pt.overtime_earnings) as total_overtime_cost'),

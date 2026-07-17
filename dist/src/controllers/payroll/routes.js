@@ -107,6 +107,8 @@ payrollRouter.get('/other-deductions/employee/:employeeid', deductionController.
 payrollRouter.get('/other-deductions/:id', deductionController.getOtherDeductionByIdHandler);
 payrollRouter.put('/other-deductions/:id', deductionController.updateOtherDeductionHandler);
 payrollRouter.delete('/other-deductions/:id', deductionController.deactivateOtherDeductionHandler);
+payrollRouter.get('/other-deductions/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
+payrollRouter.post('/other-deductions/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
 payrollRouter.post('/other-deductions/:id/approve', deductionController.approveOtherDeductionHandler);
 payrollRouter.post('/deductions/other', deductionController.createOtherDeductionHandler);
 payrollRouter.get('/deductions/other', deductionController.getAllOtherDeductionsHandler);
@@ -114,6 +116,8 @@ payrollRouter.get('/deductions/other/employee/:employeeid', deductionController.
 payrollRouter.get('/deductions/other/:id', deductionController.getOtherDeductionByIdHandler);
 payrollRouter.put('/deductions/other/:id', deductionController.updateOtherDeductionHandler);
 payrollRouter.delete('/deductions/other/:id', deductionController.deactivateOtherDeductionHandler);
+payrollRouter.get('/deductions/other/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
+payrollRouter.post('/deductions/other/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
 payrollRouter.post('/deductions/other/:id/approve', deductionController.approveOtherDeductionHandler);
 // Analytics routes - BEFORE parameterized routes
 payrollRouter.get('/analytics', payrollAnalyticsController.getPayrollAnalyticsHandler);
@@ -141,6 +145,7 @@ payrollRouter.post('/periods/:id/mark-paid', payrollController.markPayrollPaidHa
 payrollRouter.post('/periods/:id/revert-status', payrollController.revertPayrollPeriodStatusHandler);
 payrollRouter.post('/periods/:id/reverse', payrollController.reversePayrollPeriodHandler);
 payrollRouter.post('/periods/:id/recalculate', payrollController.recalculateEmployeeHandler);
+payrollRouter.post('/periods/:id/recalculate-period', payrollController.recalculatePayrollPeriodHandler);
 payrollRouter.get('/employee/:employeeid/history', payrollController.getEmployeePayrollHistoryHandler);
 payrollRouter.get('/employee/:employeeid/ytd', payrollController.getEmployeeYTDHandler);
 payrollRouter.get('/routes', (req, res) => {
@@ -234,6 +239,7 @@ payrollRouter.get('/routes', (req, res) => {
         { method: 'POST', path: '/api/v1/payroll/periods/:id/lock', description: 'Lock payroll' },
         { method: 'POST', path: '/api/v1/payroll/periods/:id/mark-paid', description: 'Mark payroll as paid' },
         { method: 'POST', path: '/api/v1/payroll/periods/:id/recalculate', description: 'Recalculate employee' },
+        { method: 'POST', path: '/api/v1/payroll/periods/:id/recalculate-period', description: 'Recalculate all employees in payroll period' },
         // Statutory deduction endpoints
         { method: 'POST', path: '/api/v1/payroll/statutory-deductions/employee/:employeeid', description: 'Create statutory deduction' },
         { method: 'GET', path: '/api/v1/payroll/statutory-deductions/employee/:employeeid', description: 'Get statutory deduction by employee' },

@@ -30,7 +30,7 @@ class PayrollCalculationService {
         const attendanceSummary = await this.attendanceRepo.getAttendanceSummary(employeeid, period_start_date, period_end_date);
         const earnings = await this.calculateEarnings(compensation, attendanceSummary.total_hours, attendanceSummary.overtime_hours, employeeid, payroll_period_id);
         // Calculate allowances
-        const allowanceResult = await this.calculateAllowances(employeeid, earnings.basic_salary);
+        const allowanceResult = await this.calculateAllowances(employeeid, earnings.basic_salary, period_start_date, period_end_date);
         // Calculate bonuses
         const bonusResult = await this.calculateBonuses(employeeid, period_start_date, period_end_date);
         // Calculate gross salary
@@ -54,7 +54,7 @@ class PayrollCalculationService {
             }
             : await this.taxService.calculateIncomeTax(grossSalary, dependents);
         const incomeTax = taxComputation.income_tax;
-        const otherDeductionResult = await this.calculateOtherDeductions(employeeid);
+        const otherDeductionResult = await this.calculateOtherDeductions(employeeid, period_start_date, period_end_date);
         // Calculate total deductions
         const totalDeductions = incomeTax +
             definitionDeductions.total_other_deductions +
@@ -74,11 +74,6 @@ class PayrollCalculationService {
             total_bonuses: bonusResult.total_bonuses,
             gross_salary: Math.round(grossSalary * 100) / 100,
             income_tax: Math.round(incomeTax * 100) / 100,
-            employee_ssnit: 0,
-            employer_ssnit: 0,
-            employee_tier3: 0,
-            employer_tier3: 0,
-            nhis: 0,
             total_other_deductions: Math.round((definitionDeductions.total_other_deductions + otherDeductionResult.total_other_deductions) * 100) / 100,
             total_deductions: Math.round(totalDeductions * 100) / 100,
             net_salary: Math.round(netSalary * 100) / 100,
@@ -179,8 +174,8 @@ class PayrollCalculationService {
     /**
      * Calculate total allowances for employee
      */
-    async calculateAllowances(employeeid, basicSalary) {
-        const allowances = await this.allowanceRepo.getActiveByEmployeeId(employeeid);
+    async calculateAllowances(employeeid, basicSalary, periodStartDate, periodEndDate) {
+        const allowances = await this.allowanceRepo.getApplicableByEmployeeId(employeeid, periodStartDate, periodEndDate);
         let totalAllowances = 0;
         const allowancesDetail = [];
         for (const allowance of allowances) {
@@ -230,8 +225,8 @@ class PayrollCalculationService {
     /**
      * Calculate other deductions
      */
-    async calculateOtherDeductions(employeeid) {
-        const deductions = await this.deductionRepo.getActiveByEmployeeId(employeeid);
+    async calculateOtherDeductions(employeeid, periodStartDate, periodEndDate) {
+        const deductions = await this.deductionRepo.getApplicableByEmployeeId(employeeid, periodStartDate, periodEndDate);
         let totalDeductions = 0;
         const deductionsDetail = [];
         for (const deduction of deductions) {

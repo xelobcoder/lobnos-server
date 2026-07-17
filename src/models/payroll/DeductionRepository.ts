@@ -34,11 +34,22 @@ const otherDeductionSchema = z.object({
      total_amount: z.preprocess((val) => val === null ? undefined : val, z.number().positive().optional()),
      remaining_balance: z.preprocess((val) => val === null ? undefined : val, z.number().min(0, 'Remaining balance cannot be negative').optional()),
      deduction_priority: z.number().positive('Deduction priority must be greater than zero').int('Deduction priority must be a whole number'),
-     start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format'),
-     end_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional()),
+     start_date: z.preprocess((val) => {
+          if (val instanceof Date) return val.toISOString().split('T')[0];
+          return val;
+     }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format')),
+     end_date: z.preprocess((val) => {
+          if (val === null || val === undefined) return undefined;
+          if (val instanceof Date) return val.toISOString().split('T')[0];
+          return val;
+     }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional()),
      is_active: z.boolean(),
      approved_by: z.preprocess((val) => val === null ? undefined : val, z.number().positive('Approved by must be a positive number').optional()),
-     approved_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
+     approved_date: z.preprocess((val) => {
+          if (val === null || val === undefined) return undefined;
+          if (val instanceof Date) return val.toISOString().split('T')[0];
+          return val;
+     }, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
      remarks: z.preprocess((val) => val === null ? undefined : val, z.string().max(1000, 'Remarks cannot exceed 1000 characters').optional()),
      attachments: z.preprocess((val) => val === null ? undefined : val, z.string().max(500, 'Attachments path cannot exceed 500 characters').optional())
 }).refine((data) => {
@@ -98,6 +109,22 @@ export class OtherDeductionRepository {
                .where('start_date', '<=', today)
                .where((builder) => {
                     builder.whereNull('end_date').orWhere('end_date', '>=', today);
+               })
+               .orderBy('deduction_priority', 'asc');
+     }
+
+     async getApplicableByEmployeeId(
+          employeeid: number,
+          periodStartDate: string,
+          periodEndDate: string
+     ): Promise<IOtherDeduction[]> {
+          const connection = await this.connection;
+
+          return connection('payroll_employee_other_deductions')
+               .where({ employeeid, is_active: true })
+               .where('start_date', '<=', periodEndDate)
+               .where((builder) => {
+                    builder.whereNull('end_date').orWhere('end_date', '>=', periodStartDate);
                })
                .orderBy('deduction_priority', 'asc');
      }

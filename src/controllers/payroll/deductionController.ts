@@ -243,17 +243,13 @@ export const updateOtherDeductionHandler = async (req: Request, res: Response) =
           const tenantId = parseInt(req.query.tenantId as string);
           const id = parseInt(req.params.id);
 
-          if (!tenantId || !id) {
-               return customError('Tenant ID and deduction ID are required', 400, res);
-          }
+          if (!tenantId || !id) return customError('Tenant ID and deduction ID are required', 400, res);
 
           const repo = new OtherDeductionRepository(tenantId);
           const payload = await hydrateDeductionFromDefinition(tenantId, req.body);
           const success = await repo.update(id, payload);
 
-          if (!success) {
-               return customError('Failed to update other deduction', 400, res);
-          }
+          if (!success) return customError('Failed to update other deduction', 400, res);
 
           res.json({
                status: 'success',
@@ -261,6 +257,7 @@ export const updateOtherDeductionHandler = async (req: Request, res: Response) =
                message: 'Other deduction updated successfully'
           });
      } catch (error) {
+          console.log(error)
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };

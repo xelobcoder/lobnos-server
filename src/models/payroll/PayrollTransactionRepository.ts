@@ -15,11 +15,6 @@ export interface IPayrollTransaction {
      total_bonuses: number;
      gross_salary: number;
      income_tax: number;
-     employee_ssnit: number;
-     employer_ssnit: number;
-     employee_tier3: number;
-     employer_tier3: number;
-     nhis: number;
      total_other_deductions: number;
      total_deductions: number;
      employeename?: string;
@@ -52,11 +47,6 @@ const payrollTransactionSchema = z.object({
      total_bonuses: z.number().min(0, 'Total bonuses cannot be negative'),
      gross_salary: z.number().min(0, 'Gross salary cannot be negative'),
      income_tax: z.number().min(0, 'Income tax cannot be negative'),
-     employee_ssnit: z.number().min(0, 'Employee SSNIT cannot be negative'),
-     employer_ssnit: z.number().min(0, 'Employer SSNIT cannot be negative'),
-     employee_tier3: z.number().min(0, 'Employee Tier 3 cannot be negative'),
-     employer_tier3: z.number().min(0, 'Employer Tier 3 cannot be negative'),
-     nhis: z.number().min(0, 'NHIS cannot be negative'),
      total_other_deductions: z.number().min(0, 'Total other deductions cannot be negative'),
      total_deductions: z.number().min(0, 'Total deductions cannot be negative'),
      net_salary: z.number().min(0, 'Net salary cannot be negative'),
@@ -107,6 +97,8 @@ export class PayrollTransactionRepository {
      }
 
      private parseTransactionDetails(transaction: any): IPayrollTransaction {
+          const parsedAllowances = this.parseJsonDetail(transaction.allowances_detail);
+          const normalizedAllowances = Array.isArray(parsedAllowances) ? parsedAllowances : [];
           const parsedOtherDeductions = this.parseJsonDetail(transaction.other_deductions_detail);
           const normalizedOtherDeductions = Array.isArray(parsedOtherDeductions) ? parsedOtherDeductions : [];
           const incomeTaxValue = Number(transaction.income_tax) || 0;
@@ -135,11 +127,6 @@ export class PayrollTransactionRepository {
                total_bonuses: Number(transaction.total_bonuses) || 0,
                gross_salary: Number(transaction.gross_salary) || 0,
                income_tax: Number(transaction.income_tax) || 0,
-               employee_ssnit: Number(transaction.employee_ssnit) || 0,
-               employer_ssnit: Number(transaction.employer_ssnit) || 0,
-               employee_tier3: Number(transaction.employee_tier3) || 0,
-               employer_tier3: Number(transaction.employer_tier3) || 0,
-               nhis: Number(transaction.nhis) || 0,
                total_other_deductions: Number(transaction.total_other_deductions) || 0,
                total_deductions: Number(transaction.total_deductions) || 0,
                net_salary: Number(transaction.net_salary) || 0,
@@ -159,7 +146,7 @@ export class PayrollTransactionRepository {
                     undefined,
                payment_method: transaction.payment_method || undefined,
                payment_reference: transaction.payment_reference || undefined,
-               allowances_detail: this.parseJsonDetail(transaction.allowances_detail),
+               allowances_detail: normalizedAllowances,
                bonuses_detail: this.parseJsonDetail(transaction.bonuses_detail),
                other_deductions_detail: normalizedOtherDeductions
           };
@@ -399,7 +386,7 @@ export class PayrollTransactionRepository {
                     connection.raw('COALESCE(SUM(pt.gross_salary), 0) as ytd_gross'),
                     connection.raw('COALESCE(SUM(pt.net_salary), 0) as ytd_net'),
                     connection.raw('COALESCE(SUM(pt.income_tax), 0) as ytd_tax'),
-                    connection.raw('COALESCE(SUM(pt.employee_ssnit), 0) as ytd_ssnit')
+                    connection.raw('0 as ytd_ssnit')
                )
                .first() as any;
 
@@ -454,6 +441,7 @@ export class PayrollTransactionRepository {
                     const parsed = this.parseTransactionDetails(row);
                     return {
                          ...parsed,
+                         allowances: parsed.allowances_detail,
                          employee_name: row.employee_name || '',
                          employee_role: row.employee_role || '',
                          email: row.email || '',
@@ -501,8 +489,8 @@ export class PayrollTransactionRepository {
                     connection.raw('COALESCE(SUM(pt.net_salary), 0) as lifetime_net'),
                     connection.raw('COALESCE(SUM(pt.total_deductions), 0) as lifetime_deductions'),
                     connection.raw('COALESCE(SUM(pt.income_tax), 0) as lifetime_tax'),
-                    connection.raw('COALESCE(SUM(pt.employee_ssnit), 0) as lifetime_ssnit'),
-                    connection.raw('COALESCE(SUM(pt.employer_ssnit), 0) as lifetime_employer_ssnit'),
+                    connection.raw('0 as lifetime_ssnit'),
+                    connection.raw('0 as lifetime_employer_ssnit'),
                     connection.raw('COALESCE(SUM(pt.total_allowances), 0) as lifetime_allowances'),
                     connection.raw('COALESCE(SUM(pt.total_bonuses), 0) as lifetime_bonuses'),
                     connection.raw('COALESCE(SUM(pt.employer_cost), 0) as lifetime_employer_cost')
@@ -544,9 +532,6 @@ export class PayrollTransactionRepository {
                // Recalculate total deductions
                const total_deductions =
                     (updates.income_tax ?? transaction.income_tax) +
-                    (updates.employee_ssnit ?? transaction.employee_ssnit) +
-                    (updates.employee_tier3 ?? transaction.employee_tier3) +
-                    (updates.nhis ?? transaction.nhis) +
                     (updates.total_other_deductions ?? transaction.total_other_deductions);
 
                // Recalculate net salary
@@ -554,9 +539,7 @@ export class PayrollTransactionRepository {
 
                // Recalculate employer cost
                const employer_cost =
-                    gross_salary +
-                    (updates.employer_ssnit ?? transaction.employer_ssnit) +
-                    (updates.employer_tier3 ?? transaction.employer_tier3);
+                    gross_salary;
 
                // Prepare updated transaction data
                const updatedTransaction = {

@@ -27,11 +27,6 @@ export interface IPayrollCalculationResult {
 
      // Deductions
      income_tax: number;
-     employee_ssnit: number;
-     employer_ssnit: number;
-     employee_tier3: number;
-     employer_tier3: number;
-     nhis: number;
      total_other_deductions: number;
      total_deductions: number;
 
@@ -97,7 +92,12 @@ export class PayrollCalculationService {
           );
 
           // Calculate allowances
-          const allowanceResult = await this.calculateAllowances(employeeid, earnings.basic_salary);
+          const allowanceResult = await this.calculateAllowances(
+               employeeid,
+               earnings.basic_salary,
+               period_start_date,
+               period_end_date
+          );
 
           // Calculate bonuses
           const bonusResult = await this.calculateBonuses(employeeid, period_start_date, period_end_date);
@@ -129,7 +129,11 @@ export class PayrollCalculationService {
 
           const incomeTax = taxComputation.income_tax;
 
-          const otherDeductionResult = await this.calculateOtherDeductions(employeeid);
+          const otherDeductionResult = await this.calculateOtherDeductions(
+               employeeid,
+               period_start_date,
+               period_end_date
+          );
 
           // Calculate total deductions
           const totalDeductions =
@@ -154,11 +158,6 @@ export class PayrollCalculationService {
                total_bonuses: bonusResult.total_bonuses,
                gross_salary: Math.round(grossSalary * 100) / 100,
                income_tax: Math.round(incomeTax * 100) / 100,
-               employee_ssnit: 0,
-               employer_ssnit: 0,
-               employee_tier3: 0,
-               employer_tier3: 0,
-               nhis: 0,
                total_other_deductions: Math.round((definitionDeductions.total_other_deductions + otherDeductionResult.total_other_deductions) * 100) / 100,
                total_deductions: Math.round(totalDeductions * 100) / 100,
                net_salary: Math.round(netSalary * 100) / 100,
@@ -289,12 +288,18 @@ export class PayrollCalculationService {
       */
      private async calculateAllowances(
           employeeid: number,
-          basicSalary: number
+          basicSalary: number,
+          periodStartDate: string,
+          periodEndDate: string
      ): Promise<{
           total_allowances: number;
           allowances_detail: any[];
      }> {
-          const allowances = await this.allowanceRepo.getActiveByEmployeeId(employeeid);
+          const allowances = await this.allowanceRepo.getApplicableByEmployeeId(
+               employeeid,
+               periodStartDate,
+               periodEndDate
+          );
 
           let totalAllowances = 0;
           const allowancesDetail = [];
@@ -364,12 +369,18 @@ export class PayrollCalculationService {
       * Calculate other deductions
       */
      private async calculateOtherDeductions(
-          employeeid: number
+          employeeid: number,
+          periodStartDate: string,
+          periodEndDate: string
      ): Promise<{
           total_other_deductions: number;
           other_deductions_detail: any[];
      }> {
-          const deductions = await this.deductionRepo.getActiveByEmployeeId(employeeid);
+          const deductions = await this.deductionRepo.getApplicableByEmployeeId(
+               employeeid,
+               periodStartDate,
+               periodEndDate
+          );
 
           let totalDeductions = 0;
           const deductionsDetail = [];
