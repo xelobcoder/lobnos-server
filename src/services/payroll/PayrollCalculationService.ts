@@ -1,8 +1,8 @@
 import { CompensationRepository, ICompensation } from '../../models/payroll/CompensationRepository';
 import { AttendanceRepository } from '../../models/payroll/AttendanceRepository';
 import { AllowanceRepository, BonusRepository } from '../../models/payroll/AllowanceBonusRepository';
+import { DeductionDefinitionRepository } from '../../models/payroll/DeductionDefinitionRepository';
 import { OtherDeductionRepository } from '../../models/payroll/DeductionRepository';
-import { TaxConfigurationRepository } from '../../models/payroll/TaxConfigurationRepository';
 import { TaxCalculationService } from './TaxCalculationService';
 
 export interface IPayrollCalculationInput {
@@ -52,15 +52,13 @@ export interface IPayrollCalculationResult {
      other_deductions_detail: any;
 }
 
-const DEFAULT_NHIS_RATE = 2.5;
-
 export class PayrollCalculationService {
      private compensationRepo: CompensationRepository;
      private attendanceRepo: AttendanceRepository;
      private allowanceRepo: AllowanceRepository;
      private bonusRepo: BonusRepository;
+     private deductionDefinitionRepo: DeductionDefinitionRepository;
      private deductionRepo: OtherDeductionRepository;
-     private taxConfigRepo: TaxConfigurationRepository;
      private taxService: TaxCalculationService;
 
      constructor(private tenantId: number) {
@@ -68,8 +66,8 @@ export class PayrollCalculationService {
           this.attendanceRepo = new AttendanceRepository(tenantId);
           this.allowanceRepo = new AllowanceRepository(tenantId);
           this.bonusRepo = new BonusRepository(tenantId);
+          this.deductionDefinitionRepo = new DeductionDefinitionRepository(tenantId);
           this.deductionRepo = new OtherDeductionRepository(tenantId);
-          this.taxConfigRepo = new TaxConfigurationRepository(tenantId);
           this.taxService = new TaxCalculationService(tenantId);
      }
 
@@ -79,20 +77,17 @@ export class PayrollCalculationService {
      async calculateEmployeePayroll(input: IPayrollCalculationInput): Promise<IPayrollCalculationResult> {
           const { employeeid, payroll_period_id, period_start_date, period_end_date } = input;
 
-          // Get employee compensation configuration
           const compensation = await this.compensationRepo.getActiveByEmployeeId(employeeid);
           if (!compensation) {
                throw new Error(`No active compensation found for employee ${employeeid}`);
           }
 
-          // Get attendance summary
           const attendanceSummary = await this.attendanceRepo.getAttendanceSummary(
                employeeid,
                period_start_date,
                period_end_date
           );
 
-          // Calculate earnings based on compensation type
           const earnings = await this.calculateEarnings(
                compensation,
                attendanceSummary.total_hours,
@@ -105,7 +100,7 @@ export class PayrollCalculationService {
           const allowanceResult = await this.calculateAllowances(employeeid, earnings.basic_salary);
 
           // Calculate bonuses
-          const bonusResult = await this.calculateBonuses(employeeid, payroll_period_id);
+          const bonusResult = await this.calculateBonuses(employeeid, period_start_date, period_end_date);
 
           // Calculate gross salary
           const grossSalary =
@@ -117,32 +112,36 @@ export class PayrollCalculationService {
                bonusResult.total_bonuses;
 
           // Calculate statutory deductions
-          const statutory = await this.calculateStatutoryDeductions(earnings.basic_salary);
+          const definitionDeductions = await this.calculateDefinitionDeductions(employeeid, grossSalary);
 
           // Calculate income tax
           const dependents = 0;
           const isTaxExempt = false;
 
-          const incomeTax = isTaxExempt
-               ? 0
-               : await this.taxService.calculateMonthlyTax(grossSalary, dependents);
+          const taxComputation = isTaxExempt
+               ? {
+                    taxable_income: grossSalary,
+                    income_tax: 0,
+                    effective_tax_rate: 0,
+                    tax_breakdown: [] as Array<{ band: string; amount: number; tax: number }>
+               }
+               : await this.taxService.calculateIncomeTax(grossSalary, dependents);
 
-          // Calculate other deductions
+          const incomeTax = taxComputation.income_tax;
+
           const otherDeductionResult = await this.calculateOtherDeductions(employeeid);
 
           // Calculate total deductions
           const totalDeductions =
                incomeTax +
-               statutory.employee_ssnit +
-               statutory.employee_tier3 +
-               statutory.nhis +
+               definitionDeductions.total_other_deductions +
                otherDeductionResult.total_other_deductions;
 
           // Calculate net salary
           const netSalary = grossSalary - totalDeductions;
 
           // Calculate employer cost
-          const employerCost = grossSalary + statutory.employer_ssnit + statutory.employer_tier3;
+          const employerCost = grossSalary;
 
           return {
                employeeid,
@@ -155,12 +154,12 @@ export class PayrollCalculationService {
                total_bonuses: bonusResult.total_bonuses,
                gross_salary: Math.round(grossSalary * 100) / 100,
                income_tax: Math.round(incomeTax * 100) / 100,
-               employee_ssnit: statutory.employee_ssnit,
-               employer_ssnit: statutory.employer_ssnit,
-               employee_tier3: statutory.employee_tier3,
-               employer_tier3: statutory.employer_tier3,
-               nhis: statutory.nhis,
-               total_other_deductions: otherDeductionResult.total_other_deductions,
+               employee_ssnit: 0,
+               employer_ssnit: 0,
+               employee_tier3: 0,
+               employer_tier3: 0,
+               nhis: 0,
+               total_other_deductions: Math.round((definitionDeductions.total_other_deductions + otherDeductionResult.total_other_deductions) * 100) / 100,
                total_deductions: Math.round(totalDeductions * 100) / 100,
                net_salary: Math.round(netSalary * 100) / 100,
                employer_cost: Math.round(employerCost * 100) / 100,
@@ -168,44 +167,56 @@ export class PayrollCalculationService {
                hours_worked: attendanceSummary.total_hours,
                overtime_hours: attendanceSummary.overtime_hours,
                days_absent: attendanceSummary.absent_days,
-               days_leave: 0, // TODO: Get from leave repository
+               days_leave: 0,
                allowances_detail: allowanceResult.allowances_detail,
                bonuses_detail: bonusResult.bonuses_detail,
-               other_deductions_detail: otherDeductionResult.other_deductions_detail
+               other_deductions_detail: [
+                    {
+                         type: 'income_tax',
+                         name: 'Income Tax',
+                         amount: Math.round(incomeTax * 100) / 100,
+                         source: 'tax_configuration',
+                         taxable_income: Math.round(taxComputation.taxable_income * 100) / 100,
+                         effective_tax_rate: Math.round(taxComputation.effective_tax_rate * 100) / 100,
+                         tax_breakdown: taxComputation.tax_breakdown
+                    },
+                    ...definitionDeductions.other_deductions_detail,
+                    ...otherDeductionResult.other_deductions_detail
+               ]
           };
      }
 
-     private async calculateStatutoryDeductions(basicSalary: number): Promise<{
-          employee_ssnit: number;
-          employer_ssnit: number;
-          employee_tier3: number;
-          employer_tier3: number;
-          nhis: number;
+     private async calculateDefinitionDeductions(employeeid: number, grossSalary: number): Promise<{
+          total_other_deductions: number;
+          other_deductions_detail: any[];
      }> {
-          const taxConfig = await this.taxConfigRepo.getActive();
-          if (!taxConfig) {
-               throw new Error('No active tax configuration found');
+          const definitions = await this.deductionDefinitionRepo.getApplicableDefinitions(employeeid);
+
+          const result = {
+               total_other_deductions: 0,
+               other_deductions_detail: [] as any[]
+          };
+
+          for (const definition of definitions) {
+               const configuredAmount = Number(definition.default_amount || 0);
+               const amount = definition.default_calculation_method === 'percentage_of_gross'
+                    ? Math.round((grossSalary * (configuredAmount / 100)) * 100) / 100
+                    : Math.round(configuredAmount * 100) / 100;
+
+               result.total_other_deductions += amount;
+               result.other_deductions_detail.push({
+                    type: definition.deduction_code,
+                    name: definition.deduction_name,
+                    amount,
+                    source: 'definition',
+                    calculation_method: definition.default_calculation_method,
+                    is_statutory: definition.is_statutory
+               });
           }
 
-          const ssnitBase = taxConfig.ssnit_ceiling
-               ? Math.min(basicSalary, taxConfig.ssnit_ceiling)
-               : basicSalary;
-          const pensionBase = taxConfig.pension_ceiling
-               ? Math.min(basicSalary, taxConfig.pension_ceiling)
-               : basicSalary;
-
-          const employeeSSNIT = Math.round((ssnitBase * (taxConfig.employee_ssnit_rate / 100)) * 100) / 100;
-          const employerSSNIT = Math.round((ssnitBase * (taxConfig.employer_ssnit_rate / 100)) * 100) / 100;
-          const employeeTier3 = Math.round((pensionBase * (taxConfig.tier3_employee_rate / 100)) * 100) / 100;
-          const employerTier3 = Math.round((pensionBase * (taxConfig.tier3_employer_rate / 100)) * 100) / 100;
-          const nhis = Math.round((basicSalary * (DEFAULT_NHIS_RATE / 100)) * 100) / 100;
-
           return {
-               employee_ssnit: employeeSSNIT,
-               employer_ssnit: employerSSNIT,
-               employee_tier3: employeeTier3,
-               employer_tier3: employerTier3,
-               nhis
+               total_other_deductions: Math.round(result.total_other_deductions * 100) / 100,
+               other_deductions_detail: result.other_deductions_detail
           };
      }
 
@@ -319,18 +330,22 @@ export class PayrollCalculationService {
       */
      private async calculateBonuses(
           employeeid: number,
-          payroll_period_id: number
+          periodStartDate: string,
+          periodEndDate: string
      ): Promise<{
           total_bonuses: number;
           bonuses_detail: any[];
      }> {
-          const bonuses = await this.bonusRepo.getApprovedForPayrollPeriod(payroll_period_id);
-          const employeeBonuses = bonuses.filter(b => b.employeeid === employeeid);
+          const bonuses = await this.bonusRepo.getApprovedForDateRange(
+               employeeid,
+               periodStartDate,
+               periodEndDate
+          );
 
           let totalBonuses = 0;
           const bonusesDetail = [];
 
-          for (const bonus of employeeBonuses) {
+          for (const bonus of bonuses) {
                totalBonuses += bonus.amount;
                bonusesDetail.push({
                     type: bonus.bonus_type,
@@ -388,7 +403,6 @@ export class PayrollCalculationService {
                     results.push(result);
                } catch (error) {
                     console.error(`Error calculating payroll for employee ${input.employeeid}:`, error);
-                    // Continue with other employees
                }
           }
 

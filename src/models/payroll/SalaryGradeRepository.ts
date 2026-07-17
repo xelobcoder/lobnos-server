@@ -6,6 +6,7 @@ export interface ISalaryGrade {
      id?: number;
      grade_name: string;
      grade_level: string;
+     role_name?: string;
      min_salary?: number;
      max_salary?: number;
      description?: string;
@@ -19,6 +20,7 @@ export interface ISalaryGrade {
 const salaryGradeSchema = z.object({
      grade_name: z.string().min(1, 'Grade name cannot be empty').max(100, 'Grade name cannot exceed 100 characters'),
      grade_level: z.string().min(1, 'Grade level cannot be empty').max(50, 'Grade level cannot exceed 50 characters'),
+     role_name: z.preprocess((val) => val === null ? undefined : val, z.string().max(100, 'Role name cannot exceed 100 characters').optional()),
      min_salary: z.preprocess((val) => val === null ? undefined : val, z.number().min(0, 'Minimum salary cannot be negative').optional()),
      max_salary: z.preprocess((val) => val === null ? undefined : val, z.number().min(0, 'Maximum salary cannot be negative').optional()),
      description: z.preprocess((val) => val === null ? undefined : val, z.string().max(10000, 'Description cannot exceed 500 characters').optional()),
@@ -43,12 +45,49 @@ export class SalaryGradeRepository {
           return KnexConnection(this.tenantId);
      }
 
-     async create(salaryGrade: ISalaryGrade): Promise<number> {
-          // Validate data using Zod schema
-          salaryGradeSchema.parse(salaryGrade);
+     private async ensureRoleExists(connection: Knex, roleName?: string): Promise<void> {
+          if (!roleName) {
+               return;
+          }
 
+          const roleRecord = await connection('roles').where({ role: roleName }).first();
+          if (!roleRecord) {
+               throw new Error(`Role ${roleName} was not found in roles table`);
+          }
+     }
+
+     private async ensureUniqueRoleMapping(connection: Knex, roleName?: string, ignoreId?: number): Promise<void> {
+          if (!roleName) {
+               return;
+          }
+
+          const existing = await connection('payroll_salary_grades')
+               .where({ role_name: roleName, is_active: true })
+               .modify((qb) => {
+                    if (ignoreId) {
+                         qb.whereNot('id', ignoreId);
+                    }
+               })
+               .first();
+
+          if (existing) {
+               throw new Error(`An active salary grade already exists for role ${roleName}`);
+          }
+     }
+
+     async create(salaryGrade: ISalaryGrade): Promise<number> {
           const connection = await this.connection;
-          const [id] = await connection('payroll_salary_grades').insert(salaryGrade);
+          const normalizedSalaryGrade = {
+               ...salaryGrade,
+               role_name: salaryGrade.role_name ?? salaryGrade.grade_name,
+               grade_name: salaryGrade.grade_name ?? salaryGrade.role_name ?? ''
+          };
+
+          salaryGradeSchema.parse(normalizedSalaryGrade);
+          await this.ensureRoleExists(connection, normalizedSalaryGrade.role_name);
+          await this.ensureUniqueRoleMapping(connection, normalizedSalaryGrade.role_name);
+
+          const [id] = await connection('payroll_salary_grades').insert(normalizedSalaryGrade);
           return id;
      }
 
@@ -87,17 +126,28 @@ export class SalaryGradeRepository {
                throw new Error('Salary grade record not found');
           }
 
-          // Merge with existing data for complete validation
-          const completeGrade = { ...existing, ...salaryGrade };
-
-          // Validate complete data using Zod schema
-          salaryGradeSchema.parse(completeGrade);
-
           const connection = await this.connection;
+          const completeGrade = {
+               ...existing,
+               ...salaryGrade,
+               role_name: salaryGrade.role_name ?? existing.role_name ?? salaryGrade.grade_name ?? existing.grade_name,
+               grade_name: salaryGrade.grade_name ?? existing.grade_name ?? salaryGrade.role_name ?? existing.role_name ?? ''
+          };
+
+          salaryGradeSchema.parse(completeGrade);
+          await this.ensureRoleExists(connection, completeGrade.role_name);
+          await this.ensureUniqueRoleMapping(connection, completeGrade.role_name, id);
+
           const affectedRows = await connection('payroll_salary_grades')
                .where({ id })
                .update({ ...salaryGrade, updated_at: connection.fn.now() });
           return affectedRows > 0;
+     }
+
+     async getAvailableRoles(): Promise<string[]> {
+          const connection = await this.connection;
+          const rows = await connection('roles').distinct('role').orderBy('role', 'asc');
+          return rows.map((row: { role: string }) => row.role);
      }
 
      async deactivate(id: number): Promise<boolean> {

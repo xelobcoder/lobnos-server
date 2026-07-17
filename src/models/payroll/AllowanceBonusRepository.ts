@@ -24,6 +24,8 @@ export interface IBonus {
      employeeid: number;
      bonus_type: 'performance' | 'annual' | 'project' | 'retention' | 'holiday' | 'spot';
      amount: number;
+     start_date: string;
+     end_date: string;
      bonus_period?: string;
      is_taxable: boolean;
      tax_method: 'aggregate' | 'separate' | 'bonus_rate';
@@ -33,7 +35,6 @@ export interface IBonus {
      reason?: string;
      performance_rating?: number;
      payment_date?: string;
-     payroll_period_id?: number;
 }
 
 // Zod validation schemas
@@ -74,16 +75,17 @@ const bonusSchema = z.object({
      employeeid: z.number().positive('Employee ID must be a positive number'),
      bonus_type: z.enum(['performance', 'annual', 'project', 'retention', 'holiday', 'spot']),
      amount: z.number().positive('Amount must be greater than zero'),
-     bonus_period: z.string().max(50, 'Bonus period cannot exceed 50 characters').optional(),
+     start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format').nonempty('Start date is required'),
+     end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').nonempty('End date is required'),
      is_taxable: z.boolean(),
      tax_method: z.enum(['aggregate', 'separate', 'bonus_rate']),
      status: z.enum(['pending', 'approved', 'rejected', 'paid']),
-     approved_by: z.number().positive('Approved by must be a positive number').optional(),
-     approved_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional(),
-     reason: z.string().max(500, 'Reason cannot exceed 500 characters').optional(),
-     performance_rating: z.number().min(1, 'Performance rating must be at least 1').max(5, 'Performance rating cannot exceed 5').optional(),
-     payment_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Payment date must be in YYYY-MM-DD format').optional(),
-     payroll_period_id: z.number().positive('Payroll period ID must be a positive number').optional()
+     approved_by: z.preprocess((val) => val === null ? undefined : val, z.number().positive('Approved by must be a positive number').optional()),
+     approved_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
+     reason: z.preprocess((val) => val === null ? undefined : val, z.string().max(500, 'Reason cannot exceed 500 characters').optional()),
+     performance_rating: z.preprocess((val) => val === null ? undefined : val, z.number().min(1, 'Performance rating must be at least 1').max(5, 'Performance rating cannot exceed 5').optional()),
+     payment_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Payment date must be in YYYY-MM-DD format').optional()),
+     bonus_period: z.preprocess((val) => val === null ? undefined : val, z.string().max(50, 'Bonus period cannot exceed 50 characters').optional())
 }).refine((data) => {
      if (['approved', 'rejected', 'paid'].includes(data.status) && (!data.approved_by || data.approved_by <= 0)) {
           return false;
@@ -101,6 +103,34 @@ const bonusSchema = z.object({
      message: 'Approved date is required for approved/rejected/paid bonuses',
      path: ['approved_date']
 });
+
+
+
+const bonusUpdateSchema = z.object({
+     employeeid: z.number().positive('Employee ID must be a positive number').optional(),
+     bonus_type: z.enum(['performance', 'annual', 'project', 'retention', 'holiday', 'spot']).optional(),
+     amount: z.number().positive('Amount must be greater than zero').optional(),
+     start_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format').optional()),
+     end_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional()),
+     is_taxable: z.boolean().optional(),
+     tax_method: z.enum(['aggregate', 'separate', 'bonus_rate']).optional(),
+     status: z.enum(['pending', 'approved', 'rejected', 'paid']),
+     approved_by: z.preprocess((val) => val === null ? undefined : val, z.number().positive('Approved by must be a positive number').optional()),
+     approved_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
+     reason: z.preprocess((val) => val === null ? undefined : val, z.string().max(500, 'Reason cannot exceed 500 characters').optional()),
+     performance_rating: z.preprocess((val) => val === null ? undefined : val, z.number().min(1, 'Performance rating must be at least 1').max(5, 'Performance rating cannot exceed 5').optional()),
+     payment_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Payment date must be in YYYY-MM-DD format').optional()),
+     bonus_period: z.preprocess((val) => val === null ? undefined : val, z.string().max(50, 'Bonus period cannot exceed 50 characters').optional())
+}).refine((data) => {
+     if (['approved', 'rejected', 'paid'].includes(data.status) && (!data.approved_by || data.approved_by <= 0)) {
+          return false;
+     }
+     return true;
+}, {
+     message: 'Approved by is required for approved/rejected/paid bonuses',
+     path: ['approved_by']
+})
+
 
 export class AllowanceRepository {
      constructor(private tenantId: number) { }
@@ -227,9 +257,7 @@ export class BonusRepository {
      }
 
      async create(bonus: IBonus): Promise<number> {
-          // Validate data using Zod schema
           bonusSchema.parse(bonus);
-
           const connection = await this.connection;
           const [id] = await connection('payroll_employee_bonuses').insert(bonus);
           return id;
@@ -262,26 +290,46 @@ export class BonusRepository {
      }
 
      async update(id: number, bonus: Partial<IBonus>): Promise<boolean> {
+          try {
+               if (!id || typeof id !== 'number' || id <= 0) {
+                    throw new Error('Valid bonus ID is required for update');
+               }
+               const existing = await this.getById(id);
+               if (!existing) throw new Error('Bonus record not found');
+
+               const completeBonus = { ...existing, ...bonus };
+
+               bonusUpdateSchema.parse(completeBonus);
+
+               const connection = await this.connection;
+               const affectedRows = await connection('payroll_employee_bonuses')
+                    .where({ id })
+                    .update({ ...bonus, updated_at: connection.fn.now() });
+               return affectedRows > 0;
+          } catch (err) {
+               console.error('Error updating bonus:', err);
+               throw err;
+          }
+     }
+
+     async delete(id: number): Promise<boolean> {
           if (!id || typeof id !== 'number' || id <= 0) {
-               throw new Error('Valid bonus ID is required for update');
+               throw new Error('Valid bonus ID is required for delete');
           }
 
-          // Get existing record to validate complete data
           const existing = await this.getById(id);
           if (!existing) {
                throw new Error('Bonus record not found');
           }
 
-          // Merge with existing data for complete validation
-          const completeBonus = { ...existing, ...bonus };
-
-          // Validate complete data using Zod schema
-          bonusSchema.parse(completeBonus);
+          if (existing.status === 'paid') {
+               throw new Error('Paid bonuses cannot be deleted');
+          }
 
           const connection = await this.connection;
           const affectedRows = await connection('payroll_employee_bonuses')
                .where({ id })
-               .update({ ...bonus, updated_at: connection.fn.now() });
+               .del();
           return affectedRows > 0;
      }
 
@@ -333,14 +381,13 @@ export class BonusRepository {
           return affectedRows > 0;
      }
 
-     async markAsPaid(id: number, payroll_period_id: number, payment_date: string): Promise<boolean> {
+     async markAsPaid(id: number, payment_date: string): Promise<boolean> {
           const connection = await this.connection;
 
           const affectedRows = await connection('payroll_employee_bonuses')
                .where({ id })
                .update({
                     status: 'paid',
-                    payroll_period_id,
                     payment_date,
                     updated_at: connection.fn.now()
                });
@@ -348,12 +395,25 @@ export class BonusRepository {
           return affectedRows > 0;
      }
 
-     async getApprovedForPayrollPeriod(payroll_period_id: number): Promise<IBonus[]> {
+     async getApprovedForDateRange(
+          employeeid: number,
+          startDate: string,
+          endDate: string
+     ): Promise<IBonus[]> {
           const connection = await this.connection;
           return connection('payroll_employee_bonuses')
-               .where({ status: 'approved' })
-               .whereNull('payroll_period_id')
-               .orWhere({ payroll_period_id });
+               .where({ employeeid, status: 'approved' })
+               .whereNull('payment_date')
+               .where((builder) => {
+                    builder
+                         .whereBetween('start_date', [startDate, endDate])
+                         .orWhereBetween('end_date', [startDate, endDate])
+                         .orWhere((qb) => {
+                              qb.where('start_date', '<=', startDate)
+                                   .where('end_date', '>=', endDate);
+                         });
+               })
+               .orderBy('start_date', 'asc');
      }
 
      async getTotalBonusesByEmployee(
@@ -372,9 +432,4 @@ export class BonusRepository {
           return result?.total || 0;
      }
 
-     async getByPayrollPeriod(payroll_period_id: number): Promise<IBonus[]> {
-          const connection = await this.connection;
-          return connection('payroll_employee_bonuses')
-               .where({ payroll_period_id });
-     }
 }

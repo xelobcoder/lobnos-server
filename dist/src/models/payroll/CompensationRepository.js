@@ -208,7 +208,7 @@ class CompensationRepository {
         const connection = await this.connection;
         return connection('payroll_employee_compensation as c')
             .leftJoin('payroll_salary_grades as g', 'c.salary_grade_id', 'g.id')
-            .select('c.*', 'g.grade_name', 'g.grade_level', 'g.min_salary as grade_min_salary', 'g.max_salary as grade_max_salary', 'g.description as grade_description', 'g.currency as grade_currency')
+            .select('c.*', 'g.grade_name', 'g.grade_level', 'g.role_name', 'g.min_salary as grade_min_salary', 'g.max_salary as grade_max_salary', 'g.description as grade_description', 'g.currency as grade_currency')
             .where('c.id', id)
             .first();
     }
@@ -217,7 +217,7 @@ class CompensationRepository {
         const today = new Date().toISOString().split('T')[0];
         return connection('payroll_employee_compensation as c')
             .leftJoin('payroll_salary_grades as g', 'c.salary_grade_id', 'g.id')
-            .select('c.*', 'g.grade_name', 'g.grade_level', 'g.min_salary as grade_min_salary', 'g.max_salary as grade_max_salary', 'g.description as grade_description', 'g.currency as grade_currency')
+            .select('c.*', 'g.grade_name', 'g.grade_level', 'g.role_name', 'g.min_salary as grade_min_salary', 'g.max_salary as grade_max_salary', 'g.description as grade_description', 'g.currency as grade_currency')
             .where('c.employeeid', employeeid)
             .where('c.is_active', true)
             .where('c.effective_from', '<=', today)

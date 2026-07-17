@@ -25,14 +25,22 @@ var __importStar = (this && this.__importStar) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const compensationController = __importStar(require("./compensationController"));
+const bonusController = __importStar(require("./bonusController"));
 const payrollController = __importStar(require("./payrollController"));
 const salaryGradeController = __importStar(require("./salaryGradeController"));
 const attendanceController = __importStar(require("./attendanceController"));
 const leaveController = __importStar(require("./leaveController"));
+const deductionController = __importStar(require("./deductionController"));
 const taxConfigurationController = __importStar(require("./taxConfigurationController"));
+const taxReliefController = __importStar(require("./taxReliefController"));
 const payrollAnalyticsController = __importStar(require("./PayrollAnalyticsController"));
 const payrollRouter = (0, express_1.Router)();
 payrollRouter.post('/compensation', compensationController.createCompensationHandler);
+payrollRouter.post('/bonuses', bonusController.createBonusHandler);
+payrollRouter.get('/bonuses/employee/:employeeid', bonusController.getBonusesByEmployeeHandler);
+payrollRouter.get('/bonuses/:id', bonusController.getBonusByIdHandler);
+payrollRouter.put('/bonuses/:id', bonusController.updateBonusHandler);
+payrollRouter.delete('/bonuses/:id', bonusController.deleteBonusHandler);
 payrollRouter.get('/compensation/employee/:employeeid', compensationController.getCompensationByEmployeeHandler);
 payrollRouter.get('/compensation/employee/:employeeid/active', compensationController.getActiveCompensationHandler);
 payrollRouter.get('/compensation', compensationController.getAllActiveCompensationsHandler);
@@ -42,6 +50,7 @@ payrollRouter.post('/compensation/employee/:employeeid/history', compensationCon
 payrollRouter.delete('/compensation/:id', compensationController.deactivateCompensationHandler);
 payrollRouter.post('/salary-grades', salaryGradeController.createSalaryGradeHandler);
 payrollRouter.get('/salary-grades', salaryGradeController.getAllSalaryGradesHandler);
+payrollRouter.get('/salary-grades/roles', salaryGradeController.getSalaryGradeRolesHandler);
 payrollRouter.get('/salary-grades/:id', salaryGradeController.getSalaryGradeByIdHandler);
 payrollRouter.get('/salary-grades/name/:name', salaryGradeController.getSalaryGradeByNameHandler);
 payrollRouter.put('/salary-grades/:id', salaryGradeController.updateSalaryGradeHandler);
@@ -82,6 +91,30 @@ payrollRouter.put('/tax-configurations/:id', taxConfigurationController.updateTa
 payrollRouter.patch('/tax-configurations/:id/status', taxConfigurationController.toggleTaxConfigurationStatusHandler);
 payrollRouter.delete('/tax-configurations/:id', taxConfigurationController.deleteTaxConfigurationHandler);
 payrollRouter.get('/tax-configurations/:id/audit', taxConfigurationController.getTaxConfigurationAuditHistoryHandler);
+payrollRouter.post('/tax-reliefs', taxReliefController.createTaxReliefHandler);
+payrollRouter.get('/tax-reliefs', taxReliefController.getAllTaxReliefsHandler);
+payrollRouter.get('/tax-reliefs/:id', taxReliefController.getTaxReliefByIdHandler);
+payrollRouter.put('/tax-reliefs/:id', taxReliefController.updateTaxReliefHandler);
+payrollRouter.delete('/tax-reliefs/:id', taxReliefController.deactivateTaxReliefHandler);
+payrollRouter.post('/deduction-definitions', deductionController.createDeductionDefinitionHandler);
+payrollRouter.get('/deduction-definitions', deductionController.getAllDeductionDefinitionsHandler);
+payrollRouter.get('/deduction-definitions/:id', deductionController.getDeductionDefinitionByIdHandler);
+payrollRouter.put('/deduction-definitions/:id', deductionController.updateDeductionDefinitionHandler);
+payrollRouter.delete('/deduction-definitions/:id', deductionController.deactivateDeductionDefinitionHandler);
+payrollRouter.post('/other-deductions', deductionController.createOtherDeductionHandler);
+payrollRouter.get('/other-deductions', deductionController.getAllOtherDeductionsHandler);
+payrollRouter.get('/other-deductions/employee/:employeeid', deductionController.getOtherDeductionsByEmployeeHandler);
+payrollRouter.get('/other-deductions/:id', deductionController.getOtherDeductionByIdHandler);
+payrollRouter.put('/other-deductions/:id', deductionController.updateOtherDeductionHandler);
+payrollRouter.delete('/other-deductions/:id', deductionController.deactivateOtherDeductionHandler);
+payrollRouter.post('/other-deductions/:id/approve', deductionController.approveOtherDeductionHandler);
+payrollRouter.post('/deductions/other', deductionController.createOtherDeductionHandler);
+payrollRouter.get('/deductions/other', deductionController.getAllOtherDeductionsHandler);
+payrollRouter.get('/deductions/other/employee/:employeeid', deductionController.getOtherDeductionsByEmployeeHandler);
+payrollRouter.get('/deductions/other/:id', deductionController.getOtherDeductionByIdHandler);
+payrollRouter.put('/deductions/other/:id', deductionController.updateOtherDeductionHandler);
+payrollRouter.delete('/deductions/other/:id', deductionController.deactivateOtherDeductionHandler);
+payrollRouter.post('/deductions/other/:id/approve', deductionController.approveOtherDeductionHandler);
 // Analytics routes - BEFORE parameterized routes
 payrollRouter.get('/analytics', payrollAnalyticsController.getPayrollAnalyticsHandler);
 payrollRouter.get('/analytics/periods', payrollAnalyticsController.getPayrollPeriodAnalyticsHandler);
@@ -112,6 +145,12 @@ payrollRouter.get('/employee/:employeeid/history', payrollController.getEmployee
 payrollRouter.get('/employee/:employeeid/ytd', payrollController.getEmployeeYTDHandler);
 payrollRouter.get('/routes', (req, res) => {
     const routes = [
+        // Bonus endpoints
+        { method: 'POST', path: '/api/v1/payroll/bonuses', description: 'Create bonus record' },
+        { method: 'GET', path: '/api/v1/payroll/bonuses/employee/:employeeid', description: 'Get all bonuses for employee' },
+        { method: 'GET', path: '/api/v1/payroll/bonuses/:id', description: 'Get bonus by ID' },
+        { method: 'PUT', path: '/api/v1/payroll/bonuses/:id', description: 'Update bonus record' },
+        { method: 'DELETE', path: '/api/v1/payroll/bonuses/:id', description: 'Delete bonus record if not paid' },
         // Compensation endpoints
         { method: 'POST', path: '/api/v1/payroll/compensation', description: 'Create compensation record' },
         { method: 'GET', path: '/api/v1/payroll/compensation', description: 'Get all compensations (use ?status=active for active only)' },
@@ -124,6 +163,7 @@ payrollRouter.get('/routes', (req, res) => {
         // Salary grade endpoints
         { method: 'POST', path: '/api/v1/payroll/salary-grades', description: 'Create salary grade' },
         { method: 'GET', path: '/api/v1/payroll/salary-grades', description: 'Get all salary grades (use ?activeOnly=false for all)' },
+        { method: 'GET', path: '/api/v1/payroll/salary-grades/roles', description: 'Get available role names for salary grade mapping' },
         { method: 'GET', path: '/api/v1/payroll/salary-grades/:id', description: 'Get salary grade by ID' },
         { method: 'GET', path: '/api/v1/payroll/salary-grades/name/:name', description: 'Get salary grade by name' },
         { method: 'PUT', path: '/api/v1/payroll/salary-grades/:id', description: 'Update salary grade' },
@@ -166,6 +206,23 @@ payrollRouter.get('/routes', (req, res) => {
         { method: 'PUT', path: '/api/v1/payroll/tax-configurations/:id', description: 'Update tax configuration' },
         { method: 'PATCH', path: '/api/v1/payroll/tax-configurations/:id/status', description: 'Activate/Deactivate tax configuration' },
         { method: 'DELETE', path: '/api/v1/payroll/tax-configurations/:id', description: 'Delete tax configuration' },
+        { method: 'POST', path: '/api/v1/payroll/tax-reliefs', description: 'Create dynamic tax relief or exemption' },
+        { method: 'GET', path: '/api/v1/payroll/tax-reliefs', description: 'Get tax reliefs (use ?activeOnly=false for all)' },
+        { method: 'GET', path: '/api/v1/payroll/tax-reliefs/:id', description: 'Get tax relief by ID' },
+        { method: 'PUT', path: '/api/v1/payroll/tax-reliefs/:id', description: 'Update tax relief' },
+        { method: 'DELETE', path: '/api/v1/payroll/tax-reliefs/:id', description: 'Deactivate tax relief' },
+        { method: 'POST', path: '/api/v1/payroll/deduction-definitions', description: 'Create dynamic deduction definition' },
+        { method: 'GET', path: '/api/v1/payroll/deduction-definitions', description: 'Get deduction definitions (use ?activeOnly=false for all)' },
+        { method: 'GET', path: '/api/v1/payroll/deduction-definitions/:id', description: 'Get deduction definition by ID' },
+        { method: 'PUT', path: '/api/v1/payroll/deduction-definitions/:id', description: 'Update deduction definition' },
+        { method: 'DELETE', path: '/api/v1/payroll/deduction-definitions/:id', description: 'Deactivate deduction definition' },
+        { method: 'POST', path: '/api/v1/payroll/other-deductions', description: 'Create employee other deduction using a dynamic definition or free-form type' },
+        { method: 'GET', path: '/api/v1/payroll/other-deductions', description: 'Get employee deductions (use ?activeOnly=false for all)' },
+        { method: 'GET', path: '/api/v1/payroll/other-deductions/employee/:employeeid', description: 'Get all deductions for an employee' },
+        { method: 'GET', path: '/api/v1/payroll/other-deductions/:id', description: 'Get other deduction by ID' },
+        { method: 'PUT', path: '/api/v1/payroll/other-deductions/:id', description: 'Update other deduction' },
+        { method: 'DELETE', path: '/api/v1/payroll/other-deductions/:id', description: 'Deactivate other deduction' },
+        { method: 'POST', path: '/api/v1/payroll/other-deductions/:id/approve', description: 'Approve other deduction' },
         // Payroll period endpoints
         { method: 'POST', path: '/api/v1/payroll/periods', description: 'Create payroll period' },
         { method: 'GET', path: '/api/v1/payroll/periods', description: 'Get all periods' },

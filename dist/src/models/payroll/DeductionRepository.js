@@ -8,21 +8,22 @@ const KnexConnections_1 = __importDefault(require("../../database/KnexConnection
 const zod_1 = require("zod");
 const otherDeductionSchema = zod_1.z.object({
     employeeid: zod_1.z.number().positive('Employee ID must be a positive number'),
-    deduction_type: zod_1.z.enum(['loan', 'advance', 'garnishment', 'union_dues', 'insurance', 'cooperative', 'welfare', 'savings', 'disciplinary', 'other']),
+    deduction_definition_id: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().positive('Deduction definition ID must be a positive number').optional()),
+    deduction_type: zod_1.z.string().min(1, 'Deduction type cannot be empty').max(100, 'Deduction type cannot exceed 100 characters'),
     deduction_name: zod_1.z.string().min(1, 'Deduction name cannot be empty').max(255, 'Deduction name cannot exceed 255 characters'),
     amount: zod_1.z.number().positive('Amount must be greater than zero'),
     is_recurring: zod_1.z.boolean(),
     frequency: zod_1.z.enum(['monthly', 'bi-weekly', 'weekly', 'one-time']),
-    total_amount: zod_1.z.number().positive().optional(),
-    remaining_balance: zod_1.z.number().min(0, 'Remaining balance cannot be negative').optional(),
+    total_amount: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().positive().optional()),
+    remaining_balance: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().min(0, 'Remaining balance cannot be negative').optional()),
     deduction_priority: zod_1.z.number().positive('Deduction priority must be greater than zero').int('Deduction priority must be a whole number'),
     start_date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format'),
-    end_date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional(),
+    end_date: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional()),
     is_active: zod_1.z.boolean(),
-    approved_by: zod_1.z.number().positive('Approved by must be a positive number').optional(),
-    approved_date: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional(),
-    remarks: zod_1.z.string().max(1000, 'Remarks cannot exceed 1000 characters').optional(),
-    attachments: zod_1.z.string().max(500, 'Attachments path cannot exceed 500 characters').optional()
+    approved_by: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().positive('Approved by must be a positive number').optional()),
+    approved_date: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
+    remarks: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().max(1000, 'Remarks cannot exceed 1000 characters').optional()),
+    attachments: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().max(500, 'Attachments path cannot exceed 500 characters').optional())
 }).refine((data) => {
     if (data.end_date && data.start_date) {
         const start = new Date(data.start_date);
@@ -184,6 +185,16 @@ class OtherDeductionRepository {
             builder.whereNull('end_date').orWhere('end_date', '>=', today);
         })
             .orderBy(['employeeid', 'deduction_priority']);
+    }
+    async getAll(activeOnly = true) {
+        const connection = await this.connection;
+        const query = connection('payroll_employee_other_deductions')
+            .orderBy('employeeid', 'asc')
+            .orderBy('deduction_priority', 'asc');
+        if (activeOnly) {
+            query.where({ is_active: true });
+        }
+        return query;
     }
     async getPendingApprovals() {
         const connection = await this.connection;

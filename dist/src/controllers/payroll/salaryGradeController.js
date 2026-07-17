@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getSalaryGradesInRangeHandler = exports.deactivateSalaryGradeHandler = exports.updateSalaryGradeHandler = exports.getAllSalaryGradesHandler = exports.getSalaryGradeByNameHandler = exports.getSalaryGradeByIdHandler = exports.createSalaryGradeHandler = void 0;
+exports.getSalaryGradeRolesHandler = exports.getSalaryGradesInRangeHandler = exports.deactivateSalaryGradeHandler = exports.updateSalaryGradeHandler = exports.getAllSalaryGradesHandler = exports.getSalaryGradeByNameHandler = exports.getSalaryGradeByIdHandler = exports.createSalaryGradeHandler = void 0;
 const helper_1 = require("../../hooks/helper");
 const SalaryGradeRepository_1 = require("../../models/payroll/SalaryGradeRepository");
 /**
@@ -10,14 +10,15 @@ const createSalaryGradeHandler = async (req, res) => {
     var _a;
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const { grade_name, grade_level, min_salary, max_salary, description, currency, is_active } = req.body;
+        const { grade_name, grade_level, role_name, min_salary, max_salary, description, currency, is_active } = req.body;
         if (!tenantId) {
             return (0, helper_1.customError)('Tenant ID is required', 400, res);
         }
         const repo = new SalaryGradeRepository_1.SalaryGradeRepository(tenantId);
         const id = await repo.create({
-            grade_name,
+            grade_name: grade_name || role_name,
             grade_level,
+            role_name,
             min_salary,
             max_salary,
             description,
@@ -194,3 +195,22 @@ const getSalaryGradesInRangeHandler = async (req, res) => {
     }
 };
 exports.getSalaryGradesInRangeHandler = getSalaryGradesInRangeHandler;
+const getSalaryGradeRolesHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        if (!tenantId) {
+            return (0, helper_1.customError)('Tenant ID is required', 400, res);
+        }
+        const repo = new SalaryGradeRepository_1.SalaryGradeRepository(tenantId);
+        const roles = await repo.getAvailableRoles();
+        res.json({
+            status: 'success',
+            statusCode: 200,
+            result: roles
+        });
+    }
+    catch (error) {
+        return (0, helper_1.customError)('Failed to retrieve salary grade roles', 500, res);
+    }
+};
+exports.getSalaryGradeRolesHandler = getSalaryGradeRolesHandler;

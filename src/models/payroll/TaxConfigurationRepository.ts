@@ -8,15 +8,6 @@ export interface ITaxConfiguration {
      tax_year: string;
      country: string;
      tax_bands: any;
-     standard_exemption: number;
-     dependent_relief: number;
-     disability_exemption: number;
-     employee_ssnit_rate: number;
-     employer_ssnit_rate: number;
-     tier3_employee_rate: number;
-     tier3_employer_rate: number;
-     ssnit_ceiling?: number;
-     pension_ceiling?: number;
      is_active: boolean;
      created_by?: number;
      created_by_name?: string;
@@ -38,15 +29,6 @@ const taxConfigurationSchema = z.object({
                return false;
           }
      }, 'Tax bands must be a valid JSON array with at least one band'),
-     standard_exemption: z.number().min(0, 'Standard exemption cannot be negative'),
-     dependent_relief: z.number().min(0, 'Dependent relief cannot be negative'),
-     disability_exemption: z.number().min(0, 'Disability exemption cannot be negative'),
-     employee_ssnit_rate: z.number().min(0, 'Employee SSNIT rate cannot be negative').max(100, 'Employee SSNIT rate cannot exceed 100%'),
-     employer_ssnit_rate: z.number().min(0, 'Employer SSNIT rate cannot be negative').max(100, 'Employer SSNIT rate cannot exceed 100%'),
-     tier3_employee_rate: z.number().min(0, 'Tier 3 employee rate cannot be negative').max(100, 'Tier 3 employee rate cannot exceed 100%'),
-     tier3_employer_rate: z.number().min(0, 'Tier 3 employer rate cannot be negative').max(100, 'Tier 3 employer rate cannot exceed 100%'),
-     ssnit_ceiling: z.number().min(0, 'SSNIT ceiling cannot be negative').nullable().optional(),
-     pension_ceiling: z.number().min(0, 'Pension ceiling cannot be negative').nullable().optional(),
      is_active: z.boolean(),
      created_by: z.number().positive('Created by must be a positive number').optional(),
      updated_by: z.number().positive('Updated by must be a positive number').optional()
@@ -67,15 +49,6 @@ export class TaxConfigurationRepository {
                tax_bands: config.tax_bands ?
                     (typeof config.tax_bands === 'string' ? JSON.parse(config.tax_bands) : config.tax_bands) :
                     [],
-               standard_exemption: Number(config.standard_exemption) || 0,
-               dependent_relief: Number(config.dependent_relief) || 0,
-               disability_exemption: Number(config.disability_exemption) || 0,
-               employee_ssnit_rate: Number(config.employee_ssnit_rate) || 0,
-               employer_ssnit_rate: Number(config.employer_ssnit_rate) || 0,
-               tier3_employee_rate: Number(config.tier3_employee_rate) || 0,
-               tier3_employer_rate: Number(config.tier3_employer_rate) || 0,
-               ssnit_ceiling: config.ssnit_ceiling !== null ? Number(config.ssnit_ceiling) : undefined,
-               pension_ceiling: config.pension_ceiling !== null ? Number(config.pension_ceiling) : undefined,
                is_active: Boolean(config.is_active),
                created_by: config.created_by ? Number(config.created_by) : undefined,
                created_by_name: config.created_by_name || undefined,
@@ -198,12 +171,7 @@ export class TaxConfigurationRepository {
           } catch (triggerError) {
                console.log('Trigger drop failed (may not exist):', triggerError);
           }
-
           return connection.transaction(async (trx) => {
-               if (config.is_active === true) {
-                    await trx('payroll_tax_configuration').update({ is_active: false });
-               }
-
                const dataToUpdate = { ...config };
                if (dataToUpdate.tax_bands !== undefined) {
                     dataToUpdate.tax_bands = typeof dataToUpdate.tax_bands === 'string'
@@ -301,13 +269,6 @@ export class TaxConfigurationRepository {
                tax_year,
                country: 'Ghana',
                tax_bands: JSON.stringify(defaultTaxBands),
-               standard_exemption: 0,
-               dependent_relief: 0,
-               disability_exemption: 0,
-               employee_ssnit_rate: 5.5,
-               employer_ssnit_rate: 13,
-               tier3_employee_rate: 5,
-               tier3_employer_rate: 5,
                is_active: true
           });
      }

@@ -44,15 +44,6 @@ The Tax Configuration API provides endpoints for managing tax rates, brackets, a
       "rate": 25
     }
   ],
-  "standard_exemption": 4908.00,
-  "dependent_relief": 300.00,
-  "disability_exemption": 300.00,
-  "employee_ssnit_rate": 5.5,
-  "employer_ssnit_rate": 13.0,
-  "tier3_employee_rate": 5.5,
-  "tier3_employer_rate": 13.0,
-  "ssnit_ceiling": null,
-  "pension_ceiling": null,
   "is_active": true,
   "created_at": "2025-12-11T15:26:59.000Z",
   "updated_at": "2025-12-11T15:26:59.000Z",
@@ -88,13 +79,6 @@ Creates a new tax configuration for a specific tax year and country.
     {"min": 9792, "max": 12244, "rate": 17.5},
     {"min": 12244, "max": null, "rate": 25}
   ],
-  "standard_exemption": 4908.00,
-  "dependent_relief": 300.00,
-  "disability_exemption": 300.00,
-  "employee_ssnit_rate": 5.5,
-  "employer_ssnit_rate": 13.0,
-  "tier3_employee_rate": 5.5,
-  "tier3_employer_rate": 13.0,
   "is_active": true,
   "created_by": 1
 }
@@ -151,7 +135,6 @@ Retrieves the currently active tax configuration used for payroll calculations.
     "tax_year": "2025",
     "country": "Ghana",
     "tax_bands": [...],
-    "standard_exemption": 4908.00,
     "is_active": true
   }
 }
@@ -225,9 +208,11 @@ Updates an existing tax configuration.
 **Request Body:**
 ```json
 {
-  "standard_exemption": 5000.00,
-  "dependent_relief": 350.00,
-  "employee_ssnit_rate": 5.5
+  "tax_bands": [
+    {"min": 0, "max": 401, "rate": 0},
+    {"min": 401, "max": 3000, "rate": 5.5},
+    {"min": 3000, "max": 50000, "rate": 10.5}
+  ]
 }
 ```
 
@@ -293,13 +278,6 @@ Deletes a tax configuration. Cannot delete active configurations.
 - `tax_year`: Must be a valid 4-digit year
 - `country`: Required, 1-100 characters
 - `tax_bands`: Must be a valid JSON array with at least one band
-- `standard_exemption`: Must be >= 0
-- `dependent_relief`: Must be >= 0
-- `disability_exemption`: Must be >= 0
-- `employee_ssnit_rate`: Must be 0-100%
-- `employer_ssnit_rate`: Must be 0-100%
-- `tier3_employee_rate`: Must be 0-100%
-- `tier3_employer_rate`: Must be 0-100%
 
 ### Tax Band Validation
 - `min`: Must be >= 0
@@ -335,13 +313,6 @@ curl -X POST "http://localhost:5000/api/v1/payroll/tax-configurations?tenantId=1
       {"min": 9792, "max": 12244, "rate": 17.5},
       {"min": 12244, "max": null, "rate": 25}
     ],
-    "standard_exemption": 4908.00,
-    "dependent_relief": 300.00,
-    "disability_exemption": 300.00,
-    "employee_ssnit_rate": 5.5,
-    "employer_ssnit_rate": 13.0,
-    "tier3_employee_rate": 5.5,
-    "tier3_employer_rate": 13.0,
     "is_active": true,
     "created_by": 1
   }'
@@ -357,8 +328,11 @@ curl -X GET "http://localhost:5000/api/v1/payroll/tax-configurations/active?tena
 curl -X PUT "http://localhost:5000/api/v1/payroll/tax-configurations/1?tenantId=1" \
   -H "Content-Type: application/json" \
   -d '{
-    "employee_ssnit_rate": 6.0,
-    "employer_ssnit_rate": 13.5
+    "tax_bands": [
+      {"min": 0, "max": 401, "rate": 0},
+      {"min": 401, "max": 3000, "rate": 5.5},
+      {"min": 3000, "max": 50000, "rate": 10.5}
+    ]
   }'
 ```
 

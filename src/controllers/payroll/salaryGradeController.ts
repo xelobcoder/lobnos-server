@@ -9,7 +9,7 @@ import { SalaryGradeRepository } from '../../models/payroll/SalaryGradeRepositor
 export const createSalaryGradeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const { grade_name, grade_level, min_salary, max_salary, description, currency, is_active } = req.body;
+          const { grade_name, grade_level, role_name, min_salary, max_salary, description, currency, is_active } = req.body;
 
           if (!tenantId) {
                return customError('Tenant ID is required', 400, res);
@@ -17,8 +17,9 @@ export const createSalaryGradeHandler = async (req: Request, res: Response) => {
 
           const repo = new SalaryGradeRepository(tenantId);
           const id = await repo.create({
-               grade_name,
+               grade_name: grade_name || role_name,
                grade_level,
+               role_name,
                min_salary,
                max_salary,
                description,
@@ -208,5 +209,26 @@ export const getSalaryGradesInRangeHandler = async (req: Request, res: Response)
           });
      } catch (error) {
           return customError('Failed to retrieve salary grades in range', 500, res);
+     }
+};
+
+export const getSalaryGradeRolesHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+
+          if (!tenantId) {
+               return customError('Tenant ID is required', 400, res);
+          }
+
+          const repo = new SalaryGradeRepository(tenantId);
+          const roles = await repo.getAvailableRoles();
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               result: roles
+          });
+     } catch (error) {
+          return customError('Failed to retrieve salary grade roles', 500, res);
      }
 };

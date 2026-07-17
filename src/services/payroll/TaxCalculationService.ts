@@ -1,192 +1,259 @@
 import { TaxConfigurationRepository, ITaxConfiguration } from '../../models/payroll/TaxConfigurationRepository';
+import { TaxReliefRepository, ITaxRelief } from '../../models/payroll/TaxReliefRepository';
 
 export interface ITaxBand {
-     min: number;
-     max: number | null;
-     rate: number;
+	min: number;
+	max: number | null;
+	rate: number;
 }
 
 export interface ITaxCalculationResult {
-     taxable_income: number;
-     income_tax: number;
-     effective_tax_rate: number;
-     tax_breakdown: {
-          band: string;
-          amount: number;
-          tax: number;
-     }[];
+	taxable_income: number;
+	income_tax: number;
+	effective_tax_rate: number;
+	tax_breakdown: {
+		band: string;
+		amount: number;
+		tax: number;
+	}[];
 }
 
 export class TaxCalculationService {
-     private taxConfigRepo: TaxConfigurationRepository;
+	private taxConfigRepo: TaxConfigurationRepository;
+	private taxReliefRepo: TaxReliefRepository;
 
-     constructor(private tenantId: number) {
-          this.taxConfigRepo = new TaxConfigurationRepository(tenantId);
-     }
+	constructor(private tenantId: number) {
+		this.taxConfigRepo = new TaxConfigurationRepository(tenantId);
+		this.taxReliefRepo = new TaxReliefRepository(tenantId);
+	}
 
-     /**
-      * Calculate income tax based on taxable income and current tax configuration
-      */
-     async calculateIncomeTax(
-          grossIncome: number,
-          dependents: number = 0,
-          isDisabled: boolean = false
-     ): Promise<ITaxCalculationResult> {
-          const taxConfig = await this.taxConfigRepo.getActive();
+	private roundCurrency(value: number): number {
+		return Math.round(value * 100) / 100;
+	}
 
-          if (!taxConfig) {
-               throw new Error('No active tax configuration found');
-          }
+	private async calculateConfiguredReliefs(
+		grossIncome: number,
+		dependents: number,
+		isDisabled: boolean,
+		taxConfigurationId?: number
+	): Promise<{ configured: boolean; total_relief: number; details: { relief: ITaxRelief; amount: number }[] }> {
+		const reliefs = await this.taxReliefRepo.getActiveByTaxConfigurationId(taxConfigurationId);
 
-          // Calculate total exemptions and reliefs
-          const standardExemption = taxConfig.standard_exemption || 0;
-          const dependentRelief = (taxConfig.dependent_relief || 0) * dependents;
-          const disabilityExemption = isDisabled ? (taxConfig.disability_exemption || 0) : 0;
+		if (!reliefs.length) {
+			return {
+				configured: false,
+				total_relief: 0,
+				details: []
+			};
+		}
 
-          const totalReliefs = standardExemption + dependentRelief + disabilityExemption;
-          const taxableIncome = Math.max(0, grossIncome - totalReliefs);
+		let totalRelief = 0;
+		const details: { relief: ITaxRelief; amount: number }[] = [];
 
-          // Parse tax bands from JSON
-          const taxBands: ITaxBand[] = typeof taxConfig.tax_bands === 'string'
-               ? JSON.parse(taxConfig.tax_bands)
-               : taxConfig.tax_bands;
+		for (const relief of reliefs) {
+			if (relief.requires_disability && !isDisabled) {
+				continue;
+			}
 
-          // Calculate tax using progressive bands
-          const taxBreakdown = [];
-          let totalTax = 0;
+			let reliefAmount = 0;
+			switch (relief.calculation_method) {
+				case 'per_dependent':
+					reliefAmount = relief.amount * dependents;
+					break;
+				case 'percentage_of_gross':
+					reliefAmount = grossIncome * (relief.amount / 100);
+					break;
+				default:
+					reliefAmount = relief.amount;
+			}
 
-          for (const band of taxBands) {
-               if (taxableIncome <= band.min) {
-                    break;
-               }
+			reliefAmount = this.roundCurrency(reliefAmount);
+			totalRelief += reliefAmount;
+			details.push({ relief, amount: reliefAmount });
+		}
 
-               const bandMin = band.min;
-               const bandMax = band.max || Infinity;
-               const bandRate = band.rate / 100;
+		return {
+			configured: true,
+			total_relief: this.roundCurrency(totalRelief),
+			details
+		};
+	}
 
-               if (taxableIncome > bandMin) {
-                    const taxableInBand = Math.min(taxableIncome, bandMax) - bandMin;
-                    const taxInBand = taxableInBand * bandRate;
-                    totalTax += taxInBand;
+	/**
+	 * Calculate income tax based on taxable income and current tax configuration
+	 */
+	async calculateIncomeTax(
+		grossIncome: number,
+		dependents: number = 0,
+		isDisabled: boolean = false
+	): Promise<ITaxCalculationResult> {
+		const taxConfig = await this.taxConfigRepo.getActive();
 
-                    taxBreakdown.push({
-                         band: band.max
-                              ? `GHS ${band.min} - GHS ${band.max}`
-                              : `Above GHS ${band.min}`,
-                         amount: taxableInBand,
-                         tax: taxInBand
-                    });
+		if (!taxConfig) {
+			throw new Error('No active tax configuration found');
+		}
 
-                    if (taxableIncome <= bandMax) {
-                         break;
-                    }
-               }
-          }
+		const configuredReliefs = await this.calculateConfiguredReliefs(
+			grossIncome,
+			dependents,
+			isDisabled,
+			taxConfig.id
+		);
+		const totalReliefs = configuredReliefs.total_relief;
+		const taxableIncome = Math.max(0, grossIncome - totalReliefs);
 
-          const effectiveTaxRate = taxableIncome > 0 ? (totalTax / taxableIncome) * 100 : 0;
+		// Parse tax bands from JSON
+		const taxBands: ITaxBand[] = typeof taxConfig.tax_bands === 'string'
+			? JSON.parse(taxConfig.tax_bands)
+			: taxConfig.tax_bands;
 
-          return {
-               taxable_income: taxableIncome,
-               income_tax: Math.round(totalTax * 100) / 100,
-               effective_tax_rate: Math.round(effectiveTaxRate * 100) / 100,
-               tax_breakdown: taxBreakdown
-          };
-     }
+		// Calculate tax using progressive bands
+		const taxBreakdown = [];
+		let totalTax = 0;
 
-     /**
-      * Calculate monthly tax from annual taxable income
-      */
-     async calculateMonthlyTax(
-          monthlyGrossIncome: number,
-          dependents: number = 0,
-          isDisabled: boolean = false
-     ): Promise<number> {
-          // Annualize the income
-          const annualIncome = monthlyGrossIncome * 12;
+		for (const band of taxBands) {
+			if (taxableIncome <= band.min) {
+				break;
+			}
 
-          const taxResult = await this.calculateIncomeTax(annualIncome, dependents, isDisabled);
+			const bandMin = band.min;
+			const bandMax = band.max || Infinity;
+			const bandRate = band.rate / 100;
 
-          // Return monthly tax
-          return Math.round((taxResult.income_tax / 12) * 100) / 100;
-     }
+			if (taxableIncome > bandMin) {
+				const taxableInBand = Math.min(taxableIncome, bandMax) - bandMin;
+				const taxInBand = taxableInBand * bandRate;
+				totalTax += taxInBand;
 
-     /**
-      * Calculate tax on bonus using specified method
-      */
-     async calculateBonusTax(
-          bonusAmount: number,
-          regularMonthlyIncome: number,
-          taxMethod: 'aggregate' | 'separate' | 'bonus_rate',
-          dependents: number = 0
-     ): Promise<number> {
-          const taxConfig = await this.taxConfigRepo.getActive();
-          if (!taxConfig) {
-               throw new Error('No active tax configuration found');
-          }
+				taxBreakdown.push({
+					band: band.max
+						? `GHS ${band.min} - GHS ${band.max}`
+						: `Above GHS ${band.min}`,
+					amount: taxableInBand,
+					tax: taxInBand
+				});
 
-          switch (taxMethod) {
-               case 'aggregate':
-                    // Add bonus to regular income and calculate total tax
-                    const totalIncome = (regularMonthlyIncome + bonusAmount) * 12;
-                    const totalTaxResult = await this.calculateIncomeTax(totalIncome, dependents);
+				if (taxableIncome <= bandMax) {
+					break;
+				}
+			}
+		}
 
-                    const regularIncome = regularMonthlyIncome * 12;
-                    const regularTaxResult = await this.calculateIncomeTax(regularIncome, dependents);
+		const effectiveTaxRate = taxableIncome > 0 ? (totalTax / taxableIncome) * 100 : 0;
 
-                    return Math.round((totalTaxResult.income_tax - regularTaxResult.income_tax) * 100) / 100;
+		return {
+			taxable_income: taxableIncome,
+			income_tax: Math.round(totalTax * 100) / 100,
+			effective_tax_rate: Math.round(effectiveTaxRate * 100) / 100,
+			tax_breakdown: taxBreakdown
+		};
+	}
 
-               case 'separate':
-                    // Tax bonus at highest marginal rate
-                    const taxBands: ITaxBand[] = typeof taxConfig.tax_bands === 'string'
-                         ? JSON.parse(taxConfig.tax_bands)
-                         : taxConfig.tax_bands;
+	/**
+	 * Calculate monthly tax from annual taxable income
+	 */
+	async calculateMonthlyTax(
+		monthlyGrossIncome: number,
+		dependents: number = 0,
+		isDisabled: boolean = false
+	): Promise<number> {
+		const taxResult = await this.calculateIncomeTax(monthlyGrossIncome, dependents, isDisabled);
+		return Math.round(taxResult.income_tax * 100) / 100;
+	}
 
-                    const highestRate = taxBands[taxBands.length - 1].rate / 100;
-                    return Math.round(bonusAmount * highestRate * 100) / 100;
+	/**
+	 * Calculate tax on bonus using specified method
+	 */
+	async calculateBonusTax(
+		bonusAmount: number,
+		regularMonthlyIncome: number,
+		taxMethod: 'aggregate' | 'separate' | 'bonus_rate',
+		dependents: number = 0
+	): Promise<number> {
+		const taxConfig = await this.taxConfigRepo.getActive();
+		if (!taxConfig) {
+			throw new Error('No active tax configuration found');
+		}
 
-               case 'bonus_rate':
-                    // Fixed 15% rate for bonuses (common in some jurisdictions)
-                    return Math.round(bonusAmount * 0.15 * 100) / 100;
+		switch (taxMethod) {
+			case 'aggregate':
+				// Add bonus to regular income and calculate total tax
+				const totalIncome = (regularMonthlyIncome + bonusAmount) * 12;
+				const totalTaxResult = await this.calculateIncomeTax(totalIncome, dependents);
 
-               default:
-                    throw new Error(`Unknown tax method: ${taxMethod}`);
-          }
-     }
+				const regularIncome = regularMonthlyIncome * 12;
+				const regularTaxResult = await this.calculateIncomeTax(regularIncome, dependents);
 
-     /**
-      * Get current tax configuration
-      */
-     async getTaxConfiguration(): Promise<ITaxConfiguration | undefined> {
-          return this.taxConfigRepo.getActive();
-     }
+				return Math.round((totalTaxResult.income_tax - regularTaxResult.income_tax) * 100) / 100;
 
-     /**
-      * Calculate tax relief amounts
-      */
-     async calculateTaxReliefs(
-          dependents: number,
-          isDisabled: boolean = false
-     ): Promise<{
-          standard_exemption: number;
-          dependent_relief: number;
-          disability_exemption: number;
-          total_relief: number;
-     }> {
-          const taxConfig = await this.taxConfigRepo.getActive();
+			case 'separate':
+				// Tax bonus at highest marginal rate
+				const taxBands: ITaxBand[] = typeof taxConfig.tax_bands === 'string'
+					? JSON.parse(taxConfig.tax_bands)
+					: taxConfig.tax_bands;
 
-          if (!taxConfig) {
-               throw new Error('No active tax configuration found');
-          }
+				const highestRate = taxBands[taxBands.length - 1].rate / 100;
+				return Math.round(bonusAmount * highestRate * 100) / 100;
 
-          const standardExemption = taxConfig.standard_exemption || 0;
-          const dependentRelief = (taxConfig.dependent_relief || 0) * dependents;
-          const disabilityExemption = isDisabled ? (taxConfig.disability_exemption || 0) : 0;
+			case 'bonus_rate':
+				// Fixed 15% rate for bonuses (common in some jurisdictions)
+				return Math.round(bonusAmount * 0.15 * 100) / 100;
 
-          return {
-               standard_exemption: standardExemption,
-               dependent_relief: dependentRelief,
-               disability_exemption: disabilityExemption,
-               total_relief: standardExemption + dependentRelief + disabilityExemption
-          };
-     }
+			default:
+				throw new Error(`Unknown tax method: ${taxMethod}`);
+		}
+	}
+
+	/**
+	 * Get current tax configuration
+	 */
+	async getTaxConfiguration(): Promise<ITaxConfiguration | undefined> {
+		return this.taxConfigRepo.getActive();
+	}
+
+	/**
+	 * Calculate tax relief amounts
+	 */
+	async calculateTaxReliefs(
+		dependents: number,
+		isDisabled: boolean = false
+	): Promise<{
+		standard_exemption: number;
+		dependent_relief: number;
+		disability_exemption: number;
+		total_relief: number;
+	}> {
+		const taxConfig = await this.taxConfigRepo.getActive();
+
+		if (!taxConfig) {
+			throw new Error('No active tax configuration found');
+		}
+
+		const configuredReliefs = await this.calculateConfiguredReliefs(0, dependents, isDisabled, taxConfig.id);
+		if (configuredReliefs.configured) {
+			const standardExemption = configuredReliefs.details
+				.filter((item) => !item.relief.requires_disability && item.relief.calculation_method !== 'per_dependent')
+				.reduce((sum, item) => sum + item.amount, 0);
+			const dependentRelief = configuredReliefs.details
+				.filter((item) => item.relief.calculation_method === 'per_dependent')
+				.reduce((sum, item) => sum + item.amount, 0);
+			const disabilityExemption = configuredReliefs.details
+				.filter((item) => item.relief.requires_disability)
+				.reduce((sum, item) => sum + item.amount, 0);
+
+			return {
+				standard_exemption: this.roundCurrency(standardExemption),
+				dependent_relief: this.roundCurrency(dependentRelief),
+				disability_exemption: this.roundCurrency(disabilityExemption),
+				total_relief: configuredReliefs.total_relief
+			};
+		}
+
+		return {
+			standard_exemption: 0,
+			dependent_relief: 0,
+			disability_exemption: 0,
+			total_relief: 0
+		};
+	}
 }

@@ -2,10 +2,51 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TaxCalculationService = void 0;
 const TaxConfigurationRepository_1 = require("../../models/payroll/TaxConfigurationRepository");
+const TaxReliefRepository_1 = require("../../models/payroll/TaxReliefRepository");
 class TaxCalculationService {
     constructor(tenantId) {
         this.tenantId = tenantId;
         this.taxConfigRepo = new TaxConfigurationRepository_1.TaxConfigurationRepository(tenantId);
+        this.taxReliefRepo = new TaxReliefRepository_1.TaxReliefRepository(tenantId);
+    }
+    roundCurrency(value) {
+        return Math.round(value * 100) / 100;
+    }
+    async calculateConfiguredReliefs(grossIncome, dependents, isDisabled, taxConfigurationId) {
+        const reliefs = await this.taxReliefRepo.getActiveByTaxConfigurationId(taxConfigurationId);
+        if (!reliefs.length) {
+            return {
+                configured: false,
+                total_relief: 0,
+                details: []
+            };
+        }
+        let totalRelief = 0;
+        const details = [];
+        for (const relief of reliefs) {
+            if (relief.requires_disability && !isDisabled) {
+                continue;
+            }
+            let reliefAmount = 0;
+            switch (relief.calculation_method) {
+                case 'per_dependent':
+                    reliefAmount = relief.amount * dependents;
+                    break;
+                case 'percentage_of_gross':
+                    reliefAmount = grossIncome * (relief.amount / 100);
+                    break;
+                default:
+                    reliefAmount = relief.amount;
+            }
+            reliefAmount = this.roundCurrency(reliefAmount);
+            totalRelief += reliefAmount;
+            details.push({ relief, amount: reliefAmount });
+        }
+        return {
+            configured: true,
+            total_relief: this.roundCurrency(totalRelief),
+            details
+        };
     }
     /**
      * Calculate income tax based on taxable income and current tax configuration
@@ -15,11 +56,8 @@ class TaxCalculationService {
         if (!taxConfig) {
             throw new Error('No active tax configuration found');
         }
-        // Calculate total exemptions and reliefs
-        const standardExemption = taxConfig.standard_exemption || 0;
-        const dependentRelief = (taxConfig.dependent_relief || 0) * dependents;
-        const disabilityExemption = isDisabled ? (taxConfig.disability_exemption || 0) : 0;
-        const totalReliefs = standardExemption + dependentRelief + disabilityExemption;
+        const configuredReliefs = await this.calculateConfiguredReliefs(grossIncome, dependents, isDisabled, taxConfig.id);
+        const totalReliefs = configuredReliefs.total_relief;
         const taxableIncome = Math.max(0, grossIncome - totalReliefs);
         // Parse tax bands from JSON
         const taxBands = typeof taxConfig.tax_bands === 'string'
@@ -63,11 +101,8 @@ class TaxCalculationService {
      * Calculate monthly tax from annual taxable income
      */
     async calculateMonthlyTax(monthlyGrossIncome, dependents = 0, isDisabled = false) {
-        // Annualize the income
-        const annualIncome = monthlyGrossIncome * 12;
-        const taxResult = await this.calculateIncomeTax(annualIncome, dependents, isDisabled);
-        // Return monthly tax
-        return Math.round((taxResult.income_tax / 12) * 100) / 100;
+        const taxResult = await this.calculateIncomeTax(monthlyGrossIncome, dependents, isDisabled);
+        return Math.round(taxResult.income_tax * 100) / 100;
     }
     /**
      * Calculate tax on bonus using specified method
@@ -113,14 +148,29 @@ class TaxCalculationService {
         if (!taxConfig) {
             throw new Error('No active tax configuration found');
         }
-        const standardExemption = taxConfig.standard_exemption || 0;
-        const dependentRelief = (taxConfig.dependent_relief || 0) * dependents;
-        const disabilityExemption = isDisabled ? (taxConfig.disability_exemption || 0) : 0;
+        const configuredReliefs = await this.calculateConfiguredReliefs(0, dependents, isDisabled, taxConfig.id);
+        if (configuredReliefs.configured) {
+            const standardExemption = configuredReliefs.details
+                .filter((item) => !item.relief.requires_disability && item.relief.calculation_method !== 'per_dependent')
+                .reduce((sum, item) => sum + item.amount, 0);
+            const dependentRelief = configuredReliefs.details
+                .filter((item) => item.relief.calculation_method === 'per_dependent')
+                .reduce((sum, item) => sum + item.amount, 0);
+            const disabilityExemption = configuredReliefs.details
+                .filter((item) => item.relief.requires_disability)
+                .reduce((sum, item) => sum + item.amount, 0);
+            return {
+                standard_exemption: this.roundCurrency(standardExemption),
+                dependent_relief: this.roundCurrency(dependentRelief),
+                disability_exemption: this.roundCurrency(disabilityExemption),
+                total_relief: configuredReliefs.total_relief
+            };
+        }
         return {
-            standard_exemption: standardExemption,
-            dependent_relief: dependentRelief,
-            disability_exemption: disabilityExemption,
-            total_relief: standardExemption + dependentRelief + disabilityExemption
+            standard_exemption: 0,
+            dependent_relief: 0,
+            disability_exemption: 0,
+            total_relief: 0
         };
     }
 }

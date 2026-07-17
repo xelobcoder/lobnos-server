@@ -239,6 +239,72 @@ class PayrollProcessingService {
             return true;
         });
     }
+    async recalculatePayrollPeriod(payroll_period_id, recalculated_by) {
+        const connection = await (0, KnexConnections_1.default)(this.tenantId);
+        return connection.transaction(async (trx) => {
+            const trxPeriodRepo = new PayrollPeriodRepository_1.PayrollPeriodRepository(this.tenantId, trx);
+            const trxTransactionRepo = new PayrollTransactionRepository_1.PayrollTransactionRepository(this.tenantId, trx);
+            const period = await trxPeriodRepo.getById(payroll_period_id);
+            if (!period) {
+                throw new Error(`Payroll period ${payroll_period_id} not found`);
+            }
+            if (period.status === 'locked' || period.status === 'paid') {
+                throw new Error(`Cannot recalculate payroll period in ${period.status} status`);
+            }
+            const existingTransactions = await trxTransactionRepo.getByPayrollPeriod(payroll_period_id);
+            const employeeIds = existingTransactions.length
+                ? existingTransactions.map((t) => t.employeeid)
+                : await this.getActiveEmployees();
+            if (!employeeIds.length) {
+                throw new Error('No employees found to recalculate for this payroll period');
+            }
+            const errors = [];
+            const successfulTransactions = [];
+            for (const employeeid of employeeIds) {
+                try {
+                    const calculation = await this.calculationService.calculateEmployeePayroll({
+                        employeeid,
+                        payroll_period_id,
+                        period_start_date: this.formatDateForCalculation(period.period_start_date),
+                        period_end_date: this.formatDateForCalculation(period.period_end_date)
+                    });
+                    const existing = await trxTransactionRepo.getByEmployeeAndPeriod(employeeid, payroll_period_id);
+                    if (existing) {
+                        await trxTransactionRepo.update(existing.id, Object.assign(Object.assign({}, calculation), { status: 'pending' }));
+                    }
+                    else {
+                        await trxTransactionRepo.create(Object.assign(Object.assign({}, calculation), { status: 'pending' }));
+                    }
+                    successfulTransactions.push(calculation);
+                }
+                catch (error) {
+                    errors.push({
+                        employeeid,
+                        error: error.message || 'Unknown error'
+                    });
+                }
+            }
+            const totals = {
+                total_gross_salary: successfulTransactions.reduce((sum, t) => sum + t.gross_salary, 0),
+                total_deductions: successfulTransactions.reduce((sum, t) => sum + t.total_deductions, 0),
+                total_net_salary: successfulTransactions.reduce((sum, t) => sum + t.net_salary, 0),
+                employee_count: successfulTransactions.length
+            };
+            await trxPeriodRepo.updateTotals(payroll_period_id, totals.total_gross_salary, totals.total_deductions, totals.total_net_salary, totals.employee_count);
+            if (errors.length === 0) {
+                await trxPeriodRepo.markAsCalculated(payroll_period_id, recalculated_by);
+            }
+            return {
+                payroll_period_id,
+                total_employees_processed: successfulTransactions.length,
+                total_gross_salary: totals.total_gross_salary,
+                total_deductions: totals.total_deductions,
+                total_net_salary: totals.total_net_salary,
+                period_status: errors.length === 0 ? 'calculated' : 'draft',
+                errors
+            };
+        });
+    }
     async getPayrollStatus(payroll_period_id) {
         const period = await this.periodRepo.getById(payroll_period_id);
         const transactions = await this.transactionRepo.getByPayrollPeriod(payroll_period_id);

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllPayrollHistoryHandler = exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculateEmployeeHandler = exports.getPayrollReversalErrorsHandler = exports.getPayrollReversalsHandler = exports.reversePayrollPeriodHandler = exports.revertPayrollPeriodStatusHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.deletePayrollPeriodHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createPayrollPeriodHandler = void 0;
+exports.getAllPayrollHistoryHandler = exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculatePayrollPeriodHandler = exports.recalculateEmployeeHandler = exports.getPayrollReversalErrorsHandler = exports.getPayrollReversalsHandler = exports.reversePayrollPeriodHandler = exports.revertPayrollPeriodStatusHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.deletePayrollPeriodHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createPayrollPeriodHandler = void 0;
 const PayrollProcessingService_1 = require("../../services/payroll/PayrollProcessingService");
 const PayrollReversalService_1 = require("../../services/payroll/PayrollReversalService");
 const PayrollPeriodRepository_1 = require("../../models/payroll/PayrollPeriodRepository");
@@ -429,6 +429,41 @@ const recalculateEmployeeHandler = async (req, res) => {
     }
 };
 exports.recalculateEmployeeHandler = recalculateEmployeeHandler;
+/**
+ * Recalculate all employees for a payroll period
+ */
+const recalculatePayrollPeriodHandler = async (req, res) => {
+    var _a;
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const periodId = parseInt(req.params.id);
+        const recalculatedBy = parseInt(((_a = req.body.recalculated_by) !== null && _a !== void 0 ? _a : req.body.calculated_by));
+        if (!tenantId || !periodId) {
+            return (0, helper_1.customError)('Tenant ID and Period ID are required', 400, res);
+        }
+        if (!recalculatedBy || isNaN(recalculatedBy)) {
+            return (0, helper_1.customError)('recalculated_by (or calculated_by) is required', 400, res);
+        }
+        const service = new PayrollProcessingService_1.PayrollProcessingService(tenantId);
+        const result = await service.recalculatePayrollPeriod(periodId, recalculatedBy);
+        res.json({
+            status: 'success',
+            statusCode: 200,
+            message: 'Payroll period recalculated successfully',
+            result
+        });
+    }
+    catch (error) {
+        if (error.message && error.message.includes('Cannot recalculate')) {
+            return (0, helper_1.customError)(error.message, 400, res);
+        }
+        if (error.message && error.message.includes('not found')) {
+            return (0, helper_1.customError)(error.message, 404, res);
+        }
+        utility_1.PrimeSqlErrorHandler.handleError(error, res);
+    }
+};
+exports.recalculatePayrollPeriodHandler = recalculatePayrollPeriodHandler;
 /**
  * Get payroll period status
  */

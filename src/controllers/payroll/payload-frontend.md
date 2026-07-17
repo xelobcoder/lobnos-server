@@ -1450,12 +1450,6 @@ Only approved leave can be cancelled.
     {"min": 200000, "max": 300000, "rate": 30},
     {"min": 300000, "max": null, "rate": 35}
   ],
-  "standard_exemption": 401,
-  "dependent_relief": 100,
-  "disability_exemption": 2000,
-  "employee_ssnit_rate": 5.5,
-  "employer_ssnit_rate": 13.0,
-  "ssnit_ceiling": 1500,
   "created_by": 1
 }
 ```
@@ -1499,12 +1493,6 @@ Only approved leave can be cancelled.
       {"min": 200000, "max": 300000, "rate": 30},
       {"min": 300000, "max": null, "rate": 35}
     ],
-    "standard_exemption": 401,
-    "dependent_relief": 100,
-    "disability_exemption": 2000,
-    "employee_ssnit_rate": 5.5,
-    "employer_ssnit_rate": 13.0,
-    "ssnit_ceiling": 1500,
     "is_active": true,
     "created_by": 1,
     "created_at": "2024-01-01T10:00:00.000Z"
@@ -1523,7 +1511,6 @@ Only approved leave can be cancelled.
     {"min": 401, "max": 3000, "rate": 5.5},
     {"min": 3000, "max": 50000, "rate": 10.5}
   ],
-  "standard_exemption": 420,
   "updated_by": 1
 }
 ```
@@ -1560,12 +1547,6 @@ Only approved leave can be cancelled.
       {"min": 200000, "max": 300000, "rate": 30},
       {"min": 300000, "max": null, "rate": 35}
     ],
-    "standard_exemption": 401,
-    "dependent_relief": 100,
-    "disability_exemption": 2000,
-    "employee_ssnit_rate": 5.5,
-    "employer_ssnit_rate": 13.0,
-    "ssnit_ceiling": 1500,
     "is_active": true
   }
 }

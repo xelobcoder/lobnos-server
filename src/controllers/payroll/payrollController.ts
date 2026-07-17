@@ -469,6 +469,43 @@ export const recalculateEmployeeHandler = async (req: Request, res: Response) =>
 };
 
 /**
+ * Recalculate all employees for a payroll period
+ */
+export const recalculatePayrollPeriodHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const periodId = parseInt(req.params.id);
+          const recalculatedBy = parseInt((req.body.recalculated_by ?? req.body.calculated_by) as string);
+
+          if (!tenantId || !periodId) {
+               return customError('Tenant ID and Period ID are required', 400, res);
+          }
+
+          if (!recalculatedBy || isNaN(recalculatedBy)) {
+               return customError('recalculated_by (or calculated_by) is required', 400, res);
+          }
+
+          const service = new PayrollProcessingService(tenantId);
+          const result = await service.recalculatePayrollPeriod(periodId, recalculatedBy);
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               message: 'Payroll period recalculated successfully',
+               result
+          });
+     } catch (error: any) {
+          if (error.message && error.message.includes('Cannot recalculate')) {
+               return customError(error.message, 400, res);
+          }
+          if (error.message && error.message.includes('not found')) {
+               return customError(error.message, 404, res);
+          }
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+/**
  * Get payroll period status
  */
 export const getPayrollStatusHandler = async (req: Request, res: Response) => {

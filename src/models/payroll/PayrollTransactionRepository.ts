@@ -90,7 +90,39 @@ export class PayrollTransactionRepository {
           return this.trx ? Promise.resolve(this.trx) : KnexConnection(this.tenantId);
      }
 
+     private parseJsonDetail(value: any, fallback: any[] = []): any {
+          if (value === null || value === undefined || value === '') {
+               return fallback;
+          }
+
+          if (typeof value === 'string') {
+               try {
+                    return JSON.parse(value);
+               } catch {
+                    return fallback;
+               }
+          }
+
+          return value;
+     }
+
      private parseTransactionDetails(transaction: any): IPayrollTransaction {
+          const parsedOtherDeductions = this.parseJsonDetail(transaction.other_deductions_detail);
+          const normalizedOtherDeductions = Array.isArray(parsedOtherDeductions) ? parsedOtherDeductions : [];
+          const incomeTaxValue = Number(transaction.income_tax) || 0;
+          const hasIncomeTaxItem = normalizedOtherDeductions.some((item: any) =>
+               item && (item.type === 'income_tax' || item.name === 'Income Tax')
+          );
+
+          if (!hasIncomeTaxItem && incomeTaxValue > 0) {
+               normalizedOtherDeductions.unshift({
+                    type: 'income_tax',
+                    name: 'Income Tax',
+                    amount: incomeTaxValue,
+                    source: 'tax_configuration'
+               });
+          }
+
           return {
                id: transaction.id ? Number(transaction.id) : undefined,
                payroll_period_id: Number(transaction.payroll_period_id),
@@ -127,9 +159,9 @@ export class PayrollTransactionRepository {
                     undefined,
                payment_method: transaction.payment_method || undefined,
                payment_reference: transaction.payment_reference || undefined,
-               allowances_detail: transaction.allowances_detail ? JSON.parse(transaction.allowances_detail) : [],
-               bonuses_detail: transaction.bonuses_detail ? JSON.parse(transaction.bonuses_detail) : [],
-               other_deductions_detail: transaction.other_deductions_detail ? JSON.parse(transaction.other_deductions_detail) : []
+               allowances_detail: this.parseJsonDetail(transaction.allowances_detail),
+               bonuses_detail: this.parseJsonDetail(transaction.bonuses_detail),
+               other_deductions_detail: normalizedOtherDeductions
           };
      }
 
@@ -381,17 +413,18 @@ export class PayrollTransactionRepository {
      ): Promise<IPayrollTransaction[]> {
           const connection = await this.connection;
 
-          return connection('payroll_transactions as pt')
+          const rows = await connection('payroll_transactions as pt')
                .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
                .where({ 'pt.employeeid': employeeid })
                .whereBetween('pp.period_start_date', [startDate, endDate])
                .select('pt.*', 'pp.period_name', 'pp.payment_date as period_payment_date')
                .orderBy('pp.period_start_date', 'desc');
+
+          return rows.map((row: any) => this.parseTransactionDetails(row));
      }
 
      async getPeriodTransactionsWithEmployeeDetails(payroll_period_id: number, count?: number, page?: number): Promise<{ data: any[], total: number, totalPages: number }> {
           const connection = await this.connection;
-
           const total = await connection('payroll_transactions').count('id as count').where({ payroll_period_id });
           const totalPages = count ? Math.ceil(Number(total[0].count) / count) : 1;
 
@@ -414,8 +447,19 @@ export class PayrollTransactionRepository {
 
           query.orderBy('r.username', 'asc');
 
+          const rows = await query;
+
           return {
-               data: await query,
+               data: rows.map((row: any) => {
+                    const parsed = this.parseTransactionDetails(row);
+                    return {
+                         ...parsed,
+                         employee_name: row.employee_name || '',
+                         employee_role: row.employee_role || '',
+                         email: row.email || '',
+                         branch_name: row.branch_name || ''
+                    };
+               }),
                total: Number(total[0].count),
                totalPages
           }
@@ -424,11 +468,13 @@ export class PayrollTransactionRepository {
      async getTransactionsByDateRange(startDate: string, endDate: string): Promise<IPayrollTransaction[]> {
           const connection = await this.connection;
 
-          return connection('payroll_transactions as pt')
+          const rows = await connection('payroll_transactions as pt')
                .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
                .whereBetween('pp.period_start_date', [startDate, endDate])
                .select('pt.*')
                .orderBy('pp.period_start_date', 'desc');
+
+          return rows.map((row: any) => this.parseTransactionDetails(row));
      }
 
      async getAllPayrollHistory(count?: number, page?: number, sortby?: string): Promise<{ data: any[], total: number, totalPages: number }> {

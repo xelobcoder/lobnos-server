@@ -5,8 +5,8 @@ import { z } from 'zod';
 export interface IOtherDeduction {
      id?: number;
      employeeid: number;
-     deduction_type: 'loan' | 'advance' | 'garnishment' | 'union_dues' | 'insurance' |
-     'cooperative' | 'welfare' | 'savings' | 'disciplinary' | 'other';
+     deduction_definition_id?: number;
+     deduction_type: string;
      deduction_name: string;
      amount: number;
      is_recurring: boolean;
@@ -25,21 +25,22 @@ export interface IOtherDeduction {
 
 const otherDeductionSchema = z.object({
      employeeid: z.number().positive('Employee ID must be a positive number'),
-     deduction_type: z.enum(['loan', 'advance', 'garnishment', 'union_dues', 'insurance', 'cooperative', 'welfare', 'savings', 'disciplinary', 'other']),
+     deduction_definition_id: z.preprocess((val) => val === null ? undefined : val, z.number().positive('Deduction definition ID must be a positive number').optional()),
+     deduction_type: z.string().min(1, 'Deduction type cannot be empty').max(100, 'Deduction type cannot exceed 100 characters'),
      deduction_name: z.string().min(1, 'Deduction name cannot be empty').max(255, 'Deduction name cannot exceed 255 characters'),
      amount: z.number().positive('Amount must be greater than zero'),
      is_recurring: z.boolean(),
      frequency: z.enum(['monthly', 'bi-weekly', 'weekly', 'one-time']),
-     total_amount: z.number().positive().optional(),
-     remaining_balance: z.number().min(0, 'Remaining balance cannot be negative').optional(),
+     total_amount: z.preprocess((val) => val === null ? undefined : val, z.number().positive().optional()),
+     remaining_balance: z.preprocess((val) => val === null ? undefined : val, z.number().min(0, 'Remaining balance cannot be negative').optional()),
      deduction_priority: z.number().positive('Deduction priority must be greater than zero').int('Deduction priority must be a whole number'),
      start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Start date must be in YYYY-MM-DD format'),
-     end_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional(),
+     end_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'End date must be in YYYY-MM-DD format').optional()),
      is_active: z.boolean(),
-     approved_by: z.number().positive('Approved by must be a positive number').optional(),
-     approved_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional(),
-     remarks: z.string().max(1000, 'Remarks cannot exceed 1000 characters').optional(),
-     attachments: z.string().max(500, 'Attachments path cannot exceed 500 characters').optional()
+     approved_by: z.preprocess((val) => val === null ? undefined : val, z.number().positive('Approved by must be a positive number').optional()),
+     approved_date: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Approved date must be in YYYY-MM-DD format').optional()),
+     remarks: z.preprocess((val) => val === null ? undefined : val, z.string().max(1000, 'Remarks cannot exceed 1000 characters').optional()),
+     attachments: z.preprocess((val) => val === null ? undefined : val, z.string().max(500, 'Attachments path cannot exceed 500 characters').optional())
 }).refine((data) => {
      if (data.end_date && data.start_date) {
           const start = new Date(data.start_date);
@@ -236,6 +237,20 @@ export class OtherDeductionRepository {
                     builder.whereNull('end_date').orWhere('end_date', '>=', today);
                })
                .orderBy(['employeeid', 'deduction_priority']);
+     }
+
+     async getAll(activeOnly: boolean = true): Promise<IOtherDeduction[]> {
+          const connection = await this.connection;
+
+          const query = connection('payroll_employee_other_deductions')
+               .orderBy('employeeid', 'asc')
+               .orderBy('deduction_priority', 'asc');
+
+          if (activeOnly) {
+               query.where({ is_active: true });
+          }
+
+          return query;
      }
 
      async getPendingApprovals(): Promise<IOtherDeduction[]> {
