@@ -319,10 +319,40 @@ class PayrollTransactionRepository {
         }
         query.orderBy('r.username', 'asc');
         const rows = await query;
+        const transactionIds = rows
+            .map((row) => Number(row.id))
+            .filter((id) => Number.isFinite(id) && id > 0);
+        const ledgerBalanceMap = new Map();
+        if (transactionIds.length) {
+            const hasLedgerTable = await connection.schema.hasTable('payroll_employee_other_deduction_ledger');
+            if (hasLedgerTable) {
+                const ledgerRows = await connection('payroll_employee_other_deduction_ledger')
+                    .whereIn('payroll_transaction_id', transactionIds)
+                    .select('payroll_transaction_id', 'deduction_id', 'balance_after');
+                for (const ledgerRow of ledgerRows) {
+                    const txnId = Number(ledgerRow.payroll_transaction_id);
+                    const deductionId = Number(ledgerRow.deduction_id);
+                    const balanceAfter = Number(ledgerRow.balance_after) || 0;
+                    ledgerBalanceMap.set(`${txnId}:${deductionId}`, balanceAfter);
+                }
+            }
+        }
         return {
             data: rows.map((row) => {
                 const parsed = this.parseTransactionDetails(row);
-                return Object.assign(Object.assign({}, parsed), { allowances: parsed.allowances_detail, employee_name: row.employee_name || '', employee_role: row.employee_role || '', email: row.email || '', branch_name: row.branch_name || '', salary_grade_id: row.salary_grade_id ? Number(row.salary_grade_id) : undefined, salary_grade: row.salary_grade || null, tax_relief: parsed.tax_relief || 0 });
+                const normalizedDeductions = Array.isArray(parsed.other_deductions_detail)
+                    ? parsed.other_deductions_detail.map((deduction) => {
+                        if (!deduction || !deduction.id) {
+                            return deduction;
+                        }
+                        const key = `${Number(parsed.id)}:${Number(deduction.id)}`;
+                        if (!ledgerBalanceMap.has(key)) {
+                            return deduction;
+                        }
+                        return Object.assign(Object.assign({}, deduction), { remaining_balance: Math.round((Number(ledgerBalanceMap.get(key)) || 0) * 100) / 100 });
+                    })
+                    : [];
+                return Object.assign(Object.assign({}, parsed), { other_deductions_detail: normalizedDeductions, allowances: parsed.allowances_detail, employee_name: row.employee_name || '', employee_role: row.employee_role || '', email: row.email || '', branch_name: row.branch_name || '', salary_grade_id: row.salary_grade_id ? Number(row.salary_grade_id) : undefined, salary_grade: row.salary_grade || null, tax_relief: parsed.tax_relief || 0 });
             }),
             total: Number(total[0].count),
             totalPages

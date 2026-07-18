@@ -465,12 +465,51 @@ export class PayrollTransactionRepository {
           query.orderBy('r.username', 'asc');
 
           const rows = await query;
+          const transactionIds = rows
+               .map((row: any) => Number(row.id))
+               .filter((id: number) => Number.isFinite(id) && id > 0);
+
+          const ledgerBalanceMap = new Map<string, number>();
+          if (transactionIds.length) {
+               const hasLedgerTable = await connection.schema.hasTable('payroll_employee_other_deduction_ledger');
+               if (hasLedgerTable) {
+                    const ledgerRows = await connection('payroll_employee_other_deduction_ledger')
+                         .whereIn('payroll_transaction_id', transactionIds)
+                         .select('payroll_transaction_id', 'deduction_id', 'balance_after');
+
+                    for (const ledgerRow of ledgerRows as any[]) {
+                         const txnId = Number(ledgerRow.payroll_transaction_id);
+                         const deductionId = Number(ledgerRow.deduction_id);
+                         const balanceAfter = Number(ledgerRow.balance_after) || 0;
+                         ledgerBalanceMap.set(`${txnId}:${deductionId}`, balanceAfter);
+                    }
+               }
+          }
 
           return {
                data: rows.map((row: any) => {
                     const parsed = this.parseTransactionDetails(row);
+                    const normalizedDeductions = Array.isArray(parsed.other_deductions_detail)
+                         ? parsed.other_deductions_detail.map((deduction: any) => {
+                              if (!deduction || !deduction.id) {
+                                   return deduction;
+                              }
+
+                              const key = `${Number(parsed.id)}:${Number(deduction.id)}`;
+                              if (!ledgerBalanceMap.has(key)) {
+                                   return deduction;
+                              }
+
+                              return {
+                                   ...deduction,
+                                   remaining_balance: Math.round((Number(ledgerBalanceMap.get(key)) || 0) * 100) / 100
+                              };
+                         })
+                         : [];
+
                     return {
                          ...parsed,
+                         other_deductions_detail: normalizedDeductions,
                          allowances: parsed.allowances_detail,
                          employee_name: row.employee_name || '',
                          employee_role: row.employee_role || '',

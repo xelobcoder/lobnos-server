@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllPayrollHistoryHandler = exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculatePayrollPeriodHandler = exports.recalculateEmployeeHandler = exports.getPayrollReversalErrorsHandler = exports.getPayrollReversalsHandler = exports.reversePayrollPeriodHandler = exports.revertPayrollPeriodStatusHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.deletePayrollPeriodHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createPayrollPeriodHandler = void 0;
+exports.getAllPayrollHistoryHandler = exports.getEmployeeYTDHandler = exports.getEmployeePayrollHistoryHandler = exports.getPayrollTransactionsHandler = exports.getPayrollStatusHandler = exports.recalculatePayrollPeriodHandler = exports.recalculateEmployeeHandler = exports.getPayrollReversalErrorsHandler = exports.getPayrollReversalsHandler = exports.reversePayrollPeriodHandler = exports.revertPayrollPeriodStatusHandler = exports.markPayrollPaidHandler = exports.lockPayrollHandler = exports.approvePayrollHandler = exports.processPayrollHandler = exports.deletePayrollPeriodHandler = exports.getPayrollPeriodByIdHandler = exports.getAllPayrollPeriodsHandler = exports.createNextPayrollPeriodHandler = exports.createPayrollPeriodHandler = void 0;
 const PayrollProcessingService_1 = require("../../services/payroll/PayrollProcessingService");
 const PayrollReversalService_1 = require("../../services/payroll/PayrollReversalService");
 const PayrollPeriodRepository_1 = require("../../models/payroll/PayrollPeriodRepository");
@@ -90,6 +90,30 @@ const createPayrollPeriodHandler = async (req, res) => {
     }
 };
 exports.createPayrollPeriodHandler = createPayrollPeriodHandler;
+/**
+ * Create next payroll period automatically based on latest payroll period
+ */
+const createNextPayrollPeriodHandler = async (req, res) => {
+    try {
+        const tenantId = parseInt(req.query.tenantId);
+        const service = new PayrollProcessingService_1.PayrollProcessingService(tenantId);
+        const periodId = await service.createPayrollPeriod();
+        res.status(201).json({
+            status: 'success',
+            statusCode: 201,
+            message: 'Next payroll period created successfully',
+            result: { id: periodId }
+        });
+    }
+    catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes('already exists') || message.includes('overlaps with an existing period')) {
+            return (0, helper_1.customError)(message, 409, res);
+        }
+        utility_1.PrimeSqlErrorHandler.handleError(error, res);
+    }
+};
+exports.createNextPayrollPeriodHandler = createNextPayrollPeriodHandler;
 /**
  * Get all payroll periods
  */

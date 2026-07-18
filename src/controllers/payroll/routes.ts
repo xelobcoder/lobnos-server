@@ -123,6 +123,7 @@ payrollRouter.get('/history', payrollController.getAllPayrollHistoryHandler);
 payrollRouter.get('/reversals', payrollController.getPayrollReversalsHandler);
 payrollRouter.get('/reversal-errors', payrollController.getPayrollReversalErrorsHandler);
 payrollRouter.post('/periods', payrollController.createPayrollPeriodHandler);
+payrollRouter.post('/periods/create-next', payrollController.createNextPayrollPeriodHandler);
 payrollRouter.get('/periods', payrollController.getAllPayrollPeriodsHandler);
 payrollRouter.get('/periods/:id/status', payrollController.getPayrollStatusHandler);
 payrollRouter.get('/periods/:id/transactions', payrollController.getPayrollTransactionsHandler);
@@ -237,6 +238,7 @@ payrollRouter.get('/routes', (req, res) => {
 
           // Payroll period endpoints
           { method: 'POST', path: '/api/v1/payroll/periods', description: 'Create payroll period' },
+          { method: 'POST', path: '/api/v1/payroll/periods/create-next', description: 'Create next payroll period from latest period without providing dates' },
           { method: 'GET', path: '/api/v1/payroll/periods', description: 'Get all periods' },
           { method: 'GET', path: '/api/v1/payroll/periods/:id', description: 'Get period by ID' },
           { method: 'GET', path: '/api/v1/payroll/periods/:id/status', description: 'Get period status' },

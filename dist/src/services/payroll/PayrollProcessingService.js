@@ -138,6 +138,7 @@ class PayrollProcessingService {
     async markPayrollAsPaid(payroll_period_id, payment_date, payment_method, employeeid, branchid, payment_references) {
         const connection = await (0, KnexConnections_1.default)(this.tenantId);
         return connection.transaction(async (trx) => {
+            var _a;
             const trxPeriodRepo = new PayrollPeriodRepository_1.PayrollPeriodRepository(this.tenantId, trx);
             const trxTransactionRepo = new PayrollTransactionRepository_1.PayrollTransactionRepository(this.tenantId, trx);
             const trxDeductionRepo = new DeductionRepository_1.OtherDeductionRepository(this.tenantId, trx);
@@ -151,10 +152,10 @@ class PayrollProcessingService {
             const transactions = await trxTransactionRepo.getByPayrollPeriod(payroll_period_id);
             for (const transaction of transactions) {
                 const reference = (payment_references === null || payment_references === void 0 ? void 0 : payment_references.get(transaction.employeeid)) || undefined;
-                await trxTransactionRepo.markAsPaid(transaction.id, payment_date, payment_method, reference);
                 const deductionDetails = Array.isArray(transaction.other_deductions_detail)
                     ? transaction.other_deductions_detail
                     : [];
+                let deductionSnapshotUpdated = false;
                 for (const deduction of deductionDetails) {
                     if (!deduction || !deduction.id) {
                         continue;
@@ -166,8 +167,23 @@ class PayrollProcessingService {
                     if (appliedAmount <= 0) {
                         continue;
                     }
-                    await trxDeductionRepo.applyPaymentToDeduction(Number(deduction.id), appliedAmount, payroll_period_id, transaction.id, `Payroll payment for period ${payroll_period_id}`);
+                    const applied = await trxDeductionRepo.applyPaymentToDeduction(Number(deduction.id), appliedAmount, payroll_period_id, transaction.id, `Payroll payment for period ${payroll_period_id}`);
+                    if (!applied) {
+                        continue;
+                    }
+                    const refreshedDeduction = await trxDeductionRepo.getById(Number(deduction.id));
+                    if (refreshedDeduction) {
+                        deduction.remaining_balance = Math.round((Number((_a = refreshedDeduction.remaining_balance) !== null && _a !== void 0 ? _a : 0)) * 100) / 100;
+                        deduction.is_active = Boolean(refreshedDeduction.is_active);
+                        deductionSnapshotUpdated = true;
+                    }
                 }
+                if (deductionSnapshotUpdated) {
+                    await trxTransactionRepo.update(transaction.id, {
+                        other_deductions_detail: deductionDetails
+                    });
+                }
+                await trxTransactionRepo.markAsPaid(transaction.id, payment_date, payment_method, reference);
             }
             await trxPeriodRepo.markAsPaid(payroll_period_id);
             const totalNetSalary = Number(period.total_net_salary || 0);

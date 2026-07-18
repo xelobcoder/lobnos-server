@@ -226,16 +226,10 @@ export class PayrollProcessingService {
 
                for (const transaction of transactions) {
                     const reference = payment_references?.get(transaction.employeeid) || undefined;
-                    await trxTransactionRepo.markAsPaid(
-                         transaction.id!,
-                         payment_date,
-                         payment_method,
-                         reference
-                    );
-
                     const deductionDetails = Array.isArray(transaction.other_deductions_detail)
                          ? transaction.other_deductions_detail
                          : [];
+                    let deductionSnapshotUpdated = false;
 
                     for (const deduction of deductionDetails) {
                          if (!deduction || !deduction.id) {
@@ -251,14 +245,38 @@ export class PayrollProcessingService {
                               continue;
                          }
 
-                         await trxDeductionRepo.applyPaymentToDeduction(
+                         const applied = await trxDeductionRepo.applyPaymentToDeduction(
                               Number(deduction.id),
                               appliedAmount,
                               payroll_period_id,
                               transaction.id!,
                               `Payroll payment for period ${payroll_period_id}`
                          );
+
+                         if (!applied) {
+                              continue;
+                         }
+
+                         const refreshedDeduction = await trxDeductionRepo.getById(Number(deduction.id));
+                         if (refreshedDeduction) {
+                              deduction.remaining_balance = Math.round((Number(refreshedDeduction.remaining_balance ?? 0)) * 100) / 100;
+                              deduction.is_active = Boolean(refreshedDeduction.is_active);
+                              deductionSnapshotUpdated = true;
+                         }
                     }
+
+                    if (deductionSnapshotUpdated) {
+                         await trxTransactionRepo.update(transaction.id!, {
+                              other_deductions_detail: deductionDetails
+                         });
+                    }
+
+                    await trxTransactionRepo.markAsPaid(
+                         transaction.id!,
+                         payment_date,
+                         payment_method,
+                         reference
+                    );
                }
 
                await trxPeriodRepo.markAsPaid(payroll_period_id);

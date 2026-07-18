@@ -96,6 +96,32 @@ export const createPayrollPeriodHandler = async (req: Request, res: Response) =>
 };
 
 /**
+ * Create next payroll period automatically based on latest payroll period
+ */
+export const createNextPayrollPeriodHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const service = new PayrollProcessingService(tenantId);
+          const periodId = await service.createPayrollPeriod();
+
+          res.status(201).json({
+               status: 'success',
+               statusCode: 201,
+               message: 'Next payroll period created successfully',
+               result: { id: periodId }
+          });
+     } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+
+          if (message.includes('already exists') || message.includes('overlaps with an existing period')) {
+               return customError(message, 409, res);
+          }
+
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+/**
  * Get all payroll periods
  */
 export const getAllPayrollPeriodsHandler = async (req: Request, res: Response) => {
