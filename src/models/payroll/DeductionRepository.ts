@@ -26,7 +26,7 @@ export interface IOtherDeduction {
 export interface IOtherDeductionLedgerEntry {
      id?: number;
      deduction_id: number;
-     payroll_period_id: number;
+     payroll_period_id?: number;
      payroll_transaction_id?: number;
      employeeid: number;
      payment_amount: number;
@@ -35,6 +35,13 @@ export interface IOtherDeductionLedgerEntry {
      entry_type: 'payroll_payment' | 'manual_adjustment' | 'reversal';
      notes?: string;
      created_at?: string;
+}
+
+export interface ILoanAdjustmentInput {
+     adjustment_amount: number;
+     adjustment_action: 'increase_balance' | 'decrease_balance';
+     adjusted_by: number;
+     reason: string;
 }
 
 const otherDeductionSchema = z.object({
@@ -118,7 +125,7 @@ export class OtherDeductionRepository {
           return rows.map((row: any) => ({
                id: row.id ? Number(row.id) : undefined,
                deduction_id: Number(row.deduction_id),
-               payroll_period_id: Number(row.payroll_period_id),
+               payroll_period_id: row.payroll_period_id ? Number(row.payroll_period_id) : undefined,
                payroll_transaction_id: row.payroll_transaction_id ? Number(row.payroll_transaction_id) : undefined,
                employeeid: Number(row.employeeid),
                payment_amount: Number(row.payment_amount) || 0,
@@ -279,7 +286,7 @@ export class OtherDeductionRepository {
                if (ledgerExists) {
                     await trx('payroll_employee_other_deduction_ledger').insert({
                          deduction_id: id,
-                         payroll_period_id: 0,
+                         payroll_period_id: null,
                          payroll_transaction_id: null,
                          employeeid: Number(deduction.employeeid),
                          payment_amount: appliedAmount,
@@ -293,6 +300,92 @@ export class OtherDeductionRepository {
                }
 
                return true;
+          });
+     }
+
+     async applyLoanAdjustment(
+          deductionId: number,
+          input: ILoanAdjustmentInput
+     ): Promise<{ old_balance: number; new_balance: number; ledger_entry_id?: number }> {
+          if (!deductionId || typeof deductionId !== 'number' || deductionId <= 0) {
+               throw new Error('Valid deduction ID is required');
+          }
+
+          const adjustmentAmount = Number(input.adjustment_amount);
+          if (!adjustmentAmount || adjustmentAmount <= 0) {
+               throw new Error('adjustment_amount must be a positive number');
+          }
+
+          if (!['increase_balance', 'decrease_balance'].includes(input.adjustment_action)) {
+               throw new Error('adjustment_action must be increase_balance or decrease_balance');
+          }
+
+          if (!input.adjusted_by || Number(input.adjusted_by) <= 0) {
+               throw new Error('adjusted_by is required');
+          }
+
+          if (!input.reason || !String(input.reason).trim()) {
+               throw new Error('reason is required');
+          }
+
+          const connection = await this.connection;
+
+          return connection.transaction(async (trx) => {
+               const deduction = await trx('payroll_employee_other_deductions')
+                    .where({ id: deductionId })
+                    .first();
+
+               if (!deduction) {
+                    throw new Error('Other deduction record not found');
+               }
+
+               if (String(deduction.deduction_type || '').toLowerCase() !== 'loan') {
+                    throw new Error('Loan adjustments are only allowed for deductions of type loan');
+               }
+
+               const currentBalance = Number(deduction.remaining_balance ?? deduction.total_amount ?? deduction.amount ?? 0);
+               const newBalance = input.adjustment_action === 'increase_balance'
+                    ? currentBalance + adjustmentAmount
+                    : currentBalance - adjustmentAmount;
+
+               if (newBalance < 0) {
+                    throw new Error('Adjustment would make remaining balance negative');
+               }
+
+               await trx('payroll_employee_other_deductions')
+                    .where({ id: deductionId })
+                    .update({
+                         remaining_balance: newBalance,
+                         is_active: newBalance > 0,
+                         updated_at: trx.fn.now()
+                    });
+
+               let ledgerEntryId: number | undefined;
+               const ledgerExists = await trx.schema.hasTable('payroll_employee_other_deduction_ledger');
+               if (ledgerExists) {
+                    const notes = `[${input.adjustment_action}] ${String(input.reason).trim()} (adjusted_by:${Number(input.adjusted_by)})`;
+                    const insertResult = await trx('payroll_employee_other_deduction_ledger').insert({
+                         deduction_id: deductionId,
+                         payroll_period_id: null,
+                         payroll_transaction_id: null,
+                         employeeid: Number(deduction.employeeid),
+                         payment_amount: adjustmentAmount,
+                         balance_before: currentBalance,
+                         balance_after: newBalance,
+                         entry_type: 'manual_adjustment',
+                         notes,
+                         created_at: trx.fn.now(),
+                         updated_at: trx.fn.now()
+                    });
+
+                    ledgerEntryId = Array.isArray(insertResult) ? Number(insertResult[0]) : undefined;
+               }
+
+               return {
+                    old_balance: Math.round(currentBalance * 100) / 100,
+                    new_balance: Math.round(newBalance * 100) / 100,
+                    ledger_entry_id: ledgerEntryId
+               };
           });
      }
 

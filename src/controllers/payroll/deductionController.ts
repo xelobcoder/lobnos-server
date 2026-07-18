@@ -260,6 +260,40 @@ export const getOtherDeductionsByEmployeeHandler = async (req: Request, res: Res
      }
 };
 
+export const getActiveOtherDeductionsHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const repo = new OtherDeductionRepository(tenantId);
+          const deductions = await repo.getAll(true);
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               result: deductions
+          });
+          return;
+     } catch (error) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+export const getPendingOtherDeductionApprovalsHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const repo = new OtherDeductionRepository(tenantId);
+          const deductions = await repo.getPendingApprovals();
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               result: deductions
+          });
+          return;
+     } catch (error) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
 export const updateOtherDeductionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
@@ -278,8 +312,21 @@ export const updateOtherDeductionHandler = async (req: Request, res: Response) =
                statusCode: 200,
                message: 'Other deduction updated successfully'
           });
-     } catch (error) {
-          console.log(error)
+     } catch (error: any) {
+          const message = error instanceof Error ? error.message : String(error);
+
+          if (message.includes('repayment history') || message.includes('Balance-related fields cannot be edited directly')) {
+               return customError(
+                    'This loan already has repayment records. You cannot change amount or balance directly. Use a loan adjustment entry instead.',
+                    409,
+                    res
+               );
+          }
+
+          if (message.includes('not found')) {
+               return customError(message, 404, res);
+          }
+
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
@@ -333,6 +380,56 @@ export const approveOtherDeductionHandler = async (req: Request, res: Response) 
                message: 'Other deduction approved successfully'
           });
      } catch (error) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
+export const createLoanAdjustmentHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const id = parseInt(req.params.id);
+
+          if (!tenantId || !id) {
+               return customError('Tenant ID and deduction ID are required', 400, res);
+          }
+
+          const adjustment_amount = Number(req.body.adjustment_amount);
+          const adjustment_action = String(req.body.adjustment_action || '').trim();
+          const adjusted_by = Number(req.body.adjusted_by);
+          const reason = String(req.body.reason || '').trim();
+
+          const repo = new OtherDeductionRepository(tenantId);
+          const result = await repo.applyLoanAdjustment(id, {
+               adjustment_amount,
+               adjustment_action: adjustment_action as 'increase_balance' | 'decrease_balance',
+               adjusted_by,
+               reason
+          });
+
+          return res.status(201).json({
+               status: 'success',
+               statusCode: 201,
+               message: 'Loan adjustment recorded successfully',
+               result
+          });
+     } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+
+          if (
+               message.includes('adjustment_amount') ||
+               message.includes('adjustment_action') ||
+               message.includes('adjusted_by') ||
+               message.includes('reason') ||
+               message.includes('negative') ||
+               message.includes('only allowed for deductions of type loan')
+          ) {
+               return customError(message, 400, res);
+          }
+
+          if (message.includes('not found')) {
+               return customError(message, 404, res);
+          }
+
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };

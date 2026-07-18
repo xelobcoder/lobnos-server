@@ -10,6 +10,7 @@ import * as deductionController from './deductionController';
 import * as taxConfigurationController from './taxConfigurationController';
 import * as taxReliefController from './taxReliefController';
 import * as payrollAnalyticsController from './PayrollAnalyticsController';
+import { handleOverLoad } from '../../hooks/helper';
 
 
 const payrollRouter = Router();
@@ -90,6 +91,8 @@ payrollRouter.put('/deduction-definitions/:id', deductionController.updateDeduct
 payrollRouter.delete('/deduction-definitions/:id', deductionController.deactivateDeductionDefinitionHandler);
 payrollRouter.post('/other-deductions', deductionController.createOtherDeductionHandler);
 payrollRouter.get('/other-deductions', deductionController.getAllOtherDeductionsHandler);
+payrollRouter.get('/other-deductions/active', deductionController.getActiveOtherDeductionsHandler);
+payrollRouter.get('/other-deductions/pending-approvals', deductionController.getPendingOtherDeductionApprovalsHandler);
 payrollRouter.get('/other-deductions/employee/:employeeid', deductionController.getOtherDeductionsByEmployeeHandler);
 payrollRouter.get('/other-deductions/:id', deductionController.getOtherDeductionByIdHandler);
 payrollRouter.put('/other-deductions/:id', deductionController.updateOtherDeductionHandler);
@@ -97,8 +100,11 @@ payrollRouter.delete('/other-deductions/:id', deductionController.deactivateOthe
 payrollRouter.get('/other-deductions/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
 payrollRouter.post('/other-deductions/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
 payrollRouter.post('/other-deductions/:id/approve', deductionController.approveOtherDeductionHandler);
+payrollRouter.post('/other-deductions/:id/loan-adjustment', handleOverLoad(deductionController.createLoanAdjustmentHandler));
 payrollRouter.post('/deductions/other', deductionController.createOtherDeductionHandler);
 payrollRouter.get('/deductions/other', deductionController.getAllOtherDeductionsHandler);
+payrollRouter.get('/deductions/other/active', deductionController.getActiveOtherDeductionsHandler);
+payrollRouter.get('/deductions/other/pending-approvals', deductionController.getPendingOtherDeductionApprovalsHandler);
 payrollRouter.get('/deductions/other/employee/:employeeid', deductionController.getOtherDeductionsByEmployeeHandler);
 payrollRouter.get('/deductions/other/:id', deductionController.getOtherDeductionByIdHandler);
 payrollRouter.get('/deductions/other/:id/ledger', deductionController.getOtherDeductionLedgerHandler);
@@ -107,6 +113,7 @@ payrollRouter.delete('/deductions/other/:id', deductionController.deactivateOthe
 payrollRouter.get('/deductions/other/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
 payrollRouter.post('/deductions/other/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
 payrollRouter.post('/deductions/other/:id/approve', deductionController.approveOtherDeductionHandler);
+payrollRouter.post('/deductions/other/:id/loan-adjustment', handleOverLoad(deductionController.createLoanAdjustmentHandler));
 
 // Analytics routes - BEFORE parameterized routes
 payrollRouter.get('/analytics', payrollAnalyticsController.getPayrollAnalyticsHandler);
@@ -235,6 +242,7 @@ payrollRouter.get('/routes', (req, res) => {
           { method: 'PUT', path: '/api/v1/payroll/other-deductions/:id', description: 'Update other deduction' },
           { method: 'DELETE', path: '/api/v1/payroll/other-deductions/:id', description: 'Deactivate other deduction' },
           { method: 'POST', path: '/api/v1/payroll/other-deductions/:id/approve', description: 'Approve other deduction' },
+          { method: 'POST', path: '/api/v1/payroll/other-deductions/:id/loan-adjustment', description: 'Create audited loan balance adjustment entry' },
 
           // Payroll period endpoints
           { method: 'POST', path: '/api/v1/payroll/periods', description: 'Create payroll period' },

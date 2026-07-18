@@ -310,12 +310,7 @@ class PayrollAnalytics {
         if (!data)
             return null;
         return {
-            total_employees: Number(data.total_employees) || 0,
-            ssnit_enrolled: Number(data.ssnit_enrolled) || 0,
-            tier3_enrolled: Number(data.tier3_enrolled) || 0,
-            tax_exempt_count: Number(data.tax_exempt_count) || 0,
-            nhis_active_count: Number(data.nhis_active_count) || 0,
-            avg_dependents: Number(data.avg_dependents) || 0
+            total_employees: Number(data.total_employees) || 0
         };
     }
     parseOtherDeductions(data) {
@@ -341,11 +336,6 @@ class PayrollAnalytics {
             total_bonuses: Number(row.total_bonuses) || 0,
             total_gross_salary: Number(row.total_gross_salary) || 0,
             total_income_tax: Number(row.total_income_tax) || 0,
-            total_employee_ssnit: Number(row.total_employee_ssnit) || 0,
-            total_employer_ssnit: Number(row.total_employer_ssnit) || 0,
-            total_employee_tier3: Number(row.total_employee_tier3) || 0,
-            total_employer_tier3: Number(row.total_employer_tier3) || 0,
-            total_nhis: Number(row.total_nhis) || 0,
             total_other_deductions: Number(row.total_other_deductions) || 0,
             total_deductions: Number(row.total_deductions) || 0,
             total_net_salary: Number(row.total_net_salary) || 0,

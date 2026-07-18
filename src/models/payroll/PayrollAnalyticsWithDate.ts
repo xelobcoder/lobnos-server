@@ -175,12 +175,7 @@ export class PayrollAnalyticsWithDate {
           return connection('payroll_transactions as pt')
                .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
                .select(
-                    connection.raw('COUNT(DISTINCT pt.employeeid) as total_employees'),
-                    connection.raw('0 as ssnit_enrolled'),
-                    connection.raw('0 as tier3_enrolled'),
-                    connection.raw('0 as tax_exempt_count'),
-                    connection.raw('0 as nhis_active_count'),
-                    connection.raw('0 as avg_dependents')
+                    connection.raw('COUNT(DISTINCT pt.employeeid) as total_employees')
                )
                .where('pp.period_start_date', '<=', endDate)
                .where('pp.period_end_date', '>=', startDate)
@@ -228,11 +223,6 @@ export class PayrollAnalyticsWithDate {
                     connection.raw('SUM(pt.total_bonuses) as total_bonuses'),
                     connection.raw('SUM(pt.gross_salary) as total_gross_salary'),
                     connection.raw('SUM(pt.income_tax) as total_income_tax'),
-                    connection.raw('0 as total_employee_ssnit'),
-                    connection.raw('0 as total_employer_ssnit'),
-                    connection.raw('0 as total_employee_tier3'),
-                    connection.raw('0 as total_employer_tier3'),
-                    connection.raw('0 as total_nhis'),
                     connection.raw('SUM(pt.total_other_deductions) as total_other_deductions'),
                     connection.raw('SUM(pt.total_deductions) as total_deductions'),
                     connection.raw('SUM(pt.net_salary) as total_net_salary'),
@@ -403,15 +393,10 @@ export class PayrollAnalyticsWithDate {
                     connection.raw('AVG(pt.net_salary) as avg_net_per_employee'),
                     connection.raw('AVG(pt.employer_cost) as avg_employer_cost_per_employee'),
                     connection.raw('AVG(pt.hours_worked) as avg_hours_per_employee'),
-                    // Calculate effective tax rate
                     connection.raw('ROUND((SUM(pt.income_tax) / NULLIF(SUM(pt.gross_salary), 0)) * 100, 2) as effective_tax_rate'),
-                    // Calculate employer cost burden (employer cost as % of gross)
                     connection.raw('ROUND((SUM(pt.employer_cost) / NULLIF(SUM(pt.gross_salary), 0)) * 100, 2) as employer_cost_burden_pct'),
-                    // Calculate deduction rate
                     connection.raw('ROUND((SUM(pt.total_deductions) / NULLIF(SUM(pt.gross_salary), 0)) * 100, 2) as deduction_rate_pct'),
-                    // Calculate overtime as percentage of total earnings
                     connection.raw('ROUND((SUM(pt.overtime_earnings) / NULLIF(SUM(pt.gross_salary), 0)) * 100, 2) as overtime_pct_of_gross'),
-                    // Calculate cost per working hour
                     connection.raw('ROUND(SUM(pt.employer_cost) / NULLIF(SUM(pt.hours_worked), 0), 2) as cost_per_hour')
                )
                .where('pp.period_start_date', '<=', endDate)

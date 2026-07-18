@@ -88,6 +88,14 @@ class CompensationRepository {
     get connection() {
         return (0, KnexConnections_1.default)(this.tenantId);
     }
+    async deactivateOtherActiveCompensations(db, employeeid, excludeId) {
+        const query = db('payroll_employee_compensation')
+            .where({ employeeid, is_active: true });
+        if (excludeId) {
+            query.andWhereNot({ id: excludeId });
+        }
+        await query.update({ is_active: false, updated_at: db.fn.now() });
+    }
     async validateSalaryWithinGrade(compensation) {
         if (!compensation.salary_grade_id || compensation.basic_salary === undefined || compensation.basic_salary === null) {
             return;
@@ -114,8 +122,13 @@ class CompensationRepository {
         compensationSchema.parse(compensation);
         await this.validateSalaryWithinGrade(compensation);
         const connection = await this.connection;
-        const [id] = await connection('payroll_employee_compensation').insert(compensation);
-        return id;
+        return connection.transaction(async (trx) => {
+            if (compensation.is_active) {
+                await this.deactivateOtherActiveCompensations(trx, compensation.employeeid);
+            }
+            const [id] = await trx('payroll_employee_compensation').insert(compensation);
+            return id;
+        });
     }
     async getById(id) {
         const connection = await this.connection;
@@ -154,10 +167,15 @@ class CompensationRepository {
         compensationSchema.parse(completeCompensation);
         await this.validateSalaryWithinGrade(completeCompensation);
         const connection = await this.connection;
-        const affectedRows = await connection('payroll_employee_compensation')
-            .where({ id })
-            .update(Object.assign(Object.assign({}, compensation), { updated_at: connection.fn.now() }));
-        return affectedRows > 0;
+        return connection.transaction(async (trx) => {
+            if (completeCompensation.is_active) {
+                await this.deactivateOtherActiveCompensations(trx, completeCompensation.employeeid, id);
+            }
+            const affectedRows = await trx('payroll_employee_compensation')
+                .where({ id })
+                .update(Object.assign(Object.assign({}, compensation), { updated_at: trx.fn.now() }));
+            return affectedRows > 0;
+        });
     }
     async deactivate(id) {
         if (!id || typeof id !== 'number' || id <= 0) {
@@ -219,12 +237,18 @@ class CompensationRepository {
         // Validate new compensation data
         compensationSchema.parse(newCompensation);
         await this.validateSalaryWithinGrade(newCompensation);
+        if (newCompensation.employeeid !== employeeid) {
+            throw new Error('Employee ID in payload must match route employee ID');
+        }
         const connection = await this.connection;
         return connection.transaction(async (trx) => {
             // End current active compensation
             await trx('payroll_employee_compensation')
                 .where({ employeeid, is_active: true })
-                .update({ effective_to: endDate, updated_at: trx.fn.now() });
+                .update({ effective_to: endDate, is_active: false, updated_at: trx.fn.now() });
+            if (newCompensation.is_active) {
+                await this.deactivateOtherActiveCompensations(trx, employeeid);
+            }
             // Create new compensation record
             const [id] = await trx('payroll_employee_compensation').insert(newCompensation);
             return id;
