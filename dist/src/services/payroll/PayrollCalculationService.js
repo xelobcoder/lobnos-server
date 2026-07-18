@@ -50,10 +50,16 @@ class PayrollCalculationService {
                 taxable_income: grossSalary,
                 income_tax: 0,
                 effective_tax_rate: 0,
+                tax_relief_total: 0,
+                tax_relief_details: [],
                 tax_breakdown: []
             }
             : await this.taxService.calculateIncomeTax(grossSalary, dependents);
         const incomeTax = taxComputation.income_tax;
+        const taxReliefTotal = Number(taxComputation.tax_relief_total) || 0;
+        const taxReliefDetails = Array.isArray(taxComputation.tax_relief_details)
+            ? taxComputation.tax_relief_details
+            : [];
         const otherDeductionResult = await this.calculateOtherDeductions(employeeid, period_start_date, period_end_date);
         // Calculate total deductions
         const totalDeductions = incomeTax +
@@ -93,6 +99,8 @@ class PayrollCalculationService {
                     source: 'tax_configuration',
                     taxable_income: Math.round(taxComputation.taxable_income * 100) / 100,
                     effective_tax_rate: Math.round(taxComputation.effective_tax_rate * 100) / 100,
+                    tax_relief_total: Math.round(taxReliefTotal * 100) / 100,
+                    tax_relief_details: taxReliefDetails,
                     tax_breakdown: taxComputation.tax_breakdown
                 },
                 ...definitionDeductions.other_deductions_detail,
@@ -180,15 +188,16 @@ class PayrollCalculationService {
         const allowancesDetail = [];
         for (const allowance of allowances) {
             let amount = 0;
+            const allowanceAmount = Number(allowance.amount) || 0;
             if (allowance.calculation_method === 'fixed') {
-                amount = allowance.amount;
+                amount = allowanceAmount;
             }
             else if (allowance.calculation_method === 'percentage_of_basic') {
                 amount = (basicSalary * (allowance.percentage || 0)) / 100;
             }
             else if (allowance.calculation_method === 'variable') {
                 // Variable allowances use the amount field directly
-                amount = allowance.amount;
+                amount = allowanceAmount;
             }
             totalAllowances += amount;
             allowancesDetail.push({
@@ -227,7 +236,6 @@ class PayrollCalculationService {
      */
     async calculateOtherDeductions(employeeid, periodStartDate, periodEndDate) {
         const deductions = await this.deductionRepo.getApplicableByEmployeeId(employeeid, periodStartDate, periodEndDate);
-        console.log("deductions", deductions);
         let totalDeductions = 0;
         const deductionsDetail = [];
         for (const deduction of deductions) {
@@ -236,6 +244,7 @@ class PayrollCalculationService {
             const endDateValue = deduction.end_date;
             totalDeductions += amount;
             deductionsDetail.push({
+                id: deduction.id ? Number(deduction.id) : undefined,
                 type: deduction.deduction_type,
                 name: deduction.deduction_name,
                 amount: Math.round(amount * 100) / 100,

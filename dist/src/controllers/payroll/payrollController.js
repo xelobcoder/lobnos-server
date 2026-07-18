@@ -146,7 +146,7 @@ const deletePayrollPeriodHandler = async (req, res) => {
         const repo = new PayrollPeriodRepository_1.PayrollPeriodRepository(tenantId);
         const deleted = await repo.delete(periodId);
         if (!deleted) {
-            (0, helper_1.customError)('Cannot delete payroll period. Only unprocessed draft periods can be deleted.', 400, res);
+            (0, helper_1.customError)('Cannot delete payroll period. Only draft or calculated periods that are not paid can be deleted.', 400, res);
             return;
         }
         res.status(200).json({
@@ -195,8 +195,9 @@ const processPayrollHandler = async (req, res) => {
         });
     }
     catch (error) {
-        console.log(error);
-        (0, helper_1.customError)('Failed to process payroll', 500, res);
+        const message = error instanceof Error ? error.message : String(error);
+        const statusCode = message.includes('not found') ? 404 : 400;
+        (0, helper_1.customError)(message || 'Failed to process payroll', statusCode, res);
     }
 };
 exports.processPayrollHandler = processPayrollHandler;
@@ -306,6 +307,7 @@ const revertPayrollPeriodStatusHandler = async (req, res) => {
         const tenantId = parseInt(req.query.tenantId);
         const periodId = parseInt(req.params.id);
         const targetStatus = String(req.body.target_status || '').trim().toLowerCase();
+        const clearProcessingRecords = Boolean(req.body.clear_processing_records);
         if (!tenantId || !periodId) {
             return (0, helper_1.customError)('Tenant ID and Period ID are required', 400, res);
         }
@@ -313,11 +315,13 @@ const revertPayrollPeriodStatusHandler = async (req, res) => {
             return (0, helper_1.customError)('target_status must be one of: draft, calculated, approved', 400, res);
         }
         const service = new PayrollProcessingService_1.PayrollProcessingService(tenantId);
-        await service.revertPayrollPeriodStatus(periodId, targetStatus);
+        await service.revertPayrollPeriodStatus(periodId, targetStatus, clearProcessingRecords);
         res.json({
             status: 'success',
             statusCode: 200,
-            message: `Payroll period reverted to ${targetStatus} successfully`
+            message: clearProcessingRecords && targetStatus === 'draft'
+                ? `Payroll period reverted to ${targetStatus} and processing records cleared successfully`
+                : `Payroll period reverted to ${targetStatus} successfully`
         });
     }
     catch (error) {

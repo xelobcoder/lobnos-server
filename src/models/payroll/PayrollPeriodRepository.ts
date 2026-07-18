@@ -338,6 +338,8 @@ export class PayrollPeriodRepository {
           };
 
           if (status === 'draft') {
+               updates.calculated_by = null;
+               updates.calculated_at = null;
                updates.approved_by = null;
                updates.approved_at = null;
                updates.locked_by = null;
@@ -447,9 +449,9 @@ export class PayrollPeriodRepository {
      async delete(id: number): Promise<boolean> {
           const connection = await this.connection;
 
-          // Only allow deletion of draft periods
+          // Allow deletion for non-paid periods that are still draft/calculated.
           const period = await this.getById(id);
-          if (!period || period.status !== 'draft') {
+          if (!period || !['draft', 'calculated'].includes(period.status)) {
                return false;
           }
 
@@ -459,7 +461,7 @@ export class PayrollPeriodRepository {
 
           const transactionCount = Number((periodTransactions as any)?.[0]?.total || 0);
           if (transactionCount > 0) {
-               return false;
+               await connection('payroll_transactions').where({ payroll_period_id: id }).delete();
           }
 
           const affectedRows = await connection('payroll_periods')

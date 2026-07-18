@@ -1,5 +1,6 @@
 import { PayrollPeriodRepository, IPayrollPeriod } from '../../models/payroll/PayrollPeriodRepository';
 import { PayrollTransactionRepository, IPayrollTransaction } from '../../models/payroll/PayrollTransactionRepository';
+import { OtherDeductionRepository } from '../../models/payroll/DeductionRepository';
 import { PayrollCalculationService, IPayrollCalculationInput } from './PayrollCalculationService';
 import KnexConnection from '../../database/KnexConnections';
 import AutomatedExpenseLifecycle from '../../models/Expenses/AutomatedExpenseLifecycle';
@@ -55,7 +56,7 @@ export class PayrollProcessingService {
                throw new Error(`Payroll period ${payroll_period_id} not found`);
           }
 
-          if (period.status !== 'draft') {
+          if (!['draft', 'calculated'].includes(period.status)) {
                throw new Error(`Cannot process payroll period with status ${period.status}`);
           }
 
@@ -147,6 +148,7 @@ export class PayrollProcessingService {
           return connection.transaction(async (trx) => {
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
+               const trxDeductionRepo = new OtherDeductionRepository(this.tenantId, trx);
 
                const period = await trxPeriodRepo.getById(payroll_period_id);
 
@@ -208,6 +210,7 @@ export class PayrollProcessingService {
           return connection.transaction(async (trx) => {
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
+               const trxDeductionRepo = new OtherDeductionRepository(this.tenantId, trx);
 
                const period = await trxPeriodRepo.getById(payroll_period_id);
 
@@ -229,6 +232,33 @@ export class PayrollProcessingService {
                          payment_method,
                          reference
                     );
+
+                    const deductionDetails = Array.isArray(transaction.other_deductions_detail)
+                         ? transaction.other_deductions_detail
+                         : [];
+
+                    for (const deduction of deductionDetails) {
+                         if (!deduction || !deduction.id) {
+                              continue;
+                         }
+
+                         if (deduction.type === 'income_tax') {
+                              continue;
+                         }
+
+                         const appliedAmount = Number(deduction.amount) || 0;
+                         if (appliedAmount <= 0) {
+                              continue;
+                         }
+
+                         await trxDeductionRepo.applyPaymentToDeduction(
+                              Number(deduction.id),
+                              appliedAmount,
+                              payroll_period_id,
+                              transaction.id!,
+                              `Payroll payment for period ${payroll_period_id}`
+                         );
+                    }
                }
 
                await trxPeriodRepo.markAsPaid(payroll_period_id);
@@ -266,7 +296,8 @@ export class PayrollProcessingService {
 
      async revertPayrollPeriodStatus(
           payroll_period_id: number,
-          targetStatus: 'draft' | 'calculated' | 'approved'
+          targetStatus: 'draft' | 'calculated' | 'approved',
+          clearProcessingRecords: boolean = false
      ): Promise<boolean> {
           const connection = await KnexConnection(this.tenantId);
 
@@ -298,6 +329,11 @@ export class PayrollProcessingService {
 
                if (statusOrder[targetStatus] > statusOrder[period.status as 'draft' | 'calculated' | 'approved' | 'locked']) {
                     throw new Error(`Cannot move payroll period forward to ${targetStatus} using revert`);
+               }
+
+               if (targetStatus === 'draft' && clearProcessingRecords) {
+                    await trx('payroll_transactions').where({ payroll_period_id }).delete();
+                    await trxPeriodRepo.updateTotals(payroll_period_id, 0, 0, 0, 0);
                }
 
                const transactionStatus = targetStatus === 'approved' ? 'approved' : 'pending';

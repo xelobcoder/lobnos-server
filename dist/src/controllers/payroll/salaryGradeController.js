@@ -11,9 +11,6 @@ const createSalaryGradeHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
         const { grade_name, grade_level, role_name, min_salary, max_salary, description, currency, is_active } = req.body;
-        if (!tenantId) {
-            return (0, helper_1.customError)('Tenant ID is required', 400, res);
-        }
         const repo = new SalaryGradeRepository_1.SalaryGradeRepository(tenantId);
         const id = await repo.create({
             grade_name: grade_name || role_name,
@@ -24,7 +21,7 @@ const createSalaryGradeHandler = async (req, res) => {
             description,
             currency: currency || 'GHS',
             is_active: is_active !== undefined ? is_active : true,
-            created_by: (_a = req.user) === null || _a === void 0 ? void 0 : _a.id // Assuming user info is available
+            created_by: (_a = req.user) === null || _a === void 0 ? void 0 : _a.id
         });
         res.json({
             status: 'success',
@@ -34,6 +31,9 @@ const createSalaryGradeHandler = async (req, res) => {
         });
     }
     catch (error) {
+        if (error && error instanceof Error && error.message) {
+            return (0, helper_1.customError)(error.message, 500, res);
+        }
         return (0, helper_1.customError)('Failed to create salary grade', 500, res);
     }
 };

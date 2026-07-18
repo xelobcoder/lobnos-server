@@ -21,6 +21,10 @@ const createCompensationHandler = async (req, res) => {
         });
     }
     catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message) {
+            return (0, helper_1.customError)(message, 400, res);
+        }
         utility_1.PrimeSqlErrorHandler.handleError(error, res);
     }
 };
@@ -80,19 +84,17 @@ exports.getCompensationByIdHandler = getCompensationByIdHandler;
 const getActiveCompensationHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const employeeid = parseInt(req.params.employeeid);
-        if (!tenantId || !employeeid) {
-            return (0, helper_1.customError)('Tenant ID and Employee ID are required', 400, res);
-        }
+        const employeeid = parseInt(req.query.employeeid);
         const repo = new CompensationRepository_1.CompensationRepository(tenantId);
-        const compensation = await repo.getActiveByEmployeeId(employeeid);
+        const compensation = employeeid && typeof employeeid === 'number' ? await repo.getActiveByEmployeeId(employeeid) : await repo.getAllActive();
         if (!compensation) {
             return (0, helper_1.customError)('No active compensation found for employee', 404, res);
         }
+        const result = Array.isArray(compensation) ? compensation : [compensation];
         res.json({
             status: 'success',
             statusCode: 200,
-            result: compensation
+            result
         });
     }
     catch (error) {
@@ -123,8 +125,8 @@ const updateCompensationHandler = async (req, res) => {
         });
     }
     catch (error) {
-        console.log(error);
-        (0, helper_1.customError)('Failed to update compensation record', 500, res);
+        const message = error instanceof Error ? error.message : String(error);
+        return (0, helper_1.customError)(message || 'Failed to update compensation record', 400, res);
     }
 };
 exports.updateCompensationHandler = updateCompensationHandler;

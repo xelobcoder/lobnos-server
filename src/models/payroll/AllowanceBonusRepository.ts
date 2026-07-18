@@ -6,7 +6,8 @@ export interface IAllowance {
      id?: number;
      employeeid: number;
      allowance_type: 'housing' | 'transport' | 'meal' | 'medical' | 'education' |
-     'uniform' | 'mobile' | 'hazard' | 'shift_allowance' | 'professional_development';
+     'uniform' | 'mobile' | 'hazard' | 'shift_allowance' | 'professional_development' |
+     'internet' | 'utility' | 'fuel' | 'risk' | 'hardship' | 'acting' | 'responsibility' | 'entertainment' | 'other';
      amount: number;
      calculation_method: 'fixed' | 'percentage_of_basic' | 'variable';
      percentage?: number;
@@ -40,15 +41,35 @@ export interface IBonus {
 // Zod validation schemas
 const allowanceSchema = z.object({
      employeeid: z.number().positive('Employee ID must be a positive number'),
-     allowance_type: z.enum(['housing', 'transport', 'meal', 'medical', 'education', 'uniform', 'mobile', 'hazard', 'shift_allowance', 'professional_development']),
+     allowance_type: z.enum([
+          'housing',
+          'transport',
+          'meal',
+          'medical',
+          'education',
+          'uniform',
+          'mobile',
+          'hazard',
+          'shift_allowance',
+          'professional_development',
+          'internet',
+          'utility',
+          'fuel',
+          'risk',
+          'hardship',
+          'acting',
+          'responsibility',
+          'entertainment',
+          'other'
+     ]),
      amount: z.number().positive('Amount must be greater than zero'),
      calculation_method: z.enum(['fixed', 'percentage_of_basic', 'variable']),
-     percentage: z.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100%').optional(),
+     percentage: z.preprocess((val) => val === null ? undefined : val, z.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100%').optional()),
      is_recurring: z.boolean(),
      frequency: z.enum(['monthly', 'quarterly', 'annually', 'one-time']),
      is_taxable: z.boolean(),
      effective_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Effective from date must be in YYYY-MM-DD format'),
-     effective_to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Effective to date must be in YYYY-MM-DD format').optional(),
+     effective_to: z.preprocess((val) => val === null ? undefined : val, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Effective to date must be in YYYY-MM-DD format').optional()),
      is_active: z.boolean(),
      approved_by: z.number().positive('Approved by must be a positive number').optional()
 }).refine((data) => {
@@ -139,6 +160,15 @@ export class AllowanceRepository {
           return KnexConnection(this.tenantId);
      }
 
+     private normalizeDateInput(value: string): string {
+          if (!value) {
+               return value;
+          }
+
+          const normalized = String(value);
+          return normalized.includes('T') ? normalized.split('T')[0] : normalized;
+     }
+
      async create(allowance: IAllowance): Promise<number> {
           // Validate data using Zod schema
           allowanceSchema.parse(allowance);
@@ -179,12 +209,14 @@ export class AllowanceRepository {
           periodEndDate: string
      ): Promise<IAllowance[]> {
           const connection = await this.connection;
+          const normalizedStart = this.normalizeDateInput(periodStartDate);
+          const normalizedEnd = this.normalizeDateInput(periodEndDate);
 
           return connection('payroll_employee_allowances')
                .where({ employeeid, is_active: true })
-               .where('effective_from', '<=', periodEndDate)
+               .whereRaw('DATE(effective_from) <= DATE(?)', [normalizedEnd])
                .where((builder) => {
-                    builder.whereNull('effective_to').orWhere('effective_to', '>=', periodStartDate);
+                    builder.whereNull('effective_to').orWhereRaw('DATE(effective_to) >= DATE(?)', [normalizedStart]);
                })
                .orderBy('allowance_type');
      }

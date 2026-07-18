@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as compensationController from './compensationController';
 import * as bonusController from './bonusController';
+import * as allowanceController from './allowanceController';
 import * as payrollController from './payrollController';
 import * as salaryGradeController from './salaryGradeController';
 import * as attendanceController from './attendanceController';
@@ -13,6 +14,14 @@ import * as payrollAnalyticsController from './PayrollAnalyticsController';
 
 const payrollRouter = Router();
 payrollRouter.post('/compensation', compensationController.createCompensationHandler);
+payrollRouter.post('/allowances', allowanceController.createAllowanceHandler);
+payrollRouter.get('/allowances', allowanceController.getAllActiveAllowancesHandler);
+payrollRouter.get('/allowances/types', allowanceController.getAllowanceTypesHandler);
+payrollRouter.get('/allowances/employee/:employeeid', allowanceController.getAllowancesByEmployeeHandler);
+payrollRouter.get('/allowances/employee/:employeeid/active', allowanceController.getActiveAllowancesByEmployeeHandler);
+payrollRouter.get('/allowances/:id', allowanceController.getAllowanceByIdHandler);
+payrollRouter.put('/allowances/:id', allowanceController.updateAllowanceHandler);
+payrollRouter.delete('/allowances/:id', allowanceController.deactivateAllowanceHandler);
 payrollRouter.post('/bonuses', bonusController.createBonusHandler);
 payrollRouter.get('/bonuses/employee/:employeeid', bonusController.getBonusesByEmployeeHandler);
 payrollRouter.get('/bonuses/:id', bonusController.getBonusByIdHandler);
@@ -22,6 +31,7 @@ payrollRouter.get('/compensation/employee/:employeeid', compensationController.g
 payrollRouter.get('/compensation/employee/:employeeid/active', compensationController.getActiveCompensationHandler);
 payrollRouter.get('/compensation', compensationController.getAllActiveCompensationsHandler);
 payrollRouter.get('/compensation/:id', compensationController.getCompensationByIdHandler);
+payrollRouter.get('/compensation/payroll/active', compensationController.getActiveCompensationHandler);
 payrollRouter.put('/compensation/:id', compensationController.updateCompensationHandler);
 payrollRouter.post('/compensation/employee/:employeeid/history', compensationController.createCompensationWithHistoryHandler);
 payrollRouter.delete('/compensation/:id', compensationController.deactivateCompensationHandler);
@@ -91,6 +101,7 @@ payrollRouter.post('/deductions/other', deductionController.createOtherDeduction
 payrollRouter.get('/deductions/other', deductionController.getAllOtherDeductionsHandler);
 payrollRouter.get('/deductions/other/employee/:employeeid', deductionController.getOtherDeductionsByEmployeeHandler);
 payrollRouter.get('/deductions/other/:id', deductionController.getOtherDeductionByIdHandler);
+payrollRouter.get('/deductions/other/:id/ledger', deductionController.getOtherDeductionLedgerHandler);
 payrollRouter.put('/deductions/other/:id', deductionController.updateOtherDeductionHandler);
 payrollRouter.delete('/deductions/other/:id', deductionController.deactivateOtherDeductionHandler);
 payrollRouter.get('/deductions/other/:id/deactivate', deductionController.deactivateOtherDeductionHandler);
@@ -145,6 +156,16 @@ payrollRouter.get('/routes', (req, res) => {
           { method: 'PUT', path: '/api/v1/payroll/compensation/:id', description: 'Update compensation' },
           { method: 'POST', path: '/api/v1/payroll/compensation/employee/:employeeid/history', description: 'Create compensation with history' },
           { method: 'DELETE', path: '/api/v1/payroll/compensation/:id', description: 'Deactivate compensation' },
+
+          // Allowance endpoints
+          { method: 'POST', path: '/api/v1/payroll/allowances', description: 'Create allowance record' },
+          { method: 'GET', path: '/api/v1/payroll/allowances', description: 'Get all active allowances' },
+          { method: 'GET', path: '/api/v1/payroll/allowances/types', description: 'Get supported allowance types' },
+          { method: 'GET', path: '/api/v1/payroll/allowances/employee/:employeeid', description: 'Get allowance history for employee' },
+          { method: 'GET', path: '/api/v1/payroll/allowances/employee/:employeeid/active', description: 'Get active allowances for employee' },
+          { method: 'GET', path: '/api/v1/payroll/allowances/:id', description: 'Get allowance by ID' },
+          { method: 'PUT', path: '/api/v1/payroll/allowances/:id', description: 'Update allowance record' },
+          { method: 'DELETE', path: '/api/v1/payroll/allowances/:id', description: 'Deactivate allowance record' },
 
           // Salary grade endpoints
           { method: 'POST', path: '/api/v1/payroll/salary-grades', description: 'Create salary grade' },
@@ -209,6 +230,7 @@ payrollRouter.get('/routes', (req, res) => {
           { method: 'GET', path: '/api/v1/payroll/other-deductions', description: 'Get employee deductions (use ?activeOnly=false for all)' },
           { method: 'GET', path: '/api/v1/payroll/other-deductions/employee/:employeeid', description: 'Get all deductions for an employee' },
           { method: 'GET', path: '/api/v1/payroll/other-deductions/:id', description: 'Get other deduction by ID' },
+          { method: 'GET', path: '/api/v1/payroll/deductions/other/:id/ledger', description: 'Get repayment ledger for an employee deduction' },
           { method: 'PUT', path: '/api/v1/payroll/other-deductions/:id', description: 'Update other deduction' },
           { method: 'DELETE', path: '/api/v1/payroll/other-deductions/:id', description: 'Deactivate other deduction' },
           { method: 'POST', path: '/api/v1/payroll/other-deductions/:id/approve', description: 'Approve other deduction' },

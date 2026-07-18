@@ -21,6 +21,10 @@ export const createCompensationHandler = async (req: Request, res: Response) => 
                result: { id }
           });
      } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          if (message) {
+               return customError(message, 400, res);
+          }
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
@@ -85,23 +89,23 @@ export const getCompensationByIdHandler = async (req: Request, res: Response) =>
 export const getActiveCompensationHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.query.employeeid as string);
 
-          if (!tenantId || !employeeid) {
-               return customError('Tenant ID and Employee ID are required', 400, res);
-          }
+
 
           const repo = new CompensationRepository(tenantId);
-          const compensation = await repo.getActiveByEmployeeId(employeeid);
+          const compensation = employeeid && typeof employeeid === 'number' ? await repo.getActiveByEmployeeId(employeeid) : await repo.getAllActive();
 
           if (!compensation) {
                return customError('No active compensation found for employee', 404, res);
           }
 
+          const result = Array.isArray(compensation) ? compensation : [compensation];
+
           res.json({
                status: 'success',
                statusCode: 200,
-               result: compensation
+               result
           });
      } catch (error) {
           PrimeSqlErrorHandler.handleError(error, res);
@@ -135,8 +139,8 @@ export const updateCompensationHandler = async (req: Request, res: Response) => 
                message: 'Compensation record updated successfully'
           });
      } catch (error) {
-          console.log(error);
-          customError('Failed to update compensation record', 500, res);
+          const message = error instanceof Error ? error.message : String(error);
+          return customError(message || 'Failed to update compensation record', 400, res);
      }
 };
 

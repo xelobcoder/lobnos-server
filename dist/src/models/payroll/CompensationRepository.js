@@ -88,9 +88,31 @@ class CompensationRepository {
     get connection() {
         return (0, KnexConnections_1.default)(this.tenantId);
     }
+    async validateSalaryWithinGrade(compensation) {
+        if (!compensation.salary_grade_id || compensation.basic_salary === undefined || compensation.basic_salary === null) {
+            return;
+        }
+        const connection = await this.connection;
+        const grade = await connection('payroll_salary_grades')
+            .where({ id: compensation.salary_grade_id })
+            .first();
+        if (!grade) {
+            throw new Error(`Salary grade ${compensation.salary_grade_id} not found`);
+        }
+        const basicSalary = Number(compensation.basic_salary);
+        const minSalary = grade.min_salary !== null && grade.min_salary !== undefined ? Number(grade.min_salary) : undefined;
+        const maxSalary = grade.max_salary !== null && grade.max_salary !== undefined ? Number(grade.max_salary) : undefined;
+        if (minSalary !== undefined && basicSalary < minSalary) {
+            throw new Error(`Basic salary ${basicSalary} is below grade minimum ${minSalary}`);
+        }
+        if (maxSalary !== undefined && basicSalary > maxSalary) {
+            throw new Error(`Basic salary ${basicSalary} is above grade maximum ${maxSalary}`);
+        }
+    }
     async create(compensation) {
         // Validate data using Zod schema
         compensationSchema.parse(compensation);
+        await this.validateSalaryWithinGrade(compensation);
         const connection = await this.connection;
         const [id] = await connection('payroll_employee_compensation').insert(compensation);
         return id;
@@ -130,6 +152,7 @@ class CompensationRepository {
         const completeCompensation = Object.assign(Object.assign({}, existing), compensation);
         // Validate complete data using Zod schema
         compensationSchema.parse(completeCompensation);
+        await this.validateSalaryWithinGrade(completeCompensation);
         const connection = await this.connection;
         const affectedRows = await connection('payroll_employee_compensation')
             .where({ id })
@@ -159,6 +182,8 @@ class CompensationRepository {
         const connection = await this.connection;
         const today = new Date().toISOString().split('T')[0];
         return connection('payroll_employee_compensation')
+            .leftJoin("roles", "payroll_employee_compensation.employeeid", "roles.employeeid")
+            .select("payroll_employee_compensation.*", "roles.username as employee_name")
             .where({ is_active: true })
             .where('effective_from', '<=', today)
             .where((builder) => {
@@ -193,6 +218,7 @@ class CompensationRepository {
         }
         // Validate new compensation data
         compensationSchema.parse(newCompensation);
+        await this.validateSalaryWithinGrade(newCompensation);
         const connection = await this.connection;
         return connection.transaction(async (trx) => {
             // End current active compensation

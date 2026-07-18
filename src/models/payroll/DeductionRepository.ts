@@ -23,6 +23,20 @@ export interface IOtherDeduction {
      attachments?: string;
 }
 
+export interface IOtherDeductionLedgerEntry {
+     id?: number;
+     deduction_id: number;
+     payroll_period_id: number;
+     payroll_transaction_id?: number;
+     employeeid: number;
+     payment_amount: number;
+     balance_before: number;
+     balance_after: number;
+     entry_type: 'payroll_payment' | 'manual_adjustment' | 'reversal';
+     notes?: string;
+     created_at?: string;
+}
+
 const otherDeductionSchema = z.object({
      employeeid: z.number().positive('Employee ID must be a positive number'),
      deduction_definition_id: z.preprocess((val) => val === null ? undefined : val, z.number().positive('Deduction definition ID must be a positive number').optional()),
@@ -73,10 +87,47 @@ const otherDeductionSchema = z.object({
 });
 
 export class OtherDeductionRepository {
-     constructor(private tenantId: number) { }
+     constructor(private tenantId: number, private trx?: Knex.Transaction) { }
 
      private get connection(): Promise<Knex> {
-          return KnexConnection(this.tenantId);
+          return this.trx ? Promise.resolve(this.trx) : KnexConnection(this.tenantId);
+     }
+
+     private async hasLedgerEntries(id: number): Promise<boolean> {
+          const connection = await this.connection;
+          const ledgerExists = await connection.schema.hasTable('payroll_employee_other_deduction_ledger');
+          if (!ledgerExists) return false;
+
+          const result = await connection('payroll_employee_other_deduction_ledger')
+               .where({ deduction_id: id })
+               .count<{ count: number }[]>({ count: '*' })
+               .first();
+
+          return Number(result?.count || 0) > 0;
+     }
+
+     async getLedgerByDeductionId(id: number): Promise<IOtherDeductionLedgerEntry[]> {
+          const connection = await this.connection;
+          const ledgerExists = await connection.schema.hasTable('payroll_employee_other_deduction_ledger');
+          if (!ledgerExists) return [];
+
+          const rows = await connection('payroll_employee_other_deduction_ledger')
+               .where({ deduction_id: id })
+               .orderBy('created_at', 'asc');
+
+          return rows.map((row: any) => ({
+               id: row.id ? Number(row.id) : undefined,
+               deduction_id: Number(row.deduction_id),
+               payroll_period_id: Number(row.payroll_period_id),
+               payroll_transaction_id: row.payroll_transaction_id ? Number(row.payroll_transaction_id) : undefined,
+               employeeid: Number(row.employeeid),
+               payment_amount: Number(row.payment_amount) || 0,
+               balance_before: Number(row.balance_before) || 0,
+               balance_after: Number(row.balance_after) || 0,
+               entry_type: row.entry_type,
+               notes: row.notes || undefined,
+               created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at || undefined
+          }));
      }
 
      async create(deduction: IOtherDeduction): Promise<number> {
@@ -153,6 +204,16 @@ export class OtherDeductionRepository {
                throw new Error('Other deduction record not found');
           }
 
+          const hasLedgerEntries = await this.hasLedgerEntries(id);
+          if (hasLedgerEntries) {
+               const protectedFields: Array<keyof IOtherDeduction> = ['amount', 'total_amount', 'remaining_balance'];
+               const hasProtectedChange = protectedFields.some((field) => deduction[field] !== undefined && deduction[field] !== (existing as any)[field]);
+
+               if (hasProtectedChange) {
+                    throw new Error('This deduction already has repayment history. Balance-related fields cannot be edited directly. Use a ledger adjustment instead.');
+               }
+          }
+
           // Merge with existing data for complete validation
           const completeDeduction = { ...existing, ...deduction };
 
@@ -193,7 +254,11 @@ export class OtherDeductionRepository {
                const deduction = await trx('payroll_employee_other_deductions').where({ id }).first();
                if (!deduction) return false;
 
-               const newBalance = (deduction.remaining_balance || 0) - payment_amount;
+               const currentBalance = Number(deduction.remaining_balance ?? deduction.total_amount ?? deduction.amount ?? 0);
+               const appliedAmount = Math.min(currentBalance, payment_amount);
+               if (appliedAmount <= 0) return false;
+
+               const newBalance = currentBalance - appliedAmount;
 
                const updateData: any = {
                     remaining_balance: newBalance,
@@ -209,6 +274,79 @@ export class OtherDeductionRepository {
                await trx('payroll_employee_other_deductions')
                     .where({ id })
                     .update(updateData);
+
+               const ledgerExists = await trx.schema.hasTable('payroll_employee_other_deduction_ledger');
+               if (ledgerExists) {
+                    await trx('payroll_employee_other_deduction_ledger').insert({
+                         deduction_id: id,
+                         payroll_period_id: 0,
+                         payroll_transaction_id: null,
+                         employeeid: Number(deduction.employeeid),
+                         payment_amount: appliedAmount,
+                         balance_before: currentBalance,
+                         balance_after: newBalance,
+                         entry_type: 'manual_adjustment',
+                         notes: 'Manual balance update',
+                         created_at: trx.fn.now(),
+                         updated_at: trx.fn.now()
+                    });
+               }
+
+               return true;
+          });
+     }
+
+     async applyPaymentToDeduction(
+          deductionId: number,
+          paymentAmount: number,
+          payrollPeriodId: number,
+          payrollTransactionId: number,
+          notes?: string
+     ): Promise<boolean> {
+          if (!deductionId || typeof deductionId !== 'number' || deductionId <= 0) {
+               throw new Error('Valid deduction ID is required');
+          }
+
+          if (!paymentAmount || typeof paymentAmount !== 'number' || paymentAmount <= 0) {
+               throw new Error('Payment amount must be a positive number');
+          }
+
+          const connection = await this.connection;
+
+          return connection.transaction(async (trx) => {
+               const deduction = await trx('payroll_employee_other_deductions').where({ id: deductionId }).first();
+               if (!deduction) return false;
+
+               const currentBalance = Number(deduction.remaining_balance ?? deduction.total_amount ?? deduction.amount ?? 0);
+               const appliedAmount = Math.min(currentBalance, paymentAmount);
+               if (appliedAmount <= 0) return false;
+
+               const newBalance = Math.max(0, currentBalance - appliedAmount);
+
+               await trx('payroll_employee_other_deductions')
+                    .where({ id: deductionId })
+                    .update({
+                         remaining_balance: newBalance,
+                         is_active: newBalance > 0,
+                         updated_at: trx.fn.now()
+                    });
+
+               const ledgerExists = await trx.schema.hasTable('payroll_employee_other_deduction_ledger');
+               if (ledgerExists) {
+                    await trx('payroll_employee_other_deduction_ledger').insert({
+                         deduction_id: deductionId,
+                         payroll_period_id: payrollPeriodId,
+                         payroll_transaction_id: payrollTransactionId,
+                         employeeid: Number(deduction.employeeid),
+                         payment_amount: appliedAmount,
+                         balance_before: currentBalance,
+                         balance_after: newBalance,
+                         entry_type: 'payroll_payment',
+                         notes: notes || null,
+                         created_at: trx.fn.now(),
+                         updated_at: trx.fn.now()
+                    });
+               }
 
                return true;
           });

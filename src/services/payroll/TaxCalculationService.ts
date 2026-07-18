@@ -11,6 +11,15 @@ export interface ITaxCalculationResult {
 	taxable_income: number;
 	income_tax: number;
 	effective_tax_rate: number;
+	tax_relief_total: number;
+	tax_relief_details: {
+		id?: number;
+		relief_name: string;
+		calculation_method: 'fixed' | 'per_dependent' | 'percentage_of_gross';
+		amount: number;
+		relief_amount: number;
+		requires_disability: boolean;
+	}[];
 	tax_breakdown: {
 		band: string;
 		amount: number;
@@ -145,6 +154,15 @@ export class TaxCalculationService {
 			taxable_income: taxableIncome,
 			income_tax: Math.round(totalTax * 100) / 100,
 			effective_tax_rate: Math.round(effectiveTaxRate * 100) / 100,
+			tax_relief_total: this.roundCurrency(totalReliefs),
+			tax_relief_details: configuredReliefs.details.map((item) => ({
+				id: item.relief.id,
+				relief_name: item.relief.relief_name,
+				calculation_method: item.relief.calculation_method,
+				amount: this.roundCurrency(item.relief.amount),
+				relief_amount: this.roundCurrency(item.amount),
+				requires_disability: Boolean(item.relief.requires_disability)
+			})),
 			tax_breakdown: taxBreakdown
 		};
 	}

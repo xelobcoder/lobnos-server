@@ -19,6 +19,9 @@ export interface IPayrollTransaction {
      total_deductions: number;
      employeename?: string;
      employeerole?: string;
+     salary_grade_id?: number;
+     salary_grade?: string;
+     tax_relief?: number;
      net_salary: number;
      employer_cost: number;
      days_worked: number;
@@ -102,6 +105,10 @@ export class PayrollTransactionRepository {
           const parsedOtherDeductions = this.parseJsonDetail(transaction.other_deductions_detail);
           const normalizedOtherDeductions = Array.isArray(parsedOtherDeductions) ? parsedOtherDeductions : [];
           const incomeTaxValue = Number(transaction.income_tax) || 0;
+          const taxDetail = normalizedOtherDeductions.find((item: any) =>
+               item && (item.type === 'income_tax' || item.name === 'Income Tax')
+          );
+          const taxReliefTotal = Number(taxDetail?.tax_relief_total) || 0;
           const hasIncomeTaxItem = normalizedOtherDeductions.some((item: any) =>
                item && (item.type === 'income_tax' || item.name === 'Income Tax')
           );
@@ -138,6 +145,9 @@ export class PayrollTransactionRepository {
                days_leave: Number(transaction.days_leave) || 0,
                employeename: transaction.username || '',
                employeerole: transaction.role || '',
+               salary_grade_id: transaction.salary_grade_id ? Number(transaction.salary_grade_id) : undefined,
+               salary_grade: transaction.salary_grade || undefined,
+               tax_relief: Math.round(taxReliefTotal * 100) / 100,
                status: transaction.status,
                payment_date: transaction.payment_date ?
                     (transaction.payment_date instanceof Date ?
@@ -415,16 +425,36 @@ export class PayrollTransactionRepository {
           const total = await connection('payroll_transactions').count('id as count').where({ payroll_period_id });
           const totalPages = count ? Math.ceil(Number(total[0].count) / count) : 1;
 
+          const latestCompensationByEmployee = connection('payroll_employee_compensation as c1')
+               .join(
+                    connection('payroll_employee_compensation as c2')
+                         .select('employeeid')
+                         .max('effective_from as latest_effective_from')
+                         .where({ is_active: true })
+                         .groupBy('employeeid')
+                         .as('latest_comp'),
+                    function joinLatestComp() {
+                         this.on('c1.employeeid', '=', 'latest_comp.employeeid')
+                              .andOn('c1.effective_from', '=', 'latest_comp.latest_effective_from');
+                    }
+               )
+               .select('c1.employeeid', 'c1.salary_grade_id')
+               .as('comp');
+
           const query = connection('payroll_transactions as pt')
                .join('roles as r', 'pt.employeeid', 'r.employeeid')
                .leftJoin('branch as b', 'r.branch', 'b.branchid')
+               .leftJoin(latestCompensationByEmployee, 'pt.employeeid', 'comp.employeeid')
+               .leftJoin('payroll_salary_grades as sg', 'comp.salary_grade_id', 'sg.id')
                .where({ 'pt.payroll_period_id': payroll_period_id })
                .select(
                     'pt.*',
                     'r.username as employee_name',
                     'r.role as employee_role',
                     'r.email',
-                    'b.name as branch_name'
+                    'b.name as branch_name',
+                    'comp.salary_grade_id as salary_grade_id',
+                    'sg.grade_name as salary_grade'
                )
 
           if (count !== undefined && page !== undefined) {
@@ -445,7 +475,10 @@ export class PayrollTransactionRepository {
                          employee_name: row.employee_name || '',
                          employee_role: row.employee_role || '',
                          email: row.email || '',
-                         branch_name: row.branch_name || ''
+                         branch_name: row.branch_name || '',
+                         salary_grade_id: row.salary_grade_id ? Number(row.salary_grade_id) : undefined,
+                         salary_grade: row.salary_grade || null,
+                         tax_relief: parsed.tax_relief || 0
                     };
                }),
                total: Number(total[0].count),

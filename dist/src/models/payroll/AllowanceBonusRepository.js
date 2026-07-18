@@ -9,15 +9,35 @@ const zod_1 = require("zod");
 // Zod validation schemas
 const allowanceSchema = zod_1.z.object({
     employeeid: zod_1.z.number().positive('Employee ID must be a positive number'),
-    allowance_type: zod_1.z.enum(['housing', 'transport', 'meal', 'medical', 'education', 'uniform', 'mobile', 'hazard', 'shift_allowance', 'professional_development']),
+    allowance_type: zod_1.z.enum([
+        'housing',
+        'transport',
+        'meal',
+        'medical',
+        'education',
+        'uniform',
+        'mobile',
+        'hazard',
+        'shift_allowance',
+        'professional_development',
+        'internet',
+        'utility',
+        'fuel',
+        'risk',
+        'hardship',
+        'acting',
+        'responsibility',
+        'entertainment',
+        'other'
+    ]),
     amount: zod_1.z.number().positive('Amount must be greater than zero'),
     calculation_method: zod_1.z.enum(['fixed', 'percentage_of_basic', 'variable']),
-    percentage: zod_1.z.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100%').optional(),
+    percentage: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.number().min(0, 'Percentage cannot be negative').max(100, 'Percentage cannot exceed 100%').optional()),
     is_recurring: zod_1.z.boolean(),
     frequency: zod_1.z.enum(['monthly', 'quarterly', 'annually', 'one-time']),
     is_taxable: zod_1.z.boolean(),
     effective_from: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Effective from date must be in YYYY-MM-DD format'),
-    effective_to: zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Effective to date must be in YYYY-MM-DD format').optional(),
+    effective_to: zod_1.z.preprocess((val) => val === null ? undefined : val, zod_1.z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Effective to date must be in YYYY-MM-DD format').optional()),
     is_active: zod_1.z.boolean(),
     approved_by: zod_1.z.number().positive('Approved by must be a positive number').optional()
 }).refine((data) => {
@@ -102,6 +122,13 @@ class AllowanceRepository {
     get connection() {
         return (0, KnexConnections_1.default)(this.tenantId);
     }
+    normalizeDateInput(value) {
+        if (!value) {
+            return value;
+        }
+        const normalized = String(value);
+        return normalized.includes('T') ? normalized.split('T')[0] : normalized;
+    }
     async create(allowance) {
         // Validate data using Zod schema
         allowanceSchema.parse(allowance);
@@ -132,11 +159,13 @@ class AllowanceRepository {
     }
     async getApplicableByEmployeeId(employeeid, periodStartDate, periodEndDate) {
         const connection = await this.connection;
+        const normalizedStart = this.normalizeDateInput(periodStartDate);
+        const normalizedEnd = this.normalizeDateInput(periodEndDate);
         return connection('payroll_employee_allowances')
             .where({ employeeid, is_active: true })
-            .where('effective_from', '<=', periodEndDate)
+            .whereRaw('DATE(effective_from) <= DATE(?)', [normalizedEnd])
             .where((builder) => {
-            builder.whereNull('effective_to').orWhere('effective_to', '>=', periodStartDate);
+            builder.whereNull('effective_to').orWhereRaw('DATE(effective_to) >= DATE(?)', [normalizedStart]);
         })
             .orderBy('allowance_type');
     }

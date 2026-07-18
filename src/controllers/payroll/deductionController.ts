@@ -216,6 +216,28 @@ export const getOtherDeductionByIdHandler = async (req: Request, res: Response) 
      }
 };
 
+export const getOtherDeductionLedgerHandler = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const id = parseInt(req.params.id);
+
+          if (!tenantId || !id) {
+               return customError('Tenant ID and deduction ID are required', 400, res);
+          }
+
+          const repo = new OtherDeductionRepository(tenantId);
+          const ledger = await repo.getLedgerByDeductionId(id);
+
+          res.json({
+               status: 'success',
+               statusCode: 200,
+               result: ledger
+          });
+     } catch (error) {
+          PrimeSqlErrorHandler.handleError(error, res);
+     }
+};
+
 export const getOtherDeductionsByEmployeeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
