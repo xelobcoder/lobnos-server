@@ -925,7 +925,7 @@ export class SubmitCustomerBilling {
                             : outcome?.serviceid;
 
                 if (serviceid && typeof serviceid === "number") {
-                    await applyDboservicesAfterInsert(queryRunner, {
+                    await applyDboservicesAfterInsert(tenantId, queryRunner, {
                         serviceid,
                         billingid,
                         trackId,

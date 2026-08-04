@@ -6,7 +6,7 @@ import {
 	BillingStrategyPrice,
 	BillingStrategyCondition,
 	EntityType,
-} from "./types/BillingStrategyTypes";
+} from "../billing-strategy/types/BillingStrategyTypes";
 
 export default class BillingStrategyRepository {
 	private connection;
@@ -38,7 +38,7 @@ export default class BillingStrategyRepository {
 		}
 		try {
 			await conn(this.billingStrategiesTable).where("id", id).update(data);
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to update strategy: ${error.message}`);
 		}
 	}
@@ -57,7 +57,7 @@ export default class BillingStrategyRepository {
 		try {
 			const [id] = await conn(this.billingStrategiesTable).insert(data).returning("id");
 			return id;
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to create strategy: ${error.message}`);
 		}
 	}
@@ -81,7 +81,7 @@ export default class BillingStrategyRepository {
 		try {
 			const [id] = await conn(this.strategyAssignmentsTable).insert(data).returning("id");
 			return id;
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to assign strategy: ${error.message}`);
 		}
 	}
@@ -101,7 +101,7 @@ export default class BillingStrategyRepository {
 		try {
 			const [id] = await conn(this.strategyPricesTable).insert(data).returning("id");
 			return id;
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to add price: ${error.message}`);
 		}
 	}
@@ -129,7 +129,7 @@ export default class BillingStrategyRepository {
 		try {
 			const [id] = await conn(this.strategyConditionsTable).insert(data).returning("id");
 			return id;
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to add condition: ${error.message}`);
 		}
 	}
@@ -151,7 +151,7 @@ export default class BillingStrategyRepository {
 					builder.whereNull("a.applies_to").orWhere("a.applies_to", ">=", conn.fn.now())
 				)
 				.orderBy('bs.priority', 'desc'); // Added priority sorting
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to fetch active strategies: ${error.message}`);
 		}
 	}
@@ -160,7 +160,7 @@ export default class BillingStrategyRepository {
 		const conn = await this.connection;
 		try {
 			return await conn(this.billingStrategiesTable).select("*").orderBy('priority', 'desc');
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to fetch all strategies: ${error.message}`);
 		}
 	}
@@ -169,7 +169,7 @@ export default class BillingStrategyRepository {
 		const conn = await this.connection;
 		try {
 			return await conn(this.strategyPricesTable).where("billing_strategy_id", strategyId);
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to fetch prices: ${error.message}`);
 		}
 	}
@@ -178,7 +178,7 @@ export default class BillingStrategyRepository {
 		const conn = await this.connection;
 		try {
 			return await conn(this.strategyConditionsTable).where("billing_strategy_id", strategyId);
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to fetch conditions: ${error.message}`);
 		}
 	}
@@ -192,7 +192,7 @@ export default class BillingStrategyRepository {
 				.andWhere('trackId', trackId)
 				.andWhere('billing_strategy_id', billing_strategy_id);
 			return result[0];
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to fetch strategy assignments: ${error.message}`);
 		}
 	}
@@ -219,7 +219,7 @@ export default class BillingStrategyRepository {
 				.where('id', promo.id)
 				.increment('times_used', 1);
 			return Number(Math.max(0, finalPrice).toFixed(2));
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to apply promo code: ${error.message}`);
 		}
 	}
@@ -251,7 +251,6 @@ export default class BillingStrategyRepository {
 		let appliedPriceId: number | null = null;
 		let appliedPromoId: number | null = null;
 
-		// Apply promo code if provided
 		if (promoCode) {
 			finalPrice = await this.applyPromoCode(promoCode, basePrice);
 			const promo = await (await this.connection)(this.promoCodesTable).where('code', promoCode).first();
@@ -278,7 +277,7 @@ export default class BillingStrategyRepository {
 					}
 					case "day_of_week": {
 						if (!cond.condition_value) return false;
-						const currentDay = now.weekday % 7; // 0 (Sunday) to 6 (Saturday)
+						const currentDay = now.weekday % 7; 
 						try {
 							return cond.condition_value.split(",").includes(currentDay.toString());
 						} catch {
@@ -290,7 +289,6 @@ export default class BillingStrategyRepository {
 						return now.toJSDate() >= cond.start_datetime && now.toJSDate() <= cond.end_datetime;
 					}
 					case "custom":
-						// Placeholder: Implement custom logic here
 						return true;
 					default:
 						return true;
@@ -305,7 +303,7 @@ export default class BillingStrategyRepository {
 			if (!price) continue;
 
 			appliedStrategyId = strategy.id;
-			appliedPriceId = price.id;
+			appliedPriceId = price.id as number;
 
 			if (price.price_type === "flat") {
 				finalPrice = price.amount;
@@ -332,7 +330,7 @@ export default class BillingStrategyRepository {
 				promo_code_id: appliedPromoId,
 				calculated_at: conn.fn.now(),
 			});
-		} catch (error) {
+		} catch (error:any) {
 			console.error(`Failed to log audit: ${error.message}`);
 		}
 
@@ -348,7 +346,7 @@ export default class BillingStrategyRepository {
 			}
 			const existing = await query.first();
 			return !!existing;
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to check duplicate strategy: ${error.message}`);
 		}
 	}
@@ -370,7 +368,7 @@ export default class BillingStrategyRepository {
 				.first();
 
 			return !!overlapping;
-		} catch (error) {
+		} catch (error:any) {
 			throw new Error(`Failed to check assignment overlap: ${error.message}`);
 		}
 	}

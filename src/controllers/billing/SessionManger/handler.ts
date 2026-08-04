@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { SalesSessionRepo } from "../../../models/billing/repositories/SalesSessionRepo";
 import { customError, responseError } from "../../../hooks/helper";
 import { OperationsFailures } from "../../../models/operations/types";
-import SalesSessionServices from "../../../models/billing/repositories/salesSessionService";
+import SalesSessionServices from "../../../models/billing/billing-services/salesSessionService";
 import { parse } from "node:path";
 
 

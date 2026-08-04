@@ -7,6 +7,9 @@ const moment_1 = __importDefault(require("moment"));
 const helper_1 = require("../../hooks/helper");
 const queries_1 = require("./queries");
 class TestAscensionTurnAroundTime {
+    constructor(ascensionid) {
+        this.ascensionid = ascensionid;
+    }
     static async computeAndArchiveAllTATs(tenantId) {
         const ascensionRows = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_ascension_ids_for_tat_archive);
         if (!ascensionRows || ascensionRows.length === 0)
@@ -43,9 +46,6 @@ class TestAscensionTurnAroundTime {
         ];
         await (0, helper_1.promisifyQuery)(tenantId, upsertSql, values);
         return tat;
-    }
-    constructor(ascensionid) {
-        this.ascensionid = ascensionid;
     }
     /** Static helper to calculate time difference and format it */
     static formatDuration(start, end) {

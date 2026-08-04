@@ -1,5 +1,6 @@
-import KnexConnection from '../../../database/KnexConnections';
-import { FreeServiceRequestStatus, FreeServiceRequest, FreeServiceRequestItem } from './types';
+import KnexConnection from "../../../database/KnexConnections";
+import { FreeServiceRequestStatus, FreeServiceRequest, FreeServiceRequestItem } from "../Interfaces/freeservices.interface";
+
 
 
 export class FreeServicesRepo {

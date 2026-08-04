@@ -1,10 +1,10 @@
 {
 	"editor.tabSize": 5,
 	"files.autoSave": "afterDelay",
-	"workbench.colorTheme": "Dark",
+	"workbench.colorTheme": "Visual Studio 2019 Dark",
 	"workbench.editor.pinnedTabSizing": "shrink",
 	"editor.fontSize": 13,
-	"editor.fontFamily": "JetBrains Mono, monospace",
+	"editor.fontFamily": "Cascadia Code, Consolas, Fira Code, JetBrains Mono, 'Courier New', monospace",
 	"editor.lineHeight": 22,
 	"workbench.sideBar.location": "left",
 	"terminal.integrated.splitCwd": "workspaceRoot",

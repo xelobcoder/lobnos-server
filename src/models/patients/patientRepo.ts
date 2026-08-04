@@ -10,6 +10,7 @@ import { UpdateCredentialsRequest } from './types';
 import { IPatient } from "./PtInterface";
 import { PrimeLimsTablepatients_credentials } from "../../database/DatabaseTableSchema";
 import PatientImageRepository from "../../repositories/patientRepositories/PatientImageRepository";
+import KnexConnection from "../../database/KnexConnections";
 
 class Patient extends Registration implements IPatient {
 	constructor(patientid: number) {
@@ -18,9 +19,20 @@ class Patient extends Registration implements IPatient {
 
 	private runqueryPromise = promisifyQuery;
 
-	async getTransactionsByDate(tenantId: number, patientid: number, to?: string, from?: string): Promise<any> {
 
-		if (await Registration.checkPatientIdExist(tenantId, patientid)) {
+	public static async checkNumberBelongsToPatient(tenantId: number, patientid: number, mobileno: number | string): Promise<boolean> {
+		const connection = await KnexConnection(tenantId);
+		const result = await connection("new_patients")
+			.where("patientid", patientid)
+			.andWhere("mobile_number", mobileno)
+			.first();
+		return result ? true : false;
+	}
+
+
+	async getTransactionsByDate(tenantId: number, patientid: number, to?: string, from?: string): Promise<any> {
+		const isPatientExists = await Registration.checkPatientIdExist(tenantId, patientid);
+		if (isPatientExists) {
 			let query = PatientQuery.getTransactionsByDate;
 			let values: [number] | [number, string, string] = [patientid];
 			if (from && to) {
@@ -33,48 +45,6 @@ class Patient extends Registration implements IPatient {
 		}
 	}
 
-	async updateCredentials(tenantId: number, data: UpdateCredentialsRequest): Promise<boolean> {
-		const { opassword, npassword, nppassword, patientid, employeeid, providedUsername } = data
-		const isUserAdmin = await new User().getExpectedRole(employeeid, 'admin', tenantId);
-		if (isUserAdmin) {
-			return await this.updatePatientPassWordCredential(providedUsername, npassword, tenantId, patientid);
-		}
-		let oldpassworldMatched = null;
-		const isValid = await Registration.checkPatientIdExist(tenantId, patientid);
-
-		const matched = nppassword === nppassword;
-
-		const db_old_password = await databaseQueries.getSingleId(tenantId,
-			patientid, "patients_credentials", "patientid");
-
-		let username = ''
-
-		if (Array.isArray(db_old_password) && db_old_password.length > 0) {
-			const { username: name, password, updated } = db_old_password[0];
-			username = name;
-			if (updated == "true") {
-				const compare = await bcrypt.compare(opassword, password);
-				oldpassworldMatched = compare;
-			} else {
-				oldpassworldMatched = opassword === password;
-			}
-		}
-
-		if (!isValid) {
-			throw new Error("Invalid membership id or username");
-		}
-		if (!matched) {
-			throw new Error("new password match error");
-		}
-
-		if (!oldpassworldMatched) {
-			throw new Error(`invalid old password credentials`);
-		}
-
-		if (isValid && matched && oldpassworldMatched) {
-			await this.updatePatientPassWordCredential(username, npassword, tenantId, patientid);
-		}
-	}
 
 	private async updatePatientPassWordCredential(username: string, npassword: string, tenantId: number, patientid: number): Promise<boolean> {
 		const hashedPassword = await new User(username, npassword, null, null, null).hashPassword();

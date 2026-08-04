@@ -1,71 +1,20 @@
-import ApplicationSettings from "../appsettings/appset"
-import { GET_RESULT_SETTINGS, INSERT_RESULT_SETTINGS, q_get_result_entry_settings, q_update_result_entry_settings, UPDATE_RESULT_SETTINGS } from "./queries";
-import { TestApprovalClass } from "../../operations/testApprovalClass";
-import { customError, promisifyQuery, responseError, rowAffected } from "../../../hooks/helper";
-import { HTTPSTATUSERRORS } from "../../../Errors/HTTPErrors";
-import { OperationsFailures } from "../../operations/types";
-import KnexConnection from "../../../database/KnexConnections";
-
-interface ResultEntrySettings {
-	resultLockAfter24Hours: number;
-	isPinOnResultEntry: number;
-	isPinOnResultViewAfter24Hours: number;
-	maximumResultValidation: number;
-	minimumResultValidation: number;
-	staffQualifiedToValidationResult: number[];
-	showPastTestResult: number;
-	allowScientistViewAudit: number;
-	showTaTAnalysis: number;
-	encryptResultAfter24Hours: number;
-	sendLoginEmailNotificationAfterResultEdit: number;
-	monitorForCriticalValues: number;
-	notifyClientOnResultReady: number;
-	notificationType: 'Email' | "SMS" | "WhatApp" | "Phone Call";
-}
+import KnexConnection from "../../../../database/KnexConnections";
+import { HTTPSTATUSERRORS } from "../../../../Errors/HTTPErrors";
+import { promisifyQuery, rowAffected, customError, responseError } from "../../../../hooks/helper";
+import { TestApprovalClass } from "../../../operations/testApprovalClass";
+import { OperationsFailures } from "../../../operations/types";
+import ApplicationSettings from "../appset";
+import { q_update_result_entry_settings, q_get_result_entry_settings, GET_RESULT_SETTINGS, INSERT_RESULT_SETTINGS, UPDATE_RESULT_SETTINGS } from "../queries";
+import { ResultEntrySettings, ApplicationResultSettings } from "../interfaces/results-settings.interface";
 
 
-export interface ApplicationResultSettings {
-	fontfamily: string;
-	testnameColor: string;
-	testnameBackgroundColor: string;
-	testnameFontSize: number;
-	mainReportHeaderBgColor: string;
-	testTableHeaderBackgroundColor: string;
-	comments: {
-		fontFamily: string;
-	},
-	testTableHeaderTextColor: string;
-	mainReportHeaderColor: string;
-	testTableHeaderFontSize: number;
-	companyInfo: {
-		namefontsize: number;
-		color: string;
-	};
-	testBody: {
-		fontSize: number;
-		fontFamily: string;
-		color: string;
-		highlightFlags: boolean;
-		hightFlagColor: string;
-		hasColorsForFlags: boolean;
-		lowFlagColor: string;
-		boldenParameter: boolean;
-		boldenValue: boolean;
-		boldenUnits: boolean;
-	};
-	includeSignature: boolean;
-	includeLimitations: boolean;
-	limitations: string;
-	showEndOfResult: boolean;
-	template: number;
-	includeBarcode?: boolean;
-}
+
+
 
 class ResultSettings extends ApplicationSettings {
 	constructor(id: number) {
 		super();
 	}
-
 
 	public static async updateResultEntrySettings(tenantId: number, resultEntrySettings: ResultEntrySettings): Promise<boolean> {
 		if (typeof resultEntrySettings != 'object') return false;

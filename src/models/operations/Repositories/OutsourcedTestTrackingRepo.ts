@@ -1,17 +1,6 @@
-import KnexConnection from "../../database/KnexConnections";
+import KnexConnection from "../../../database/KnexConnections";
+import { OutsourcedTestTracking } from "../../application/appsettings/interfaces/results-settings.interface";
 
-export interface OutsourcedTestTracking {
-     id?: number;
-     serviceid: number;
-     testid: number;
-     employeeid: number;
-     status: number;
-     comments: string;
-     createdOn?: Date | string;
-     updatedOn?: Date | string;
-     outsourceid: number;
-     completedconfirmedby?: number;
-}
 
 export class OutsourcedTestTrackingRepo {
 

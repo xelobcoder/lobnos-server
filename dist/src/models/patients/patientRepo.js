@@ -4,20 +4,28 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const logger_1 = __importDefault(require("../../hooks/logger"));
-const bcrypt_1 = __importDefault(require("bcrypt"));
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const registration_1 = __importDefault(require("../registration/registration"));
 const queries_1 = require("./queries");
 const helper_1 = require("../../hooks/helper");
-const DatabaseQueriesHelper_1 = __importDefault(require("../../database/DatabaseQueriesHelper"));
 const PatientImageRepository_1 = __importDefault(require("../../repositories/patientRepositories/PatientImageRepository"));
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 class Patient extends registration_1.default {
     constructor(patientid) {
         super();
         this.runqueryPromise = helper_1.promisifyQuery;
     }
+    static async checkNumberBelongsToPatient(tenantId, patientid, mobileno) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection("new_patients")
+            .where("patientid", patientid)
+            .andWhere("mobile_number", mobileno)
+            .first();
+        return result ? true : false;
+    }
     async getTransactionsByDate(tenantId, patientid, to, from) {
-        if (await registration_1.default.checkPatientIdExist(tenantId, patientid)) {
+        const isPatientExists = await registration_1.default.checkPatientIdExist(tenantId, patientid);
+        if (isPatientExists) {
             let query = queries_1.PatientQuery.getTransactionsByDate;
             let values = [patientid];
             if (from && to) {
@@ -28,41 +36,6 @@ class Patient extends registration_1.default {
         }
         else {
             return "Resource not found." /* OperationsFailures.notFound */;
-        }
-    }
-    async updateCredentials(tenantId, data) {
-        const { opassword, npassword, nppassword, patientid, employeeid, providedUsername } = data;
-        const isUserAdmin = await new user_1.default().getExpectedRole(employeeid, 'admin', tenantId);
-        if (isUserAdmin) {
-            return await this.updatePatientPassWordCredential(providedUsername, npassword, tenantId, patientid);
-        }
-        let oldpassworldMatched = null;
-        const isValid = await registration_1.default.checkPatientIdExist(tenantId, patientid);
-        const matched = nppassword === nppassword;
-        const db_old_password = await DatabaseQueriesHelper_1.default.getSingleId(tenantId, patientid, "patients_credentials", "patientid");
-        let username = '';
-        if (Array.isArray(db_old_password) && db_old_password.length > 0) {
-            const { username: name, password, updated } = db_old_password[0];
-            username = name;
-            if (updated == "true") {
-                const compare = await bcrypt_1.default.compare(opassword, password);
-                oldpassworldMatched = compare;
-            }
-            else {
-                oldpassworldMatched = opassword === password;
-            }
-        }
-        if (!isValid) {
-            throw new Error("Invalid membership id or username");
-        }
-        if (!matched) {
-            throw new Error("new password match error");
-        }
-        if (!oldpassworldMatched) {
-            throw new Error(`invalid old password credentials`);
-        }
-        if (isValid && matched && oldpassworldMatched) {
-            await this.updatePatientPassWordCredential(username, npassword, tenantId, patientid);
         }
     }
     async updatePatientPassWordCredential(username, npassword, tenantId, patientid) {

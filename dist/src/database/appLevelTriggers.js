@@ -97,7 +97,7 @@ async function insertDboservicesAudit(db, service, action, actor) {
     });
 }
 exports.insertDboservicesAudit = insertDboservicesAudit;
-async function applyDboservicesAfterInsert(db, service, actor, tenantId) {
+async function applyDboservicesAfterInsert(tenantId, db, service, actor) {
     await insertDboservicesAudit(db, service, "INSERT", actor);
     if (service.serviceCategory === "SERVICES" && Number(service.categoryTrackId) === 5) {
         await db("servicestracking").insert({ serviceid: service.serviceid, employeeid: service.employeeid, status: 0, comments: "New service added, waiting for processing" });
@@ -127,10 +127,9 @@ async function applyDboservicesAfterInsert(db, service, actor, tenantId) {
             comments: "New outsourced service added, waiting for dispatch",
         });
         const applicationsettings = await new appset_1.default().getAllAppSettings(tenantId);
-        const automatedExpenseEnabled = parseInt((applicationsettings === null || applicationsettings === void 0 ? void 0 : applicationsettings.automakeoutsourcepaymentsexpense.toString()) || '0');
+        const automatedExpenseEnabled = (applicationsettings === null || applicationsettings === void 0 ? void 0 : applicationsettings.automakeoutsourcepaymentsexpense) ? parseInt((applicationsettings === null || applicationsettings === void 0 ? void 0 : applicationsettings.automakeoutsourcepaymentsexpense.toString()) || '0') : 0;
         if (!automatedExpenseEnabled)
             return;
-        console.log(applicationsettings['automakeoutsourcepaymentsexpense']);
         try {
             await outsourcedCases_1.default.triggerAutomatedExpenseLifecycle(tenantId, {
                 serviceid: service.serviceid,

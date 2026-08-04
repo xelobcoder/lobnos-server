@@ -15,7 +15,7 @@ import {
 	q_truncateGeneralSettings,
 } from "./queries";
 
-import { AppError, ApplicationBillSettings, ApplicationSettingsData, AppSetting, connectedServices, EmailPreference, IupdateRegisFields, jsonify } from "./Type";
+import { AppError,  ApplicationBillSettings,  ApplicationSettingsData,  AppSetting, connectedServices, EmailPreference, IupdateRegisFields, jsonify } from "./Type";
 
 import { promisifyQuery, rowAffected } from "../../../hooks/helper";
 import KnexConnection from "../../../database/KnexConnections";

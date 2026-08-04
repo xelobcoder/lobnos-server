@@ -3,6 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+require("reflect-metadata");
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const os_1 = __importDefault(require("os"));
@@ -48,7 +49,6 @@ const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
 const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
 const routes_7 = __importDefault(require("./controllers/compliance/routes"));
-const logger_1 = __importDefault(require("./hooks/logger"));
 const index_3 = __importDefault(require("./controllers/commission/index"));
 const route_19 = __importDefault(require("./controllers/crm/leads/route"));
 const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
@@ -125,16 +125,32 @@ app.get("/", (req, res) => {
         status: "Healthy"
     });
 });
-app.listen(Number(port), '0.0.0.0', () => {
-    logger_1.default.info(`Server startup successful`, {
-        port: port,
-        env: process.env.NODE_ENV,
-        addresses: {
-            local: `http://localhost:${port}`,
-            network: `http://${os_1.default.hostname()}:${port}`
-        }
+app.listen(Number(port), "0.0.0.0", () => {
+    var _a;
+    const pid = process.pid;
+    const timestamp = new Date().toLocaleString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
     });
-    console.log(`Server is running at:`);
-    console.log(`  - Local:   http://localhost:${port}`);
-    console.log(`  - Network: http://${os_1.default.hostname()}:${port}`);
+    const localUrl = `http://localhost:${port}`;
+    const networkUrl = `http://${os_1.default.hostname()}:${port}`;
+    console.log(`\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Application successfully started`);
+    console.log(`\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Environment : ${(_a = process.env.NODE_ENV) !== null && _a !== void 0 ? _a : "development"}`);
+    console.log(`\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Port        : ${port}`);
+    console.log(`\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Local       : ${localUrl}`);
+    console.log(`\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Network     : ${networkUrl}`);
+    //     logger.info("Server startup successful", {
+    //         port: Number(port),
+    //         environment: process.env.NODE_ENV,
+    //         pid,
+    //         addresses: {
+    //             local: localUrl,
+    //             network: networkUrl,
+    //         },
+    //     });
 });

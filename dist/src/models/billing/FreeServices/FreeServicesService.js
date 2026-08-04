@@ -5,8 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FreeServicesService = void 0;
 const KnexConnections_1 = __importDefault(require("../../../database/KnexConnections"));
-const FreeServicesRepo_1 = require("./FreeServicesRepo");
-const types_1 = require("./types");
+const freeservices_interface_1 = require("../Interfaces/freeservices.interface");
+const FreeServicesRepo_1 = require("../repositories/FreeServicesRepo");
 class FreeServicesService {
     constructor(tenantId) {
         this.tenantId = tenantId;
@@ -38,7 +38,7 @@ class FreeServicesService {
         if (!freeServiceRequest) {
             throw new Error(`Free service request with ID ${request.request_id} not found`);
         }
-        if (freeServiceRequest.status !== types_1.FreeServiceRequestStatus.PENDING) {
+        if (freeServiceRequest.status !== freeservices_interface_1.FreeServiceRequestStatus.PENDING) {
             throw new Error(`Cannot approve request. Current status: ${freeServiceRequest.status}. ` +
                 'Only PENDING requests can be approved.');
         }
@@ -66,7 +66,7 @@ class FreeServicesService {
         if (!freeServiceRequest) {
             throw new Error(`Free service request with ID ${request.request_id} not found`);
         }
-        if (freeServiceRequest.status !== types_1.FreeServiceRequestStatus.PENDING) {
+        if (freeServiceRequest.status !== freeservices_interface_1.FreeServiceRequestStatus.PENDING) {
             throw new Error(`Cannot reject request. Current status: ${freeServiceRequest.status}. ` +
                 'Only PENDING requests can be rejected.');
         }
@@ -106,7 +106,7 @@ class FreeServicesService {
         if (request.requester_id !== requesterId) {
             throw new Error('Can only withdraw own requests');
         }
-        if (request.status !== types_1.FreeServiceRequestStatus.PENDING) {
+        if (request.status !== freeservices_interface_1.FreeServiceRequestStatus.PENDING) {
             throw new Error(`Cannot withdraw request in ${request.status} status`);
         }
         const conn = await this.connection;

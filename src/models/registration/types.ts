@@ -18,7 +18,7 @@ export type NewRegistration = {
   occupation: string;
   patientOrganization: string;
   years: number;
-  whatAppcontact: (string | number);
+  whatsappcontact: (string | number);
   mobileownership: string;
   mobileCountryCode: string;
   whatsappCountryCode: string;

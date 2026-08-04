@@ -1,15 +1,17 @@
+import { record } from "zod";
 import { PrimeLimsTablenew_patients, PrimeLimsTablepatientemmergencycontactinformation, PrimeLimsTablepatientsaddress } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
-import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { applyNewPatientAfterInsert } from "../../database/appLevelTriggers";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
 import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
 import { OperationsFailures } from "../operations/types";
+import { ICreateNewPatient } from "../patients/interfaces";
 import { q_filter_patient_using_billingid_query, q_filter_patients, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
 import { addressInformation, NewRegistration, PatientRecords, registrationOutcome } from "./types";
 import { Request, Response } from "express";
+import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 
 export default class Registration {
 	private static normalizePhoneTo10(value: any): string | null {
@@ -135,7 +137,6 @@ export default class Registration {
 
 	private static getMissingRequiredPatientField(records: Partial<NewRegistration>): keyof Pick<NewRegistration, "firstname" | "lastname" | "gender" | "age" | "ageType"> | null {
 		const requiredFields: Array<keyof Pick<NewRegistration, "firstname" | "lastname" | "gender" | "age" | "ageType">> = ["firstname", "lastname", "gender", "age", "ageType"];
-
 		for (const field of requiredFields) {
 			const value = records[field];
 			if (value === undefined || value === null) return field;
@@ -203,124 +204,95 @@ export default class Registration {
 		return rows.length > 0 ? rows[0] : null;
 	}
 
-	public static async addPersonalInformation(tenantId: number, records: NewRegistration): Promise<number | void | string> {
+	public static async patientMobileRecordExist(tenantId: number, mobile: number | string): Promise<boolean> {
 		try {
-			const missingField = this.getMissingRequiredPatientField(records);
-			if (missingField) {
-				return `${missingField} is required`;
-			}
-
-			const generatedId = await this.generatePatientFullUniqueId(tenantId);
-
-			const removeCountryCodeFromMobile = (mobile: number | string, countryCode: string): string => {
-				const mobileStr = String(mobile).trim();
-				if (mobileStr.startsWith(countryCode)) {
-					return mobileStr.slice(countryCode.length);
-				}
-				return mobileStr;
-			};
-
-			if (generatedId) {
-
-				const sanitizedMobileNumber = removeCountryCodeFromMobile(records.mobile, records.mobileCountryCode);
-				const sanitizedWhatsApp = removeCountryCodeFromMobile(records.whatAppcontact, records.whatsappCountryCode);
-				const sanitizedRelativeContact = removeCountryCodeFromMobile(records.relativecontactnumber, records.relativeCountryCode);
-				const {
-					designation,
-					firstname,
-					lastname,
-					middlename,
-					age,
-					ageType,
-					gender,
-					employeeid,
-					relativecontactname,
-					email,
-					days,
-					mobileCountryCode,
-					whatsappCountryCode,
-					relativeCountryCode,
-					months,
-					maritalstatus,
-					occupation,
-					patientOrganization,
-					years,
-					mobileownership = "self",
-				} = records;
-
-				let mobileStr: string | undefined = undefined;
-				if (sanitizedMobileNumber) {
-					if (typeof sanitizedMobileNumber === 'string') {
-						mobileStr = String(sanitizedMobileNumber).trim();
-					} else if (typeof sanitizedMobileNumber === 'number' && !isNaN(sanitizedMobileNumber)) {
-						mobileStr = sanitizedMobileNumber
-					}
-				}
-				if (mobileownership === 'self' && mobileStr && mobileStr.length > 0) {
-					const existingSelf = await promisifyQuery(
-						tenantId,
-						`SELECT patientid FROM new_patients WHERE mobile_number = ? AND contactpointer = 'self'`,
-						[mobileStr]
-					);
-					if (existingSelf && existingSelf.length > 0) {
-						return 'A primary (self) contact already exists for this mobile number.';
-					}
-				}
-
-				const persistedMobileNumber = mobileownership === 'relative' ? null : sanitizedMobileNumber;
-
-				const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
-				const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
-				const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
-
-				const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
-				const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
-				const connection = await KnexConnection(tenantId);
-				const createdPatientId = await connection.transaction(async (trx) => {
-					const insertOutcome = await trx("new_patients").insert({
-						firstname,
-						lastname,
-						middlename: middlename ?? null,
-						email: email ?? null,
-						age,
-						agetype: ageType,
-						dob,
-						marital_status: maritalstatus ?? null,
-						mobile_number: persistedMobileNumber,
-						occupation: occupation ?? null,
-						gender: gender ?? null,
-						organization: patientOrganization ?? null,
-						fullpatientid: generatedId,
-						contactpointer: mobileownership,
-						designation: designation ?? null,
-						registeredby: employeeid,
-						relativecontactname: relativecontactname ?? null,
-						relativecontactnumber: sanitizedRelativeContact ?? null,
-						whatsapp_country_code: whatsappCountryCode ?? null,
-						mobile_country_code: mobileCountryCode ?? null,
-						whatAppcontact: sanitizedWhatsApp ?? null,
-					});
-
-					const patientid = Array.isArray(insertOutcome) ? insertOutcome[0] : insertOutcome;
-
-					if (!patientid || typeof patientid !== "number") {
-						throw new Error("Failed to create patient");
-					}
-
-					await applyNewPatientAfterInsert(trx, {
-						patientid,
-						firstname,
-						lastname,
-					});
-
-					return patientid;
-				});
-
-				return createdPatientId;
-			}
+			const mobileStr = String(mobile).trim();
+			if (!mobileStr || mobileStr.length === 0) return false;
+			const connection = await KnexConnection(tenantId);
+			const result = await connection("new_patients")
+				.where("mobile_number", mobileStr)
+				.first();
+			return !!result;
 		} catch (error) {
-			logger.error("Error in adding personal information:", error);
-			return OperationsFailures.internalServerError;
+			throw new Error(`Error checking mobile record existence: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+
+	public static async addPersonalInformation(tenantId: number, records: ICreateNewPatient): Promise<number | void | string> {
+		try {
+			const generatedId = await this.generatePatientFullUniqueId(tenantId);
+			if (!generatedId) throw new Error("Failed to generate unique patient ID,Reason: Regional or District code not found in application settings");
+
+			const {
+				designation,
+				firstname,
+				lastname,
+				middlename,
+				age,
+				agetype,
+				gender,
+				relativecontactname,
+				email,
+				mobile_number,
+				mobile_country_code,
+				whatsapp_country_code,
+				marital_status,
+				dob,
+				occupation,
+				organization,
+				contact_pointer,
+			} = records;
+
+			if (contact_pointer === "self" && mobile_number) {
+				const isRecordExist = await this.patientMobileRecordExist(tenantId, mobile_number as number | string);
+				if (isRecordExist) throw new Error(
+					"Patient With this mobile number already exists. Please check the number or use a different one."
+				)
+			}
+
+			const connection = await KnexConnection(tenantId);
+			const transaction = await connection.transaction();
+			const dateofBirth = dob ? new Date(dob).toISOString().split("T")[0] : null;
+			const insertOutcome = await transaction("new_patients").insert({
+				firstname,
+				lastname,
+				middlename: middlename ?? null,
+				email: email ?? null,
+				age,
+				agetype: agetype,
+				dob: dateofBirth,
+				marital_status,
+				mobile_number,
+				occupation: occupation ?? null,
+				gender: gender ?? null,
+				organization: organization ?? null,
+				fullpatientid: generatedId,
+				contactpointer: contact_pointer,
+				designation: designation ?? null,
+				registeredby: records.registeredby,
+				relativecontactname: relativecontactname ?? null,
+				relativecontactnumber: records.relativecontactnumber ?? null,
+				whatsapp_country_code: whatsapp_country_code ?? null,
+				mobile_country_code: mobile_country_code ?? null,
+				whatAppcontact: records.whatAppcontact ?? null,
+			});
+
+			const patientid = Array.isArray(insertOutcome) ? insertOutcome[0] : insertOutcome;
+
+			if (!patientid || typeof patientid !== "number") {
+				throw new Error("Failed to create patient");
+			}
+
+			await applyNewPatientAfterInsert(transaction, {
+				patientid,
+				firstname,
+				lastname,
+			});
+
+			await transaction.commit();
+			return patientid;
+		} catch (error) {
+			throw new Error(`Error adding personal information: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
 
@@ -385,7 +357,7 @@ export default class Registration {
 		throw new Error("Method not implemented.");
 	}
 
-	static async UpdatePersonalInformation(tenantId: number, clientdata: NewRegistration, patientid: number): Promise<boolean | string> {
+	static async UpdatePersonalInformation(tenantId: number, clientdata: Partial<ICreateNewPatient>, patientid: number): Promise<boolean | string> {
 		const isPatientId = await this.checkPatientIdExist(tenantId, patientid);
 		if (!isPatientId) return OperationsFailures.notFound;
 		const previousData = await this.getPatientDataUsingPatientId(tenantId, patientid);
@@ -395,29 +367,18 @@ export default class Registration {
 			lastname,
 			middlename,
 			age,
-			ageType,
+			agetype,
 			gender,
 			email,
-			mobile,
-			mobileownership = "self",
-			days,
-			months,
-			maritalstatus,
+			mobile_number,
+			contact_pointer = "self",
+			marital_status,
 			occupation,
-			patientOrganization,
-			years,
+			organization,
+			dob,
 			whatAppcontact,
-			employeeid
+			registeredby
 		} = clientdata;
-
-		const parsedYear = !isNaN(years) ? parseInt(years.toString()) : 0;
-		const parsedMonth = !isNaN(months) ? parseInt(months.toString()) : 0;
-		const parsedDay = !isNaN(days) ? parseInt(days.toString()) : 0;
-
-		const isCorrectDOB = (parsedYear > 0 && parsedMonth > 0 && parsedDay > 0);
-		const dob = isCorrectDOB ? `${parsedYear}-${parsedMonth}-${parsedDay}` : null;
-		const persistedMobileNumber = mobileownership === 'relative' ? null : Registration.normalizePhoneTo10(mobile);
-		const persistedWhatsappNumber = Registration.normalizePhoneTo10(whatAppcontact);
 
 		const values = [
 			firstname,
@@ -426,14 +387,14 @@ export default class Registration {
 			middlename,
 			email,
 			age,
-			ageType,
-			dob,
-			maritalstatus,
-			persistedMobileNumber,
+			agetype,
+			dob ? dob.toString().split("T")[0] : null,
+			marital_status,
+			mobile_number,
 			occupation,
 			gender,
-			patientOrganization,
-			persistedWhatsappNumber,
+			organization,
+			whatAppcontact,
 			patientid,
 		];
 		const result = await promisifyQuery(tenantId, q_patient_update_personal_information, values);
@@ -444,7 +405,7 @@ export default class Registration {
 				patientid,
 				section: 'personal_information',
 				actionType: 'UPDATE',
-				changedByEmployeeId: employeeid ? parseInt(employeeid.toString(), 10) : null,
+				changedByEmployeeId: registeredby ? parseInt(registeredby.toString()) : null,
 				previousData,
 				newData
 			});
@@ -530,7 +491,7 @@ export default class Registration {
 	}
 
 	static async addNewPatient(tenantId: number, request: Request, response: Response): Promise<Response | void> {
-		const { data } = request.body;
+		const data = request.body;
 		const employeeId = request.query.employeeid ? parseInt(request.query.employeeid.toString(), 10) : null;
 		if (!employeeId) {
 			return response.status(400).send({
@@ -539,16 +500,9 @@ export default class Registration {
 			});
 		}
 		try {
-			const missingField = this.getMissingRequiredPatientField(data || {});
-			if (missingField) {
-				return response.status(400).send({
-					status: "error",
-					message: `${missingField} is required`,
-				});
-			}
-
 			const isAlreadyRegistered = await this.isClientSame(tenantId, data);
-			if (isAlreadyRegistered) {
+			console.log(data, { isAlreadyRegistered })
+			if (isAlreadyRegistered && data.contact_pointer == "self") {
 				response.status(404).send({
 					status: "warning",
 					message:
@@ -559,8 +513,8 @@ export default class Registration {
 				return;
 			}
 
-
 			const insertId = await this.addPersonalInformation(tenantId, { ...data, employeeid: employeeId });
+
 			if (typeof insertId === "string") {
 				return response.status(400).send({
 					status: "error",
@@ -586,7 +540,7 @@ export default class Registration {
 		} catch (error: any) {
 			response.status(500).send({
 				status: "error",
-				message: "An error occurred while trying to add a new patient",
+				message: error instanceof Error ? error.message : String(error),
 				error: error.message || error,
 			});
 		}

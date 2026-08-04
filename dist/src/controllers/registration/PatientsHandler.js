@@ -7,6 +7,7 @@ exports.updatePatientImageHandler = exports.getNotificationSettingsHandler = exp
 const helper_1 = require("../../hooks/helper");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const patientRepo_1 = __importDefault(require("../../models/patients/patientRepo"));
+const credentialsPatient_repo_1 = __importDefault(require("../../models/patients/respositories/credentialsPatient.repo"));
 const getTransactionsByDateHandler = async (request, response) => {
     const { patientid, from, to, tenantId } = request.query;
     if (!patientid) {
@@ -38,7 +39,11 @@ const updateCredentialsHandler = async (request, response) => {
         }
         const parsedPatientId = parseInt(patientid.toString(), 10);
         const parsedTenantId = parseInt(tenantId.toString(), 10);
-        const status = await new patientRepo_1.default(parsedPatientId).updateCredentials(parsedTenantId, request.body);
+        const status = await new credentialsPatient_repo_1.default(parsedTenantId).update(parsedPatientId, {
+            username: request.body.providedUsername,
+            password: request.body.npassword,
+            updated: true
+        });
         const message = status ? "patient credentials updated successfully" : "patient credentials not updated";
         const statusCode = status ? 200 : 401;
         const statusMessage = status ? "success" : "failed";

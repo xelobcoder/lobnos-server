@@ -11,6 +11,11 @@ import {
 } from "../../database/DatabaseTableSchema";
 
 class TestAscensionTurnAroundTime {
+	private ascensionid: number;
+
+	constructor(ascensionid: number) {
+		this.ascensionid = ascensionid;
+	}
 
 	static async computeAndArchiveAllTATs(tenantId: number): Promise<number> {
 		const ascensionRows = await promisifyQuery(tenantId, q_get_ascension_ids_for_tat_archive);
@@ -59,11 +64,7 @@ class TestAscensionTurnAroundTime {
 		await promisifyQuery(tenantId, upsertSql, values);
 		return tat;
 	}
-	private ascensionid: number;
-
-	constructor(ascensionid: number) {
-		this.ascensionid = ascensionid;
-	}
+	
 
 	/** Static helper to calculate time difference and format it */
 	static formatDuration(start: string, end: string): string {

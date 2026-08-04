@@ -1,15 +1,13 @@
-import { Request, Response } from 'express';
-import AuthenticationRepository from '../../models/settings/users/AuthenticationRepository';
-import TokenValidator from '../../models/settings/users/TokenValidator';
-import RolesRepository from '../../models/settings/users/RolesRepository';
-import PrimeWindowAccessRepository from '../../models/settings/users/PrimeWindowAccessRepository';
-import { customError } from '../../hooks/helper';
-import { parseCookies } from '../../middleware/validateTenancy';
-import { getAllCompanyProfiles } from '../../models/settings/companyProfile';
-import ApplicationSettings from '../../models/application/appsettings/appset';
-import ResultSettings from '../../models/application/appsettings/resultSettings';
-import Security from '../../models/security/securityClass';
-import { Jwt } from 'jsonwebtoken';
+import { customError } from "../../hooks/helper";
+import { parseCookies } from "../../middleware/validateTenancy";
+import ApplicationSettings from "../../models/application/appsettings/appset";
+import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
+import Security from "../../models/security/securityClass";
+import { getAllCompanyProfiles } from "../../models/settings/companyProfile";
+import AuthenticationRepository from "../../models/settings/users/AuthenticationRepository";
+import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
+import RolesRepository from "../../models/settings/users/RolesRepository";
+import TokenValidator from "../../models/settings/users/TokenValidator";
 
 export class AuthController {
 	private authRepo: AuthenticationRepository | null = null;

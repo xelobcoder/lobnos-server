@@ -3,15 +3,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-const logger_1 = __importDefault(require("../../hooks/logger"));
-const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
-const resultSettings_1 = __importDefault(require("../application/appsettings/resultSettings"));
-const testApprovalClass_1 = require("../operations/testApprovalClass");
-const registration_1 = __importDefault(require("../registration/registration"));
 const queries_1 = require("./queries");
 const helper_1 = require("../../hooks/helper");
 const creator_1 = __importDefault(require("../creator/creator"));
 const resultEncryptionReferer_1 = __importDefault(require("../creator/resultEncryptionReferer"));
+const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
+const resultSettings_1 = __importDefault(require("../application/appsettings/result-settings/resultSettings"));
+const commission_configurations_1 = require("../commissions/commission-configurations");
+const testApprovalClass_1 = require("../operations/testApprovalClass");
+const registration_1 = __importDefault(require("../registration/registration"));
 const emptySummry = [
     { title: "registered clients", value: 0 },
     { title: "test count", value: 0 },
@@ -163,7 +163,7 @@ class ResultPrint {
             return sampling[0];
         }
         catch (err) {
-            logger_1.default.error(err);
+            commission_configurations_1.logger.error(err);
         }
     }
     /**
@@ -184,7 +184,7 @@ class ResultPrint {
             }
         }
         catch (err) {
-            logger_1.default.error(err);
+            commission_configurations_1.logger.error(err);
             if (response) {
                 (0, helper_1.customError)("error occured", 500, response);
             }

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.upsertHistory = exports.getHistoriesByAscensionIds = exports.getAllHistories = exports.deleteHistory = exports.updateHistory = exports.getHistoryByAscensionId = exports.getHistoryById = exports.createHistory = void 0;
-const PatientClinicalHistoryUltrasoundRepo_1 = __importDefault(require("../../models/operations/PatientClinicalHistoryUltrasoundRepo"));
+const PatientClinicalHistoryUltrasoundRepo_1 = __importDefault(require("../../models/operations/Repositories/PatientClinicalHistoryUltrasoundRepo"));
 function getRepository(req) {
     const tenantId = Number(req.query.tenantId);
     if (isNaN(tenantId)) {

@@ -14,7 +14,7 @@ export class EncryptionController {
                     status: true,
                     data: settings
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -40,7 +40,7 @@ export class EncryptionController {
                          error: 'Security settings not found'
                     });
                }
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -60,7 +60,7 @@ export class EncryptionController {
                     message: 'Encryption key generated successfully',
                     data: { keyId }
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -78,7 +78,7 @@ export class EncryptionController {
                     status: true,
                     data: keys
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -95,7 +95,7 @@ export class EncryptionController {
                     status: true,
                     data: result
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -170,7 +170,7 @@ export class EncryptionController {
                          error: result.error
                     });
                }
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message

@@ -4,7 +4,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TestAscension = void 0;
-const operations_1 = __importDefault(require("./operations"));
 const queries_1 = require("./queries");
 const types_1 = require("./types");
 const billingclientTypes_1 = require("../billing/billingclientTypes");
@@ -16,9 +15,8 @@ const creator_1 = __importDefault(require("../creator/creator"));
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
-class TestAscension extends operations_1.default {
+class TestAscension {
     constructor(ascensionId) {
-        super(0);
         this.ascensionId = ascensionId;
     }
     static async updateSampleAscensionstate(tenantId, ascensionId, stage, value, employeeid) {

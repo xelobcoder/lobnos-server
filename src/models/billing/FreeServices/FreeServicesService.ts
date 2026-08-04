@@ -1,23 +1,7 @@
-import KnexConnection from '../../../database/KnexConnections';
-import { FreeServicesRepo } from './FreeServicesRepo';
-import {
-     FreeServiceRequestStatus,
-     CreateFreeServiceRequestDTO,
-     ApproveFreeServiceRequestDTO,
-     RejectFreeServiceRequestDTO
-} from './types';
+import KnexConnection from "../../../database/KnexConnections";
+import { IFreeServicesService, CreateFreeServiceRequestDTO, ApproveFreeServiceRequestDTO, FreeServiceRequestStatus, RejectFreeServiceRequestDTO } from "../Interfaces/freeservices.interface";
+import { FreeServicesRepo } from "../repositories/FreeServicesRepo";
 
-export interface IFreeServicesService {
-     requestFreeService(request: CreateFreeServiceRequestDTO): Promise<number>;
-     approveRequest(request: ApproveFreeServiceRequestDTO): Promise<void>;
-     rejectRequest(request: RejectFreeServiceRequestDTO): Promise<void>;
-     getRequestStatus(requestId: number): Promise<FreeServiceRequestStatus | null>;
-     getRequest(requestId: number): Promise<any>;
-     listRequests(page: number, limit: number, status?: FreeServiceRequestStatus): Promise<any>;
-     getApprovalSummary(): Promise<any>;
-     withdrawPendingRequest(requestId: number, requesterId: number): Promise<void>;
-     getRequestsByBillingId(billingId: number): Promise<any[]>;
-}
 
 export class FreeServicesService implements IFreeServicesService {
      private repo: FreeServicesRepo;

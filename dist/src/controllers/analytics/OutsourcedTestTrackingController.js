@@ -1,7 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OutsourcedTestTrackingController = void 0;
-const OutsourcedTestTrackingRepo_1 = require("../../models/operations/OutsourcedTestTrackingRepo");
+const OutsourcedTestTrackingRepo_1 = require("../../models/operations/Repositories/OutsourcedTestTrackingRepo");
 class OutsourcedTestTrackingController {
     static async getProfitPerTestByOutsource(req, res) {
         try {

@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { OutsourcedTestTrackingRepo } from "../../models/operations/OutsourcedTestTrackingRepo";
+import { OutsourcedTestTrackingRepo } from "../../models/operations/Repositories/OutsourcedTestTrackingRepo";
 
 export class OutsourcedTestTrackingController {
      static async getProfitPerTestByOutsource(req: Request, res: Response) {
@@ -47,7 +47,7 @@ export class OutsourcedTestTrackingController {
                const outsourceid = req.query.outsourceid ? Number(req.query.outsourceid) : undefined;
                const testid = req.query.testid ? Number(req.query.testid) : undefined;
                const repo = new OutsourcedTestTrackingRepo(tenantId);
-               const result = await repo.getProfitByOutsourcedTest(outsourceid,testid);
+               const result = await repo.getProfitByOutsourcedTest(outsourceid, testid);
                res.json(result);
           } catch (error) {
                res.status(500).json({ error: error.message });

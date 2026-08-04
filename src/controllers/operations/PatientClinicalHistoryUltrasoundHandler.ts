@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import PatientClinicalHistoryUltrasoundRepository from '../../models/operations/PatientClinicalHistoryUltrasoundRepo';
+import PatientClinicalHistoryUltrasoundRepository from '../../models/operations/Repositories/PatientClinicalHistoryUltrasoundRepo';
 
 function getRepository(req: Request): PatientClinicalHistoryUltrasoundRepository {
     const tenantId = Number(req.query.tenantId);

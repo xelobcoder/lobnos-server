@@ -1,11 +1,11 @@
 import KnexConnection from '../../database/KnexConnections';
 
 export class ExpenseAnalyticsQueries {
-  constructor(private tenantId: number) { }
+	constructor(private tenantId: number) { }
 
-  async getDailyExpenseAnalytics(startDate: string, endDate: string) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getDailyExpenseAnalytics(startDate: string, endDate: string) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         DATE(ep.payment_date) AS expense_date,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -19,11 +19,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY DATE(ep.payment_date)
       ORDER BY expense_date DESC
     `, [startDate, endDate]);
-  }
+	}
 
-  async getExpenseComparisonByPeriod(currentStart: string, currentEnd: string, previousStart: string, previousEnd: string, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseComparisonByPeriod(currentStart: string, currentEnd: string, previousStart: string, previousEnd: string, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         'current' AS period,
        COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -48,11 +48,11 @@ export class ExpenseAnalyticsQueries {
         AND DATE(ep.payment_date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
     `, branchid ? [currentStart, currentEnd, branchid, previousStart, previousEnd, branchid] : [currentStart, currentEnd, previousStart, previousEnd]);
-  }
+	}
 
-  async getExpenseTrendsByCategory(startDate: string, endDate: string) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseTrendsByCategory(startDate: string, endDate: string) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         ec.category AS category_name,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -65,11 +65,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY er.category, ec.category
       ORDER BY expenses_paid DESC
     `, [startDate, endDate]);
-  }
+	}
 
-  async getExpenseTrendsByEmployee(startDate: string, endDate: string, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseTrendsByEmployee(startDate: string, endDate: string, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         r.username AS employee_name,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -83,11 +83,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY r.username
       ORDER BY expenses_paid DESC
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
-  }
+	}
 
-  async getExpenseTrendsByMerchant(startDate: string, endDate: string) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseTrendsByMerchant(startDate: string, endDate: string) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         em.name AS merchant_name,
         DATE(ep.payment_date) AS expense_date,
@@ -102,11 +102,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY em.name
       ORDER BY expense_date DESC, expenses_paid DESC
     `, [startDate, endDate]);
-  }
+	}
 
-  async getHourlyExpenseAnalytics(date: string) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getHourlyExpenseAnalytics(date: string) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         HOUR(ep.payment_date) AS expense_hour,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -119,11 +119,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY HOUR(ep.payment_date)
       ORDER BY expense_hour ASC
     `, [date]);
-  }
+	}
 
-  async getMonthlyExpenseAnalytics(year: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getMonthlyExpenseAnalytics(year: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         MONTH(ep.payment_date) AS expense_month,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -137,11 +137,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY MONTH(ep.payment_date)
       ORDER BY expense_month ASC
     `, [year]);
-  }
+	}
 
-  async getWeeklyExpenseAnalytics(year: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getWeeklyExpenseAnalytics(year: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         WEEK(ep.payment_date) AS expense_week,
         YEAR(ep.payment_date) AS expense_year,
@@ -158,11 +158,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY YEAR(ep.payment_date), WEEK(ep.payment_date)
       ORDER BY expense_year ASC, expense_week ASC
     `, [year]);
-  }
+	}
 
-  async getQuarterlyExpenseAnalytics(year: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getQuarterlyExpenseAnalytics(year: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         QUARTER(ep.payment_date) AS expense_quarter,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -175,11 +175,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY QUARTER(ep.payment_date)
       ORDER BY expense_quarter ASC
     `, [year]);
-  }
+	}
 
-  async getYearlyExpenseAnalytics(startYear: number, endYear: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getYearlyExpenseAnalytics(startYear: number, endYear: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         YEAR(ep.payment_date) AS expense_year,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -194,11 +194,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY YEAR(ep.payment_date)
       ORDER BY expense_year ASC
     `, [startYear, endYear]);
-  }
+	}
 
-  async getExpenseAnalyticsByBranch(startDate: string, endDate: string) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseAnalyticsByBranch(startDate: string, endDate: string) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         b.name AS branch_name,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -212,11 +212,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY b.name
       ORDER BY expenses_paid DESC
     `, [startDate, endDate]);
-  }
+	}
 
-  async getTopExpenseCategories(startDate: string, endDate: string, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getTopExpenseCategories(startDate: string, endDate: string, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         ec.category AS category_name,
         COALESCE(SUM(ep.amount), 0) AS expenses_paid,
@@ -231,11 +231,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY ec.category
       ORDER BY expenses_paid DESC
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
-  }
+	}
 
-  async getExpensePaymentStatusAnalytics(startDate: string, endDate: string) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpensePaymentStatusAnalytics(startDate: string, endDate: string) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         CASE 
           WHEN er.approved = 2 THEN 'Rejected'
@@ -251,11 +251,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY payment_status
       ORDER BY total_amount DESC
     `, [startDate, endDate]);
-  }
+	}
 
-  async getRejectedExpenseAnalytics(startDate: string, endDate: string, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getRejectedExpenseAnalytics(startDate: string, endDate: string, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         COUNT(*) AS rejected_count,
         COALESCE(SUM(amount), 0) AS rejected_total_amount,
@@ -265,11 +265,11 @@ export class ExpenseAnalyticsQueries {
         AND DATE(date) BETWEEN ? AND ?
         ${branchid ? 'AND branchid = ?' : ''}
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
-  }
+	}
 
-  async getBranchMonthlyExpenseAnalytics(startDate: string, endDate: string, branchid: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getBranchMonthlyExpenseAnalytics(startDate: string, endDate: string, branchid: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         MONTH(ep.payment_date) AS expense_month,
         YEAR(ep.payment_date) AS expense_year,
@@ -286,11 +286,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY YEAR(ep.payment_date), MONTH(ep.payment_date), b.name
       ORDER BY expense_year ASC, expense_month ASC
     `, [branchid, startDate, endDate]);
-  }
+	}
 
-  async getExpenseBuckets(startDate: string, endDate: string, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseBuckets(startDate: string, endDate: string, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         CASE
           WHEN ep.amount < 100 THEN 'Small'
@@ -309,11 +309,11 @@ export class ExpenseAnalyticsQueries {
       GROUP BY bucket
       ORDER BY total_amount DESC
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
-  }
+	}
 
-  async getExpenseGrowthRateAnalytics(year: number, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseGrowthRateAnalytics(year: number, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         current_month.month,
         current_month.total_expenses AS current_amount,
@@ -347,11 +347,11 @@ export class ExpenseAnalyticsQueries {
       ) previous_month ON current_month.month = previous_month.month + 1
       ORDER BY current_month.month ASC
     `, branchid ? [year, branchid, year, branchid] : [year, year]);
-  }
+	}
 
-  async getExpenseApprovalTimelineAnalytics(startDate: string, endDate: string, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseApprovalTimelineAnalytics(startDate: string, endDate: string, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         COALESCE(AVG(TIMESTAMPDIFF(HOUR, er.date, er.approvedon)), 0) AS avg_approval_hours,
         COALESCE(AVG(TIMESTAMPDIFF(DAY, er.date, er.approvedon)), 0) AS avg_approval_days,
@@ -365,11 +365,11 @@ export class ExpenseAnalyticsQueries {
         AND DATE(er.date) BETWEEN ? AND ?
         ${branchid ? 'AND er.branchid = ?' : ''}
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
-  }
+	}
 
-  async getExpenseBreakdownWithPayments(startDate: string, endDate: string, branchid?: number) {
-    const connection = await KnexConnection(this.tenantId);
-    return connection.raw(`
+	async getExpenseBreakdownWithPayments(startDate: string, endDate: string, branchid?: number) {
+		const connection = await KnexConnection(this.tenantId);
+		return connection.raw(`
       SELECT
         er.id AS expense_id,
         er.name AS expense_name,
@@ -420,24 +420,24 @@ export class ExpenseAnalyticsQueries {
         ${branchid ? 'AND er.branchid = ?' : ''}
       ORDER BY er.date DESC, er.id DESC
     `, branchid ? [startDate, endDate, branchid] : [startDate, endDate]);
-  }
+	}
 
-  async getPaymentsByMerchant(merchantId: number, page: number, count: number) {
-    const connection = await KnexConnection(this.tenantId);
-    const offset = (page - 1) * count;
+	async getPaymentsByMerchant(merchantId: number, page: number, count: number) {
+		const connection = await KnexConnection(this.tenantId);
+		const offset = (page - 1) * count;
 
-    // Get total count
-    const totalResult = await connection.raw(`
+		// Get total count
+		const totalResult = await connection.raw(`
       SELECT COUNT(*) as total
       FROM expense_payments ep
       INNER JOIN expensesrecord er ON ep.expense_id = er.id
       WHERE er.merchant = ? AND ep.status = 'Paid' AND ep.is_reversed = 0
     `, [merchantId]);
 
-    const total = totalResult[0][0].total;
+		const total = totalResult[0][0].total;
 
-    // Get paginated data
-    const dataResult = await connection.raw(`
+		// Get paginated data
+		const dataResult = await connection.raw(`
       SELECT
         ep.id AS payment_id,
         ep.payment_date,
@@ -466,12 +466,12 @@ export class ExpenseAnalyticsQueries {
       LIMIT ? OFFSET ?
     `, [merchantId, count, offset]);
 
-    return {
-      data: dataResult[0],
-      total: parseInt(total),
-      page: page,
-      pageSize: count,
-      totalPages: Math.ceil(total / count)
-    };
-  }
+		return {
+			data: dataResult[0],
+			total: parseInt(total),
+			page: page,
+			pageSize: count,
+			totalPages: Math.ceil(total / count)
+		};
+	}
 }

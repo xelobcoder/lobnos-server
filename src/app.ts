@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import express, { Request, Response } from "express";
 import cors from "cors";
 import os from 'os';
@@ -136,21 +137,52 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 
-app.listen(Number(port), '0.0.0.0', () => {
-	logger.info(`Server startup successful`, {
-		port: port,
-		env: process.env.NODE_ENV,
-		addresses: {
-			local: `http://localhost:${port}`,
-			network: `http://${os.hostname()}:${port}`
-		}
-	});
-	console.log(`Server is running at:`);
-	console.log(`  - Local:   http://localhost:${port}`);
-	console.log(`  - Network: http://${os.hostname()}:${port}`);
+app.listen(Number(port), "0.0.0.0", () => {
+    const pid = process.pid;
+
+    const timestamp = new Date().toLocaleString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true,
+    });
+
+    const localUrl = `http://localhost:${port}`;
+    const networkUrl = `http://${os.hostname()}:${port}`;
+
+    console.log(
+        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Application successfully started`
+    );
+
+    console.log(
+        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Environment : ${process.env.NODE_ENV ?? "development"}`
+    );
+
+    console.log(
+        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Port        : ${port}`
+    );
+
+    console.log(
+        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Local       : ${localUrl}`
+    );
+
+    console.log(
+        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Network     : ${networkUrl}`
+    );
+
+//     logger.info("Server startup successful", {
+//         port: Number(port),
+//         environment: process.env.NODE_ENV,
+//         pid,
+//         addresses: {
+//             local: localUrl,
+//             network: networkUrl,
+//         },
+//     });
 });
-
-
 
 
 

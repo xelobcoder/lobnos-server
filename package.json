@@ -17,7 +17,7 @@
   },
   "scripts": {
     "dev": "node --watch --env-file=./.env ./dist/src/app.js",
-        "nsstart": "node --env-file=.env ./dist/src/app.js",
+    "nsstart": "node --env-file=.env ./dist/src/app.js",
     "build": "tsc",
     "tsdev": "npx tsc --w",
     "start": "powershell -NoProfile -ExecutionPolicy Bypass -Command \"& { if ($IsWindows) { $svc = Get-Service -Name 'PrimeLabSystemRuntime' -ErrorAction SilentlyContinue; if ($null -ne $svc) { & powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/service-control.ps1 -Action restart } else { & powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/windows/install-service.ps1 -StartNow } } else { npm run kill-port; node --env-file=./.env ./dist/src/start.js } }\"",
@@ -47,6 +47,8 @@
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
     "cors": "^2.8.5",
     "decimal.js": "^10.6.0",
     "dotenv": "^16.0.3",
@@ -70,6 +72,7 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.1",
     "@types/jsonwebtoken": "^9.0.10",
+    "@types/luxon": "^3.7.2",
     "@types/multer": "^1.4.12",
     "@types/uuid": "^10.0.0",
     "pkg": "^5.8.1",

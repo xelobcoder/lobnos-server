@@ -1,21 +1,52 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TiifuWorkingClass = void 0;
 const helper_1 = require("../hooks/helper");
+const KnexConnections_1 = __importDefault(require("./KnexConnections"));
 const queries_1 = require("./queries");
 class TiifuWorkingClass {
     constructor(tablename) {
+        this.checkColumnExists = async (columnName) => {
+            const query = queries_1.q_tiifu_findColumn.replace("tableName", this.tableName).replace("columnName", columnName);
+            const result = await this.connection(1, query);
+            return result.length > 0;
+        };
+        this.createColumnIfNotExists = async (tenantId, columnName, constraint) => {
+            const columnExists = await this.checkColumnExists(columnName);
+            if (!columnExists) {
+                await TiifuWorkingClass.AddColumn(tenantId, this.tableName, columnName, constraint);
+            }
+        };
         this.tableName = tablename;
         this.connection = helper_1.promisifyQuery;
     }
+    static removeCountryCodeFromMobile(mobile, countryCode) {
+        const mobileStr = String(mobile).trim();
+        const isCountryCodeProvided = countryCode && countryCode.trim().length > 0;
+        if (!isCountryCodeProvided) {
+            const countryCodePattern = /^\+?\d{1,3}/;
+            const match = mobileStr.match(countryCodePattern);
+            if (match) {
+                const detectedCountryCode = match[0];
+                return mobileStr.slice(detectedCountryCode.length);
+            }
+        }
+        if (mobileStr.startsWith(countryCode))
+            return mobileStr.slice(countryCode.length);
+        return mobileStr;
+    }
     async findOne(tenantId, columnName, value) {
-        const query = queries_1.q_tiifu_findColumn.replace('tableName', this.tableName).replace('columnName', columnName);
-        const result = await (0, helper_1.promisifyQuery)(tenantId, query, [value]);
-        return result.length > 0 ? result[0] : null;
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection(this.tableName).where(columnName, value).first();
+        return result ? result : null;
     }
     async findMany(tenantId, columnName, value) {
-        const query = queries_1.q_tiifu_findColumn_many.replace('tableName', this.tableName).replace('columnName', columnName);
-        return await (0, helper_1.promisifyQuery)(tenantId, query, [value]);
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection(this.tableName).where(columnName, value);
+        return result ? result : [];
     }
     async findList(tenantId, columnName, list) {
         if (list && Array.isArray(list) && list.length > 0) {

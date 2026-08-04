@@ -617,7 +617,7 @@ class BillingSharedRepo {
                         ? outcome[0]
                         : outcome === null || outcome === void 0 ? void 0 : outcome.serviceid;
                 if (serviceid && typeof serviceid === "number") {
-                    await (0, appLevelTriggers_1.applyDboservicesAfterInsert)(queryRunner, {
+                    await (0, appLevelTriggers_1.applyDboservicesAfterInsert)(tenantId, queryRunner, {
                         serviceid,
                         billingid,
                         trackId,

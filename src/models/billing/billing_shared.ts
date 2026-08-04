@@ -605,7 +605,7 @@ export class BillingSharedRepo {
                               packageid: item?.packageid || null,
                          };
                     })
-          );
+          ) as any;
      }
 
 
@@ -723,7 +723,7 @@ export class BillingSharedRepo {
                                    ? outcome[0]
                                    : outcome?.serviceid;
                     if (serviceid && typeof serviceid === "number") {
-                         await applyDboservicesAfterInsert(queryRunner, {
+                         await applyDboservicesAfterInsert(tenantId,queryRunner, {
                               serviceid,
                               billingid,
                               trackId,
@@ -768,7 +768,7 @@ export class BillingSharedRepo {
                                    throw new Error(billErrors.unableToLoadTestAscension);
                               }
                               if (Array.isArray(result_delivery.preferences)) {
-                                   const findPrefernceforAscension = result_delivery.preferences.find((item) => item.testid == trackId);
+                                   const findPrefernceforAscension = result_delivery.preferences.find((item: any) => item.testid == trackId);
 
                                    if (findPrefernceforAscension)
                                         await new ResultDeliveryClass(billingid, tenantId).setMultipleTestResultDeliveryPreferences(

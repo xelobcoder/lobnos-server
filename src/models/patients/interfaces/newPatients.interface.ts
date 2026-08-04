@@ -1,0 +1,26 @@
+export interface INewPatientInterface {
+     firstname: string;
+     lastname: string;
+     middlename: string;
+     age: string;
+     ageType: string;
+     email: string;
+     gender: string;
+     mobile: number;
+     designation: string;
+     days: number;
+     relativecontactnumber: (string | number);
+     relativecontactname: string;
+     fullpatientid: string;
+     months: number;
+     maritalstatus: boolean;
+     employeeid: number;
+     occupation: string;
+     patientOrganization: string;
+     years: number;
+     whatsappcontact: (string | number);
+     mobileownership: string;
+     mobileCountryCode: string;
+     whatsappCountryCode: string;
+     relativeCountryCode: string;
+};

@@ -24,11 +24,10 @@ import KnexConnection from "../../database/KnexConnections";
 import ApplicationSettings from "../application/appsettings/appset";
 
 
-export class TestAscension extends Operations {
+export class TestAscension  {
 	ascensionId: number;
 
 	constructor(ascensionId: number) {
-		super(0);
 		this.ascensionId = ascensionId;
 	}
 

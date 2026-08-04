@@ -128,7 +128,7 @@ const databaseQueries: DatabaseQueries = {
      },
 
      getSingleId: async (tenantId: number, id: number, table: string, idResolver: string) => {
-          const result = await new TiifuWorkingClass(table).findMany(tenantId, idResolver, id);
+          const result = await new TiifuWorkingClass(table).findOne(tenantId, idResolver, id);
           return result;
      }
 };

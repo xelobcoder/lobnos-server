@@ -1,4 +1,4 @@
-import KnexConnection from "../../database/KnexConnections";
+import KnexConnection from "../../../database/KnexConnections";
 
 
 interface PatientClinicalHistoryUltrasound {

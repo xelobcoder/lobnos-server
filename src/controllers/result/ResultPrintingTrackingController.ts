@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import ResultPrintingTrackingRepository from "../../models/operations/ResultPrintingTrackingRepository";
+import ResultPrintingTrackingRepository from "../../models/operations/Repositories/ResultPrintingTrackingRepository";
 
 export class ResultPrintingTrackingController {
      static async create(req: Request, res: Response) {

@@ -3,7 +3,7 @@ import KnexConnection from "../../../database/KnexConnections";
 import ExpenseInvoiceRepo from "../../Expenses/ExpenseInvoiceRepo";
 import Expenses from "../../Expenses/ExpenseService";
 import { OperationsFailures } from "../../operations/types";
-import { SalesSessionRepo } from "./SalesSessionRepo";
+import { SalesSessionRepo } from "../repositories/SalesSessionRepo";
 
 
 interface TotalPayableResult {
@@ -82,7 +82,8 @@ export default class SalesSessionServices {
           );
 
           const netRevenue = billingTransactions.actual_revenue - expensePaymentsMade
-          const expectedAmount = netRevenue > 0 ? parseFloat(netRevenue.toString()) + parseFloat(session.openingamount.toString()) : session.openingamount
+          const expectedAmount = netRevenue > 0 && session.openingamount ? parseFloat(netRevenue.toString()) + parseFloat(session.openingamount.toString() || "0")
+               : session.openingamount || "0"
 
 
           return {

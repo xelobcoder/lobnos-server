@@ -31,7 +31,7 @@ const checkLicenseAccess = async (req, res, next) => {
         return res.status(500).json({ status: 'error', message: 'License validation failed: ' + error.message });
     }
 };
-router.post('/api/v1/prime/login', (0, helper_1.handleOverLoad)(checkLicenseAccess), (req, res) => authController.login(req, res));
+router.post('/api/v1/prime/login', (0, helper_1.handleOverLoad)(checkLicenseAccess), (0, helper_1.handleOverLoad)((req, res) => authController.login(req, res)));
 router.get('/api/v1/prime/validate-token', (0, helper_1.handleOverLoad)(checkLicenseAccess), (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), (req, res) => authController.validateToken(req, res));
 router.get('/api/v1/prime/validate-user-pin', (0, helper_1.handleOverLoad)(checkLicenseAccess), (req, res) => authController.validateUserPinProvided(req, res));
 router.get("/api/v1/security/getloggedsessions", (0, helper_1.handleOverLoad)(validateTenancy_1.checkTokenExists), validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(handlers_1.getLoggedSessions));

@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResultPrintingTrackingController = void 0;
-const ResultPrintingTrackingRepository_1 = __importDefault(require("../../models/operations/ResultPrintingTrackingRepository"));
+const ResultPrintingTrackingRepository_1 = __importDefault(require("../../models/operations/Repositories/ResultPrintingTrackingRepository"));
 class ResultPrintingTrackingController {
     static async create(req, res) {
         try {

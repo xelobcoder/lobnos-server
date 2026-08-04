@@ -4,16 +4,16 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
-const AuthenticationRepository_1 = __importDefault(require("../../models/settings/users/AuthenticationRepository"));
-const TokenValidator_1 = __importDefault(require("../../models/settings/users/TokenValidator"));
-const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
-const PrimeWindowAccessRepository_1 = __importDefault(require("../../models/settings/users/PrimeWindowAccessRepository"));
 const helper_1 = require("../../hooks/helper");
 const validateTenancy_1 = require("../../middleware/validateTenancy");
-const companyProfile_1 = require("../../models/settings/companyProfile");
 const appset_1 = __importDefault(require("../../models/application/appsettings/appset"));
-const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
+const resultSettings_1 = __importDefault(require("../../models/application/appsettings/result-settings/resultSettings"));
 const securityClass_1 = __importDefault(require("../../models/security/securityClass"));
+const companyProfile_1 = require("../../models/settings/companyProfile");
+const AuthenticationRepository_1 = __importDefault(require("../../models/settings/users/AuthenticationRepository"));
+const PrimeWindowAccessRepository_1 = __importDefault(require("../../models/settings/users/PrimeWindowAccessRepository"));
+const RolesRepository_1 = __importDefault(require("../../models/settings/users/RolesRepository"));
+const TokenValidator_1 = __importDefault(require("../../models/settings/users/TokenValidator"));
 class AuthController {
     constructor() {
         this.authRepo = null;

@@ -46,7 +46,7 @@ const databaseQueries = {
         return result.fieldCount === 0;
     },
     getSingleId: async (tenantId, id, table, idResolver) => {
-        const result = await new TiifuWorkingClass_1.TiifuWorkingClass(table).findMany(tenantId, idResolver, id);
+        const result = await new TiifuWorkingClass_1.TiifuWorkingClass(table).findOne(tenantId, idResolver, id);
         return result;
     }
 };

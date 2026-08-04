@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import { OperationsFailures } from "../../models/operations/types";
 import Operations from "../../models/operations/operations";
-import ResultSettings from "../../models/application/appsettings/resultSettings";
 import { TestApprovalClass } from "../../models/operations/testApprovalClass";
 import User from "../../LobnosAuth/user";
+import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 
 
 export async function ascensionStagingHandler(request: Request, response: Response) {

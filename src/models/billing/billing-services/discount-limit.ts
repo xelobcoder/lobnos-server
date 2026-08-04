@@ -23,7 +23,7 @@ export default class DiscountLimitService {
 
      private static getNextRoleInHierarchy(currentRole: string | null): string | null {
           if (!currentRole) return null;
-          const hierarchy = ['crm', 'customer representative', 'customer service representative', 'manager', 'accountant', 'admin', 'super-admin', 'superadmin', 'super admin'];
+          const hierarchy = ['customer service representative', 'manager', 'accountant', 'admin', 'super-admin', 'superadmin', 'super admin'];
           const idx = hierarchy.indexOf(currentRole);
           if (idx === -1) return null;
           return hierarchy[idx + 1] || null;

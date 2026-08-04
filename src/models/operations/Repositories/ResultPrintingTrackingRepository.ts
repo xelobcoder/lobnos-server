@@ -1,14 +1,7 @@
-import KnexConnection from "../../database/KnexConnections";
-import logger from "../../hooks/logger";
+import KnexConnection from "../../../database/KnexConnections";
+import logger from "../../../hooks/logger";
+import { ResultPrintingTracking } from "../../application/appsettings/interfaces/results-settings.interface";
 
-export interface ResultPrintingTracking {
-     trackid?: number;
-     ascensionid: number;
-     employeeid: number;
-     action: 'view' | 'printed';
-     count?: number;
-     actionon?: string;
-}
 
 export default class ResultPrintingTrackingRepository {
      private tenantId: number;
@@ -71,7 +64,7 @@ export default class ResultPrintingTrackingRepository {
                     .count(`${this.tableName}.trackid as total`);
                const total = Number(totalResult[0]?.total || 0);
                const totalPages = Math.ceil(total / count);
-               
+
                const data = await conn(this.tableName)
                     .leftJoin('roles', `${this.tableName}.employeeid`, 'roles.employeeid')
                     .leftJoin('test_ascension', `${this.tableName}.ascensionid`, 'test_ascension.id')

@@ -90,8 +90,44 @@ export default class ResultDeliveryClass {
                return true;
           } catch (err: any) {
                console.log(err)
-               trx.rollback();
+               if (trx) {
+                    await trx.rollback();
+               }
                throw new Error("Error loading preferences")
+          }
+     }
+
+     async getResultDeliveryChain(): Promise<{ status: boolean, billingid: number, handovers: any[], deliveries: any[] }> {
+          try {
+               const handovers = await this.connection('result_handover_log')
+                    .leftJoin('roles as r_from', 'result_handover_log.from_employeeid', 'r_from.employeeid')
+                    .leftJoin('roles as r_to', 'result_handover_log.to_employeeid', 'r_to.employeeid')
+                    .select(
+                         'result_handover_log.*',
+                         'r_from.username as from_username',
+                         'r_from.role as from_role',
+                         'r_to.username as to_username',
+                         'r_to.role as to_role'
+                    )
+                    .where('result_handover_log.billingid', this.billingid)
+                    .orderBy('result_handover_log.created_at', 'asc');
+
+               const deliveries = await this.connection('result_delivery_log')
+                    .leftJoin('roles as r_deliver', 'result_delivery_log.delivered_by_employeeid', 'r_deliver.employeeid')
+                    .select(
+                         'result_delivery_log.*',
+                         'r_deliver.username as delivered_by_username',
+                         'r_deliver.role as delivered_by_role'
+                    )
+                    .where('result_delivery_log.billingid', this.billingid)
+                    .orderBy('result_delivery_log.delivered_at', 'asc');
+
+
+
+               return { status: true, billingid: this.billingid, handovers, deliveries }
+          } catch (err: any) {
+               console.log(err)
+               throw new Error("Error fetching result delivery chain")
           }
      }
 }

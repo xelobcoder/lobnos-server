@@ -85,7 +85,7 @@ export async function insertDboservicesAudit(
 	});
 }
 
-export async function applyDboservicesAfterInsert(db: DbRunner, service: any, actor?: string, tenantId?: number) {
+export async function applyDboservicesAfterInsert(tenantId:number, db: DbRunner, service: any, actor?: string) {
 	await insertDboservicesAudit(db, service, "INSERT", actor);
 
 	if (service.serviceCategory === "SERVICES" && Number(service.categoryTrackId) === 5) {
@@ -120,9 +120,9 @@ export async function applyDboservicesAfterInsert(db: DbRunner, service: any, ac
 
 
 		const applicationsettings = await new ApplicationSettings().getAllAppSettings(tenantId);
-		const automatedExpenseEnabled = parseInt(applicationsettings?.automakeoutsourcepaymentsexpense.toString() || '0');
+		const automatedExpenseEnabled = applicationsettings?.automakeoutsourcepaymentsexpense ? parseInt(applicationsettings?.automakeoutsourcepaymentsexpense.toString() || '0') : 0;
 		if (!automatedExpenseEnabled) return;
-		console.log(applicationsettings['automakeoutsourcepaymentsexpense']);
+
 		try {
 			await OutsourcedCases.triggerAutomatedExpenseLifecycle(tenantId, {
 				serviceid: service.serviceid,

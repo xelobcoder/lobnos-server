@@ -675,22 +675,12 @@ const getResultDeliveryChain = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
         const billingid = parseInt(String(req.params.billingid), 10);
-        if (!billingid || isNaN(billingid)) {
+        if (!billingid || isNaN(billingid))
             return (0, helper_1.customError)("billingid must be a number", 400, res);
-        }
-        const conn = await (0, KnexConnections_1.default)(tenantId);
-        const handovers = await conn('result_handover_log')
-            .leftJoin('roles as r_from', 'result_handover_log.from_employeeid', 'r_from.employeeid')
-            .leftJoin('roles as r_to', 'result_handover_log.to_employeeid', 'r_to.employeeid')
-            .select('result_handover_log.*', 'r_from.username as from_username', 'r_from.role as from_role', 'r_to.username as to_username', 'r_to.role as to_role')
-            .where('result_handover_log.billingid', billingid)
-            .orderBy('result_handover_log.created_at', 'asc');
-        const deliveries = await conn('result_delivery_log')
-            .leftJoin('roles as r_deliver', 'result_delivery_log.delivered_by_employeeid', 'r_deliver.employeeid')
-            .select('result_delivery_log.*', 'r_deliver.username as delivered_by_username', 'r_deliver.role as delivered_by_role')
-            .where('result_delivery_log.billingid', billingid)
-            .orderBy('result_delivery_log.delivered_at', 'asc');
-        res.send({ status: true, billingid, handovers, deliveries });
+        const deliveryChain = await new resultDelivery_1.default(billingid, tenantId).getResultDeliveryChain();
+        if (deliveryChain && deliveryChain.status === true)
+            return res.send(deliveryChain);
+        return res.send({ status: false, message: "No delivery chain found" });
     }
     catch (err) {
         (0, helper_1.responseError)(res, err);

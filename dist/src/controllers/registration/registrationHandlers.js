@@ -9,12 +9,16 @@ const DatabaseQueriesHelper_1 = __importDefault(require("../../database/Database
 const helper_1 = require("../../hooks/helper");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const PatientImageRepository_1 = __importDefault(require("../../repositories/patientRepositories/PatientImageRepository"));
+const patientRepo_1 = __importDefault(require("../../models/patients/patientRepo"));
+const patientAddressingRepo_repo_1 = __importDefault(require("../../models/patients/respositories/patientAddressingRepo.repo"));
+const emmergencyPatient_repo_1 = __importDefault(require("../../models/patients/respositories/emmergencyPatient.repo"));
 const addNewPatient = async (request, res) => {
     try {
         const tenantId = parseInt(request.query.tenantId);
         await registration_1.default.addNewPatient(tenantId, request, res);
     }
     catch (error) {
+        console.log(error);
         (0, helper_1.customError)("Error registering patient", 500, res);
     }
 };
@@ -27,7 +31,7 @@ const updatePersonalInformation = async (request, response) => {
         return (0, helper_1.customError)("patientid not included in the request", 400, response);
     }
     try {
-        const { data } = request.body;
+        const data = request.body;
         const result = await registration_1.default.UpdatePersonalInformation(tenantId, data, parsedPatientId);
         response.send({ status: result });
     }
@@ -90,8 +94,8 @@ const updateAddressingInformation = async (request, response) => {
     }
     try {
         const records = request.body;
-        const info = await registration_1.default.addressingInformationStatic(tenantId, parsedPatientId, records);
-        if (info === true) {
+        const info = await new patientAddressingRepo_repo_1.default(tenantId).update(parsedPatientId, records);
+        if (info) {
             response.send({
                 message: "record updated successfully",
                 statusCode: 200,
@@ -116,56 +120,47 @@ const getPersonalInformation = async (request, response) => {
     const tenantId = parseInt(request.query.tenantId, 10);
     const { patientid } = request.query;
     const parsedPatientId = parseInt(patientid);
-    if (!patientid || isNaN(parsedPatientId)) {
+    if (!patientid || isNaN(parsedPatientId))
         return (0, helper_1.customError)("patientid not included in the request", 400, response);
-    }
     try {
         const data = await DatabaseQueriesHelper_1.default.getSingleId(tenantId, parsedPatientId, "new_patients", "patientid");
-        if (data.length > 0) {
-            const dataOne = (0, helper_1.convertKeysToLowerCase)(data[0]);
-            dataOne.maritalstatus = dataOne.marital_status;
-            dataOne.mobile = parseInt(dataOne.mobile_number);
-            dataOne.patientOrganization = dataOne.organization;
-            const date = new Date(dataOne.dob);
-            delete dataOne.marital_status;
-            delete dataOne.mobile_number;
-            delete dataOne.organization;
-            dataOne.years = date.getFullYear();
-            dataOne.months = date.getMonth() + 1;
-            dataOne.days = date.getDate();
-            dataOne.ageType = dataOne["agetype"];
-            delete dataOne.agetype;
-            response.send({ statusCode: 200, status: "success", result: dataOne });
-        }
-        else {
-            response.send({ statusCode: 200, status: "success", result: [] });
-        }
+        response.send({ statusCode: 200, status: "success", result: data });
     }
     catch (error) {
-        console.error(error);
+        logger_1.default.error(error);
         (0, helper_1.customError)("Error fetching personal information", 500, response);
     }
 };
 exports.getPersonalInformation = getPersonalInformation;
 const checkMobileNumber = async (request, response) => {
     const tenantId = parseInt(request.query.tenantId, 10);
-    const { mobileno } = request.query;
-    if (!mobileno) {
-        return (0, helper_1.customError)("mobileno not included in the request", 400, response);
-    }
-    if (typeof mobileno !== "string" && typeof mobileno !== "number") {
-        return (0, helper_1.customError)("mobileno must be a string or number", 400, response);
-    }
-    const mobileNumber = typeof mobileno === "string" ? parseInt(mobileno, 10) : mobileno;
-    if (isNaN(mobileNumber)) {
-        return (0, helper_1.customError)("mobileno is not a valid number", 400, response);
+    const patientid = request.query.patientid ? parseInt(request.query.patientid.toString(), 10) : undefined;
+    if (patientid && isNaN(patientid))
+        return (0, helper_1.customError)("patientid is not a valid number", 400, response);
+    console.log(request.query.mobileno);
+    if (patientid) {
+        const belongsToPatient = await patientRepo_1.default.checkNumberBelongsToPatient(tenantId, patientid, request.query.mobileno);
+        if (belongsToPatient) {
+            return response.send({
+                statusCode: 200,
+                status: "success",
+                exist: true,
+            });
+        }
+        else {
+            return response.send({
+                statusCode: 200,
+                status: "success",
+                exist: false,
+            });
+        }
     }
     try {
-        const data = await DatabaseQueriesHelper_1.default.getSingleId(tenantId, mobileNumber, "new_patients", "mobile_number");
+        const data = await DatabaseQueriesHelper_1.default.getSingleId(tenantId, parseInt(request.query.mobileno.toString(), 10), "new_patients", "mobile_number");
         response.send({
             statusCode: 200,
             status: "success",
-            exist: data.length > 0,
+            exist: data ? true : false,
         });
     }
     catch (error) {
@@ -185,9 +180,9 @@ const getAddressingInformation = async (request, response) => {
         return (0, helper_1.customError)("patientid is not a valid number", 400, response);
     }
     try {
-        const data = await DatabaseQueriesHelper_1.default.getSingleId(tenantId, normalizedPatientId, "patientsaddress", "patientid");
-        if (data.length > 0) {
-            response.send({ statusCode: 200, status: "success", result: data[0] });
+        const data = await new patientAddressingRepo_repo_1.default(tenantId).get(normalizedPatientId);
+        if (data) {
+            response.send({ statusCode: 200, status: "success", result: data });
         }
         else {
             response.send({ statusCode: 200, status: "success", result: [] });
@@ -210,9 +205,9 @@ const getEmergencyContactInformation = async (request, response) => {
         return (0, helper_1.customError)("patientid is not a valid number", 400, response);
     }
     try {
-        const data = await DatabaseQueriesHelper_1.default.getSingleId(tenantId, normalizedPatientId, "patientemmergencycontactinformation", "patientid");
-        if (data.length > 0) {
-            response.send({ statusCode: 200, status: "success", result: data[0] });
+        const data = await new emmergencyPatient_repo_1.default(tenantId).get(normalizedPatientId);
+        if (data) {
+            response.send({ statusCode: 200, status: "success", result: data });
         }
         else {
             response.send({ statusCode: 200, status: "success", result: [] });

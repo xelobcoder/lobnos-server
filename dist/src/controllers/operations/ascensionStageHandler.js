@@ -5,9 +5,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ascensionStagingHandler = void 0;
 const operations_1 = __importDefault(require("../../models/operations/operations"));
-const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const testApprovalClass_1 = require("../../models/operations/testApprovalClass");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
+const resultSettings_1 = __importDefault(require("../../models/application/appsettings/result-settings/resultSettings"));
 async function ascensionStagingHandler(request, response) {
     try {
         const { operationsStaging, dateFrom, dateEnd, grouped, page, patientname, count, isUltrasound, ascensionid, billingid, patientid, employeeid, tenantId, clinicianId, organizationId, testid } = request.query;

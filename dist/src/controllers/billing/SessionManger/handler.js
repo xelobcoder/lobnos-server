@@ -6,7 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.handleUpdateSalesSession = exports.getSessionsByDateHandler = exports.deleteUnusedSalesSessionHandler = exports.setSalesSessionConfigHandler = exports.getSalesSessionConfigHandler = exports.getSessionFinancialSummaryHandler = exports.hasSalesSessionAvailableHandler = exports.handleEndSalesSession = exports.getSalesSessionList = exports.handleCreateNewSalesSesion = void 0;
 const SalesSessionRepo_1 = require("../../../models/billing/repositories/SalesSessionRepo");
 const helper_1 = require("../../../hooks/helper");
-const salesSessionService_1 = __importDefault(require("../../../models/billing/repositories/salesSessionService"));
+const salesSessionService_1 = __importDefault(require("../../../models/billing/billing-services/salesSessionService"));
 const handleCreateNewSalesSesion = async function (request, response) {
     try {
         const { tenantId } = request.query;

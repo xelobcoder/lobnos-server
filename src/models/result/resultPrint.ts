@@ -1,9 +1,4 @@
-import logger from "../../hooks/logger";
-import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
-import ResultSettings from "../application/appsettings/resultSettings";
-import { TestApprovalClass } from "../operations/testApprovalClass";
-import { OperationsFailures, validatorsFinalFormatType } from "../operations/types";
-import Registration from "../registration/registration";
+
 import {
 	advancedTablesSearchQueryWithFilters,
 	approvedByQuery,
@@ -24,6 +19,12 @@ import Creator from "../creator/creator";
 import { CreationRule, previewReportView } from "../creator/creator-types";
 import { getTransactionApprovedTest } from "../../controllers/printables/handlers";
 import resultEncrptionReferer from "../creator/resultEncryptionReferer";
+import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import ResultSettings from "../application/appsettings/result-settings/resultSettings";
+import { logger } from "../commissions/commission-configurations";
+import { TestApprovalClass } from "../operations/testApprovalClass";
+import { validatorsFinalFormatType, OperationsFailures } from "../operations/types";
+import Registration from "../registration/registration";
 
 const emptySummry = [
 	{ title: "registered clients", value: 0 },
