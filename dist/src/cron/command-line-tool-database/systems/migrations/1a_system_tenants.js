@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.down = exports.up = void 0;
+exports.up = up;
+exports.down = down;
 async function up(knex) {
     if (!(await knex.schema.hasTable("system_tenants"))) {
         await knex.schema.createTable("system_tenants", (table) => {
@@ -14,8 +15,6 @@ async function up(knex) {
         });
     }
 }
-exports.up = up;
 async function down(knex) {
     await knex.schema.dropTableIfExists("system_tenants");
 }
-exports.down = down;

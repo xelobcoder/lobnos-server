@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateNextTestPanelId = void 0;
+exports.generateNextTestPanelId = generateNextTestPanelId;
 async function generateNextTestPanelId(db) {
     var _a;
     const raw = await db.raw("SELECT MAX(CAST(SUBSTRING(id, 4) AS UNSIGNED)) AS max_id FROM test_panels WHERE id REGEXP '^100[0-9]+$' FOR UPDATE");
@@ -17,4 +17,3 @@ async function generateNextTestPanelId(db) {
     }
     throw new Error("unable to generate test panel id");
 }
-exports.generateNextTestPanelId = generateNextTestPanelId;

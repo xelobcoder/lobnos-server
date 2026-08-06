@@ -3,7 +3,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getLifetimeTransactionSummary = exports.getTrendsAnalytics = exports.getMonthlyAnalytics = exports.getYearlyAnalytics = exports.getPatientAnalytics = void 0;
+exports.getPatientAnalytics = getPatientAnalytics;
+exports.getYearlyAnalytics = getYearlyAnalytics;
+exports.getMonthlyAnalytics = getMonthlyAnalytics;
+exports.getTrendsAnalytics = getTrendsAnalytics;
+exports.getLifetimeTransactionSummary = getLifetimeTransactionSummary;
 const PatientAnalyticsRepository_1 = __importDefault(require("../../../repositories/patientRepositories/PatientAnalyticsRepository"));
 const helper_1 = require("../../../hooks/helper");
 async function getPatientAnalytics(req, res) {
@@ -23,7 +27,6 @@ async function getPatientAnalytics(req, res) {
         res.status(500).json({ status: false, message: 'Failed to fetch patient analytics' });
     }
 }
-exports.getPatientAnalytics = getPatientAnalytics;
 async function getYearlyAnalytics(req, res) {
     try {
         const { patientId, year } = req.query;
@@ -51,7 +54,6 @@ async function getYearlyAnalytics(req, res) {
         res.status(500).json({ status: false, message: 'Failed to fetch yearly analytics' });
     }
 }
-exports.getYearlyAnalytics = getYearlyAnalytics;
 async function getMonthlyAnalytics(req, res) {
     try {
         const { patientid, year, month } = req.query;
@@ -70,7 +72,6 @@ async function getMonthlyAnalytics(req, res) {
         res.status(500).json({ status: false, message: 'Failed to fetch monthly analytics' });
     }
 }
-exports.getMonthlyAnalytics = getMonthlyAnalytics;
 async function getTrendsAnalytics(req, res) {
     try {
         const { patientid, months } = req.query;
@@ -86,7 +87,6 @@ async function getTrendsAnalytics(req, res) {
         res.status(500).json({ status: false, message: 'Failed to fetch trends' });
     }
 }
-exports.getTrendsAnalytics = getTrendsAnalytics;
 async function getLifetimeTransactionSummary(req, res) {
     try {
         const { patientid } = req.query;
@@ -119,4 +119,3 @@ async function getLifetimeTransactionSummary(req, res) {
         });
     }
 }
-exports.getLifetimeTransactionSummary = getLifetimeTransactionSummary;

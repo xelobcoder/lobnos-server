@@ -1,7 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.jsonify = void 0;
+exports.jsonify = jsonify;
 function jsonify(value) {
     return JSON.parse(value);
 }
-exports.jsonify = jsonify;

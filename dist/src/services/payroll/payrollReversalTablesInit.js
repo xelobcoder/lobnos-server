@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensurePayrollReversalTables = void 0;
+exports.ensurePayrollReversalTables = ensurePayrollReversalTables;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 async function ensurePayrollReversalTables(tenantId) {
     const knex = await (0, KnexConnections_1.default)(tenantId);
@@ -81,4 +81,3 @@ async function ensurePayrollReversalTables(tenantId) {
         }
     }
 }
-exports.ensurePayrollReversalTables = ensurePayrollReversalTables;

@@ -20,7 +20,8 @@ class Branch extends appset_1.default {
         return (0, helper_1.rowAffected)(await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_branches_update_single, [name, contact, address, email, managerid, branchid]));
     }
     static async deleteBranch(tenantId, branchid) {
-        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_branches_delete_single, [branchid]);
+        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_branches_delete_single, [branchid]);
+        return (0, helper_1.rowAffected)(result);
     }
     static async activateDeactivateBranch(tenantId, id, status) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_update_activation, [status, id]);

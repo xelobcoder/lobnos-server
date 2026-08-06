@@ -15,18 +15,38 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.applyTestPanelsAfterInsert = exports.applyClinicianAfterDelete = exports.applyClinicianAfterInsert = exports.applyOrganizationAfterInsert = exports.applyTestAscensionAfterInsertApprovalSettings = exports.applyDboservicesAfterDelete = exports.applyDboservicesAfterUpdate = exports.applyDboservicesAfterInsert = exports.insertDboservicesAudit = exports.applyNewPatientAfterDelete = exports.applyNewPatientAfterInsert = void 0;
+exports.applyNewPatientAfterInsert = applyNewPatientAfterInsert;
+exports.applyNewPatientAfterDelete = applyNewPatientAfterDelete;
+exports.insertDboservicesAudit = insertDboservicesAudit;
+exports.applyDboservicesAfterInsert = applyDboservicesAfterInsert;
+exports.applyDboservicesAfterUpdate = applyDboservicesAfterUpdate;
+exports.applyDboservicesAfterDelete = applyDboservicesAfterDelete;
+exports.applyTestAscensionAfterInsertApprovalSettings = applyTestAscensionAfterInsertApprovalSettings;
+exports.applyOrganizationAfterInsert = applyOrganizationAfterInsert;
+exports.applyClinicianAfterInsert = applyClinicianAfterInsert;
+exports.applyClinicianAfterDelete = applyClinicianAfterDelete;
+exports.applyTestPanelsAfterInsert = applyTestPanelsAfterInsert;
 const CommissionDefaultsRepository_1 = require("../models/commissions/CommissionDefaultsRepository");
 const outsourcedCases_1 = __importDefault(require("../models/organization/outsourcingOrganization/outsourcedCases"));
 const appset_1 = __importDefault(require("../models/application/appsettings/appset"));
@@ -49,14 +69,12 @@ async function applyNewPatientAfterInsert(db, payload) {
         patientid: payload.patientid,
     });
 }
-exports.applyNewPatientAfterInsert = applyNewPatientAfterInsert;
 async function applyNewPatientAfterDelete(db, patientid) {
     await db("patientemmergencycontactinformation").where({ patientid }).del();
     await db("patients_settings").where({ patientid }).del();
     await db("patients_credentials").where({ patientid }).del();
     await db("patientsaddress").where({ patientid }).del();
 }
-exports.applyNewPatientAfterDelete = applyNewPatientAfterDelete;
 async function insertDboservicesAudit(db, service, action, actor) {
     var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
     await db("dboservices_audit").insert({
@@ -96,7 +114,6 @@ async function insertDboservicesAudit(db, service, action, actor) {
         userAdjustedValue: (_k = service.userAdjustedValue) !== null && _k !== void 0 ? _k : null,
     });
 }
-exports.insertDboservicesAudit = insertDboservicesAudit;
 async function applyDboservicesAfterInsert(tenantId, db, service, actor) {
     await insertDboservicesAudit(db, service, "INSERT", actor);
     if (service.serviceCategory === "SERVICES" && Number(service.categoryTrackId) === 5) {
@@ -184,15 +201,12 @@ async function applyDboservicesAfterInsert(tenantId, db, service, actor) {
         // });
     }
 }
-exports.applyDboservicesAfterInsert = applyDboservicesAfterInsert;
 async function applyDboservicesAfterUpdate(db, service, actor) {
     await insertDboservicesAudit(db, service, "UPDATE", actor);
 }
-exports.applyDboservicesAfterUpdate = applyDboservicesAfterUpdate;
 async function applyDboservicesAfterDelete(db, service, actor) {
     await insertDboservicesAudit(db, service, "DELETE", actor);
 }
-exports.applyDboservicesAfterDelete = applyDboservicesAfterDelete;
 async function applyTestAscensionAfterInsertApprovalSettings(db, ascensionid) {
     const existing = await db("dbotestresultapproval").select("id").where({ ascensionid }).first();
     if (existing)
@@ -225,7 +239,6 @@ async function applyTestAscensionAfterInsertApprovalSettings(db, ascensionid) {
         printCount: 0,
     });
 }
-exports.applyTestAscensionAfterInsertApprovalSettings = applyTestAscensionAfterInsertApprovalSettings;
 async function applyOrganizationAfterInsert(db, organizationid) {
     const contact = await db("organizationcontactperson")
         .select("id")
@@ -245,7 +258,6 @@ async function applyOrganizationAfterInsert(db, organizationid) {
         await db("organizationaccountinformation").insert({ organizationid, commission: commissionValue });
     }
 }
-exports.applyOrganizationAfterInsert = applyOrganizationAfterInsert;
 async function applyClinicianAfterInsert(tenantId, db, payload) {
     // 1. check for default commissions for clinician exist , if yes use the default value to create the clinician commision amount else create with 0 commission
     const commissionDefault = await new CommissionDefaultsRepository_1.CommissionDefaultsRepository(tenantId, db).getByTargetType('CLINICIAN');
@@ -276,12 +288,10 @@ async function applyClinicianAfterInsert(tenantId, db, payload) {
         });
     }
 }
-exports.applyClinicianAfterInsert = applyClinicianAfterInsert;
 async function applyClinicianAfterDelete(db, clinicianid) {
     await db("clinicianpaymentinfo").where({ clinicianid }).del();
     await db("clinicianscredentials").where({ clinicianid }).del();
 }
-exports.applyClinicianAfterDelete = applyClinicianAfterDelete;
 async function applyTestPanelsAfterInsert(db, payload) {
     const existingDetails = await db("testdetails").select("id").where({ testid: payload.testid }).first();
     if (!existingDetails) {
@@ -302,4 +312,3 @@ async function applyTestPanelsAfterInsert(db, payload) {
         }
     }
 }
-exports.applyTestPanelsAfterInsert = applyTestPanelsAfterInsert;

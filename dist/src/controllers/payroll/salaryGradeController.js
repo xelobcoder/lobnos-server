@@ -44,7 +44,7 @@ exports.createSalaryGradeHandler = createSalaryGradeHandler;
 const getSalaryGradeByIdHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!tenantId || !id) {
             return (0, helper_1.customError)('Tenant ID and Grade ID are required', 400, res);
         }
@@ -120,7 +120,7 @@ const updateSalaryGradeHandler = async (req, res) => {
     var _a;
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         const updateData = req.body;
         if (!tenantId || !id) {
             return (0, helper_1.customError)('Tenant ID and Grade ID are required', 400, res);
@@ -151,7 +151,7 @@ exports.updateSalaryGradeHandler = updateSalaryGradeHandler;
 const deactivateSalaryGradeHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!tenantId || !id) {
             return (0, helper_1.customError)('Tenant ID and Grade ID are required', 400, res);
         }

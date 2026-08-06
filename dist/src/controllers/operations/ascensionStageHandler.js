@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ascensionStagingHandler = void 0;
+exports.ascensionStagingHandler = ascensionStagingHandler;
 const operations_1 = __importDefault(require("../../models/operations/operations"));
 const testApprovalClass_1 = require("../../models/operations/testApprovalClass");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
@@ -44,7 +44,6 @@ async function ascensionStagingHandler(request, response) {
         response.send({ status: false, message: err.message || 'An unexpected error occurred' });
     }
 }
-exports.ascensionStagingHandler = ascensionStagingHandler;
 async function validatedResultEmployeeGetter(item, tenantId) {
     const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id, fullpatientid, paymentstatus, ascension_date, delivered_by_employeeid, delivered_at, delivered_mode, requested_mode, delivered_by_username } = item;
     const validators = await new testApprovalClass_1.TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);

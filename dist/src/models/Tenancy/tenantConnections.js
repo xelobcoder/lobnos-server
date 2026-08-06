@@ -3,7 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.primeTenancyConnector = exports.KnexConnectionTenant = void 0;
+exports.KnexConnectionTenant = KnexConnectionTenant;
+exports.primeTenancyConnector = primeTenancyConnector;
 const knex_1 = __importDefault(require("knex"));
 const promise_1 = __importDefault(require("mysql2/promise"));
 const configuration_1 = require("../../hooks/configuration");
@@ -57,10 +58,8 @@ async function primeTenancyConnector(tenantId) {
     connection.lastUsed = Date.now();
     return connection.mysqlPool;
 }
-exports.primeTenancyConnector = primeTenancyConnector;
 async function KnexConnectionTenant(tenantId) {
     const connection = await initializeTenantConnection(tenantId);
     connection.lastUsed = Date.now();
     return connection.knex;
 }
-exports.KnexConnectionTenant = KnexConnectionTenant;

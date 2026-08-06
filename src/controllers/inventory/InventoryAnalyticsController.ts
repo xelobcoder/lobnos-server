@@ -370,9 +370,9 @@ export class InventoryAnalyticsController {
 
 
 
-     async getTransactionAnalytics(req: Request, res: Response): Promise<void> {
+     async getTransactionAnalytics(req: Request<{},{},{},{supplierid:number,start_date:string, end_date:string,itemid:number}>, res: Response): Promise<void> {
           try {
-               const tenantId = this.getTenantId(req);
+               const tenantId = this.getTenantId(req as any);
                const connection = await KnexConnection(tenantId);
                const { itemid, supplierid, start_date, end_date } = req.query;
 

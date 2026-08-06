@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.synchronize = void 0;
+exports.synchronize = synchronize;
 const helper_1 = require("../../../hooks/helper");
 const queries_1 = require("../queries");
 async function getSyncCurrentRecord(tenantId) {
@@ -40,7 +40,6 @@ async function synchronize(tenantId) {
     }
     return synTest;
 }
-exports.synchronize = synchronize;
 async function shouldSynchronize(record) {
     if (record.length == 0)
         return false;

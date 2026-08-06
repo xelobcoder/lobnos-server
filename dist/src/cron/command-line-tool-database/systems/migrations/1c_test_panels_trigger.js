@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.down = exports.up = void 0;
+exports.up = up;
+exports.down = down;
 async function up(knex) {
     // Create trigger for auto-generating test_panels IDs with "100" prefix
     const triggerSQL = `
@@ -35,9 +36,7 @@ async function up(knex) {
   `;
     await knex.raw(triggerSQL);
 }
-exports.up = up;
 async function down(knex) {
     // Drop the trigger on rollback
     await knex.raw("DROP TRIGGER IF EXISTS before_insert_test_panels_id");
 }
-exports.down = down;

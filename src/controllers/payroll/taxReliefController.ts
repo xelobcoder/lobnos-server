@@ -6,14 +6,9 @@ import { TaxReliefRepository, ITaxRelief } from '../../models/payroll/TaxReliefR
 export const createTaxReliefHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
-
           const relief: ITaxRelief = req.body;
           const repo = new TaxReliefRepository(tenantId);
           const id = await repo.create(relief);
-
           res.status(201).json({
                status: 'success',
                statusCode: 201,
@@ -21,6 +16,7 @@ export const createTaxReliefHandler = async (req: Request, res: Response) => {
                result: { id }
           });
      } catch (error) {
+          console.log(error)
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };

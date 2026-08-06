@@ -106,7 +106,7 @@ class CommissionAssignmentController {
     static async getAssignment(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const assignmentId = parseInt(req.params.id);
+            const assignmentId = parseInt(req.params.id.toString());
             if (!tenantId || !assignmentId || isNaN(tenantId) || isNaN(assignmentId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or assignmentId' });
                 return;
@@ -175,7 +175,7 @@ class CommissionAssignmentController {
     static async updateAssignment(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const assignmentId = parseInt(req.params.id);
+            const assignmentId = parseInt(req.params.id.toString());
             if (!tenantId || !assignmentId || isNaN(tenantId) || isNaN(assignmentId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or assignmentId' });
                 return;
@@ -229,7 +229,7 @@ class CommissionAssignmentController {
     static async deleteAssignment(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const assignmentId = parseInt(req.params.id);
+            const assignmentId = parseInt(req.params.id.toString());
             if (!tenantId || !assignmentId || isNaN(tenantId) || isNaN(assignmentId)) {
                 res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or assignmentId' });
                 return;

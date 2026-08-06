@@ -139,7 +139,7 @@ exports.getAllPayrollPeriodsHandler = getAllPayrollPeriodsHandler;
 const getPayrollPeriodByIdHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         const repo = new PayrollPeriodRepository_1.PayrollPeriodRepository(tenantId);
         const period = await repo.getById(id);
         if (!period) {
@@ -162,7 +162,7 @@ exports.getPayrollPeriodByIdHandler = getPayrollPeriodByIdHandler;
 const deletePayrollPeriodHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         if (!tenantId || !periodId) {
             (0, helper_1.customError)('Tenant ID and Period ID are required', 400, res);
             return;
@@ -191,7 +191,7 @@ exports.deletePayrollPeriodHandler = deletePayrollPeriodHandler;
 const processPayrollHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const { employeeIds, calculated_by } = req.body;
         if (!periodId) {
             return (0, helper_1.customError)('Period ID is required', 400, res);
@@ -231,7 +231,7 @@ exports.processPayrollHandler = processPayrollHandler;
 const approvePayrollHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const { approved_by } = req.body;
         if (!periodId) {
             return (0, helper_1.customError)('Period ID is required', 400, res);
@@ -265,7 +265,7 @@ exports.approvePayrollHandler = approvePayrollHandler;
 const lockPayrollHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const { locked_by } = req.body;
         if (!periodId) {
             return (0, helper_1.customError)('Period ID is required', 400, res);
@@ -292,7 +292,7 @@ exports.lockPayrollHandler = lockPayrollHandler;
 const markPayrollPaidHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const employeeid = parseInt(req.body.employeeid);
         const branchid = parseInt(req.body.branchid);
         if (!branchid || !employeeid)
@@ -329,7 +329,7 @@ exports.markPayrollPaidHandler = markPayrollPaidHandler;
 const revertPayrollPeriodStatusHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const targetStatus = String(req.body.target_status || '').trim().toLowerCase();
         const clearProcessingRecords = Boolean(req.body.clear_processing_records);
         if (!tenantId || !periodId) {
@@ -360,7 +360,7 @@ exports.revertPayrollPeriodStatusHandler = revertPayrollPeriodStatusHandler;
 const reversePayrollPeriodHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const employeeid = parseInt(req.body.reversed_by);
         const branchid = parseInt(req.body.branchid);
         const reason = req.body.reason;
@@ -436,7 +436,7 @@ exports.getPayrollReversalErrorsHandler = getPayrollReversalErrorsHandler;
 const recalculateEmployeeHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const { employeeid } = req.body;
         if (!tenantId || !periodId) {
             return (0, helper_1.customError)('Tenant ID and Period ID are required', 400, res);
@@ -464,7 +464,7 @@ const recalculatePayrollPeriodHandler = async (req, res) => {
     var _a;
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const recalculatedBy = parseInt(((_a = req.body.recalculated_by) !== null && _a !== void 0 ? _a : req.body.calculated_by));
         if (!tenantId || !periodId) {
             return (0, helper_1.customError)('Tenant ID and Period ID are required', 400, res);
@@ -498,7 +498,7 @@ exports.recalculatePayrollPeriodHandler = recalculatePayrollPeriodHandler;
 const getPayrollStatusHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         if (!tenantId || !periodId) {
             return (0, helper_1.customError)('Tenant ID and Period ID are required', 400, res);
         }
@@ -521,7 +521,7 @@ exports.getPayrollStatusHandler = getPayrollStatusHandler;
 const getPayrollTransactionsHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const periodId = parseInt(req.params.id);
+        const periodId = parseInt(req.params.id.toString());
         const count = parseInt(req.query.count) || 10;
         const page = parseInt(req.query.page) || 1;
         if (!periodId)
@@ -545,7 +545,7 @@ exports.getPayrollTransactionsHandler = getPayrollTransactionsHandler;
 const getEmployeePayrollHistoryHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const employeeid = req.params.employeeid == 'all' ? undefined : parseInt(req.params.employeeid.toString()) || undefined;
+        const employeeid = req.params.employeeid.toString() == 'all' ? undefined : parseInt(req.params.employeeid.toString().toString()) || undefined;
         const count = parseInt(req.query.count) || 10;
         const page = parseInt(req.query.page) || 1;
         if ((count && isNaN(count)) || (page && isNaN(page)))
@@ -569,7 +569,7 @@ exports.getEmployeePayrollHistoryHandler = getEmployeePayrollHistoryHandler;
 const getEmployeeYTDHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const employeeid = parseInt(req.params.employeeid);
+        const employeeid = parseInt(req.params.employeeid.toString());
         const year = parseInt(req.query.year) || new Date().getFullYear();
         if (!tenantId || !employeeid) {
             return (0, helper_1.customError)('Tenant ID and Employee ID are required', 400, res);

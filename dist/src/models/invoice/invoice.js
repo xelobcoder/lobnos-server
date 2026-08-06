@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getBillingInvoiceData = void 0;
+exports.getBillingInvoiceData = getBillingInvoiceData;
 const registration_1 = __importDefault(require("../registration/registration"));
 const companyProfile_1 = require("../settings/companyProfile");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
@@ -53,4 +53,3 @@ async function getBillingInvoiceData(tenantId, billingid) {
         };
     }
 }
-exports.getBillingInvoiceData = getBillingInvoiceData;

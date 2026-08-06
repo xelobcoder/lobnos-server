@@ -501,7 +501,6 @@ export default class Registration {
 		}
 		try {
 			const isAlreadyRegistered = await this.isClientSame(tenantId, data);
-			console.log(data, { isAlreadyRegistered })
 			if (isAlreadyRegistered && data.contact_pointer == "self") {
 				response.status(404).send({
 					status: "warning",
@@ -512,6 +511,11 @@ export default class Registration {
 				});
 				return;
 			}
+
+			if (data.contact_pointer !== "self") {
+				data.mobile_number = null;
+			}
+				 
 
 			const insertId = await this.addPersonalInformation(tenantId, { ...data, employeeid: employeeId });
 

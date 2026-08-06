@@ -3,7 +3,24 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllPendingAscensionsHandler = exports.getRejectedCollectedSampleListHandler = exports.getPendingUnvalidatedSamplesHandler = exports.getAscensionEditCountHandler = exports.getTransactionAscentionTestQualifiedForResultEntryHandler = exports.updateValidationSampleHandler = exports.sampleAssessmentHandler = exports.phelobotomistAnalyticsSummary = exports.TransactionTestAscensionHandler = exports.PendingTestAscensionHandler = exports.monthlyApprovalRateHandler = exports.getTotalTestByYears = exports.phelobotomistSummaryHandler = exports.getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler = exports.getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear = exports.getCollectionToDisputeToApprovedToRedrawnLast30daysHandler = exports.getAscensionAnalyticSummary = exports.updateAscensionStageHandler = void 0;
+exports.updateAscensionStageHandler = updateAscensionStageHandler;
+exports.getAscensionAnalyticSummary = getAscensionAnalyticSummary;
+exports.getCollectionToDisputeToApprovedToRedrawnLast30daysHandler = getCollectionToDisputeToApprovedToRedrawnLast30daysHandler;
+exports.getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear = getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear;
+exports.getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler = getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler;
+exports.phelobotomistSummaryHandler = phelobotomistSummaryHandler;
+exports.getTotalTestByYears = getTotalTestByYears;
+exports.monthlyApprovalRateHandler = monthlyApprovalRateHandler;
+exports.PendingTestAscensionHandler = PendingTestAscensionHandler;
+exports.TransactionTestAscensionHandler = TransactionTestAscensionHandler;
+exports.phelobotomistAnalyticsSummary = phelobotomistAnalyticsSummary;
+exports.sampleAssessmentHandler = sampleAssessmentHandler;
+exports.updateValidationSampleHandler = updateValidationSampleHandler;
+exports.getTransactionAscentionTestQualifiedForResultEntryHandler = getTransactionAscentionTestQualifiedForResultEntryHandler;
+exports.getAscensionEditCountHandler = getAscensionEditCountHandler;
+exports.getPendingUnvalidatedSamplesHandler = getPendingUnvalidatedSamplesHandler;
+exports.getRejectedCollectedSampleListHandler = getRejectedCollectedSampleListHandler;
+exports.getAllPendingAscensionsHandler = getAllPendingAscensionsHandler;
 const ascension_1 = require("../../models/operations/ascension");
 const ascensionAnalytics_1 = require("../../models/operations/ascensionAnalytics");
 const sampleClass_1 = require("../../models/operations/sample/sampleClass");
@@ -26,7 +43,6 @@ async function updateAscensionStageHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.updateAscensionStageHandler = updateAscensionStageHandler;
 async function getAscensionAnalyticSummary(request, response) {
     try {
         const { tenantId } = request.query;
@@ -38,7 +54,6 @@ async function getAscensionAnalyticSummary(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getAscensionAnalyticSummary = getAscensionAnalyticSummary;
 async function getCollectionToDisputeToApprovedToRedrawnLast30daysHandler(request, response) {
     try {
         const { tenantId } = request.query;
@@ -51,7 +66,6 @@ async function getCollectionToDisputeToApprovedToRedrawnLast30daysHandler(reques
         (0, helper_1.responseError)(response);
     }
 }
-exports.getCollectionToDisputeToApprovedToRedrawnLast30daysHandler = getCollectionToDisputeToApprovedToRedrawnLast30daysHandler;
 async function getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear(request, response) {
     try {
         const { tenantId, year, month } = request.query;
@@ -69,7 +83,6 @@ async function getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear(request,
         (0, helper_1.responseError)(response);
     }
 }
-exports.getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear = getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear;
 async function getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler(request, response) {
     try {
         const { tenantId, year } = request.query;
@@ -86,7 +99,6 @@ async function getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHa
         (0, helper_1.responseError)(response);
     }
 }
-exports.getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler = getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler;
 async function phelobotomistSummaryHandler(request, response) {
     try {
         const { tenantId, phelobotomistid } = request.query;
@@ -103,7 +115,6 @@ async function phelobotomistSummaryHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.phelobotomistSummaryHandler = phelobotomistSummaryHandler;
 async function getTotalTestByYears(request, response) {
     try {
         const { tenantId } = request.query;
@@ -115,7 +126,6 @@ async function getTotalTestByYears(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getTotalTestByYears = getTotalTestByYears;
 async function monthlyApprovalRateHandler(request, response) {
     try {
         const { tenantId, year = new Date().getFullYear() } = request.query;
@@ -127,7 +137,6 @@ async function monthlyApprovalRateHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.monthlyApprovalRateHandler = monthlyApprovalRateHandler;
 async function PendingTestAscensionHandler(request, response) {
     try {
         const { tenantId, count = 10, page = 1, start_date, end_date, billingid } = request.query;
@@ -145,7 +154,6 @@ async function PendingTestAscensionHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.PendingTestAscensionHandler = PendingTestAscensionHandler;
 async function TransactionTestAscensionHandler(request, response) {
     try {
         const { tenantId, billingid } = request.query;
@@ -159,7 +167,6 @@ async function TransactionTestAscensionHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.TransactionTestAscensionHandler = TransactionTestAscensionHandler;
 async function phelobotomistAnalyticsSummary(request, response) {
     try {
         const { tenantId } = request.query;
@@ -172,7 +179,6 @@ async function phelobotomistAnalyticsSummary(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.phelobotomistAnalyticsSummary = phelobotomistAnalyticsSummary;
 async function sampleAssessmentHandler(request, response) {
     try {
         const { tenantId, billingid } = request.query;
@@ -184,7 +190,6 @@ async function sampleAssessmentHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.sampleAssessmentHandler = sampleAssessmentHandler;
 async function updateValidationSampleHandler(request, response) {
     try {
         const { testcollection } = request.body;
@@ -200,7 +205,6 @@ async function updateValidationSampleHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.updateValidationSampleHandler = updateValidationSampleHandler;
 async function getTransactionAscentionTestQualifiedForResultEntryHandler(request, response) {
     try {
         const { tenantId, csvid, ptid, branchid, target } = request.query;
@@ -216,7 +220,6 @@ async function getTransactionAscentionTestQualifiedForResultEntryHandler(request
         (0, helper_1.responseError)(response);
     }
 }
-exports.getTransactionAscentionTestQualifiedForResultEntryHandler = getTransactionAscentionTestQualifiedForResultEntryHandler;
 async function getAscensionEditCountHandler(request, response) {
     try {
         const { tenantId, csvid, testid, ascensionid, ptid } = request.query;
@@ -232,7 +235,6 @@ async function getAscensionEditCountHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getAscensionEditCountHandler = getAscensionEditCountHandler;
 async function getPendingUnvalidatedSamplesHandler(request, response) {
     try {
         const { count, page, tenantId, sortby, startDate, endDate, searchString, billingid } = request.query;
@@ -251,7 +253,6 @@ async function getPendingUnvalidatedSamplesHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getPendingUnvalidatedSamplesHandler = getPendingUnvalidatedSamplesHandler;
 async function getRejectedCollectedSampleListHandler(request, response) {
     try {
         let queryCount = 10;
@@ -270,7 +271,6 @@ async function getRejectedCollectedSampleListHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getRejectedCollectedSampleListHandler = getRejectedCollectedSampleListHandler;
 async function getAllPendingAscensionsHandler(request, response) {
     try {
         const { tenantId, count = 30, page = 1 } = request.query;
@@ -293,4 +293,3 @@ async function getAllPendingAscensionsHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getAllPendingAscensionsHandler = getAllPendingAscensionsHandler;

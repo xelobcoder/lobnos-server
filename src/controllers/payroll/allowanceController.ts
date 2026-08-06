@@ -29,10 +29,6 @@ const ALLOWANCE_TYPES: Array<IAllowance['allowance_type']> = [
 export const createAllowanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
-
           const allowanceData: IAllowance = req.body;
           const repo = new AllowanceRepository(tenantId);
           const id = await repo.create(allowanceData);
@@ -47,7 +43,7 @@ export const createAllowanceHandler = async (req: Request, res: Response) => {
           if (error instanceof ZodError) {
                return customError(error.message, 400, res);
           }
-
+console.log(error)
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
@@ -55,7 +51,7 @@ export const createAllowanceHandler = async (req: Request, res: Response) => {
 export const getAllowanceByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and allowance ID are required', 400, res);
@@ -81,7 +77,7 @@ export const getAllowanceByIdHandler = async (req: Request, res: Response) => {
 export const getAllowancesByEmployeeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
 
           if (!tenantId || !employeeid) {
                return customError('Tenant ID and employee ID are required', 400, res);
@@ -103,7 +99,7 @@ export const getAllowancesByEmployeeHandler = async (req: Request, res: Response
 export const getActiveAllowancesByEmployeeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
 
           if (!tenantId || !employeeid) {
                return customError('Tenant ID and employee ID are required', 400, res);
@@ -125,7 +121,7 @@ export const getActiveAllowancesByEmployeeHandler = async (req: Request, res: Re
 export const updateAllowanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and allowance ID are required', 400, res);
@@ -155,7 +151,7 @@ export const updateAllowanceHandler = async (req: Request, res: Response) => {
 export const deactivateAllowanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and allowance ID are required', 400, res);

@@ -4,7 +4,6 @@ node_modules
 FlowCharts
 asserts
 .qodo
-dist/
 
 # Backup files and directories
 backups/
@@ -18,3 +17,5 @@ cert/
 public/uploads/
 public/asserts/
 *.exe
+/dist
+dist/

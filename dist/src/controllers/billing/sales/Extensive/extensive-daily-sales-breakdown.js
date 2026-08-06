@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDailyAnalyticsDashboard = void 0;
+exports.getDailyAnalyticsDashboard = getDailyAnalyticsDashboard;
 const KnexConnections_1 = __importDefault(require("../../../../database/KnexConnections"));
 const queries_1 = require("./queries");
 async function getDailyAnalyticsDashboard(tenantId, targetDate, fromDate = targetDate, toDate = targetDate) {
@@ -66,4 +66,3 @@ async function getDailyAnalyticsDashboard(tenantId, targetDate, fromDate = targe
         return { message: "Database query failed", statusCode: 500, status: "error" };
     }
 }
-exports.getDailyAnalyticsDashboard = getDailyAnalyticsDashboard;

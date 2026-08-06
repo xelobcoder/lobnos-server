@@ -44,7 +44,7 @@ export const createSalaryGradeHandler = async (req: Request, res: Response) => {
 export const getSalaryGradeByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and Grade ID are required', 400, res);
@@ -73,7 +73,7 @@ export const getSalaryGradeByIdHandler = async (req: Request, res: Response) => 
 export const getSalaryGradeByNameHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const gradeName = req.params.name;
+          const gradeName = req.params.name  as string
 
           if (!tenantId || !gradeName) {
                return customError('Tenant ID and Grade name are required', 400, res);
@@ -127,7 +127,7 @@ export const getAllSalaryGradesHandler = async (req: Request, res: Response) => 
 export const updateSalaryGradeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const updateData = req.body;
 
           if (!tenantId || !id) {
@@ -162,7 +162,7 @@ export const updateSalaryGradeHandler = async (req: Request, res: Response) => {
 export const deactivateSalaryGradeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and Grade ID are required', 400, res);

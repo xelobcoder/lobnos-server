@@ -3,7 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.retryableTransaction = exports.rowAffected = exports.handleOverLoad = exports.paginationQuery = exports.removeHtmlTags = exports.hasSpecialCharacters = exports.NotFound = exports.promisifyQuery = exports.responseError = exports.convertKeysToLowerCase = exports.customError = void 0;
+exports.rowAffected = exports.handleOverLoad = exports.removeHtmlTags = exports.hasSpecialCharacters = void 0;
+exports.customError = customError;
+exports.convertKeysToLowerCase = convertKeysToLowerCase;
+exports.responseError = responseError;
+exports.promisifyQuery = promisifyQuery;
+exports.NotFound = NotFound;
+exports.paginationQuery = paginationQuery;
+exports.retryableTransaction = retryableTransaction;
 const tenantConnections_1 = require("../models/Tenancy/tenantConnections");
 const connection_1 = require("./../database/connection");
 const configuration_1 = require("./configuration");
@@ -17,7 +24,6 @@ function customError(message, statusCode, response) {
         status: "error",
     });
 }
-exports.customError = customError;
 function DuplicateError(response) {
     return customError(`Duplicate, item already exists`, 409, response);
 }
@@ -33,7 +39,6 @@ function responseError(response, err = null, statusCode) {
     if (err)
         logger_1.default.error(err);
 }
-exports.responseError = responseError;
 const removeHtmlTags = (string) => {
     const removeTags = (string, starter, ended) => {
         const _stringArray = string.trim().split("");
@@ -69,11 +74,9 @@ function convertKeysToLowerCase(obj) {
     }
     return result;
 }
-exports.convertKeysToLowerCase = convertKeysToLowerCase;
 function NotFound(response) {
     response.send({ message: "Data not found", status: "error" });
 }
-exports.NotFound = NotFound;
 async function promisifyQuery(tenantId, query, values = []) {
     if (!query || typeof query !== "string") {
         throw new Error("Query must be provided and of string type");
@@ -125,7 +128,6 @@ async function promisifyQuery(tenantId, query, values = []) {
         }
     }
 }
-exports.promisifyQuery = promisifyQuery;
 async function retryableTransaction(fn, maxRetries = 3, delayBetweenRetries = 1000) {
     let retries = 0;
     async function attempt() {
@@ -145,7 +147,6 @@ async function retryableTransaction(fn, maxRetries = 3, delayBetweenRetries = 10
     }
     await attempt();
 }
-exports.retryableTransaction = retryableTransaction;
 async function paginationQuery(pageQuery, query, values = [], tenantId) {
     const useQuery = { count: (pageQuery === null || pageQuery === void 0 ? void 0 : pageQuery.count) || 10, page: (pageQuery === null || pageQuery === void 0 ? void 0 : pageQuery.page) || 1 };
     const { count, page } = useQuery;
@@ -155,7 +156,6 @@ async function paginationQuery(pageQuery, query, values = [], tenantId) {
     const newValues = [...values, pageSize, offset];
     return await promisifyQuery(tenantId, query, newValues);
 }
-exports.paginationQuery = paginationQuery;
 const rowAffected = (result) => result.affectedRows > 0;
 exports.rowAffected = rowAffected;
 const hasSpecialCharacters = (param, exclude) => {

@@ -22,7 +22,7 @@ class InventoryItemAnalyticsController {
     async getItemAnalyticsSummary(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -64,7 +64,7 @@ class InventoryItemAnalyticsController {
     async getItemOrderAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -106,7 +106,7 @@ class InventoryItemAnalyticsController {
     async getItemUsageAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -148,7 +148,7 @@ class InventoryItemAnalyticsController {
     async getDailyConsumptionAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -190,7 +190,7 @@ class InventoryItemAnalyticsController {
     async getMonthlyConsumptionAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             if (!itemId) {
                 const response = {
                     success: false,
@@ -228,7 +228,7 @@ class InventoryItemAnalyticsController {
     async getYearlyConsumptionAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             if (!itemId) {
                 const response = {
                     success: false,
@@ -266,7 +266,7 @@ class InventoryItemAnalyticsController {
     async getDailyWastageAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -308,7 +308,7 @@ class InventoryItemAnalyticsController {
     async getMonthlyWastageAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             if (!itemId) {
                 const response = {
                     success: false,
@@ -346,7 +346,7 @@ class InventoryItemAnalyticsController {
     async getYearlyWastageAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             if (!itemId) {
                 const response = {
                     success: false,
@@ -384,7 +384,7 @@ class InventoryItemAnalyticsController {
     async getDailyOrderAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -426,7 +426,7 @@ class InventoryItemAnalyticsController {
     async getMonthlyOrderAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             if (!itemId) {
                 const response = {
                     success: false,
@@ -464,7 +464,7 @@ class InventoryItemAnalyticsController {
     async getYearlyOrderAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             if (!itemId) {
                 const response = {
                     success: false,
@@ -502,7 +502,7 @@ class InventoryItemAnalyticsController {
     async getItemWastageAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -544,7 +544,7 @@ class InventoryItemAnalyticsController {
     async getSupplierSpecificAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { supplierId, startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -586,7 +586,7 @@ class InventoryItemAnalyticsController {
     async getSupplierPerformanceMetrics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -628,7 +628,7 @@ class InventoryItemAnalyticsController {
     async getTestConsumptionAnalytics(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {
@@ -670,7 +670,7 @@ class InventoryItemAnalyticsController {
     async getAverageConsumption(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { itemId } = req.params;
+            const itemId = req.params.itemId;
             const { startDate, endDate } = req.query;
             if (!itemId) {
                 const response = {

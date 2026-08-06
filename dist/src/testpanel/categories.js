@@ -3,7 +3,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.allFieldsHasValues = exports.getCategory = exports.postCategory = exports.putCategory = exports.deleteCategory = void 0;
+exports.getCategory = exports.postCategory = exports.putCategory = exports.deleteCategory = void 0;
+exports.allFieldsHasValues = allFieldsHasValues;
 const logger_1 = __importDefault(require("../hooks/logger"));
 const helper_1 = require("../hooks/helper");
 const queries_1 = require("./queries");
@@ -11,7 +12,6 @@ function allFieldsHasValues(req) {
     const values = Object.values(req.body).filter((value) => value === "");
     return values.length === 0;
 }
-exports.allFieldsHasValues = allFieldsHasValues;
 async function categoryExists(tenantId, category) {
     const packets = await (0, helper_1.promisifyQuery)(tenantId, queries_1.QUERIES.SELECT_CATEGORY_BY_ID, [category]);
     return packets.length > 0;

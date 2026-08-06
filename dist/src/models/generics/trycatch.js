@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.wrapperTryCatch = void 0;
+exports.wrapperTryCatch = wrapperTryCatch;
 function wrapperTryCatch(cb, errcb = null) {
     try {
         return cb();
@@ -14,4 +14,3 @@ function wrapperTryCatch(cb, errcb = null) {
         }
     }
 }
-exports.wrapperTryCatch = wrapperTryCatch;

@@ -20,7 +20,8 @@ class Branch extends ApplicationSettings {
      }
 
      static async deleteBranch(tenantId: number, branchid: string | number) {
-          return await promisifyQuery(tenantId, q_branches_delete_single, [branchid]);
+         const result = await promisifyQuery(tenantId, q_branches_delete_single, [branchid]);
+         return rowAffected(result);
      }
 
      static async activateDeactivateBranch(tenantId: number, id: number, status: number) {

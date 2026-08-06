@@ -3,7 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.text_reference_formatting = exports.decrypt_resources = exports.encrypt_resources = exports.decrypt_value = exports.encrypt_value = exports.EncryptedResourceResponse = exports.ResourceRequest = exports.EncryptedResourceItem = exports.ResourceItem = exports.ENCRYPTION_KEY = void 0;
+exports.EncryptedResourceResponse = exports.ResourceRequest = exports.EncryptedResourceItem = exports.ResourceItem = exports.ENCRYPTION_KEY = void 0;
+exports.encrypt_value = encrypt_value;
+exports.decrypt_value = decrypt_value;
+exports.encrypt_resources = encrypt_resources;
+exports.decrypt_resources = decrypt_resources;
+exports.text_reference_formatting = text_reference_formatting;
 const crypto_1 = __importDefault(require("crypto"));
 exports.ENCRYPTION_KEY = crypto_1.default.createHash('sha256').update('TiifuHamza').digest();
 class ResourceItem {
@@ -41,7 +46,6 @@ function encrypt_value(value) {
     const encrypted = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
     return Buffer.concat([iv, encrypted]).toString('base64');
 }
-exports.encrypt_value = encrypt_value;
 function decrypt_value(encrypted_value) {
     if (!encrypted_value)
         return '';
@@ -53,7 +57,6 @@ function decrypt_value(encrypted_value) {
     const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
     return decrypted.toString('utf8');
 }
-exports.decrypt_value = decrypt_value;
 function encrypt_resources(resource_request) {
     const encrypted_resources = [];
     for (const item of resource_request.resources) {
@@ -70,7 +73,6 @@ function encrypt_resources(resource_request) {
     }
     return new EncryptedResourceResponse(encrypted_resources);
 }
-exports.encrypt_resources = encrypt_resources;
 function decrypt_resources(encrypted_resource_response) {
     const decrypted_resources = [];
     for (const item of encrypted_resource_response.resources) {
@@ -87,7 +89,6 @@ function decrypt_resources(encrypted_resource_response) {
     }
     return new ResourceRequest(decrypted_resources);
 }
-exports.decrypt_resources = decrypt_resources;
 function text_reference_formatting(text_reference) {
     if (typeof text_reference !== 'string')
         return null;
@@ -108,4 +109,3 @@ function text_reference_formatting(text_reference) {
     }
     return text_reference;
 }
-exports.text_reference_formatting = text_reference_formatting;

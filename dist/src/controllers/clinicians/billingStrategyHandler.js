@@ -3,7 +3,19 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getEntityInfoUsingSpecialCode = exports.getAllBillingStrategiesMini = exports.removeCategoryFromStrategy = exports.addCategoryToStrategy = exports.checkStrategyExists = exports.getProvidentialBillingHandler = exports.getEntityBillingStrategy = exports.checkEntityHasStrategy = exports.deleteBillingStrategy = exports.getAllBillingStrategies = exports.updateBillingStrategy = exports.getBillingStrategy = exports.createBillingStrategy = void 0;
+exports.createBillingStrategy = createBillingStrategy;
+exports.getBillingStrategy = getBillingStrategy;
+exports.updateBillingStrategy = updateBillingStrategy;
+exports.getAllBillingStrategies = getAllBillingStrategies;
+exports.deleteBillingStrategy = deleteBillingStrategy;
+exports.checkEntityHasStrategy = checkEntityHasStrategy;
+exports.getEntityBillingStrategy = getEntityBillingStrategy;
+exports.getProvidentialBillingHandler = getProvidentialBillingHandler;
+exports.checkStrategyExists = checkStrategyExists;
+exports.addCategoryToStrategy = addCategoryToStrategy;
+exports.removeCategoryFromStrategy = removeCategoryFromStrategy;
+exports.getAllBillingStrategiesMini = getAllBillingStrategiesMini;
+exports.getEntityInfoUsingSpecialCode = getEntityInfoUsingSpecialCode;
 const billingstrategy_1 = __importDefault(require("../../models/clincians/billingstrategy"));
 const ReferralCodingRepo_1 = require("../../models/referral/repositories/ReferralCodingRepo");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
@@ -51,7 +63,6 @@ async function createBillingStrategy(req, res) {
         });
     }
 }
-exports.createBillingStrategy = createBillingStrategy;
 async function getBillingStrategy(req, res) {
     try {
         const strategyId = parseInt(req.params.strategyid, 10);
@@ -75,7 +86,6 @@ async function getBillingStrategy(req, res) {
         });
     }
 }
-exports.getBillingStrategy = getBillingStrategy;
 async function updateBillingStrategy(req, res) {
     try {
         const strategyId = parseInt(req.params.strategyid);
@@ -115,7 +125,6 @@ async function updateBillingStrategy(req, res) {
         });
     }
 }
-exports.updateBillingStrategy = updateBillingStrategy;
 async function getAllBillingStrategies(request, response) {
     try {
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
@@ -154,7 +163,6 @@ async function getAllBillingStrategies(request, response) {
         });
     }
 }
-exports.getAllBillingStrategies = getAllBillingStrategies;
 async function deleteBillingStrategy(req, res) {
     try {
         const strategyId = parseInt(req.params.strategyid);
@@ -179,7 +187,6 @@ async function deleteBillingStrategy(req, res) {
         });
     }
 }
-exports.deleteBillingStrategy = deleteBillingStrategy;
 async function checkEntityHasStrategy(req, res) {
     try {
         const tenantId = parseInt(req.query.tenantId);
@@ -209,7 +216,6 @@ async function checkEntityHasStrategy(req, res) {
         });
     }
 }
-exports.checkEntityHasStrategy = checkEntityHasStrategy;
 async function getEntityBillingStrategy(req, res) {
     try {
         const tenantId = parseInt(req.query.tenantId || '0', 10);
@@ -235,7 +241,6 @@ async function getEntityBillingStrategy(req, res) {
         });
     }
 }
-exports.getEntityBillingStrategy = getEntityBillingStrategy;
 async function getProvidentialBillingHandler(req, res) {
     try {
         const tenantId = parseInt(req.query.tenantId);
@@ -263,7 +268,6 @@ async function getProvidentialBillingHandler(req, res) {
         });
     }
 }
-exports.getProvidentialBillingHandler = getProvidentialBillingHandler;
 async function checkStrategyExists(req, res) {
     try {
         const strategyId = parseInt(req.params.strategyid, 10);
@@ -282,7 +286,6 @@ async function checkStrategyExists(req, res) {
         });
     }
 }
-exports.checkStrategyExists = checkStrategyExists;
 async function addCategoryToStrategy(req, res) {
     try {
         const strategyId = parseInt(req.params.strategyid);
@@ -302,7 +305,6 @@ async function addCategoryToStrategy(req, res) {
         });
     }
 }
-exports.addCategoryToStrategy = addCategoryToStrategy;
 async function removeCategoryFromStrategy(req, res) {
     try {
         const strategyId = parseInt(req.params.strategyid);
@@ -323,7 +325,6 @@ async function removeCategoryFromStrategy(req, res) {
         });
     }
 }
-exports.removeCategoryFromStrategy = removeCategoryFromStrategy;
 async function getAllBillingStrategiesMini(req, res) {
     var _a, _b, _c, _d, _e, _f;
     try {
@@ -348,7 +349,6 @@ async function getAllBillingStrategiesMini(req, res) {
         });
     }
 }
-exports.getAllBillingStrategiesMini = getAllBillingStrategiesMini;
 async function getEntityInfoUsingSpecialCode(req, res) {
     var _a;
     try {
@@ -377,4 +377,3 @@ async function getEntityInfoUsingSpecialCode(req, res) {
         });
     }
 }
-exports.getEntityInfoUsingSpecialCode = getEntityInfoUsingSpecialCode;

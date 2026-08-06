@@ -17,6 +17,8 @@ export class TiifuWorkingClass {
      }
 
 
+
+
      createColumnIfNotExists = async (tenantId: number, columnName: string, constraint: string): Promise<void> => {
           const columnExists = await this.checkColumnExists(columnName);
           if (!columnExists) {

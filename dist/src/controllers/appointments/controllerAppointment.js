@@ -14,7 +14,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.loadPractionerAvailableSlotsController = exports.MonthAppointmentsController = exports.getPatientAppointmentHistoryController = exports.createAppointmentController = exports.deleteAppointmentController = exports.updateAppointmentController = exports.getAppointmentDetailsController = exports.getAllAppointmentsController = void 0;
+exports.getAllAppointmentsController = getAllAppointmentsController;
+exports.getAppointmentDetailsController = getAppointmentDetailsController;
+exports.updateAppointmentController = updateAppointmentController;
+exports.deleteAppointmentController = deleteAppointmentController;
+exports.createAppointmentController = createAppointmentController;
+exports.getPatientAppointmentHistoryController = getPatientAppointmentHistoryController;
+exports.MonthAppointmentsController = MonthAppointmentsController;
+exports.loadPractionerAvailableSlotsController = loadPractionerAvailableSlotsController;
 const zod_1 = require("zod");
 const helper_1 = require("../../hooks/helper");
 const appointments_1 = __importDefault(require("../../models/appointments/appointments"));
@@ -32,7 +39,6 @@ async function getAllAppointmentsController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.getAllAppointmentsController = getAllAppointmentsController;
 async function getAppointmentDetailsController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -50,7 +56,6 @@ async function getAppointmentDetailsController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.getAppointmentDetailsController = getAppointmentDetailsController;
 async function updateAppointmentController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -109,7 +114,6 @@ async function updateAppointmentController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.updateAppointmentController = updateAppointmentController;
 async function deleteAppointmentController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -124,7 +128,6 @@ async function deleteAppointmentController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.deleteAppointmentController = deleteAppointmentController;
 async function createAppointmentController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -138,7 +141,6 @@ async function createAppointmentController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.createAppointmentController = createAppointmentController;
 async function getPatientAppointmentHistoryController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -156,7 +158,6 @@ async function getPatientAppointmentHistoryController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.getPatientAppointmentHistoryController = getPatientAppointmentHistoryController;
 async function MonthAppointmentsController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -169,7 +170,6 @@ async function MonthAppointmentsController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.MonthAppointmentsController = MonthAppointmentsController;
 async function loadPractionerAvailableSlotsController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -184,4 +184,3 @@ async function loadPractionerAvailableSlotsController(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.loadPractionerAvailableSlotsController = loadPractionerAvailableSlotsController;

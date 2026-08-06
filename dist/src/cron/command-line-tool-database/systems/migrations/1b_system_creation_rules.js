@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.down = exports.up = void 0;
+exports.up = up;
+exports.down = down;
 async function up(knex) {
     // Create test_panels table first (referenced by other tables)
     if (!(await knex.schema.hasTable("test_panels"))) {
@@ -98,7 +99,6 @@ async function up(knex) {
         });
     }
 }
-exports.up = up;
 async function down(knex) {
     // Drop in reverse creation order. Use dropTableIfExists for idempotence.
     await knex.schema.dropTableIfExists("test_ascension");
@@ -107,4 +107,3 @@ async function down(knex) {
     await knex.schema.dropTableIfExists("testdetailcategory");
     await knex.schema.dropTableIfExists("test_panels");
 }
-exports.down = down;

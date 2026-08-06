@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleSalesSummaryDailyBreakDown = exports.handleFinancialAnalyticsGetKeys = exports.handleFinancialAnalytics = exports.UtilityOutsourcing = void 0;
+exports.handleSalesSummaryDailyBreakDown = exports.handleFinancialAnalyticsGetKeys = exports.handleFinancialAnalytics = void 0;
+exports.UtilityOutsourcing = UtilityOutsourcing;
 const TiifuWorkingClass_1 = require("../../../database/TiifuWorkingClass");
 const AnalyticsBilling_1 = require("../../../models/billing/sales/AnalyticsBilling");
 const outsourcingAnalqueries_1 = require("../../../models/billing/outsourcingAnalqueries");
@@ -45,7 +46,6 @@ async function UtilityOutsourcing(tenantId, key, branchid, startdate, enddate, y
     const params = [branchid, branchid, outsourceId, outsourceId];
     return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalytics[key], params);
 }
-exports.UtilityOutsourcing = UtilityOutsourcing;
 const analyticsFunctions = {
     totalSalesByBranch: async (tenantId, branchid, startdate, enddate, year, outsourceId) => {
         return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalyticsWithDate['totalSalesByBranch'], [startdate, enddate]);

@@ -428,7 +428,6 @@ class Registration {
         }
         try {
             const isAlreadyRegistered = await this.isClientSame(tenantId, data);
-            console.log(data, { isAlreadyRegistered });
             if (isAlreadyRegistered && data.contact_pointer == "self") {
                 response.status(404).send({
                     status: "warning",
@@ -437,6 +436,9 @@ class Registration {
                         : "Number or email is associated with a different patient. Select 'relative' if the person is a relative.",
                 });
                 return;
+            }
+            if (data.contact_pointer !== "self") {
+                data.mobile_number = null;
             }
             const insertId = await this.addPersonalInformation(tenantId, Object.assign(Object.assign({}, data), { employeeid: employeeId }));
             if (typeof insertId === "string") {

@@ -3,7 +3,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleReceivedIntefacingData = exports.deleteDeviceHandler = exports.updateDeviceHandler = exports.createDeviceHandler = exports.getDeviceByIdHandler = exports.getAllDevicesHandler = void 0;
+exports.getAllDevicesHandler = getAllDevicesHandler;
+exports.getDeviceByIdHandler = getDeviceByIdHandler;
+exports.createDeviceHandler = createDeviceHandler;
+exports.updateDeviceHandler = updateDeviceHandler;
+exports.deleteDeviceHandler = deleteDeviceHandler;
+exports.handleReceivedIntefacingData = handleReceivedIntefacingData;
 const MedicalInterfacingDevicesRepository_1 = __importDefault(require("../../../models/settings/devices/MedicalInterfacingDevicesRepository"));
 const ascension_1 = require("../../../models/operations/ascension");
 const testpanelList_1 = require("../../../testpanel/testpanelList");
@@ -22,7 +27,6 @@ async function getAllDevicesHandler(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-exports.getAllDevicesHandler = getAllDevicesHandler;
 async function getDeviceByIdHandler(req, res) {
     try {
         const tenantId = Number(req.query.tenantId) || 1;
@@ -36,7 +40,6 @@ async function getDeviceByIdHandler(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-exports.getDeviceByIdHandler = getDeviceByIdHandler;
 async function createDeviceHandler(req, res) {
     try {
         const tenantId = Number(req.query.tenantId) || 1;
@@ -48,7 +51,6 @@ async function createDeviceHandler(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-exports.createDeviceHandler = createDeviceHandler;
 async function updateDeviceHandler(req, res) {
     try {
         const tenantId = Number(req.query.tenantId) || 1;
@@ -60,7 +62,6 @@ async function updateDeviceHandler(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-exports.updateDeviceHandler = updateDeviceHandler;
 async function deleteDeviceHandler(req, res) {
     try {
         const tenantId = Number(req.query.tenantId) || 1;
@@ -72,7 +73,6 @@ async function deleteDeviceHandler(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-exports.deleteDeviceHandler = deleteDeviceHandler;
 async function handleReceivedIntefacingData(req, res) {
     try {
         const tenantId = Number(req.query.tenantId) || 3;
@@ -198,4 +198,3 @@ async function handleReceivedIntefacingData(req, res) {
         res.status(500).json({ error: err.message });
     }
 }
-exports.handleReceivedIntefacingData = handleReceivedIntefacingData;

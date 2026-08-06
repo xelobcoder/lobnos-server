@@ -1,5 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.default = resultEncrptionReferer;
 const encryptionModels_1 = require("../../utils/encryptionModels");
 async function resultEncrptionReferer(resources, mode = "encryption") {
     try {
@@ -43,4 +44,3 @@ async function resultEncrptionReferer(resources, mode = "encryption") {
         console.log('Validation or fetch error:', err);
     }
 }
-exports.default = resultEncrptionReferer;

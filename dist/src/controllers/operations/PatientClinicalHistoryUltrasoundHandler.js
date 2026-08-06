@@ -3,7 +3,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.upsertHistory = exports.getHistoriesByAscensionIds = exports.getAllHistories = exports.deleteHistory = exports.updateHistory = exports.getHistoryByAscensionId = exports.getHistoryById = exports.createHistory = void 0;
+exports.createHistory = createHistory;
+exports.getHistoryById = getHistoryById;
+exports.getHistoryByAscensionId = getHistoryByAscensionId;
+exports.updateHistory = updateHistory;
+exports.deleteHistory = deleteHistory;
+exports.getAllHistories = getAllHistories;
+exports.getHistoriesByAscensionIds = getHistoriesByAscensionIds;
+exports.upsertHistory = upsertHistory;
 const PatientClinicalHistoryUltrasoundRepo_1 = __importDefault(require("../../models/operations/Repositories/PatientClinicalHistoryUltrasoundRepo"));
 function getRepository(req) {
     const tenantId = Number(req.query.tenantId);
@@ -26,7 +33,6 @@ async function createHistory(req, res) {
         res.status(500).json({ message: 'Failed to create clinical history', error });
     }
 }
-exports.createHistory = createHistory;
 async function getHistoryById(req, res) {
     try {
         const repository = getRepository(req);
@@ -44,7 +50,6 @@ async function getHistoryById(req, res) {
         res.status(500).json({ message: 'Failed to retrieve clinical history', error });
     }
 }
-exports.getHistoryById = getHistoryById;
 async function getHistoryByAscensionId(req, res) {
     try {
         const repository = getRepository(req);
@@ -62,7 +67,6 @@ async function getHistoryByAscensionId(req, res) {
         res.status(500).json({ message: 'Failed to retrieve clinical history', error });
     }
 }
-exports.getHistoryByAscensionId = getHistoryByAscensionId;
 async function updateHistory(req, res) {
     try {
         const repository = getRepository(req);
@@ -81,7 +85,6 @@ async function updateHistory(req, res) {
         res.status(500).json({ message: 'Failed to update clinical history', error });
     }
 }
-exports.updateHistory = updateHistory;
 async function deleteHistory(req, res) {
     try {
         const repository = getRepository(req);
@@ -99,7 +102,6 @@ async function deleteHistory(req, res) {
         res.status(500).json({ message: 'Failed to delete clinical history', error });
     }
 }
-exports.deleteHistory = deleteHistory;
 async function getAllHistories(req, res) {
     try {
         const repository = getRepository(req);
@@ -113,7 +115,6 @@ async function getAllHistories(req, res) {
         res.status(500).json({ message: 'Failed to retrieve clinical histories', error });
     }
 }
-exports.getAllHistories = getAllHistories;
 async function getHistoriesByAscensionIds(req, res) {
     try {
         const repository = getRepository(req);
@@ -131,7 +132,6 @@ async function getHistoriesByAscensionIds(req, res) {
         res.status(500).json({ message: 'Failed to retrieve clinical histories', error });
     }
 }
-exports.getHistoriesByAscensionIds = getHistoriesByAscensionIds;
 async function upsertHistory(req, res) {
     try {
         const repository = getRepository(req);
@@ -149,4 +149,3 @@ async function upsertHistory(req, res) {
         res.status(500).json({ message: 'Failed to upsert clinical history', error });
     }
 }
-exports.upsertHistory = upsertHistory;

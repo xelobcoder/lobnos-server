@@ -29,10 +29,6 @@ const hydrateDeductionFromDefinition = async (
 export const createDeductionDefinitionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
-
           const definition: IDeductionDefinition = req.body;
           const repo = new DeductionDefinitionRepository(tenantId);
           const id = await repo.create(definition);
@@ -44,6 +40,7 @@ export const createDeductionDefinitionHandler = async (req: Request, res: Respon
                result: { id }
           });
      } catch (error) {
+          console.log(error)
           PrimeSqlErrorHandler.handleError(error, res);
      }
 };
@@ -72,7 +69,7 @@ export const getAllDeductionDefinitionsHandler = async (req: Request, res: Respo
 export const getDeductionDefinitionByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and deduction definition ID are required', 400, res);
@@ -98,11 +95,9 @@ export const getDeductionDefinitionByIdHandler = async (req: Request, res: Respo
 export const updateDeductionDefinitionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
-          if (!tenantId || !id) {
-               return customError('Tenant ID and deduction definition ID are required', 400, res);
-          }
+          if (!id) return customError('Deduction definition ID is required', 400, res);
 
           const repo = new DeductionDefinitionRepository(tenantId);
           const success = await repo.update(id, req.body);
@@ -124,7 +119,7 @@ export const updateDeductionDefinitionHandler = async (req: Request, res: Respon
 export const deactivateDeductionDefinitionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and deduction definition ID are required', 400, res);
@@ -150,10 +145,6 @@ export const deactivateDeductionDefinitionHandler = async (req: Request, res: Re
 export const createOtherDeductionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
-
           const repo = new OtherDeductionRepository(tenantId);
           const payload = await hydrateDeductionFromDefinition(tenantId, req.body);
           const id = await repo.create(payload as IOtherDeduction);
@@ -172,10 +163,6 @@ export const createOtherDeductionHandler = async (req: Request, res: Response) =
 export const getAllOtherDeductionsHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          if (!tenantId) {
-               return customError('Tenant ID is required', 400, res);
-          }
-
           const activeOnly = req.query.activeOnly !== 'false';
           const repo = new OtherDeductionRepository(tenantId);
           const deductions = await repo.getAll(activeOnly);
@@ -193,12 +180,9 @@ export const getAllOtherDeductionsHandler = async (req: Request, res: Response) 
 export const getOtherDeductionByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
-          if (!tenantId || !id) {
-               return customError('Tenant ID and deduction ID are required', 400, res);
-          }
-
+          if ( !id)  return customError('Tenant ID and deduction ID are required', 400, res);
           const repo = new OtherDeductionRepository(tenantId);
           const deduction = await repo.getById(id);
 
@@ -219,7 +203,7 @@ export const getOtherDeductionByIdHandler = async (req: Request, res: Response) 
 export const getOtherDeductionLedgerHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and deduction ID are required', 400, res);
@@ -241,7 +225,7 @@ export const getOtherDeductionLedgerHandler = async (req: Request, res: Response
 export const getOtherDeductionsByEmployeeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
 
           if (!tenantId || !employeeid) {
                return customError('Tenant ID and employee ID are required', 400, res);
@@ -297,7 +281,7 @@ export const getPendingOtherDeductionApprovalsHandler = async (req: Request, res
 export const updateOtherDeductionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) return customError('Tenant ID and deduction ID are required', 400, res);
 
@@ -334,7 +318,7 @@ export const updateOtherDeductionHandler = async (req: Request, res: Response) =
 export const deactivateOtherDeductionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and deduction ID are required', 400, res);
@@ -360,7 +344,7 @@ export const deactivateOtherDeductionHandler = async (req: Request, res: Respons
 export const approveOtherDeductionHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const approvedBy = parseInt(req.body.approved_by);
 
           if (!tenantId || !id || !approvedBy) {
@@ -387,7 +371,7 @@ export const approveOtherDeductionHandler = async (req: Request, res: Response) 
 export const createLoanAdjustmentHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and deduction ID are required', 400, res);

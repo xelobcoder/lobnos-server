@@ -3,7 +3,26 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDiscountDailyUsage = exports.upsertDiscountLimitRule = exports.listDiscountLimitRules = exports.WriteOffTransaction = exports.getServiceRefundItem = exports.refundAllTransactionHandler = exports.getTransactionBillDataHandler = exports.verificationBeforeCashoutHandler = exports.requestForRefundCashIssueOut = exports.approveRequestForRefund = exports.updateWitnessWitnessNote = exports.getAlRefundsPaginationHandler = exports.updateBilledTransaction = exports.requestForRefundHandler = exports.determineStageOfRefundRequestHandler = exports.getSavedCLientBillingInformation = exports.canInitiateBill = exports.handleMultiUpdateBilling = exports.outstandingByServiceCategoryReport = exports.outstandingReport = void 0;
+exports.outstandingReport = outstandingReport;
+exports.outstandingByServiceCategoryReport = outstandingByServiceCategoryReport;
+exports.handleMultiUpdateBilling = handleMultiUpdateBilling;
+exports.canInitiateBill = canInitiateBill;
+exports.getSavedCLientBillingInformation = getSavedCLientBillingInformation;
+exports.determineStageOfRefundRequestHandler = determineStageOfRefundRequestHandler;
+exports.requestForRefundHandler = requestForRefundHandler;
+exports.updateBilledTransaction = updateBilledTransaction;
+exports.getAlRefundsPaginationHandler = getAlRefundsPaginationHandler;
+exports.updateWitnessWitnessNote = updateWitnessWitnessNote;
+exports.approveRequestForRefund = approveRequestForRefund;
+exports.requestForRefundCashIssueOut = requestForRefundCashIssueOut;
+exports.verificationBeforeCashoutHandler = verificationBeforeCashoutHandler;
+exports.getTransactionBillDataHandler = getTransactionBillDataHandler;
+exports.refundAllTransactionHandler = refundAllTransactionHandler;
+exports.getServiceRefundItem = getServiceRefundItem;
+exports.WriteOffTransaction = WriteOffTransaction;
+exports.listDiscountLimitRules = listDiscountLimitRules;
+exports.upsertDiscountLimitRule = upsertDiscountLimitRule;
+exports.getDiscountDailyUsage = getDiscountDailyUsage;
 const helper_1 = require("../../hooks/helper");
 const billing_1 = require("../../../obso/billing");
 const RefundClass_1 = require("../../models/billing/RefundClass");
@@ -27,7 +46,6 @@ async function outstandingReport(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.outstandingReport = outstandingReport;
 async function outstandingByServiceCategoryReport(request, response) {
     try {
         const { tenantId, startdate, enddate, serviceCategory, organizationId } = request.query;
@@ -43,7 +61,6 @@ async function outstandingByServiceCategoryReport(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.outstandingByServiceCategoryReport = outstandingByServiceCategoryReport;
 async function handleMultiUpdateBilling(request, response) {
     async function validate() {
         if (!request.body || !request.body.patientid) {
@@ -59,7 +76,6 @@ async function handleMultiUpdateBilling(request, response) {
     }
     (0, trycatch_1.wrapperTryCatch)(validate, (err) => console.log(err));
 }
-exports.handleMultiUpdateBilling = handleMultiUpdateBilling;
 async function canInitiateBill(request, response) {
     try {
         let { patientid, tenantId } = request.query;
@@ -80,7 +96,6 @@ async function canInitiateBill(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.canInitiateBill = canInitiateBill;
 async function getSavedCLientBillingInformation(request, response) {
     try {
         const { billingid, tenantId } = request.query;
@@ -93,7 +108,6 @@ async function getSavedCLientBillingInformation(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getSavedCLientBillingInformation = getSavedCLientBillingInformation;
 async function determineStageOfRefundRequestHandler(request, response) {
     try {
         const { tenantId } = request.query;
@@ -104,7 +118,6 @@ async function determineStageOfRefundRequestHandler(request, response) {
     catch (err) {
     }
 }
-exports.determineStageOfRefundRequestHandler = determineStageOfRefundRequestHandler;
 async function requestForRefundHandler(request, response) {
     try {
         const { categoryTrackId, billingid, serviceid, employeeid, taxIncluded, refundMessage, trackId } = request.body;
@@ -123,7 +136,6 @@ async function requestForRefundHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.requestForRefundHandler = requestForRefundHandler;
 async function updateBilledTransaction(request, response) {
     try {
         const { billingid, tenantId } = request.query;
@@ -146,7 +158,6 @@ async function updateBilledTransaction(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.updateBilledTransaction = updateBilledTransaction;
 async function getAlRefundsPaginationHandler(request, response) {
     const { page = 10, count = 1, status, employeeid, sortby } = request.query;
     const parsedPage = parseInt(page.toString());
@@ -163,7 +174,6 @@ async function getAlRefundsPaginationHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getAlRefundsPaginationHandler = getAlRefundsPaginationHandler;
 async function updateWitnessWitnessNote(request, response) {
     try {
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
@@ -196,7 +206,6 @@ async function updateWitnessWitnessNote(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.updateWitnessWitnessNote = updateWitnessWitnessNote;
 async function approveRequestForRefund(request, response) {
     try {
         const { serviceid, employeeid, isApprove } = request.body;
@@ -215,7 +224,6 @@ async function approveRequestForRefund(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.approveRequestForRefund = approveRequestForRefund;
 async function requestForRefundCashIssueOut(request, response) {
     try {
         const { serviceid, employeeid, selectedPaymentMode, refundAmount } = request.body;
@@ -234,7 +242,6 @@ async function requestForRefundCashIssueOut(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.requestForRefundCashIssueOut = requestForRefundCashIssueOut;
 async function verificationBeforeCashoutHandler(request, response) {
     try {
         const { serviceid, billingid } = request.query;
@@ -262,7 +269,6 @@ async function verificationBeforeCashoutHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.verificationBeforeCashoutHandler = verificationBeforeCashoutHandler;
 async function getTransactionBillDataHandler(request, response) {
     try {
         const { billingid, tenantId } = request.query;
@@ -278,7 +284,6 @@ async function getTransactionBillDataHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getTransactionBillDataHandler = getTransactionBillDataHandler;
 async function refundAllTransactionHandler(request, response) {
     const { billingid, employeeid, selectedPaymentMode } = request.params;
     const isAllNumber = !isNaN(billingid) && !isNaN(employeeid) && !isNaN(selectedPaymentMode);
@@ -298,7 +303,6 @@ async function refundAllTransactionHandler(request, response) {
         return (0, helper_1.customError)("An internal server error occurred." /* OperationsFailures.internalServerError */, 500, response);
     }
 }
-exports.refundAllTransactionHandler = refundAllTransactionHandler;
 async function getServiceRefundItem(request, response) {
     try {
         const { serviceid, employeeid } = request.query;
@@ -314,7 +318,6 @@ async function getServiceRefundItem(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getServiceRefundItem = getServiceRefundItem;
 async function WriteOffTransaction(request, response) {
     try {
         const { tenantId } = request.query;
@@ -335,7 +338,6 @@ async function WriteOffTransaction(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.WriteOffTransaction = WriteOffTransaction;
 async function listDiscountLimitRules(request, response) {
     try {
         const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
@@ -347,7 +349,6 @@ async function listDiscountLimitRules(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.listDiscountLimitRules = listDiscountLimitRules;
 async function upsertDiscountLimitRule(request, response) {
     try {
         const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
@@ -398,7 +399,6 @@ async function upsertDiscountLimitRule(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.upsertDiscountLimitRule = upsertDiscountLimitRule;
 async function getDiscountDailyUsage(request, response) {
     try {
         const tenantIdP = parseInt(request.query.tenantId.toString(), 10);
@@ -426,4 +426,3 @@ async function getDiscountDailyUsage(request, response) {
         (0, helper_1.responseError)(response, err);
     }
 }
-exports.getDiscountDailyUsage = getDiscountDailyUsage;

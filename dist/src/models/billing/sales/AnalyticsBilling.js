@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.UtilityFinancial = void 0;
+exports.UtilityFinancial = UtilityFinancial;
 const helper_1 = require("../../../hooks/helper");
 const billingAnalqueries_1 = require("../billingAnalqueries");
 class FinancialAnalyticsPrimeLabSystem {
@@ -28,4 +28,3 @@ async function UtilityFinancial(tenantId, key, branchid, startdate, enddate) {
     }
     return await (0, helper_1.promisifyQuery)(tenantId, billingAnalqueries_1.BillingAnalytics[key], [year]);
 }
-exports.UtilityFinancial = UtilityFinancial;

@@ -3,7 +3,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getFieldResultValuesAcrossMonthOverYear = exports.handlergetTestResultValuesForMonth = exports.handlergetAllTestYearlyAnalysis = exports.handlergetTestMonthlyCountForYear = exports.handlergetTestTotalCasesByHourForSpecificDay = exports.handlergetTestTotalCasesMonthDaily = exports.handlerTestTotalCasesCount = void 0;
+exports.handlerTestTotalCasesCount = handlerTestTotalCasesCount;
+exports.handlergetTestTotalCasesMonthDaily = handlergetTestTotalCasesMonthDaily;
+exports.handlergetTestTotalCasesByHourForSpecificDay = handlergetTestTotalCasesByHourForSpecificDay;
+exports.handlergetTestMonthlyCountForYear = handlergetTestMonthlyCountForYear;
+exports.handlergetAllTestYearlyAnalysis = handlergetAllTestYearlyAnalysis;
+exports.handlergetTestResultValuesForMonth = handlergetTestResultValuesForMonth;
+exports.getFieldResultValuesAcrossMonthOverYear = getFieldResultValuesAcrossMonthOverYear;
 const helper_1 = require("../../hooks/helper");
 const ResultAnalysis_1 = __importDefault(require("../../models/result/ResultAnalysis"));
 const TestCreationRulesRepository_1 = __importDefault(require("../../models/TestCreation/TestCreationRulesRepository"));
@@ -23,7 +29,6 @@ async function handlerTestTotalCasesCount(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.handlerTestTotalCasesCount = handlerTestTotalCasesCount;
 async function handlergetTestTotalCasesMonthDaily(request, response) {
     try {
         let { employeeid, testid, month } = request.query;
@@ -43,7 +48,6 @@ async function handlergetTestTotalCasesMonthDaily(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.handlergetTestTotalCasesMonthDaily = handlergetTestTotalCasesMonthDaily;
 async function handlergetTestTotalCasesByHourForSpecificDay(request, response) {
     try {
         const { employeeid, testid, month, day, year, tenantId } = request.query;
@@ -81,7 +85,6 @@ async function handlergetTestTotalCasesByHourForSpecificDay(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.handlergetTestTotalCasesByHourForSpecificDay = handlergetTestTotalCasesByHourForSpecificDay;
 async function handlergetTestMonthlyCountForYear(request, response) {
     try {
         let { employeeid, testid, month } = request.query;
@@ -101,7 +104,6 @@ async function handlergetTestMonthlyCountForYear(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.handlergetTestMonthlyCountForYear = handlergetTestMonthlyCountForYear;
 async function handlergetAllTestYearlyAnalysis(request, response) {
     try {
         let { employeeid } = request.query;
@@ -115,7 +117,6 @@ async function handlergetAllTestYearlyAnalysis(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.handlergetAllTestYearlyAnalysis = handlergetAllTestYearlyAnalysis;
 async function handlergetTestResultValuesForMonth(request, response) {
     try {
         let { employeeid, month, testid } = request.query;
@@ -136,7 +137,6 @@ async function handlergetTestResultValuesForMonth(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.handlergetTestResultValuesForMonth = handlergetTestResultValuesForMonth;
 async function getFieldResultValuesAcrossMonthOverYear(request, response) {
     try {
         let { employeeid, month, year, testid, fieldid, tenantId } = request.query;
@@ -167,4 +167,3 @@ async function getFieldResultValuesAcrossMonthOverYear(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getFieldResultValuesAcrossMonthOverYear = getFieldResultValuesAcrossMonthOverYear;

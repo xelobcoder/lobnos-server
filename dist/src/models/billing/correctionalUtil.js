@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.calculateCorrectionalAdjustment = void 0;
+exports.calculateCorrectionalAdjustment = calculateCorrectionalAdjustment;
 function calculateCorrectionalAdjustment(billingdata) {
     var _a;
     const previousPaid = Number(Number(((_a = billingdata.previousRecordsSummary) === null || _a === void 0 ? void 0 : _a.paid) || 0).toFixed(2));
@@ -27,4 +27,3 @@ function calculateCorrectionalAdjustment(billingdata) {
         isExcess
     };
 }
-exports.calculateCorrectionalAdjustment = calculateCorrectionalAdjustment;

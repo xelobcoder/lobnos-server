@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.retryFailedTransactionHandler = void 0;
+exports.retryFailedTransactionHandler = retryFailedTransactionHandler;
 const SmsJobsService_1 = require("../../../models/application/sms/services/SmsJobsService");
 const PrimeSmsJobsRepo_1 = require("../../../models/application/sms/repositories/PrimeSmsJobsRepo");
 const PrimeSmsJobRecipientsRepo_1 = require("../../../models/application/sms/repositories/PrimeSmsJobRecipientsRepo");
@@ -23,4 +23,3 @@ async function retryFailedTransactionHandler(req, res) {
         res.status(400).json({ error: err.message });
     }
 }
-exports.retryFailedTransactionHandler = retryFailedTransactionHandler;

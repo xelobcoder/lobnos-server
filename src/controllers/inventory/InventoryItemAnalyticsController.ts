@@ -32,7 +32,7 @@ export class InventoryItemAnalyticsController {
      async getItemAnalyticsSummary(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -83,7 +83,7 @@ export class InventoryItemAnalyticsController {
      async getItemOrderAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -134,7 +134,7 @@ export class InventoryItemAnalyticsController {
      async getItemUsageAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -185,7 +185,7 @@ export class InventoryItemAnalyticsController {
      async getDailyConsumptionAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -236,7 +236,7 @@ export class InventoryItemAnalyticsController {
      async getMonthlyConsumptionAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
 
                if (!itemId) {
                     const response: ApiResponse<null> = {
@@ -278,7 +278,7 @@ export class InventoryItemAnalyticsController {
      async getYearlyConsumptionAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
 
                if (!itemId) {
                     const response: ApiResponse<null> = {
@@ -320,7 +320,7 @@ export class InventoryItemAnalyticsController {
      async getDailyWastageAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -371,7 +371,7 @@ export class InventoryItemAnalyticsController {
      async getMonthlyWastageAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
 
                if (!itemId) {
                     const response: ApiResponse<null> = {
@@ -413,7 +413,7 @@ export class InventoryItemAnalyticsController {
      async getYearlyWastageAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
 
                if (!itemId) {
                     const response: ApiResponse<null> = {
@@ -455,7 +455,7 @@ export class InventoryItemAnalyticsController {
      async getDailyOrderAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -506,7 +506,7 @@ export class InventoryItemAnalyticsController {
      async getMonthlyOrderAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
 
                if (!itemId) {
                     const response: ApiResponse<null> = {
@@ -548,7 +548,7 @@ export class InventoryItemAnalyticsController {
      async getYearlyOrderAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
 
                if (!itemId) {
                     const response: ApiResponse<null> = {
@@ -590,7 +590,7 @@ export class InventoryItemAnalyticsController {
      async getItemWastageAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -641,7 +641,7 @@ export class InventoryItemAnalyticsController {
      async getSupplierSpecificAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { supplierId, startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -693,7 +693,7 @@ export class InventoryItemAnalyticsController {
      async getSupplierPerformanceMetrics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -744,7 +744,7 @@ export class InventoryItemAnalyticsController {
      async getTestConsumptionAnalytics(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {
@@ -795,7 +795,7 @@ export class InventoryItemAnalyticsController {
      async getAverageConsumption(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { itemId } = req.params;
+               const  itemId  = req.params.itemId as string;
                const { startDate, endDate } = req.query;
 
                if (!itemId) {

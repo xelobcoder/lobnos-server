@@ -37,6 +37,17 @@ export class CheckMobileNumberDto {
      @IsInt({ message: "patientid must be a valid number" })
      @Min(0)
      patientid?: number;
+
+
+     @IsOptional()
+     @Transform(({ value }) => {
+          if (typeof value === "string") {
+               return value === "true";
+          }
+          return value;
+     })
+     isGetData!: boolean;
+
 }
 
 
@@ -53,5 +64,15 @@ export class CheckPatientIdDto {
      @IsInt({ message: "patientid must be a valid number" })
      @Min(1)
      patientid!: number
+
+       @Transform(({ value }) => {
+          if (typeof value === "string" && value.length > 0) {
+               return Number(value);
+          }
+          return value;
+     })
+     @IsInt({ message: "tenantId must be a valid number" })
+     @Min(0)
+     tenantId!: number;
 
 }

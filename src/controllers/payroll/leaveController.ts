@@ -22,9 +22,9 @@ export const createLeaveHandler = async (req: Request, res: Response) => {
 export const getLeaveByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
-          if (!tenantId || !id) {
+          if (!id) {
                return customError('Tenant ID and Leave ID are required', 400, res);
           }
 
@@ -43,9 +43,9 @@ export const getLeaveByIdHandler = async (req: Request, res: Response) => {
 export const getLeavesByEmployeeIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
 
-          if (!tenantId || !employeeid) {
+          if (!employeeid) {
                return customError('Tenant ID and Employee ID are required', 400, res);
           }
 
@@ -60,9 +60,8 @@ export const getLeavesByEmployeeIdHandler = async (req: Request, res: Response) 
 export const getLeavesByStatusHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const { status } = req.params;
-
-          if (!tenantId || !status) {
+          const status = req.params.status as string;
+          if (!status) {
                return customError('Tenant ID and status are required', 400, res);
           }
 
@@ -80,7 +79,7 @@ export const getLeavesByDateRangeHandler = async (req: Request, res: Response) =
           const startDate = req.query.startDate as string;
           const endDate = req.query.endDate as string;
 
-          if (!tenantId || !startDate || !endDate) {
+          if (!startDate || !endDate) {
                return customError('Tenant ID, startDate and endDate are required', 400, res);
           }
 
@@ -95,9 +94,9 @@ export const getLeavesByDateRangeHandler = async (req: Request, res: Response) =
 export const updateLeaveHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
-          if (!tenantId || !id) {
+          if (!id) {
                return customError('Tenant ID and Leave ID are required', 400, res);
           }
 
@@ -116,10 +115,10 @@ export const updateLeaveHandler = async (req: Request, res: Response) => {
 export const approveLeaveHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const approved_by = parseInt(String(req.body.approved_by));
 
-          if (!tenantId || !id || !approved_by) {
+          if (!id || !approved_by) {
                return customError('Tenant ID, Leave ID and approved_by are required', 400, res);
           }
 
@@ -138,10 +137,10 @@ export const approveLeaveHandler = async (req: Request, res: Response) => {
 export const rejectLeaveHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const approved_by = parseInt(String(req.body.approved_by));
 
-          if (!tenantId || !id || !approved_by) {
+          if (!id || !approved_by) {
                return customError('Tenant ID, Leave ID and approved_by are required', 400, res);
           }
 
@@ -160,9 +159,9 @@ export const rejectLeaveHandler = async (req: Request, res: Response) => {
 export const cancelLeaveHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
-          if (!tenantId || !id) {
+          if (!id) {
                return customError('Tenant ID and Leave ID are required', 400, res);
           }
 
@@ -181,10 +180,10 @@ export const cancelLeaveHandler = async (req: Request, res: Response) => {
 export const getLeaveBalanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
           const year = parseInt(String(req.query.year));
 
-          if (!tenantId || !employeeid || !year) {
+          if (!employeeid || !year) {
                return customError('Tenant ID, employee ID and year are required', 400, res);
           }
 
@@ -206,7 +205,7 @@ export const initializeLeaveBalanceHandler = async (req: Request, res: Response)
           const employeeid = parseInt(String(req.body.employeeid));
           const year = parseInt(String(req.body.year));
 
-          if (!tenantId || !employeeid || !year) {
+          if (!employeeid || !year) {
                return customError('Tenant ID, employee ID and year are required', 400, res);
           }
 
@@ -221,9 +220,9 @@ export const initializeLeaveBalanceHandler = async (req: Request, res: Response)
 export const updateLeaveBalanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
-          if (!tenantId || !id) {
+          if (!id) {
                return customError('Tenant ID and leave balance ID are required', 400, res);
           }
 
@@ -244,7 +243,7 @@ export const getEmployeesOnLeaveByDateHandler = async (req: Request, res: Respon
           const tenantId = parseInt(req.query.tenantId as string);
           const date = req.query.date as string;
 
-          if (!tenantId || !date) {
+          if (!date) {
                return customError('Tenant ID and date are required', 400, res);
           }
 
@@ -259,10 +258,10 @@ export const getEmployeesOnLeaveByDateHandler = async (req: Request, res: Respon
 export const getLeaveSummaryByEmployeeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
           const year = parseInt(String(req.query.year));
 
-          if (!tenantId || !employeeid || !year) {
+          if (!employeeid || !year) {
                return customError('Tenant ID, employee ID and year are required', 400, res);
           }
 

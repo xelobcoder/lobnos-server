@@ -81,4 +81,17 @@ export default class NewPatientsRepo {
                throw new Error("Error soft deleting new patient");
           }
      }
+
+
+     filterPatient = async (filter: Partial<ICreateNewPatient>): Promise<ICreateNewPatient[]> => {
+          try {
+               const connection = await this.connection;
+               const result = await connection(this.tableName)
+                    .where(filter);
+               return result;
+          } catch (error) {
+               console.error("Error fetching patients by filter:", error);
+               throw new Error("Error fetching patients by filter");
+          }
+     }
 }

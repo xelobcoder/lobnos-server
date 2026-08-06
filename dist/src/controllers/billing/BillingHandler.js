@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPatientTransactionDetails = exports.getPatientTransactions = void 0;
+exports.getPatientTransactions = getPatientTransactions;
+exports.getPatientTransactionDetails = getPatientTransactionDetails;
 const BillingRepo_1 = require("../../models/billing/repositories/BillingRepo");
 async function getPatientTransactions(req, res) {
     try {
@@ -31,7 +32,6 @@ async function getPatientTransactions(req, res) {
         });
     }
 }
-exports.getPatientTransactions = getPatientTransactions;
 async function getPatientTransactionDetails(req, res) {
     try {
         const { billingid } = req.params;
@@ -64,4 +64,3 @@ async function getPatientTransactionDetails(req, res) {
         });
     }
 }
-exports.getPatientTransactionDetails = getPatientTransactionDetails;

@@ -10,11 +10,10 @@ const helper_1 = require("../../hooks/helper");
 const createTaxConfigurationHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        if (!tenantId) {
-            return (0, helper_1.customError)('Tenant ID is required', 400, res);
-        }
         const configData = req.body;
         configData.created_by = req.body.created_by;
+        if (!configData.is_active)
+            configData.is_active = false;
         const repo = new TaxConfigurationRepository_1.TaxConfigurationRepository(tenantId);
         const id = await repo.create(configData);
         res.status(201).json({
@@ -25,7 +24,9 @@ const createTaxConfigurationHandler = async (req, res) => {
         });
     }
     catch (error) {
-        console.error('Create tax configuration error:', error);
+        if ((error === null || error === void 0 ? void 0 : error.code) == "ER_DUP_ENTRY") {
+            (0, helper_1.customError)('A tax configuration for this year already exists', 400, res);
+        }
         (0, helper_1.customError)('Failed to create tax configuration', 500, res);
     }
 };
@@ -85,7 +86,7 @@ exports.getActiveTaxConfigurationHandler = getActiveTaxConfigurationHandler;
 const updateTaxConfigurationHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!id) {
             return (0, helper_1.customError)('Valid tax configuration ID is required', 400, res);
         }
@@ -120,7 +121,7 @@ const getTaxConfigurationByIdHandler = async (req, res) => {
         if (!tenantId) {
             return (0, helper_1.customError)('Tenant ID is required', 400, res);
         }
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!id) {
             return (0, helper_1.customError)('Valid tax configuration ID is required', 400, res);
         }
@@ -180,7 +181,7 @@ const toggleTaxConfigurationStatusHandler = async (req, res) => {
         if (!tenantId) {
             return (0, helper_1.customError)('Tenant ID is required', 400, res);
         }
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!id) {
             return (0, helper_1.customError)('Valid tax configuration ID is required', 400, res);
         }
@@ -211,7 +212,7 @@ const deleteTaxConfigurationHandler = async (req, res) => {
         if (!tenantId) {
             return (0, helper_1.customError)('Tenant ID is required', 400, res);
         }
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!id) {
             return (0, helper_1.customError)('Valid tax configuration ID is required', 400, res);
         }
@@ -247,7 +248,7 @@ const getTaxConfigurationAuditHistoryHandler = async (req, res) => {
         if (!tenantId) {
             return (0, helper_1.customError)('Tenant ID is required', 400, res);
         }
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!id) {
             return (0, helper_1.customError)('Valid tax configuration ID is required', 400, res);
         }

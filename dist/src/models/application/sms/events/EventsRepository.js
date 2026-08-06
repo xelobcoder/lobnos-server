@@ -3,7 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.setEventActiveStatus = exports.isEventValid = exports.findEventByCode = exports.EVENTS = void 0;
+exports.EVENTS = void 0;
+exports.findEventByCode = findEventByCode;
+exports.isEventValid = isEventValid;
+exports.setEventActiveStatus = setEventActiveStatus;
 const KnexConnections_1 = __importDefault(require("../../../../database/KnexConnections"));
 exports.EVENTS = [
     {
@@ -124,14 +127,11 @@ exports.EVENTS = [
 function findEventByCode(code) {
     return exports.EVENTS.find(e => e.code === code);
 }
-exports.findEventByCode = findEventByCode;
 function isEventValid(code) {
     return !!findEventByCode(code);
 }
-exports.isEventValid = isEventValid;
 async function setEventActiveStatus(tenantId, code, active) {
     const conn = await (0, KnexConnections_1.default)(tenantId);
     const result = await conn('primesmsevents').where({ code }).update({ active });
     return result > 0;
 }
-exports.setEventActiveStatus = setEventActiveStatus;

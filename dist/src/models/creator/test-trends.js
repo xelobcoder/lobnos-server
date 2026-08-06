@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTestTrends = void 0;
+exports.getTestTrends = getTestTrends;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const encryptionModels_1 = require("../../utils/encryptionModels");
 async function getTestTrends(tenantId, patientid, testid, trendNumber = 10, limit) {
@@ -46,4 +46,3 @@ async function getTestTrends(tenantId, patientid, testid, trendNumber = 10, limi
     const rows = Array.isArray(resultsRaw) && Array.isArray(resultsRaw[0]) ? resultsRaw[0] : resultsRaw;
     return rows.map((row) => (Object.assign(Object.assign({}, row), { value: row.value ? (0, encryptionModels_1.decrypt_value)(row.value) : row.value })));
 }
-exports.getTestTrends = getTestTrends;

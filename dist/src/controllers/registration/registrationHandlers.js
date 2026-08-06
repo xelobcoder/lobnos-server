@@ -12,6 +12,7 @@ const PatientImageRepository_1 = __importDefault(require("../../repositories/pat
 const patientRepo_1 = __importDefault(require("../../models/patients/patientRepo"));
 const patientAddressingRepo_repo_1 = __importDefault(require("../../models/patients/respositories/patientAddressingRepo.repo"));
 const emmergencyPatient_repo_1 = __importDefault(require("../../models/patients/respositories/emmergencyPatient.repo"));
+const newPatientsRepo_repo_1 = __importDefault(require("../../models/patients/respositories/newPatientsRepo.repo"));
 const addNewPatient = async (request, res) => {
     try {
         const tenantId = parseInt(request.query.tenantId);
@@ -137,7 +138,6 @@ const checkMobileNumber = async (request, response) => {
     const patientid = request.query.patientid ? parseInt(request.query.patientid.toString(), 10) : undefined;
     if (patientid && isNaN(patientid))
         return (0, helper_1.customError)("patientid is not a valid number", 400, response);
-    console.log(request.query.mobileno);
     if (patientid) {
         const belongsToPatient = await patientRepo_1.default.checkNumberBelongsToPatient(tenantId, patientid, request.query.mobileno);
         if (belongsToPatient) {
@@ -147,26 +147,20 @@ const checkMobileNumber = async (request, response) => {
                 exist: true,
             });
         }
-        else {
-            return response.send({
-                statusCode: 200,
-                status: "success",
-                exist: false,
-            });
-        }
-    }
-    try {
-        const data = await DatabaseQueriesHelper_1.default.getSingleId(tenantId, parseInt(request.query.mobileno.toString(), 10), "new_patients", "mobile_number");
-        response.send({
+        return response.send({
             statusCode: 200,
             status: "success",
-            exist: data ? true : false,
+            exist: false,
         });
     }
-    catch (error) {
-        console.error(error);
-        return (0, helper_1.customError)("Error checking mobile number", 500, response);
-    }
+    const sanitizedMobileNumber = request.query.mobileno.toString().padStart(10, '0');
+    const data = await new newPatientsRepo_repo_1.default(tenantId).filterPatient({ mobile_number: sanitizedMobileNumber });
+    return response.send({
+        statusCode: 200,
+        status: "success",
+        exist: data.length > 0,
+        result: request.query.isGetData ? data : undefined,
+    });
 };
 exports.checkMobileNumber = checkMobileNumber;
 const getAddressingInformation = async (request, response) => {

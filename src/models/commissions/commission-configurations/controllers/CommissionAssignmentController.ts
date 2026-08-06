@@ -33,7 +33,7 @@ export class CommissionAssignmentController {
                          }
                     }
 
-                    const created = await repository.createMultiple(assignments);
+                    const created = await repository.createMultiple(assignments as any);
                     res.status(201).json({
                          status: 'success',
                          statusCode: 201,
@@ -128,7 +128,7 @@ export class CommissionAssignmentController {
      static async getAssignment(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const assignmentId = parseInt(req.params.id);
+               const assignmentId = parseInt(req.params.id.toString());
 
                if (!tenantId || !assignmentId || isNaN(tenantId) || isNaN(assignmentId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or assignmentId' });
@@ -205,7 +205,7 @@ export class CommissionAssignmentController {
      static async updateAssignment(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const assignmentId = parseInt(req.params.id);
+               const assignmentId = parseInt(req.params.id.toString());
 
                if (!tenantId || !assignmentId || isNaN(tenantId) || isNaN(assignmentId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or assignmentId' });
@@ -277,7 +277,7 @@ export class CommissionAssignmentController {
      static async deleteAssignment(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const assignmentId = parseInt(req.params.id);
+               const assignmentId = parseInt(req.params.id.toString());
 
                if (!tenantId || !assignmentId || isNaN(tenantId) || isNaN(assignmentId)) {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or assignmentId' });

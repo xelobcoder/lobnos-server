@@ -1,6 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getDrugsCategory = exports.deleteDrugCategory = exports.updateDrugCategory = exports.insertNewDrugCategory = exports.getDrugs = exports.deleteDrug = exports.updateDrug = exports.insertNewDrug = void 0;
+exports.insertNewDrug = insertNewDrug;
+exports.updateDrug = updateDrug;
+exports.deleteDrug = deleteDrug;
+exports.getDrugs = getDrugs;
+exports.insertNewDrugCategory = insertNewDrugCategory;
+exports.updateDrugCategory = updateDrugCategory;
+exports.deleteDrugCategory = deleteDrugCategory;
+exports.getDrugsCategory = getDrugsCategory;
 const helper_1 = require("../../hooks/helper");
 const drugsUpload_1 = require("../../models/drugs/drugsUpload");
 async function insertNewDrug(req, res) {
@@ -22,7 +29,6 @@ async function insertNewDrug(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.insertNewDrug = insertNewDrug;
 async function updateDrug(req, res) {
     try {
         const { id, drug, addedOn, category, createdBy } = req.body;
@@ -42,7 +48,6 @@ async function updateDrug(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.updateDrug = updateDrug;
 async function deleteDrug(req, res) {
     try {
         const { id, employeeid } = req.query;
@@ -65,7 +70,6 @@ async function deleteDrug(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.deleteDrug = deleteDrug;
 async function getDrugs(req, res) {
     try {
         const drugService = new drugsUpload_1.DrugManagementService();
@@ -77,7 +81,6 @@ async function getDrugs(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.getDrugs = getDrugs;
 // Drug Category Controllers
 async function insertNewDrugCategory(req, res) {
     try {
@@ -98,7 +101,6 @@ async function insertNewDrugCategory(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.insertNewDrugCategory = insertNewDrugCategory;
 async function updateDrugCategory(req, res) {
     try {
         const { id, categoryName, description, createdBy } = req.body;
@@ -118,7 +120,6 @@ async function updateDrugCategory(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.updateDrugCategory = updateDrugCategory;
 async function deleteDrugCategory(req, res) {
     try {
         const { id } = req.params;
@@ -135,7 +136,6 @@ async function deleteDrugCategory(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.deleteDrugCategory = deleteDrugCategory;
 async function getDrugsCategory(req, res) {
     try {
         const tenantId = parseInt(req.query.tenantId.toString(), 10);
@@ -147,4 +147,3 @@ async function getDrugsCategory(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.getDrugsCategory = getDrugsCategory;

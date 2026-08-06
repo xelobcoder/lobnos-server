@@ -29,7 +29,7 @@ class DeviceController {
             const repository = new DeviceRepository_1.DeviceRepository(tenantId);
             const { id } = req.params;
             const updates = req.body;
-            const result = await repository.update(id, updates);
+            const result = await repository.update(id.toString(), updates);
             res.json(result);
         }
         catch (error) {
@@ -41,7 +41,7 @@ class DeviceController {
             const tenantId = this.getTenantId(req);
             const repository = new DeviceRepository_1.DeviceRepository(tenantId);
             const { id } = req.params;
-            const device = await repository.findById(id);
+            const device = await repository.findById(id.toString());
             if (!device) {
                 return res.status(404).json({ error: 'Device not found' });
             }
@@ -93,7 +93,7 @@ class DeviceController {
             const tenantId = this.getTenantId(req);
             const repository = new DeviceRepository_1.DeviceRepository(tenantId);
             const { id } = req.params;
-            await repository.delete(id);
+            await repository.delete(id.toString());
             res.status(204).send();
         }
         catch (error) {
@@ -105,7 +105,7 @@ class DeviceController {
             const tenantId = this.getTenantId(req);
             const repository = new DeviceRepository_1.DeviceRepository(tenantId);
             const { search } = req.query;
-            if (search.toString().length < 2) {
+            if (search && search.toString().length < 2) {
                 return res.json([]);
             }
             const devices = await repository.searchByName(search);

@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAccountInfo = exports.getAccountName = exports.ACCOUNT_CONFIG = void 0;
+exports.ACCOUNT_CONFIG = void 0;
+exports.getAccountName = getAccountName;
+exports.getAccountInfo = getAccountInfo;
 exports.ACCOUNT_CONFIG = {
     'acc-1000': {
         name: 'Cash',
@@ -82,8 +84,6 @@ function getAccountName(accountId) {
     var _a;
     return ((_a = exports.ACCOUNT_CONFIG[accountId]) === null || _a === void 0 ? void 0 : _a.name) || accountId;
 }
-exports.getAccountName = getAccountName;
 function getAccountInfo(accountId) {
     return exports.ACCOUNT_CONFIG[accountId] || null;
 }
-exports.getAccountInfo = getAccountInfo;

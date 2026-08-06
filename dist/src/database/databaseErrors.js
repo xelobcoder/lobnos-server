@@ -4,7 +4,8 @@
  * For security purposes, these messages avoid exposing sensitive database details.
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMySqlErrorMessage = exports.mysqlErrorMappings = void 0;
+exports.mysqlErrorMappings = void 0;
+exports.getMySqlErrorMessage = getMySqlErrorMessage;
 exports.mysqlErrorMappings = {
     // Duplicate entry errors
     'ER_DUP_ENTRY': {
@@ -156,4 +157,3 @@ function getMySqlErrorMessage(errorCode) {
         message: 'An unexpected error occurred.'
     };
 }
-exports.getMySqlErrorMessage = getMySqlErrorMessage;

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ensureFinanceLedgerTables = void 0;
+exports.ensureFinanceLedgerTables = ensureFinanceLedgerTables;
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 async function ensureFinanceLedgerTables(tenantId) {
     const knex = await (0, KnexConnections_1.default)(tenantId);
@@ -70,4 +70,3 @@ async function ensureFinanceLedgerTables(tenantId) {
         }
     }
 }
-exports.ensureFinanceLedgerTables = ensureFinanceLedgerTables;

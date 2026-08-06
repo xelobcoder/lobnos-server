@@ -10,6 +10,8 @@ import Patient from "../../models/patients/patientRepo";
 import { ICreateEmergencyPatient, ICreateNewPatient } from "../../models/patients/interfaces";
 import PatientAddressingRepo from "../../models/patients/respositories/patientAddressingRepo.repo";
 import EmergencyPatientRepo from "../../models/patients/respositories/emmergencyPatient.repo";
+import NewPatientsRepo from "../../models/patients/respositories/newPatientsRepo.repo";
+import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 
 export const addNewPatient = async (request: Request, res: Response) => {
 	try {
@@ -139,13 +141,12 @@ export const getPersonalInformation = async (
 };
 
 export const checkMobileNumber = async (
-	request: Request<{}, {}, {}, { tenantId: string; mobileno: number | string, patientid?: number | string }>,
+	request: Request<{}, {}, {}, { tenantId: string; mobileno: number | string, patientid?: number | string, isGetData: boolean }>,
 	response: Response
 ): Promise<any> => {
 	const tenantId: number = parseInt(request.query.tenantId, 10);
 	const patientid = request.query.patientid ? parseInt(request.query.patientid.toString(), 10) : undefined;
 	if (patientid && isNaN(patientid)) return customError("patientid is not a valid number", 400, response);
-	console.log(request.query.mobileno)
 	if (patientid) {
 		const belongsToPatient = await Patient.checkNumberBelongsToPatient(tenantId, patientid, request.query.mobileno);
 		if (belongsToPatient) {
@@ -154,26 +155,24 @@ export const checkMobileNumber = async (
 				status: "success",
 				exist: true,
 			});
-		} else {
-			return response.send({
-				statusCode: 200,
-				status: "success",
-				exist: false,
-			});
 		}
-	}
-
-	try {
-		const data = await databaseQueries.getSingleId(tenantId, parseInt(request.query.mobileno.toString(), 10), "new_patients", "mobile_number");
-		response.send({
+		return response.send({
 			statusCode: 200,
 			status: "success",
-			exist: data ? true : false,
+			exist: false,
 		});
-	} catch (error) {
-		console.error(error);
-		return customError("Error checking mobile number", 500, response);
 	}
+
+	const sanitizedMobileNumber =  request.query.mobileno.toString().padStart(10, '0');
+
+	const data = await new NewPatientsRepo(tenantId).filterPatient({ mobile_number: sanitizedMobileNumber });
+	return response.send({
+		statusCode: 200,
+		status: "success",
+		exist:  data.length > 0,
+		result:  request.query.isGetData ? data : undefined,
+	});
+
 };
 
 export const getAddressingInformation = async (

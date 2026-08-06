@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getTestTrendsHandler = void 0;
+exports.getTestTrendsHandler = getTestTrendsHandler;
 const test_trends_1 = require("../../models/creator/test-trends");
 async function getTestTrendsHandler(req, res) {
     try {
@@ -20,4 +20,3 @@ async function getTestTrendsHandler(req, res) {
         return res.status(500).json({ error: "Internal server error" });
     }
 }
-exports.getTestTrendsHandler = getTestTrendsHandler;

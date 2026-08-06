@@ -3,7 +3,21 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getAllCliniciansHandler = exports.postProcessedOrderHandler = exports.getTemporaryOrdersProcessingHandler = exports.getTemporaryOrdersHandler = exports.postTemporaryOrderHandler = exports.getBillingTestBasedByClinicianHandler = exports.getClinicianResultHandler = exports.filterClinicianHandler = exports.verifyClinicianPhoneNumberAndEmailMiddleware = exports.postCliniciansHandler = exports.deleteCliniciansHandler = exports.putCliniciansHandler = exports.getSingleClinicianHandler = exports.bulkInsertCliniciansHandler = exports.getCliniciansHandler = void 0;
+exports.bulkInsertCliniciansHandler = void 0;
+exports.getCliniciansHandler = getCliniciansHandler;
+exports.getSingleClinicianHandler = getSingleClinicianHandler;
+exports.putCliniciansHandler = putCliniciansHandler;
+exports.deleteCliniciansHandler = deleteCliniciansHandler;
+exports.postCliniciansHandler = postCliniciansHandler;
+exports.verifyClinicianPhoneNumberAndEmailMiddleware = verifyClinicianPhoneNumberAndEmailMiddleware;
+exports.filterClinicianHandler = filterClinicianHandler;
+exports.getClinicianResultHandler = getClinicianResultHandler;
+exports.getBillingTestBasedByClinicianHandler = getBillingTestBasedByClinicianHandler;
+exports.postTemporaryOrderHandler = postTemporaryOrderHandler;
+exports.getTemporaryOrdersHandler = getTemporaryOrdersHandler;
+exports.getTemporaryOrdersProcessingHandler = getTemporaryOrdersProcessingHandler;
+exports.postProcessedOrderHandler = postProcessedOrderHandler;
+exports.getAllCliniciansHandler = getAllCliniciansHandler;
 const express_1 = require("express");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
 const helper_1 = require("../../hooks/helper");
@@ -35,7 +49,6 @@ async function getCliniciansHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.getCliniciansHandler = getCliniciansHandler;
 const bulkInsertCliniciansHandler = async (req, res) => {
     try {
         const tenantId = parseFloat(req.query.tenantId);
@@ -92,7 +105,6 @@ async function getSingleClinicianHandler(req, res) {
         });
     }
 }
-exports.getSingleClinicianHandler = getSingleClinicianHandler;
 async function putCliniciansHandler(req, res) {
     try {
         const { id } = req.body;
@@ -118,7 +130,6 @@ async function putCliniciansHandler(req, res) {
         (0, helper_1.responseError)(express_1.response);
     }
 }
-exports.putCliniciansHandler = putCliniciansHandler;
 async function deleteCliniciansHandler(request, response) {
     try {
         const { id } = request.body;
@@ -148,7 +159,6 @@ async function deleteCliniciansHandler(request, response) {
         (0, helper_1.responseError)(response);
     }
 }
-exports.deleteCliniciansHandler = deleteCliniciansHandler;
 async function postCliniciansHandler(req, res) {
     try {
         const outcome = await new clinicianClass_1.default().postClinicianBasicInfo(Object.assign(Object.assign({}, req.body), { tenantId: req.query.tenantId }));
@@ -161,7 +171,6 @@ async function postCliniciansHandler(req, res) {
         (0, helper_1.customError)("Something wrong ocured", 500, res);
     }
 }
-exports.postCliniciansHandler = postCliniciansHandler;
 async function verifyClinicianPhoneNumberAndEmailMiddleware(request, response, next) {
     const phone = request.body.phone;
     const email = request.body.email;
@@ -176,7 +185,6 @@ async function verifyClinicianPhoneNumberAndEmailMiddleware(request, response, n
     }
     next();
 }
-exports.verifyClinicianPhoneNumberAndEmailMiddleware = verifyClinicianPhoneNumberAndEmailMiddleware;
 async function filterClinicianHandler(req, res) {
     const { data } = req.body;
     if (!data) {
@@ -192,7 +200,6 @@ async function filterClinicianHandler(req, res) {
         (0, helper_1.customError)("Something wrong ocured", 500, res);
     }
 }
-exports.filterClinicianHandler = filterClinicianHandler;
 async function getClinicianResultHandler(req, res) {
     try {
         const { clinicianid, startdate, enddate } = req.query;
@@ -209,7 +216,6 @@ async function getClinicianResultHandler(req, res) {
         (0, helper_1.customError)((err === null || err === void 0 ? void 0 : err.message) || "something went wrong", 401, res);
     }
 }
-exports.getClinicianResultHandler = getClinicianResultHandler;
 async function getBillingTestBasedByClinicianHandler(req, res) {
     try {
         const { billingid, clinicianid } = req.query;
@@ -226,7 +232,6 @@ async function getBillingTestBasedByClinicianHandler(req, res) {
         (0, helper_1.customError)((err === null || err === void 0 ? void 0 : err.message) || "something went wrong", 500, res);
     }
 }
-exports.getBillingTestBasedByClinicianHandler = getBillingTestBasedByClinicianHandler;
 async function postTemporaryOrderHandler(req, res) {
     try {
         // const result = await new Registration().temporaryOrder(req.body);
@@ -241,7 +246,6 @@ async function postTemporaryOrderHandler(req, res) {
         (0, helper_1.customError)("Something wrong ocured", 500, res);
     }
 }
-exports.postTemporaryOrderHandler = postTemporaryOrderHandler;
 async function getTemporaryOrdersHandler(req, res) {
     const { clinicianid, target, date } = req.query;
     if (!target) {
@@ -256,7 +260,6 @@ async function getTemporaryOrdersHandler(req, res) {
         (0, helper_1.customError)("Something wrong ocured", 500, res);
     }
 }
-exports.getTemporaryOrdersHandler = getTemporaryOrdersHandler;
 async function getTemporaryOrdersProcessingHandler(req, res) {
     const { orderid } = req.query;
     if (!orderid) {
@@ -271,7 +274,6 @@ async function getTemporaryOrdersProcessingHandler(req, res) {
         (0, helper_1.customError)("Something wrong ocured", 500, res);
     }
 }
-exports.getTemporaryOrdersProcessingHandler = getTemporaryOrdersProcessingHandler;
 async function postProcessedOrderHandler(req, res) {
     try {
         const { patientid, clinician, organization, orderid, test, payable, testcost, paid, taxIncluded, taxValue, status, discount, paymentmode, samplingCenter, outstanding, cost, employeeid, } = req.body;
@@ -318,7 +320,6 @@ async function postProcessedOrderHandler(req, res) {
         (0, helper_1.customError)((err === null || err === void 0 ? void 0 : err.message) || err, 500, res);
     }
 }
-exports.postProcessedOrderHandler = postProcessedOrderHandler;
 async function getAllCliniciansHandler(req, res) {
     var _a;
     try {
@@ -331,4 +332,3 @@ async function getAllCliniciansHandler(req, res) {
         (0, helper_1.responseError)(res);
     }
 }
-exports.getAllCliniciansHandler = getAllCliniciansHandler;
