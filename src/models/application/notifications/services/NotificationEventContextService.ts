@@ -17,23 +17,10 @@ import { ResultContextProvider } from '../context/providers/ResultContextProvide
 import { SampleContextProvider } from '../context/providers/SampleContextProvider';
 import { SupplierContextProvider } from '../context/providers/SupplierContextProvider';
 import { BranchContextProvider } from '../context/providers/BranchContextProvider';
-import { EventDefinition as ProviderEventDefinition, makeDomainDefinition, readableEventName, userVariables as fallbackUserVariables } from '../context/providers/NotificationEventDefinitions';
+import { EventDefinition as ProviderEventDefinition, EventReferenceMap, makeDomainDefinition, readableEventName, userVariables as fallbackUserVariables } from '../context/providers/NotificationEventDefinitions';
+
 
 type Scalar = string | number | boolean | null;
-
-type EventReferenceMap = {
-     patientId?: number | string;
-     appointmentId?: number | string;
-     ascensionId?: number | string;
-     billingId?: number | string;
-     userId?: number | string;
-     payrollId?: number | string;
-     purchaseOrderId?: number | string;
-     supplierId?: number | string;
-     supplierPaymentId?: number | string;
-     inventoryId?: number | string;
-     doctorId?: number | string;
-};
 
 type EventVariableDefinition = {
      variable_name: string;
@@ -68,19 +55,22 @@ function stripTags(input: string): string {
           .trim();
 }
 
-function sanitizeScalar(value: unknown): Scalar {
+function sanitizeScalar(value: unknown, key?: string): Scalar {
      if (value === null || value === undefined) return null;
      if (typeof value === 'number') return Number.isFinite(value) ? value : null;
      if (typeof value === 'boolean') return value;
      if (value instanceof Date) return value.toISOString();
-     if (typeof value === 'string') return stripTags(value);
+     if (typeof value === 'string') {
+          if (key && (key.endsWith('_html') || key.endsWith('_html_body'))) return value;
+          return stripTags(value);
+     }
      return stripTags(String(value));
 }
 
 function sanitizeContext(payload: Record<string, unknown>): Record<string, Scalar> {
      const sanitized: Record<string, Scalar> = {};
      for (const [key, value] of Object.entries(payload)) {
-          sanitized[key] = sanitizeScalar(value);
+          sanitized[key] = sanitizeScalar(value, key);
      }
      return sanitized;
 }
