@@ -45,8 +45,8 @@ export class EmailTemplatesService {
           return this.templatesRepo.findById(id);
      }
 
-     async getAll() {
-          return this.templatesRepo.findAll();
+     async getAll(page?: number, count?: number) {
+          return this.templatesRepo.findAll(page, count);
      }
 
      async delete(id: number) {

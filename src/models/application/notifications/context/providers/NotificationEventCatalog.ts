@@ -1,20 +1,5 @@
-import {
-     appointmentVariables,
-     billingVariables,
-     EventDefinition,
-     EventReferenceMap,
-     EventVariableDefinition,
-     inventoryVariables,
-     laboratoryVariables,
-     makeDomainDefinition,
-     patientVariables,
-     payrollVariables,
-     purchaseOrderVariables,
-     readableEventName,
-     sampleVariables,
-     supplierVariables,
-     userVariables,
-} from './NotificationEventDefinitions';
+import { EventReferenceMap, EventVariableDefinition, patientVariables, appointmentVariables, sampleVariables, laboratoryVariables, billingVariables, payrollVariables, purchaseOrderVariables, supplierVariables, supplierPaymentVariables, inventoryVariables, userVariables, EventDefinition, EventTemplateLayoutKind, makeDomainDefinition } from "./NotificationEventDefinitions";
+
 
 export type EventCatalogEntry = {
      eventCode: string;
@@ -941,7 +926,7 @@ export const NOTIFICATION_EVENT_CATALOG: EventCatalogEntry[] = [
           purchaseOrderVariables(),
           'Purchase Order Partially Received - {{order_number}}',
           'Purchase Order Partially Received',
-          'Items from the purchase order have been partially received.',
+          'This is an official goods-received update. Some items in this purchase order have now been received and recorded in inventory.',
           detailsForPurchaseOrder(),
      ),
      entry(
@@ -952,7 +937,7 @@ export const NOTIFICATION_EVENT_CATALOG: EventCatalogEntry[] = [
           purchaseOrderVariables(),
           'Purchase Order Fully Received - {{order_number}}',
           'Purchase Order Fully Received',
-          'All items from the purchase order have been received.',
+          'This is an official goods-received confirmation. All items listed in this purchase order have been received and posted to inventory.',
           detailsForPurchaseOrder(),
      ),
      entry(
@@ -1078,7 +1063,7 @@ export const NOTIFICATION_EVENT_CATALOG: EventCatalogEntry[] = [
           'supplier',
           'supplier',
           ['supplierId'],
-          supplierVariables(),
+          supplierPaymentVariables(),
           'Supplier Payment Pending - {{supplier_name}}',
           'Supplier Payment Pending',
           'A supplier payment is pending.',
@@ -1089,10 +1074,10 @@ export const NOTIFICATION_EVENT_CATALOG: EventCatalogEntry[] = [
           'supplier',
           'supplier',
           ['supplierId'],
-          supplierVariables(),
+          supplierPaymentVariables(),
           'Supplier Payment Processed - {{supplier_name}}',
           'Supplier Payment Processed',
-          'A supplier payment has been processed.',
+          'Your payment has been processed successfully. Please review the payment advice table below for reference and reconciliation.',
           detailsForSupplier(),
      ),
      entry(
@@ -1100,7 +1085,7 @@ export const NOTIFICATION_EVENT_CATALOG: EventCatalogEntry[] = [
           'supplier',
           'supplier',
           ['supplierId'],
-          supplierVariables(),
+          supplierPaymentVariables(),
           'Supplier Payment Failed - {{supplier_name}}',
           'Supplier Payment Failed',
           'A supplier payment failed to process.',
@@ -1416,6 +1401,19 @@ export function buildEventDefinitionFromCatalog(eventCode: string): EventDefinit
      const entry = CATALOG_BY_CODE.get(eventCode);
      if (!entry) return null;
 
+     let layoutKind: EventTemplateLayoutKind = 'enterprise';
+     if (eventCode.startsWith('PURCHASE_ORDER_')) {
+          layoutKind = (
+               eventCode === 'PURCHASE_ORDER_RECEIVED'
+               || eventCode === 'PURCHASE_ORDER_PARTIALLY_RECEIVED'
+               || eventCode === 'PURCHASE_ORDER_ACKNOWLEDGED'
+          )
+               ? 'goods_received_invoice'
+               : 'purchase_order_invoice';
+     } else if (eventCode.startsWith('SUPPLIER_PAYMENT_')) {
+          layoutKind = 'supplier_payment_invoice';
+     }
+
      return makeDomainDefinition(
           eventCode,
           entry.variables,
@@ -1425,5 +1423,7 @@ export function buildEventDefinitionFromCatalog(eventCode: string): EventDefinit
           entry.details,
           entry.actionText,
           entry.actionValue,
+          layoutKind,
+          entry.subject,
      );
 }

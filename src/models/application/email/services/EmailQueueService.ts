@@ -78,25 +78,25 @@ export class EmailQueueService {
           return this.queueRepo.findById(queueId);
      }
 
-     async getQueue(limit = 50) {
-          return this.queueRepo.findAll(limit);
+     async getQueue(page?: number, count?: number) {
+          return this.queueRepo.findAll(page, count);
      }
 
-     async getLogs(limit = 100) {
-          return this.logsRepo.findAll(limit);
+     async getLogs(page?: number, count?: number) {
+          return this.logsRepo.findAll(page, count);
      }
 
-     async getAnalytics(days = 30) {
+     async getAnalytics(days = 30, page?: number, count?: number) {
           await this.ensureActivated();
 
           const [overview, statusBreakdown, eventBreakdown, providerPerformance, queueMetrics, dailyTrend, failureReasons] = await Promise.all([
                this.logsRepo.getOverview(days),
                this.logsRepo.getStatusBreakdown(days),
-               this.logsRepo.getEventBreakdown(days),
+               this.logsRepo.getEventBreakdown(days, page, count),
                this.logsRepo.getProviderPerformance(days),
                this.queueRepo.getQueueMetrics(),
                this.logsRepo.getDailyTrend(days),
-               this.logsRepo.getFailureReasons(days),
+               this.logsRepo.getFailureReasons(days, page, count),
           ]);
 
           return {

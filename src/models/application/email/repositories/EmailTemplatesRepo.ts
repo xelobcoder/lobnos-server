@@ -26,9 +26,17 @@ export class EmailTemplatesRepo {
           return record || null;
      }
 
-     async findAll(): Promise<EmailTemplateRecord[]> {
+     async findAll(page?: number, count?: number): Promise<EmailTemplateRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).select('*').orderBy('id', 'desc');
+          const query = connection(this.tableName)
+               .select('*')
+               .orderBy('id', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async delete(id: number): Promise<number> {

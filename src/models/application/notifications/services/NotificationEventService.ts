@@ -12,18 +12,18 @@ export class NotificationEventService {
           private tenantId: number,
      ) { }
 
-     async getEvents() {
-          return this.eventsRepo.findAll();
+     async getEvents(page?: number, count?: number) {
+          return this.eventsRepo.findAll(page, count);
      }
 
      async getEventByCode(eventCode: string) {
           return this.eventsRepo.findByCode(eventCode);
      }
 
-     async getEventVariables(eventCode: string) {
+     async getEventVariables(eventCode: string, page?: number, count?: number) {
           const event = await this.eventsRepo.findByCode(eventCode);
           if (!event) throw new Error('Notification event not found');
-          return this.variablesRepo.findByEventId(event.id as number);
+          return this.variablesRepo.findByEventId(event.id as number, page, count);
      }
 
      async getEventSettings(eventCode: string) {
@@ -54,8 +54,8 @@ export class NotificationEventService {
           return this.settingsRepo.findByEventId(event.id as number);
      }
 
-     async getEventCatalog(eventCode?: string) {
-          return this.eventContextService.getEventCatalog(eventCode);
+     async getEventCatalog(eventCode?: string, page?: number, count?: number) {
+          return this.eventContextService.getEventCatalog(eventCode, page, count);
      }
 
      async syncEventCatalog() {

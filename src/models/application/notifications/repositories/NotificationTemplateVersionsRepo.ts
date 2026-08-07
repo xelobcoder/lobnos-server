@@ -25,8 +25,16 @@ export class NotificationTemplateVersionsRepo {
           return row ? Number(row.version) : 0;
      }
 
-     async findAllByTemplate(templateId: number): Promise<NotificationTemplateVersionRecord[]> {
+     async findAllByTemplate(templateId: number, page?: number, count?: number): Promise<NotificationTemplateVersionRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).where({ template_id: templateId }).orderBy('version', 'desc');
+          const query = connection(this.tableName)
+               .where({ template_id: templateId })
+               .orderBy('version', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 }

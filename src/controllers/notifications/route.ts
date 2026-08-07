@@ -30,6 +30,7 @@ import { EmailSettingsRepo } from '../../models/application/email/repositories/E
 import { EmailQueueService } from '../../models/application/email/services/EmailQueueService';
 import { ProviderFactory } from '../../models/application/email/services/ProviderFactory';
 import { TemplateRenderer } from '../../models/application/email/services/TemplateRenderer';
+import { parsePagination } from '../../hooks/pagination';
 
 function buildServices(tenantId: number) {
      const eventsRepo = new NotificationEventsRepo(tenantId);
@@ -96,7 +97,8 @@ router.use((req, _res, next) => {
 });
 
 router.get('/api/v1/notifications/events', handleOverLoad(async (req: NotificationRequest, res: Response) => {
-     const result = await req.notificationServices.events.getEvents();
+     const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+     const result = await req.notificationServices.events.getEvents(page, count);
      res.send({ status: 'success', statusCode: 200, result });
 }));
 
@@ -108,7 +110,8 @@ router.get('/api/v1/notifications/events/:eventCode', handleOverLoad(async (req:
 
 router.get('/api/v1/notifications/events/:eventCode/variables', handleOverLoad(async (req: NotificationRequest, res: Response) => {
      try {
-          const result = await req.notificationServices.events.getEventVariables(firstParam(req.params.eventCode));
+          const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+          const result = await req.notificationServices.events.getEventVariables(firstParam(req.params.eventCode), page, count);
           res.send({ status: 'success', statusCode: 200, result });
      } catch (error) {
           responseError(res, error, 400);
@@ -116,7 +119,8 @@ router.get('/api/v1/notifications/events/:eventCode/variables', handleOverLoad(a
 }));
 
 router.get('/api/v1/notifications/events/catalog', handleOverLoad(async (req: NotificationRequest, res: Response) => {
-     const result = await req.notificationServices.events.getEventCatalog();
+     const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+     const result = await req.notificationServices.events.getEventCatalog(undefined, page, count);
      res.send({ status: 'success', statusCode: 200, result });
 }));
 
@@ -158,7 +162,8 @@ router.put('/api/v1/notifications/settings/:eventCode', handleOverLoad(async (re
 }));
 
 router.get('/api/v1/notifications/templates', handleOverLoad(async (req: NotificationRequest, res: Response) => {
-     const result = await req.notificationServices.templates.getTemplates();
+     const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+     const result = await req.notificationServices.templates.getTemplates(page, count);
      res.send({ status: 'success', statusCode: 200, result });
 }));
 
@@ -169,7 +174,8 @@ router.get('/api/v1/notifications/templates/:id', handleOverLoad(async (req: Not
 }));
 
 router.get('/api/v1/notifications/templates/:id/versions', handleOverLoad(async (req: NotificationRequest, res: Response) => {
-     const result = await req.notificationServices.templates.getTemplateVersions(Number(req.params.id));
+     const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+     const result = await req.notificationServices.templates.getTemplateVersions(Number(req.params.id), page, count);
      res.send({ status: 'success', statusCode: 200, result });
 }));
 
@@ -229,8 +235,8 @@ router.post('/api/v1/notifications/trigger-by-reference', handleOverLoad(async (
 }));
 
 router.get('/api/v1/notifications/queue', handleOverLoad(async (req: NotificationRequest, res: Response) => {
-     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
-     const result = await req.notificationServices.notifications.getQueue(limit);
+     const { page, count } = parsePagination(req.query, { defaultCount: 100, maxCount: 200 });
+     const result = await req.notificationServices.notifications.getQueue(page, count);
      res.send({ status: 'success', statusCode: 200, result });
 }));
 
@@ -259,8 +265,8 @@ router.post('/api/v1/notifications/queue/:id/cancel', handleOverLoad(async (req:
 }));
 
 router.get('/api/v1/notifications/logs', handleOverLoad(async (req: NotificationRequest, res: Response) => {
-     const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
-     const result = await req.notificationServices.notifications.getLogs(limit);
+     const { page, count } = parsePagination(req.query, { defaultCount: 100, maxCount: 200 });
+     const result = await req.notificationServices.notifications.getLogs(page, count);
      res.send({ status: 'success', statusCode: 200, result });
 }));
 

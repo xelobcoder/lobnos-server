@@ -15,9 +15,17 @@ export class EmailLogsRepo {
           return Array.isArray(result) ? Number(result[0]) : Number(result);
      }
 
-     async findAll(limit = 100): Promise<EmailLogRecord[]> {
+     async findAll(page?: number, count?: number): Promise<EmailLogRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).select('*').orderBy('id', 'desc').limit(limit);
+          const query = connection(this.tableName)
+               .select('*')
+               .orderBy('id', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async getOverview(days = 30) {
@@ -43,9 +51,9 @@ export class EmailLogsRepo {
                .groupBy('status');
      }
 
-     async getEventBreakdown(days = 30, limit = 50) {
+     async getEventBreakdown(days = 30, page?: number, count?: number) {
           const connection = await this.connection;
-          return connection('email_logs as el')
+          const query = connection('email_logs as el')
                .leftJoin('email_queue as eq', 'eq.id', 'el.queue_id')
                .leftJoin('notification_queue as nq', 'nq.id', connection.raw('CAST(eq.reference_id AS UNSIGNED)'))
                .select(connection.raw('COALESCE(nq.event_code, eq.reference_type, "UNKNOWN") AS event_code'))
@@ -54,8 +62,13 @@ export class EmailLogsRepo {
                .sum({ failed: connection.raw("CASE WHEN el.status = 'failed' THEN 1 ELSE 0 END") })
                .whereRaw('el.created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)', [days])
                .groupByRaw('COALESCE(nq.event_code, eq.reference_type, "UNKNOWN")')
-               .orderBy('total', 'desc')
-               .limit(limit);
+               .orderBy('total', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async getProviderPerformance(days = 30) {
@@ -84,15 +97,20 @@ export class EmailLogsRepo {
                .orderBy('day', 'asc');
      }
 
-     async getFailureReasons(days = 30, limit = 20) {
+     async getFailureReasons(days = 30, page?: number, count?: number) {
           const connection = await this.connection;
-          return connection(this.tableName)
+          const query = connection(this.tableName)
                .select('failure_reason')
                .count('* AS total')
                .whereRaw('created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)', [days])
                .andWhereNotNull('failure_reason')
                .groupBy('failure_reason')
-               .orderBy('total', 'desc')
-               .limit(limit);
+               .orderBy('total', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 }

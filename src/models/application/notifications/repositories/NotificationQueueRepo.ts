@@ -20,9 +20,17 @@ export class NotificationQueueRepo {
           return connection(this.tableName).where({ id }).update(data);
      }
 
-     async findAll(limit = 100): Promise<NotificationQueueRecord[]> {
+     async findAll(page?: number, count?: number): Promise<NotificationQueueRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).select('*').orderBy('id', 'desc').limit(limit);
+          const query = connection(this.tableName)
+               .select('*')
+               .orderBy('id', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async findById(id: number): Promise<NotificationQueueRecord | null> {
@@ -55,9 +63,9 @@ export class NotificationQueueRepo {
                });
      }
 
-     async findLogs(limit = 100) {
+     async findLogs(page?: number, count?: number) {
           const connection = await this.connection;
-          return connection('email_logs as el')
+          const query = connection('email_logs as el')
                .leftJoin('notification_queue as nq', 'nq.email_queue_id', 'el.queue_id')
                .select(
                     'el.id',
@@ -72,7 +80,12 @@ export class NotificationQueueRepo {
                     'el.duration_ms',
                     'el.created_at',
                )
-               .orderBy('el.id', 'desc')
-               .limit(limit);
+               .orderBy('el.id', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 }

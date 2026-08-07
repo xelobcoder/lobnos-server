@@ -67,7 +67,7 @@ export function buildEnterpriseHtml(parts: TemplateParts): string {
      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width: 100%; background: #edf2f7; padding: 20px 8px;">
           <tr>
                <td align="center">
-                    <table role="presentation" class="pls-shell" width="760" cellspacing="0" cellpadding="0" style="width: 760px; max-width: 760px; background: #ffffff; border: 1px solid #d9e2ec; border-radius: 10px; overflow: hidden;">
+                    <table role="presentation" class="pls-shell" width="760" cellspacing="0" cellpadding="0" style="width: 760px; max-width: 760px; background: #ffffff; border: 1px solid #d9e2ec; border-radius: 0px; overflow: hidden;">
                          <tr>
                               <td>
                                    <header>

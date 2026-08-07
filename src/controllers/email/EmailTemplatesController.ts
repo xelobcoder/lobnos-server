@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import { customError, responseError } from '../../hooks/helper';
+import { parsePagination } from '../../hooks/pagination';
 import { CreateEmailTemplateSchema } from '../../models/application/email/dtos/CreateEmailTemplateDto';
 import { EmailTemplatesService } from '../../models/application/email/services/EmailTemplatesService';
 
@@ -49,9 +50,10 @@ export class EmailTemplatesController {
           }
      }
 
-     async getAll(_req: Request, res: Response) {
+     async getAll(req: Request, res: Response) {
           try {
-               const templates = await this.service.getAll();
+               const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+               const templates = await this.service.getAll(page, count);
                res.send({ status: 'success', statusCode: 200, result: templates });
           } catch (error) {
                responseError(res, error);

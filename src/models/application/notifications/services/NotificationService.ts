@@ -123,8 +123,8 @@ export class NotificationService {
           };
      }
 
-     async getQueue(limit = 100) {
-          return this.notificationQueueRepo.findAll(limit);
+     async getQueue(page?: number, count?: number) {
+          return this.notificationQueueRepo.findAll(page, count);
      }
 
      async getQueueById(id: number) {
@@ -169,8 +169,8 @@ export class NotificationService {
           return this.notificationQueueRepo.findById(id);
      }
 
-     async getLogs(limit = 100) {
-          return this.notificationQueueRepo.findLogs(limit);
+     async getLogs(page?: number, count?: number) {
+          return this.notificationQueueRepo.findLogs(page, count);
      }
 
      async triggerByReference(dto: TriggerNotificationByReferenceDto) {

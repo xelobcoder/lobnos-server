@@ -9,9 +9,17 @@ export class NotificationEventsRepo {
           this.connection = KnexConnection(tenantId);
      }
 
-     async findAll(): Promise<NotificationEventRecord[]> {
+     async findAll(page?: number, count?: number): Promise<NotificationEventRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).select('*').orderBy('event_code', 'asc');
+          const query = connection(this.tableName)
+               .select('*')
+               .orderBy('event_code', 'asc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async findByCode(eventCode: string): Promise<NotificationEventRecord | null> {

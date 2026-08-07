@@ -40,9 +40,17 @@ export class EmailProvidersRepo {
           return record || null;
      }
 
-     async findAll(): Promise<EmailProviderRecord[]> {
+     async findAll(page?: number, count?: number): Promise<EmailProviderRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).select('*').orderBy('id', 'desc');
+          const query = connection(this.tableName)
+               .select('*')
+               .orderBy('id', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async delete(id: number): Promise<number> {

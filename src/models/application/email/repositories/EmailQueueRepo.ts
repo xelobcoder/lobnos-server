@@ -30,9 +30,17 @@ export class EmailQueueRepo {
           return record || null;
      }
 
-     async findAll(limit = 50): Promise<EmailQueueRecord[]> {
+     async findAll(page?: number, count?: number): Promise<EmailQueueRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).select('*').orderBy('id', 'desc').limit(limit);
+          const query = connection(this.tableName)
+               .select('*')
+               .orderBy('id', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async findProcessable(limit = 20): Promise<EmailQueueRecord[]> {

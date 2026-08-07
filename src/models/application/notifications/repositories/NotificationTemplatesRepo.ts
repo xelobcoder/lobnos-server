@@ -26,13 +26,19 @@ export class NotificationTemplatesRepo {
           return row || null;
      }
 
-     async findAll(): Promise<NotificationTemplateRecord[]> {
+     async findAll(page?: number, count?: number): Promise<NotificationTemplateRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName)
+          const query = connection(this.tableName)
                .where({ is_active: true })
                .orderBy('event_id', 'asc')
                .orderBy('is_system', 'desc')
                .orderBy('id', 'desc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async findActiveForEvent(eventId: number): Promise<NotificationTemplateRecord | null> {

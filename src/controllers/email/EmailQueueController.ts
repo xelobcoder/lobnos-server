@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { responseError } from '../../hooks/helper';
+import { parsePagination } from '../../hooks/pagination';
 import { CreateEmailJobSchema } from '../../models/application/email/dtos/CreateEmailJobDto';
 import { RetryEmailSchema } from '../../models/application/email/dtos/RetryEmailDto';
 import { EmailQueueService } from '../../models/application/email/services/EmailQueueService';
@@ -62,8 +63,8 @@ export class EmailQueueController {
 
      async getQueue(req: Request, res: Response) {
           try {
-               const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
-               const result = await this.service.getQueue(limit);
+               const { page, count } = parsePagination(req.query, { defaultCount: 50, maxCount: 200 });
+               const result = await this.service.getQueue(page, count);
                res.send({ status: 'success', statusCode: 200, result });
           } catch (error) {
                responseError(res, error);
@@ -72,8 +73,8 @@ export class EmailQueueController {
 
      async getLogs(req: Request, res: Response) {
           try {
-               const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 100;
-               const result = await this.service.getLogs(limit);
+               const { page, count } = parsePagination(req.query, { defaultCount: 100, maxCount: 200 });
+               const result = await this.service.getLogs(page, count);
                res.send({ status: 'success', statusCode: 200, result });
           } catch (error) {
                responseError(res, error);
@@ -83,7 +84,8 @@ export class EmailQueueController {
      async getAnalytics(req: Request, res: Response) {
           try {
                const days = req.query.days ? parseInt(req.query.days as string, 10) : 30;
-               const result = await this.service.getAnalytics(days);
+               const { page, count } = parsePagination(req.query, { defaultCount: 50, maxCount: 200 });
+               const result = await this.service.getAnalytics(days, page, count);
                res.send({ status: 'success', statusCode: 200, result });
           } catch (error) {
                responseError(res, error);

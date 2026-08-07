@@ -1,4 +1,11 @@
 import { buildEnterpriseHtml, buildEnterprisePlain, TemplateParts } from '../../services/NotificationDefaultTemplateLayout';
+import {
+     buildInvoiceDocumentHtml,
+     buildInvoiceDocumentPlain,
+     buildPurchaseOrderInvoiceParts,
+     buildSupplierPaymentInvoiceParts,
+     InvoiceDocumentParts,
+} from '../../services/NotificationInvoiceDocumentLayout';
 
 export type EventReferenceMap = {
      patientId?: number | string;
@@ -9,6 +16,7 @@ export type EventReferenceMap = {
      payrollId?: number | string;
      purchaseOrderId?: number | string;
      supplierId?: number | string;
+     supplierPaymentId?: number | string;
      inventoryId?: number | string;
      doctorId?: number | string;
 };
@@ -35,6 +43,12 @@ export type EventDefinition = {
      requiredReferences: Array<keyof EventReferenceMap>;
 };
 
+export type EventTemplateLayoutKind =
+     | 'enterprise'
+     | 'purchase_order_invoice'
+     | 'goods_received_invoice'
+     | 'supplier_payment_invoice';
+
 function titleFromCode(code: string): string {
      return code.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (m) => m.toUpperCase());
 }
@@ -45,6 +59,15 @@ function makeTemplate(eventCode: string, parts: TemplateParts): EventTemplateDef
           subject: parts.subject,
           html_body: buildEnterpriseHtml(parts),
           plain_body: buildEnterprisePlain(parts),
+     };
+}
+
+function makeInvoiceTemplate(eventCode: string, parts: InvoiceDocumentParts): EventTemplateDefinition {
+     return {
+          template_name: `${titleFromCode(eventCode)} Invoice`,
+          subject: parts.subject,
+          html_body: buildInvoiceDocumentHtml(parts),
+          plain_body: buildInvoiceDocumentPlain(parts),
      };
 }
 
@@ -154,13 +177,22 @@ export function purchaseOrderVariables(): EventVariableDefinition[] {
           { variable_name: 'order_number', display_name: 'Order Number', data_type: 'string', description: 'Order number', example_value: 'ORD-20260807-0001', is_required: false },
           { variable_name: 'purchase_order_status', display_name: 'Purchase Order Status', data_type: 'string', description: 'PO status', example_value: 'approved', is_required: false },
           { variable_name: 'purchase_order_total', display_name: 'Purchase Order Total', data_type: 'number', description: 'PO total', example_value: '4500', is_required: false },
+          { variable_name: 'purchase_order_subtotal', display_name: 'Purchase Order Subtotal', data_type: 'string', description: 'Formatted subtotal', example_value: '4,500.00', is_required: false },
+          { variable_name: 'purchase_order_tax', display_name: 'Purchase Order Tax', data_type: 'string', description: 'Formatted tax', example_value: '0.00', is_required: false },
+          { variable_name: 'purchase_order_total_formatted', display_name: 'Purchase Order Total Formatted', data_type: 'string', description: 'Formatted total', example_value: '4,500.00', is_required: false },
+          { variable_name: 'currency_code', display_name: 'Currency Code', data_type: 'string', description: 'Currency', example_value: 'GHS', is_required: false },
           { variable_name: 'order_date', display_name: 'Order Date', data_type: 'string', description: 'Order date', example_value: '2026-08-07', is_required: false },
           { variable_name: 'expected_delivery_date', display_name: 'Expected Delivery Date', data_type: 'string', description: 'Expected delivery date', example_value: '2026-08-10', is_required: false },
           { variable_name: 'supplier_id', display_name: 'Supplier ID', data_type: 'string', description: 'Supplier ID', example_value: 'SUP-100', is_required: false },
           { variable_name: 'supplier_name', display_name: 'Supplier Name', data_type: 'string', description: 'Supplier name', example_value: 'ABC Meds', is_required: false },
           { variable_name: 'supplier_email', display_name: 'Supplier Email', data_type: 'string', description: 'Supplier email', example_value: 'supplier@example.com', is_required: false },
+          { variable_name: 'supplier_phone', display_name: 'Supplier Phone', data_type: 'string', description: 'Supplier phone', example_value: '+233...', is_required: false },
+          { variable_name: 'supplier_contact', display_name: 'Supplier Contact', data_type: 'string', description: 'Supplier contact', example_value: 'Jane', is_required: false },
+          { variable_name: 'purchase_order_items_count', display_name: 'Purchase Order Items Count', data_type: 'number', description: 'Number of line items', example_value: '3', is_required: false },
           { variable_name: 'purchase_order_items_text', display_name: 'Purchase Order Items Text', data_type: 'string', description: 'Plain-text itemized order summary', example_value: '1. Gloves | Qty Ordered: 10 | Unit Price: 5.00 | Line Total: 50.00', is_required: false },
           { variable_name: 'purchase_order_items_html', display_name: 'Purchase Order Items HTML', data_type: 'string', description: 'HTML rows for ordered items', example_value: '<tr><td>1</td><td>Gloves</td><td>GL-001</td><td>10</td><td>5.00</td><td>50.00</td></tr>', is_required: false },
+          { variable_name: 'purchase_order_received_items_text', display_name: 'Received Items Text', data_type: 'string', description: 'Plain-text received items', example_value: '1. Gloves | Ordered: 10 | Received: 10', is_required: false },
+          { variable_name: 'purchase_order_received_items_html', display_name: 'Received Items HTML', data_type: 'string', description: 'HTML rows for received items', example_value: '<tr>...</tr>', is_required: false },
      ];
 }
 
@@ -174,6 +206,26 @@ export function supplierVariables(): EventVariableDefinition[] {
           { variable_name: 'supplier_email', display_name: 'Supplier Email', data_type: 'string', description: 'Supplier email', example_value: 's@example.com', is_required: false },
           { variable_name: 'supplier_phone', display_name: 'Supplier Phone', data_type: 'string', description: 'Supplier phone', example_value: '+233...', is_required: false },
           { variable_name: 'supplier_active', display_name: 'Supplier Active', data_type: 'boolean', description: 'Supplier state', example_value: 'true', is_required: false },
+     ];
+}
+
+export function supplierPaymentVariables(): EventVariableDefinition[] {
+     return [
+          ...supplierVariables(),
+          ...purchaseOrderVariables(),
+          { variable_name: 'supplier_payment_db_id', display_name: 'Supplier Payment DB ID', data_type: 'string', description: 'Internal payment row id', example_value: '101', is_required: false },
+          { variable_name: 'payment_id', display_name: 'Payment ID', data_type: 'string', description: 'Business payment reference', example_value: 'PAY-20260807-001', is_required: false },
+          { variable_name: 'payment_amount', display_name: 'Payment Amount', data_type: 'number', description: 'Raw payment amount', example_value: '1500', is_required: false },
+          { variable_name: 'payment_amount_formatted', display_name: 'Payment Amount Formatted', data_type: 'string', description: 'Formatted payment amount', example_value: '1,500.00', is_required: false },
+          { variable_name: 'payment_date', display_name: 'Payment Date', data_type: 'string', description: 'Payment date', example_value: '2026-08-07', is_required: false },
+          { variable_name: 'payment_method', display_name: 'Payment Method', data_type: 'string', description: 'Payment method', example_value: 'bank_transfer', is_required: false },
+          { variable_name: 'payment_status', display_name: 'Payment Status', data_type: 'string', description: 'Payment status', example_value: 'completed', is_required: false },
+          { variable_name: 'payment_reference_number', display_name: 'Payment Reference Number', data_type: 'string', description: 'Bank/cheque reference', example_value: 'TXN-9988', is_required: false },
+          { variable_name: 'payment_notes', display_name: 'Payment Notes', data_type: 'string', description: 'Payment notes', example_value: 'Partial settlement', is_required: false },
+          { variable_name: 'payment_total_allocated', display_name: 'Total Allocated', data_type: 'number', description: 'Allocated amount', example_value: '1500', is_required: false },
+          { variable_name: 'payment_total_allocated_formatted', display_name: 'Total Allocated Formatted', data_type: 'string', description: 'Formatted allocated', example_value: '1,500.00', is_required: false },
+          { variable_name: 'supplier_payment_items_text', display_name: 'Payment Items Text', data_type: 'string', description: 'Plain payment breakdown', example_value: '1. Payment against ORD-1 | 1500.00', is_required: false },
+          { variable_name: 'supplier_payment_items_html', display_name: 'Payment Items HTML', data_type: 'string', description: 'HTML payment rows', example_value: '<tr>...</tr>', is_required: false },
      ];
 }
 
@@ -201,12 +253,49 @@ export function laboratoryVariables(): EventVariableDefinition[] {
      ];
 }
 
-export function makeDomainDefinition(eventCode: string, variables: EventVariableDefinition[], requiredReferences: Array<keyof EventReferenceMap>, title: string, intro: string, details: string[], actionText?: string, actionValue?: string): EventDefinition {
+export function makeDomainDefinition(
+     eventCode: string,
+     variables: EventVariableDefinition[],
+     requiredReferences: Array<keyof EventReferenceMap>,
+     title: string,
+     intro: string,
+     details: string[],
+     actionText?: string,
+     actionValue?: string,
+     layoutKind: EventTemplateLayoutKind = 'enterprise',
+     subjectOverride?: string,
+): EventDefinition {
+     const subject = subjectOverride || `${title} - {{event_name}}`;
+
+     if (layoutKind === 'purchase_order_invoice') {
+          return {
+               variables,
+               requiredReferences,
+               template: makeInvoiceTemplate(eventCode, buildPurchaseOrderInvoiceParts(subject, title, intro, { receivedMode: false })),
+          };
+     }
+
+     if (layoutKind === 'goods_received_invoice') {
+          return {
+               variables,
+               requiredReferences,
+               template: makeInvoiceTemplate(eventCode, buildPurchaseOrderInvoiceParts(subject, title, intro, { receivedMode: true })),
+          };
+     }
+
+     if (layoutKind === 'supplier_payment_invoice') {
+          return {
+               variables,
+               requiredReferences,
+               template: makeInvoiceTemplate(eventCode, buildSupplierPaymentInvoiceParts(subject, title, intro)),
+          };
+     }
+
      return {
           variables,
           requiredReferences,
           template: makeTemplate(eventCode, {
-               subject: `${title} - {{event_name}}`,
+               subject,
                title,
                intro,
                details,

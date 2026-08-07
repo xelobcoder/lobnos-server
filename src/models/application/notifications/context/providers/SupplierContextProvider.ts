@@ -1,7 +1,7 @@
 import KnexConnection from '../../../../../database/KnexConnections';
 import { NotificationContextProvider } from './NotificationContextProvider';
-import { EventDefinition } from './NotificationEventDefinitions';
 import { buildEventDefinitionFromCatalog } from './NotificationEventCatalog';
+import { EventDefinition } from './NotificationEventDefinitions';
 
 export class SupplierContextProvider implements NotificationContextProvider {
      private connection;

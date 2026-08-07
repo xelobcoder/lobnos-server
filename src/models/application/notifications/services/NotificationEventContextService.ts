@@ -30,6 +30,7 @@ type EventReferenceMap = {
      payrollId?: number | string;
      purchaseOrderId?: number | string;
      supplierId?: number | string;
+     supplierPaymentId?: number | string;
      inventoryId?: number | string;
      doctorId?: number | string;
 };
@@ -287,7 +288,68 @@ export class NotificationEventContextService {
           this.branchProvider = new BranchContextProvider(tenantId);
      }
 
-     async getEventCatalog(eventCode?: string) {
+     private formatMoney(value: unknown): string {
+          const amount = Number(value || 0);
+          return Number.isFinite(amount)
+               ? amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+               : '0.00';
+     }
+
+     private async buildSupplierPaymentContextBySupplierId(supplierId: number | string): Promise<Record<string, unknown>> {
+          const connection = await this.connection;
+          const payment = await connection('inv_supplier_payments as sp')
+               .leftJoin('inv_purchase_orders as po', 'po.id', 'sp.purchase_order_id')
+               .select(
+                    'sp.id as supplier_payment_db_id',
+                    'sp.payment_id',
+                    'sp.payment_amount',
+                    'sp.payment_date',
+                    'sp.payment_method',
+                    'sp.payment_status',
+                    'sp.reference_number as payment_reference_number',
+                    'sp.payment_notes',
+                    'sp.total_allocated as payment_total_allocated',
+                    'sp.purchase_order_id',
+                    'po.order_number',
+                    'po.total_amount as purchase_order_total',
+               )
+               .where('sp.supplier_id', String(supplierId))
+               .orderBy('sp.created_at', 'desc')
+               .first();
+
+          if (!payment) {
+               return {
+                    payment_id: '',
+                    payment_amount: 0,
+                    payment_amount_formatted: '0.00',
+                    payment_date: '',
+                    payment_method: '',
+                    payment_status: '',
+                    payment_reference_number: '',
+                    payment_notes: '',
+                    payment_total_allocated: 0,
+                    payment_total_allocated_formatted: '0.00',
+                    supplier_payment_items_text: '1. Payment details unavailable',
+                    supplier_payment_items_html: '<tr style="background:#f8fafc;"><td style="padding:12px 12px;color:#64748b;font-size:12px;font-weight:600;">1</td><td style="padding:12px 12px;color:#0f172a;font-size:13px;font-weight:600;">Payment details unavailable</td><td style="padding:12px 12px;color:#64748b;font-size:12px;">-</td><td align="right" style="padding:12px 12px;color:#0b3a6e;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;">0.00</td></tr>',
+               };
+          }
+
+          const paymentAmount = Number(payment.payment_amount || 0);
+          const allocated = Number(payment.payment_total_allocated || paymentAmount || 0);
+          const poTotal = Number(payment.purchase_order_total || 0);
+
+          return {
+               ...payment,
+               currency_code: 'GHS',
+               purchase_order_total_formatted: this.formatMoney(poTotal),
+               payment_amount_formatted: this.formatMoney(paymentAmount),
+               payment_total_allocated_formatted: this.formatMoney(allocated),
+               supplier_payment_items_text: `1. Payment against ${payment.order_number || 'N/A'} | Ref: ${payment.payment_reference_number || 'N/A'} | Amount: ${this.formatMoney(paymentAmount)}`,
+               supplier_payment_items_html: `<tr style="background:#ffffff;"><td style="padding:12px 12px;color:#64748b;font-size:12px;font-weight:600;">1</td><td style="padding:12px 12px;color:#0f172a;font-size:13px;font-weight:600;">Payment against ${payment.order_number || 'N/A'}</td><td style="padding:12px 12px;color:#64748b;font-size:12px;">${payment.payment_reference_number || '-'}</td><td align="right" style="padding:12px 12px;color:#0b3a6e;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;">${this.formatMoney(paymentAmount)}</td></tr>`,
+          };
+     }
+
+     async getEventCatalog(eventCode?: string, page?: number, count?: number) {
           if (eventCode) {
                const event = await this.eventsRepo.findByCode(eventCode);
                if (!event) throw new Error('Notification event not found');
@@ -303,7 +365,7 @@ export class NotificationEventContextService {
                };
           }
 
-          const events = await this.eventsRepo.findAll();
+          const events = await this.eventsRepo.findAll(page, count);
           return Promise.all(events.map(async (event) => {
                const definition = this.resolveProviderDefinition(event.event_code);
                const template = await this.templatesRepo.findSystemDefaultForEvent(event.id as number);
@@ -333,6 +395,8 @@ export class NotificationEventContextService {
                          event_id: event.id as number,
                          ...variable,
                     } as NotificationTemplateVariableRecord);
+
+                    existingVariableNames.add(variable.variable_name);
 
                     variablesInserted += 1;
                }
@@ -493,6 +557,13 @@ export class NotificationEventContextService {
                     ...payload,
                     ...(await this.supplierProvider.getContext(references.supplierId as number)),
                };
+
+               if (event.event_code.startsWith('SUPPLIER_PAYMENT_') && references.supplierId) {
+                    payload = {
+                         ...payload,
+                         ...(await this.buildSupplierPaymentContextBySupplierId(references.supplierId)),
+                    };
+               }
           } else if (event.event_code.startsWith('STOCK_') || event.event_code.startsWith('BATCH_')) {
                payload = {
                     ...payload,

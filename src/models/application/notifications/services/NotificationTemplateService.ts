@@ -13,8 +13,8 @@ export class NotificationTemplateService {
           private tenantId: number,
      ) { }
 
-     async getTemplates() {
-          return this.templatesRepo.findAll();
+     async getTemplates(page?: number, count?: number) {
+          return this.templatesRepo.findAll(page, count);
      }
 
      async getTemplateById(id: number) {
@@ -95,7 +95,7 @@ export class NotificationTemplateService {
           );
      }
 
-     async getTemplateVersions(id: number) {
-          return this.versionsRepo.findAllByTemplate(id);
+     async getTemplateVersions(id: number, page?: number, count?: number) {
+          return this.versionsRepo.findAllByTemplate(id, page, count);
      }
 }

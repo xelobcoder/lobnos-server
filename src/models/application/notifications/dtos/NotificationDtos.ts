@@ -54,6 +54,7 @@ export const TriggerNotificationByReferenceSchema = z.object({
           payrollId: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
           purchaseOrderId: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
           supplierId: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
+          supplierPaymentId: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
           inventoryId: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
           doctorId: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
      }).optional().default({}),

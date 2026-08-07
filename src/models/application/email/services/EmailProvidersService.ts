@@ -53,8 +53,8 @@ export class EmailProvidersService {
           return this.providersRepo.findById(id);
      }
 
-     async getAll() {
-          return this.providersRepo.findAll();
+     async getAll(page?: number, count?: number) {
+          return this.providersRepo.findAll(page, count);
      }
 
      async delete(id: number) {

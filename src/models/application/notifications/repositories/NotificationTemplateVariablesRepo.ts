@@ -9,14 +9,29 @@ export class NotificationTemplateVariablesRepo {
           this.connection = KnexConnection(tenantId);
      }
 
-     async findByEventId(eventId: number): Promise<NotificationTemplateVariableRecord[]> {
+     async findByEventId(eventId: number, page?: number, count?: number): Promise<NotificationTemplateVariableRecord[]> {
           const connection = await this.connection;
-          return connection(this.tableName).where({ event_id: eventId }).orderBy('variable_name', 'asc');
+          const query = connection(this.tableName)
+               .where({ event_id: eventId })
+               .orderBy('variable_name', 'asc');
+
+          if (page && count) {
+               query.offset((page - 1) * count).limit(count);
+          }
+
+          return query;
      }
 
      async create(data: NotificationTemplateVariableRecord): Promise<number> {
           const connection = await this.connection;
-          const result = await connection(this.tableName).insert(data);
-          return Array.isArray(result) ? Number(result[0]) : Number(result);
+          try {
+               const result = await connection(this.tableName).insert(data);
+               return Array.isArray(result) ? Number(result[0]) : Number(result);
+          } catch (error: any) {
+               if (error?.code === 'ER_DUP_ENTRY') {
+                    return 0;
+               }
+               throw error;
+          }
      }
 }

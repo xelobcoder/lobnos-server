@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { customError, responseError } from '../../hooks/helper';
+import { parsePagination } from '../../hooks/pagination';
 import { CreateEmailProviderSchema } from '../../models/application/email/dtos/CreateEmailProviderDto';
 import { EmailProvidersService } from '../../models/application/email/services/EmailProvidersService';
 
@@ -48,9 +49,10 @@ export class EmailProvidersController {
           }
      }
 
-     async getAll(_req: Request, res: Response) {
+     async getAll(req: Request, res: Response) {
           try {
-               const providers = await this.service.getAll();
+               const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+               const providers = await this.service.getAll(page, count);
                res.send({ status: 'success', statusCode: 200, result: providers });
           } catch (error) {
                responseError(res, error);
