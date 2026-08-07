@@ -17,7 +17,7 @@ function DuplicateError(response: any) {
 	return customError(`Duplicate, item already exists`, 409, response);
 }
 
-function responseError(response: any, err: any = null, statusCode?: 500) {
+function responseError(response: any, err: any = null, statusCode?: number) {
 	const errorMessage = err
 		? (typeof err === "string" ? err : (err.message || err.toString() || "something wrong occurred"))
 		: "something wrong occurred";

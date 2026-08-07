@@ -1,6 +1,6 @@
 import { PrimeLimsTablenew_patients } from "../../database/DatabaseTableSchema";
 import Registration from "../registration/registration";
-import FieldConstraintsRepository from "../TestCreation/FieldConstraintsRepository";
+import FieldConstraintsRepository from "../TestCreation/repositories/FieldConstraintsRepository.repo";
 import Creator from "./creator";
 import LoggingCriticalValueAlertRepository from "./Repo/loggingCriticalValueAlertRepository";
 import resultEncrptionReferer from "./resultEncryptionReferer";

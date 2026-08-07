@@ -8,14 +8,14 @@ const testCreationMultipleCondtionsClass_1 = __importDefault(require("../../mode
 const helper_1 = require("../../hooks/helper");
 const createTestConditionDefinition = async (req, res) => {
     try {
-        const { conditionName, testid } = req.body;
+        const { conditionName, testid, createdBy } = req.body;
         const tenantId = req.query.tenantId;
         const instance = new testCreationMultipleCondtionsClass_1.default();
-        const result = await instance.createTestConditionDefinition(Number(tenantId), conditionName, testid);
-        const status = (0, helper_1.rowAffected)(result);
-        res.status(201).json({ status, conditionId: result === null || result === void 0 ? void 0 : result.insertId });
+        const result = await instance.createTestConditionDefinition(Number(tenantId), conditionName, testid, createdBy);
+        res.status(201).json({ status: Array.isArray(result) && result.length > 0, conditionId: Array.isArray(result) && result.length > 0 ? result[0] : null });
     }
     catch (error) {
+        console.log(error);
         (0, helper_1.responseError)(res);
     }
 };
@@ -137,6 +137,7 @@ const getTestDefinitionsTestId = async (req, res) => {
         res.status(200).json(result);
     }
     catch (error) {
+        console.log(error);
         (0, helper_1.responseError)(res);
     }
 };

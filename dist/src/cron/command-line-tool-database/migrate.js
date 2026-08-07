@@ -128,7 +128,8 @@ async function migrate() {
             'organization-tables.sql',
             'prime-billing-tables.sql',
             'prime-inventory-table.sql',
-            'prime-sms-tables.sql'
+            'prime-sms-tables.sql',
+            'email.sql'
         ];
         for (const file of sqlFiles) {
             const filePath = path.join(currentDir, file);

@@ -27,7 +27,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
      const cookies = parseCookies(headers['cookie'] as string);
      const primeUserHeader = headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'];
      const primesession = headers['pls-session'] || cookies['pls-session'];
-     const loginsession= headers['loginsesionId'] || cookies['loginsesionId'];
+     const loginsession = headers['loginsesionId'] || cookies['loginsesionId'];
      if (!primeUserHeader) return customError('Token not provided', 401, response);
      try {
           const tenantIdRaw = request.query.tenantId;
@@ -54,7 +54,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
                .andWhere('logoutTime', '>', now);
           if (loginsession) q.andWhere('loginSessionId', String(loginsession));
           const active = await q.first();
-          if (!active) return  response.status(401).json({ status: 'error', message: 'Session expired or invalid',isExpired:true });
+          if (!active) return response.status(401).json({ status: 'error', message: 'Session expired or invalid', isExpired: true });
           next();
      } catch (error) {
           return customError('Invalid token', 401, response);

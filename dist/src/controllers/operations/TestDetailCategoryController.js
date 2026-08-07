@@ -34,10 +34,15 @@ class TestDetailCategoryController {
         }
     }
     static async getByTestId(req, res) {
-        const tenantId = parseInt(req.query.tenantId);
-        const { testid } = req.params;
-        const result = await testFieldsCategoryClass_1.default.getByTestId(tenantId, Number(testid));
-        res.status(200).json(result);
+        try {
+            const tenantId = parseInt(req.query.tenantId);
+            const testid = req.params.testid;
+            const result = await testFieldsCategoryClass_1.default.getByTestId(tenantId, Number(testid));
+            res.status(200).json(result);
+        }
+        catch (error) {
+            res.status(500).json({ message: "Internal server error" });
+        }
     }
     static async update(req, res) {
         const tenantId = parseInt(req.query.tenantId);

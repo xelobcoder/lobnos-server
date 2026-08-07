@@ -1,5 +1,5 @@
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
-import FieldConstraintsRepository from "../TestCreation/FieldConstraintsRepository";
+import FieldConstraintsRepository from "../TestCreation/repositories/FieldConstraintsRepository.repo";
 import { insert_critical_value_alert } from "./queries";
 import { ResultLockRepository } from "./Repo/ResultLockRepository";
 

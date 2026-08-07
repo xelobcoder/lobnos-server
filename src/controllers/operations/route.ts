@@ -62,6 +62,9 @@ import TestDetailCategoryController from "./TestDetailCategoryController"
 import { isAuthorizedRoleScientistPhelobotomist } from "../../middleware/validateTenancy"
 import { createHistory, deleteHistory, getAllHistories, getHistoriesByAscensionIds, getHistoryByAscensionId, getHistoryById, updateHistory, upsertHistory } from "./PatientClinicalHistoryUltrasoundHandler"
 import { handleOverLoad } from "../../hooks/helper"
+import { validateDtoMiddleware } from "../../middleware/validateDto.middleware"
+import { CreateTestFieldsCategoryDto } from "./dto/TestFieldContraintsCategory.dto"
+import { CreateTestConditionDefinitionDto } from "../../models/operations/dto/MultiDefinitions.dto"
 
 
 
@@ -126,7 +129,7 @@ router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, updateA
 
 // TEST MULTI CONDITIONS CREATION
 
-router.post(`/api/v1/multi/definition`, createTestConditionDefinition)
+router.post(`/api/v1/multi/definition`, validateDtoMiddleware(CreateTestConditionDefinitionDto, 'body'), createTestConditionDefinition)
 router.get(`/api/v1/multi/definition/test/:testid`, getTestDefinitionsTestId)
 router.get(`/api/v1/multi/definition/:id`, getTestConditionDefinition)
 router.put(`/api/v1/multi/definition/:id`, updateTestConditionDefinition)
@@ -142,7 +145,7 @@ router.delete(`/api/v1/multi/condition/delete/:id`, deleteTestCondition)
 // TEST FIELDS CATEGORY CREATION
 
 
-router.post("/api/v1/test/fields/category", TestDetailCategoryController.create);
+router.post("/api/v1/test/fields/category", validateDtoMiddleware(CreateTestFieldsCategoryDto,'body'), TestDetailCategoryController.create);
 router.get("/api/v1/test/fields/category", TestDetailCategoryController.getAll);
 router.get("/api/v1/test/fields/category/:id", TestDetailCategoryController.getById);
 router.get("/api/v1/test/fields/category/test/:testid", TestDetailCategoryController.getByTestId);

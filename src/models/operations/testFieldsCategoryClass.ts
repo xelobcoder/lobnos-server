@@ -17,16 +17,17 @@ export interface GetAllParams {
      createdby?: string | null;
 }
 
+const TableName = "testdetailcategory";
 export class TestDetailCategory {
      static async create(tenantId: number, data: TestDetailCategoryType): Promise<number[]> {
           const connection = await KnexConnection(tenantId);
-          return await connection("testdetailcategory").insert(data);
+          return await connection(TableName).insert(data);
      }
 
      static async getAll(tenantId: number, params: GetAllParams): Promise<TestDetailCategoryType[]> {
           const { limit = 10, offset = 0, createdby = null } = params;
           const connection = await KnexConnection(tenantId);
-          let query = connection<TestDetailCategoryType>("testdetailcategory")
+          let query = connection<TestDetailCategoryType>(TableName)
                .where({ deleted: false })
                .select("*")
                .limit(limit)
@@ -39,43 +40,44 @@ export class TestDetailCategory {
 
      static async getById(tenantId: number, categoryid: number): Promise<TestDetailCategoryType | undefined> {
           const connection = await KnexConnection(tenantId);
-          return await connection<TestDetailCategoryType>("testdetailcategory")
+          return await connection<TestDetailCategoryType>(TableName)
                .where({ categoryid, deleted: false })
                .first();
      }
 
      static async getByTestId(tenantId: number, testid: number): Promise<TestDetailCategoryType[]> {
           const connection = await KnexConnection(tenantId);
-          return await connection<TestDetailCategoryType>("testdetailcategory")
+          return await connection<TestDetailCategoryType>(TableName)
+               .leftJoin("roles", "roles.employeeid", "=", "testdetailcategory.createdby")
                .where({ testid, deleted: false })
-               .select("*");
+               .select("testdetailcategory.*","roles.username as createdbyname");
      }
 
      static async update(tenantId: number, categoryid: number, data: Partial<TestDetailCategoryType>): Promise<number> {
           data.updated_at = new Date();
           const connection = await KnexConnection(tenantId);
-          return await connection("testdetailcategory")
+          return await connection(TableName)
                .where({ categoryid, deleted: false })
                .update(data);
      }
 
      static async softDelete(tenantId: number, categoryid: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection("testdetailcategory")
+          return await connection(TableName)
                .where({ categoryid })
                .update({ deleted: true, updated_at: new Date() });
      }
 
      static async restore(tenantId: number, categoryid: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection("testdetailcategory")
+          return await connection(TableName)
                .where({ categoryid })
                .update({ deleted: false, updated_at: new Date() });
      }
 
      static async delete(tenantId: number, categoryid: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection("testdetailcategory")
+          return await connection(TableName)
                .where({ categoryid })
                .del();
      }

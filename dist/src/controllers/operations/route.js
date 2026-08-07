@@ -14,6 +14,9 @@ const TestDetailCategoryController_1 = __importDefault(require("./TestDetailCate
 const validateTenancy_1 = require("../../middleware/validateTenancy");
 const PatientClinicalHistoryUltrasoundHandler_1 = require("./PatientClinicalHistoryUltrasoundHandler");
 const helper_1 = require("../../hooks/helper");
+const validateDto_middleware_1 = require("../../middleware/validateDto.middleware");
+const TestFieldContraintsCategory_dto_1 = require("./dto/TestFieldContraintsCategory.dto");
+const MultiDefinitions_dto_1 = require("../../models/operations/dto/MultiDefinitions.dto");
 const router = express_1.default.Router();
 router.get(`/api/v1/operations/collection`, operationsHandlers_1.getAllCollections);
 router.get(`/api/v1/operations/laboratory/search`, (0, helper_1.handleOverLoad)(operationsHandlers_1.searchLaboratoryOperations));
@@ -58,7 +61,7 @@ router.get(`/api/v1/result/entry/ultrasound/templates/list`, testHandler_1.getUl
 router.get(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, testApprovalHandler_1.getAscensionApprovalDetailsHandler);
 router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, testApprovalHandler_1.updateAscensionApprovalDetailsHandler);
 // TEST MULTI CONDITIONS CREATION
-router.post(`/api/v1/multi/definition`, testCreationMultipleCondtionHandlers_1.createTestConditionDefinition);
+router.post(`/api/v1/multi/definition`, (0, validateDto_middleware_1.validateDtoMiddleware)(MultiDefinitions_dto_1.CreateTestConditionDefinitionDto, 'body'), testCreationMultipleCondtionHandlers_1.createTestConditionDefinition);
 router.get(`/api/v1/multi/definition/test/:testid`, testCreationMultipleCondtionHandlers_1.getTestDefinitionsTestId);
 router.get(`/api/v1/multi/definition/:id`, testCreationMultipleCondtionHandlers_1.getTestConditionDefinition);
 router.put(`/api/v1/multi/definition/:id`, testCreationMultipleCondtionHandlers_1.updateTestConditionDefinition);
@@ -69,7 +72,7 @@ router.get(`/api/v1/multi/condition/:id`, testCreationMultipleCondtionHandlers_1
 router.put(`/api/v1/multi/condition/update/:id`, testCreationMultipleCondtionHandlers_1.updateTestCondition);
 router.delete(`/api/v1/multi/condition/delete/:id`, testCreationMultipleCondtionHandlers_1.deleteTestCondition);
 // TEST FIELDS CATEGORY CREATION
-router.post("/api/v1/test/fields/category", TestDetailCategoryController_1.default.create);
+router.post("/api/v1/test/fields/category", (0, validateDto_middleware_1.validateDtoMiddleware)(TestFieldContraintsCategory_dto_1.CreateTestFieldsCategoryDto, 'body'), TestDetailCategoryController_1.default.create);
 router.get("/api/v1/test/fields/category", TestDetailCategoryController_1.default.getAll);
 router.get("/api/v1/test/fields/category/:id", TestDetailCategoryController_1.default.getById);
 router.get("/api/v1/test/fields/category/test/:testid", TestDetailCategoryController_1.default.getByTestId);

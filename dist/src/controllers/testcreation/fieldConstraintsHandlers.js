@@ -4,16 +4,15 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteFieldConstraintsByFieldIdHandler = exports.deleteFieldConstraintHandler = exports.updateFieldConstraintHandler = exports.getFieldConstraintsByTestIdHandler = exports.getFieldConstraintsByFieldIdHandler = exports.createFieldConstraintsHandler = void 0;
-const FieldConstraintsRepository_1 = __importDefault(require("../../models/TestCreation/FieldConstraintsRepository"));
+const FieldConstraintsRepository_repo_1 = __importDefault(require("../../models/TestCreation/repositories/FieldConstraintsRepository.repo"));
 const helper_1 = require("../../hooks/helper");
 const createFieldConstraintsHandler = async (req, res) => {
     try {
         const { constraints } = req.body;
         const tenantId = parseInt(req.query.tenantId, 10);
-        if (!tenantId || !constraints) {
+        if (!constraints)
             return (0, helper_1.customError)('Missing required parameters', 400, res);
-        }
-        const repository = new FieldConstraintsRepository_1.default(tenantId);
+        const repository = new FieldConstraintsRepository_repo_1.default(tenantId);
         const result = await repository.create(constraints);
         res.status(201).json({ status: true, data: result });
     }
@@ -24,14 +23,13 @@ const createFieldConstraintsHandler = async (req, res) => {
 exports.createFieldConstraintsHandler = createFieldConstraintsHandler;
 const getFieldConstraintsByFieldIdHandler = async (req, res) => {
     try {
-        const { fieldId } = req.params;
+        const fieldId = parseInt(req.params.fieldId.toString(), 10);
         const tenantId = req.query.tenantId;
-        if (!tenantId || !fieldId) {
+        if (!fieldId)
             return (0, helper_1.customError)('Missing required parameters', 400, res);
-        }
         const parsedTenantId = parseInt(tenantId, 10);
-        const repository = new FieldConstraintsRepository_1.default(parsedTenantId);
-        const constraints = await repository.findByFieldId(parseInt(fieldId));
+        const repository = new FieldConstraintsRepository_repo_1.default(parsedTenantId);
+        const constraints = await repository.findByFieldId(fieldId);
         return res.json({ status: true, data: constraints });
     }
     catch (error) {
@@ -41,12 +39,12 @@ const getFieldConstraintsByFieldIdHandler = async (req, res) => {
 exports.getFieldConstraintsByFieldIdHandler = getFieldConstraintsByFieldIdHandler;
 const getFieldConstraintsByTestIdHandler = async (req, res) => {
     try {
-        const { testId } = req.params;
-        const tenantId = parseInt(req.query.tenantId.toString());
+        const testId = parseInt(req.params.testId.toString(), 10);
+        const tenantId = parseInt(req.query.tenantId.toString(), 10);
         if (!testId) {
             return (0, helper_1.customError)('Missing required parameters', 400, res);
         }
-        const repository = new FieldConstraintsRepository_1.default(tenantId);
+        const repository = new FieldConstraintsRepository_repo_1.default(tenantId);
         const constraints = await repository.findByTestId(Number(testId));
         return res.json({ success: true, data: constraints });
     }
@@ -58,13 +56,12 @@ const getFieldConstraintsByTestIdHandler = async (req, res) => {
 exports.getFieldConstraintsByTestIdHandler = getFieldConstraintsByTestIdHandler;
 const updateFieldConstraintHandler = async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const updates = req.body;
-        const tenantId = req.tenantId;
-        if (!tenantId || !id || !updates) {
+        const tenantId = parseInt(req.query.tenantId, 10);
+        if (!id || !updates)
             return (0, helper_1.customError)('Missing required parameters', 400, res);
-        }
-        const repository = new FieldConstraintsRepository_1.default(tenantId);
+        const repository = new FieldConstraintsRepository_repo_1.default(tenantId);
         const success = await repository.update(Number(id), updates);
         return res.json({ success });
     }
@@ -81,7 +78,7 @@ const deleteFieldConstraintHandler = async (req, res) => {
         if (!tenantId || !id) {
             return (0, helper_1.customError)('Missing required parameters', 400, res);
         }
-        const repository = new FieldConstraintsRepository_1.default(tenantId);
+        const repository = new FieldConstraintsRepository_repo_1.default(tenantId);
         const success = await repository.delete(Number(id));
         return res.json({ success });
     }
@@ -98,7 +95,7 @@ const deleteFieldConstraintsByFieldIdHandler = async (req, res) => {
         if (!tenantId || !fieldId) {
             return (0, helper_1.customError)('Missing required parameters', 400, res);
         }
-        const repository = new FieldConstraintsRepository_1.default(tenantId);
+        const repository = new FieldConstraintsRepository_repo_1.default(tenantId);
         const success = await repository.deleteByFieldId(Number(fieldId));
         return res.json({ success });
     }

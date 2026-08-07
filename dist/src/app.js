@@ -55,6 +55,7 @@ const followups_route_1 = __importDefault(require("./controllers/crm/leads/follo
 const routes_8 = __importDefault(require("./controllers/payroll/routes"));
 const routes_9 = __importDefault(require("./controllers/billing/FreeServices/routes"));
 const routes_10 = __importDefault(require("./models/commissions/commission-configurations/controllers/routes"));
+const route_20 = __importDefault(require("./controllers/email/route"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 app.use((0, cors_1.default)({
@@ -118,6 +119,7 @@ app.use('/api/v1/followups', followups_route_1.default);
 app.use('/api/v1/payroll', routes_8.default);
 app.use('/api/v1/billing/free-services', routes_9.default);
 app.use('/api/v1/commission', routes_10.default);
+app.use(route_20.default);
 app.get("/", (req, res) => {
     res.status(200)
         .json({

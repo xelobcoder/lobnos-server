@@ -52,6 +52,7 @@ import followupsRouter from './controllers/crm/leads/followups.route';
 import payrollRouter from './controllers/payroll/routes';
 import freeServicesRouter from './controllers/billing/FreeServices/routes';
 import commissionConfigRouter from './models/commissions/commission-configurations/controllers/routes';
+import emailRouter from './controllers/email/route';
 
 
 
@@ -61,11 +62,11 @@ const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PO
 
 
 app.use(cors({
-	origin: function (origin, callback) {
-		callback(null, origin || false);
-	},
-	credentials: true,
-	preflightContinue: false
+    origin: function (origin, callback) {
+        callback(null, origin || false);
+    },
+    credentials: true,
+    preflightContinue: false
 }));
 
 app.use(express.static("public"));
@@ -122,6 +123,7 @@ app.use('/api/v1/followups', followupsRouter);
 app.use('/api/v1/payroll', payrollRouter);
 app.use('/api/v1/billing/free-services', freeServicesRouter);
 app.use('/api/v1/commission', commissionConfigRouter);
+app.use(emailRouter);
 
 
 
@@ -129,11 +131,11 @@ app.use('/api/v1/commission', commissionConfigRouter);
 
 
 app.get("/", (req: Request, res: Response) => {
-	res.status(200)
-		.json({
-			message: "success",
-			status: "Healthy"
-		});
+    res.status(200)
+        .json({
+            message: "success",
+            status: "Healthy"
+        });
 });
 
 
@@ -173,15 +175,15 @@ app.listen(Number(port), "0.0.0.0", () => {
         `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Network     : ${networkUrl}`
     );
 
-//     logger.info("Server startup successful", {
-//         port: Number(port),
-//         environment: process.env.NODE_ENV,
-//         pid,
-//         addresses: {
-//             local: localUrl,
-//             network: networkUrl,
-//         },
-//     });
+    //     logger.info("Server startup successful", {
+    //         port: Number(port),
+    //         environment: process.env.NODE_ENV,
+    //         pid,
+    //         addresses: {
+    //             local: localUrl,
+    //             network: networkUrl,
+    //         },
+    //     });
 });
 
 

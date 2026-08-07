@@ -1,23 +1,43 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
+const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const helper_1 = require("../../hooks/helper");
 const queries_1 = require("./queries");
+const TableName = 'testConditionDefinitions';
 class TestCreationMultipleConditionsClass {
-    async createTestConditionDefinition(tenantId, conditionName, testId) {
-        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_test_multi_create_testConditionDefinition, [conditionName, testId]);
+    async createTestConditionDefinition(tenantId, conditionName, testId, createdBy) {
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection(TableName).insert({
+            conditionName,
+            createdBy,
+            testId
+        });
         return result;
     }
     async getTestConditionDefinitionById(tenantId, id) {
-        const rows = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_test_multi_read_testConditionDefinition, [tenantId, id]);
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const rows = await connection(TableName)
+            .leftJoin("roles", "roles.employeeid", `testConditionDefinitions.createdBy`)
+            .where({ id }).select(`${TableName}.*`, 'roles.username as createdBy');
         return rows;
     }
     async updateTestConditionDefinition(tenantId, id, conditionName, testId) {
-        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_test_multi_update_testConditionDefinition, [tenantId, conditionName, testId, id]);
-        return (0, helper_1.rowAffected)(result);
+        const connection = await (0, KnexConnections_1.default)(tenantId);
+        const result = await connection(TableName)
+            .update({
+            conditionName,
+            testId
+        })
+            .where({ id });
+        return Number(result) > 0;
     }
     async deleteTestConditionDefinition(tenantId, id) {
-        const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_test_multi_delete_testConditionDefinition, [tenantId, id]);
-        return (0, helper_1.rowAffected)(result);
+        const result = await (0, KnexConnections_1.default)(tenantId);
+        await result(TableName).where({ id }).del();
+        return true;
     }
     generateBulkInsertQuery(rows) {
         const placeholders = rows.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
@@ -50,11 +70,22 @@ class TestCreationMultipleConditionsClass {
         const flattenedValues = values.flat();
         try {
             const result = await (0, helper_1.promisifyQuery)(tenantId, query, flattenedValues);
+            await this.overRideAndGetRidOfExistingConditions(tenantId, testId, conditionId, fieldConstraints);
             return (0, helper_1.rowAffected)(result);
         }
         catch (error) {
             console.error('Error inserting/updating test conditions:', error);
             throw new Error('Failed to insert/update test conditions');
+        }
+    }
+    async overRideAndGetRidOfExistingConditions(tenantId, testId, conditionId, fieldConstraints) {
+        const existingConstraints = await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_test_conditions, [testId, conditionId]);
+        const existingConstraintIds = existingConstraints.map((c) => c.id);
+        const newConstraintIds = fieldConstraints.map((c) => c.id).filter((id) => id !== undefined);
+        const idsToDelete = existingConstraintIds.filter((id) => !newConstraintIds.includes(id));
+        if (idsToDelete.length > 0) {
+            const deleteQuery = `DELETE FROM testConditions WHERE id IN (${idsToDelete.map(() => '?').join(', ')})`;
+            await (0, helper_1.promisifyQuery)(tenantId, deleteQuery, idsToDelete);
         }
     }
     async getTestConditionById(tenantId, id) {
@@ -73,7 +104,16 @@ class TestCreationMultipleConditionsClass {
         return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_test_definition_conditions, [conditionId]);
     }
     static async getTestDefinitions(tenantId, testid) {
-        return await (0, helper_1.promisifyQuery)(tenantId, queries_1.q_get_test_conditions, [tenantId, testid]);
+        try {
+            const connection = await (0, KnexConnections_1.default)(tenantId);
+            return await connection('testConditionDefinitions')
+                .leftJoin('roles', 'roles.employeeid', 'testConditionDefinitions.createdBy')
+                .where({ testId: testid })
+                .select('testConditionDefinitions.*', 'roles.username as createdBy');
+        }
+        catch (error) {
+            throw new Error('Failed to fetch test definitions');
+        }
     }
 }
 exports.default = TestCreationMultipleConditionsClass;

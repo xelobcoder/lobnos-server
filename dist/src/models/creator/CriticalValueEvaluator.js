@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CriticalValueEvaluator = void 0;
 const helper_1 = require("../../hooks/helper");
-const FieldConstraintsRepository_1 = __importDefault(require("../TestCreation/FieldConstraintsRepository"));
+const FieldConstraintsRepository_repo_1 = __importDefault(require("../TestCreation/repositories/FieldConstraintsRepository.repo"));
 const queries_1 = require("./queries");
 const ResultLockRepository_1 = require("./Repo/ResultLockRepository");
 class CriticalValueEvaluator {
@@ -169,7 +169,7 @@ class CriticalValueEvaluator {
     static async criticalValueDetermination(tenantId, testid, billingid, ascensionId, fields, employeeid) {
         if (!Array.isArray(fields) || fields.length == 0)
             return [];
-        const currentTestFieldsConstraints = await new FieldConstraintsRepository_1.default(tenantId).findByTestId(testid);
+        const currentTestFieldsConstraints = await new FieldConstraintsRepository_repo_1.default(tenantId).findByTestId(testid);
         if (Array.isArray(currentTestFieldsConstraints) && currentTestFieldsConstraints.length === 0)
             return fields;
         for (let j = 0; j < fields.length; j++) {

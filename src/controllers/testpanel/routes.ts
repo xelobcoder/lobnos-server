@@ -1,32 +1,33 @@
 import express, { Request, Response } from "express";
 import {
-    getCategories,
-    postCategories,
-    getTestPanelList,
-    getBulkTestPanelList,
-    postCreateCustomTestPanel,
-    putTestPanelUpdateProcedureManual,
-    getTestPanelEdit,
-    getProcedureManual,
-    getTestLiteratureReview,
-    putTestLiteratureReview,
-    getLiteratureReviewResult,
-    postBulkTestPanelUpdate,
-    postTestPanelCreate,
-    putTestPanelUpdate,
-    deleteTestPanel,
-    getTestPanelCreationRule,
-    getTestPanelData,
-    putTestPanelChangeName,
-    getTestSetupLiterature,
-    putTestSetupLiterature,
-    getTestSetupResultLiterature,
-    putBulkTestPricingUpdate,
-    importMasterTestPanelToClientList
+	getCategories,
+	postCategories,
+	getTestPanelList,
+	getBulkTestPanelList,
+	postCreateCustomTestPanel,
+	putTestPanelUpdateProcedureManual,
+	getTestPanelEdit,
+	getProcedureManual,
+	getTestLiteratureReview,
+	putTestLiteratureReview,
+	getLiteratureReviewResult,
+	postBulkTestPanelUpdate,
+	postTestPanelCreate,
+	putTestPanelUpdate,
+	deleteTestPanel,
+	getTestPanelCreationRule,
+	getTestPanelData,
+	putTestPanelChangeName,
+	getTestSetupLiterature,
+	putTestSetupLiterature,
+	getTestSetupResultLiterature,
+	putBulkTestPricingUpdate,
+	importMasterTestPanelToClientList
 } from "./testpanelHandlers";
 import { testpanel } from "../../testpanel/testpanelList";
 import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, getFieldConstraintsByTestIdHandler, updateFieldConstraintHandler, deleteFieldConstraintHandler, deleteFieldConstraintsByFieldIdHandler } from "../testcreation/fieldConstraintsHandlers";
 import { handleOverLoad } from "../../hooks/helper";
+import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 
 const router = express.Router();
 
@@ -61,53 +62,14 @@ router.put("/api/v1/testsetup/literature", putTestSetupLiterature);
 router.get("/api/v1/testsetup/resultliterature", getTestSetupResultLiterature);
 
 // Field Constraints Routes
-router.post('/api/v1/field-constraints', async (req: Request, res: Response) => {
-    try {
-        await createFieldConstraintsHandler(req, res);
-    } catch (error:any) {
-        res.status(500).json({ error: error.message });
-    }
-});
+router.post('/api/v1/field-constraints', createFieldConstraintsHandler);
 
-router.get('/api/v1/field-constraints/field/:fieldId', async (req: Request, res: Response) => {
-    try {
-        await getFieldConstraintsByFieldIdHandler(req, res);
-    } catch (error:any) {
-        res.status(500).json({ error: error.message });
-    }
-});
 
-router.get('/api/v1/field-constraints/test/:testId', async (req: Request, res: Response) => {
-    try {
-        await getFieldConstraintsByTestIdHandler(req, res);
-    } catch (error:any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.put('/api/v1/field-constraints/:id', async (req: Request, res: Response) => {
-    try {
-        await updateFieldConstraintHandler(req, res);
-    } catch (error:any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.delete('/api/v1/field-constraints/:id', async (req: Request, res: Response) => {
-    try {
-        await deleteFieldConstraintHandler(req, res);
-    } catch (error:any) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-router.delete('/api/v1/field-constraints/field/:fieldId', async (req: Request, res: Response) => {
-    try {
-        await deleteFieldConstraintsByFieldIdHandler(req, res);
-    } catch (error:any) {
-        res.status(500).json({ error: error.message });
-    }
-});
+router.get('/api/v1/field-constraints/field/:fieldId', isAuthorizedRoleAdmin, getFieldConstraintsByFieldIdHandler);
+router.get('/api/v1/field-constraints/test/:testId', isAuthorizedRoleAdmin, handleOverLoad(getFieldConstraintsByTestIdHandler));
+router.put('/api/v1/field-constraints/:id', isAuthorizedRoleAdmin, updateFieldConstraintHandler);
+router.delete('/api/v1/field-constraints/:id',isAuthorizedRoleAdmin, deleteFieldConstraintHandler);
+router.delete('/api/v1/field-constraints/field/:fieldId', isAuthorizedRoleAdmin,deleteFieldConstraintsByFieldIdHandler)
 
 
 export default router;

@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.TrackValuesAlertClass = void 0;
 const registration_1 = __importDefault(require("../registration/registration"));
-const FieldConstraintsRepository_1 = __importDefault(require("../TestCreation/FieldConstraintsRepository"));
+const FieldConstraintsRepository_repo_1 = __importDefault(require("../TestCreation/repositories/FieldConstraintsRepository.repo"));
 const creator_1 = __importDefault(require("./creator"));
 const loggingCriticalValueAlertRepository_1 = __importDefault(require("./Repo/loggingCriticalValueAlertRepository"));
 const resultEncryptionReferer_1 = __importDefault(require("./resultEncryptionReferer"));
@@ -33,7 +33,7 @@ class TrackValuesAlertClass extends creator_1.default {
         const creator = new creator_1.default(testid);
         const [recordValues, constraints] = await Promise.all([
             creator.getPreviousRecords(this.tenantid, testid, billingid, patientid),
-            new FieldConstraintsRepository_1.default(this.tenantid).findByTestId(testid)
+            new FieldConstraintsRepository_repo_1.default(this.tenantid).findByTestId(testid)
         ]);
         const decrtyptedRecordedValues = Array.isArray(recordValues) && recordValues.length > 0 ?
             await (0, resultEncryptionReferer_1.default)(recordValues, "decryption") : { resources: [] };

@@ -4,13 +4,13 @@ import { responseError, rowAffected } from '../../hooks/helper';
 
 export const createTestConditionDefinition = async (req: Request, res: Response) => {
      try {
-          const { conditionName, testid } = req.body;
+          const { conditionName, testid, createdBy } = req.body;
           const tenantId = req.query.tenantId as string;
           const instance = new TestCreationMultipleConditionsClass();
-          const result = await instance.createTestConditionDefinition(Number(tenantId), conditionName, testid);
-          const status = rowAffected(result);
-          res.status(201).json({ status, conditionId: result?.insertId });
+          const result = await instance.createTestConditionDefinition(Number(tenantId), conditionName, testid, createdBy);
+          res.status(201).json({ status: Array.isArray(result) && result.length > 0, conditionId: Array.isArray(result) && result.length > 0 ? result[0] : null });
      } catch (error: any) {
+          console.log(error)
           responseError(res);
      }
 };
@@ -123,6 +123,7 @@ export const getTestDefinitionsTestId = async (req: Request, res: Response) => {
           const result = await TestCreationMultipleConditionsClass.getTestDefinitions(Number(tenantId), parseInt(testid.toString()));
           res.status(200).json(result);
      } catch (error: any) {
+          console.log(error);
           responseError(res);
      }
 };

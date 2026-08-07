@@ -8,6 +8,7 @@ const testpanelHandlers_1 = require("./testpanelHandlers");
 const testpanelList_1 = require("../../testpanel/testpanelList");
 const fieldConstraintsHandlers_1 = require("../testcreation/fieldConstraintsHandlers");
 const helper_1 = require("../../hooks/helper");
+const validateTenancy_1 = require("../../middleware/validateTenancy");
 const router = express_1.default.Router();
 // Category Routes
 router.get("/api/v1/testpanel/categories", testpanelHandlers_1.getCategories);
@@ -38,52 +39,10 @@ router.get("/api/v1/testsetup/literature", testpanelHandlers_1.getTestSetupLiter
 router.put("/api/v1/testsetup/literature", testpanelHandlers_1.putTestSetupLiterature);
 router.get("/api/v1/testsetup/resultliterature", testpanelHandlers_1.getTestSetupResultLiterature);
 // Field Constraints Routes
-router.post('/api/v1/field-constraints', async (req, res) => {
-    try {
-        await (0, fieldConstraintsHandlers_1.createFieldConstraintsHandler)(req, res);
-    }
-    catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-router.get('/api/v1/field-constraints/field/:fieldId', async (req, res) => {
-    try {
-        await (0, fieldConstraintsHandlers_1.getFieldConstraintsByFieldIdHandler)(req, res);
-    }
-    catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-router.get('/api/v1/field-constraints/test/:testId', async (req, res) => {
-    try {
-        await (0, fieldConstraintsHandlers_1.getFieldConstraintsByTestIdHandler)(req, res);
-    }
-    catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-router.put('/api/v1/field-constraints/:id', async (req, res) => {
-    try {
-        await (0, fieldConstraintsHandlers_1.updateFieldConstraintHandler)(req, res);
-    }
-    catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-router.delete('/api/v1/field-constraints/:id', async (req, res) => {
-    try {
-        await (0, fieldConstraintsHandlers_1.deleteFieldConstraintHandler)(req, res);
-    }
-    catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-router.delete('/api/v1/field-constraints/field/:fieldId', async (req, res) => {
-    try {
-        await (0, fieldConstraintsHandlers_1.deleteFieldConstraintsByFieldIdHandler)(req, res);
-    }
-    catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
+router.post('/api/v1/field-constraints', fieldConstraintsHandlers_1.createFieldConstraintsHandler);
+router.get('/api/v1/field-constraints/field/:fieldId', validateTenancy_1.isAuthorizedRoleAdmin, fieldConstraintsHandlers_1.getFieldConstraintsByFieldIdHandler);
+router.get('/api/v1/field-constraints/test/:testId', validateTenancy_1.isAuthorizedRoleAdmin, (0, helper_1.handleOverLoad)(fieldConstraintsHandlers_1.getFieldConstraintsByTestIdHandler));
+router.put('/api/v1/field-constraints/:id', validateTenancy_1.isAuthorizedRoleAdmin, fieldConstraintsHandlers_1.updateFieldConstraintHandler);
+router.delete('/api/v1/field-constraints/:id', validateTenancy_1.isAuthorizedRoleAdmin, fieldConstraintsHandlers_1.deleteFieldConstraintHandler);
+router.delete('/api/v1/field-constraints/field/:fieldId', validateTenancy_1.isAuthorizedRoleAdmin, fieldConstraintsHandlers_1.deleteFieldConstraintsByFieldIdHandler);
 exports.default = router;
