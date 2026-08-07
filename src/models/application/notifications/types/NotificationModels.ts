@@ -1,6 +1,7 @@
 export type NotificationRecipientType =
      | 'PATIENT'
      | 'DOCTOR'
+     | 'SUPPLIER'
      | 'ORGANIZATION'
      | 'STAFF'
      | 'LAB_MANAGER'

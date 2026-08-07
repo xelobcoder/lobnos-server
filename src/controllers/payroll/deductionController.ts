@@ -3,6 +3,7 @@ import { customError } from '../../hooks/helper';
 import { PrimeSqlErrorHandler } from '../../hooks/utility';
 import { DeductionDefinitionRepository, IDeductionDefinition } from '../../models/payroll/DeductionDefinitionRepository';
 import { IOtherDeduction, OtherDeductionRepository } from '../../models/payroll/DeductionRepository';
+import { NotificationDispatcher } from '../../models/application/notifications/services/NotificationDispatcher';
 
 const hydrateDeductionFromDefinition = async (
      tenantId: number,
@@ -182,7 +183,7 @@ export const getOtherDeductionByIdHandler = async (req: Request, res: Response) 
           const tenantId = parseInt(req.query.tenantId as string);
           const id = parseInt(req.params.id.toString());
 
-          if ( !id)  return customError('Tenant ID and deduction ID are required', 400, res);
+          if (!id) return customError('Tenant ID and deduction ID are required', 400, res);
           const repo = new OtherDeductionRepository(tenantId);
           const deduction = await repo.getById(id);
 
@@ -358,6 +359,13 @@ export const approveOtherDeductionHandler = async (req: Request, res: Response) 
                return customError('Failed to approve other deduction', 400, res);
           }
 
+          NotificationDispatcher.dispatch(
+               tenantId,
+               'PAYROLL_ADJUSTMENT_APPROVED',
+               { payrollId: id },
+               approvedBy || undefined,
+          ).catch(() => { });
+
           res.json({
                status: 'success',
                statusCode: 200,
@@ -389,6 +397,13 @@ export const createLoanAdjustmentHandler = async (req: Request, res: Response) =
                adjusted_by,
                reason
           });
+
+          NotificationDispatcher.dispatch(
+               tenantId,
+               'PAYROLL_ADJUSTMENT_CREATED',
+               { payrollId: id },
+               adjusted_by || undefined,
+          ).catch(() => { });
 
           return res.status(201).json({
                status: 'success',

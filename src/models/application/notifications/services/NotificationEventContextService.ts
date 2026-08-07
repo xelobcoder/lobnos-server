@@ -17,6 +17,7 @@ import { ResultContextProvider } from '../context/providers/ResultContextProvide
 import { SampleContextProvider } from '../context/providers/SampleContextProvider';
 import { SupplierContextProvider } from '../context/providers/SupplierContextProvider';
 import { BranchContextProvider } from '../context/providers/BranchContextProvider';
+import { EventDefinition as ProviderEventDefinition, makeDomainDefinition, readableEventName, userVariables as fallbackUserVariables } from '../context/providers/NotificationEventDefinitions';
 
 type Scalar = string | number | boolean | null;
 
@@ -198,477 +199,20 @@ function makeTemplate(eventCode: string, parts: TemplateParts): EventTemplateDef
 }
 
 function buildDefinition(eventCode: string): EventDefinition {
-     switch (eventCode) {
-          case 'PATIENT_CREATED':
-               return {
-                    variables: patientVariables(),
-                    requiredReferences: ['patientId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Welcome to {{laboratory_name}} - {{patient_name}}',
-                         title: 'Patient Registration Successful',
-                         intro: 'Your patient profile has been created successfully. Please keep your patient number for future visits and result follow-up.',
-                         details: [
-                              'Patient Number: {{patient_number}}',
-                              'Patient Name: {{patient_name}}',
-                              'Patient Contact: {{patient_phone}}',
-                              'Patient Email: {{patient_email}}',
-                         ],
-                         actionText: 'Next Step',
-                         actionValue: 'Present your patient number at any branch for service support.',
-                    }),
-               };
-          case 'PATIENT_UPDATED':
-               return {
-                    variables: patientVariables(),
-                    requiredReferences: ['patientId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Patient Profile Updated - {{patient_name}}',
-                         title: 'Patient Profile Update Notice',
-                         intro: 'Changes were recorded on your patient profile. If you did not authorize this change, contact the laboratory immediately.',
-                         details: [
-                              'Patient Number: {{patient_number}}',
-                              'Patient Name: {{patient_name}}',
-                              'Contact Phone: {{patient_phone}}',
-                              'Contact Email: {{patient_email}}',
-                         ],
-                    }),
-               };
-          case 'APPOINTMENT_CREATED':
-               return {
-                    variables: appointmentVariables(),
-                    requiredReferences: ['appointmentId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Appointment Created - {{patient_name}} ({{appointment_date}})',
-                         title: 'Appointment Created',
-                         intro: 'An appointment has been created for this patient in the laboratory schedule.',
-                         details: [
-                              'Appointment ID: {{appointment_id}}',
-                              'Date: {{appointment_date}}',
-                              'Time: {{appointment_time}}',
-                              'Practitioner: {{practitioner_name}}',
-                              'Location: {{appointment_location}}',
-                         ],
-                    }),
-               };
-          case 'APPOINTMENT_CONFIRMED':
-               return {
-                    variables: appointmentVariables(),
-                    requiredReferences: ['appointmentId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Appointment Confirmed - {{appointment_date}} {{appointment_time}}',
-                         title: 'Appointment Confirmation',
-                         intro: 'Your appointment has been confirmed. Please arrive on time with any required documents or prior reports.',
-                         details: [
-                              'Patient: {{patient_name}}',
-                              'Appointment Date: {{appointment_date}}',
-                              'Appointment Time: {{appointment_time}}',
-                              'Practitioner: {{practitioner_name}}',
-                              'Branch: {{branch_name}}',
-                         ],
-                         actionText: 'Preparation',
-                         actionValue: 'Arrive at least 15 minutes before your scheduled time.',
-                    }),
-               };
-          case 'APPOINTMENT_RESCHEDULED':
-               return {
-                    variables: appointmentVariables(),
-                    requiredReferences: ['appointmentId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Appointment Rescheduled - {{patient_name}}',
-                         title: 'Appointment Rescheduled',
-                         intro: 'Your appointment schedule has been updated. Please review the revised date and time below.',
-                         details: [
-                              'Appointment ID: {{appointment_id}}',
-                              'New Date: {{appointment_date}}',
-                              'New Time: {{appointment_time}}',
-                              'Practitioner: {{practitioner_name}}',
-                              'Branch: {{branch_name}}',
-                         ],
-                    }),
-               };
-          case 'APPOINTMENT_CANCELLED':
-               return {
-                    variables: appointmentVariables(),
-                    requiredReferences: ['appointmentId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Appointment Cancelled - {{patient_name}}',
-                         title: 'Appointment Cancellation Notice',
-                         intro: 'The appointment has been cancelled. Contact the branch if you need immediate assistance or a replacement slot.',
-                         details: [
-                              'Appointment ID: {{appointment_id}}',
-                              'Date: {{appointment_date}}',
-                              'Time: {{appointment_time}}',
-                              'Practitioner: {{practitioner_name}}',
-                         ],
-                         actionText: 'Rebooking',
-                         actionValue: 'Please request a new appointment through the branch front desk.',
-                    }),
-               };
-          case 'APPOINTMENT_REMINDER':
-               return {
-                    variables: appointmentVariables(),
-                    requiredReferences: ['appointmentId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Appointment Reminder - {{appointment_date}} {{appointment_time}}',
-                         title: 'Upcoming Appointment Reminder',
-                         intro: 'This is a reminder of your upcoming laboratory appointment.',
-                         details: [
-                              'Patient: {{patient_name}}',
-                              'Date: {{appointment_date}}',
-                              'Time: {{appointment_time}}',
-                              'Location: {{appointment_location}}',
-                              'Practitioner: {{practitioner_name}}',
-                         ],
-                    }),
-               };
-          case 'SAMPLE_COLLECTED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Sample Collected - {{patient_name}} - {{test_name}}',
-                         title: 'Sample Collection Completed',
-                         intro: 'Sample collection has been completed successfully and forwarded into laboratory workflow.',
-                         details: [
-                              'Ascension ID: {{ascension_id}}',
-                              'Sample ID: {{sample_id}}',
-                              'Test: {{test_name}} ({{test_id}})',
-                              'Collection Start: {{collection_start_time}}',
-                              'Collection End: {{collection_end_time}}',
-                         ],
-                    }),
-               };
-          case 'SAMPLE_RECEIVED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Sample Received in Lab - {{patient_name}}',
-                         title: 'Sample Received',
-                         intro: 'A collected sample has been received and booked into the processing queue.',
-                         details: [
-                              'Ascension ID: {{ascension_id}}',
-                              'Sample ID: {{sample_id}}',
-                              'Test Name: {{test_name}}',
-                              'Collected By: {{collected_by_name}}',
-                         ],
-                    }),
-               };
-          case 'SAMPLE_REJECTED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Sample Rejected - Action Required - {{patient_name}}',
-                         title: 'Sample Rejection Notice',
-                         intro: 'The submitted sample did not meet processing quality criteria and has been rejected.',
-                         details: [
-                              'Sample ID: {{sample_id}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Test Name: {{test_name}}',
-                              'Rejection Reason: {{sample_rejection_reason}}',
-                         ],
-                         actionText: 'Required Action',
-                         actionValue: 'Please arrange recollection through the branch immediately.',
-                    }),
-               };
-          case 'SAMPLE_RECALL_REQUIRED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Sample Recall Required - {{patient_name}}',
-                         title: 'Sample Recall Required',
-                         intro: 'A recall has been raised for this sample. Follow-up action is required to avoid delay in result release.',
-                         details: [
-                              'Sample ID: {{sample_id}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Investigation: {{test_name}}',
-                              'Reason: {{sample_rejection_reason}}',
-                         ],
-                         actionText: 'Required Action',
-                         actionValue: 'Contact patient and schedule urgent recollection.',
-                    }),
-               };
-          case 'SAMPLE_RECOLLECTED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Sample Recollected - {{patient_name}}',
-                         title: 'Sample Recollection Completed',
-                         intro: 'The replacement sample has been recollected and re-entered into laboratory workflow.',
-                         details: [
-                              'Sample ID: {{sample_id}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Test Name: {{test_name}}',
-                              'Collection Time: {{collection_end_time}}',
-                         ],
-                    }),
-               };
-          case 'SAMPLE_PROCESSED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Sample Processed - {{patient_name}} - {{test_name}}',
-                         title: 'Sample Processing Update',
-                         intro: 'Sample processing for the requested investigation has been completed.',
-                         details: [
-                              'Ascension ID: {{ascension_id}}',
-                              'Test ID: {{test_id}}',
-                              'Test Name: {{test_name}}',
-                              'Billing ID: {{billing_id}}',
-                         ],
-                    }),
-               };
-          case 'RESULT_VERIFIED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Result Verified - {{patient_name}} - {{test_name}}',
-                         title: 'Result Verification Completed',
-                         intro: 'Laboratory review and verification of this result has been completed by authorized personnel.',
-                         details: [
-                              'Patient Number: {{patient_number}}',
-                              'Test Name: {{test_name}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Billing ID: {{billing_id}}',
-                         ],
-                    }),
-               };
-          case 'RESULT_READY':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Result Ready - {{patient_name}} - {{test_name}}',
-                         title: 'Result Ready for Release',
-                         intro: 'The requested investigation result is ready for release according to laboratory policy.',
-                         details: [
-                              'Patient Number: {{patient_number}}',
-                              'Test Name: {{test_name}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Billing ID: {{billing_id}}',
-                         ],
-                    }),
-               };
-          case 'RESULT_RELEASED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Result Released - {{patient_name}}',
-                         title: 'Result Release Confirmation',
-                         intro: 'This result has been officially released and is now available to authorized recipients.',
-                         details: [
-                              'Patient Name: {{patient_name}}',
-                              'Test Name: {{test_name}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Released Event Time: {{triggered_at}}',
-                         ],
-                    }),
-               };
-          case 'RESULT_AMENDED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Result Amended - {{patient_name}} - {{test_name}}',
-                         title: 'Result Amendment Notice',
-                         intro: 'A previously released result has been amended. Please review the latest validated version.',
-                         details: [
-                              'Patient Number: {{patient_number}}',
-                              'Test Name: {{test_name}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Billing ID: {{billing_id}}',
-                         ],
-                         actionText: 'Attention',
-                         actionValue: 'Use only the latest released report for clinical decisions.',
-                    }),
-               };
-          case 'RESULT_CORRECTED':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Result Corrected - {{patient_name}} - {{test_name}}',
-                         title: 'Result Correction Notice',
-                         intro: 'A correction has been applied to the result record. Please discard prior copies where applicable.',
-                         details: [
-                              'Patient Number: {{patient_number}}',
-                              'Test Name: {{test_name}}',
-                              'Ascension ID: {{ascension_id}}',
-                              'Billing ID: {{billing_id}}',
-                         ],
-                         actionText: 'Compliance Note',
-                         actionValue: 'Ensure corrected report is communicated to all relevant recipients.',
-                    }),
-               };
-          case 'CRITICAL_RESULT':
-               return {
-                    variables: sampleVariables(),
-                    requiredReferences: ['ascensionId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'CRITICAL RESULT ALERT - {{patient_name}} - {{test_name}}',
-                         title: 'Critical Result Alert',
-                         intro: 'A critical laboratory result event has been raised and requires immediate authorized action.',
-                         details: [
-                              'Patient Name: {{patient_name}}',
-                              'Patient Number: {{patient_number}}',
-                              'Test Name: {{test_name}}',
-                              'Ascension ID: {{ascension_id}}',
-                         ],
-                         actionText: 'Urgent Action',
-                         actionValue: 'Escalate to responsible clinician immediately according to critical value policy.',
-                    }),
-               };
-          case 'INVOICE_CREATED':
-               return {
-                    variables: billingVariables(),
-                    requiredReferences: ['billingId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Invoice Created - {{billing_id}} - {{patient_name}}',
-                         title: 'Invoice Creation Notice',
-                         intro: 'A new billing invoice has been created for this patient transaction.',
-                         details: [
-                              'Invoice/Billing ID: {{billing_id}}',
-                              'Patient: {{patient_name}}',
-                              'Total Amount: {{amount_total}}',
-                              'Status: {{billing_status}}',
-                         ],
-                    }),
-               };
-          case 'INVOICE_SENT':
-               return {
-                    variables: billingVariables(),
-                    requiredReferences: ['billingId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Invoice Sent - {{billing_id}}',
-                         title: 'Invoice Dispatch Confirmation',
-                         intro: 'The invoice has been sent to the configured recipient channels.',
-                         details: [
-                              'Invoice/Billing ID: {{billing_id}}',
-                              'Patient: {{patient_name}}',
-                              'Amount: {{amount_total}}',
-                              'Outstanding Balance: {{amount_balance}}',
-                         ],
-                    }),
-               };
-          case 'PAYMENT_RECEIVED':
-               return {
-                    variables: billingVariables(),
-                    requiredReferences: ['billingId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Payment Received - {{billing_id}}',
-                         title: 'Payment Receipt Notice',
-                         intro: 'Payment has been posted successfully against this billing transaction.',
-                         details: [
-                              'Billing ID: {{billing_id}}',
-                              'Patient: {{patient_name}}',
-                              'Amount Paid: {{amount_paid}}',
-                              'Remaining Balance: {{amount_balance}}',
-                         ],
-                    }),
-               };
-          case 'PAYMENT_FAILED':
-               return {
-                    variables: billingVariables(),
-                    requiredReferences: ['billingId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Payment Failed - {{billing_id}}',
-                         title: 'Payment Failure Alert',
-                         intro: 'A payment attempt failed for this billing record. Follow-up is required to complete settlement.',
-                         details: [
-                              'Billing ID: {{billing_id}}',
-                              'Patient: {{patient_name}}',
-                              'Total Amount: {{amount_total}}',
-                              'Outstanding Balance: {{amount_balance}}',
-                         ],
-                         actionText: 'Next Step',
-                         actionValue: 'Contact patient/organization to complete payment.',
-                    }),
-               };
-          case 'REPORT_READY':
-               return {
-                    variables: billingVariables(),
-                    requiredReferences: ['billingId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Report Ready - {{patient_name}}',
-                         title: 'Report Availability Notice',
-                         intro: 'A laboratory report associated with this transaction is now ready for authorized collection.',
-                         details: [
-                              'Patient: {{patient_name}}',
-                              'Patient Number: {{patient_number}}',
-                              'Billing ID: {{billing_id}}',
-                              'Status: {{billing_status}}',
-                         ],
-                    }),
-               };
-          case 'USER_CREATED':
-               return {
-                    variables: userVariables(),
-                    requiredReferences: ['userId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'User Account Created - {{user_name}}',
-                         title: 'User Account Provisioned',
-                         intro: 'A new user account has been provisioned in the laboratory platform.',
-                         details: [
-                              'User ID: {{user_id}}',
-                              'Username: {{user_name}}',
-                              'Email: {{user_email}}',
-                         ],
-                    }),
-               };
-          case 'USER_ACTIVATED':
-               return {
-                    variables: userVariables(),
-                    requiredReferences: ['userId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'User Account Activated - {{user_name}}',
-                         title: 'User Activation Notice',
-                         intro: 'The user account has been activated and may now access permitted modules.',
-                         details: [
-                              'User ID: {{user_id}}',
-                              'Username: {{user_name}}',
-                              'Email: {{user_email}}',
-                         ],
-                    }),
-               };
-          case 'PASSWORD_RESET':
-               return {
-                    variables: userVariables(),
-                    requiredReferences: ['userId'],
-                    template: makeTemplate(eventCode, {
-                         subject: 'Password Reset Notice - {{user_name}}',
-                         title: 'Password Reset Event',
-                         intro: 'A password reset event has been recorded for this account. If not initiated by you, report immediately.',
-                         details: [
-                              'User ID: {{user_id}}',
-                              'Username: {{user_name}}',
-                              'Email: {{user_email}}',
-                         ],
-                         actionText: 'Security Advice',
-                         actionValue: 'Review account activity and rotate credentials if needed.',
-                    }),
-               };
-          default:
-               return {
-                    variables: userVariables(),
-                    requiredReferences: ['userId'],
-                    template: makeTemplate(eventCode, {
-                         subject: `${titleFromCode(eventCode)} - {{user_name}}`,
-                         title: titleFromCode(eventCode),
-                         intro: 'A notification event has been generated in the laboratory platform.',
-                         details: [
-                              'Event: {{event_name}}',
-                              'User ID: {{user_id}}',
-                              'Username: {{user_name}}',
-                         ],
-                    }),
-               };
-     }
+     return {
+          variables: userVariables(),
+          requiredReferences: ['userId'],
+          template: makeTemplate(eventCode, {
+               subject: `${titleFromCode(eventCode)} - {{user_name}}`,
+               title: titleFromCode(eventCode),
+               intro: 'Provider-level specialization now owns concrete event templates.',
+               details: [
+                    'Event: {{event_name}}',
+                    'User ID: {{user_id}}',
+                    'Username: {{user_name}}',
+               ],
+          }),
+     };
 }
 
 export class NotificationEventContextService {
@@ -685,6 +229,41 @@ export class NotificationEventContextService {
      private doctorProvider: DoctorContextProvider;
      private laboratoryProvider: LaboratoryContextProvider;
      private branchProvider: BranchContextProvider;
+
+     private resolveProviderDefinition(eventCode: string): ProviderEventDefinition {
+          const definitionProviders = [
+               this.patientProvider,
+               this.appointmentProvider,
+               this.sampleProvider,
+               this.laboratoryProvider,
+               this.invoiceProvider,
+               this.payrollProvider,
+               this.purchaseOrderProvider,
+               this.supplierProvider,
+               this.inventoryProvider,
+               this.doctorProvider,
+          ];
+
+          for (const provider of definitionProviders) {
+               if (provider.supportsEvent?.(eventCode)) {
+                    const definition = provider.getEventDefinition?.(eventCode);
+                    if (definition) return definition;
+               }
+          }
+
+          return makeDomainDefinition(
+               eventCode,
+               fallbackUserVariables(),
+               ['userId'],
+               readableEventName(eventCode),
+               'A notification event has been generated in the laboratory platform.',
+               [
+                    'Event: {{event_name}}',
+                    'User ID: {{user_id}}',
+                    'Username: {{user_name}}',
+               ],
+          );
+     }
 
      constructor(
           private eventsRepo: NotificationEventsRepo,
@@ -713,7 +292,7 @@ export class NotificationEventContextService {
                const event = await this.eventsRepo.findByCode(eventCode);
                if (!event) throw new Error('Notification event not found');
 
-               const definition = buildDefinition(event.event_code);
+               const definition = this.resolveProviderDefinition(event.event_code);
                const template = await this.templatesRepo.findSystemDefaultForEvent(event.id as number);
 
                return {
@@ -726,7 +305,7 @@ export class NotificationEventContextService {
 
           const events = await this.eventsRepo.findAll();
           return Promise.all(events.map(async (event) => {
-               const definition = buildDefinition(event.event_code);
+               const definition = this.resolveProviderDefinition(event.event_code);
                const template = await this.templatesRepo.findSystemDefaultForEvent(event.id as number);
                return {
                     event,
@@ -742,7 +321,7 @@ export class NotificationEventContextService {
           const results: Array<{ eventCode: string; variablesInserted: number; templateCreated: boolean; templateBackfilled: boolean }> = [];
 
           for (const event of events) {
-               const definition = buildDefinition(event.event_code);
+               const definition = this.resolveProviderDefinition(event.event_code);
                const existingVariables = await this.variablesRepo.findByEventId(event.id as number);
                const existingVariableNames = new Set(existingVariables.map((row) => row.variable_name));
 
@@ -850,7 +429,7 @@ export class NotificationEventContextService {
           const event = await this.eventsRepo.findByCode(eventCode);
           if (!event) throw new Error('Notification event not found');
 
-          const definition = buildDefinition(event.event_code);
+          const definition = this.resolveProviderDefinition(event.event_code);
           for (const requiredRef of definition.requiredReferences) {
                if (!references[requiredRef]) {
                     throw new Error(`Missing required reference: ${requiredRef}`);
@@ -874,18 +453,26 @@ export class NotificationEventContextService {
                     ...(await this.appointmentProvider.getContext(references.appointmentId as number)),
                };
           } else if (
-               event.event_code.startsWith('SAMPLE_') ||
+               event.event_code.startsWith('SAMPLE_')
+          ) {
+               payload = {
+                    ...payload,
+                    ...(await this.sampleProvider.getContext(references.ascensionId as number)),
+               };
+          } else if (
                event.event_code.startsWith('RESULT_') ||
+               event.event_code.startsWith('REPORT_') ||
+               event.event_code.startsWith('IMAGING_') ||
                event.event_code === 'CRITICAL_RESULT'
           ) {
                payload = {
                     ...payload,
-                    ...(await this.resultProvider.getContext(references.ascensionId as number)),
+                    ...(await this.laboratoryProvider.getContext(references.ascensionId || references.billingId)),
                };
           } else if (
                event.event_code.startsWith('INVOICE_') ||
                event.event_code.startsWith('PAYMENT_') ||
-               event.event_code === 'REPORT_READY'
+               event.event_code.startsWith('REFUND_')
           ) {
                payload = {
                     ...payload,

@@ -21,6 +21,7 @@ const requestAcess_1 = __importDefault(require("../../models/security/RequestAce
 const services_1 = require("../../models/services/services");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const resultDelivery_1 = __importDefault(require("./resultDelivery"));
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
@@ -40,6 +41,16 @@ const resultEntry = async (req, response) => {
         const tenantIdP = parseInt(tenantId.toString());
         const isDataInserted = await new creator_1.default(testid).resultEntry(tenantIdP, req.body);
         if (isDataInserted == true) {
+            const body = req.body;
+            const ascensionId = (body === null || body === void 0 ? void 0 : body.ascensionid) || (body === null || body === void 0 ? void 0 : body.ascensionId);
+            const actorId = (body === null || body === void 0 ? void 0 : body.employeeid) ? Number(body.employeeid) : undefined;
+            if (ascensionId) {
+                const refs = { ascensionId: Number(ascensionId) };
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantIdP, 'RESULT_PROCESSING', refs, actorId).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantIdP, 'RESULT_PENDING_VERIFICATION', refs, actorId).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantIdP, 'RESULT_READY', refs, actorId).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantIdP, 'REPORT_READY', refs, actorId).catch(() => { });
+            }
             response.send({ status: "success", statusCode: 200, message: "records updated successfully" });
         }
         else {
@@ -634,6 +645,14 @@ const recordResultDelivery = async (req, res) => {
             delivered_at: conn.fn.now(),
             notes: notes !== null && notes !== void 0 ? notes : null
         }).where({ ascensionid: pAscensionId });
+        if (result) {
+            const refs = {
+                billingId: pBillingId,
+                ascensionId: pAscensionId !== null && pAscensionId !== void 0 ? pAscensionId : undefined,
+            };
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'RESULT_RELEASED', refs, pEmployeeId).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'REPORT_RELEASED', refs, pEmployeeId).catch(() => { });
+        }
         res.status(201).send({ status: true, result });
     }
     catch (err) {

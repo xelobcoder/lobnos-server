@@ -1,5 +1,7 @@
 import KnexConnection from '../../../../../database/KnexConnections';
 import { NotificationContextProvider } from './NotificationContextProvider';
+import { EventDefinition } from './NotificationEventDefinitions';
+import { buildEventDefinitionFromCatalog } from './NotificationEventCatalog';
 
 export class DoctorContextProvider implements NotificationContextProvider {
      private connection;
@@ -20,5 +22,14 @@ export class DoctorContextProvider implements NotificationContextProvider {
           if (!row) throw new Error('User not found');
 
           return row;
+     }
+
+     supportsEvent(eventCode: string): boolean {
+          return eventCode.startsWith('USER_') || eventCode === 'PASSWORD_RESET' || eventCode.startsWith('SECURITY_');
+     }
+
+     getEventDefinition(eventCode: string): EventDefinition | null {
+          if (!this.supportsEvent(eventCode)) return null;
+          return buildEventDefinitionFromCatalog(eventCode) ?? null;
      }
 }

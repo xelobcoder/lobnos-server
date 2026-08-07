@@ -12,6 +12,7 @@ import { applyDboservicesAfterInsert, applyDboservicesAfterUpdate } from "../../
 import User from "../../LobnosAuth/user";
 import DiscountLimitService from "./billing-services/discount-limit";
 import { CommissionLogger, CommissionServiceFactory, logger } from "../commissions/commission-configurations";
+import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 
 
 
@@ -511,6 +512,15 @@ export class SubmitCustomerBilling {
             const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
             const repo = new PrimeEventsSMSDataSource(tenantId);
             await repo.paymentConfirmationEvent(tenantId, finalBillingIdForEvent || billingID, parsedEmployeeId);
+
+            const billingRef = { billingId: finalBillingIdForEvent || billingID };
+            NotificationDispatcher.dispatch(tenantId, 'INVOICE_CREATED', billingRef, parsedEmployeeId).catch((err) => {
+                logger.error('INVOICE_CREATED notification dispatch failed', err);
+            });
+            NotificationDispatcher.dispatch(tenantId, 'PAYMENT_INITIATED', billingRef, parsedEmployeeId).catch(() => { });
+            NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', billingRef, parsedEmployeeId).catch(() => { });
+            NotificationDispatcher.dispatch(tenantId, 'PAYMENT_CONFIRMED', billingRef, parsedEmployeeId).catch(() => { });
+            NotificationDispatcher.dispatch(tenantId, 'INVOICE_SENT', billingRef, parsedEmployeeId).catch(() => { });
 
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         } catch (error: any) {

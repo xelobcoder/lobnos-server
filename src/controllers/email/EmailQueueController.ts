@@ -55,6 +55,7 @@ export class EmailQueueController {
                const result = await this.service.retryEmail(dto);
                res.send({ status: 'success', statusCode: 200, result });
           } catch (error) {
+               console.log('Error in retry:', error);
                this.badRequest(res, error);
           }
      }

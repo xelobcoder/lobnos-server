@@ -1,5 +1,7 @@
 import KnexConnection from '../../../../../database/KnexConnections';
 import { NotificationContextProvider } from './NotificationContextProvider';
+import { EventDefinition } from './NotificationEventDefinitions';
+import { buildEventDefinitionFromCatalog } from './NotificationEventCatalog';
 
 export class SupplierContextProvider implements NotificationContextProvider {
      private connection;
@@ -20,5 +22,14 @@ export class SupplierContextProvider implements NotificationContextProvider {
           if (!row) throw new Error('Supplier not found');
 
           return row;
+     }
+
+     supportsEvent(eventCode: string): boolean {
+          return eventCode.startsWith('SUPPLIER_');
+     }
+
+     getEventDefinition(eventCode: string): EventDefinition | null {
+          if (!this.supportsEvent(eventCode)) return null;
+          return buildEventDefinitionFromCatalog(eventCode) ?? null;
      }
 }

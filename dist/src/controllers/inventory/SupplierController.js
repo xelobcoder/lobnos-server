@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SupplierController = void 0;
 const inventory_1 = require("../../models/inventory");
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 class SupplierController {
     getTenantId(req) {
         const tenantId = parseInt(req.query.tenantId);
@@ -97,6 +98,7 @@ class SupplierController {
         };
     }
     async createSupplier(req, res) {
+        var _a;
         try {
             const tenantId = this.getTenantId(req);
             const requestData = req.body;
@@ -115,6 +117,10 @@ class SupplierController {
             }
             const supplierModel = new inventory_1.SupplierModel(tenantId);
             const supplier = await supplierModel.create(requestData);
+            if (supplier && supplier.id) {
+                const createdBy = Number(req.query.employeeid || ((_a = req.body) === null || _a === void 0 ? void 0 : _a.created_by) || 0) || undefined;
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_CREATED', { supplierId: supplier.id }, createdBy).catch(() => { });
+            }
             const response = {
                 success: true,
                 data: supplier
@@ -136,7 +142,7 @@ class SupplierController {
     async getSupplierById(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { id } = req.params;
+            const id = req.params.id;
             const supplierModel = new inventory_1.SupplierModel(tenantId);
             const supplier = await supplierModel.findById(id);
             if (!supplier) {
@@ -203,6 +209,7 @@ class SupplierController {
         }
     }
     async updateSupplier(req, res) {
+        var _a;
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
@@ -232,6 +239,15 @@ class SupplierController {
                 };
                 res.status(404).json(response);
                 return;
+            }
+            const updatedBy = Number(req.query.employeeid || ((_a = req.body) === null || _a === void 0 ? void 0 : _a.updated_by) || 0) || undefined;
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_UPDATED', { supplierId: supplier.id }, updatedBy).catch(() => { });
+            const supplierStatus = String((supplier === null || supplier === void 0 ? void 0 : supplier.status) || (requestData === null || requestData === void 0 ? void 0 : requestData.status) || '').toLowerCase();
+            if (supplierStatus === 'active' || supplierStatus === 'activated') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_ACTIVATED', { supplierId: supplier.id }, updatedBy).catch(() => { });
+            }
+            else if (supplierStatus === 'inactive' || supplierStatus === 'deactivated' || supplierStatus === 'disabled') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_DEACTIVATED', { supplierId: supplier.id }, updatedBy).catch(() => { });
             }
             const response = {
                 success: true,

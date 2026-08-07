@@ -7,12 +7,61 @@ import {
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
 import { UnitValidationService } from '../../services/UnitValidationService';
+import { NotificationDispatcher } from '../application/notifications/services/NotificationDispatcher';
 
 export class InventoryTransactionModel {
      private connection: Promise<Knex<any, any[]>>;
+     private tenantId: number;
 
      constructor(tenantId: number) {
+          this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
+     }
+
+     private dispatchStockThresholdAlerts(
+          itemId: string,
+          newStock: number,
+          minStock: number,
+          previousStock: number,
+          performedBy?: number | null,
+     ) {
+          const actor = performedBy ? Number(performedBy) : undefined;
+          const refs = { inventoryId: itemId };
+          if (newStock <= 0) {
+               NotificationDispatcher.dispatch(this.tenantId, 'STOCK_OUT_OF_STOCK', refs, actor).catch(() => { });
+               return;
+          }
+          if (typeof minStock === 'number' && minStock > 0 && newStock <= minStock) {
+               // Treat half of min as critical when possible.
+               if (newStock <= Math.max(1, Math.floor(minStock / 2))) {
+                    NotificationDispatcher.dispatch(this.tenantId, 'STOCK_CRITICAL', refs, actor).catch(() => { });
+               } else {
+                    NotificationDispatcher.dispatch(this.tenantId, 'STOCK_LOW', refs, actor).catch(() => { });
+               }
+          }
+          if (previousStock <= (minStock || 0) && newStock > (minStock || 0)) {
+               NotificationDispatcher.dispatch(this.tenantId, 'STOCK_RESTOCKED', refs, actor).catch(() => { });
+          }
+     }
+
+     private dispatchTransactionLifecycle(
+          request: CreateInventoryTransactionRequest,
+          itemId: string,
+     ) {
+          const actor = request.performed_by ? Number(request.performed_by) : undefined;
+          const refs = { inventoryId: itemId };
+          const type = String(request.transaction_type || '').toLowerCase();
+          if (type === 'adjustment') {
+               NotificationDispatcher.dispatch(this.tenantId, 'STOCK_ADJUSTED', refs, actor).catch(() => { });
+          } else if (type === 'transfer') {
+               NotificationDispatcher.dispatch(this.tenantId, 'STOCK_TRANSFER_COMPLETED', refs, actor).catch(() => { });
+          } else if (type === 'addition') {
+               NotificationDispatcher.dispatch(this.tenantId, 'STOCK_RECEIPT_COMPLETED', refs, actor).catch(() => { });
+          } else if (type === 'consumption') {
+               NotificationDispatcher.dispatch(this.tenantId, 'STOCK_ISSUED', refs, actor).catch(() => { });
+          } else if (type === 'wastage' || type === 'return') {
+               NotificationDispatcher.dispatch(this.tenantId, type === 'return' ? 'STOCK_RETURNED' : 'STOCK_ADJUSTED', refs, actor).catch(() => { });
+          }
      }
 
      private generateTransactionId(): string {
@@ -115,6 +164,15 @@ export class InventoryTransactionModel {
                     });
 
                await trx.commit();
+
+               this.dispatchTransactionLifecycle(request, request.item_id);
+               this.dispatchStockThresholdAlerts(
+                    request.item_id,
+                    newStock,
+                    Number(inventoryItem.min_stock || 0),
+                    previousStock,
+                    request.performed_by,
+               );
 
                return await this.findById(transactionData.id) as InventoryTransaction;
           } catch (error) {

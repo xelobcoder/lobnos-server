@@ -26,6 +26,7 @@ const ascensionAnalytics_1 = require("../../models/operations/ascensionAnalytics
 const sampleClass_1 = require("../../models/operations/sample/sampleClass");
 const helper_1 = require("../../hooks/helper");
 const creator_1 = __importDefault(require("../../models/creator/creator"));
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 async function updateAscensionStageHandler(request, response) {
     try {
         const { stage, ascensionid, value, employeeid } = request.body;
@@ -37,6 +38,21 @@ async function updateAscensionStageHandler(request, response) {
         }
         const isUpdateComplete = await ascension_1.TestAscension.
             updateSampleAscensionstate(tenantIdP, parseInt(ascensionid.toString()), stage, value, parseInt(employeeid.toString()));
+        const ascensionIdNum = parseInt(ascensionid.toString());
+        const eventMap = {
+            collected: 'SAMPLE_COLLECTED',
+            received: 'SAMPLE_RECEIVED',
+            accepted: 'SAMPLE_ACCEPTED',
+            rejected: 'SAMPLE_REJECTED',
+            recall: 'SAMPLE_RECALL_REQUIRED',
+            recollected: 'SAMPLE_RECOLLECTED',
+            processed: 'SAMPLE_PROCESSED',
+        };
+        const stageKey = String(stage || '').toLowerCase();
+        const eventCode = eventMap[stageKey];
+        if (eventCode && isUpdateComplete) {
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantIdP, eventCode, { ascensionId: ascensionIdNum }, parseInt(employeeid.toString())).catch(() => { });
+        }
         response.send({ tenantId, status: isUpdateComplete });
     }
     catch (err) {

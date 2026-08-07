@@ -13,6 +13,7 @@ import { PrimeBillingEnterprise } from "../../models/billing/multi/PrimeBillingE
 import OutstandingClass from "../../models/billing/outstanding/outstanding_class";
 import { MultiTBillingDataShared } from "../../models/billing/multi/billing_shared_types";
 import KnexConnection from "../../database/KnexConnections";
+import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 
 
 
@@ -122,6 +123,9 @@ export async function requestForRefundHandler(request: Request<{}, {}, RefundReq
 		const tenantId = parseInt(request.query.tenantId.toString(), 10);
 		if (isValidRequestBody) {
 			const request = await Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
+			if (request && typeof request !== 'string') {
+				NotificationDispatcher.dispatch(tenantId, 'REFUND_REQUESTED', { billingId: billingid }, employeeid).catch(() => { });
+			}
 			response.send({ status: request });
 		} else {
 			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
@@ -147,6 +151,9 @@ export async function updateBilledTransaction(request: Request<{}, {}, { isCondi
 			})
 		} else {
 			const outcome = await new Billing(0).updatePreviousTransaction(tenantIdP, request.body as unknown as TBillingData, billId);
+			if (outcome) {
+				NotificationDispatcher.dispatch(tenantIdP, 'INVOICE_UPDATED', { billingId: billId }).catch(() => { });
+			}
 			response.send({ status: outcome });
 		}
 	} catch (err) {
@@ -236,6 +243,10 @@ export async function approveRequestForRefund(request: Request<{}, {}, { service
 		}
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
 		const isAprovalSuccess = await Refund.approveRequestedRefund(tenantId, serviceid, employeeid, parsedApproveStatement);
+		if (isAprovalSuccess) {
+			const eventCode = parsedApproveStatement === 1 ? 'REFUND_APPROVED' : 'REFUND_REJECTED';
+			NotificationDispatcher.dispatch(tenantId, eventCode, { billingId: serviceid }, employeeid).catch(() => { });
+		}
 		response.send({ status: isAprovalSuccess });
 	} catch (err) {
 		responseError(response);
@@ -256,6 +267,11 @@ export async function requestForRefundCashIssueOut(
 		}
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
 		const isCashoutDocumented = await Refund.issueOutCashOutOfRefund(tenantId, request.body);
+
+		if (isCashoutDocumented) {
+			NotificationDispatcher.dispatch(tenantId, 'REFUND_PROCESSED', { billingId: serviceid }, employeeid).catch(() => { });
+			NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REFUNDED', { billingId: serviceid }, employeeid).catch(() => { });
+		}
 
 		response.send({
 			status: isCashoutDocumented,
@@ -365,7 +381,7 @@ export async function WriteOffTransaction(request: Request<{}, {}, { billingid: 
 		if (!result) return customError("Write off failed", 404, response);
 		response.send({ status: true });
 	} catch (err) {
-		console.log(err)	
+		console.log(err)
 		responseError(response);
 	}
 }

@@ -43,24 +43,33 @@ class Appointment {
 	}
 
 	public async createAppointment(tenantId: number, data: TAppointment) {
-		const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
-		if (!patientid) throw new Error("patientid missing");
-		const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
-		if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time))) return false;
-		const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
-		const result = await this.connection(tenantId, createQuery, [
-			patientid,
-			duration,
-			appointment_time,
-			normalizedAppointmentDate,
-			inviteMethod,
-			purpose,
-			title,
-			preference,
-			practioner,
-			location,
-		]);
-		return this._affectedRows(result);
+		try {
+			const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
+			if (!patientid) throw new Error("patientid missing");
+			const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
+			if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time))) return false;
+			const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
+			const result = await this.connection(tenantId, createQuery, [
+				patientid,
+				duration,
+				appointment_time,
+				normalizedAppointmentDate,
+				inviteMethod,
+				purpose,
+				title,
+				preference,
+				practioner,
+				location,
+			]);
+
+			const insertId = Number((result as any)?.insertId ?? 0);
+			if (insertId > 0) {
+				return { success: true, appointmentId: insertId, refid: insertId };
+			}
+			return this._affectedRows(result);
+		} catch (error) {
+			throw new Error(`Failed to create appointment: ${error instanceof Error ? error.message : String(error)}`);
+		}
 	}
 
 	public async getPatientAppointmentHistory(tenantId: number, patientid: number, count: number = 10, page: number = 1) {

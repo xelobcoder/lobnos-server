@@ -9,6 +9,7 @@ import {
      ConsumptionSummary
 } from '../../models/inventory/types';
 import { InventoryTemplateModel } from '../../models/inventory';
+import { NotificationDispatcher } from '../../models/application/notifications/services/NotificationDispatcher';
 
 export class InventoryConsumptionController {
      private getTenantId(req: Request): number {
@@ -457,6 +458,18 @@ export class InventoryConsumptionController {
                     message += `. Skipped ${duplicateValidationErrors.length} item(s) due to duplicate consumption: ${duplicateValidationErrors.join('; ')}`;
                }
 
+               if (unConsumedItems.length > 0) {
+                    const first = unConsumedItems[0] as any;
+                    const firstItemId = first?.item_id || first?.id;
+                    const actorId = first?.performed_by ? Number(first.performed_by) : undefined;
+                    NotificationDispatcher.dispatch(
+                         tenantId,
+                         'STOCK_ISSUED',
+                         { inventoryId: firstItemId },
+                         actorId && !isNaN(actorId) ? actorId : undefined,
+                    ).catch(() => { });
+               }
+
                const response: ApiResponse = {
                     success: true,
                     data: {
@@ -570,6 +583,13 @@ export class InventoryConsumptionController {
                };
 
                const transaction = await model.create(transactionData);
+
+               NotificationDispatcher.dispatch(
+                    tenantId,
+                    'STOCK_ADJUSTED',
+                    { inventoryId: item_id },
+                    performed_by ? Number(performed_by) : undefined,
+               ).catch(() => { });
 
                const response: ApiResponse = {
                     success: true,
@@ -1207,7 +1227,7 @@ export class InventoryConsumptionController {
                });
 
                const totalExpiredQuantity = expiredConsumptionHistory.reduce((sum: any, c: any) => sum + c.quantity_consumed, 0);
-               const uniqueBatches = new Set(expiredConsumptionHistory.map(c=> c.batch_number).filter(Boolean)).size;
+               const uniqueBatches = new Set(expiredConsumptionHistory.map(c => c.batch_number).filter(Boolean)).size;
                const uniqueItems = new Set(expiredConsumptionHistory.map(c => c.item_id)).size;
 
                const expiredConsumptionData = expiredConsumptionHistory.map((consumption: any) => ({
@@ -1349,9 +1369,9 @@ export class InventoryConsumptionController {
                     item_sku: consumption.item_sku || '',
                     batch_number: consumption.batch_number,
                     brand_name: consumption.brand_name,
-                    expiry_date: null, 
+                    expiry_date: null,
                     quantity_wasted: consumption.quantity_consumed,
-                    wastage_type: 'other', 
+                    wastage_type: 'other',
                     reason: consumption.consumption_reason,
                     performed_by: {
                          employee_id: consumption.employee_id,

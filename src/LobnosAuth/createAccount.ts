@@ -10,6 +10,7 @@ import RolesAuditRepository from "../models/settings/users/RolesAuditRepository"
 import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import KnexConnection from "../database/KnexConnections";
 import knex from "knex";
+import { NotificationDispatcher } from "../models/application/notifications/services/NotificationDispatcher";
 
 export interface UserRequest extends Request {
      body: {
@@ -151,6 +152,10 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                newData: RolesAuditRepository.sanitizeRoleRow(createdRow)
           });
 
+          NotificationDispatcher.dispatch(tenantId, 'USER_CREATED', { userId: Number(insertResult) }, actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : undefined).catch((err) => {
+               logger.error('USER_CREATED notification dispatch failed', err);
+          });
+
           return { userId: insertResult };
      } catch (error: any) {
           logger.error(error);
@@ -164,7 +169,7 @@ const userLogin = async (req: UserRequest, res: Response) => {
           const { name, password, email, browserInformation } = req.body;
           const user = new User(name, password, null, null, null);
           const tenantId = parseInt(req.query.tenantId);
-          const userExist = await user.checkLogins(email, password, tenantId);
+          const userExist = await user.checkLogins(email as string, password, tenantId);
 
           if (!userExist) return customError("Invalid Login credentials", 400, res);
 
@@ -190,7 +195,7 @@ const userLogin = async (req: UserRequest, res: Response) => {
                     `${security.loginDuration}h`
                );
 
-               const {sessionExpiryTime }= await security.insertLoginHistory(tenantId, browserInformation);
+               const { sessionExpiryTime } = await security.insertLoginHistory(tenantId, browserInformation);
 
                res.send({
                     status: "success",
@@ -515,6 +520,16 @@ const activateAUser = async (req: UserRequest, res: Response) => {
                     oldData: RolesAuditRepository.sanitizeRoleRow(oldRow),
                     newData: RolesAuditRepository.sanitizeRoleRow(newRow)
                });
+
+               const activated = String(currentv) === '1' || String(currentv).toLowerCase() === 'true';
+               if (activated) {
+                    NotificationDispatcher.dispatch(
+                         tenantId,
+                         'USER_ACTIVATED',
+                         { userId: targetEmployeeid },
+                         actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : undefined,
+                    ).catch(() => { });
+               }
           }
           res.status(200).send({
                statusCode: 200,

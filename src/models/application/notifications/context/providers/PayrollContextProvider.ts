@@ -1,5 +1,7 @@
 import KnexConnection from '../../../../../database/KnexConnections';
 import { NotificationContextProvider } from './NotificationContextProvider';
+import { EventDefinition } from './NotificationEventDefinitions';
+import { buildEventDefinitionFromCatalog } from './NotificationEventCatalog';
 
 export class PayrollContextProvider implements NotificationContextProvider {
      private connection;
@@ -35,5 +37,14 @@ export class PayrollContextProvider implements NotificationContextProvider {
           if (!row) throw new Error('Payroll transaction not found');
 
           return row;
+     }
+
+     supportsEvent(eventCode: string): boolean {
+          return eventCode.startsWith('PAYROLL_') || eventCode.startsWith('PAYSLIP_') || eventCode.startsWith('SALARY_');
+     }
+
+     getEventDefinition(eventCode: string): EventDefinition | null {
+          if (!this.supportsEvent(eventCode)) return null;
+          return buildEventDefinitionFromCatalog(eventCode) ?? null;
      }
 }

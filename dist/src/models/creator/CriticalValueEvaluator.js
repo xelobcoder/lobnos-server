@@ -8,6 +8,7 @@ const helper_1 = require("../../hooks/helper");
 const FieldConstraintsRepository_repo_1 = __importDefault(require("../TestCreation/repositories/FieldConstraintsRepository.repo"));
 const queries_1 = require("./queries");
 const ResultLockRepository_1 = require("./Repo/ResultLockRepository");
+const NotificationDispatcher_1 = require("../application/notifications/services/NotificationDispatcher");
 class CriticalValueEvaluator {
     static isCriticalValueHitInConstraint(constraint, value, field, tenantId, addtionalfields) {
         const { constraint_type, value: constraintValue } = constraint;
@@ -199,7 +200,11 @@ class CriticalValueEvaluator {
     }
     static async logCriticalValue(tenantId, testid, billingid, statement, employeeid) {
         const result = await (0, helper_1.promisifyQuery)(tenantId, queries_1.insert_critical_value_alert, [billingid, testid, statement, employeeid]);
-        return (0, helper_1.rowAffected)(result);
+        const ok = (0, helper_1.rowAffected)(result);
+        if (ok) {
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'CRITICAL_RESULT', { billingId: billingid }, employeeid || undefined, { context: { testid, statement } }).catch(() => { });
+        }
+        return ok;
     }
 }
 exports.CriticalValueEvaluator = CriticalValueEvaluator;

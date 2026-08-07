@@ -33,6 +33,7 @@ const WriteOff_1 = require("../../models/billing/WriteOff");
 const PrimeBillingEnterprise_1 = require("../../models/billing/multi/PrimeBillingEnterprise");
 const outstanding_class_1 = __importDefault(require("../../models/billing/outstanding/outstanding_class"));
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 async function outstandingReport(request, response) {
     try {
         const { tenantId } = request.query;
@@ -126,6 +127,9 @@ async function requestForRefundHandler(request, response) {
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
         if (isValidRequestBody) {
             const request = await RefundClass_1.Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
+            if (request && typeof request !== 'string') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'REFUND_REQUESTED', { billingId: billingid }, employeeid).catch(() => { });
+            }
             response.send({ status: request });
         }
         else {
@@ -151,6 +155,9 @@ async function updateBilledTransaction(request, response) {
         }
         else {
             const outcome = await new billing_1.Billing(0).updatePreviousTransaction(tenantIdP, request.body, billId);
+            if (outcome) {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantIdP, 'INVOICE_UPDATED', { billingId: billId }).catch(() => { });
+            }
             response.send({ status: outcome });
         }
     }
@@ -218,6 +225,10 @@ async function approveRequestForRefund(request, response) {
         }
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
         const isAprovalSuccess = await RefundClass_1.Refund.approveRequestedRefund(tenantId, serviceid, employeeid, parsedApproveStatement);
+        if (isAprovalSuccess) {
+            const eventCode = parsedApproveStatement === 1 ? 'REFUND_APPROVED' : 'REFUND_REJECTED';
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, eventCode, { billingId: serviceid }, employeeid).catch(() => { });
+        }
         response.send({ status: isAprovalSuccess });
     }
     catch (err) {
@@ -232,6 +243,10 @@ async function requestForRefundCashIssueOut(request, response) {
         }
         const tenantId = parseInt(request.query.tenantId.toString(), 10);
         const isCashoutDocumented = await RefundClass_1.Refund.issueOutCashOutOfRefund(tenantId, request.body);
+        if (isCashoutDocumented) {
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'REFUND_PROCESSED', { billingId: serviceid }, employeeid).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REFUNDED', { billingId: serviceid }, employeeid).catch(() => { });
+        }
         response.send({
             status: isCashoutDocumented,
             message: isCashoutDocumented ? 'Service refunded successfully' : 'Service refund failed',

@@ -26,6 +26,7 @@ const appLevelTriggers_1 = require("../../database/appLevelTriggers");
 const user_1 = __importDefault(require("../../LobnosAuth/user"));
 const discount_limit_1 = __importDefault(require("./billing-services/discount-limit"));
 const commission_configurations_1 = require("../commissions/commission-configurations");
+const NotificationDispatcher_1 = require("../application/notifications/services/NotificationDispatcher");
 class SubmitCustomerBilling {
     static getPaidAmountAndStatus(item) {
         var _a, _b, _c, _d;
@@ -412,6 +413,14 @@ class SubmitCustomerBilling {
             const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
             const repo = new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId);
             await repo.paymentConfirmationEvent(tenantId, finalBillingIdForEvent || billingID, parsedEmployeeId);
+            const billingRef = { billingId: finalBillingIdForEvent || billingID };
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'INVOICE_CREATED', billingRef, parsedEmployeeId).catch((err) => {
+                commission_configurations_1.logger.error('INVOICE_CREATED notification dispatch failed', err);
+            });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_INITIATED', billingRef, parsedEmployeeId).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', billingRef, parsedEmployeeId).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_CONFIRMED', billingRef, parsedEmployeeId).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'INVOICE_SENT', billingRef, parsedEmployeeId).catch(() => { });
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         }
         catch (error) {

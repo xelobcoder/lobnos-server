@@ -6,6 +6,7 @@ import { ascensionStages, OperationsFailures } from "../../models/operations/typ
 import { SampleHandler } from "../../models/operations/sample/sampleClass";
 import { customError, responseError } from "../../hooks/helper";
 import Creator from "../../models/creator/creator";
+import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 
 
 export async function updateAscensionStageHandler(request: Request<{}, {}, {
@@ -26,6 +27,21 @@ export async function updateAscensionStageHandler(request: Request<{}, {}, {
         }
         const isUpdateComplete = await TestAscension.
             updateSampleAscensionstate(tenantIdP, parseInt(ascensionid.toString()), stage as keyof typeof ascensionStages, value as unknown as Date, parseInt(employeeid.toString()));
+        const ascensionIdNum = parseInt(ascensionid.toString());
+        const eventMap: Record<string, string> = {
+            collected: 'SAMPLE_COLLECTED',
+            received: 'SAMPLE_RECEIVED',
+            accepted: 'SAMPLE_ACCEPTED',
+            rejected: 'SAMPLE_REJECTED',
+            recall: 'SAMPLE_RECALL_REQUIRED',
+            recollected: 'SAMPLE_RECOLLECTED',
+            processed: 'SAMPLE_PROCESSED',
+        };
+        const stageKey = String(stage || '').toLowerCase();
+        const eventCode = eventMap[stageKey];
+        if (eventCode && isUpdateComplete) {
+            NotificationDispatcher.dispatch(tenantIdP, eventCode, { ascensionId: ascensionIdNum }, parseInt(employeeid.toString())).catch(() => { });
+        }
         response.send({ tenantId, status: isUpdateComplete })
     } catch (err) {
         responseError(response)

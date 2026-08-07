@@ -13,6 +13,7 @@ const patientRepo_1 = __importDefault(require("../../models/patients/patientRepo
 const patientAddressingRepo_repo_1 = __importDefault(require("../../models/patients/respositories/patientAddressingRepo.repo"));
 const emmergencyPatient_repo_1 = __importDefault(require("../../models/patients/respositories/emmergencyPatient.repo"));
 const newPatientsRepo_repo_1 = __importDefault(require("../../models/patients/respositories/newPatientsRepo.repo"));
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 const addNewPatient = async (request, res) => {
     try {
         const tenantId = parseInt(request.query.tenantId);
@@ -34,6 +35,9 @@ const updatePersonalInformation = async (request, response) => {
     try {
         const data = request.body;
         const result = await registration_1.default.UpdatePersonalInformation(tenantId, data, parsedPatientId);
+        if (result) {
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PATIENT_UPDATED', { patientId: parsedPatientId }).catch(() => { });
+        }
         response.send({ status: result });
     }
     catch (error) {

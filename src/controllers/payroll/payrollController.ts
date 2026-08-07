@@ -6,6 +6,7 @@ import { PayrollTransactionRepository } from '../../models/payroll/PayrollTransa
 import { TaxConfigurationRepository } from '../../models/payroll/TaxConfigurationRepository';
 import { PrimeSqlErrorHandler } from '../../hooks/utility';
 import { customError } from '../../hooks/helper';
+import { NotificationDispatcher } from '../../models/application/notifications/services/NotificationDispatcher';
 
 /**
  * Create new payroll period
@@ -72,6 +73,10 @@ export const createPayrollPeriodHandler = async (req: Request, res: Response) =>
           } else {
                const service = new PayrollProcessingService(tenantId);
                periodId = await service.createPayrollPeriod();
+          }
+
+          if (periodId) {
+               NotificationDispatcher.dispatch(tenantId, 'PAYROLL_PERIOD_CREATED', { payrollId: periodId }).catch(() => { });
           }
 
           res.status(201).json({
@@ -229,7 +234,12 @@ export const processPayrollHandler = async (req: Request, res: Response) => {
           await periodRepo.update(periodId, { tax_configuration_id: activeTaxConfig.id });
 
           const service = new PayrollProcessingService(tenantId);
+          NotificationDispatcher.dispatch(tenantId, 'PAYROLL_PROCESSING_STARTED', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
           const result = await service.processPayrollPeriod(periodId, employeeIds, calculated_by);
+
+          NotificationDispatcher.dispatch(tenantId, 'PAYROLL_PROCESSED', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
+          NotificationDispatcher.dispatch(tenantId, 'PAYSLIP_GENERATED', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
+          NotificationDispatcher.dispatch(tenantId, 'SALARY_PAYMENT_PENDING', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
 
           res.json({
                status: 'success',
@@ -264,6 +274,9 @@ export const approvePayrollHandler = async (req: Request, res: Response) => {
 
           const service = new PayrollProcessingService(tenantId);
           await service.approvePayrollPeriod(periodId, approved_by);
+
+          NotificationDispatcher.dispatch(tenantId, 'PAYROLL_APPROVED', { payrollId: periodId }, Number(approved_by) || undefined).catch(() => { });
+          NotificationDispatcher.dispatch(tenantId, 'PAYSLIP_READY', { payrollId: periodId }, Number(approved_by) || undefined).catch(() => { });
 
           res.json({
                status: 'success',
@@ -301,6 +314,8 @@ export const lockPayrollHandler = async (req: Request, res: Response) => {
 
           const service = new PayrollProcessingService(tenantId);
           await service.lockPayrollPeriod(periodId, locked_by);
+
+          NotificationDispatcher.dispatch(tenantId, 'PAYROLL_FINALIZED', { payrollId: periodId }, Number(locked_by) || undefined).catch(() => { });
 
           res.json({
                status: 'success',
@@ -344,6 +359,9 @@ export const markPayrollPaidHandler = async (req: Request, res: Response) => {
           if (payment_method.trim() == "MoMo") refinedPaymentMethod = "mobile_money";
 
           await service.markPayrollAsPaid(periodId, payment_date, refinedPaymentMethod, employeeid, branchid, referencesMap);
+
+          NotificationDispatcher.dispatch(tenantId, 'SALARY_PAYMENT_PROCESSED', { payrollId: periodId }, employeeid || undefined).catch(() => { });
+          NotificationDispatcher.dispatch(tenantId, 'PAYSLIP_SENT', { payrollId: periodId }, employeeid || undefined).catch(() => { });
 
           res.json({
                status: 'success',

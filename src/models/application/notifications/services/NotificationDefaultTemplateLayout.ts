@@ -7,9 +7,24 @@ export type TemplateParts = {
      actionValue?: string;
 };
 
+function renderDetailLine(line: string): string {
+     if (!line.includes('\n')) {
+          return `<li style="margin: 0 0 8px 0;">${line}</li>`;
+     }
+
+     const [headline, ...rest] = line.split('\n');
+     const body = rest.join('<br />');
+
+     return `
+          <li style="margin: 0 0 12px 0;">
+               <div style="font-weight: 600; color: #0f172a; margin: 0 0 6px 0;">${headline}</div>
+               <div style="white-space: normal; line-height: 1.7; color: #334155;">${body}</div>
+          </li>`;
+}
+
 export function buildEnterpriseHtml(parts: TemplateParts): string {
      const detailsHtml = parts.details
-          .map((line) => `<li style="margin: 0 0 8px 0;">${line}</li>`)
+          .map((line) => renderDetailLine(line))
           .join('');
 
      const actionBlock = parts.actionText && parts.actionValue
@@ -74,7 +89,7 @@ export function buildEnterpriseHtml(parts: TemplateParts): string {
                                         <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                                              <tr>
                                                   <td class="pls-pad" style="padding: 26px 28px 12px 28px; font-family: Segoe UI, Tahoma, Arial, sans-serif; color: #111827;">
-                                                       <p style="margin: 0 0 12px 0; font-size: 15px; line-height: 1.65;">Dear {{patient_name}},</p>
+                                                       <p style="margin: 0 0 12px 0; font-size: 15px; line-height: 1.65;">Hello,</p>
                                                        <p style="margin: 0; font-size: 14px; line-height: 1.75; color: #374151;">${parts.intro}</p>
                                                   </td>
                                              </tr>
@@ -85,7 +100,7 @@ export function buildEnterpriseHtml(parts: TemplateParts): string {
                                                             <tr>
                                                                  <td style="padding: 16px 18px; font-family: Segoe UI, Tahoma, Arial, sans-serif; color: #111827;">
                                                                       <h2 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 700; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">Event Details</h2>
-                                                                      <ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.65; color: #111827;">
+                                                                      <ul style="margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.65; color: #111827; list-style: disc;">
                                                                            ${detailsHtml}
                                                                       </ul>
                                                                  </td>
@@ -142,7 +157,7 @@ export function buildEnterprisePlain(parts: TemplateParts): string {
      return [
           `LABORATORY NOTIFICATION: ${parts.title}`,
           '',
-          'Dear {{patient_name}},',
+          'Hello,',
           parts.intro,
           '',
           'Details:',

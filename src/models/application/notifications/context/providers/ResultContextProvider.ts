@@ -17,4 +17,12 @@ export class ResultContextProvider implements NotificationContextProvider {
                report_status: 'generated',
           };
      }
+
+     supportsEvent(_eventCode: string): boolean {
+          return false;
+     }
+
+     getEventDefinition(_eventCode: string) {
+          return null;
+     }
 }

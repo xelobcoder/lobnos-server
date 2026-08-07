@@ -6,6 +6,7 @@ import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
 import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
+import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 import { OperationsFailures } from "../operations/types";
 import { ICreateNewPatient } from "../patients/interfaces";
 import { q_filter_patient_using_billingid_query, q_filter_patients, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
@@ -515,7 +516,7 @@ export default class Registration {
 			if (data.contact_pointer !== "self") {
 				data.mobile_number = null;
 			}
-				 
+
 
 			const insertId = await this.addPersonalInformation(tenantId, { ...data, employeeid: employeeId });
 
@@ -533,6 +534,9 @@ export default class Registration {
 					patientid: insertId,
 				});
 				new PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()), employeeId);
+				NotificationDispatcher.dispatch(tenantId, 'PATIENT_CREATED', { patientId: Number(insertId) }, employeeId ?? undefined).catch((err) => {
+					logger.error('PATIENT_CREATED notification dispatch failed', err);
+				});
 			}
 			else {
 				response.status(400).send({

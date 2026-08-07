@@ -2,6 +2,7 @@ import { z } from "zod";
 import { responseError, customError } from "../../hooks/helper";
 import Appointment from "../../models/appointments/appointments";
 import { Response, Request } from "express";
+import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 
 export async function getAllAppointmentsController(request: Request, response: Response) {
 	try {
@@ -66,7 +67,7 @@ export async function updateAppointmentController(request: Request, response: Re
 		}).strict();
 
 		const unParsedCleanPayload = {
-			patientid:cleanPayload.patientid,
+			patientid: cleanPayload.patientid,
 			duration: cleanPayload.duration,
 			status: cleanPayload.status,
 			appointment_time: cleanPayload.appointment_time,
@@ -86,8 +87,20 @@ export async function updateAppointmentController(request: Request, response: Re
 			return customError("Invalid appointment update fields", 400, response);
 		}
 
-		
+
 		const updated = await new Appointment(0).updateAppointment(tenantId, appointmentId, unParsedCleanPayload);
+		if (updated) {
+			const status = String(unParsedCleanPayload.status || '').toLowerCase();
+			const employeeid = request.query.employeeid ? parseInt(request.query.employeeid as string, 10) : undefined;
+			let eventCode: string | null = null;
+			if (status === 'confirmed' || status === 'confirm') eventCode = 'APPOINTMENT_CONFIRMED';
+			else if (status === 'cancelled' || status === 'canceled' || status === 'cancel') eventCode = 'APPOINTMENT_CANCELLED';
+			else if (status === 'missed' || status === 'no_show' || status === 'noshow') eventCode = 'APPOINTMENT_MISSED';
+			else if (unParsedCleanPayload.appointment_date || unParsedCleanPayload.appointment_time) eventCode = 'APPOINTMENT_RESCHEDULED';
+			if (eventCode) {
+				NotificationDispatcher.dispatch(tenantId, eventCode, { appointmentId }, employeeid && !isNaN(employeeid) ? employeeid : undefined).catch(() => { });
+			}
+		}
 		response.send({ success: updated });
 	} catch (err) {
 		console.log("Error updating appointment:", err);
@@ -103,6 +116,10 @@ export async function deleteAppointmentController(request: Request, response: Re
 			return customError("Appointment ID missing", 404, response);
 		}
 		const deleted = await new Appointment(0).deleteAppointment(tenantId, appointmentId);
+		if (deleted) {
+			const employeeid = request.query.employeeid ? parseInt(request.query.employeeid as string, 10) : undefined;
+			NotificationDispatcher.dispatch(tenantId, 'APPOINTMENT_CANCELLED', { appointmentId }, employeeid && !isNaN(employeeid) ? employeeid : undefined).catch(() => { });
+		}
 		response.send({ success: deleted });
 	} catch (err) {
 		responseError(response, err);
@@ -111,10 +128,37 @@ export async function deleteAppointmentController(request: Request, response: Re
 
 export async function createAppointmentController(request: Request, response: Response) {
 	try {
-		const tenantId: number = parseInt(request.query.tenant as string, 10);
+		const tenantRaw = (request.query.tenantId ?? request.query.tenant) as string;
+		const tenantId: number = parseInt(tenantRaw, 10);
 		const employeeid = request.query.employeeid ? parseInt(request.query.employeeid as string, 10) : 0;
+		if (!tenantId || Number.isNaN(tenantId)) return customError("Tenant ID missing in query", 404, response);
 		if (!employeeid) return customError("Employee ID missing in query", 404, response);
 		const isAppointmentCreated = await new Appointment(employeeid).createAppointment(tenantId, request.body);
+		const createdId = (isAppointmentCreated as any)?.appointmentId
+			|| (isAppointmentCreated as any)?.refid
+			|| (isAppointmentCreated as any)?.id
+			|| request.body?.refid
+			|| request.body?.appointmentId;
+		const createdOk = Boolean(isAppointmentCreated) && isAppointmentCreated !== false;
+		if (createdOk && createdId) {
+			NotificationDispatcher.dispatch(
+				tenantId,
+				'APPOINTMENT_CREATED',
+				{
+					appointmentId: Number(createdId),
+					patientId: request.body?.patientid ? Number(request.body.patientid) : undefined,
+				},
+				employeeid,
+			).then((result) => {
+				if (!result.success) {
+					console.warn('[notifications] APPOINTMENT_CREATED not queued:', result.reason || result.error);
+				}
+			}).catch((err) => {
+				console.error('[notifications] APPOINTMENT_CREATED dispatch error:', err);
+			});
+		} else if (createdOk && !createdId) {
+			console.warn('[notifications] APPOINTMENT_CREATED skipped: appointment created but no id returned');
+		}
 		response.send({ success: isAppointmentCreated });
 	} catch (err) {
 		responseError(response, err);
@@ -153,7 +197,7 @@ export async function MonthAppointmentsController(request: Request, response: Re
 export async function loadPractionerAvailableSlotsController(request: Request, response: Response) {
 	try {
 		const tenantId: number = parseInt(request.query.tenant as string, 10);
-		const { employeeid, appointment_date = new Date()} = request.query;
+		const { employeeid, appointment_date = new Date() } = request.query;
 		if (!employeeid || isNaN(Number(employeeid))) {
 			return customError("Bad Request. Employee ID not provided", 404, response);
 		}

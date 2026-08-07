@@ -1,5 +1,7 @@
 import KnexConnection from '../../../../../database/KnexConnections';
 import { NotificationContextProvider } from './NotificationContextProvider';
+import { EventDefinition } from './NotificationEventDefinitions';
+import { buildEventDefinitionFromCatalog } from './NotificationEventCatalog';
 
 export class SampleContextProvider implements NotificationContextProvider {
      private connection;
@@ -61,5 +63,14 @@ export class SampleContextProvider implements NotificationContextProvider {
                patient_phone: row.patient_phone,
                patient_gender: row.patient_gender,
           };
+     }
+
+     supportsEvent(eventCode: string): boolean {
+          return eventCode.startsWith('SAMPLE_');
+     }
+
+     getEventDefinition(eventCode: string): EventDefinition | null {
+          if (!this.supportsEvent(eventCode)) return null;
+          return buildEventDefinitionFromCatalog(eventCode) ?? null;
      }
 }

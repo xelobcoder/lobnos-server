@@ -9,6 +9,7 @@ const helper_1 = require("../../hooks/helper");
 const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 // Configure multer for ultrasound images
 const ultrasoundStorage = multer_1.default.diskStorage({
     destination: (req, file, cb) => {
@@ -61,6 +62,12 @@ exports.uploadUltrasoundImagesHandler = (0, helper_1.handleOverLoad)(async (req,
         }));
         const results = await Promise.all(uploadPromises);
         const successCount = results.filter(r => r).length;
+        if (successCount > 0) {
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tId, 'IMAGING_COMPLETED', {
+                ascensionId: parseInt(String(ascensionid), 10),
+                patientId: parseInt(String(patientid), 10),
+            }).catch(() => { });
+        }
         res.send({
             statusCode: 200,
             message: `${successCount} images uploaded successfully`,

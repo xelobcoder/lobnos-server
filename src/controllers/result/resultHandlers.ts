@@ -22,6 +22,7 @@ import RequestAccess from "../../models/security/RequestAcessResult/requestAcess
 import { Services } from "../../models/services/services";
 import KnexConnection from "../../database/KnexConnections";
 import ResultDeliveryClass from "./resultDelivery";
+import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -43,6 +44,16 @@ export const resultEntry = async (req: Request<{}, {}, { testid: number }, { ten
 
 		const isDataInserted = await new Creator(testid).resultEntry(tenantIdP, req.body as unknown as resultEntryType);
 		if (isDataInserted == true) {
+			const body = req.body as any;
+			const ascensionId = body?.ascensionid || body?.ascensionId;
+			const actorId = body?.employeeid ? Number(body.employeeid) : undefined;
+			if (ascensionId) {
+				const refs = { ascensionId: Number(ascensionId) };
+				NotificationDispatcher.dispatch(tenantIdP, 'RESULT_PROCESSING', refs, actorId).catch(() => { });
+				NotificationDispatcher.dispatch(tenantIdP, 'RESULT_PENDING_VERIFICATION', refs, actorId).catch(() => { });
+				NotificationDispatcher.dispatch(tenantIdP, 'RESULT_READY', refs, actorId).catch(() => { });
+				NotificationDispatcher.dispatch(tenantIdP, 'REPORT_READY', refs, actorId).catch(() => { });
+			}
 			response.send({ status: "success", statusCode: 200, message: "records updated successfully" });
 		} else {
 			response.send({ status: "failed", statusCode: 404, message: "error occured saving results" });
@@ -769,6 +780,15 @@ export const recordResultDelivery = async (req: Request, res: Response) => {
 			delivered_at: conn.fn.now(),
 			notes: notes ?? null
 		}).where({ ascensionid: pAscensionId })
+
+		if (result) {
+			const refs = {
+				billingId: pBillingId,
+				ascensionId: pAscensionId ?? undefined,
+			};
+			NotificationDispatcher.dispatch(tenantId, 'RESULT_RELEASED', refs, pEmployeeId).catch(() => { });
+			NotificationDispatcher.dispatch(tenantId, 'REPORT_RELEASED', refs, pEmployeeId).catch(() => { });
+		}
 
 		res.status(201).send({ status: true, result });
 	} catch (err) {

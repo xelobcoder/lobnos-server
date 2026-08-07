@@ -7,6 +7,7 @@ exports.SupplierPaymentController = void 0;
 const inventory_1 = require("../../models/inventory");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const SupplierPaymentExpenseSync_1 = require("../../models/inventory/SupplierPaymentExpenseSync");
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 class SupplierPaymentController {
     getTenantId(req) {
         const tenantId = parseInt(req.query.tenantId);
@@ -144,6 +145,24 @@ class SupplierPaymentController {
             // Add created_by to the request
             const paymentRequest = Object.assign(Object.assign({}, req.body), { created_by: employeeId });
             const payment = await model.create(paymentRequest);
+            if (payment && payment.id) {
+                const status = String(payment.payment_status || '').toLowerCase();
+                let eventCode = 'SUPPLIER_PAYMENT_PENDING';
+                if (status === 'completed')
+                    eventCode = 'SUPPLIER_PAYMENT_PROCESSED';
+                else if (status === 'failed')
+                    eventCode = 'SUPPLIER_PAYMENT_FAILED';
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, eventCode, { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                if (status === 'completed') {
+                    NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                }
+                else if (status === 'pending') {
+                    NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_PENDING', { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                }
+                else if (status === 'failed') {
+                    NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_FAILED', { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                }
+            }
             const response = {
                 success: true,
                 message: 'Supplier payment created successfully',
@@ -165,7 +184,7 @@ class SupplierPaymentController {
         try {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const payment = await model.findById(id);
             if (!payment) {
                 const response = {
@@ -197,7 +216,7 @@ class SupplierPaymentController {
         try {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
-            const { paymentId } = req.params;
+            const paymentId = req.params.paymentId;
             const payment = await model.findByPaymentId(paymentId);
             if (!payment) {
                 const response = {
@@ -345,6 +364,7 @@ class SupplierPaymentController {
         }
     }
     async update(req, res) {
+        var _a, _b, _c;
         try {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
@@ -374,6 +394,24 @@ class SupplierPaymentController {
                 res.status(404).json(response);
                 return;
             }
+            const status = String(payment.payment_status || ((_a = req.body) === null || _a === void 0 ? void 0 : _a.payment_status) || '').toLowerCase();
+            const supplierId = payment.supplier_id || id;
+            const actor = Number(((_b = req.body) === null || _b === void 0 ? void 0 : _b.updated_by) || ((_c = req.query) === null || _c === void 0 ? void 0 : _c.employeeid) || 0) || undefined;
+            if (status === 'completed') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PROCESSED', { supplierId }, actor).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', { supplierId }, actor).catch(() => { });
+            }
+            else if (status === 'failed') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_FAILED', { supplierId }, actor).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_FAILED', { supplierId }, actor).catch(() => { });
+            }
+            else if (status === 'pending') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PENDING', { supplierId }, actor).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_PENDING', { supplierId }, actor).catch(() => { });
+            }
+            else if (status === 'refunded') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REVERSED', { supplierId }, actor).catch(() => { });
+            }
             const response = {
                 success: true,
                 message: 'Supplier payment updated successfully',
@@ -395,7 +433,7 @@ class SupplierPaymentController {
         try {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const { approved_by, branchid: bodyBranchId } = req.body;
             if (!approved_by || typeof approved_by !== "number" || isNaN(approved_by)) {
                 const response = {
@@ -447,6 +485,8 @@ class SupplierPaymentController {
             catch (syncErr) {
                 expenseSync = { success: false, message: (syncErr === null || syncErr === void 0 ? void 0 : syncErr.message) || 'Expense sync failed' };
             }
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PROCESSED', { supplierId: payment.supplier_id || id }, Number(approved_by) || undefined).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_CONFIRMED', { supplierId: payment.supplier_id || id }, Number(approved_by) || undefined).catch(() => { });
             const response = {
                 success: true,
                 message: 'Supplier payment approved successfully',
@@ -468,8 +508,11 @@ class SupplierPaymentController {
         try {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const payment = await model.cancel(id);
+            if (payment) {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REVERSED', { supplierId: payment.supplier_id || id }).catch(() => { });
+            }
             if (!payment) {
                 const response = {
                     success: false,
@@ -521,6 +564,8 @@ class SupplierPaymentController {
                 res.status(404).json(response);
                 return;
             }
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_FAILED', { supplierId: payment.supplier_id || id }, Number(rejected_by) || undefined).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PAYMENT_FAILED', { supplierId: payment.supplier_id || id }, Number(rejected_by) || undefined).catch(() => { });
             const response = {
                 success: true,
                 message: 'Supplier payment rejected successfully',

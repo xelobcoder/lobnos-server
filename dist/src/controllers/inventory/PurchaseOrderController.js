@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PurchaseOrderController = void 0;
 const inventory_1 = require("../../models/inventory");
 const inventory_2 = require("../../models/inventory");
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 class PurchaseOrderController {
     getTenantId(req) {
         const tenantId = parseInt(req.query.tenantId);
@@ -144,6 +145,7 @@ class PurchaseOrderController {
         return { isValid: errors.length === 0, errors };
     }
     async createPurchaseOrder(req, res) {
+        var _a;
         try {
             const tenantId = this.getTenantId(req);
             const requestData = req.body;
@@ -162,6 +164,10 @@ class PurchaseOrderController {
             }
             const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
             const purchaseOrder = await purchaseOrderModel.create(requestData);
+            if (purchaseOrder && purchaseOrder.id) {
+                const createdBy = Number(req.query.employeeid || ((_a = req.body) === null || _a === void 0 ? void 0 : _a.created_by) || 0) || undefined;
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PURCHASE_ORDER_CREATED', { purchaseOrderId: purchaseOrder.id }, createdBy).catch(() => { });
+            }
             const orderWithPayments = Object.assign(Object.assign({}, purchaseOrder), { payment_history: [], total_paid: 0, total_pending: 0, remaining_balance: purchaseOrder.total_amount });
             const response = {
                 success: true,
@@ -310,6 +316,7 @@ class PurchaseOrderController {
         }
     }
     async updatePurchaseOrder(req, res) {
+        var _a;
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
@@ -339,6 +346,30 @@ class PurchaseOrderController {
                 };
                 res.status(404).json(response);
                 return;
+            }
+            const createdBy = Number(req.query.employeeid || ((_a = req.body) === null || _a === void 0 ? void 0 : _a.updated_by) || 0) || undefined;
+            const status = String((purchaseOrder === null || purchaseOrder === void 0 ? void 0 : purchaseOrder.status) || requestData.status || '').toLowerCase();
+            let poEvent = null;
+            if (status === 'cancelled')
+                poEvent = 'PURCHASE_ORDER_CANCELLED';
+            else if (status === 'received')
+                poEvent = 'PURCHASE_ORDER_RECEIVED';
+            else if (status === 'partially_received')
+                poEvent = 'PURCHASE_ORDER_PARTIALLY_RECEIVED';
+            else if (status === 'ordered' || status === 'submitted')
+                poEvent = 'PURCHASE_ORDER_SUBMITTED';
+            else if (status === 'approved')
+                poEvent = 'PURCHASE_ORDER_APPROVED';
+            else if (status === 'rejected')
+                poEvent = 'PURCHASE_ORDER_REJECTED';
+            else if (status === 'sent' || status === 'sent_to_supplier')
+                poEvent = 'PURCHASE_ORDER_SENT_TO_SUPPLIER';
+            else if (status === 'acknowledged')
+                poEvent = 'PURCHASE_ORDER_ACKNOWLEDGED';
+            else if (status === 'closed')
+                poEvent = 'PURCHASE_ORDER_CLOSED';
+            if (poEvent) {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, poEvent, { purchaseOrderId: purchaseOrder.id }, createdBy).catch(() => { });
             }
             const supplierPaymentModel = new inventory_2.SupplierPaymentModel(tenantId);
             try {
@@ -401,6 +432,8 @@ class PurchaseOrderController {
                 res.status(404).json(response);
                 return;
             }
+            const cancelledBy = Number(req.query.employeeid || 0) || undefined;
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PURCHASE_ORDER_CANCELLED', { purchaseOrderId: purchaseOrder.id }, cancelledBy).catch(() => { });
             const supplierPaymentModel = new inventory_2.SupplierPaymentModel(tenantId);
             try {
                 const paymentResult = await supplierPaymentModel.findMany({
@@ -446,6 +479,7 @@ class PurchaseOrderController {
         }
     }
     async receivePurchaseOrder(req, res) {
+        var _a;
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
@@ -465,6 +499,18 @@ class PurchaseOrderController {
             }
             const purchaseOrderModel = new inventory_1.PurchaseOrderModel(tenantId);
             const purchaseOrder = await purchaseOrderModel.receiveOrder(id, requestData);
+            const receivedBy = Number(req.query.employeeid || ((_a = req.body) === null || _a === void 0 ? void 0 : _a.received_by) || 0) || undefined;
+            const receiveStatus = String((purchaseOrder === null || purchaseOrder === void 0 ? void 0 : purchaseOrder.status) || '').toLowerCase();
+            const receiveEvent = receiveStatus === 'partially_received'
+                ? 'PURCHASE_ORDER_PARTIALLY_RECEIVED'
+                : 'PURCHASE_ORDER_RECEIVED';
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, receiveEvent, { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'STOCK_RECEIVED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'STOCK_RECEIPT_CREATED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+            if (receiveStatus === 'received') {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'STOCK_RECEIPT_COMPLETED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'STOCK_RESTOCKED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+            }
             const supplierPaymentModel = new inventory_2.SupplierPaymentModel(tenantId);
             try {
                 const paymentResult = await supplierPaymentModel.findMany({

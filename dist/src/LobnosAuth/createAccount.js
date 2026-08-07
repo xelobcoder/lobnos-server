@@ -13,6 +13,7 @@ const RolesRepository_1 = __importDefault(require("../models/settings/users/Role
 const RolesAuditRepository_1 = __importDefault(require("../models/settings/users/RolesAuditRepository"));
 const TiifuWorkingClass_1 = require("../database/TiifuWorkingClass");
 const KnexConnections_1 = __importDefault(require("../database/KnexConnections"));
+const NotificationDispatcher_1 = require("../models/application/notifications/services/NotificationDispatcher");
 const createNewAccount = async (req) => {
     var _a, _b;
     try {
@@ -84,6 +85,9 @@ const createNewAccount = async (req) => {
             actorEmployeeid: actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : null,
             oldData: null,
             newData: RolesAuditRepository_1.default.sanitizeRoleRow(createdRow)
+        });
+        NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'USER_CREATED', { userId: Number(insertResult) }, actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : undefined).catch((err) => {
+            logger_1.default.error('USER_CREATED notification dispatch failed', err);
         });
         return { userId: insertResult };
     }
@@ -416,6 +420,10 @@ const activateAUser = async (req, res) => {
                 oldData: RolesAuditRepository_1.default.sanitizeRoleRow(oldRow),
                 newData: RolesAuditRepository_1.default.sanitizeRoleRow(newRow)
             });
+            const activated = String(currentv) === '1' || String(currentv).toLowerCase() === 'true';
+            if (activated) {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'USER_ACTIVATED', { userId: targetEmployeeid }, actorEmployeeid && !isNaN(actorEmployeeid) ? actorEmployeeid : undefined).catch(() => { });
+            }
         }
         res.status(200).send({
             statusCode: 200,

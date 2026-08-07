@@ -50,7 +50,9 @@ export class NotificationService {
           if (!template) throw new Error('No active template found for event');
 
           const recipientRules = await this.recipientsRepo.findByEventId(event.id as number);
-          const recipients = this.recipientResolver.resolve(recipientRules, dto.context as Record<string, unknown>, dto.recipients);
+          const recipients = recipientRules.length > 0
+               ? this.recipientResolver.resolve(recipientRules, dto.context as Record<string, unknown>, dto.recipients)
+               : this.recipientResolver.resolveFallback(event.event_code, dto.context as Record<string, unknown>, dto.recipients);
 
           if (recipients.to.length === 0) {
                return {

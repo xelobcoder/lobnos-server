@@ -4,6 +4,7 @@ import { customError, responseError, handleOverLoad } from "../../hooks/helper";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 
 // Configure multer for ultrasound images
 const ultrasoundStorage = multer.diskStorage({
@@ -66,6 +67,17 @@ export const uploadUltrasoundImagesHandler = handleOverLoad(async (req: Request,
 
 		const results = await Promise.all(uploadPromises);
 		const successCount = results.filter(r => r).length;
+
+		if (successCount > 0) {
+			NotificationDispatcher.dispatch(
+				tId,
+				'IMAGING_COMPLETED',
+				{
+					ascensionId: parseInt(String(ascensionid), 10),
+					patientId: parseInt(String(patientid), 10),
+				},
+			).catch(() => { });
+		}
 
 		res.send({
 			statusCode: 200,

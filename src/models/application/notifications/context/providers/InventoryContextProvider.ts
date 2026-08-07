@@ -1,5 +1,7 @@
 import KnexConnection from '../../../../../database/KnexConnections';
 import { NotificationContextProvider } from './NotificationContextProvider';
+import { EventDefinition } from './NotificationEventDefinitions';
+import { buildEventDefinitionFromCatalog } from './NotificationEventCatalog';
 
 export class InventoryContextProvider implements NotificationContextProvider {
      private connection;
@@ -34,5 +36,14 @@ export class InventoryContextProvider implements NotificationContextProvider {
           if (!row) throw new Error('Inventory item not found');
 
           return row;
+     }
+
+     supportsEvent(eventCode: string): boolean {
+          return eventCode.startsWith('STOCK_') || eventCode.startsWith('BATCH_') || eventCode.startsWith('STOCKTAKE_');
+     }
+
+     getEventDefinition(eventCode: string): EventDefinition | null {
+          if (!this.supportsEvent(eventCode)) return null;
+          return buildEventDefinitionFromCatalog(eventCode) ?? null;
      }
 }

@@ -25,6 +25,7 @@ exports.loadPractionerAvailableSlotsController = loadPractionerAvailableSlotsCon
 const zod_1 = require("zod");
 const helper_1 = require("../../hooks/helper");
 const appointments_1 = __importDefault(require("../../models/appointments/appointments"));
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 async function getAllAppointmentsController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
@@ -107,6 +108,22 @@ async function updateAppointmentController(request, response) {
             return (0, helper_1.customError)("Invalid appointment update fields", 400, response);
         }
         const updated = await new appointments_1.default(0).updateAppointment(tenantId, appointmentId, unParsedCleanPayload);
+        if (updated) {
+            const status = String(unParsedCleanPayload.status || '').toLowerCase();
+            const employeeid = request.query.employeeid ? parseInt(request.query.employeeid, 10) : undefined;
+            let eventCode = null;
+            if (status === 'confirmed' || status === 'confirm')
+                eventCode = 'APPOINTMENT_CONFIRMED';
+            else if (status === 'cancelled' || status === 'canceled' || status === 'cancel')
+                eventCode = 'APPOINTMENT_CANCELLED';
+            else if (status === 'missed' || status === 'no_show' || status === 'noshow')
+                eventCode = 'APPOINTMENT_MISSED';
+            else if (unParsedCleanPayload.appointment_date || unParsedCleanPayload.appointment_time)
+                eventCode = 'APPOINTMENT_RESCHEDULED';
+            if (eventCode) {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, eventCode, { appointmentId }, employeeid && !isNaN(employeeid) ? employeeid : undefined).catch(() => { });
+            }
+        }
         response.send({ success: updated });
     }
     catch (err) {
@@ -122,6 +139,10 @@ async function deleteAppointmentController(request, response) {
             return (0, helper_1.customError)("Appointment ID missing", 404, response);
         }
         const deleted = await new appointments_1.default(0).deleteAppointment(tenantId, appointmentId);
+        if (deleted) {
+            const employeeid = request.query.employeeid ? parseInt(request.query.employeeid, 10) : undefined;
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'APPOINTMENT_CANCELLED', { appointmentId }, employeeid && !isNaN(employeeid) ? employeeid : undefined).catch(() => { });
+        }
         response.send({ success: deleted });
     }
     catch (err) {
@@ -129,12 +150,37 @@ async function deleteAppointmentController(request, response) {
     }
 }
 async function createAppointmentController(request, response) {
+    var _a, _b, _c, _d;
     try {
-        const tenantId = parseInt(request.query.tenant, 10);
+        const tenantRaw = ((_a = request.query.tenantId) !== null && _a !== void 0 ? _a : request.query.tenant);
+        const tenantId = parseInt(tenantRaw, 10);
         const employeeid = request.query.employeeid ? parseInt(request.query.employeeid, 10) : 0;
+        if (!tenantId || Number.isNaN(tenantId))
+            return (0, helper_1.customError)("Tenant ID missing in query", 404, response);
         if (!employeeid)
             return (0, helper_1.customError)("Employee ID missing in query", 404, response);
         const isAppointmentCreated = await new appointments_1.default(employeeid).createAppointment(tenantId, request.body);
+        const createdId = (isAppointmentCreated === null || isAppointmentCreated === void 0 ? void 0 : isAppointmentCreated.appointmentId)
+            || (isAppointmentCreated === null || isAppointmentCreated === void 0 ? void 0 : isAppointmentCreated.refid)
+            || (isAppointmentCreated === null || isAppointmentCreated === void 0 ? void 0 : isAppointmentCreated.id)
+            || ((_b = request.body) === null || _b === void 0 ? void 0 : _b.refid)
+            || ((_c = request.body) === null || _c === void 0 ? void 0 : _c.appointmentId);
+        const createdOk = Boolean(isAppointmentCreated) && isAppointmentCreated !== false;
+        if (createdOk && createdId) {
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'APPOINTMENT_CREATED', {
+                appointmentId: Number(createdId),
+                patientId: ((_d = request.body) === null || _d === void 0 ? void 0 : _d.patientid) ? Number(request.body.patientid) : undefined,
+            }, employeeid).then((result) => {
+                if (!result.success) {
+                    console.warn('[notifications] APPOINTMENT_CREATED not queued:', result.reason || result.error);
+                }
+            }).catch((err) => {
+                console.error('[notifications] APPOINTMENT_CREATED dispatch error:', err);
+            });
+        }
+        else if (createdOk && !createdId) {
+            console.warn('[notifications] APPOINTMENT_CREATED skipped: appointment created but no id returned');
+        }
         response.send({ success: isAppointmentCreated });
     }
     catch (err) {

@@ -4,6 +4,7 @@ exports.InventoryConsumptionController = void 0;
 const InventoryTransaction_1 = require("../../models/inventory/InventoryTransaction");
 const InventoryItem_1 = require("../../models/inventory/InventoryItem");
 const inventory_1 = require("../../models/inventory");
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 class InventoryConsumptionController {
     getTenantId(req) {
         const tenantId = parseInt(req.query.tenantId);
@@ -380,6 +381,12 @@ class InventoryConsumptionController {
             if (duplicateValidationErrors.length > 0) {
                 message += `. Skipped ${duplicateValidationErrors.length} item(s) due to duplicate consumption: ${duplicateValidationErrors.join('; ')}`;
             }
+            if (unConsumedItems.length > 0) {
+                const first = unConsumedItems[0];
+                const firstItemId = (first === null || first === void 0 ? void 0 : first.item_id) || (first === null || first === void 0 ? void 0 : first.id);
+                const actorId = (first === null || first === void 0 ? void 0 : first.performed_by) ? Number(first.performed_by) : undefined;
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'STOCK_ISSUED', { inventoryId: firstItemId }, actorId && !isNaN(actorId) ? actorId : undefined).catch(() => { });
+            }
             const response = {
                 success: true,
                 data: {
@@ -482,6 +489,7 @@ class InventoryConsumptionController {
                 notes
             };
             const transaction = await model.create(transactionData);
+            NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'STOCK_ADJUSTED', { inventoryId: item_id }, performed_by ? Number(performed_by) : undefined).catch(() => { });
             const response = {
                 success: true,
                 data: Object.assign(Object.assign({}, transaction), { stock_remaining: stockCheck.currentStock - quantity })

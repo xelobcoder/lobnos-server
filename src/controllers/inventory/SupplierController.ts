@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { SupplierModel } from '../../models/inventory';
+import { NotificationDispatcher } from '../../models/application/notifications/services/NotificationDispatcher';
 import {
      CreateSupplierRequest,
      UpdateSupplierRequest,
@@ -137,6 +138,11 @@ export class SupplierController {
                const supplierModel = new SupplierModel(tenantId);
                const supplier = await supplierModel.create(requestData);
 
+               if (supplier && supplier.id) {
+                    const createdBy = Number((req.query.employeeid as string) || (req.body as any)?.created_by || 0) || undefined;
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_CREATED', { supplierId: supplier.id }, createdBy).catch(() => { });
+               }
+
                const response: ApiResponse = {
                     success: true,
                     data: supplier
@@ -161,7 +167,7 @@ export class SupplierController {
      async getSupplierById(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { id } = req.params;
+               const id = req.params.id as string;
 
                const supplierModel = new SupplierModel(tenantId);
                const supplier = await supplierModel.findById(id);
@@ -277,6 +283,15 @@ export class SupplierController {
                     };
                     res.status(404).json(response);
                     return;
+               }
+
+               const updatedBy = Number((req.query.employeeid as string) || (req.body as any)?.updated_by || 0) || undefined;
+               NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_UPDATED', { supplierId: supplier.id }, updatedBy).catch(() => { });
+               const supplierStatus = String((supplier as any)?.status || (requestData as any)?.status || '').toLowerCase();
+               if (supplierStatus === 'active' || supplierStatus === 'activated') {
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_ACTIVATED', { supplierId: supplier.id }, updatedBy).catch(() => { });
+               } else if (supplierStatus === 'inactive' || supplierStatus === 'deactivated' || supplierStatus === 'disabled') {
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_DEACTIVATED', { supplierId: supplier.id }, updatedBy).catch(() => { });
                }
 
                const response: ApiResponse = {

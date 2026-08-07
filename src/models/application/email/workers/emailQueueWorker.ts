@@ -33,6 +33,8 @@ async function loop() {
      const service = buildService(tenantId);
      let running = true;
 
+     console.log(`[email-worker] started (tenant=${tenantId}, batchSize=${batchSize}, intervalMs=${intervalMs})`);
+
      process.on('SIGINT', () => {
           running = false;
           process.exit(0);
@@ -45,7 +47,8 @@ async function loop() {
 
      while (running) {
           try {
-               await service.processQueue(batchSize);
+               const processed = await service.processQueue(batchSize);
+               console.log(`[email-worker] cycle complete: processed=${processed.length}`);
           } catch (error) {
                // Worker should keep running even if one cycle fails.
                const message = error instanceof Error ? error.message : String(error);

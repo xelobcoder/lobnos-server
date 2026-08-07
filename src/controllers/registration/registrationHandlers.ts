@@ -12,6 +12,7 @@ import PatientAddressingRepo from "../../models/patients/respositories/patientAd
 import EmergencyPatientRepo from "../../models/patients/respositories/emmergencyPatient.repo";
 import NewPatientsRepo from "../../models/patients/respositories/newPatientsRepo.repo";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 
 export const addNewPatient = async (request: Request, res: Response) => {
 	try {
@@ -36,6 +37,9 @@ export const updatePersonalInformation = async (
 	try {
 		const data = request.body;
 		const result = await Registration.UpdatePersonalInformation(tenantId, data, parsedPatientId);
+		if (result) {
+			NotificationDispatcher.dispatch(tenantId, 'PATIENT_UPDATED', { patientId: parsedPatientId }).catch(() => { });
+		}
 		response.send({ status: result });
 	} catch (error: any) {
 		customError(error?.message || "Error updating personal information", 500, response);
@@ -163,14 +167,14 @@ export const checkMobileNumber = async (
 		});
 	}
 
-	const sanitizedMobileNumber =  request.query.mobileno.toString().padStart(10, '0');
+	const sanitizedMobileNumber = request.query.mobileno.toString().padStart(10, '0');
 
 	const data = await new NewPatientsRepo(tenantId).filterPatient({ mobile_number: sanitizedMobileNumber });
 	return response.send({
 		statusCode: 200,
 		status: "success",
-		exist:  data.length > 0,
-		result:  request.query.isGetData ? data : undefined,
+		exist: data.length > 0,
+		result: request.query.isGetData ? data : undefined,
 	});
 
 };

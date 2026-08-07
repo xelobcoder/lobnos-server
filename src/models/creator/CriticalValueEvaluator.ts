@@ -2,6 +2,7 @@ import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import FieldConstraintsRepository from "../TestCreation/repositories/FieldConstraintsRepository.repo";
 import { insert_critical_value_alert } from "./queries";
 import { ResultLockRepository } from "./Repo/ResultLockRepository";
+import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 
 interface addtionalfields {
      testid: number,
@@ -216,6 +217,16 @@ export class CriticalValueEvaluator {
 
      protected static async logCriticalValue(tenantId: number, testid: number, billingid: number, statement: string, employeeid: number): Promise<boolean> {
           const result = await promisifyQuery(tenantId, insert_critical_value_alert, [billingid, testid, statement, employeeid]);
-          return rowAffected(result);
+          const ok = rowAffected(result);
+          if (ok) {
+               NotificationDispatcher.dispatch(
+                    tenantId,
+                    'CRITICAL_RESULT',
+                    { billingId: billingid },
+                    employeeid || undefined,
+                    { context: { testid, statement } },
+               ).catch(() => { });
+          }
+          return ok;
      }
 }

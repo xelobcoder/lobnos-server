@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { PurchaseOrderModel } from '../../models/inventory';
 import { SupplierPaymentModel } from '../../models/inventory';
+import { NotificationDispatcher } from '../../models/application/notifications/services/NotificationDispatcher';
 import {
      CreatePurchaseOrderRequest,
      UpdatePurchaseOrderRequest,
@@ -191,6 +192,11 @@ export class PurchaseOrderController {
 
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const purchaseOrder = await purchaseOrderModel.create(requestData);
+
+               if (purchaseOrder && purchaseOrder.id) {
+                    const createdBy = Number((req.query.employeeid as string) || (req.body as any)?.created_by || 0) || undefined;
+                    NotificationDispatcher.dispatch(tenantId, 'PURCHASE_ORDER_CREATED', { purchaseOrderId: purchaseOrder.id }, createdBy).catch(() => { });
+               }
 
                const orderWithPayments = {
                     ...purchaseOrder,
@@ -444,6 +450,22 @@ export class PurchaseOrderController {
                     return;
                }
 
+               const createdBy = Number((req.query.employeeid as string) || (req.body as any)?.updated_by || 0) || undefined;
+               const status = String((purchaseOrder as any)?.status || requestData.status || '').toLowerCase();
+               let poEvent: string | null = null;
+               if (status === 'cancelled') poEvent = 'PURCHASE_ORDER_CANCELLED';
+               else if (status === 'received') poEvent = 'PURCHASE_ORDER_RECEIVED';
+               else if (status === 'partially_received') poEvent = 'PURCHASE_ORDER_PARTIALLY_RECEIVED';
+               else if (status === 'ordered' || status === 'submitted') poEvent = 'PURCHASE_ORDER_SUBMITTED';
+               else if (status === 'approved') poEvent = 'PURCHASE_ORDER_APPROVED';
+               else if (status === 'rejected') poEvent = 'PURCHASE_ORDER_REJECTED';
+               else if (status === 'sent' || status === 'sent_to_supplier') poEvent = 'PURCHASE_ORDER_SENT_TO_SUPPLIER';
+               else if (status === 'acknowledged') poEvent = 'PURCHASE_ORDER_ACKNOWLEDGED';
+               else if (status === 'closed') poEvent = 'PURCHASE_ORDER_CLOSED';
+               if (poEvent) {
+                    NotificationDispatcher.dispatch(tenantId, poEvent, { purchaseOrderId: purchaseOrder.id }, createdBy).catch(() => { });
+               }
+
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                try {
                     const paymentResult = await supplierPaymentModel.findMany({
@@ -527,6 +549,9 @@ export class PurchaseOrderController {
                     res.status(404).json(response);
                     return;
                }
+
+               const cancelledBy = Number((req.query.employeeid as string) || 0) || undefined;
+               NotificationDispatcher.dispatch(tenantId, 'PURCHASE_ORDER_CANCELLED', { purchaseOrderId: purchaseOrder.id }, cancelledBy).catch(() => { });
 
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                try {
@@ -614,6 +639,19 @@ export class PurchaseOrderController {
 
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
                const purchaseOrder = await purchaseOrderModel.receiveOrder(id, requestData);
+
+               const receivedBy = Number((req.query.employeeid as string) || (req.body as any)?.received_by || 0) || undefined;
+               const receiveStatus = String((purchaseOrder as any)?.status || '').toLowerCase();
+               const receiveEvent = receiveStatus === 'partially_received'
+                    ? 'PURCHASE_ORDER_PARTIALLY_RECEIVED'
+                    : 'PURCHASE_ORDER_RECEIVED';
+               NotificationDispatcher.dispatch(tenantId, receiveEvent, { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+               NotificationDispatcher.dispatch(tenantId, 'STOCK_RECEIVED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+               NotificationDispatcher.dispatch(tenantId, 'STOCK_RECEIPT_CREATED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+               if (receiveStatus === 'received') {
+                    NotificationDispatcher.dispatch(tenantId, 'STOCK_RECEIPT_COMPLETED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'STOCK_RESTOCKED', { purchaseOrderId: purchaseOrder.id }, receivedBy).catch(() => { });
+               }
 
                const supplierPaymentModel = new SupplierPaymentModel(tenantId);
                try {

@@ -7,6 +7,7 @@ exports.updateAscensionApprovalDetailsHandler = exports.getAscensionApprovalDeta
 const testApprovalClass_1 = require("../../models/operations/testApprovalClass");
 const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
 const helper_1 = require("../../hooks/helper");
+const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 const getAscensionApprovalDetailsHandler = async (req, res) => {
     const { ascensionid, employeeid, tenantId } = req.query;
     if (!ascensionid || !employeeid) {
@@ -38,7 +39,9 @@ const updateAscensionApprovalDetailsHandler = async (req, res) => {
             const ascensionId = parseInt(ascensionid.toString());
             const tId = parseInt(tenantId.toString());
             const updateTestApproval = await testApprovalClass_1.TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId);
-            if (typeof updateTestApproval === "boolean") {
+            if (typeof updateTestApproval === "boolean" && updateTestApproval) {
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tId, 'RESULT_VERIFIED', { ascensionId }, employeeId).catch(() => { });
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tId, 'REPORT_VERIFIED', { ascensionId }, employeeId).catch(() => { });
                 res.send({ status: updateTestApproval });
             }
             else {

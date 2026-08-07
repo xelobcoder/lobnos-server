@@ -36,26 +36,36 @@ class Appointment {
         return !(Array.isArray(rows) && rows.length > 0);
     }
     async createAppointment(tenantId, data) {
-        const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
-        if (!patientid)
-            throw new Error("patientid missing");
-        const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
-        if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time)))
-            return false;
-        const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
-        const result = await this.connection(tenantId, createQuery, [
-            patientid,
-            duration,
-            appointment_time,
-            normalizedAppointmentDate,
-            inviteMethod,
-            purpose,
-            title,
-            preference,
-            practioner,
-            location,
-        ]);
-        return this._affectedRows(result);
+        var _a;
+        try {
+            const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
+            if (!patientid)
+                throw new Error("patientid missing");
+            const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
+            if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time)))
+                return false;
+            const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
+            const result = await this.connection(tenantId, createQuery, [
+                patientid,
+                duration,
+                appointment_time,
+                normalizedAppointmentDate,
+                inviteMethod,
+                purpose,
+                title,
+                preference,
+                practioner,
+                location,
+            ]);
+            const insertId = Number((_a = result === null || result === void 0 ? void 0 : result.insertId) !== null && _a !== void 0 ? _a : 0);
+            if (insertId > 0) {
+                return { success: true, appointmentId: insertId, refid: insertId };
+            }
+            return this._affectedRows(result);
+        }
+        catch (error) {
+            throw new Error(`Failed to create appointment: ${error instanceof Error ? error.message : String(error)}`);
+        }
     }
     async getPatientAppointmentHistory(tenantId, patientid, count = 10, page = 1) {
         const query = `SELECT 

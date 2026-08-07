@@ -9,6 +9,7 @@ const helper_1 = require("../../hooks/helper");
 const logger_1 = __importDefault(require("../../hooks/logger"));
 const appset_1 = __importDefault(require("../application/appsettings/appset"));
 const PrimeEventsDataSource_1 = require("../application/sms/events/PrimeEventsDataSource");
+const NotificationDispatcher_1 = require("../application/notifications/services/NotificationDispatcher");
 const queries_1 = require("./queries");
 const TiifuWorkingClass_1 = require("../../database/TiifuWorkingClass");
 class Registration {
@@ -454,6 +455,9 @@ class Registration {
                     patientid: insertId,
                 });
                 new PrimeEventsDataSource_1.PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()), employeeId);
+                NotificationDispatcher_1.NotificationDispatcher.dispatch(tenantId, 'PATIENT_CREATED', { patientId: Number(insertId) }, employeeId !== null && employeeId !== void 0 ? employeeId : undefined).catch((err) => {
+                    logger_1.default.error('PATIENT_CREATED notification dispatch failed', err);
+                });
             }
             else {
                 response.status(400).send({

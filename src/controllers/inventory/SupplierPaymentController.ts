@@ -13,6 +13,7 @@ import {
      SupplierPaymentSummary
 } from '../../models/inventory/supplierPaymentTypes';
 import { ApiResponse, ValidationError } from '../../models/inventory/types';
+import { NotificationDispatcher } from '../../models/application/notifications/services/NotificationDispatcher';
 
 export class SupplierPaymentController {
      private getTenantId(req: Request): number {
@@ -177,6 +178,21 @@ export class SupplierPaymentController {
 
                const payment = await model.create(paymentRequest as CreateSupplierPaymentRequest);
 
+               if (payment && payment.id) {
+                    const status = String(payment.payment_status || '').toLowerCase();
+                    let eventCode = 'SUPPLIER_PAYMENT_PENDING';
+                    if (status === 'completed') eventCode = 'SUPPLIER_PAYMENT_PROCESSED';
+                    else if (status === 'failed') eventCode = 'SUPPLIER_PAYMENT_FAILED';
+                    NotificationDispatcher.dispatch(tenantId, eventCode, { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                    if (status === 'completed') {
+                         NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                    } else if (status === 'pending') {
+                         NotificationDispatcher.dispatch(tenantId, 'PAYMENT_PENDING', { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                    } else if (status === 'failed') {
+                         NotificationDispatcher.dispatch(tenantId, 'PAYMENT_FAILED', { supplierId: paymentRequest.supplier_id }, Number(employeeId)).catch(() => { });
+                    }
+               }
+
                const response: ApiResponse<any> = {
                     success: true,
                     message: 'Supplier payment created successfully',
@@ -199,7 +215,7 @@ export class SupplierPaymentController {
           try {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
-               const { id } = req.params;
+               const id = req.params.id as string;
 
                const payment = await model.findById(id);
 
@@ -235,7 +251,7 @@ export class SupplierPaymentController {
           try {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
-               const { paymentId } = req.params;
+               const paymentId = req.params.paymentId as string;
 
                const payment = await model.findByPaymentId(paymentId);
 
@@ -424,7 +440,7 @@ export class SupplierPaymentController {
                     return;
                }
 
-               const payment = await model.update(id, req.body as UpdateSupplierPaymentRequest);
+               const payment = await model.update(id as string, req.body as UpdateSupplierPaymentRequest);
 
                if (!payment) {
                     const response: ApiResponse<null> = {
@@ -434,6 +450,22 @@ export class SupplierPaymentController {
                     };
                     res.status(404).json(response);
                     return;
+               }
+
+               const status = String((payment as any).payment_status || req.body?.payment_status || '').toLowerCase();
+               const supplierId = (payment as any).supplier_id || id;
+               const actor = Number((req.body as any)?.updated_by || (req.query as any)?.employeeid || 0) || undefined;
+               if (status === 'completed') {
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PROCESSED', { supplierId }, actor).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', { supplierId }, actor).catch(() => { });
+               } else if (status === 'failed') {
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_FAILED', { supplierId }, actor).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_FAILED', { supplierId }, actor).catch(() => { });
+               } else if (status === 'pending') {
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PENDING', { supplierId }, actor).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_PENDING', { supplierId }, actor).catch(() => { });
+               } else if (status === 'refunded') {
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REVERSED', { supplierId }, actor).catch(() => { });
                }
 
                const response: ApiResponse<any> = {
@@ -458,7 +490,7 @@ export class SupplierPaymentController {
           try {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
-               const { id } = req.params;
+               const id = req.params.id as string;
                const { approved_by, branchid: bodyBranchId } = req.body;
 
                if (!approved_by || typeof approved_by !== "number" || isNaN(approved_by)) {
@@ -515,6 +547,19 @@ export class SupplierPaymentController {
                     expenseSync = { success: false, message: syncErr?.message || 'Expense sync failed' };
                }
 
+               NotificationDispatcher.dispatch(
+                    tenantId,
+                    'SUPPLIER_PAYMENT_PROCESSED',
+                    { supplierId: (payment as any).supplier_id || id },
+                    Number(approved_by) || undefined,
+               ).catch(() => { });
+               NotificationDispatcher.dispatch(
+                    tenantId,
+                    'PAYMENT_CONFIRMED',
+                    { supplierId: (payment as any).supplier_id || id },
+                    Number(approved_by) || undefined,
+               ).catch(() => { });
+
                const response: ApiResponse<any> = {
                     success: true,
                     message: 'Supplier payment approved successfully',
@@ -537,9 +582,16 @@ export class SupplierPaymentController {
           try {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
-               const { id } = req.params;
-
+               const id = req.params.id as string;
                const payment = await model.cancel(id);
+
+               if (payment) {
+                    NotificationDispatcher.dispatch(
+                         tenantId,
+                         'PAYMENT_REVERSED',
+                         { supplierId: (payment as any).supplier_id || id },
+                    ).catch(() => { });
+               }
 
                if (!payment) {
                     const response: ApiResponse<null> = {
@@ -597,6 +649,19 @@ export class SupplierPaymentController {
                     res.status(404).json(response);
                     return;
                }
+
+               NotificationDispatcher.dispatch(
+                    tenantId,
+                    'SUPPLIER_PAYMENT_FAILED',
+                    { supplierId: (payment as any).supplier_id || id },
+                    Number(rejected_by) || undefined,
+               ).catch(() => { });
+               NotificationDispatcher.dispatch(
+                    tenantId,
+                    'PAYMENT_FAILED',
+                    { supplierId: (payment as any).supplier_id || id },
+                    Number(rejected_by) || undefined,
+               ).catch(() => { });
 
                const response: ApiResponse<any> = {
                     success: true,

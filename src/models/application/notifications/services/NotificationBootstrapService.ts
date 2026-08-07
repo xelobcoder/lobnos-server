@@ -191,13 +191,64 @@ async function seedDefaultEventSettings(tenantId: number) {
                continue;
           }
 
+          const updates: Record<string, any> = {};
           if (!exists.default_template_id && defaultTemplateId) {
+               updates.default_template_id = defaultTemplateId;
+          }
+          if (exists.email_enabled === false || exists.email_enabled === 0) {
+               updates.email_enabled = true;
+          }
+          if (Object.keys(updates).length > 0) {
+               updates.updated_at = connection.fn.now();
                await connection('notification_event_settings')
                     .where({ id: exists.id })
-                    .update({
-                         default_template_id: defaultTemplateId,
-                         updated_at: connection.fn.now(),
+                    .update(updates);
+          }
+     }
+}
+
+function defaultRecipientsForEvent(eventCode: string): Array<{ recipient_type: string; is_required: boolean }> {
+     if (eventCode.startsWith('PATIENT_')) return [{ recipient_type: 'PATIENT', is_required: true }];
+     if (eventCode.startsWith('APPOINTMENT_')) return [{ recipient_type: 'PATIENT', is_required: true }];
+     if (eventCode.startsWith('SAMPLE_')) return [
+          { recipient_type: 'PATIENT', is_required: true },
+          { recipient_type: 'DOCTOR', is_required: false },
+     ];
+     if (eventCode.startsWith('RESULT_') || eventCode.startsWith('REPORT_')) return [{ recipient_type: 'PATIENT', is_required: true }];
+     if (eventCode === 'CRITICAL_RESULT') return [
+          { recipient_type: 'LAB_MANAGER', is_required: false },
+          { recipient_type: 'DOCTOR', is_required: false },
+     ];
+     if (eventCode.startsWith('INVOICE_') || eventCode.startsWith('PAYMENT_') || eventCode.startsWith('REFUND_')) return [{ recipient_type: 'PATIENT', is_required: true }];
+     if (eventCode.startsWith('PAYROLL_') || eventCode.startsWith('PAYSLIP_') || eventCode.startsWith('SALARY_')) return [{ recipient_type: 'STAFF', is_required: true }];
+     if (eventCode.startsWith('PURCHASE_ORDER_')) return [{ recipient_type: 'SUPPLIER', is_required: true }];
+     if (eventCode.startsWith('SUPPLIER_')) return [
+          { recipient_type: 'SUPPLIER', is_required: false },
+          { recipient_type: 'STAFF', is_required: false },
+     ];
+     if (eventCode.startsWith('USER_') || eventCode === 'PASSWORD_RESET') return [{ recipient_type: 'DOCTOR', is_required: true }];
+     return [];
+}
+
+async function seedDefaultRecipients(tenantId: number) {
+     const connection = await KnexConnection(tenantId);
+     const events = await connection('notification_events').select('id', 'event_code');
+
+     for (const event of events) {
+          const defaults = defaultRecipientsForEvent(event.event_code);
+          for (const recipient of defaults) {
+               const exists = await connection('notification_event_recipients')
+                    .where({ event_id: event.id, recipient_type: recipient.recipient_type })
+                    .first();
+
+               if (!exists) {
+                    await connection('notification_event_recipients').insert({
+                         event_id: event.id,
+                         recipient_type: recipient.recipient_type,
+                         is_required: recipient.is_required,
+                         is_active: true,
                     });
+               }
           }
      }
 }
@@ -220,6 +271,7 @@ export async function bootstrapNotificationDefinitions(tenantId = 1) {
 
      const syncResult = await eventContextService.ensureSystemDefinitions();
      await seedDefaultEventSettings(tenantId);
+     await seedDefaultRecipients(tenantId);
 
      const seededEvents = syncResult.length;
      const insertedVariables = syncResult.reduce((acc, row) => acc + row.variablesInserted, 0);
