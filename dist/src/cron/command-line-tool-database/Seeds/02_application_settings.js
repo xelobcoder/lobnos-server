@@ -22,6 +22,7 @@ exports.seed = function (knex) {
                     birthday: 'No',
                 }),
                 emailNotification: 0,
+                emailModuleActivated: 0,
                 includeTax: 1,
                 patientIdPrefix: null,
                 fontFamily: null,

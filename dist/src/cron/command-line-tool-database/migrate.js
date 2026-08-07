@@ -130,6 +130,7 @@ async function migrate() {
             'prime-inventory-table.sql',
             'prime-sms-tables.sql',
             'email.sql',
+            'notification-drop-old-tables.sql',
             'noticaion.sql'
         ];
         for (const file of sqlFiles) {

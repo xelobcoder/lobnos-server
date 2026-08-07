@@ -23,6 +23,13 @@ import { NotificationTemplateRenderer } from '../../models/application/notificat
 import { NotificationTemplateService } from '../../models/application/notifications/services/NotificationTemplateService';
 import { RecipientResolver } from '../../models/application/notifications/services/RecipientResolver';
 import { EmailQueueRepo } from '../../models/application/email/repositories/EmailQueueRepo';
+import { EmailLogsRepo } from '../../models/application/email/repositories/EmailLogsRepo';
+import { EmailProvidersRepo } from '../../models/application/email/repositories/EmailProvidersRepo';
+import { EmailTemplatesRepo } from '../../models/application/email/repositories/EmailTemplatesRepo';
+import { EmailSettingsRepo } from '../../models/application/email/repositories/EmailSettingsRepo';
+import { EmailQueueService } from '../../models/application/email/services/EmailQueueService';
+import { ProviderFactory } from '../../models/application/email/services/ProviderFactory';
+import { TemplateRenderer } from '../../models/application/email/services/TemplateRenderer';
 
 function buildServices(tenantId: number) {
      const eventsRepo = new NotificationEventsRepo(tenantId);
@@ -33,6 +40,19 @@ function buildServices(tenantId: number) {
      const queueRepo = new NotificationQueueRepo(tenantId);
      const versionsRepo = new NotificationTemplateVersionsRepo(tenantId);
      const emailQueueRepo = new EmailQueueRepo(tenantId);
+     const emailLogsRepo = new EmailLogsRepo(tenantId);
+     const emailProvidersRepo = new EmailProvidersRepo(tenantId);
+     const emailTemplatesRepo = new EmailTemplatesRepo(tenantId);
+     const emailSettingsRepo = new EmailSettingsRepo(tenantId);
+     const emailQueueService = new EmailQueueService(
+          emailQueueRepo,
+          emailLogsRepo,
+          emailTemplatesRepo,
+          emailProvidersRepo,
+          emailSettingsRepo,
+          new ProviderFactory(),
+          new TemplateRenderer(),
+     );
      const renderer = new NotificationTemplateRenderer();
      const eventContextService = new NotificationEventContextService(
           eventsRepo,
@@ -52,6 +72,7 @@ function buildServices(tenantId: number) {
                recipientsRepo,
                queueRepo,
                emailQueueRepo,
+               emailQueueService,
                renderer,
                new RecipientResolver(),
                eventContextService,

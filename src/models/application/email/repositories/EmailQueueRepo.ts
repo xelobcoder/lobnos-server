@@ -9,6 +9,10 @@ export class EmailQueueRepo {
           this.connection = KnexConnection(tenantId);
      }
 
+     getTenantId(): number {
+          return this.tenantId;
+     }
+
      async create(data: EmailQueueRecord): Promise<number> {
           const connection = await this.connection;
           const result = await connection(this.tableName).insert(data);
@@ -45,5 +49,22 @@ export class EmailQueueRepo {
                .orderByRaw("FIELD(priority, 'high', 'normal', 'low')")
                .orderBy('id', 'asc')
                .limit(limit);
+     }
+
+     async getQueueMetrics() {
+          const connection = await this.connection;
+          const row = await connection(this.tableName)
+               .select(
+                    connection.raw('COUNT(*) AS total'),
+                    connection.raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending"),
+                    connection.raw("SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) AS processing"),
+                    connection.raw("SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed"),
+                    connection.raw("SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled"),
+                    connection.raw("SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent"),
+                    connection.raw('ROUND(AVG(CASE WHEN sent_at IS NOT NULL THEN TIMESTAMPDIFF(SECOND, created_at, sent_at) END), 2) AS avg_wait_seconds'),
+               )
+               .first();
+
+          return row || {};
      }
 }

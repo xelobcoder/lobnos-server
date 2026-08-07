@@ -106,10 +106,10 @@ class ApplicationSettings {
     }
     async updateApplicationSettings(tenantId, data) {
         const connection = await (0, KnexConnections_1.default)(tenantId);
-        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, show_watermark, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation, allowManagerToApproveExpenses, allowManagerToRefund, allowManagerToProcessPayroll, allowManagerToProcessCommission, isCommissionEarnedOnClinicianBilling, isCommissionEarnedOnOrganizationalBilling, isCommissionEarnedOnNHISBilling, isCommissionEarnedOnPHISBilling, makepdfprintingcompulsory, ageVariationLimits } = data;
+        const { bulkregistration, emailNotification, fontsize, textcolor, DeactivateBilling24hrs, BackgroundColor, PaidBillsBeforeTransaction, show_watermark, completeFlow, approvalbeforeprinting, includeTax, allowScientistToRegisterClient, services, AllowCrmToGiveDisocunt, withnessRefund, emailModuleActivated, billingidPrefix, patientIdGenerationMethod, regioncode, billingsettings, districtcode, fontFamily, allowValidationUpaid, allowPrintingUnpaid, allowResultEnteringUpaid, byPassCollection, byPassSampleValidation, byPassValidation, byPassProcessing, automakesupplierpaymentsexpense, automakeemployeepayrollpaymentsexpense, automakeoutsourcepaymentsexpense, automakecommissionpaymentsexpense, pinOnResultEntry, pinOnResultValidation, useamountpaidforcommissioncalculation, allowManagerToApproveExpenses, allowManagerToRefund, allowManagerToProcessPayroll, allowManagerToProcessCommission, isCommissionEarnedOnClinicianBilling, isCommissionEarnedOnOrganizationalBilling, isCommissionEarnedOnNHISBilling, isCommissionEarnedOnPHISBilling, makepdfprintingcompulsory, ageVariationLimits } = data;
         try {
             const result = await connection.transaction(async (trx) => {
-                var _b;
+                var _b, _c;
                 const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
                 const record = {
                     bulkregistration,
@@ -122,6 +122,7 @@ class ApplicationSettings {
                     completeFlow,
                     approvalbeforeprinting,
                     emailNotification,
+                    emailModuleActivated: (_c = emailModuleActivated !== null && emailModuleActivated !== void 0 ? emailModuleActivated : existing === null || existing === void 0 ? void 0 : existing.emailModuleActivated) !== null && _c !== void 0 ? _c : 0,
                     includeTax,
                     services: JSON.stringify(services),
                     AllowCrmToGiveDisocunt,

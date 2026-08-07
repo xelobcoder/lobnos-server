@@ -16,6 +16,7 @@ import { EmailSettingsService } from '../../models/application/email/services/Em
 import { EmailTemplatesService } from '../../models/application/email/services/EmailTemplatesService';
 import { ProviderFactory } from '../../models/application/email/services/ProviderFactory';
 import { TemplateRenderer } from '../../models/application/email/services/TemplateRenderer';
+import { emailModuleMiddleware } from '../../middleware/emailModuleMiddleware';
 
 function buildControllers(tenantId: number) {
      const providerFactory = new ProviderFactory();
@@ -60,6 +61,8 @@ router.use((req, _res, next) => {
      next();
 });
 
+router.use('/api/v1/email', emailModuleMiddleware);
+
 router.post('/api/v1/email/templates', withEmailControllers((req, res) => req.emailControllers.templates.create(req, res)));
 router.get('/api/v1/email/templates', withEmailControllers((req, res) => req.emailControllers.templates.getAll(req, res)));
 router.get('/api/v1/email/templates/:id', withEmailControllers((req, res) => req.emailControllers.templates.getById(req, res)));
@@ -83,5 +86,6 @@ router.post('/api/v1/email/queue/process', withEmailControllers((req, res) => re
 router.post('/api/v1/email/queue/:id/process', withEmailControllers((req, res) => req.emailControllers.queue.processSingle(req, res)));
 router.post('/api/v1/email/queue/:id/retry', withEmailControllers((req, res) => req.emailControllers.queue.retry(req, res)));
 router.get('/api/v1/email/logs', withEmailControllers((req, res) => req.emailControllers.queue.getLogs(req, res)));
+router.get('/api/v1/email/analytics', withEmailControllers((req, res) => req.emailControllers.queue.getAnalytics(req, res)));
 
 export default router;

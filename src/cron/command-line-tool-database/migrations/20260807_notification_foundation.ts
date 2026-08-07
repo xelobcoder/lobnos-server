@@ -3,17 +3,22 @@ import { Knex } from 'knex';
 const EVENT_CODES = [
      'PATIENT_CREATED',
      'PATIENT_UPDATED',
+     'PATIENT_PORTAL_CREATED',
      'APPOINTMENT_CREATED',
      'APPOINTMENT_CONFIRMED',
      'APPOINTMENT_RESCHEDULED',
      'APPOINTMENT_CANCELLED',
      'APPOINTMENT_REMINDER',
+     'APPOINTMENT_MISSED',
      'SAMPLE_COLLECTED',
      'SAMPLE_RECEIVED',
+     'SAMPLE_ACCEPTED',
      'SAMPLE_REJECTED',
      'SAMPLE_RECALL_REQUIRED',
      'SAMPLE_RECOLLECTED',
      'SAMPLE_PROCESSED',
+     'RESULT_PROCESSING',
+     'RESULT_PENDING_VERIFICATION',
      'RESULT_VERIFIED',
      'RESULT_READY',
      'RESULT_RELEASED',
@@ -21,10 +26,84 @@ const EVENT_CODES = [
      'RESULT_CORRECTED',
      'CRITICAL_RESULT',
      'INVOICE_CREATED',
+     'INVOICE_UPDATED',
      'INVOICE_SENT',
+     'INVOICE_OVERDUE',
+     'PAYMENT_PENDING',
+     'PAYMENT_INITIATED',
      'PAYMENT_RECEIVED',
+     'PAYMENT_CONFIRMED',
      'PAYMENT_FAILED',
+     'PAYMENT_REVERSED',
+     'PAYMENT_REFUNDED',
+     'REFUND_REQUESTED',
+     'REFUND_APPROVED',
+     'REFUND_REJECTED',
+     'REFUND_PROCESSED',
+     'PAYROLL_PERIOD_CREATED',
+     'PAYROLL_PROCESSING_STARTED',
+     'PAYROLL_PROCESSED',
+     'PAYROLL_APPROVED',
+     'PAYROLL_REJECTED',
+     'PAYROLL_FINALIZED',
+     'PAYSLIP_GENERATED',
+     'PAYSLIP_READY',
+     'PAYSLIP_SENT',
+     'SALARY_PAYMENT_PENDING',
+     'SALARY_PAYMENT_PROCESSED',
+     'SALARY_PAYMENT_FAILED',
+     'PAYROLL_ADJUSTMENT_CREATED',
+     'PAYROLL_ADJUSTMENT_APPROVED',
+     'PAYROLL_ADJUSTMENT_REJECTED',
+     'PURCHASE_ORDER_CREATED',
+     'PURCHASE_ORDER_SUBMITTED',
+     'PURCHASE_ORDER_APPROVED',
+     'PURCHASE_ORDER_REJECTED',
+     'PURCHASE_ORDER_CANCELLED',
+     'PURCHASE_ORDER_SENT_TO_SUPPLIER',
+     'PURCHASE_ORDER_ACKNOWLEDGED',
+     'PURCHASE_ORDER_PARTIALLY_RECEIVED',
+     'PURCHASE_ORDER_RECEIVED',
+     'PURCHASE_ORDER_CLOSED',
+     'PURCHASE_ORDER_OVERDUE',
+     'SUPPLIER_CREATED',
+     'SUPPLIER_UPDATED',
+     'SUPPLIER_ACTIVATED',
+     'SUPPLIER_DEACTIVATED',
+     'SUPPLIER_PORTAL_INVITATION',
+     'SUPPLIER_PORTAL_ACTIVATED',
+     'SUPPLIER_DOCUMENT_EXPIRING',
+     'SUPPLIER_DOCUMENT_EXPIRED',
+     'SUPPLIER_PAYMENT_PENDING',
+     'SUPPLIER_PAYMENT_PROCESSED',
+     'SUPPLIER_PAYMENT_FAILED',
+     'STOCK_RECEIPT_CREATED',
+     'STOCK_RECEIVED',
+     'STOCK_RECEIPT_COMPLETED',
+     'STOCK_TRANSFER_REQUESTED',
+     'STOCK_TRANSFER_APPROVED',
+     'STOCK_TRANSFER_REJECTED',
+     'STOCK_TRANSFER_COMPLETED',
+     'STOCK_ISSUED',
+     'STOCK_RETURNED',
+     'STOCK_ADJUSTED',
+     'STOCK_LOW',
+     'STOCK_CRITICAL',
+     'STOCK_OUT_OF_STOCK',
+     'STOCK_RESTOCKED',
+     'STOCK_EXPIRING',
+     'STOCK_EXPIRED',
+     'BATCH_EXPIRING',
+     'BATCH_EXPIRED',
+     'STOCKTAKE_STARTED',
+     'STOCKTAKE_COMPLETED',
+     'STOCK_VARIANCE_DETECTED',
+     'STOCK_VARIANCE_APPROVED',
+     'IMAGING_APPOINTMENT',
+     'IMAGING_COMPLETED',
      'REPORT_READY',
+     'REPORT_VERIFIED',
+     'REPORT_RELEASED',
      'USER_CREATED',
      'USER_ACTIVATED',
      'PASSWORD_RESET',
@@ -177,11 +256,21 @@ export async function up(knex: Knex): Promise<void> {
                               ? 'sample'
                               : eventCode.startsWith('RESULT') || eventCode === 'CRITICAL_RESULT'
                                    ? 'result'
-                                   : eventCode.startsWith('INVOICE') || eventCode.startsWith('PAYMENT')
+                                   : eventCode.startsWith('INVOICE') || eventCode.startsWith('PAYMENT') || eventCode.startsWith('REFUND')
                                         ? 'billing'
-                                        : eventCode.startsWith('REPORT')
-                                             ? 'report'
-                                             : 'security';
+                                        : eventCode.startsWith('PAYROLL') || eventCode.startsWith('PAYSLIP') || eventCode.startsWith('SALARY_')
+                                             ? 'payroll'
+                                             : eventCode.startsWith('PURCHASE_ORDER')
+                                                  ? 'procurement'
+                                                  : eventCode.startsWith('SUPPLIER')
+                                                       ? 'supplier'
+                                                       : eventCode.startsWith('STOCK') || eventCode.startsWith('BATCH') || eventCode.startsWith('STOCKTAKE')
+                                                            ? 'inventory'
+                                                            : eventCode.startsWith('IMAGING') || eventCode.startsWith('REPORT')
+                                                                 ? 'imaging'
+                                                                 : eventCode.startsWith('USER') || eventCode === 'PASSWORD_RESET'
+                                                                      ? 'system'
+                                                                      : 'security';
 
                await knex('notification_events').insert({
                     event_code: eventCode,

@@ -120,6 +120,7 @@ async function migrate(): Promise<void> {
                'prime-inventory-table.sql',
                'prime-sms-tables.sql',
                'email.sql',
+               'notification-drop-old-tables.sql',
                'noticaion.sql'
           ];
 

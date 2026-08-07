@@ -78,4 +78,14 @@ export class EmailQueueController {
                responseError(res, error);
           }
      }
+
+     async getAnalytics(req: Request, res: Response) {
+          try {
+               const days = req.query.days ? parseInt(req.query.days as string, 10) : 30;
+               const result = await this.service.getAnalytics(days);
+               res.send({ status: 'success', statusCode: 200, result });
+          } catch (error) {
+               responseError(res, error);
+          }
+     }
 }

@@ -21,7 +21,6 @@ export interface NotificationEventRecord {
 
 export interface NotificationTemplateRecord {
      id?: number;
-     tenant_id?: number | null;
      event_id: number;
      template_name: string;
      subject: string;
@@ -50,7 +49,6 @@ export interface NotificationTemplateVariableRecord {
 
 export interface NotificationEventSettingRecord {
      id?: number;
-     tenant_id?: number | null;
      event_id: number;
      email_enabled: boolean;
      sms_enabled: boolean;
@@ -85,7 +83,6 @@ export interface NotificationTemplateVersionRecord {
 
 export interface NotificationQueueRecord {
      id?: number;
-     tenant_id: number;
      event_id: number;
      event_code: string;
      channel: string;

@@ -51,6 +51,7 @@ export type ApplicationSettingsData = {
      automakesupplierpaymentsexpense: numberBoolean;
      smsSettings: smsSettings;
      emailNotification: number;
+     emailModuleActivated?: numberBoolean;
      includeTax: number;
      AllowCrmToGiveDisocunt
      : numberBoolean;

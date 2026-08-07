@@ -5,6 +5,8 @@ import { NotificationEventSettingsRepo } from '../repositories/NotificationEvent
 import { NotificationEventsRepo } from '../repositories/NotificationEventsRepo';
 import { NotificationQueueRepo } from '../repositories/NotificationQueueRepo';
 import { NotificationTemplatesRepo } from '../repositories/NotificationTemplatesRepo';
+import { EmailQueueService } from '../../email/services/EmailQueueService';
+import { isEmailModuleActivated } from '../../email/helpers/emailModuleActivation';
 import { NotificationTemplateRenderer } from './NotificationTemplateRenderer';
 import { NotificationEventContextService } from './NotificationEventContextService';
 import { RecipientResolver } from './RecipientResolver';
@@ -17,6 +19,7 @@ export class NotificationService {
           private recipientsRepo: NotificationEventRecipientsRepo,
           private notificationQueueRepo: NotificationQueueRepo,
           private emailQueueRepo: EmailQueueRepo,
+          private emailQueueService: EmailQueueService,
           private renderer: NotificationTemplateRenderer,
           private recipientResolver: RecipientResolver,
           private contextService: NotificationEventContextService,
@@ -24,6 +27,14 @@ export class NotificationService {
      ) { }
 
      async trigger(dto: TriggerNotificationDto) {
+          const emailModuleEnabled = await isEmailModuleActivated(this.tenantId);
+          if (!emailModuleEnabled) {
+               return {
+                    queued: false,
+                    reason: 'Email module is not activated.',
+               };
+          }
+
           const event = await this.eventsRepo.findByCode(dto.eventCode);
           if (!event || !event.is_active) throw new Error('Notification event not found');
 
@@ -56,7 +67,6 @@ export class NotificationService {
           );
 
           const notificationQueueId = await this.notificationQueueRepo.create({
-               tenant_id: this.tenantId,
                event_id: event.id as number,
                event_code: event.event_code,
                channel: 'email',
@@ -95,6 +105,14 @@ export class NotificationService {
                email_queue_id: emailQueueId,
           });
 
+          if (!dto.scheduledAt) {
+               try {
+                    await this.emailQueueService.processSingle(emailQueueId);
+               } catch (_error) {
+                    // Keep notification queue item available for manual retry if immediate dispatch fails.
+               }
+          }
+
           return {
                queued: true,
                notificationQueueId,
@@ -123,6 +141,12 @@ export class NotificationService {
                     failure_reason: null,
                     next_retry_at: null,
                });
+
+               try {
+                    await this.emailQueueService.processSingle(queueItem.email_queue_id);
+               } catch (_error) {
+                    // Leave in queue for further retries.
+               }
           }
 
           return this.notificationQueueRepo.findById(id);

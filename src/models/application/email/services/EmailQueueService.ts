@@ -7,6 +7,7 @@ import { EmailQueueRepo } from '../repositories/EmailQueueRepo';
 import { EmailSettingsRepo } from '../repositories/EmailSettingsRepo';
 import { EmailTemplatesRepo } from '../repositories/EmailTemplatesRepo';
 import { EmailDispatchResult, ResolvedEmailJob } from '../types/EmailModels';
+import { ensureEmailModuleActivated } from '../helpers/emailModuleActivation';
 import { ProviderFactory } from './ProviderFactory';
 import { TemplateRenderer } from './TemplateRenderer';
 
@@ -21,7 +22,12 @@ export class EmailQueueService {
           private templateRenderer: TemplateRenderer,
      ) { }
 
+     private async ensureActivated() {
+          await ensureEmailModuleActivated(this.queueRepo.getTenantId());
+     }
+
      async queueEmail(dto: CreateEmailJobDto) {
+          await this.ensureActivated();
           let subject = dto.subject || '';
           let htmlBody = dto.htmlBody || '';
           let plainTextBody = dto.plainTextBody || '';
@@ -80,7 +86,33 @@ export class EmailQueueService {
           return this.logsRepo.findAll(limit);
      }
 
+     async getAnalytics(days = 30) {
+          await this.ensureActivated();
+
+          const [overview, statusBreakdown, eventBreakdown, providerPerformance, queueMetrics, dailyTrend, failureReasons] = await Promise.all([
+               this.logsRepo.getOverview(days),
+               this.logsRepo.getStatusBreakdown(days),
+               this.logsRepo.getEventBreakdown(days),
+               this.logsRepo.getProviderPerformance(days),
+               this.queueRepo.getQueueMetrics(),
+               this.logsRepo.getDailyTrend(days),
+               this.logsRepo.getFailureReasons(days),
+          ]);
+
+          return {
+               periodDays: days,
+               overview,
+               statusBreakdown,
+               eventBreakdown,
+               providerPerformance,
+               queueMetrics,
+               dailyTrend,
+               failureReasons,
+          };
+     }
+
      async processQueue(limit = 20) {
+          await this.ensureActivated();
           const jobs = await this.queueRepo.findProcessable(limit);
           const results = [];
 
@@ -107,6 +139,7 @@ export class EmailQueueService {
      }
 
      async processSingle(queueId: number) {
+          await this.ensureActivated();
           const queueItem = await this.queueRepo.findById(queueId);
           if (!queueItem) {
                throw new Error('Queued email not found');
