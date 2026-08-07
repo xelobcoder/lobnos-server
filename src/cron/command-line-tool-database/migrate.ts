@@ -119,7 +119,8 @@ async function migrate(): Promise<void> {
                'prime-billing-tables.sql',
                'prime-inventory-table.sql',
                'prime-sms-tables.sql',
-               'email.sql'
+               'email.sql',
+               'noticaion.sql'
           ];
 
           for (const file of sqlFiles) {

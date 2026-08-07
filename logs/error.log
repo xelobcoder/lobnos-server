@@ -476,3 +476,8 @@
 {"arch":"x64","code":"ER_NO_SUCH_TABLE","errno":1146,"host":"THAD","level":"error","platform":"win32","service":"lobnos-server","sql":"select * from `email_settings` limit 1","sqlMessage":"Table 'primelabtestmig.email_settings' doesn't exist","sqlState":"42S02","timestamp":"2026-08-07T01:54:07.755Z"}
 {"arch":"x64","code":"ER_NO_SUCH_TABLE","errno":1146,"host":"THAD","level":"error","platform":"win32","service":"lobnos-server","sql":"select * from `email_templates` order by `id` desc","sqlMessage":"Table 'primelabtestmig.email_templates' doesn't exist","sqlState":"42S02","timestamp":"2026-08-07T01:54:18.616Z"}
 {"arch":"x64","code":"ER_NO_SUCH_TABLE","errno":1146,"host":"THAD","level":"error","platform":"win32","service":"lobnos-server","sql":"select * from `email_templates` order by `id` desc","sqlMessage":"Table 'primelabtestmig.email_templates' doesn't exist","sqlState":"42S02","timestamp":"2026-08-07T01:54:18.694Z"}
+{"arch":"x64","host":"THAD","level":"error","platform":"win32","service":"lobnos-server","timestamp":"2026-08-07T09:04:30.004Z"}
+{"arch":"x64","host":"THAD","level":"error","platform":"win32","service":"lobnos-server","timestamp":"2026-08-07T09:04:41.584Z"}
+{"arch":"x64","host":"THAD","level":"error","platform":"win32","service":"lobnos-server","timestamp":"2026-08-07T09:04:51.547Z"}
+{"arch":"x64","host":"THAD","level":"error","platform":"win32","service":"lobnos-server","timestamp":"2026-08-07T09:06:07.390Z"}
+{"arch":"x64","host":"THAD","level":"error","platform":"win32","service":"lobnos-server","timestamp":"2026-08-07T09:06:08.474Z"}

@@ -53,6 +53,8 @@ import payrollRouter from './controllers/payroll/routes';
 import freeServicesRouter from './controllers/billing/FreeServices/routes';
 import commissionConfigRouter from './models/commissions/commission-configurations/controllers/routes';
 import emailRouter from './controllers/email/route';
+import notificationsRouter from './controllers/notifications/route';
+import { bootstrapNotificationDefinitions } from './models/application/notifications/services/NotificationBootstrapService';
 
 
 
@@ -124,6 +126,7 @@ app.use('/api/v1/payroll', payrollRouter);
 app.use('/api/v1/billing/free-services', freeServicesRouter);
 app.use('/api/v1/commission', commissionConfigRouter);
 app.use(emailRouter);
+app.use(notificationsRouter);
 
 
 
@@ -174,6 +177,16 @@ app.listen(Number(port), "0.0.0.0", () => {
     console.log(
         `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Network     : ${networkUrl}`
     );
+
+    bootstrapNotificationDefinitions(1)
+        .then(() => {
+            logger.info('Notification events/templates bootstrap finished');
+        })
+        .catch((error) => {
+            logger.error('Notification bootstrap failed', {
+                error: error instanceof Error ? error.message : String(error),
+            });
+        });
 
     //     logger.info("Server startup successful", {
     //         port: Number(port),
