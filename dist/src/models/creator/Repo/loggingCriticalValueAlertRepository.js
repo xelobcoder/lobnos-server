@@ -1,4 +1,15 @@
 "use strict";
+var __rest = (this && this.__rest) || function (s, e) {
+    var t = {};
+    for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p) && e.indexOf(p) < 0)
+        t[p] = s[p];
+    if (s != null && typeof Object.getOwnPropertySymbols === "function")
+        for (var i = 0, p = Object.getOwnPropertySymbols(s); i < p.length; i++) {
+            if (e.indexOf(p[i]) < 0 && Object.prototype.propertyIsEnumerable.call(s, p[i]))
+                t[p[i]] = s[p[i]];
+        }
+    return t;
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -11,6 +22,37 @@ class LoggingCriticalValueAlertRepository {
         this.tableName = 'loggingcriticalvaluealert';
         this.connection = (0, KnexConnections_1.default)(tenantId);
     }
+    normalizeSeenFilter(value) {
+        if (value === undefined || value === null || value === '')
+            return undefined;
+        if (typeof value === 'number') {
+            return value === 1 ? 1 : value === 0 ? 0 : undefined;
+        }
+        if (typeof value === 'boolean') {
+            return value ? 1 : 0;
+        }
+        const normalized = String(value).trim().toLowerCase();
+        if (['1', 'true', 'yes', 'seen'].includes(normalized))
+            return 1;
+        if (['0', 'false', 'no', 'unseen'].includes(normalized))
+            return 0;
+        return undefined;
+    }
+    mapAlertsWithPatientInfo(rows) {
+        return (Array.isArray(rows) ? rows : []).map((row) => {
+            var _a, _b, _c, _d;
+            const patientInfo = row.patientid || row.fullpatientid || row.patient_name || row.designation
+                ? {
+                    patientid: (_a = row.patientid) !== null && _a !== void 0 ? _a : null,
+                    fullpatientid: (_b = row.fullpatientid) !== null && _b !== void 0 ? _b : null,
+                    patientName: (_c = row.patient_name) !== null && _c !== void 0 ? _c : null,
+                    designation: (_d = row.designation) !== null && _d !== void 0 ? _d : null,
+                }
+                : null;
+            const { patientid, fullpatientid, firstname, middlename, lastname, gender, mobile_number, dob, designation, patient_name } = row, alertRow = __rest(row, ["patientid", "fullpatientid", "firstname", "middlename", "lastname", "gender", "mobile_number", "dob", "designation", "patient_name"]);
+            return Object.assign(Object.assign({}, alertRow), (patientInfo ? { patientInfo } : {}));
+        });
+    }
     async findUnseenByBillingId(billingid) {
         try {
             const conn = await this.connection;
@@ -20,6 +62,34 @@ class LoggingCriticalValueAlertRepository {
         }
         catch (error) {
             logger_1.default.error('Find unseen LoggingCriticalValueAlert by billingid error:', error);
+            throw error;
+        }
+    }
+    async findUnseenPaginated(page = 1, pageSize = 10, sortby = 'DESC') {
+        try {
+            const conn = await this.connection;
+            let baseQuery = conn(this.tableName)
+                .leftJoin('billing', 'billing.billingid', `${this.tableName}.billingid`)
+                .leftJoin('new_patients', 'new_patients.patientid', 'billing.patientid')
+                .where('isSeen', 0)
+                .andWhere(function () {
+                this.whereNotNull('billingid').orWhereNotNull('ascensionid');
+            })
+                .select(`${this.tableName}.*`, 'new_patients.patientid', 'new_patients.fullpatientid', conn.raw("CONCAT_WS(' ', new_patients.firstname, new_patients.middlename, new_patients.lastname) as patient_name"), 'new_patients.designation')
+                .orderBy(`${this.tableName}.createdOn`, sortby);
+            const totalResultRaw = await baseQuery.clone().count('* as count').first();
+            const total = totalResultRaw ? Number(totalResultRaw.count) : 0;
+            const rows = await baseQuery.clone().limit(pageSize).offset((page - 1) * pageSize);
+            const data = this.mapAlertsWithPatientInfo(rows);
+            return {
+                data,
+                total,
+                page,
+                pageSize
+            };
+        }
+        catch (error) {
+            logger_1.default.error('Find unseen LoggingCriticalValueAlert paginated error:', error);
             throw error;
         }
     }
@@ -60,8 +130,10 @@ class LoggingCriticalValueAlertRepository {
         try {
             const conn = await this.connection;
             let baseQuery = conn(this.tableName)
+                .leftJoin('billing', 'billing.billingid', `${this.tableName}.billingid`)
+                .leftJoin('new_patients', 'new_patients.patientid', 'billing.patientid')
                 .innerJoin('test_panels', `${this.tableName}.testid`, 'test_panels.id')
-                .select(`${this.tableName}.*`, 'test_panels.name as testname');
+                .select(`${this.tableName}.*`, 'test_panels.name as testname', 'new_patients.patientid', 'new_patients.fullpatientid', conn.raw("CONCAT_WS(' ', new_patients.firstname, new_patients.middlename, new_patients.lastname) as patient_name"), 'new_patients.designation');
             if (filters) {
                 if (filters.testid !== undefined)
                     baseQuery = baseQuery.where('testid', filters.testid);
@@ -69,15 +141,19 @@ class LoggingCriticalValueAlertRepository {
                     baseQuery = baseQuery.where('ascensionid', filters.ascensionid);
                 if (filters.billingid !== undefined)
                     baseQuery = baseQuery.where('billingid', filters.billingid);
+                const normalizedSeenFilter = this.normalizeSeenFilter(filters.isSeen);
+                if (normalizedSeenFilter !== undefined) {
+                    baseQuery = baseQuery.where(`${this.tableName}.isSeen`, normalizedSeenFilter == 1 ? 1 : null);
+                }
             }
-            // Add sorting by created date
             baseQuery = baseQuery.orderBy(`${this.tableName}.createdOn`, sortby);
             const totalResultRaw = await baseQuery.clone().count('* as count').first();
             const total = totalResultRaw ? Number(totalResultRaw.count) : 0;
-            const data = await baseQuery
+            const rows = await baseQuery
                 .clone()
                 .limit(pageSize)
                 .offset((page - 1) * pageSize);
+            const data = this.mapAlertsWithPatientInfo(rows);
             return {
                 data,
                 total,

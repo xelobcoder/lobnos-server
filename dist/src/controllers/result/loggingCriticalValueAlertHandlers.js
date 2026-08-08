@@ -16,10 +16,10 @@ const markLoggingCriticalValueAlertAsSeen = async (req, res) => {
         }
         const repo = new loggingCriticalValueAlertRepository_1.default(tenantId);
         const updated = await repo.markAsSeen(crkeyId, employeeId);
-        res.json({ updated });
+        res.json({ status: updated > 0 ? true : false });
     }
     catch (error) {
-        res.status(500).json({ error: 'Failed to mark alert as seen', details: error.message });
+        res.status(500).json({ error: 'Failed to mark alert as seen' });
     }
 };
 exports.markLoggingCriticalValueAlertAsSeen = markLoggingCriticalValueAlertAsSeen;
@@ -29,9 +29,20 @@ const getPaginatedLoggingCriticalValueAlerts = async (req, res) => {
         const page = Number(req.query.page) || 1;
         const limit = Number(req.query.count) || 10;
         const sortby = req.query.sortby === 'ASC' ? 'ASC' : 'DESC';
+        const status = req.query.status;
         const repo = new loggingCriticalValueAlertRepository_1.default(tenantId);
-        const alerts = await repo.findAllPaginated(page, limit, sortby);
-        res.json(alerts);
+        if (status == "unseen") {
+            const alerts = await repo.findAllPaginated(page, limit, sortby, { isSeen: 0 });
+            return res.json(alerts);
+        }
+        else if (status == "seen") {
+            const alerts = await repo.findAllPaginated(page, limit, sortby, { isSeen: 1 });
+            return res.json(alerts);
+        }
+        else {
+            const alerts = await repo.findAllPaginated(page, limit, sortby);
+            return res.json(alerts);
+        }
     }
     catch (error) {
         res.status(500).json({ error: 'Failed to fetch paginated alerts', details: error.message });

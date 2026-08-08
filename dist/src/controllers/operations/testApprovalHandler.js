@@ -5,7 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateAscensionApprovalDetailsHandler = exports.getAscensionApprovalDetailsHandler = void 0;
 const testApprovalClass_1 = require("../../models/operations/testApprovalClass");
-const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
+const resultSettings_1 = __importDefault(require("../../models/application/appsettings/result-settings/resultSettings"));
 const helper_1 = require("../../hooks/helper");
 const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
 const getAscensionApprovalDetailsHandler = async (req, res) => {

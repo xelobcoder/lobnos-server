@@ -62,7 +62,8 @@ exports.q_get_rejected_collected_samples = `
           GROUP BY ta.serviceid ORDER BY ta.serviceid ASC  LIMIT ? OFFSET ?
 `;
 exports.insert_critical_value_alert = `
-INSERT INTO loggingcriticalvaluealert (billingid, testid, statement, createdBy) VALUES (?,?,?,?)`;
+INSERT INTO loggingcriticalvaluealert (billingid, testid, constraint_type, statement, createdBy, ascensionid)
+VALUES (?,?,?,?,?,?)`;
 exports.get_all_unseen_track = `SELECT
  lc.statement,
  b.billingid,

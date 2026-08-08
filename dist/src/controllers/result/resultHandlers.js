@@ -4,7 +4,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getResultDeliveryChain = exports.recordResultHandover = exports.recordResultDelivery = exports.getResultRecordUndelivered = exports.getResultDeliveryPreference = exports.setResultDeliveryPreference = exports.completeFlowByPassMultipleHandler = exports.completeFlowByPassHandler = exports.getTestCreationRule = exports.getResultPrintMultipleHandler = exports.getResultPrintoutHandler = exports.CheckPaymentStatus = exports.resultEntryDrugsHandler = exports.criticalValuesUnseenHandler = exports.testCreationRuleUpdateHandler = exports.getResultCommentsHandler = exports.getPreviousResultEntryRecordsIfAny = exports.resultEntry = void 0;
-const resultSettings_1 = __importDefault(require("../../models/application/appsettings/resultSettings"));
+const resultSettings_1 = __importDefault(require("../../models/application/appsettings/result-settings/resultSettings"));
 const companyProfile_1 = require("../../models/settings/companyProfile");
 const registration_1 = __importDefault(require("../../models/registration/registration"));
 // import TestSetup from '../../../api/models/testSetup.model'
@@ -22,6 +22,7 @@ const services_1 = require("../../models/services/services");
 const KnexConnections_1 = __importDefault(require("../../database/KnexConnections"));
 const resultDelivery_1 = __importDefault(require("./resultDelivery"));
 const NotificationDispatcher_1 = require("../../models/application/notifications/services/NotificationDispatcher");
+const loggingCriticalValueAlertRepository_1 = __importDefault(require("../../models/creator/Repo/loggingCriticalValueAlertRepository"));
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
 //   try {
@@ -140,11 +141,16 @@ exports.testCreationRuleUpdateHandler = testCreationRuleUpdateHandler;
 const criticalValuesUnseenHandler = async (request, response) => {
     try {
         const { count, page, tenantId } = request.query;
+        if (!tenantId) {
+            return response.status(400).send({ error: 'tenantId is required' });
+        }
         const tenantIdP = parseInt(tenantId.toString());
-        const parsedCount = parseInt(count.toString());
-        const parsedPage = parseInt(page.toString());
-        // const unSeenArray = await TrackValuesAlertClass.getUnviewedTracksAlert(tenantIdP, parsedCount, parsedPage);
-        // response.send(unSeenArray);
+        const parsedCount = parseInt((count === null || count === void 0 ? void 0 : count.toString()) || '10');
+        const parsedPage = parseInt((page === null || page === void 0 ? void 0 : page.toString()) || '1');
+        const sortby = request.query.sortby === 'ASC' ? 'ASC' : 'DESC';
+        const repo = new loggingCriticalValueAlertRepository_1.default(tenantIdP);
+        const result = await repo.findUnseenPaginated(parsedPage, parsedCount, sortby);
+        response.send(result);
     }
     catch (err) {
         (0, helper_1.responseError)(response);

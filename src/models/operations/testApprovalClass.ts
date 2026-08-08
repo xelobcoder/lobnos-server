@@ -10,7 +10,7 @@ import Operations from "./operations";
 import { q_get_print_count_for_test, q_get_result_approval_details, q_updateTestApprovalStatus } from "./OperationsQueries/testApprovalQueries";
 import User from "../../LobnosAuth/user";
 import { OperationsFailures, validatorsFinalFormatType } from "./types";
-import ResultSettings from "../application/appsettings/resultSettings";
+import ResultSettings from "../application/appsettings/result-settings/resultSettings";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import RolesRepository from "../settings/users/RolesRepository";
 import ApplicationSettings from "../application/appsettings/appset";

@@ -73,7 +73,8 @@ export const q_get_rejected_collected_samples = `
 `
 
 export const insert_critical_value_alert: string = `
-INSERT INTO loggingcriticalvaluealert (billingid, testid, statement, createdBy) VALUES (?,?,?,?)`;
+INSERT INTO loggingcriticalvaluealert (billingid, testid, constraint_type, statement, createdBy, ascensionid)
+VALUES (?,?,?,?,?,?)`;
 
 
 

@@ -113,7 +113,7 @@ export class CommissionAnalyticsController {
      static async getRecipientCommissionsByPeriod(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const recipientId = parseInt(req.params.recipientId);
+               const recipientId = parseInt(req.params.recipientId.toString());
                const startDate = new Date(req.query.startDate as string);
                const endDate = new Date(req.query.endDate as string);
                const period = (req.query.period as string) || 'monthly';

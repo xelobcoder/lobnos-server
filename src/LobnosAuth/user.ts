@@ -8,7 +8,8 @@ import { convertKeysToLowerCase, customError, promisifyQuery } from "../hooks/he
 import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import { OperationsFailures } from "../models/operations/types";
 import ApplicationSettings from "../models/application/appsettings/appset";
-import ResultSettings from "../models/application/appsettings/resultSettings";
+import ResultSettings from "../models/application/appsettings/result-settings/resultSettings";
+
 
 
 class User {

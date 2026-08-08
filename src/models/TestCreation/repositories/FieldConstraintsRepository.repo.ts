@@ -9,7 +9,7 @@ class FieldConstraintsRepository {
      constructor(tenantId: number) {
           this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
-          this.tablename = 'field_contraints'
+          this.tablename = 'field_constraints'
      }
 
      validateFieldContraintsDataForCreation(constraints: FieldConstraintEntity[]): boolean {

@@ -13,9 +13,9 @@ export const markLoggingCriticalValueAlertAsSeen = async (req: Request, res: Res
           }
           const repo = new LoggingCriticalValueAlertRepository(tenantId);
           const updated = await repo.markAsSeen(crkeyId, employeeId);
-          res.json({ updated });
-     } catch (error) {
-          res.status(500).json({ error: 'Failed to mark alert as seen', details: error.message });
+          res.json({ status: updated > 0 ? true : false });
+     } catch (error: any) {
+          res.status(500).json({ error: 'Failed to mark alert as seen' });
      }
 };
 
@@ -26,10 +26,21 @@ export const getPaginatedLoggingCriticalValueAlerts = async (req: Request, res: 
           const page = Number(req.query.page) || 1;
           const limit = Number(req.query.count) || 10;
           const sortby = req.query.sortby === 'ASC' ? 'ASC' : 'DESC';
+          const status = req.query.status as "seen" | "unseen" | "all";
           const repo = new LoggingCriticalValueAlertRepository(tenantId);
-          const alerts = await repo.findAllPaginated(page, limit, sortby);
-          res.json(alerts);
-     } catch (error) {
+
+          if (status == "unseen") {
+               const alerts = await repo.findAllPaginated(page, limit, sortby, { isSeen: 0 });
+               return res.json(alerts);
+          } else if (status == "seen") {
+               const alerts = await repo.findAllPaginated (page, limit, sortby,{ isSeen: 1 });
+               return res.json(alerts);
+          } else {
+               const alerts = await repo.findAllPaginated(page, limit, sortby);
+               return res.json(alerts);
+          }
+          
+     } catch (error: any) {
           res.status(500).json({ error: 'Failed to fetch paginated alerts', details: error.message });
      }
 };
@@ -42,7 +53,7 @@ export const getCriticalDetails = async (req: Request, res: Response) => {
           const crkeyId = Number(req.params.crKeyId);
           const data = await new TrackValuesAlertClass(tenantId).getCriticalDetailsWithAscension(crkeyId);
           res.json(data);
-     } catch (error) {
+     } catch (error: any) {
           res.status(500).json({ error: 'Failed to fetch critical details', details: error.message });
      }
 }
@@ -55,7 +66,7 @@ export const createLoggingCriticalValueAlert = async (req: Request, res: Respons
           const repo = new LoggingCriticalValueAlertRepository(tenantId);
           const id = await repo.createAlert(req.body);
           res.status(201).json({ id });
-     } catch (error) {
+     } catch (error: any) {
           res.status(500).json({ error: 'Failed to create alert', details: error.message });
      }
 };
@@ -67,7 +78,7 @@ export const getLoggingCriticalValueAlertById = async (req: Request, res: Respon
           const alert = await repo.findById(Number(req.params.id));
           if (!alert) return res.status(404).json({ error: 'Not found' });
           res.json(alert);
-     } catch (error) {
+     } catch (error: any) {
           res.status(500).json({ error: 'Failed to fetch alert', details: error.message });
      }
 };
@@ -87,7 +98,7 @@ export const getLoggingCriticalValueAlertsPaginated = async (req: Request, res: 
           };
           const result = await repo.findAllPaginated(page, pageSize, sortby, filters);
           res.json(result);
-     } catch (error) {
+     } catch (error: any) {
           res.status(500).json({ error: 'Failed to fetch paginated alerts', details: error.message });
      }
 };
@@ -98,7 +109,7 @@ export const updateLoggingCriticalValueAlert = async (req: Request, res: Respons
           const repo = new LoggingCriticalValueAlertRepository(tenantId);
           const updated = await repo.update(Number(req.params.id), req.body);
           res.json({ updated });
-     } catch (error) {
+     } catch (error: any) {
           res.status(500).json({ error: 'Failed to update alert', details: error.message });
      }
 };
@@ -109,7 +120,7 @@ export const deleteLoggingCriticalValueAlert = async (req: Request, res: Respons
           const repo = new LoggingCriticalValueAlertRepository(tenantId);
           const deleted = await repo.delete(Number(req.params.id));
           res.json({ deleted });
-     } catch (error) {
+     } catch (error: any) {
           res.status(500).json({ error: 'Failed to delete alert', details: error.message });
      }
 };
@@ -121,7 +132,7 @@ export const getAllLoggingCriticalValueAlerts = async (req: Request, res: Respon
           const repo = new LoggingCriticalValueAlertRepository(tenantId);
           const alerts = await repo.findAll();
           res.json(alerts);
-     } catch (err) {
+     } catch (err: any) {
           res.status(500).json({ error: 'Failed to fetch alerts', details: err.message });
      }
 }

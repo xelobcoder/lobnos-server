@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { OperationsFailures, validatorsFinalFormatType } from "../../models/operations/types";
-import ResultSettings, { ApplicationResultSettings } from "../../models/application/appsettings/resultSettings";
+import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
+import { ApplicationResultSettings } from "../../models/application/appsettings/interfaces/results-settings.interface";
 import { companyInfo, getAllCompanyProfiles } from "../../models/settings/companyProfile";
 import Registration from "../../models/registration/registration";
 import { NewRegistration } from "../../models/registration/types";
@@ -23,6 +24,7 @@ import { Services } from "../../models/services/services";
 import KnexConnection from "../../database/KnexConnections";
 import ResultDeliveryClass from "./resultDelivery";
 import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
+import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -147,16 +149,20 @@ export const testCreationRuleUpdateHandler = async (request: Request<{}, {}, { t
 
 
 
-export const criticalValuesUnseenHandler = async (request: Request<{}, {}, {}, { count: string, page: string, tenantId: string }>, response: Response) => {
+export const criticalValuesUnseenHandler = async (request: Request<{}, {}, {}, { count?: string, page?: string, tenantId?: string, sortby?: string }>, response: Response) => {
 	try {
 		const { count, page, tenantId } = request.query;
+		if (!tenantId) {
+			return response.status(400).send({ error: 'tenantId is required' });
+		}
 
 		const tenantIdP = parseInt(tenantId.toString())
-
-		const parsedCount = parseInt(count.toString());
-		const parsedPage = parseInt(page.toString());
-		// const unSeenArray = await TrackValuesAlertClass.getUnviewedTracksAlert(tenantIdP, parsedCount, parsedPage);
-		// response.send(unSeenArray);
+		const parsedCount = parseInt(count?.toString() || '10');
+		const parsedPage = parseInt(page?.toString() || '1');
+		const sortby = request.query.sortby === 'ASC' ? 'ASC' : 'DESC';
+		const repo = new LoggingCriticalValueAlertRepository(tenantIdP);
+		const result = await repo.findUnseenPaginated(parsedPage, parsedCount, sortby);
+		response.send(result);
 	} catch (err) {
 		responseError(response);
 	}

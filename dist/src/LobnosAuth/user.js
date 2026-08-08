@@ -45,7 +45,7 @@ const securityClass_1 = __importDefault(require("../models/security/securityClas
 const helper_1 = require("../hooks/helper");
 const TiifuWorkingClass_1 = require("../database/TiifuWorkingClass");
 const appset_1 = __importDefault(require("../models/application/appsettings/appset"));
-const resultSettings_1 = __importDefault(require("../models/application/appsettings/resultSettings"));
+const resultSettings_1 = __importDefault(require("../models/application/appsettings/result-settings/resultSettings"));
 class User {
     constructor(name = null, password = null, role = null, email = null, branch = null) {
         this.name = name || null;

@@ -43,7 +43,7 @@ async function getAllAppointmentsController(request, response) {
 async function getAppointmentDetailsController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
-        const appointmentId = parseInt(request.params.id, 10);
+        const appointmentId = parseInt(request.params.id.toString(), 10);
         if (!appointmentId) {
             return (0, helper_1.customError)("Appointment ID missing", 404, response);
         }
@@ -60,11 +60,9 @@ async function getAppointmentDetailsController(request, response) {
 async function updateAppointmentController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
-        const appointmentId = parseInt(request.params.id, 10);
-        if (!appointmentId) {
+        const appointmentId = parseInt(request.params.id.toString(), 10);
+        if (!appointmentId)
             return (0, helper_1.customError)("Appointment ID missing", 404, response);
-        }
-        // Preprocess payload: remove refid, convert appointment_date to YYYY-MM-DD
         const _a = request.body, { refid, appointment_date } = _a, rest = __rest(_a, ["refid", "appointment_date"]);
         let processedDate = appointment_date;
         if (appointment_date && appointment_date.includes("T")) {
@@ -134,7 +132,7 @@ async function updateAppointmentController(request, response) {
 async function deleteAppointmentController(request, response) {
     try {
         const tenantId = parseInt(request.query.tenant, 10);
-        const appointmentId = parseInt(request.params.id, 10);
+        const appointmentId = parseInt(request.params.id.toString(), 10);
         if (!appointmentId) {
             return (0, helper_1.customError)("Appointment ID missing", 404, response);
         }
@@ -209,7 +207,7 @@ async function MonthAppointmentsController(request, response) {
         const tenantId = parseInt(request.query.tenant, 10);
         let { month = (new Date().getMonth() + 1).toString() } = request.query;
         const searchMonth = typeof month === "string" && !isNaN(Number(month)) ? parseInt(month) : Number(month);
-        const records = await new appointments_1.default(null).loadMonthAppointments(tenantId, searchMonth);
+        const records = await new appointments_1.default(0).loadMonthAppointments(tenantId, searchMonth);
         response.send(records);
     }
     catch (err) {

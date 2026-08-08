@@ -89,6 +89,8 @@ function detailsForResult(): string[] {
      ];
 }
 
+
+
 function detailsForBilling(): string[] {
      return [
           'Billing ID: {{billing_id}}',

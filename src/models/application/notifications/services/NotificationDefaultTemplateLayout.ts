@@ -114,7 +114,7 @@ export function buildEnterpriseHtml(parts: TemplateParts): string {
                                              <tr>
                                                   <td class="pls-pad" style="padding: 10px 28px 18px 28px; font-family: Segoe UI, Tahoma, Arial, sans-serif;">
                                                        <p style="margin: 0; font-size: 12px; line-height: 1.7; color: #6b7280;">
-                                                            Event Code: <strong>{{event_code}}</strong><br />
+                                                         
                                                             Triggered At: {{triggered_at}}
                                                        </p>
                                                   </td>

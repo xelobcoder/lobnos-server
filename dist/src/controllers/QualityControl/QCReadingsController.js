@@ -28,7 +28,7 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository_1.QCSessionsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const session = await repository.findById(id);
             if (!session) {
                 return res.status(404).json({ error: 'QC session not found' });
@@ -44,7 +44,7 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository_1.QCSessionsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const updates = req.body;
             const result = await repository.update(id, updates);
             res.json({ status: result });
@@ -59,7 +59,7 @@ class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const sessionRepo = new QCSessionsRepository_1.QCSessionsRepository(tenantId);
             const readingRepo = new QCReadingsRepository_1.QCReadingsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             // Delete all readings first
             const readings = await readingRepo.findBySessionId(id);
             await Promise.all(readings.map(reading => readingRepo.delete(reading.id)));
@@ -103,7 +103,7 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository_1.QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
+            const sessionId = req.params.sessionId;
             const readings = await repository.findBySessionId(sessionId);
             const deletePromises = readings.map(reading => repository.delete(reading.id));
             await Promise.all(deletePromises);
@@ -118,7 +118,7 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository_1.QCReadingsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const updates = req.body;
             const result = await repository.update(id, updates);
             res.json({ status: result });
@@ -132,7 +132,7 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository_1.QCReadingsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const reading = await repository.findById(id);
             if (!reading) {
                 return res.status(404).json({ error: 'QC reading not found' });
@@ -148,7 +148,7 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository_1.QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
+            const sessionId = req.params.sessionId;
             const readings = await repository.findBySessionId(sessionId);
             res.json(readings);
         }
@@ -161,7 +161,7 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository_1.QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
+            const sessionId = req.params.sessionId;
             if (!sessionId) {
                 return res.status(400).json({ error: 'Session ID is required' });
             }
@@ -177,8 +177,8 @@ class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository_1.QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
-            const { controlId } = req.params;
+            const sessionId = req.params.sessionId;
+            const controlId = req.params.controlId;
             console.log({ controlId, sessionId });
             if (!sessionId || !controlId) {
                 return res.status(400).json({ error: 'Both sessionId and controlId are required' });

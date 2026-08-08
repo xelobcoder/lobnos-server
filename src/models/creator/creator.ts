@@ -303,7 +303,7 @@ export default class Creator {
 			const settings = await new ApplicationSettings().getAllAppSettings(tenantId);
 
 			const ageGroup = this.getAgeGroup(clientAge, clientAgeType, settings?.ageVariationLimits);
-			console.log({ageGroup,clientAge, clientAgeType})
+			console.log({ ageGroup, clientAge, clientAgeType })
 			previousRecords = previousRecords.map(item => this.applyDemographicLimits(item as TestCreationRule, clientGender, ageGroup));
 
 			if (hasGenderVariation && clientGender) {
@@ -514,6 +514,7 @@ export default class Creator {
 				await drugProcessor();
 				await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassValidation', employeeid, trx);
 			});
+
 			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
 			return true;
 

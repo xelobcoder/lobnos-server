@@ -77,7 +77,7 @@ exports.uploadUltrasoundImagesHandler = (0, helper_1.handleOverLoad)(async (req,
 });
 exports.getUltrasoundImagesHandler = (0, helper_1.handleOverLoad)(async (req, res) => {
     try {
-        const { ascensionid } = req.params;
+        const ascensionid = req.params.ascensionid;
         const { tenantId } = req.query;
         if (!ascensionid || !tenantId) {
             return (0, helper_1.customError)("ascensionid and tenantId are required", 400, res);
@@ -104,7 +104,7 @@ exports.getUltrasoundImagesHandler = (0, helper_1.handleOverLoad)(async (req, re
 });
 exports.deleteUltrasoundImageHandler = (0, helper_1.handleOverLoad)(async (req, res) => {
     try {
-        const { id } = req.params;
+        const id = req.params.id;
         const { tenantId } = req.query;
         if (!id || !tenantId) {
             return (0, helper_1.customError)("id and tenantId are required", 400, res);
@@ -146,7 +146,7 @@ exports.deleteUltrasoundImageHandler = (0, helper_1.handleOverLoad)(async (req, 
 });
 exports.serveUltrasoundImageHandler = (0, helper_1.handleOverLoad)(async (req, res) => {
     try {
-        const { filename } = req.params;
+        const filename = req.params.filename;
         const filePath = path_1.default.join(process.cwd(), "public", "uploads", "ultrasound", filename);
         if (fs_1.default.existsSync(filePath)) {
             res.sendFile(filePath);

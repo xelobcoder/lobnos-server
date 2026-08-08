@@ -1,7 +1,7 @@
 import { TestApprovalClass } from "../../models/operations/testApprovalClass";
 import { Request, Response } from "express";
 import { OperationsFailures } from "../../models/operations/types";
-import ResultSettings from "../../models/application/appsettings/resultSettings";
+import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import { customError, responseError } from "../../hooks/helper";
 import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 

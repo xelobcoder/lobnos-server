@@ -40,6 +40,8 @@ router.get('/api/v1/result/delivery/record/result/undelivered', (0, helper_1.han
 router.get('/api/v1/result/delivery/chain/:billingid', (0, helper_1.handleOverLoad)(resultHandlers_1.getResultDeliveryChain));
 // criticalcallout 
 router.get("/api/v1/result/criticalvalues/logging/paginated", loggingCriticalValueAlertHandlers_1.getPaginatedLoggingCriticalValueAlerts);
+// mark critical value alert as seen
+router.put("/api/v1/result/criticalvalues/logging/:id/markasseen", loggingCriticalValueAlertHandlers_1.markLoggingCriticalValueAlertAsSeen);
 router.get("/api/v1/result/criticalvalues/logging/:crKeyId", loggingCriticalValueAlertHandlers_1.getCriticalDetails);
 exports.default = router;
 router.post('/api/v1/result/criticalvalues/logging', loggingCriticalValueAlertHandlers_1.createLoggingCriticalValueAlert);

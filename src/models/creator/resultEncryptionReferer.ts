@@ -55,8 +55,8 @@ export default async function resultEncrptionReferer(resources: TestRefererNatur
                encrypt_resources({ resources: refinedResources }) :
                decrypt_resources({ resources: refinedResources });
           return result;
-     } catch (err) {
-          console.log('Validation or fetch error:', err);
+     } catch {
+          return undefined;
      }
 }
 

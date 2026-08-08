@@ -29,7 +29,7 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id as string;
             
             const session = await repository.findById(id);
             if (!session) {
@@ -46,7 +46,7 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id as string;
             const updates = req.body;
             
             const result = await repository.update(id, updates);
@@ -62,7 +62,7 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const sessionRepo = new QCSessionsRepository(tenantId);
             const readingRepo = new QCReadingsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id as string;
             
             // Delete all readings first
             const readings = await readingRepo.findBySessionId(id);
@@ -112,7 +112,7 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
+            const sessionId = req.params.sessionId as string;
             
             const readings = await repository.findBySessionId(sessionId);
             const deletePromises = readings.map(reading => 
@@ -131,7 +131,7 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id as string;
             const updates = req.body;
             
             const result = await repository.update(id, updates);
@@ -146,7 +146,7 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
-            const { id } = req.params;
+            const id = req.params.id as string;
             
             const reading = await repository.findById(id);
             if (!reading) {
@@ -163,7 +163,7 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
+            const sessionId = req.params.sessionId as string;
             
             const readings = await repository.findBySessionId(sessionId);
             res.json(readings);
@@ -177,7 +177,7 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
+            const sessionId = req.params.sessionId as string;
             
             if (!sessionId) {
                 return res.status(400).json({ error: 'Session ID is required' });
@@ -195,8 +195,8 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
-            const { sessionId } = req.params;
-            const { controlId } = req.params;
+            const sessionId = req.params.sessionId as string;
+            const controlId = req.params.controlId as string;
 
             console.log({controlId,sessionId})
             

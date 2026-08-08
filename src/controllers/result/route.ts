@@ -30,7 +30,8 @@ import {
        deleteLoggingCriticalValueAlert,
        getCriticalDetails,
        getPaginatedLoggingCriticalValueAlerts,
-       getAllLoggingCriticalValueAlerts
+       getAllLoggingCriticalValueAlerts,
+       markLoggingCriticalValueAlertAsSeen
 } from './loggingCriticalValueAlertHandlers';
 import { handleOverLoad } from "../../hooks/helper";
 import { TestResultsAuditLogsController } from "./testResultsAuditLogsController";
@@ -86,6 +87,8 @@ router.get('/api/v1/result/delivery/chain/:billingid', handleOverLoad(getResultD
 
 // criticalcallout 
 router.get("/api/v1/result/criticalvalues/logging/paginated", getPaginatedLoggingCriticalValueAlerts)
+// mark critical value alert as seen
+router.put("/api/v1/result/criticalvalues/logging/:id/markasseen", markLoggingCriticalValueAlertAsSeen)
 router.get("/api/v1/result/criticalvalues/logging/:crKeyId", getCriticalDetails)
 
 export default router;

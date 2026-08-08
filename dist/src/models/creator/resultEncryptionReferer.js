@@ -40,7 +40,7 @@ async function resultEncrptionReferer(resources, mode = "encryption") {
             (0, encryptionModels_1.decrypt_resources)({ resources: refinedResources });
         return result;
     }
-    catch (err) {
-        console.log('Validation or fetch error:', err);
+    catch (_a) {
+        return undefined;
     }
 }

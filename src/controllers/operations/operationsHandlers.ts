@@ -89,7 +89,7 @@ export const uploadUltrasoundImagesHandler = handleOverLoad(async (req: Request,
 
 export const getUltrasoundImagesHandler = handleOverLoad(async (req: Request, res: Response) => {
 	try {
-		const { ascensionid } = req.params;
+		const ascensionid = req.params.ascensionid as string;
 		const { tenantId } = req.query;
 
 		if (!ascensionid || !tenantId) {
@@ -121,7 +121,7 @@ export const getUltrasoundImagesHandler = handleOverLoad(async (req: Request, re
 
 export const deleteUltrasoundImageHandler = handleOverLoad(async (req: Request, res: Response) => {
 	try {
-		const { id } = req.params;
+		const id = req.params.id as string;
 		const { tenantId } = req.query;
 
 		if (!id || !tenantId) {
@@ -169,7 +169,7 @@ export const deleteUltrasoundImageHandler = handleOverLoad(async (req: Request, 
 
 export const serveUltrasoundImageHandler = handleOverLoad(async (req: Request, res: Response) => {
 	try {
-		const { filename } = req.params;
+		const filename = req.params.filename as string;
 		const filePath = path.join(process.cwd(), "public", "uploads", "ultrasound", filename);
 
 		if (fs.existsSync(filePath)) {

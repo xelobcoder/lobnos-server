@@ -20,7 +20,7 @@ export async function getAllAppointmentsController(request: Request, response: R
 export async function getAppointmentDetailsController(request: Request, response: Response) {
 	try {
 		const tenantId: number = parseInt(request.query.tenant as string, 10);
-		const appointmentId: number = parseInt(request.params.id, 10);
+		const appointmentId: number = parseInt(request.params.id.toString(), 10);
 		if (!appointmentId) {
 			return customError("Appointment ID missing", 404, response);
 		}
@@ -37,11 +37,9 @@ export async function getAppointmentDetailsController(request: Request, response
 export async function updateAppointmentController(request: Request, response: Response) {
 	try {
 		const tenantId: number = parseInt(request.query.tenant as string, 10);
-		const appointmentId: number = parseInt(request.params.id, 10);
-		if (!appointmentId) {
-			return customError("Appointment ID missing", 404, response);
-		}
-		// Preprocess payload: remove refid, convert appointment_date to YYYY-MM-DD
+		const appointmentId: number = parseInt(request.params.id.toString(), 10);
+		if (!appointmentId) return customError("Appointment ID missing", 404, response);
+
 		const { refid, appointment_date, ...rest } = request.body;
 		let processedDate = appointment_date;
 		if (appointment_date && appointment_date.includes("T")) {
@@ -111,7 +109,7 @@ export async function updateAppointmentController(request: Request, response: Re
 export async function deleteAppointmentController(request: Request, response: Response) {
 	try {
 		const tenantId: number = parseInt(request.query.tenant as string, 10);
-		const appointmentId: number = parseInt(request.params.id, 10);
+		const appointmentId: number = parseInt(request.params.id.toString(), 10);
 		if (!appointmentId) {
 			return customError("Appointment ID missing", 404, response);
 		}
@@ -187,7 +185,7 @@ export async function MonthAppointmentsController(request: Request, response: Re
 		const tenantId: number = parseInt(request.query.tenant as string, 10);
 		let { month = (new Date().getMonth() + 1).toString() } = request.query;
 		const searchMonth = typeof month === "string" && !isNaN(Number(month)) ? parseInt(month) : Number(month);
-		const records = await new Appointment(null).loadMonthAppointments(tenantId, searchMonth);
+		const records = await new Appointment(0).loadMonthAppointments(tenantId, searchMonth);
 		response.send(records);
 	} catch (err) {
 		responseError(response, err);

@@ -4,7 +4,7 @@ import User from "../../LobnosAuth/user";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { categoryColumnMapper, smsTemplatePlaceholdersOptions, TableFilteringType } from "../../database/interface";
 import Tax from "../../models/application/Tax";
-import ResultSettings from "../../models/application/appsettings/resultSettings";
+import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import { OperationsFailures } from "../../models/operations/types";
 import ApplicationSettings from "./../../models/application/appsettings/appset";
 import { responseError, customError } from "../../hooks/helper";
@@ -602,7 +602,7 @@ export const correctRefererErrorPostRegistrationHandler = async (req: Request, r
 			const { success, message } = correction;
 			return res.status(success ? 200 : 400).json({ success, message });
 		}
-		
+
 		if (!isvalid_entity_id) {
 			return res.status(400).json({ success: false, message: 'Invalid entity_id' });
 		}
